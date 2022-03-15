@@ -24,7 +24,7 @@ func main() {
 	ctx, cancelFun := context.WithCancel(context.TODO())
 
 	logger := log.Default()
-	logger.Println("https://github.com/ehids/ssldump")
+	logger.Println("https://github.com/ehids/ecapture")
 	logger.Println("eBPF技术实现的无CA证书HTTPS抓包工具")
 	logger.Printf("process pid: %d\n", os.Getpid())
 
