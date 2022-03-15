@@ -3,13 +3,13 @@ package user
 import (
 	"bytes"
 	"context"
+	"ecapture/assets"
 	"github.com/cilium/ebpf"
 	manager "github.com/ehids/ebpfmanager"
 	"github.com/pkg/errors"
 	"golang.org/x/sys/unix"
 	"log"
 	"math"
-	"ssldump/assets"
 )
 
 type MSSLDumpProbe struct {

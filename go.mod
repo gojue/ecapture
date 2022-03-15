@@ -1,4 +1,4 @@
-module ssldump
+module ecapture
 
 go 1.17
 
