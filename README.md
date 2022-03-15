@@ -53,6 +53,7 @@ hook了`/bin/bash`的`readline`函数。
 # 使用方法
 安装使用，可以选择编译，也可以直接下载二进制包。
 笔者环境`ubuntu 21.04`， linux kernel 5.10以上通用。
+
 ## 编译
 ```shell
 git clone git@github.com:ehids/ecapture.git
@@ -68,7 +69,7 @@ bin/ecapture
 wget https://www.qq.com
 ```
 # 演示
-<iframe frameborder="0" src="https://v.qq.com/txp/iframe/player.html?vid=m33278fdqt8" allowFullScreen="true"></iframe>
+[https://v.qq.com/txp/iframe/player.html?vid=m33278fdqt8](https://v.qq.com/txp/iframe/player.html?vid=m33278fdqt8)
 
 ### bash的shell捕获
 ```shell
