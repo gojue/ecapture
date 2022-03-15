@@ -35,4 +35,4 @@ assets:
 	go run github.com/shuLhan/go-bindata/cmd/go-bindata -pkg assets -o "assets/ebpf_probe.go" $(wildcard ./user/bytecode/*.o)
 
 build:
-	go build -o bin/ssldump .
+	CGO_ENABLED=0 go build -o bin/ssldump .
