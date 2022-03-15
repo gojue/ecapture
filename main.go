@@ -25,13 +25,10 @@ func main() {
 
 	logger := log.Default()
 	logger.Println("https://github.com/ehids/ssldump")
+	logger.Println("eBPF技术实现的无CA证书HTTPS抓包工具")
 	logger.Printf("process pid: %d\n", os.Getpid())
 
 	for k, module := range user.GetModules() {
-		if module.Name() != "EBPFProbeBPFCall" {
-			//continue //模块启用临时开关
-		}
-
 		logger.Printf("start to run %s module", k)
 		//初始化
 		err := module.Init(ctx, logger)

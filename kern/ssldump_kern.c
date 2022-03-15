@@ -1,7 +1,7 @@
 #include "vmlinux.h"
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_tracing.h>
-#define MAX_DATA_SIZE 4096
+#define MAX_DATA_SIZE 4000
 enum ssl_data_event_type { kSSLRead, kSSLWrite };
 
 struct ssl_data_event_t {
@@ -12,8 +12,6 @@ struct ssl_data_event_t {
   char data[MAX_DATA_SIZE];
   int32_t data_len;
 };
-
-const volatile int TRACE_PID = 0;
 
 struct
 {
@@ -31,7 +29,7 @@ struct
     __uint(type, BPF_MAP_TYPE_HASH);
     __type(key, u64);
     __type(value, const char*);
-    __uint(max_entries, 10240);
+    __uint(max_entries, 1024);
 } active_ssl_read_args_map SEC(".maps");
 
 struct
@@ -39,7 +37,7 @@ struct
     __uint(type, BPF_MAP_TYPE_HASH);
     __type(key, u64);
     __type(value, const char*);
-    __uint(max_entries, 10240);
+    __uint(max_entries, 1024);
 } active_ssl_write_args_map SEC(".maps");
 
 // BPF programs are limited to a 512-byte stack. We store this value per CPU
@@ -92,7 +90,6 @@ static int process_SSL_data(struct pt_regs* ctx, uint64_t id, enum ssl_data_even
   event->data_len = (len < MAX_DATA_SIZE ? (len & (MAX_DATA_SIZE - 1)) : MAX_DATA_SIZE);
   bpf_probe_read(event->data, event->data_len, buf);
   bpf_perf_event_output(ctx, &tls_events, BPF_F_CURRENT_CPU, event,sizeof(struct ssl_data_event_t));
-
   return 0;
 }
 
@@ -104,7 +101,6 @@ static int process_SSL_data(struct pt_regs* ctx, uint64_t id, enum ssl_data_even
 // int SSL_write(SSL *ssl, const void *buf, int num);
 SEC("uprobe/SSL_write")
 int probe_entry_SSL_write(struct pt_regs* ctx) {
-  bpf_printk("uprobe/SSL_write entry..");
   uint64_t current_pid_tgid = bpf_get_current_pid_tgid();
   uint32_t pid = current_pid_tgid >> 32;
 
@@ -115,7 +111,6 @@ int probe_entry_SSL_write(struct pt_regs* ctx) {
 
 SEC("uretprobe/SSL_write")
 int probe_ret_SSL_write(struct pt_regs* ctx) {
-bpf_printk("!!uretprobe/SSL_write entry..");
   uint64_t current_pid_tgid = bpf_get_current_pid_tgid();
   uint32_t pid = current_pid_tgid >> 32;
 
@@ -132,7 +127,6 @@ bpf_printk("!!uretprobe/SSL_write entry..");
 // int SSL_read(SSL *s, void *buf, int num)
 SEC("uprobe/SSL_read")
 int probe_entry_SSL_read(struct pt_regs* ctx) {
-bpf_printk("!!@@@uretprobe/SSL_read entry..");
   uint64_t current_pid_tgid = bpf_get_current_pid_tgid();
   uint32_t pid = current_pid_tgid >> 32;
 

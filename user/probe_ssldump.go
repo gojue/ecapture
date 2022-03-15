@@ -39,7 +39,7 @@ func (this *MSSLDumpProbe) Start() error {
 func (this *MSSLDumpProbe) start() error {
 
 	// fetch ebpf assets
-	javaBuf, err := assets.Asset("user/bytecode/ssldump_kern.o")
+	byteBuf, err := assets.Asset("user/bytecode/ssldump_kern.o")
 	if err != nil {
 		return errors.Wrap(err, "couldn't find asset")
 	}
@@ -48,7 +48,7 @@ func (this *MSSLDumpProbe) start() error {
 	this.setupManagers()
 
 	// initialize the bootstrap manager
-	if err := this.bpfManager.InitWithOptions(bytes.NewReader(javaBuf), this.bpfManagerOptions); err != nil {
+	if err := this.bpfManager.InitWithOptions(bytes.NewReader(byteBuf), this.bpfManagerOptions); err != nil {
 		return errors.Wrap(err, "couldn't init manager")
 	}
 
@@ -76,44 +76,36 @@ func (this *MSSLDumpProbe) Close() error {
 func (this *MSSLDumpProbe) setupManagers() {
 	this.bpfManager = &manager.Manager{
 		Probes: []*manager.Probe{
+
 			{
-				Section:          "uprobe/SSL_get_fd",
-				EbpfFuncName:     "uprobe_SSL_get_fd",
-				AttachToFuncName: "SSL_get_fd",
+				Section:          "uprobe/SSL_write",
+				EbpfFuncName:     "probe_entry_SSL_write",
+				AttachToFuncName: "SSL_write",
 				//UprobeOffset:     0x386B0,
 				BinaryPath: "/lib/x86_64-linux-gnu/libssl.so.1.1",
 			},
-			/*
-				{
-					Section:          "uprobe/SSL_write",
-					EbpfFuncName:     "probe_entry_SSL_write",
-					AttachToFuncName: "SSL_write",
-					UprobeOffset:     0x386B0,
-					BinaryPath:       "/lib/x86_64-linux-gnu/libssl.so.1.1",
-				},
-				{
-					Section:          "uretprobe/SSL_write",
-					EbpfFuncName:     "probe_ret_SSL_write",
-					AttachToFuncName: "SSL_write",
-					UprobeOffset:     0x386B0,
-					BinaryPath:       "/lib/x86_64-linux-gnu/libssl.so.1.1",
-				},
-				{
-					Section:          "uprobe/SSL_read",
-					EbpfFuncName:     "probe_entry_SSL_read",
-					AttachToFuncName: "SSL_read",
-					UprobeOffset:     0x38380,
-					BinaryPath:       "/lib/x86_64-linux-gnu/libssl.so.1.1",
-				},
-				{
-					Section:          "uretprobe/SSL_read",
-					EbpfFuncName:     "probe_ret_SSL_read",
-					AttachToFuncName: "SSL_read",
-					UprobeOffset:     0x38380,
-					BinaryPath:       "/lib/x86_64-linux-gnu/libssl.so.1.1",
-				},
-
-			*/
+			{
+				Section:          "uretprobe/SSL_write",
+				EbpfFuncName:     "probe_ret_SSL_write",
+				AttachToFuncName: "SSL_write",
+				//UprobeOffset:     0x386B0,
+				BinaryPath: "/lib/x86_64-linux-gnu/libssl.so.1.1",
+			},
+			{
+				Section:          "uprobe/SSL_read",
+				EbpfFuncName:     "probe_entry_SSL_read",
+				AttachToFuncName: "SSL_read",
+				//UprobeOffset:     0x38380,
+				BinaryPath: "/lib/x86_64-linux-gnu/libssl.so.1.1",
+			},
+			{
+				Section:          "uretprobe/SSL_read",
+				EbpfFuncName:     "probe_ret_SSL_read",
+				AttachToFuncName: "SSL_read",
+				//UprobeOffset:     0x38380,
+				BinaryPath: "/lib/x86_64-linux-gnu/libssl.so.1.1",
+			},
+			/**/
 		},
 
 		Maps: []*manager.Map{
@@ -151,7 +143,7 @@ func (this *MSSLDumpProbe) initDecodeFun() error {
 		return err
 	}
 	if !found {
-		return errors.New("cant found map:events")
+		return errors.New("cant found map:tls_events")
 	}
 	this.eventMaps = append(this.eventMaps, SSLDumpEventsMap)
 	this.eventFuncMaps[SSLDumpEventsMap] = &SSLDataEvent{}

@@ -153,7 +153,7 @@ func (this *Module) perfEventReader(errChan chan error, em *ebpf.Map) {
 
 		record, err := rd.Read()
 		if err != nil {
-			if perf.IsClosed(err) {
+			if errors.Is(err, perf.ErrClosed) {
 				return
 			}
 			errChan <- fmt.Errorf("reading from perf event reader: %s", err)

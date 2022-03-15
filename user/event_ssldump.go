@@ -13,12 +13,14 @@ const (
 	PROBE_RET
 )
 
+const MAX_DATA_SIZE = 4000
+
 type SSLDataEvent struct {
 	EventType    int64
 	Timestamp_ns uint64
 	Pid          uint32
 	Tid          uint32
-	Data         [4096]byte
+	Data         [MAX_DATA_SIZE]byte
 	Data_len     int32
 }
 
