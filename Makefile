@@ -1,4 +1,5 @@
 TARGETS := kern/ssldump
+TARGETS += kern/bash
 
 # Generate file name-scheme based on TARGETS
 KERN_SOURCES = ${TARGETS:=_kern.c}
@@ -9,9 +10,6 @@ CLANG ?= clang
 EXTRA_CFLAGS ?= -O2 -mcpu=v1 -nostdinc -Wno-pointer-sign
 
 BPFHEADER = -I./kern \
-		-I/usr/include \
-		-I/home/cfc4n/download/linux-5.11.0/include \
-		-I/home/cfc4n/download/linux-5.11.0/tools/lib
 
 all: $(KERN_OBJECTS) assets build
 	@echo $(shell date)
@@ -22,7 +20,7 @@ clean:
 	rm -f user/bytecode/*.d
 	rm -f user/bytecode/*.o
 	rm -f assets/ebpf_probe.go
-	rm -f bin/ssldump
+	rm -f bin/ecapture
 
 $(KERN_OBJECTS): %.o: %.c
 	$(CLANG) $(EXTRA_CFLAGS) \
@@ -35,4 +33,4 @@ assets:
 	go run github.com/shuLhan/go-bindata/cmd/go-bindata -pkg assets -o "assets/ebpf_probe.go" $(wildcard ./user/bytecode/*.o)
 
 build:
-	CGO_ENABLED=0 go build -o bin/ssldump .
+	CGO_ENABLED=0 go build -o bin/ecapture .
