@@ -29,6 +29,11 @@ func main() {
 	logger.Printf("process pid: %d\n", os.Getpid())
 
 	for k, module := range user.GetModules() {
+
+		//模块开关  调试专用
+		if module.Name() == "DISABLE_MODUME_NAME" {
+			continue //模块启用临时开关
+		}
 		logger.Printf("start to run %s module", k)
 		//初始化
 		err := module.Init(ctx, logger)

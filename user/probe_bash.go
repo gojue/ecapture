@@ -80,7 +80,8 @@ func (this *MBashProbe) setupManagers() {
 				Section:          "uretprobe/bash_readline",
 				EbpfFuncName:     "uretprobe_bash_readline",
 				AttachToFuncName: "readline",
-				BinaryPath:       "/bin/bash",
+				//UprobeOffset: 0x8232, 	//若找不到 readline 函数，则使用offset便宜地址方式。
+				BinaryPath: "/bin/bash",
 			},
 		},
 

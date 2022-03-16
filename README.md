@@ -5,12 +5,26 @@ eBPF HOOK uprobe实现的各种用户态进程的数据捕获，无需改动原�
 * mysql query等数据库的数据库审计解决方案。
 
 # 原理
+
+## 依赖
+### 内核版本
 依赖[BPF BTF](https://www.kernel.org/doc/html/latest/bpf/btf.html) 格式，仅支持linux kernel 5.8以上内核版本，即以下linux发行版。
 * CentOS 8.2
 * CentOS Stream 8.3
 * Alma 8.3
 * Fedora 32
 * Ubuntu 20.10
+
+### eBPF配置
+需要内核开启BTF支持。
+```shell
+cat /boot/config-`uname -r` | grep BTF
+CONFIG_VIDEO_SONY_BTF_MPX=m
+CONFIG_DEBUG_INFO_BTF=y
+CONFIG_PAHOLE_HAS_SPLIT_BTF=y
+CONFIG_DEBUG_INFO_BTF_MODULES=y
+```
+
 
 ## eBPF技术
 参考[ebpf](https://ebpf.io)官网的介绍
@@ -60,6 +74,20 @@ hook了`/bin/bash`的`readline`函数。
 安装使用，可以选择编译，也可以直接下载二进制包。
 笔者环境`ubuntu 21.04`， linux kernel 5.10以上通用。
 
+**推荐使用`UBUNTU 21.04`版本的linux测试。**
+
+## 工具链版本
+* gcc 10.3.0
+* clang 12.0.0  
+* cmake 3.18.4
+* clang backend: llvm 12.0.0   
+
+### 最低要求 (笔者未验证)
+* gcc 5.1 以上
+* clang 9
+* cmake 3.14
+
+
 ## 编译
 ```shell
 git clone git@github.com:ehids/ecapture.git
@@ -81,6 +109,14 @@ wget https://www.qq.com
 ```shell
 ps -ef|grep foo
 ```
+#### 已知问题
+运行时报错`cannot resolve /bin/bash library call 'readline', consuder orivudubg the offset via options: not supported`，原因为`/bin/bash`文件中的`readline`函数在符号表里找不到，多数是被strip去掉了。可以自行用IDA定位`readline`函数偏移地址，填写到`user/probe_bash.go`的83行附近的`UprobeOffset`中。
+不同发行版linux的bash不一样，笔者无法完全给出，请自行解决。
+
+也可以在`main.go`中33行，配置`EBPFProbeBash`关闭bash模块，再重新编译。
 
 # 技术交流群
 ![](./images/wechat-group.jpg)
+
+# 参考资料
+[BPF Portability and CO-RE](https://facebookmicrosites.github.io/bpf/blog/2020/02/19/bpf-portability-and-co-re.html)
