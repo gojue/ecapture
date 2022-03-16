@@ -5,6 +5,12 @@ eBPF HOOK uprobe实现的各种用户态进程的数据捕获，无需改动原�
 * mysql query等数据库的数据库审计解决方案。
 
 # 原理
+依赖[BPF BTF](https://www.kernel.org/doc/html/latest/bpf/btf.html) 格式，仅支持linux kernel 5.8以上内核版本，即以下linux发行版。
+* CentOS 8.2
+* CentOS Stream 8.3
+* Alma 8.3
+* Fedora 32
+* Ubuntu 20.10
 
 ## eBPF技术
 参考[ebpf](https://ebpf.io)官网的介绍
