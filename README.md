@@ -109,11 +109,6 @@ wget https://www.qq.com
 ```shell
 ps -ef|grep foo
 ```
-#### 已知问题
-运行时报错`cannot resolve /bin/bash library call 'readline', consuder orivudubg the offset via options: not supported`，原因为`/bin/bash`文件中的`readline`函数在符号表里找不到，多数是被strip去掉了。可以自行用IDA定位`readline`函数偏移地址，填写到`user/probe_bash.go`的83行附近的`UprobeOffset`中。
-不同发行版linux的bash不一样，笔者无法完全给出，请自行解决。
-
-也可以在`main.go`中33行，配置`EBPFProbeBash`关闭bash模块，再重新编译。
 
 # 技术交流群
 ![](./images/wechat-group.jpg)

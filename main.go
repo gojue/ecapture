@@ -24,8 +24,8 @@ func main() {
 	ctx, cancelFun := context.WithCancel(context.TODO())
 
 	logger := log.Default()
-	logger.Println("https://github.com/ehids/ecapture")
-	logger.Println("eBPF技术实现的无CA证书HTTPS抓包工具")
+	logger.Println("repo: https://github.com/ehids/ecapture")
+	logger.Println("capture text SSL content without CA cert by ebpf hook.")
 	logger.Printf("process pid: %d\n", os.Getpid())
 
 	for k, module := range user.GetModules() {

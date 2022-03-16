@@ -10,6 +10,7 @@ import (
 	"golang.org/x/sys/unix"
 	"log"
 	"math"
+	"os"
 )
 
 type MBashProbe struct {
@@ -74,6 +75,18 @@ func (this *MBashProbe) Close() error {
 }
 
 func (this *MBashProbe) setupManagers() {
+	var binaryPath string
+	bash, b := os.LookupEnv("SHELL")
+	if b {
+		soPath, e := getDynPathByElf(bash, "libreadline.so")
+		if e != nil {
+			this.logger.Printf("get bash:%s dynamic library error:%v.\n", bash, e)
+			binaryPath = bash
+		}
+		binaryPath = soPath
+	}
+	this.logger.Printf("HOOK binrayPath:%s, FunctionName:readline\n", binaryPath)
+
 	this.bpfManager = &manager.Manager{
 		Probes: []*manager.Probe{
 			{
@@ -81,7 +94,7 @@ func (this *MBashProbe) setupManagers() {
 				EbpfFuncName:     "uretprobe_bash_readline",
 				AttachToFuncName: "readline",
 				//UprobeOffset: 0x8232, 	//若找不到 readline 函数，则使用offset便宜地址方式。
-				BinaryPath: "/bin/bash",
+				BinaryPath: binaryPath, // 可能是 /bin/bash 也可能是 readline.so的真实地址
 			},
 		},
 
