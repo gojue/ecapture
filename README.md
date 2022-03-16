@@ -75,3 +75,6 @@ wget https://www.qq.com
 ```shell
 ps -ef|grep foo
 ```
+
+# 技术交流群
+![](./images/wechat-group.jpg)
