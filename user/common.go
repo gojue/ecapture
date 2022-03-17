@@ -31,9 +31,10 @@ func inet_ntop(ip uint32) string {
 func GetDynLibDirs() []string {
 	dirs, err := ParseDynLibConf("/etc/ld.so.conf")
 	if err != nil {
-		panic(err)
+		log.Println(err.Error())
+		return []string{"/usr/lib64", "/lib64"}
 	}
-	return append(dirs, "/usr/lib", "/lib")
+	return append(dirs, "/lib64", "/usr/lib64")
 }
 
 func GlobMany(targets []string, onErr func(string, error)) []string {
@@ -119,7 +120,7 @@ func getDynPathByElf(elfName, soName string) (string, error) {
 	}
 	var realSoName string
 	for _, so := range sos {
-		if strings.HasPrefix(so, soName /*"libreadline.so"*/) {
+		if strings.HasPrefix(so, soName) {
 			realSoName = so
 			break
 		}
@@ -136,7 +137,6 @@ func getDynPathByElf(elfName, soName string) (string, error) {
 	for _, entry := range searchPath {
 		path := filepath.Join(entry, realSoName)
 		if _, err := os.Stat(path); !os.IsNotExist(err) {
-			fmt.Println(fmt.Sprintf("found so path:%s", path))
 			return path, nil
 		} else {
 			// Nothing

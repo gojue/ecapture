@@ -74,36 +74,50 @@ func (this *MSSLDumpProbe) Close() error {
 }
 
 func (this *MSSLDumpProbe) setupManagers() {
+	var bash, binaryPath string
+	bash = "/usr/bin/curl"
+	soPath, e := getDynPathByElf(bash, "libssl.so")
+	if e != nil {
+		this.logger.Printf("get bash:%s dynamic library error:%v.\n", bash, e)
+		binaryPath = bash
+	} else {
+		binaryPath = soPath
+	}
+
+	//如果没找到
+	if binaryPath == "" {
+		binaryPath = "/lib/x86_64-linux-gnu/libssl.so.1.1"
+	}
+
 	this.bpfManager = &manager.Manager{
 		Probes: []*manager.Probe{
-
 			{
 				Section:          "uprobe/SSL_write",
 				EbpfFuncName:     "probe_entry_SSL_write",
 				AttachToFuncName: "SSL_write",
 				//UprobeOffset:     0x386B0,
-				BinaryPath: "/lib/x86_64-linux-gnu/libssl.so.1.1",
+				BinaryPath: binaryPath,
 			},
 			{
 				Section:          "uretprobe/SSL_write",
 				EbpfFuncName:     "probe_ret_SSL_write",
 				AttachToFuncName: "SSL_write",
 				//UprobeOffset:     0x386B0,
-				BinaryPath: "/lib/x86_64-linux-gnu/libssl.so.1.1",
+				BinaryPath: binaryPath,
 			},
 			{
 				Section:          "uprobe/SSL_read",
 				EbpfFuncName:     "probe_entry_SSL_read",
 				AttachToFuncName: "SSL_read",
 				//UprobeOffset:     0x38380,
-				BinaryPath: "/lib/x86_64-linux-gnu/libssl.so.1.1",
+				BinaryPath: binaryPath,
 			},
 			{
 				Section:          "uretprobe/SSL_read",
 				EbpfFuncName:     "probe_ret_SSL_read",
 				AttachToFuncName: "SSL_read",
 				//UprobeOffset:     0x38380,
-				BinaryPath: "/lib/x86_64-linux-gnu/libssl.so.1.1",
+				BinaryPath: binaryPath,
 			},
 			/**/
 		},
