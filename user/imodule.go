@@ -136,7 +136,7 @@ func (this *Module) readEvents() error {
 }
 
 func (this *Module) perfEventReader(errChan chan error, em *ebpf.Map) {
-	rd, err := perf.NewReader(em, os.Getpagesize())
+	rd, err := perf.NewReader(em, os.Getpagesize()*32)
 	if err != nil {
 		errChan <- fmt.Errorf("creating %s reader dns: %s", em.String(), err)
 		return

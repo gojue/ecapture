@@ -17,7 +17,7 @@ const (
 	PROBE_RET
 )
 
-const MAX_DATA_SIZE = 4000
+const MAX_DATA_SIZE = 8192
 
 type SSLDataEvent struct {
 	EventType    int64

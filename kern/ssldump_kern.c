@@ -3,7 +3,7 @@
 #include <bpf/bpf_tracing.h>
 #include "common.h"
 
-#define MAX_DATA_SIZE 4000
+#define MAX_DATA_SIZE 8192  //4000
 
 // Optional Target PID
 const volatile u64 target_pid = 0;
