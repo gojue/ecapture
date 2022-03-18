@@ -1,9 +1,13 @@
 TARGETS := kern/ssldump
 TARGETS += kern/bash
+#TARGETS += kern/mysqld57
 
 # Generate file name-scheme based on TARGETS
 KERN_SOURCES = ${TARGETS:=_kern.c}
 KERN_OBJECTS = ${KERN_SOURCES:.c=.o}
+
+VERSION = $(shell git rev-parse --short HEAD || echo "GitNotFound")
+DATETIME = $(shell date +"%Y/%m/%d-%H:%M:%S")
 
 LLC ?= llc
 CLANG ?= clang
@@ -33,4 +37,4 @@ assets:
 	go run github.com/shuLhan/go-bindata/cmd/go-bindata -pkg assets -o "assets/ebpf_probe.go" $(wildcard ./user/bytecode/*.o)
 
 build:
-	CGO_ENABLED=0 go build -o bin/ecapture .
+	CGO_ENABLED=0 go build -ldflags "-X 'ecapture/cli/cmd.GitVersion=$(VERSION)' -X 'ecapture/cli/cmd.ReleaseDate=$(DATETIME)'" -o bin/ecapture .

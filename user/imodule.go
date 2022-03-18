@@ -13,7 +13,7 @@ import (
 
 type IModule interface {
 	// Init 初始化
-	Init(context.Context, *log.Logger) error
+	Init(context.Context, *log.Logger, IConfig) error
 
 	// Name 获取当前module的名字
 	Name() string

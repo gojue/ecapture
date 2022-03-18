@@ -1,9 +1,13 @@
 #include "vmlinux.h"
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_tracing.h>
-
+#include "common.h"
 
 #define MAX_DATA_SIZE 4000
+
+// Optional Target PID
+const volatile u64 target_pid = 0;
+
 enum ssl_data_event_type { kSSLRead, kSSLWrite };
 
 struct ssl_data_event_t {
@@ -13,6 +17,7 @@ struct ssl_data_event_t {
   uint32_t tid;
   char data[MAX_DATA_SIZE];
   int32_t data_len;
+  char comm[TASK_COMM_LEN];
 };
 
 struct
@@ -91,6 +96,7 @@ static int process_SSL_data(struct pt_regs* ctx, uint64_t id, enum ssl_data_even
   // This is a max function, but it is written in such a way to keep older BPF verifiers happy.
   event->data_len = (len < MAX_DATA_SIZE ? (len & (MAX_DATA_SIZE - 1)) : MAX_DATA_SIZE);
   bpf_probe_read(event->data, event->data_len, buf);
+  bpf_get_current_comm(&event->comm, sizeof(event->comm));
   bpf_perf_event_output(ctx, &tls_events, BPF_F_CURRENT_CPU, event,sizeof(struct ssl_data_event_t));
   return 0;
 }
@@ -106,6 +112,11 @@ int probe_entry_SSL_write(struct pt_regs* ctx) {
   uint64_t current_pid_tgid = bpf_get_current_pid_tgid();
   uint32_t pid = current_pid_tgid >> 32;
 
+    // if target_ppid is 0 then we target all pids
+    if (target_pid != 0 && target_pid != pid) {
+        return 0;
+    }
+
   const char* buf = (const char*)(ctx)->si;
   bpf_map_update_elem(&active_ssl_write_args_map, &current_pid_tgid, &buf, BPF_ANY);
   return 0;
@@ -115,6 +126,11 @@ SEC("uretprobe/SSL_write")
 int probe_ret_SSL_write(struct pt_regs* ctx) {
   uint64_t current_pid_tgid = bpf_get_current_pid_tgid();
   uint32_t pid = current_pid_tgid >> 32;
+
+    // if target_ppid is 0 then we target all pids
+    if (target_pid != 0 && target_pid != pid) {
+        return 0;
+    }
 
   const char** buf = bpf_map_lookup_elem(&active_ssl_write_args_map, &current_pid_tgid);
   if (buf != NULL) {
@@ -132,6 +148,11 @@ int probe_entry_SSL_read(struct pt_regs* ctx) {
   uint64_t current_pid_tgid = bpf_get_current_pid_tgid();
   uint32_t pid = current_pid_tgid >> 32;
 
+    // if target_ppid is 0 then we target all pids
+    if (target_pid != 0 && target_pid != pid) {
+        return 0;
+    }
+
   const char* buf = (const char*)(ctx)->si;
   bpf_map_update_elem(&active_ssl_read_args_map, &current_pid_tgid, &buf, BPF_ANY);
   return 0;
@@ -141,6 +162,11 @@ SEC("uretprobe/SSL_read")
 int probe_ret_SSL_read(struct pt_regs* ctx) {
   uint64_t current_pid_tgid = bpf_get_current_pid_tgid();
   uint32_t pid = current_pid_tgid >> 32;
+
+    // if target_ppid is 0 then we target all pids
+    if (target_pid != 0 && target_pid != pid) {
+        return 0;
+    }
 
   const char** buf = bpf_map_lookup_elem(&active_ssl_read_args_map, &current_pid_tgid);
   if (buf != NULL) {

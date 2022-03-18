@@ -12,7 +12,7 @@ import (
 	"math"
 )
 
-type MBashProbe struct {
+type MOpenSSLProbe struct {
 	Module
 	bpfManager        *manager.Manager
 	bpfManagerOptions manager.Options
@@ -22,7 +22,7 @@ type MBashProbe struct {
 }
 
 //对象初始化
-func (this *MBashProbe) Init(ctx context.Context, logger *log.Logger, conf IConfig) error {
+func (this *MOpenSSLProbe) Init(ctx context.Context, logger *log.Logger, conf IConfig) error {
 	this.Module.Init(ctx, logger)
 	this.conf = conf
 	this.Module.SetChild(this)
@@ -31,17 +31,17 @@ func (this *MBashProbe) Init(ctx context.Context, logger *log.Logger, conf IConf
 	return nil
 }
 
-func (this *MBashProbe) Start() error {
+func (this *MOpenSSLProbe) Start() error {
 	if err := this.start(); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (this *MBashProbe) start() error {
+func (this *MOpenSSLProbe) start() error {
 
 	// fetch ebpf assets
-	byteBuf, err := assets.Asset("user/bytecode/bash_kern.o")
+	byteBuf, err := assets.Asset("user/bytecode/ssldump_kern.o")
 	if err != nil {
 		return errors.Wrap(err, "couldn't find asset")
 	}
@@ -68,7 +68,7 @@ func (this *MBashProbe) start() error {
 	return nil
 }
 
-func (this *MBashProbe) Close() error {
+func (this *MOpenSSLProbe) Close() error {
 	if err := this.bpfManager.Stop(manager.CleanAll); err != nil {
 		return errors.Wrap(err, "couldn't stop manager")
 	}
@@ -76,7 +76,7 @@ func (this *MBashProbe) Close() error {
 }
 
 //  通过elf的常量替换方式传递数据
-func (e *MBashProbe) constantEditor() []manager.ConstantEditor {
+func (e *MOpenSSLProbe) constantEditor() []manager.ConstantEditor {
 	//TODO
 	var editor = []manager.ConstantEditor{
 		{
@@ -94,33 +94,56 @@ func (e *MBashProbe) constantEditor() []manager.ConstantEditor {
 	return editor
 }
 
-func (this *MBashProbe) setupManagers() {
+func (this *MOpenSSLProbe) setupManagers() {
 	var binaryPath string
-	switch this.conf.(*BashConfig).elfType {
+	switch this.conf.(*OpensslConfig).elfType {
 	case ELF_TYPE_BIN:
-		binaryPath = this.conf.(*BashConfig).Bashpath
+		binaryPath = this.conf.(*OpensslConfig).Curlpath
 	case ELF_TYPE_SO:
-		binaryPath = this.conf.(*BashConfig).Readline
+		binaryPath = this.conf.(*OpensslConfig).Openssl
 	default:
-		binaryPath = "/bin/bash"
+		//如果没找到
+		binaryPath = "/lib/x86_64-linux-gnu/libssl.so.1.1"
 	}
 
-	this.logger.Printf("HOOK binrayPath:%s, FunctionName:readline\n", binaryPath)
+	this.logger.Printf("HOOK type:%d, binrayPath:%s\n", this.conf.(*OpensslConfig).elfType, binaryPath)
 
 	this.bpfManager = &manager.Manager{
 		Probes: []*manager.Probe{
 			{
-				Section:          "uretprobe/bash_readline",
-				EbpfFuncName:     "uretprobe_bash_readline",
-				AttachToFuncName: "readline",
-				//UprobeOffset: 0x8232, 	//若找不到 readline 函数，则使用offset便宜地址方式。
-				BinaryPath: binaryPath, // 可能是 /bin/bash 也可能是 readline.so的真实地址
+				Section:          "uprobe/SSL_write",
+				EbpfFuncName:     "probe_entry_SSL_write",
+				AttachToFuncName: "SSL_write",
+				//UprobeOffset:     0x386B0,
+				BinaryPath: binaryPath,
 			},
+			{
+				Section:          "uretprobe/SSL_write",
+				EbpfFuncName:     "probe_ret_SSL_write",
+				AttachToFuncName: "SSL_write",
+				//UprobeOffset:     0x386B0,
+				BinaryPath: binaryPath,
+			},
+			{
+				Section:          "uprobe/SSL_read",
+				EbpfFuncName:     "probe_entry_SSL_read",
+				AttachToFuncName: "SSL_read",
+				//UprobeOffset:     0x38380,
+				BinaryPath: binaryPath,
+			},
+			{
+				Section:          "uretprobe/SSL_read",
+				EbpfFuncName:     "probe_ret_SSL_read",
+				AttachToFuncName: "SSL_read",
+				//UprobeOffset:     0x38380,
+				BinaryPath: binaryPath,
+			},
+			/**/
 		},
 
 		Maps: []*manager.Map{
 			{
-				Name: "events",
+				Name: "tls_events",
 			},
 		},
 	}
@@ -143,33 +166,33 @@ func (this *MBashProbe) setupManagers() {
 	}
 }
 
-func (this *MBashProbe) DecodeFun(em *ebpf.Map) (IEventStruct, bool) {
+func (this *MOpenSSLProbe) DecodeFun(em *ebpf.Map) (IEventStruct, bool) {
 	fun, found := this.eventFuncMaps[em]
 	return fun, found
 }
 
-func (this *MBashProbe) initDecodeFun() error {
-	//bashEventsMap 与解码函数映射
-	bashEventsMap, found, err := this.bpfManager.GetMap("events")
+func (this *MOpenSSLProbe) initDecodeFun() error {
+	//SSLDumpEventsMap 与解码函数映射
+	SSLDumpEventsMap, found, err := this.bpfManager.GetMap("tls_events")
 	if err != nil {
 		return err
 	}
 	if !found {
-		return errors.New("cant found map:events")
+		return errors.New("cant found map:tls_events")
 	}
-	this.eventMaps = append(this.eventMaps, bashEventsMap)
-	this.eventFuncMaps[bashEventsMap] = &bashEvent{}
+	this.eventMaps = append(this.eventMaps, SSLDumpEventsMap)
+	this.eventFuncMaps[SSLDumpEventsMap] = &SSLDataEvent{}
 
 	return nil
 }
 
-func (this *MBashProbe) Events() []*ebpf.Map {
+func (this *MOpenSSLProbe) Events() []*ebpf.Map {
 	return this.eventMaps
 }
 
 func init() {
-	mod := &MBashProbe{}
-	mod.name = MODULE_NAME_BASH
+	mod := &MOpenSSLProbe{}
+	mod.name = MODULE_NAME_OPENSSL
 	mod.mType = PROBE_TYPE_UPROBE
 	Register(mod)
 }

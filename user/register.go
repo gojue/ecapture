@@ -16,6 +16,15 @@ func Register(p IModule) {
 }
 
 // GetModules 获取modules列表
-func GetModules() map[string]IModule {
+func GetAllModules() map[string]IModule {
 	return modules
+}
+
+// GetModulesByName 根据模块名获取modules列表
+func GetModuleByName(modName string) IModule {
+	m, f := modules[modName]
+	if f {
+		return m
+	}
+	return nil
 }

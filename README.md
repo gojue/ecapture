@@ -107,7 +107,7 @@ wget https://www.qq.com
 
 ### bash的shell捕获
 ```shell
-ps -ef|grep foo
+ps -ef | grep foo
 ```
 
 # 技术交流群

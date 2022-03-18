@@ -1,3 +1,7 @@
+/*
+Copyright © 2022 CFC4N <cfc4n.cs@gmail.com>
+
+*/
 package user
 
 import (
@@ -12,34 +16,36 @@ import (
 	"math"
 )
 
-type MSSLDumpProbe struct {
+type MMysqld57Probe struct {
 	Module
 	bpfManager        *manager.Manager
 	bpfManagerOptions manager.Options
 	eventFuncMaps     map[*ebpf.Map]IEventStruct
 	eventMaps         []*ebpf.Map
+	conf              IConfig
 }
 
 //对象初始化
-func (this *MSSLDumpProbe) Init(ctx context.Context, logger *log.Logger) error {
+func (this *MMysqld57Probe) Init(ctx context.Context, logger *log.Logger, conf IConfig) error {
 	this.Module.Init(ctx, logger)
+	this.conf = conf
 	this.Module.SetChild(this)
 	this.eventMaps = make([]*ebpf.Map, 0, 2)
 	this.eventFuncMaps = make(map[*ebpf.Map]IEventStruct)
 	return nil
 }
 
-func (this *MSSLDumpProbe) Start() error {
+func (this *MMysqld57Probe) Start() error {
 	if err := this.start(); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (this *MSSLDumpProbe) start() error {
+func (this *MMysqld57Probe) start() error {
 
 	// fetch ebpf assets
-	byteBuf, err := assets.Asset("user/bytecode/ssldump_kern.o")
+	byteBuf, err := assets.Asset("user/bytecode/mysqld57_kern.o")
 	if err != nil {
 		return errors.Wrap(err, "couldn't find asset")
 	}
@@ -66,68 +72,47 @@ func (this *MSSLDumpProbe) start() error {
 	return nil
 }
 
-func (this *MSSLDumpProbe) Close() error {
+func (this *MMysqld57Probe) Close() error {
 	if err := this.bpfManager.Stop(manager.CleanAll); err != nil {
 		return errors.Wrap(err, "couldn't stop manager")
 	}
 	return nil
 }
 
-func (this *MSSLDumpProbe) setupManagers() {
-	var bash, binaryPath string
-	bash = "/usr/bin/curl"
-	soPath, e := getDynPathByElf(bash, "libssl.so")
-	if e != nil {
-		this.logger.Printf("get bash:%s dynamic library error:%v.\n", bash, e)
-		binaryPath = bash
-	} else {
-		binaryPath = soPath
-	}
+func (this *MMysqld57Probe) setupManagers() {
+	var binaryPath string
 
-	//如果没找到
-	if binaryPath == "" {
-		binaryPath = "/lib/x86_64-linux-gnu/libssl.so.1.1"
-	}
+	binaryPath = "/usr/sbin/mariadbd"
 
+	// mariadbd version : 10.5.13-MariaDB-0ubuntu0.21.04.1
+	// objdump -T /usr/sbin/mariadbd |grep dispatch_command
+	// 0000000000710410 g    DF .text	0000000000002f35  Base        _Z16dispatch_command19enum_server_commandP3THDPcjbb
 	this.bpfManager = &manager.Manager{
 		Probes: []*manager.Probe{
 			{
-				Section:          "uprobe/SSL_write",
-				EbpfFuncName:     "probe_entry_SSL_write",
-				AttachToFuncName: "SSL_write",
-				//UprobeOffset:     0x386B0,
+				Section:          "uprobe/dispatch_command",
+				EbpfFuncName:     "query_start",
+				AttachToFuncName: "_Z16dispatch_command19enum_server_commandP3THDPcjbb",
+				//UprobeOffset:     0x710410,
 				BinaryPath: binaryPath,
 			},
 			{
-				Section:          "uretprobe/SSL_write",
-				EbpfFuncName:     "probe_ret_SSL_write",
-				AttachToFuncName: "SSL_write",
-				//UprobeOffset:     0x386B0,
+				Section:          "uretprobe/dispatch_command",
+				EbpfFuncName:     "query_end",
+				AttachToFuncName: "_Z16dispatch_command19enum_server_commandP3THDPcjbb",
+				//UprobeOffset:     0x710410,
 				BinaryPath: binaryPath,
 			},
-			{
-				Section:          "uprobe/SSL_read",
-				EbpfFuncName:     "probe_entry_SSL_read",
-				AttachToFuncName: "SSL_read",
-				//UprobeOffset:     0x38380,
-				BinaryPath: binaryPath,
-			},
-			{
-				Section:          "uretprobe/SSL_read",
-				EbpfFuncName:     "probe_ret_SSL_read",
-				AttachToFuncName: "SSL_read",
-				//UprobeOffset:     0x38380,
-				BinaryPath: binaryPath,
-			},
-			/**/
 		},
 
 		Maps: []*manager.Map{
 			{
-				Name: "tls_events",
+				Name: "events",
 			},
 		},
 	}
+
+	this.logger.Printf("HOOK binrayPath:%s, UprobeOffset:0x710410\n", binaryPath)
 
 	this.bpfManagerOptions = manager.Options{
 		DefaultKProbeMaxActive: 512,
@@ -145,33 +130,33 @@ func (this *MSSLDumpProbe) setupManagers() {
 	}
 }
 
-func (this *MSSLDumpProbe) DecodeFun(em *ebpf.Map) (IEventStruct, bool) {
+func (this *MMysqld57Probe) DecodeFun(em *ebpf.Map) (IEventStruct, bool) {
 	fun, found := this.eventFuncMaps[em]
 	return fun, found
 }
 
-func (this *MSSLDumpProbe) initDecodeFun() error {
-	//SSLDumpEventsMap 与解码函数映射
-	SSLDumpEventsMap, found, err := this.bpfManager.GetMap("tls_events")
+func (this *MMysqld57Probe) initDecodeFun() error {
+	// mysqld57EventsMap 与解码函数映射
+	mysqld57EventsMap, found, err := this.bpfManager.GetMap("events")
 	if err != nil {
 		return err
 	}
 	if !found {
-		return errors.New("cant found map:tls_events")
+		return errors.New("cant found map:events")
 	}
-	this.eventMaps = append(this.eventMaps, SSLDumpEventsMap)
-	this.eventFuncMaps[SSLDumpEventsMap] = &SSLDataEvent{}
+	this.eventMaps = append(this.eventMaps, mysqld57EventsMap)
+	this.eventFuncMaps[mysqld57EventsMap] = &mysqld57Event{}
 
 	return nil
 }
 
-func (this *MSSLDumpProbe) Events() []*ebpf.Map {
+func (this *MMysqld57Probe) Events() []*ebpf.Map {
 	return this.eventMaps
 }
 
 func init() {
-	mod := &MSSLDumpProbe{}
-	mod.name = "EBPFProbeSSLDump"
+	mod := &MMysqld57Probe{}
+	mod.name = MODULE_NAME_MYSQLD57
 	mod.mType = PROBE_TYPE_UPROBE
 	Register(mod)
 }

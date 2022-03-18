@@ -12,13 +12,6 @@ import (
 )
 
 const (
-	PROBE_TYPE_UPROBE = "uprobe"
-	PROBE_TYPE_KPROBE = "kprobe"
-	PROBE_TYPE_TP     = "tracepoint"
-	PROBE_TYPE_XDP    = "XDP"
-)
-
-const (
 	AF_FILE  = uint16(1)
 	AF_INET  = uint16(2)
 	AF_INET6 = uint16(10)
@@ -129,7 +122,7 @@ func getDynPathByElf(elfName, soName string) (string, error) {
 	// if not found soName from elfName
 	// return elfName self
 	if len(realSoName) == 0 {
-		return elfName, nil
+		return "", errors.New(fmt.Sprintf("cant found so lib from %s", elfName))
 	}
 
 	// search dynamic library form ld.so.conf
