@@ -92,6 +92,7 @@ hook了`/bin/bash`的`readline`函数。
 ```shell
 git clone git@github.com:ehids/ecapture.git
 cd ecapture
+go get -d github.com/shuLhan/go-bindata/cmd/go-bindata
 make
 bin/ecapture
 ```
