@@ -4,6 +4,16 @@ eBPF HOOK uprobe实现的各种用户态进程的数据捕获，无需改动原�
 * bash的命令捕获，HIDS的bash命令监控解决方案。
 * mysql query等数据库的数据库审计解决方案。
 
+
+# 演示
+
+### 截图
+![](./images/openssl-example.jpg)
+
+### 视频
+[https://v.qq.com/txp/iframe/player.html?vid=m33278fdqt8](https://v.qq.com/txp/iframe/player.html?vid=m33278fdqt8)
+
+
 # 原理
 
 ## 依赖
@@ -25,10 +35,8 @@ CONFIG_PAHOLE_HAS_SPLIT_BTF=y
 CONFIG_DEBUG_INFO_BTF_MODULES=y
 ```
 
-
 ## eBPF技术
 参考[ebpf](https://ebpf.io)官网的介绍
-![](https://ebpf.io/static/overview-bf463455a5666fc3fb841b9240d588ff.png)
 
 ## uprobe HOOK
 
@@ -132,8 +140,6 @@ curl https://www.qq.com
  libffi.so.6 => /lib64/libffi.so.6 (0x00007f9d1d442000)
  libpthread.so.0 => /lib64/libpthread.so.0 (0x00007f9d1d222000)
 ```
-# 演示
-[https://v.qq.com/txp/iframe/player.html?vid=m33278fdqt8](https://v.qq.com/txp/iframe/player.html?vid=m33278fdqt8)
 
 ### bash的shell捕获
 ```shell
