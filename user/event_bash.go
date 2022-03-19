@@ -32,6 +32,11 @@ func (ei *bashEvent) String() string {
 	return s
 }
 
+func (ei *bashEvent) StringHex() string {
+	s := fmt.Sprintf(fmt.Sprintf(" PID:%d, \tComm:%s, \tLine:%s", ei.Pid, ei.Comm, unix.ByteSliceToString((ei.Line[:]))))
+	return s
+}
+
 func (ei *bashEvent) Clone() IEventStruct {
 	return new(bashEvent)
 }

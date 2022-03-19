@@ -9,6 +9,8 @@ KERN_OBJECTS = ${KERN_SOURCES:.c=.o}
 VERSION = $(shell git rev-parse --short HEAD || echo "GitNotFound")
 DATETIME = $(shell date +"%Y/%m/%d-%H:%M:%S")
 
+# @TODO 编译器版本检测，llvm检测，系统版本检测等
+
 LLC ?= llc
 CLANG ?= clang
 EXTRA_CFLAGS ?= -O2 -mcpu=v1 -nostdinc -Wno-pointer-sign

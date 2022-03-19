@@ -18,7 +18,6 @@ type MBashProbe struct {
 	bpfManagerOptions manager.Options
 	eventFuncMaps     map[*ebpf.Map]IEventStruct
 	eventMaps         []*ebpf.Map
-	conf              IConfig
 }
 
 //对象初始化

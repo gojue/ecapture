@@ -17,7 +17,7 @@ const (
 	PROBE_RET
 )
 
-const MAX_DATA_SIZE = 8192
+const MAX_DATA_SIZE = 1024 * 16
 
 type SSLDataEvent struct {
 	EventType    int64
@@ -55,17 +55,36 @@ func (e *SSLDataEvent) Decode(payload []byte) (err error) {
 	return nil
 }
 
-func (ei *SSLDataEvent) String() string {
-	var af string
-	switch AttachType(ei.EventType) {
+func (this *SSLDataEvent) StringHex() string {
+	var perfix, packetType string
+	switch AttachType(this.EventType) {
 	case PROBE_ENTRY:
-		af = "PROBE_ENTRY"
+		packetType = fmt.Sprintf("%sRecived%s", COLORRED, COLORRESET)
+		perfix = COLORGREEN
 	case PROBE_RET:
-		af = "PROBE_RET"
+		packetType = fmt.Sprintf("%sSend%s", COLORRED, COLORRESET)
+		perfix = fmt.Sprintf("%s\t", COLORPURPLE)
 	default:
-		af = fmt.Sprintf("UNKNOW_%d", ei.EventType)
+		perfix = fmt.Sprintf("UNKNOW_%d", this.EventType)
 	}
-	s := fmt.Sprintf(fmt.Sprintf(" PID:%d, Comm:%s, TID:%d, TYPE:%s, DataLen:%d, Data:%s", ei.Pid, ei.Comm, ei.Tid, af, ei.Data_len, string(ei.Data[:ei.Data_len])))
+
+	b := dumpByteSlice(this.Data[:this.Data_len], perfix)
+	b.WriteString(COLORRESET)
+	s := fmt.Sprintf("PID:%d, Comm:%s, Type:%s, TID:%d, DataLen:%d, Payload:\n%s\n", this.Pid, this.Comm, packetType, this.Tid, this.Data_len, b.String())
+	return s
+}
+
+func (this *SSLDataEvent) String() string {
+	var packetType string
+	switch AttachType(this.EventType) {
+	case PROBE_ENTRY:
+		packetType = fmt.Sprintf("%sRecived%s", COLORRED, COLORRESET)
+	case PROBE_RET:
+		packetType = fmt.Sprintf("%sSend%s", COLORRED, COLORRESET)
+	default:
+		packetType = fmt.Sprintf("%sUNKNOW_%d%s", COLORRED, this.EventType, COLORRESET)
+	}
+	s := fmt.Sprintf(" PID:%d, Comm:%s, TID:%d, TYPE:%s, DataLen:%d, Data:%s", this.Pid, this.Comm, this.Tid, packetType, this.Data_len, string(this.Data[:this.Data_len]))
 	return s
 }
 

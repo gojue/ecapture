@@ -48,6 +48,10 @@ func (ei *mysqld57Event) String() string {
 	return s
 }
 
+func (ei *mysqld57Event) StringHex() string {
+	s := fmt.Sprintf(fmt.Sprintf(" PID:%d, Line:%s", ei.Pid, unix.ByteSliceToString((ei.query[:]))))
+	return s
+}
 func (ei *mysqld57Event) Clone() IEventStruct {
 	return new(mysqld57Event)
 }

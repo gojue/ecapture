@@ -50,6 +50,8 @@ type Module struct {
 
 	// module的类型，uprobe,kprobe等
 	mType string
+
+	conf IConfig
 }
 
 // Init 对象初始化
@@ -136,7 +138,7 @@ func (this *Module) readEvents() error {
 }
 
 func (this *Module) perfEventReader(errChan chan error, em *ebpf.Map) {
-	rd, err := perf.NewReader(em, os.Getpagesize()*32)
+	rd, err := perf.NewReader(em, os.Getpagesize()*64)
 	if err != nil {
 		errChan <- fmt.Errorf("creating %s reader dns: %s", em.String(), err)
 		return
@@ -221,7 +223,11 @@ func (e *Module) EventsDecode(payload []byte, es IEventStruct) (s string, err er
 	if err != nil {
 		return
 	}
-	s = te.String()
+	if e.conf.GetHex() {
+		s = te.StringHex()
+	} else {
+		s = te.String()
+	}
 	return
 }
 
@@ -240,6 +246,6 @@ func (this *Module) Decode(em *ebpf.Map, b []byte) (result string, err error) {
 
 // 写入数据，或者上传到远程数据库，写入到其他chan 等。
 func (this *Module) Write(result string) {
-	s := fmt.Sprintf("probeName:%s, probeTpye:%s, %s", this.name, this.mType, result)
-	this.logger.Println(s)
+	//s := fmt.Sprintf("probeName:%s, probeTpye:%s, %s", this.name, this.mType, result)
+	this.logger.Println(result)
 }
