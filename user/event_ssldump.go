@@ -17,7 +17,7 @@ const (
 	PROBE_RET
 )
 
-const MAX_DATA_SIZE = 1024 * 16
+const MAX_DATA_SIZE = 1024 * 4
 
 type SSLDataEvent struct {
 	EventType    int64
@@ -59,10 +59,10 @@ func (this *SSLDataEvent) StringHex() string {
 	var perfix, packetType string
 	switch AttachType(this.EventType) {
 	case PROBE_ENTRY:
-		packetType = fmt.Sprintf("%sRecived%s", COLORRED, COLORRESET)
+		packetType = fmt.Sprintf("%sRecived%s", COLORGREEN, COLORRESET)
 		perfix = COLORGREEN
 	case PROBE_RET:
-		packetType = fmt.Sprintf("%sSend%s", COLORRED, COLORRESET)
+		packetType = fmt.Sprintf("%sSend%s", COLORPURPLE, COLORRESET)
 		perfix = fmt.Sprintf("%s\t", COLORPURPLE)
 	default:
 		perfix = fmt.Sprintf("UNKNOW_%d", this.EventType)
@@ -70,21 +70,23 @@ func (this *SSLDataEvent) StringHex() string {
 
 	b := dumpByteSlice(this.Data[:this.Data_len], perfix)
 	b.WriteString(COLORRESET)
-	s := fmt.Sprintf("PID:%d, Comm:%s, Type:%s, TID:%d, DataLen:%d, Payload:\n%s\n", this.Pid, this.Comm, packetType, this.Tid, this.Data_len, b.String())
+	s := fmt.Sprintf("PID:%d, Comm:%s, Type:%s, TID:%d, DataLen:%d, Payload:\n%s", this.Pid, this.Comm, packetType, this.Tid, this.Data_len, b.String())
 	return s
 }
 
 func (this *SSLDataEvent) String() string {
-	var packetType string
+	var perfix, packetType string
 	switch AttachType(this.EventType) {
 	case PROBE_ENTRY:
-		packetType = fmt.Sprintf("%sRecived%s", COLORRED, COLORRESET)
+		packetType = fmt.Sprintf("%sRecived%s", COLORGREEN, COLORRESET)
+		perfix = COLORGREEN
 	case PROBE_RET:
-		packetType = fmt.Sprintf("%sSend%s", COLORRED, COLORRESET)
+		packetType = fmt.Sprintf("%sSend%s", COLORPURPLE, COLORRESET)
+		perfix = COLORPURPLE
 	default:
 		packetType = fmt.Sprintf("%sUNKNOW_%d%s", COLORRED, this.EventType, COLORRESET)
 	}
-	s := fmt.Sprintf(" PID:%d, Comm:%s, TID:%d, TYPE:%s, DataLen:%d, Data:%s", this.Pid, this.Comm, this.Tid, packetType, this.Data_len, string(this.Data[:this.Data_len]))
+	s := fmt.Sprintf(" PID:%d, Comm:%s, TID:%d, TYPE:%s, DataLen:%d, Payload:\n%s%s%s", this.Pid, this.Comm, this.Tid, packetType, this.Data_len, perfix, string(this.Data[:this.Data_len]), COLORRESET)
 	return s
 }
 

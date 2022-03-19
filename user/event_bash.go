@@ -28,12 +28,12 @@ func (e *bashEvent) Decode(payload []byte) (err error) {
 }
 
 func (ei *bashEvent) String() string {
-	s := fmt.Sprintf(fmt.Sprintf(" PID:%d, \tComm:%s, \tLine:%s", ei.Pid, ei.Comm, unix.ByteSliceToString((ei.Line[:]))))
+	s := fmt.Sprintf(fmt.Sprintf(" PID:%d, \tComm:%s, \tLine:\n%s", ei.Pid, ei.Comm, unix.ByteSliceToString((ei.Line[:]))))
 	return s
 }
 
 func (ei *bashEvent) StringHex() string {
-	s := fmt.Sprintf(fmt.Sprintf(" PID:%d, \tComm:%s, \tLine:%s", ei.Pid, ei.Comm, unix.ByteSliceToString((ei.Line[:]))))
+	s := fmt.Sprintf(fmt.Sprintf(" PID:%d, \tComm:%s, \tLine:\n%s", ei.Pid, ei.Comm, dumpByteSlice([]byte(unix.ByteSliceToString((ei.Line[:]))), "")))
 	return s
 }
 
