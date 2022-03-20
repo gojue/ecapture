@@ -16,10 +16,12 @@ eBPF HOOK uprobe实现的各种用户态进程的数据捕获，无需改动原�
 # 使用
 ## 直接运行
 下载 [release](https://github.com/ehids/ecapture/releases) 的二进制包，可直接使用。
-有两个要求
-* 系统linux kernel版本必须高于4.18。
-* 开启BTF [BPF BTF](https://www.kernel.org/doc/html/latest/bpf/btf.html) 支持。
 
+系统配置要求
+* 系统linux kernel版本必须高于4.18。
+* 开启BTF [BPF Type Format (BTF)](https://www.kernel.org/doc/html/latest/bpf/btf.html) 支持。
+
+### 
 验证方法：
 ```shell
 cfc4n@vm-server:~$# uname -r
@@ -28,7 +30,7 @@ cfc4n@vm-server:~$# cat /boot/config-`uname -r` | grep CONFIG_DEBUG_INFO_BTF
 CONFIG_DEBUG_INFO_BTF=y
 ```
 
-### https的无证书抓包 ssldump
+### openssl的无证书抓包 openssl
 执行任意https网络请求即可使用。
 ```shell
 curl https://www.qq.com
@@ -46,20 +48,6 @@ ps -ef | grep foo
 自行编译对编译环境有要求，参考**原理**章节的介绍。
 
 # 原理
-
-## 依赖
-### 内核版本
-依赖[BPF BTF](https://www.kernel.org/doc/html/latest/bpf/btf.html) 格式，仅支持linux kernel 4.18以上内核版本，且开启BTF支持。
-
-### eBPF配置
-需要内核开启BTF支持，确认`CONFIG_DEBUG_INFO_BTF`的值为`Y`。
-```shell
-cat /boot/config-`uname -r` | grep BTF
-CONFIG_VIDEO_SONY_BTF_MPX=m
-CONFIG_DEBUG_INFO_BTF=y
-CONFIG_PAHOLE_HAS_SPLIT_BTF=y
-CONFIG_DEBUG_INFO_BTF_MODULES=y
-```
 
 ## eBPF技术
 参考[ebpf](https://ebpf.io)官网的介绍
@@ -105,6 +93,7 @@ Probes: []*manager.Probe{
 hook了`/bin/bash`的`readline`函数。
 
 # 编译方法
+针对个别程序使用的openssl类库是静态编译，也可以自行修改源码实现。若函数名不在符号表里，也可以自行反编译找到函数的offset偏移地址，填写到`UprobeOffset`属性上，进行编译。
 笔者环境`ubuntu 21.04`， linux kernel 5.10以上通用。
 **推荐使用`UBUNTU 21.04`版本的linux测试。**
 

@@ -2,6 +2,7 @@ package main
 
 import (
 	"ecapture/cli"
+	"ecapture/pkg/util/ebpf"
 	"ecapture/pkg/util/kernel"
 	"log"
 )
@@ -19,6 +20,13 @@ func main() {
 	}
 
 	// BTF支持情况检测
+	enable, e := ebpf.IsEnableBTF()
+	if e != nil {
+		log.Fatal(err)
+	}
+	if !enable {
+		log.Fatal("BTF not support, please check it. shell: cat /boot/config-`uname -r` | grep CONFIG_DEBUG_INFO_BTF ")
+	}
 
 	cli.Start()
 	return
