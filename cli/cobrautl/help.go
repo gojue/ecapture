@@ -53,7 +53,7 @@ USAGE:
 {{ if not .Cmd.HasParent }}\
 
 VERSION:
-{{printf "\t%s - %s" .Version .ReleaseDate}}
+{{printf "\t%s" .Version}}
 {{end}}\
 {{if .Cmd.HasSubCommands}}\
 
@@ -128,7 +128,7 @@ func getSubCommands(cmd *cobra.Command) []*cobra.Command {
 	return subCommands
 }
 
-func UsageFunc(cmd *cobra.Command, version, releaseDate string) error {
+func UsageFunc(cmd *cobra.Command, version string) error {
 	subCommands := getSubCommands(cmd)
 	tabOut := getTabOutWithWriter(os.Stdout)
 	commandUsageTemplate.Execute(tabOut, struct {
@@ -137,14 +137,12 @@ func UsageFunc(cmd *cobra.Command, version, releaseDate string) error {
 		GlobalFlags string
 		SubCommands []*cobra.Command
 		Version     string
-		ReleaseDate string
 	}{
 		cmd,
 		ecaptureFlagUsages(cmd.LocalFlags()),
 		ecaptureFlagUsages(cmd.InheritedFlags()),
 		subCommands,
 		version,
-		releaseDate,
 	})
 	tabOut.Flush()
 	return nil

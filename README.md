@@ -119,6 +119,8 @@ cd ecapture
 make
 bin/ecapture
 ```
+### 提醒
+首次编译时，需要先下载 `go get -d github.com/shuLhan/go-bindata/cmd/go-bindata`
 
 # 联系我们
 

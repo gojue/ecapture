@@ -17,8 +17,8 @@ const (
 )
 
 var (
-	GitVersion  = "v0.1.0"
-	ReleaseDate = "2022-03-16"
+	GitVersion = "v0.0.0_unknow"
+	//ReleaseDate = "2022-03-16"
 )
 
 const (
@@ -41,10 +41,7 @@ var rootCmd = &cobra.Command{
 }
 
 func usageFunc(c *cobra.Command) error {
-	//fmt.Println("repo: https://github.com/ehids/ecapture")
-	//fmt.Println("capture text SSL content without CA cert by ebpf hook.")
-	//fmt.Printf("process pid: %d\n", os.Getpid())
-	return cobrautl.UsageFunc(c, GitVersion, ReleaseDate)
+	return cobrautl.UsageFunc(c, GitVersion)
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

@@ -6,8 +6,23 @@ TARGETS += kern/bash
 KERN_SOURCES = ${TARGETS:=_kern.c}
 KERN_OBJECTS = ${KERN_SOURCES:.c=.o}
 
-VERSION = $(shell git rev-parse --short HEAD || echo "GitNotFound")
-DATETIME = $(shell date +"%Y/%m/%d-%H:%M:%S")
+
+# tags date info
+TAG_COMMIT := $(shell git rev-list --abbrev-commit --tags --max-count=1)
+TAG := $(shell git describe --abbrev=0 --tags ${TAG_COMMIT} 2>/dev/null || true)
+COMMIT := $(shell git rev-parse --short HEAD)
+DATE := $(shell git log -1 --format=%cd --date=format:"%Y%m%d")
+VERSION := $(TAG:v%=%)
+ifneq ($(COMMIT), $(TAG_COMMIT))
+	VERSION := $(VERSION)-next-$(COMMIT)-$(DATE)
+endif
+
+ifneq ($(strip $(VERSION)),)
+	VERSION := $(COMMIT)-$(DATA)
+endif
+ifneq ($(shell git status --porcelain),)
+	VERSION := $(VERSION)-dirty
+endif
 
 # TODO 系统内核版本检测  5.8 以上
 # TODO golang 版本检测  1.16 以上
@@ -43,8 +58,7 @@ $(KERN_OBJECTS): %.o: %.c
 		-MD -MP
 
 assets:
-	go get -d github.com/shuLhan/go-bindata/cmd/go-bindata
 	go run github.com/shuLhan/go-bindata/cmd/go-bindata -pkg assets -o "assets/ebpf_probe.go" $(wildcard ./user/bytecode/*.o)
 
 build:
-	CGO_ENABLED=0 go build -ldflags "-X 'ecapture/cli/cmd.GitVersion=$(VERSION)' -X 'ecapture/cli/cmd.ReleaseDate=$(DATETIME)'" -o bin/ecapture .
+	CGO_ENABLED=0 go build -ldflags "-X 'ecapture/cli/cmd.GitVersion=$(VERSION)'" -o bin/ecapture .
