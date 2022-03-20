@@ -44,6 +44,9 @@ curl https://www.qq.com
 ps -ef | grep foo
 ```
 
+# 微信公众号
+![](./images/wechat_gzhh.png)
+
 ## 自行编译
 自行编译对编译环境有要求，参考**原理**章节的介绍。
 
@@ -117,7 +120,9 @@ make
 bin/ecapture
 ```
 
-# 技术交流群
+# 联系我们
+
+##  技术交流群
 ![](./images/wechat-group.jpg)
 
 # 参考资料
