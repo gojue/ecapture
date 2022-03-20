@@ -70,7 +70,7 @@ func (this *SSLDataEvent) StringHex() string {
 
 	b := dumpByteSlice(this.Data[:this.Data_len], perfix)
 	b.WriteString(COLORRESET)
-	s := fmt.Sprintf("PID:%d, Comm:%s, Type:%s, TID:%d, DataLen:%d, Payload:\n%s", this.Pid, this.Comm, packetType, this.Tid, this.Data_len, b.String())
+	s := fmt.Sprintf("PID:%d, Comm:%s, Type:%s, TID:%d, DataLen:%d bytes, Payload:\n%s", this.Pid, this.Comm, packetType, this.Tid, this.Data_len, b.String())
 	return s
 }
 
@@ -86,7 +86,7 @@ func (this *SSLDataEvent) String() string {
 	default:
 		packetType = fmt.Sprintf("%sUNKNOW_%d%s", COLORRED, this.EventType, COLORRESET)
 	}
-	s := fmt.Sprintf(" PID:%d, Comm:%s, TID:%d, TYPE:%s, DataLen:%d, Payload:\n%s%s%s", this.Pid, this.Comm, this.Tid, packetType, this.Data_len, perfix, string(this.Data[:this.Data_len]), COLORRESET)
+	s := fmt.Sprintf(" PID:%d, Comm:%s, TID:%d, TYPE:%s, DataLen:%d bytes, Payload:\n%s%s%s", this.Pid, this.Comm, this.Tid, packetType, this.Data_len, perfix, string(this.Data[:this.Data_len]), COLORRESET)
 	return s
 }
 

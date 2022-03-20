@@ -113,31 +113,52 @@ func (this *MOpenSSLProbe) setupManagers() {
 				Section:          "uprobe/SSL_write",
 				EbpfFuncName:     "probe_entry_SSL_write",
 				AttachToFuncName: "SSL_write",
-				//UprobeOffset:     0x386B0,
-				BinaryPath: binaryPath,
+				BinaryPath:       binaryPath,
 			},
 			{
 				Section:          "uretprobe/SSL_write",
 				EbpfFuncName:     "probe_ret_SSL_write",
 				AttachToFuncName: "SSL_write",
-				//UprobeOffset:     0x386B0,
-				BinaryPath: binaryPath,
+				BinaryPath:       binaryPath,
 			},
 			{
 				Section:          "uprobe/SSL_read",
 				EbpfFuncName:     "probe_entry_SSL_read",
 				AttachToFuncName: "SSL_read",
-				//UprobeOffset:     0x38380,
-				BinaryPath: binaryPath,
+				BinaryPath:       binaryPath,
 			},
 			{
 				Section:          "uretprobe/SSL_read",
 				EbpfFuncName:     "probe_ret_SSL_read",
 				AttachToFuncName: "SSL_read",
-				//UprobeOffset:     0x38380,
-				BinaryPath: binaryPath,
+				BinaryPath:       binaryPath,
 			},
-			/**/
+			/*
+				{
+						Section:          "uprobe/SSL_write",
+						EbpfFuncName:     "probe_entry_SSL_write",
+						AttachToFuncName: "SSL_write_ex",
+						BinaryPath: binaryPath,
+					},
+					{
+						Section:          "uretprobe/SSL_write",
+						EbpfFuncName:     "probe_ret_SSL_write",
+						AttachToFuncName: "SSL_write_ex",
+						BinaryPath: binaryPath,
+					},
+					{
+						Section:          "uprobe/SSL_read",
+						EbpfFuncName:     "probe_entry_SSL_read",
+						AttachToFuncName: "SSL_read_ex",
+						BinaryPath: binaryPath,
+					},
+					{
+						Section:          "uretprobe/SSL_read",
+						EbpfFuncName:     "probe_ret_SSL_read",
+						AttachToFuncName: "SSL_read_ex",
+						BinaryPath: binaryPath,
+					},
+			*/
 		},
 
 		Maps: []*manager.Map{
