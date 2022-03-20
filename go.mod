@@ -21,6 +21,7 @@ require (
 	github.com/josharian/native v0.0.0-20200817173448-b6b71def0850 // indirect
 	github.com/mdlayher/netlink v1.4.1 // indirect
 	github.com/mdlayher/socket v0.0.0-20210307095302-262dc9984e00 // indirect
+	github.com/shuLhan/go-bindata v4.0.0+incompatible // indirect
 	github.com/stretchr/testify v1.7.0 // indirect
 	github.com/vishvananda/netlink v1.1.0 // indirect
 	github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df // indirect
