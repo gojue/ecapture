@@ -12,7 +12,7 @@ import (
 	"math"
 )
 
-type MOpenSSLProbe struct {
+type MGnutlsProbe struct {
 	Module
 	bpfManager        *manager.Manager
 	bpfManagerOptions manager.Options
@@ -21,7 +21,7 @@ type MOpenSSLProbe struct {
 }
 
 //对象初始化
-func (this *MOpenSSLProbe) Init(ctx context.Context, logger *log.Logger, conf IConfig) error {
+func (this *MGnutlsProbe) Init(ctx context.Context, logger *log.Logger, conf IConfig) error {
 	this.Module.Init(ctx, logger)
 	this.conf = conf
 	this.Module.SetChild(this)
@@ -30,17 +30,17 @@ func (this *MOpenSSLProbe) Init(ctx context.Context, logger *log.Logger, conf IC
 	return nil
 }
 
-func (this *MOpenSSLProbe) Start() error {
+func (this *MGnutlsProbe) Start() error {
 	if err := this.start(); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (this *MOpenSSLProbe) start() error {
+func (this *MGnutlsProbe) start() error {
 
 	// fetch ebpf assets
-	byteBuf, err := assets.Asset("user/bytecode/openssl_kern.o")
+	byteBuf, err := assets.Asset("user/bytecode/gnutls_kern.o")
 	if err != nil {
 		return errors.Wrap(err, "couldn't find asset")
 	}
@@ -67,7 +67,7 @@ func (this *MOpenSSLProbe) start() error {
 	return nil
 }
 
-func (this *MOpenSSLProbe) Close() error {
+func (this *MGnutlsProbe) Close() error {
 	if err := this.bpfManager.Stop(manager.CleanAll); err != nil {
 		return errors.Wrap(err, "couldn't stop manager")
 	}
@@ -75,7 +75,7 @@ func (this *MOpenSSLProbe) Close() error {
 }
 
 //  通过elf的常量替换方式传递数据
-func (e *MOpenSSLProbe) constantEditor() []manager.ConstantEditor {
+func (e *MGnutlsProbe) constantEditor() []manager.ConstantEditor {
 	//TODO
 	var editor = []manager.ConstantEditor{
 		{
@@ -93,77 +93,51 @@ func (e *MOpenSSLProbe) constantEditor() []manager.ConstantEditor {
 	return editor
 }
 
-func (this *MOpenSSLProbe) setupManagers() {
+func (this *MGnutlsProbe) setupManagers() {
 	var binaryPath string
-	switch this.conf.(*OpensslConfig).elfType {
+	switch this.conf.(*GnutlsConfig).elfType {
 	case ELF_TYPE_BIN:
-		binaryPath = this.conf.(*OpensslConfig).Curlpath
+		binaryPath = this.conf.(*GnutlsConfig).Curlpath
 	case ELF_TYPE_SO:
-		binaryPath = this.conf.(*OpensslConfig).Openssl
+		binaryPath = this.conf.(*GnutlsConfig).Gnutls
 	default:
 		//如果没找到
-		binaryPath = "/lib/x86_64-linux-gnu/libssl.so.1.1"
+		binaryPath = "/lib/x86_64-linux-gnu/libgnutls.so.30"
 	}
 
-	this.logger.Printf("HOOK type:%d, binrayPath:%s\n", this.conf.(*OpensslConfig).elfType, binaryPath)
+	this.logger.Printf("HOOK type:%d, binrayPath:%s\n", this.conf.(*GnutlsConfig).elfType, binaryPath)
 
 	this.bpfManager = &manager.Manager{
 		Probes: []*manager.Probe{
 			{
-				Section:          "uprobe/SSL_write",
+				Section:          "uprobe/gnutls_record_send",
 				EbpfFuncName:     "probe_entry_SSL_write",
-				AttachToFuncName: "SSL_write",
+				AttachToFuncName: "gnutls_record_send",
 				BinaryPath:       binaryPath,
 			},
 			{
-				Section:          "uretprobe/SSL_write",
+				Section:          "uretprobe/gnutls_record_send",
 				EbpfFuncName:     "probe_ret_SSL_write",
-				AttachToFuncName: "SSL_write",
+				AttachToFuncName: "gnutls_record_send",
 				BinaryPath:       binaryPath,
 			},
 			{
-				Section:          "uprobe/SSL_read",
+				Section:          "uprobe/gnutls_record_recv",
 				EbpfFuncName:     "probe_entry_SSL_read",
-				AttachToFuncName: "SSL_read",
+				AttachToFuncName: "gnutls_record_recv",
 				BinaryPath:       binaryPath,
 			},
 			{
-				Section:          "uretprobe/SSL_read",
+				Section:          "uretprobe/gnutls_record_recv",
 				EbpfFuncName:     "probe_ret_SSL_read",
-				AttachToFuncName: "SSL_read",
+				AttachToFuncName: "gnutls_record_recv",
 				BinaryPath:       binaryPath,
 			},
-			/*
-				{
-						Section:          "uprobe/SSL_write",
-						EbpfFuncName:     "probe_entry_SSL_write",
-						AttachToFuncName: "SSL_write_ex",
-						BinaryPath: binaryPath,
-					},
-					{
-						Section:          "uretprobe/SSL_write",
-						EbpfFuncName:     "probe_ret_SSL_write",
-						AttachToFuncName: "SSL_write_ex",
-						BinaryPath: binaryPath,
-					},
-					{
-						Section:          "uprobe/SSL_read",
-						EbpfFuncName:     "probe_entry_SSL_read",
-						AttachToFuncName: "SSL_read_ex",
-						BinaryPath: binaryPath,
-					},
-					{
-						Section:          "uretprobe/SSL_read",
-						EbpfFuncName:     "probe_ret_SSL_read",
-						AttachToFuncName: "SSL_read_ex",
-						BinaryPath: binaryPath,
-					},
-			*/
 		},
 
 		Maps: []*manager.Map{
 			{
-				Name: "tls_events",
+				Name: "gnutls_events",
 			},
 		},
 	}
@@ -186,33 +160,33 @@ func (this *MOpenSSLProbe) setupManagers() {
 	}
 }
 
-func (this *MOpenSSLProbe) DecodeFun(em *ebpf.Map) (IEventStruct, bool) {
+func (this *MGnutlsProbe) DecodeFun(em *ebpf.Map) (IEventStruct, bool) {
 	fun, found := this.eventFuncMaps[em]
 	return fun, found
 }
 
-func (this *MOpenSSLProbe) initDecodeFun() error {
-	//SSLDumpEventsMap 与解码函数映射
-	SSLDumpEventsMap, found, err := this.bpfManager.GetMap("tls_events")
+func (this *MGnutlsProbe) initDecodeFun() error {
+	//GnutlsEventsMap 与解码函数映射
+	GnutlsEventsMap, found, err := this.bpfManager.GetMap("gnutls_events")
 	if err != nil {
 		return err
 	}
 	if !found {
-		return errors.New("cant found map:tls_events")
+		return errors.New("cant found map:gnutls_events")
 	}
-	this.eventMaps = append(this.eventMaps, SSLDumpEventsMap)
-	this.eventFuncMaps[SSLDumpEventsMap] = &SSLDataEvent{}
+	this.eventMaps = append(this.eventMaps, GnutlsEventsMap)
+	this.eventFuncMaps[GnutlsEventsMap] = &GnutlsDataEvent{}
 
 	return nil
 }
 
-func (this *MOpenSSLProbe) Events() []*ebpf.Map {
+func (this *MGnutlsProbe) Events() []*ebpf.Map {
 	return this.eventMaps
 }
 
 func init() {
-	mod := &MOpenSSLProbe{}
-	mod.name = MODULE_NAME_OPENSSL
+	mod := &MGnutlsProbe{}
+	mod.name = MODULE_NAME_GNUTLS
 	mod.mType = PROBE_TYPE_UPROBE
 	Register(mod)
 }

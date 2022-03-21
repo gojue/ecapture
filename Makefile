@@ -1,5 +1,7 @@
-TARGETS := kern/ssldump
+TARGETS := kern/openssl
 TARGETS += kern/bash
+TARGETS += kern/gnutls
+TARGETS += kern/nspr
 #TARGETS += kern/mysqld57
 
 # Generate file name-scheme based on TARGETS

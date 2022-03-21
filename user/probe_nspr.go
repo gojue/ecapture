@@ -12,7 +12,7 @@ import (
 	"math"
 )
 
-type MOpenSSLProbe struct {
+type MNsprProbe struct {
 	Module
 	bpfManager        *manager.Manager
 	bpfManagerOptions manager.Options
@@ -21,7 +21,7 @@ type MOpenSSLProbe struct {
 }
 
 //对象初始化
-func (this *MOpenSSLProbe) Init(ctx context.Context, logger *log.Logger, conf IConfig) error {
+func (this *MNsprProbe) Init(ctx context.Context, logger *log.Logger, conf IConfig) error {
 	this.Module.Init(ctx, logger)
 	this.conf = conf
 	this.Module.SetChild(this)
@@ -30,17 +30,17 @@ func (this *MOpenSSLProbe) Init(ctx context.Context, logger *log.Logger, conf IC
 	return nil
 }
 
-func (this *MOpenSSLProbe) Start() error {
+func (this *MNsprProbe) Start() error {
 	if err := this.start(); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (this *MOpenSSLProbe) start() error {
+func (this *MNsprProbe) start() error {
 
 	// fetch ebpf assets
-	byteBuf, err := assets.Asset("user/bytecode/openssl_kern.o")
+	byteBuf, err := assets.Asset("user/bytecode/nspr_kern.o")
 	if err != nil {
 		return errors.Wrap(err, "couldn't find asset")
 	}
@@ -67,7 +67,7 @@ func (this *MOpenSSLProbe) start() error {
 	return nil
 }
 
-func (this *MOpenSSLProbe) Close() error {
+func (this *MNsprProbe) Close() error {
 	if err := this.bpfManager.Stop(manager.CleanAll); err != nil {
 		return errors.Wrap(err, "couldn't stop manager")
 	}
@@ -75,7 +75,7 @@ func (this *MOpenSSLProbe) Close() error {
 }
 
 //  通过elf的常量替换方式传递数据
-func (e *MOpenSSLProbe) constantEditor() []manager.ConstantEditor {
+func (e *MNsprProbe) constantEditor() []manager.ConstantEditor {
 	//TODO
 	var editor = []manager.ConstantEditor{
 		{
@@ -93,77 +93,84 @@ func (e *MOpenSSLProbe) constantEditor() []manager.ConstantEditor {
 	return editor
 }
 
-func (this *MOpenSSLProbe) setupManagers() {
+func (this *MNsprProbe) setupManagers() {
 	var binaryPath string
-	switch this.conf.(*OpensslConfig).elfType {
+	switch this.conf.(*NsprConfig).elfType {
 	case ELF_TYPE_BIN:
-		binaryPath = this.conf.(*OpensslConfig).Curlpath
+		binaryPath = this.conf.(*NsprConfig).Firefoxpath
 	case ELF_TYPE_SO:
-		binaryPath = this.conf.(*OpensslConfig).Openssl
+		binaryPath = this.conf.(*NsprConfig).Nsprpath
 	default:
 		//如果没找到
-		binaryPath = "/lib/x86_64-linux-gnu/libssl.so.1.1"
+		binaryPath = "/lib/x86_64-linux-gnu/libnspr4.so"
 	}
 
-	this.logger.Printf("HOOK type:%d, binrayPath:%s\n", this.conf.(*OpensslConfig).elfType, binaryPath)
+	this.logger.Printf("HOOK type:%d, binrayPath:%s\n", this.conf.(*NsprConfig).elfType, binaryPath)
 
 	this.bpfManager = &manager.Manager{
 		Probes: []*manager.Probe{
 			{
-				Section:          "uprobe/SSL_write",
+				Section:          "uprobe/PR_Write",
 				EbpfFuncName:     "probe_entry_SSL_write",
-				AttachToFuncName: "SSL_write",
+				AttachToFuncName: "PR_Write",
 				BinaryPath:       binaryPath,
 			},
 			{
-				Section:          "uretprobe/SSL_write",
+				Section:          "uretprobe/PR_Write",
 				EbpfFuncName:     "probe_ret_SSL_write",
-				AttachToFuncName: "SSL_write",
+				AttachToFuncName: "PR_Write",
+				BinaryPath:       binaryPath,
+			},
+
+			// for PR_Send start
+			{
+				UID:              "PR_Write-PR_Send",
+				Section:          "uprobe/PR_Write",
+				EbpfFuncName:     "probe_entry_SSL_write",
+				AttachToFuncName: "PR_Send",
 				BinaryPath:       binaryPath,
 			},
 			{
-				Section:          "uprobe/SSL_read",
+				UID:              "PR_Write-PR_Send",
+				Section:          "uretprobe/PR_Write",
+				EbpfFuncName:     "probe_ret_SSL_write",
+				AttachToFuncName: "PR_Send",
+				BinaryPath:       binaryPath,
+			},
+			// for PR_Send end
+
+			{
+				Section:          "uprobe/PR_Read",
 				EbpfFuncName:     "probe_entry_SSL_read",
-				AttachToFuncName: "SSL_read",
+				AttachToFuncName: "PR_Read",
 				BinaryPath:       binaryPath,
 			},
 			{
-				Section:          "uretprobe/SSL_read",
+				Section:          "uretprobe/PR_Read",
 				EbpfFuncName:     "probe_ret_SSL_read",
-				AttachToFuncName: "SSL_read",
+				AttachToFuncName: "PR_Read",
 				BinaryPath:       binaryPath,
 			},
-			/*
-				{
-						Section:          "uprobe/SSL_write",
-						EbpfFuncName:     "probe_entry_SSL_write",
-						AttachToFuncName: "SSL_write_ex",
-						BinaryPath: binaryPath,
-					},
-					{
-						Section:          "uretprobe/SSL_write",
-						EbpfFuncName:     "probe_ret_SSL_write",
-						AttachToFuncName: "SSL_write_ex",
-						BinaryPath: binaryPath,
-					},
-					{
-						Section:          "uprobe/SSL_read",
-						EbpfFuncName:     "probe_entry_SSL_read",
-						AttachToFuncName: "SSL_read_ex",
-						BinaryPath: binaryPath,
-					},
-					{
-						Section:          "uretprobe/SSL_read",
-						EbpfFuncName:     "probe_ret_SSL_read",
-						AttachToFuncName: "SSL_read_ex",
-						BinaryPath: binaryPath,
-					},
-			*/
+
+			{
+				UID:              "PR_Read-PR_Recv",
+				Section:          "uprobe/PR_Read",
+				EbpfFuncName:     "probe_entry_SSL_read",
+				AttachToFuncName: "PR_Recv",
+				BinaryPath:       binaryPath,
+			},
+			{
+				UID:              "PR_Read-PR_Recv",
+				Section:          "uretprobe/PR_Read",
+				EbpfFuncName:     "probe_ret_SSL_read",
+				AttachToFuncName: "PR_Recv",
+				BinaryPath:       binaryPath,
+			},
 		},
 
 		Maps: []*manager.Map{
 			{
-				Name: "tls_events",
+				Name: "nspr_events",
 			},
 		},
 	}
@@ -186,33 +193,33 @@ func (this *MOpenSSLProbe) setupManagers() {
 	}
 }
 
-func (this *MOpenSSLProbe) DecodeFun(em *ebpf.Map) (IEventStruct, bool) {
+func (this *MNsprProbe) DecodeFun(em *ebpf.Map) (IEventStruct, bool) {
 	fun, found := this.eventFuncMaps[em]
 	return fun, found
 }
 
-func (this *MOpenSSLProbe) initDecodeFun() error {
-	//SSLDumpEventsMap 与解码函数映射
-	SSLDumpEventsMap, found, err := this.bpfManager.GetMap("tls_events")
+func (this *MNsprProbe) initDecodeFun() error {
+	// NsprEventsMap 与解码函数映射
+	NsprEventsMap, found, err := this.bpfManager.GetMap("nspr_events")
 	if err != nil {
 		return err
 	}
 	if !found {
-		return errors.New("cant found map:tls_events")
+		return errors.New("cant found map:nspr_events")
 	}
-	this.eventMaps = append(this.eventMaps, SSLDumpEventsMap)
-	this.eventFuncMaps[SSLDumpEventsMap] = &SSLDataEvent{}
+	this.eventMaps = append(this.eventMaps, NsprEventsMap)
+	this.eventFuncMaps[NsprEventsMap] = &NsprDataEvent{}
 
 	return nil
 }
 
-func (this *MOpenSSLProbe) Events() []*ebpf.Map {
+func (this *MNsprProbe) Events() []*ebpf.Map {
 	return this.eventMaps
 }
 
 func init() {
-	mod := &MOpenSSLProbe{}
-	mod.name = MODULE_NAME_OPENSSL
+	mod := &MNsprProbe{}
+	mod.name = MODULE_NAME_NSPR
 	mod.mType = PROBE_TYPE_UPROBE
 	Register(mod)
 }
