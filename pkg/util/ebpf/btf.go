@@ -13,6 +13,10 @@ const (
 )
 
 func IsEnableBTF() (bool, error) {
+	found, e := checkKernelBTF()
+	if e == nil && found {
+		return true, nil
+	}
 
 	i, e := getOSUnamer()
 	if e != nil {
@@ -45,17 +49,6 @@ func IsEnableBTF() (bool, error) {
 	}
 	return true, nil
 }
-
-/*
-type Utsname struct {
-	Sysname    [65]byte
-	Nodename   [65]byte
-	Release    [65]byte
-	Version    [65]byte
-	Machine    [65]byte
-	Domainname [65]byte
-}
-*/
 
 type UnameInfo struct {
 	SysName    string
@@ -93,4 +86,49 @@ func charsToString(ca [65]byte) string {
 		s[lens] = uint8(ca[lens])
 	}
 	return string(s[0:lens])
+}
+
+// from internal/btf/btf.go
+// checkKernelBTF attempts to load the raw vmlinux BTF blob at
+// /sys/kernel/btf/vmlinux and falls back to scanning the file system
+// for vmlinux ELFs.
+
+func checkKernelBTF() (bool, error) {
+	_, err := os.Stat("/sys/kernel/btf/vmlinux")
+
+	// if exist ,return true
+	if err == nil {
+		return true, nil
+	}
+
+	return findVMLinux()
+}
+
+// findVMLinux scans multiple well-known paths for vmlinux kernel images.
+func findVMLinux() (bool, error) {
+	kv, err := getOSUnamer()
+	if err != nil {
+		return false, err
+	}
+	release := kv.Release
+	// use same list of locations as libbpf
+	// https://github.com/libbpf/libbpf/blob/9a3a42608dbe3731256a5682a125ac1e23bced8f/src/btf.c#L3114-L3122
+	locations := []string{
+		"/boot/vmlinux-%s",
+		"/lib/modules/%s/vmlinux-%[1]s",
+		"/lib/modules/%s/build/vmlinux",
+		"/usr/lib/modules/%s/kernel/vmlinux",
+		"/usr/lib/debug/boot/vmlinux-%s",
+		"/usr/lib/debug/boot/vmlinux-%s.debug",
+		"/usr/lib/debug/lib/modules/%s/vmlinux",
+	}
+
+	for _, loc := range locations {
+		_, err := os.Stat(fmt.Sprintf(loc, release))
+		if err != nil {
+			continue
+		}
+		return true, nil
+	}
+	return false, err
 }

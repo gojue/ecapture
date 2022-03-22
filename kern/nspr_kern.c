@@ -103,9 +103,9 @@ static int process_SSL_data(struct pt_regs* ctx, uint64_t id, enum ssl_data_even
 /***********************************************************
  * BPF probe function entry-points
  ***********************************************************/
-// http://gnu.ist.utl.pt/software/gnutls/manual/gnutls/gnutls.html#gnutls_record_send
-// Function signature being probed:
-// ssize_t gnutls_record_send (gnutls_session session, const void * data, size_t sizeofdata)
+// https://www-archive.mozilla.org/projects/nspr/reference/html/priofnc.html#19250
+//
+//
 
 SEC("uprobe/PR_Write")
 int probe_entry_SSL_write(struct pt_regs* ctx) {
