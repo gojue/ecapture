@@ -1,4 +1,7 @@
-# ecapture 介绍
+#  How eCapture works
+
+![](./images/how-ecapture-works.png)
+
 eBPF HOOK uprobe实现的各种用户态进程的数据捕获，无需改动原程序。
 * SSL/HTTPS数据导出功能，针对HTTPS的数据包抓取，不需要导入CA证书。
 * bash的命令捕获，HIDS的bash命令监控解决方案。
