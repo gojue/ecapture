@@ -24,16 +24,14 @@ var opensslCmd = &cobra.Command{
 	Use:     "tls",
 	Aliases: []string{"openssl", "gnutls", "nss"},
 	Short:   "alias name:openssl , use to capture tls/ssl text content without CA cert.",
-	Long: `HOOK openssl类库的libssl.so动态链接库，并非网络层获取。
-
-适用于运维定位、研发调试、安全审计、内容审计等业务场景。
-firefox的Network Security Services (NSS)类库暂不支持，规划中。
+	Long: `use eBPF uprobe to capture process event data, not used libpcap.
+Can used to trace, debug, database audit, security event aduit etc.
 `,
 	Run: openSSLCommandFunc,
 }
 
 func init() {
-	opensslCmd.PersistentFlags().StringVar(&oc.Curlpath, "curl", "", "curl or wget file path, 用于自动定位所用openssl.so的路径, default:/usr/bin/curl")
+	opensslCmd.PersistentFlags().StringVar(&oc.Curlpath, "curl", "", "curl or wget file path, use to dectet openssl.so path, default:/usr/bin/curl")
 	opensslCmd.PersistentFlags().StringVar(&oc.Openssl, "libssl", "", "libssl.so file path, will automatically find it from curl default.")
 	opensslCmd.PersistentFlags().StringVar(&gc.Gnutls, "gnutls", "", "libgnutls.so file path, will automatically find it from curl default.")
 	opensslCmd.PersistentFlags().StringVar(&gc.Curlpath, "wget", "", "wget file path, default: /usr/bin/wget.")
