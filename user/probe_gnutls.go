@@ -10,6 +10,7 @@ import (
 	"golang.org/x/sys/unix"
 	"log"
 	"math"
+	"os"
 )
 
 type MGnutlsProbe struct {
@@ -46,7 +47,10 @@ func (this *MGnutlsProbe) start() error {
 	}
 
 	// setup the managers
-	this.setupManagers()
+	err = this.setupManagers()
+	if err != nil {
+		return errors.Wrap(err, "tls module couldn't find binPath.")
+	}
 
 	// initialize the bootstrap manager
 	if err := this.bpfManager.InitWithOptions(bytes.NewReader(byteBuf), this.bpfManagerOptions); err != nil {
@@ -93,7 +97,7 @@ func (e *MGnutlsProbe) constantEditor() []manager.ConstantEditor {
 	return editor
 }
 
-func (this *MGnutlsProbe) setupManagers() {
+func (this *MGnutlsProbe) setupManagers() error {
 	var binaryPath string
 	switch this.conf.(*GnutlsConfig).elfType {
 	case ELF_TYPE_BIN:
@@ -103,6 +107,11 @@ func (this *MGnutlsProbe) setupManagers() {
 	default:
 		//如果没找到
 		binaryPath = "/lib/x86_64-linux-gnu/libgnutls.so.30"
+	}
+
+	_, err := os.Stat(binaryPath)
+	if err != nil {
+		return err
 	}
 
 	this.logger.Printf("HOOK type:%d, binrayPath:%s\n", this.conf.(*GnutlsConfig).elfType, binaryPath)
@@ -158,6 +167,7 @@ func (this *MGnutlsProbe) setupManagers() {
 		// 填充 RewriteContants 对应map
 		ConstantEditors: this.constantEditor(),
 	}
+	return nil
 }
 
 func (this *MGnutlsProbe) DecodeFun(em *ebpf.Map) (IEventStruct, bool) {

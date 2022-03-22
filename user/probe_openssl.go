@@ -10,6 +10,7 @@ import (
 	"golang.org/x/sys/unix"
 	"log"
 	"math"
+	"os"
 )
 
 type MOpenSSLProbe struct {
@@ -46,7 +47,10 @@ func (this *MOpenSSLProbe) start() error {
 	}
 
 	// setup the managers
-	this.setupManagers()
+	err = this.setupManagers()
+	if err != nil {
+		return errors.Wrap(err, "tls module couldn't find binPath.")
+	}
 
 	// initialize the bootstrap manager
 	if err := this.bpfManager.InitWithOptions(bytes.NewReader(byteBuf), this.bpfManagerOptions); err != nil {
@@ -93,7 +97,7 @@ func (e *MOpenSSLProbe) constantEditor() []manager.ConstantEditor {
 	return editor
 }
 
-func (this *MOpenSSLProbe) setupManagers() {
+func (this *MOpenSSLProbe) setupManagers() error {
 	var binaryPath string
 	switch this.conf.(*OpensslConfig).elfType {
 	case ELF_TYPE_BIN:
@@ -103,6 +107,11 @@ func (this *MOpenSSLProbe) setupManagers() {
 	default:
 		//如果没找到
 		binaryPath = "/lib/x86_64-linux-gnu/libssl.so.1.1"
+	}
+
+	_, err := os.Stat(binaryPath)
+	if err != nil {
+		return err
 	}
 
 	this.logger.Printf("HOOK type:%d, binrayPath:%s\n", this.conf.(*OpensslConfig).elfType, binaryPath)
@@ -184,6 +193,7 @@ func (this *MOpenSSLProbe) setupManagers() {
 		// 填充 RewriteContants 对应map
 		ConstantEditors: this.constantEditor(),
 	}
+	return nil
 }
 
 func (this *MOpenSSLProbe) DecodeFun(em *ebpf.Map) (IEventStruct, bool) {
