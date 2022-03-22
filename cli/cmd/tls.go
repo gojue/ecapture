@@ -59,6 +59,7 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 
 	modNames := []string{user.MODULE_NAME_OPENSSL, user.MODULE_NAME_GNUTLS, user.MODULE_NAME_NSPR}
 
+	var runMods uint8
 	for _, modName := range modNames {
 		mod := user.GetModuleByName(modName)
 		if mod == nil {
@@ -88,28 +89,32 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 		conf.SetHex(gConf.IsHex)
 
 		if e := conf.Check(); e != nil {
-			logger.Fatal(e)
-			os.Exit(1)
+			logger.Printf("%v", e)
+			break
 		}
 
 		//初始化
 		err := mod.Init(ctx, logger, conf)
 		if err != nil {
-			logger.Fatal(err)
-			os.Exit(1)
+			logger.Printf("%v", err)
+			break
 		}
 
 		// 加载ebpf，挂载到hook点上，开始监听
 		go func(module user.IModule) {
 			err := module.Run()
 			if err != nil {
-				logger.Fatalf("%v", err)
+				logger.Printf("%v", err)
+				return
 			}
 		}(mod)
-
+		runMods++
 	}
 
-	<-stopper
+	// needs runmods > 0
+	if runMods > 0 {
+		<-stopper
+	}
 	cancelFun()
 	os.Exit(0)
 }
