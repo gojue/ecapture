@@ -49,7 +49,7 @@ func (this *MGnutlsProbe) start() error {
 	// setup the managers
 	err = this.setupManagers()
 	if err != nil {
-		return errors.Wrap(err, "tls module couldn't find binPath.")
+		return errors.Wrap(err, "tls(gnutls) module couldn't find binPath.")
 	}
 
 	// initialize the bootstrap manager

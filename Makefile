@@ -2,7 +2,7 @@ TARGETS := kern/openssl
 TARGETS += kern/bash
 TARGETS += kern/gnutls
 TARGETS += kern/nspr
-#TARGETS += kern/mysqld57
+TARGETS += kern/mysqld56
 
 # Generate file name-scheme based on TARGETS
 KERN_SOURCES = ${TARGETS:=_kern.c}

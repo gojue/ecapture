@@ -1,9 +1,19 @@
 <hr>
 
+## v0.1.5 (TDB)
+
+- 增加mysqld数据库审计模块
+
+### mysqld 模块
+- 支持mysql5.6的mariaDB数据库的查询审计
+  - 默认path目录为/usr/sbin/mariadb 。 
+
+<hr>
+
 ## v0.1.4 (2022-03-22)
 
 - 调整运行环境检测方式
-  - 判断BTF支持的方法，改为优先判断`/sys/kernel/btf/vmlinu`文件，以及其他BTF特征的`vmlinux-*`目录等 。
+  - 判断BTF支持的方法，改为优先判断`/sys/kernel/btf/vmlinux`文件，以及其他BTF特征的`vmlinux-*`目录等 。
   - 增加运行原理图。
 
 ### tls(openssl) 模块
