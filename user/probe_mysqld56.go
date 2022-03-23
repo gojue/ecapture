@@ -92,15 +92,17 @@ func (this *MMysqld56Probe) setupManagers() error {
 		binaryPath = "/usr/sbin/mariadbd"
 	}
 
-	attachFunc := this.conf.(*Mysqld56Config).FuncName
 	_, err := os.Stat(binaryPath)
 	if err != nil {
 		return err
 	}
+	attachFunc := this.conf.(*Mysqld56Config).FuncName
+	offset := this.conf.(*Mysqld56Config).Offset
 
 	// mariadbd version : 10.5.13-MariaDB-0ubuntu0.21.04.1
 	// objdump -T /usr/sbin/mariadbd |grep dispatch_command
 	// 0000000000710410 g    DF .text	0000000000002f35  Base        _Z16dispatch_command19enum_server_commandP3THDPcjbb
+	// offset 0x710410
 
 	this.bpfManager = &manager.Manager{
 		Probes: []*manager.Probe{
@@ -108,8 +110,8 @@ func (this *MMysqld56Probe) setupManagers() error {
 				Section:          "uprobe/dispatch_command",
 				EbpfFuncName:     "mysql56_query",
 				AttachToFuncName: attachFunc,
-				//UprobeOffset:     0x710410,
-				BinaryPath: binaryPath,
+				UprobeOffset:     offset,
+				BinaryPath:       binaryPath,
 			},
 		},
 
@@ -120,7 +122,7 @@ func (this *MMysqld56Probe) setupManagers() error {
 		},
 	}
 
-	this.logger.Printf("HOOK binrayPath:%s, UprobeOffset:0x710410\n", binaryPath)
+	this.logger.Printf("HOOK binrayPath:%s, FunctionName:%s ,UprobeOffset:%d\n", binaryPath, attachFunc, offset)
 
 	this.bpfManagerOptions = manager.Options{
 		DefaultKProbeMaxActive: 512,

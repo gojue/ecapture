@@ -28,7 +28,9 @@ var mysqld56Cmd = &cobra.Command{
 }
 
 func init() {
-	mysqld56Cmd.PersistentFlags().StringVarP(&mc56.Mysqld56path, "mysqld", "", "mysqld binary file path, use to hook", "/usr/sbin/mariadbd")
+	mysqld56Cmd.PersistentFlags().StringVarP(&mc56.Mysqld56path, "mysqld", "m", "/usr/sbin/mariadbd", "mysqld binary file path, use to hook")
+	mysqld56Cmd.PersistentFlags().Uint64VarP(&mc56.Offset, "offset", "", 0, "0x710410")
+	mysqld56Cmd.PersistentFlags().StringVarP(&mc56.FuncName, "funcname", "f", "", "function name to hook")
 	rootCmd.AddCommand(mysqld56Cmd)
 }
 

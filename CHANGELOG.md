@@ -7,6 +7,7 @@
 ### mysqld 模块
 - 支持mysql5.6的mariaDB数据库的查询审计
   - 默认path目录为/usr/sbin/mariadb 。 
+  - 支持function name、offset两个参数自定义。
 
 <hr>
 
