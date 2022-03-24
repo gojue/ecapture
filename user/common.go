@@ -138,7 +138,7 @@ func getDynPathByElf(elfName, soName string) (string, error) {
 	}
 
 	// try catch ,not found SO from ld.so.conf
-	return "", errors.New(fmt.Sprintf("Not found lib:%s , from %v:searchPath"))
+	return "", errors.New(fmt.Sprintf("Not found lib:%s , from %v:", soName, searchPath))
 }
 
 // 格式化输出相关
