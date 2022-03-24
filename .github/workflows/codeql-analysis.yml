@@ -23,7 +23,7 @@ on:
 jobs:
   analyze:
     name: Analyze
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     permissions:
       actions: read
       contents: read
@@ -37,6 +37,9 @@ jobs:
         # Learn more about CodeQL language support at https://git.io/codeql-language-support
 
     steps:
+    - uses: actions/setup-go@v3
+      with:
+        go-version: '1.17.0'
     - name: Checkout repository
       uses: actions/checkout@v2
 
@@ -62,7 +65,8 @@ jobs:
     #    and modify them (or add more) to build your code if your project
     #    uses a compiled language
 
-    - run: make
+    - run: ｜
+      make
     #   make release
 
     - name: Perform CodeQL Analysis
