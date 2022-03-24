@@ -104,6 +104,7 @@ hook了`/bin/bash`的`readline`函数。
 **推荐使用`UBUNTU 21.04`版本的linux测试。**
 
 ## 工具链版本
+* golang 1.16
 * gcc 10.3.0
 * clang 12.0.0  
 * cmake 3.18.4

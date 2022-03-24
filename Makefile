@@ -60,5 +60,5 @@ assets:
 	go run github.com/shuLhan/go-bindata/cmd/go-bindata -pkg assets -o "assets/ebpf_probe.go" $(wildcard ./user/bytecode/*.o)
 
 build:
-	CGO_ENABLED=0 go build -ldflags "-X 'ecapture/cli/cmd.GitVersion=$(VERSION)'" -o bin/ecapture .
+	CGO_ENABLED=0 go build -ldflags "-w -s -X 'ecapture/cli/cmd.GitVersion=$(VERSION)'" -o bin/ecapture .
 
