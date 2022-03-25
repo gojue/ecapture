@@ -3,11 +3,6 @@
 #include <bpf/bpf_tracing.h>
 #include "common.h"
 
-#define MAX_DATA_SIZE 1024 * 4  //4000
-
-// Optional Target PID
-const volatile u64 target_pid = 0;
-
 enum ssl_data_event_type { kSSLRead, kSSLWrite };
 
 struct ssl_data_event_t {
@@ -15,7 +10,7 @@ struct ssl_data_event_t {
   uint64_t timestamp_ns;
   uint32_t pid;
   uint32_t tid;
-  char data[MAX_DATA_SIZE];
+  char data[MAX_DATA_SIZE_OPENSSL];
   int32_t data_len;
   char comm[TASK_COMM_LEN];
 };
@@ -62,18 +57,18 @@ struct
  ***********************************************************/
 
 static __inline struct ssl_data_event_t* create_ssl_data_event(uint64_t current_pid_tgid) {
-  uint32_t kZero = 0;
-  struct ssl_data_event_t* event = bpf_map_lookup_elem(&data_buffer_heap, &kZero);
-  if (event == NULL) {
-    return NULL;
-  }
+    uint32_t kZero = 0;
+    struct ssl_data_event_t* event = bpf_map_lookup_elem(&data_buffer_heap, &kZero);
+    if (event == NULL) {
+        return NULL;
+    }
 
-  const uint32_t kMask32b = 0xffffffff;
-  event->timestamp_ns = bpf_ktime_get_ns();
-  event->pid = current_pid_tgid >> 32;
-  event->tid = current_pid_tgid & kMask32b;
+    const uint32_t kMask32b = 0xffffffff;
+    event->timestamp_ns = bpf_ktime_get_ns();
+    event->pid = current_pid_tgid >> 32;
+    event->tid = current_pid_tgid & kMask32b;
 
-  return event;
+    return event;
 }
 
 /***********************************************************
@@ -82,23 +77,23 @@ static __inline struct ssl_data_event_t* create_ssl_data_event(uint64_t current_
 
 static int process_SSL_data(struct pt_regs* ctx, uint64_t id, enum ssl_data_event_type type,
                             const char* buf) {
-  int len = (int)(ctx)->ax;
-  if (len < 0) {
-    return 0;
-  }
+    int len = (int)(ctx)->ax;
+    if (len < 0) {
+        return 0;
+    }
 
-  struct ssl_data_event_t* event = create_ssl_data_event(id);
-  if (event == NULL) {
-    return 0;
-  }
+    struct ssl_data_event_t* event = create_ssl_data_event(id);
+    if (event == NULL) {
+        return 0;
+    }
 
-  event->type = type;
-  // This is a max function, but it is written in such a way to keep older BPF verifiers happy.
-  event->data_len = (len < MAX_DATA_SIZE ? (len & (MAX_DATA_SIZE - 1)) : MAX_DATA_SIZE);
-  bpf_probe_read(event->data, event->data_len, buf);
-  bpf_get_current_comm(&event->comm, sizeof(event->comm));
-  bpf_perf_event_output(ctx, &tls_events, BPF_F_CURRENT_CPU, event,sizeof(struct ssl_data_event_t));
-  return 0;
+    event->type = type;
+    // This is a max function, but it is written in such a way to keep older BPF verifiers happy.
+    event->data_len = (len < MAX_DATA_SIZE_OPENSSL ? (len & (MAX_DATA_SIZE_OPENSSL - 1)) : MAX_DATA_SIZE_OPENSSL);
+    bpf_probe_read(event->data, event->data_len, buf);
+    bpf_get_current_comm(&event->comm, sizeof(event->comm));
+    bpf_perf_event_output(ctx, &tls_events, BPF_F_CURRENT_CPU, event,sizeof(struct ssl_data_event_t));
+    return 0;
 }
 
 /***********************************************************
@@ -109,74 +104,70 @@ static int process_SSL_data(struct pt_regs* ctx, uint64_t id, enum ssl_data_even
 // int SSL_write(SSL *ssl, const void *buf, int num);
 SEC("uprobe/SSL_write")
 int probe_entry_SSL_write(struct pt_regs* ctx) {
-  uint64_t current_pid_tgid = bpf_get_current_pid_tgid();
-  uint32_t pid = current_pid_tgid >> 32;
+    uint64_t current_pid_tgid = bpf_get_current_pid_tgid();
+    uint32_t pid = current_pid_tgid >> 32;
 
     // if target_ppid is 0 then we target all pids
     if (target_pid != 0 && target_pid != pid) {
         return 0;
     }
 
-  const char* buf = (const char*)(ctx)->si;
-  bpf_map_update_elem(&active_ssl_write_args_map, &current_pid_tgid, &buf, BPF_ANY);
-  return 0;
+    const char* buf = (const char*)(ctx)->si;
+    bpf_map_update_elem(&active_ssl_write_args_map, &current_pid_tgid, &buf, BPF_ANY);
+    return 0;
 }
 
 SEC("uretprobe/SSL_write")
 int probe_ret_SSL_write(struct pt_regs* ctx) {
-  uint64_t current_pid_tgid = bpf_get_current_pid_tgid();
-  uint32_t pid = current_pid_tgid >> 32;
+    uint64_t current_pid_tgid = bpf_get_current_pid_tgid();
+    uint32_t pid = current_pid_tgid >> 32;
 
     // if target_ppid is 0 then we target all pids
     if (target_pid != 0 && target_pid != pid) {
         return 0;
     }
 
-  const char** buf = bpf_map_lookup_elem(&active_ssl_write_args_map, &current_pid_tgid);
-  if (buf != NULL) {
-    process_SSL_data(ctx, current_pid_tgid, kSSLWrite, *buf);
-  }
+    const char** buf = bpf_map_lookup_elem(&active_ssl_write_args_map, &current_pid_tgid);
+    if (buf != NULL) {
+        process_SSL_data(ctx, current_pid_tgid, kSSLWrite, *buf);
+    }
 
-  bpf_map_delete_elem(&active_ssl_write_args_map, &current_pid_tgid);
-  return 0;
+    bpf_map_delete_elem(&active_ssl_write_args_map, &current_pid_tgid);
+    return 0;
 }
 
 // Function signature being probed:
 // int SSL_read(SSL *s, void *buf, int num)
 SEC("uprobe/SSL_read")
 int probe_entry_SSL_read(struct pt_regs* ctx) {
-  uint64_t current_pid_tgid = bpf_get_current_pid_tgid();
-  uint32_t pid = current_pid_tgid >> 32;
+    uint64_t current_pid_tgid = bpf_get_current_pid_tgid();
+    uint32_t pid = current_pid_tgid >> 32;
 
     // if target_ppid is 0 then we target all pids
     if (target_pid != 0 && target_pid != pid) {
         return 0;
     }
 
-  const char* buf = (const char*)(ctx)->si;
-  bpf_map_update_elem(&active_ssl_read_args_map, &current_pid_tgid, &buf, BPF_ANY);
-  return 0;
+    const char* buf = (const char*)(ctx)->si;
+    bpf_map_update_elem(&active_ssl_read_args_map, &current_pid_tgid, &buf, BPF_ANY);
+    return 0;
 }
 
 SEC("uretprobe/SSL_read")
 int probe_ret_SSL_read(struct pt_regs* ctx) {
-  uint64_t current_pid_tgid = bpf_get_current_pid_tgid();
-  uint32_t pid = current_pid_tgid >> 32;
+    uint64_t current_pid_tgid = bpf_get_current_pid_tgid();
+    uint32_t pid = current_pid_tgid >> 32;
 
     // if target_ppid is 0 then we target all pids
     if (target_pid != 0 && target_pid != pid) {
         return 0;
     }
 
-  const char** buf = bpf_map_lookup_elem(&active_ssl_read_args_map, &current_pid_tgid);
-  if (buf != NULL) {
-    process_SSL_data(ctx, current_pid_tgid, kSSLRead, *buf);
-  }
+    const char** buf = bpf_map_lookup_elem(&active_ssl_read_args_map, &current_pid_tgid);
+    if (buf != NULL) {
+        process_SSL_data(ctx, current_pid_tgid, kSSLRead, *buf);
+    }
 
-  bpf_map_delete_elem(&active_ssl_read_args_map, &current_pid_tgid);
-
-  return 0;
+    bpf_map_delete_elem(&active_ssl_read_args_map, &current_pid_tgid);
+    return 0;
 }
-
-char _license[] SEC("license") = "GPL";
-__u32 _version SEC("version") = 0xFFFFFFFE;

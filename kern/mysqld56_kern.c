@@ -3,18 +3,10 @@
 #include <bpf/bpf_tracing.h>
 #include "common.h"
 
-char __license[] SEC("license") = "Dual MIT/GPL";
-
-#define MAX_DATA_SIZE 256
-#define COM_QUERY 3 //enum_server_command, via https://dev.mysql.com/doc/internals/en/com-query.html COM_QUERT command 03
-
-const volatile u64 target_pid = 0;
-
-
 struct data_t {
     u64 pid;
     u64 timestamp;
-    char query[MAX_DATA_SIZE];
+    char query[MAX_DATA_SIZE_MYSQL];
     u64 alllen;
     u64 len;
     char comm[TASK_COMM_LEN];
@@ -38,7 +30,7 @@ int mysql56_query(struct pt_regs *ctx) {
 
     // https://blog.csdn.net/u010502974/article/details/96362601
     //mysql_parse
-    uint64_t command  = (uint64_t) (ctx)->di;
+    uint64_t command  = (uint64_t) PT_REGS_PARM1(ctx);
     if (command != COM_QUERY) {
         return 0;
     }
@@ -61,7 +53,7 @@ int mysql56_query(struct pt_regs *ctx) {
     data.alllen = len;   // origin query sql length
     data.timestamp = bpf_ktime_get_ns();
 
-    len = (len < MAX_DATA_SIZE ? (len & (MAX_DATA_SIZE - 1)) : MAX_DATA_SIZE);
+    len = (len < MAX_DATA_SIZE_MYSQL ? (len & (MAX_DATA_SIZE_MYSQL - 1)) : MAX_DATA_SIZE_MYSQL);
     data.len = len;   // only process id
     bpf_get_current_comm(&data.comm, sizeof(data.comm));
 
