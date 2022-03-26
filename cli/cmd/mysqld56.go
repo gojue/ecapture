@@ -19,11 +19,11 @@ var mc56 = user.NewMysqld56Config()
 
 // mysqld56Cmd represents the mysqld56 command
 var mysqld56Cmd = &cobra.Command{
-	Use:   "mysqld56",
+	Use:   "mysqld",
 	Short: "capture sql queries from mysqld >5.6 .",
-	Long: ` 稍后上传，研发中:
+	Long: ` only support mysqld 5.6 / mariadDB 10.5.
 
-需要适配mysql56、mysql57、mariadbd等。`,
+other version coming soon`,
 	Run: mysqld56CommandFunc,
 }
 
