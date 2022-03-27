@@ -44,7 +44,7 @@ int mysql56_query(struct pt_regs *ctx) {
         return 0;
     }
 
-    uint64_t len  = (uint64_t)PT_REGS_PARM1(ctx);
+    uint64_t len  = (uint64_t)PT_REGS_PARM4(ctx);
     if (len < 0) {
         return 0;
     }
