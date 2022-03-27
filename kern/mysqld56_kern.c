@@ -31,7 +31,7 @@ int mysql56_query(struct pt_regs *ctx) {
     // https://blog.csdn.net/u010502974/article/details/96362601
     //mysql_parse
     // TODO change to macros
-    uint64_t command  = (uint64_t) (ctx)->di;
+    uint64_t command  = (uint64_t)PT_REGS_PARM1(ctx);
     if (command != COM_QUERY) {
         return 0;
     }
@@ -44,7 +44,7 @@ int mysql56_query(struct pt_regs *ctx) {
         return 0;
     }
 
-    uint64_t len  = (uint64_t) (ctx)->cx;
+    uint64_t len  = (uint64_t)PT_REGS_PARM4(ctx);
     if (len < 0) {
         return 0;
     }
@@ -58,7 +58,7 @@ int mysql56_query(struct pt_regs *ctx) {
     data.len = len;   // only process id
     bpf_get_current_comm(&data.comm, sizeof(data.comm));
 
-    bpf_probe_read_user(&data.query, len, (void*) (ctx)->dx);
+    bpf_probe_read_user(&data.query, len, (void*)PT_REGS_PARM3(ctx));
     bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, &data,sizeof(data));
     return 0;
 }
