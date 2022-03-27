@@ -38,6 +38,15 @@ EXTRA_CFLAGS ?= -O2 -mcpu=v1 -nostdinc -Wno-pointer-sign
 
 BPFHEADER = -I./kern \
 
+# Target Arch
+UNAME_M := $(shell uname -m)
+ifeq ($(UNAME_M),x86_64)
+   LINUX_ARCH = x86
+endif
+ifeq ($(UNAME_M),aarch64)
+   LINUX_ARCH = arm64
+endif
+
 all: $(KERN_OBJECTS) assets build
 	@echo $(shell date)
 
@@ -50,7 +59,8 @@ clean:
 	rm -f bin/ecapture
 
 $(KERN_OBJECTS): %.o: %.c
-	$(CLANG) $(EXTRA_CFLAGS) \
+	$(CLANG) -D__TARGET_ARCH_$(LINUX_ARCH) \
+		$(EXTRA_CFLAGS) \
 		$(BPFHEADER) \
 		-target bpfel -c $< -o $(subst kern/,user/bytecode/,$@) \
 		-fno-ident -fdebug-compilation-dir . -g -D__BPF_TARGET_MISSING="GCC error \"The eBPF is using target specific macros, please provide -target\"" \
