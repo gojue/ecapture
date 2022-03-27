@@ -7,14 +7,13 @@ eBPF HOOK uprobe实现的各种用户态进程的数据捕获，无需改动原�
 * bash的命令捕获，HIDS的bash命令监控解决方案。
 * mysql query等数据库的数据库审计解决方案。
 
+# eCapture Architecure
+![](./images/ecapture-architecture.png)
+
 # 演示
 
-### 截图
-![](./images/openssl-example.jpg)
-
-### 视频
-[https://v.qq.com/txp/iframe/player.html?vid=m33278fdqt8](https://v.qq.com/txp/iframe/player.html?vid=m33278fdqt8)
-
+## eCapture User Manual
+[![eCapture User Manual](./images/ecapture-user-manual.png)](https://www.youtube.com/watch?v=CoDIjEQCvvA "eCapture User Manual")
 
 # 使用
 ## 直接运行
