@@ -126,11 +126,6 @@ bin/ecapture
 ### 提醒
 首次编译时，需要先下载 `go get -d github.com/shuLhan/go-bindata/cmd/go-bindata`
 
-# 联系我们
-
-##  技术交流群
-![](./images/wechat-group.jpg)
-
 # 参考资料
 [BPF Portability and CO-RE](https://facebookmicrosites.github.io/bpf/blog/2020/02/19/bpf-portability-and-co-re.html)
 [ebpfmanager v0.2.2](https://github.com/ehids/ebpfmanager)
