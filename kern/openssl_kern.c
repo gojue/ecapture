@@ -77,7 +77,7 @@ static __inline struct ssl_data_event_t* create_ssl_data_event(uint64_t current_
 
 static int process_SSL_data(struct pt_regs* ctx, uint64_t id, enum ssl_data_event_type type,
                             const char* buf) {
-    int len = (int)(ctx)->ax;
+    int len = (int)PT_REGS_RC(ctx);
     if (len < 0) {
         return 0;
     }
@@ -112,7 +112,7 @@ int probe_entry_SSL_write(struct pt_regs* ctx) {
         return 0;
     }
 
-    const char* buf = (const char*)(ctx)->si;
+    const char* buf = (const char*)PT_REGS_PARM2(ctx);
     bpf_map_update_elem(&active_ssl_write_args_map, &current_pid_tgid, &buf, BPF_ANY);
     return 0;
 }
@@ -148,7 +148,7 @@ int probe_entry_SSL_read(struct pt_regs* ctx) {
         return 0;
     }
 
-    const char* buf = (const char*)(ctx)->si;
+    const char* buf = (const char*)PT_REGS_PARM2(ctx);
     bpf_map_update_elem(&active_ssl_read_args_map, &current_pid_tgid, &buf, BPF_ANY);
     return 0;
 }
