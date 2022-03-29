@@ -6,6 +6,7 @@ package user
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -48,7 +49,12 @@ func (this *GnutlsConfig) Check() error {
 	soPath, e := getDynPathByElf(this.Curlpath, "libgnutls.so")
 	if e != nil {
 		//this.logger.Printf("get bash:%s dynamic library error:%v.\n", bash, e)
-		this.Gnutls = "/lib/x86_64-linux-gnu/libgnutls.so.30"
+		_, e = os.Stat(X86_BINARY_PREFIX)
+		prefix := X86_BINARY_PREFIX
+		if e != nil {
+			prefix = OTHERS_BINARY_PREFIX
+		}
+		this.Gnutls = filepath.Join(prefix, "libgnutls.so.30")
 		this.elfType = ELF_TYPE_SO
 		_, e = os.Stat(this.Gnutls)
 		if e != nil {
