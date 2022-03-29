@@ -6,6 +6,7 @@ package user
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -48,7 +49,12 @@ func (this *NsprConfig) Check() error {
 	soPath, e := getDynPathByElf(this.Nsprpath, "libnspr4.so")
 	if e != nil {
 		//this.logger.Printf("get bash:%s dynamic library error:%v.\n", bash, e)
-		this.Nsprpath = "/lib/x86_64-linux-gnu/libnspr4.so"
+		_, e = os.Stat(X86_BINARY_PREFIX)
+		prefix := X86_BINARY_PREFIX
+		if e != nil {
+			prefix = OTHERS_BINARY_PREFIX
+		}
+		this.Nsprpath = filepath.Join(prefix, "libnspr4.so")
 		//this.Gnutls = "/usr/lib/firefox/libnss3.so"
 		//"/usr/lib/firefox/libnspr4.so"
 		this.elfType = ELF_TYPE_SO

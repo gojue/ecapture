@@ -6,6 +6,7 @@ package user
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -48,7 +49,12 @@ func (this *OpensslConfig) Check() error {
 	soPath, e := getDynPathByElf(this.Curlpath, "libssl.so")
 	if e != nil {
 		//this.logger.Printf("get bash:%s dynamic library error:%v.\n", bash, e)
-		this.Openssl = "/lib/x86_64-linux-gnu/libssl.so.1.1"
+		_, e = os.Stat(X86_BINARY_PREFIX)
+		prefix := X86_BINARY_PREFIX
+		if e != nil {
+			prefix = OTHERS_BINARY_PREFIX
+		}
+		this.Openssl = filepath.Join(prefix, "libssl.so.1.1")
 		this.elfType = ELF_TYPE_SO
 		_, e = os.Stat(this.Openssl)
 		if e != nil {
