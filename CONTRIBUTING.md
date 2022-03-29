@@ -7,11 +7,11 @@ eCapture is AGPL-3.0 licensed and accepts contributions via GitHub pull requests
 ## Getting started
 
 - Fork the repository on GitHub
-- Read the README.md for build instructions
+- Read the [README.md](./README.md) for build instructions
 
 ## Reporting bugs and creating issues
 
-Reporting bugs is one of the best ways to contribute. However, a good bug report has some very specific qualities, so please read over our short document on [reporting bugs](https://github.com/ehids/ecapture/blob/master/.github/ISSUE_TEMPLATE/bug_report.md) before submitting a bug report. This document might contain links to known issues, another good reason to take a look there before reporting a bug.
+Reporting bugs is one of the best ways to contribute. However, a good bug report has some very specific qualities, so please read over our short document on [reporting bugs](.github/ISSUE_TEMPLATE/bug_report.md) before submitting a bug report. This document might contain links to known issues, another good reason to take a look there before reporting a bug.
 
 ## Contribution flow
 
