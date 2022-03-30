@@ -7,14 +7,13 @@ eBPF HOOK uprobe实现的各种用户态进程的数据捕获，无需改动原�
 * bash的命令捕获，HIDS的bash命令监控解决方案。
 * mysql query等数据库的数据库审计解决方案。
 
+# eCapture Architecure
+![](./images/ecapture-architecture.png)
+
 # 演示
 
-### 截图
-![](./images/openssl-example.jpg)
-
-### 视频
-[https://v.qq.com/txp/iframe/player.html?vid=m33278fdqt8](https://v.qq.com/txp/iframe/player.html?vid=m33278fdqt8)
-
+## eCapture User Manual
+[![eCapture User Manual](./images/ecapture-user-manual.png)](https://www.youtube.com/watch?v=CoDIjEQCvvA "eCapture User Manual")
 
 # 使用
 ## 直接运行
@@ -38,9 +37,6 @@ CONFIG_DEBUG_INFO_BTF=y
 ```shell
 curl https://www.qq.com
 ```
-
-## 注意
-已知centos 8.2的系统上，wget的网络行为无法获取，原因为wget没有使用openssl的so动态链接库`libssl.so`，而是`/lib64/libgnutls.so.30`，稍后支持。
 
 ### bash的shell捕获
 ```shell
@@ -109,11 +105,14 @@ hook了`/bin/bash`的`readline`函数。
 * clang 12.0.0
 * cmake 3.18.4
 * clang backend: llvm 12.0.0
+* pahole >= v1.13
+* kernel config:CONFIG_DEBUG_INFO_BTF=y
 
 ### 最低要求 (笔者未验证)
 * gcc 5.1 以上
 * clang 9
 * cmake 3.14
+* pahole >= v1.13
 
 
 ## 编译
@@ -123,8 +122,6 @@ cd ecapture
 make
 bin/ecapture
 ```
-### 提醒
-首次编译时，需要先下载 `go get -d github.com/shuLhan/go-bindata/cmd/go-bindata`
 
 # 参考资料
 [BPF Portability and CO-RE](https://facebookmicrosites.github.io/bpf/blog/2020/02/19/bpf-portability-and-co-re.html)

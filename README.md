@@ -10,21 +10,18 @@ eBPF HOOK uprobe实现的各种用户态进程的数据捕获，无需改动原�
 # eCapture Architecure
 ![](./images/ecapture-architecture.png)
 
-# 演示
-
-## eCapture User Manual
+# eCapture User Manual
 [![eCapture User Manual](./images/ecapture-user-manual.png)](https://www.youtube.com/watch?v=CoDIjEQCvvA "eCapture User Manual")
 
-# 使用
-## 直接运行
-下载 [release](https://github.com/ehids/ecapture/releases) 的二进制包，可直接使用。
+# Getting started
+## use ELF binary file
+Download ELF zip file [release](https://github.com/ehids/ecapture/releases) , unzip and use by command `./ecapture --help`.
 
-系统配置要求
-* 系统linux kernel版本必须高于4.18。
-* 开启BTF [BPF Type Format (BTF)](https://www.kernel.org/doc/html/latest/bpf/btf.html) 支持。
 
-### 
-验证方法：
+* Linux kernel version >= 4.18
+* Enable BTF [BPF Type Format (BTF)](https://www.kernel.org/doc/html/latest/bpf/btf.html) 
+
+### check your server BTF config：
 ```shell
 cfc4n@vm-server:~$# uname -r
 4.18.0-305.3.1.el8.x86_64
@@ -32,16 +29,20 @@ cfc4n@vm-server:~$# cat /boot/config-`uname -r` | grep CONFIG_DEBUG_INFO_BTF
 CONFIG_DEBUG_INFO_BTF=y
 ```
 
-### openssl的无证书抓包 openssl
-执行任意https网络请求即可使用。
+### tls command
+capture tls text context.
+Setp 1:
 ```shell
-curl https://www.qq.com
+./ecapture tls --hex
 ```
 
-## 注意
-已知centos 8.2的系统上，wget的网络行为无法获取，原因为wget没有使用openssl的so动态链接库`libssl.so`，而是`/lib64/libgnutls.so.30`，稍后支持。
+Setp 2:
+```shell
+curl https://github.com
+```
 
-### bash的shell捕获
+### bash command
+capture bash command.
 ```shell
 ps -ef | grep foo
 ```
@@ -53,13 +54,12 @@ ps -ef | grep foo
 自行编译对编译环境有要求，参考**原理**章节的介绍。
 
 # 原理
-
-## eBPF技术
-参考[ebpf](https://ebpf.io)官网的介绍
+## What's eBPF
+[eBPF](https://ebpf.io)
 
 ## uprobe HOOK
 
-### https的ssl hook 
+### openssl hook 
 本项目hook了`/lib/x86_64-linux-gnu/libssl.so.1.1`的`SSL_write`、`SSL_read`函数的返回值，拿到明文信息，通过ebpf map传递给用户进程。
 ```go
 Probes: []*manager.Probe{
@@ -94,10 +94,10 @@ Probes: []*manager.Probe{
     /**/
 },
 ```
-### bash的readline hook
-hook了`/bin/bash`的`readline`函数。
+### bash readline.so hook
+hook `/bin/bash` `readline` symbol name.
 
-# 编译方法
+# How to compile
 针对个别程序使用的openssl类库是静态编译，也可以自行修改源码实现。若函数名不在符号表里，也可以自行反编译找到函数的offset偏移地址，填写到`UprobeOffset`属性上，进行编译。
 笔者环境`ubuntu 21.04`， linux kernel 5.10以上通用。
 **推荐使用`UBUNTU 21.04`版本的linux测试。**
@@ -108,11 +108,14 @@ hook了`/bin/bash`的`readline`函数。
 * clang 12.0.0  
 * cmake 3.18.4
 * clang backend: llvm 12.0.0   
+* pahole >= v1.13
+* kernel config:CONFIG_DEBUG_INFO_BTF=y
 
 ### 最低要求 (笔者未验证)
 * gcc 5.1 以上
 * clang 9
 * cmake 3.14
+* pahole >= v1.13
 
 
 ## 编译
@@ -122,8 +125,6 @@ cd ecapture
 make
 bin/ecapture
 ```
-### 提醒
-首次编译时，需要先下载 `go get -d github.com/shuLhan/go-bindata/cmd/go-bindata`
 
 # 参考资料
 [BPF Portability and CO-RE](https://facebookmicrosites.github.io/bpf/blog/2020/02/19/bpf-portability-and-co-re.html)
