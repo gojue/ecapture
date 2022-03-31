@@ -20,7 +20,8 @@ var bc = user.NewBashConfig()
 var bashCmd = &cobra.Command{
 	Use:   "bash",
 	Short: "capture bash command",
-	Long:  `捕获bash命令，用于bash审计场景。会自动查找当前env的bash，作为捕获目标。`,
+	Long:  `eCapture capture bash commands for bash auditing scenarios, 
+and automatically find the bash of the current env as the capture target.`,
 	Run:   bashCommandFunc,
 }
 
