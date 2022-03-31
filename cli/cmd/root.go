@@ -31,9 +31,12 @@ var rootCmd = &cobra.Command{
 	Short:      cliDescription,
 	SuggestFor: []string{"ecapture"},
 
-	Long: `ecapture是一款无需安装CA证书，即可抓去HTTPS、TLS等明文数据包的工具。
-也可以捕获bash的命令，适用于安全审计场景。包括mysqld的数据库审计等。
-仓库地址: https://github.com/ehids/ecapture
+	Long: `eCapture is a tool that can capture plaintext packets 
+such as HTTPS and TLS without installing a CA certificate.
+It can also capture bash commands, which is suitable for 
+security auditing scenarios, such as database auditing of mysqld, etc.
+
+Repository: https://github.com/ehids/ecapture
 `,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
