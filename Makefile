@@ -72,3 +72,13 @@ assets:
 build:
 	CGO_ENABLED=0 go build -ldflags "-w -s -X 'ecapture/cli/cmd.GitVersion=$(VERSION)'" -o bin/ecapture .
 
+
+DOCKER_NAME ?= ecapture-build:v1
+
+# build by docker
+build_docker:
+	docker run --mount type=bind,source=$(shell pwd),destination=/mnt ${DOCKER_NAME}
+
+# provide a standard enviroment for build
+docker: 
+	docker build -t ${DOCKER_NAME} .
