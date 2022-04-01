@@ -99,6 +99,7 @@ func (this *MMysqldProbe) setupManagers() error {
 	attachFunc := this.conf.(*MysqldConfig).FuncName
 	offset := this.conf.(*MysqldConfig).Offset
 	version := this.conf.(*MysqldConfig).version
+	versionInfo := this.conf.(*MysqldConfig).versionInfo
 
 	// mariadbd version : 10.5.13-MariaDB-0ubuntu0.21.04.1
 	// objdump -T /usr/sbin/mariadbd |grep dispatch_command
@@ -119,7 +120,7 @@ func (this *MMysqldProbe) setupManagers() error {
 	case MYSQLD_TYPE_80:
 		probes = []*manager.Probe{
 			{
-				Section:          "uprobe/dispatch_command_57",
+				Section:          "uprobe/dispatch_command_57", //TODO CHANGE to mysqld80 @CFC4N
 				EbpfFuncName:     "mysql57_query",
 				AttachToFuncName: attachFunc,
 				UprobeOffset:     offset,
@@ -147,7 +148,7 @@ func (this *MMysqldProbe) setupManagers() error {
 		},
 	}
 
-	this.logger.Printf("HOOK binrayPath:%s, FunctionName:%s ,UprobeOffset:%d\n", binaryPath, attachFunc, offset)
+	this.logger.Printf("Mysql Version:%s, binrayPath:%s, FunctionName:%s ,UprobeOffset:%d\n", versionInfo, binaryPath, attachFunc, offset)
 
 	this.bpfManagerOptions = manager.Options{
 		DefaultKProbeMaxActive: 512,
