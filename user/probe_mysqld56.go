@@ -17,7 +17,7 @@ import (
 	"os"
 )
 
-type MMysqld56Probe struct {
+type MMysqldProbe struct {
 	Module
 	bpfManager        *manager.Manager
 	bpfManagerOptions manager.Options
@@ -26,7 +26,7 @@ type MMysqld56Probe struct {
 }
 
 //对象初始化
-func (this *MMysqld56Probe) Init(ctx context.Context, logger *log.Logger, conf IConfig) error {
+func (this *MMysqldProbe) Init(ctx context.Context, logger *log.Logger, conf IConfig) error {
 	this.Module.Init(ctx, logger)
 	this.conf = conf
 	this.Module.SetChild(this)
@@ -35,17 +35,17 @@ func (this *MMysqld56Probe) Init(ctx context.Context, logger *log.Logger, conf I
 	return nil
 }
 
-func (this *MMysqld56Probe) Start() error {
+func (this *MMysqldProbe) Start() error {
 	if err := this.start(); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (this *MMysqld56Probe) start() error {
+func (this *MMysqldProbe) start() error {
 
 	// fetch ebpf assets
-	byteBuf, err := assets.Asset("user/bytecode/mysqld56_kern.o")
+	byteBuf, err := assets.Asset("user/bytecode/mysqld_kern.o")
 	if err != nil {
 		return errors.Wrap(err, "couldn't find asset")
 	}
@@ -75,18 +75,18 @@ func (this *MMysqld56Probe) start() error {
 	return nil
 }
 
-func (this *MMysqld56Probe) Close() error {
+func (this *MMysqldProbe) Close() error {
 	if err := this.bpfManager.Stop(manager.CleanAll); err != nil {
 		return errors.Wrap(err, "couldn't stop manager")
 	}
 	return nil
 }
 
-func (this *MMysqld56Probe) setupManagers() error {
+func (this *MMysqldProbe) setupManagers() error {
 	var binaryPath string
-	switch this.conf.(*Mysqld56Config).elfType {
+	switch this.conf.(*MysqldConfig).elfType {
 	case ELF_TYPE_BIN:
-		binaryPath = this.conf.(*Mysqld56Config).Mysqld56path
+		binaryPath = this.conf.(*MysqldConfig).Mysqldpath
 	default:
 		//如果没找到
 		binaryPath = "/usr/sbin/mariadbd"
@@ -96,16 +96,38 @@ func (this *MMysqld56Probe) setupManagers() error {
 	if err != nil {
 		return err
 	}
-	attachFunc := this.conf.(*Mysqld56Config).FuncName
-	offset := this.conf.(*Mysqld56Config).Offset
+	attachFunc := this.conf.(*MysqldConfig).FuncName
+	offset := this.conf.(*MysqldConfig).Offset
+	version := this.conf.(*MysqldConfig).version
 
 	// mariadbd version : 10.5.13-MariaDB-0ubuntu0.21.04.1
 	// objdump -T /usr/sbin/mariadbd |grep dispatch_command
 	// 0000000000710410 g    DF .text	0000000000002f35  Base        _Z16dispatch_command19enum_server_commandP3THDPcjbb
 	// offset 0x710410
-
-	this.bpfManager = &manager.Manager{
-		Probes: []*manager.Probe{
+	var probes []*manager.Probe
+	switch version {
+	case MYSQLD_TYPE_57:
+		probes = []*manager.Probe{
+			{
+				Section:          "uprobe/dispatch_command_57",
+				EbpfFuncName:     "mysql57_query",
+				AttachToFuncName: attachFunc,
+				UprobeOffset:     offset,
+				BinaryPath:       binaryPath,
+			},
+		}
+	case MYSQLD_TYPE_80:
+		probes = []*manager.Probe{
+			{
+				Section:          "uprobe/dispatch_command_57",
+				EbpfFuncName:     "mysql57_query",
+				AttachToFuncName: attachFunc,
+				UprobeOffset:     offset,
+				BinaryPath:       binaryPath,
+			},
+		}
+	default:
+		probes = []*manager.Probe{
 			{
 				Section:          "uprobe/dispatch_command",
 				EbpfFuncName:     "mysql56_query",
@@ -113,8 +135,11 @@ func (this *MMysqld56Probe) setupManagers() error {
 				UprobeOffset:     offset,
 				BinaryPath:       binaryPath,
 			},
-		},
+		}
+	}
 
+	this.bpfManager = &manager.Manager{
+		Probes: probes,
 		Maps: []*manager.Map{
 			{
 				Name: "events",
@@ -141,33 +166,33 @@ func (this *MMysqld56Probe) setupManagers() error {
 	return nil
 }
 
-func (this *MMysqld56Probe) DecodeFun(em *ebpf.Map) (IEventStruct, bool) {
+func (this *MMysqldProbe) DecodeFun(em *ebpf.Map) (IEventStruct, bool) {
 	fun, found := this.eventFuncMaps[em]
 	return fun, found
 }
 
-func (this *MMysqld56Probe) initDecodeFun() error {
-	// mysqld56EventsMap 与解码函数映射
-	mysqld56EventsMap, found, err := this.bpfManager.GetMap("events")
+func (this *MMysqldProbe) initDecodeFun() error {
+	// mysqldEventsMap 与解码函数映射
+	mysqldEventsMap, found, err := this.bpfManager.GetMap("events")
 	if err != nil {
 		return err
 	}
 	if !found {
 		return errors.New("cant found map:events")
 	}
-	this.eventMaps = append(this.eventMaps, mysqld56EventsMap)
-	this.eventFuncMaps[mysqld56EventsMap] = &mysqld56Event{}
+	this.eventMaps = append(this.eventMaps, mysqldEventsMap)
+	this.eventFuncMaps[mysqldEventsMap] = &mysqldEvent{}
 
 	return nil
 }
 
-func (this *MMysqld56Probe) Events() []*ebpf.Map {
+func (this *MMysqldProbe) Events() []*ebpf.Map {
 	return this.eventMaps
 }
 
 func init() {
-	mod := &MMysqld56Probe{}
-	mod.name = MODULE_NAME_MYSQLD56
+	mod := &MMysqldProbe{}
+	mod.name = MODULE_NAME_MYSQLD
 	mod.mType = PROBE_TYPE_UPROBE
 	Register(mod)
 }

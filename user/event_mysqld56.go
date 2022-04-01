@@ -19,18 +19,18 @@ import (
     u64 len;
     char comm[TASK_COMM_LEN];
 */
-const MYSQLD56_MAX_DATA_SIZE = 256
+const MYSQLD_MAX_DATA_SIZE = 256
 
-type mysqld56Event struct {
+type mysqldEvent struct {
 	Pid       uint64
 	Timestamp uint64
-	query     [MYSQLD56_MAX_DATA_SIZE]uint8
+	query     [MYSQLD_MAX_DATA_SIZE]uint8
 	alllen    uint64
 	len       uint64
 	comm      [16]uint8
 }
 
-func (e *mysqld56Event) Decode(payload []byte) (err error) {
+func (e *mysqldEvent) Decode(payload []byte) (err error) {
 	buf := bytes.NewBuffer(payload)
 	if err = binary.Read(buf, binary.LittleEndian, &e.Pid); err != nil {
 		return
@@ -53,15 +53,15 @@ func (e *mysqld56Event) Decode(payload []byte) (err error) {
 	return nil
 }
 
-func (ei *mysqld56Event) String() string {
+func (ei *mysqldEvent) String() string {
 	s := fmt.Sprintf(fmt.Sprintf(" PID:%d, Comm:%s, Time:%d,  length:(%d/%d),  Line:%s", ei.Pid, ei.comm, ei.Timestamp, ei.len, ei.alllen, unix.ByteSliceToString((ei.query[:]))))
 	return s
 }
 
-func (ei *mysqld56Event) StringHex() string {
+func (ei *mysqldEvent) StringHex() string {
 	s := fmt.Sprintf(fmt.Sprintf(" PID:%d, Comm:%s, Time:%d,  length:(%d/%d),  Line:%s", ei.Pid, ei.comm, ei.Timestamp, ei.len, ei.alllen, unix.ByteSliceToString((ei.query[:]))))
 	return s
 }
-func (ei *mysqld56Event) Clone() IEventStruct {
-	return new(mysqld56Event)
+func (ei *mysqldEvent) Clone() IEventStruct {
+	return new(mysqldEvent)
 }

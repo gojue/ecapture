@@ -13,28 +13,37 @@ import (
 	"strings"
 )
 
-// 最终使用mysqld56参数
-type Mysqld56Config struct {
+type MYSQLD_TYPE uint8
+
+const (
+	MYSQLD_TYPE_56 MYSQLD_TYPE = 0
+	MYSQLD_TYPE_57 MYSQLD_TYPE = 1
+	MYSQLD_TYPE_80 MYSQLD_TYPE = 2
+)
+
+// 最终使用mysqld参数
+type MysqldConfig struct {
 	eConfig
-	Mysqld56path string `json:"mysqld56Path"` //curl的文件路径
-	FuncName     string `json:"funcName"`
-	Offset       uint64 `json:"offset"`
-	elfType      uint8  //
+	Mysqldpath string      `json:"mysqldPath"` //curl的文件路径
+	FuncName   string      `json:"funcName"`
+	Offset     uint64      `json:"offset"`
+	elfType    uint8       //
+	version    MYSQLD_TYPE //
 }
 
-func NewMysqld56Config() *Mysqld56Config {
-	config := &Mysqld56Config{}
+func NewMysqldConfig() *MysqldConfig {
+	config := &MysqldConfig{}
 	return config
 }
 
-func (this *Mysqld56Config) Check() error {
+func (this *MysqldConfig) Check() error {
 
 	// 如果readline 配置，且存在，则直接返回。
-	if this.Mysqld56path == "" || len(strings.TrimSpace(this.Mysqld56path)) <= 0 {
-		return errors.New("Mysqld56 path cant be null.")
+	if this.Mysqldpath == "" || len(strings.TrimSpace(this.Mysqldpath)) <= 0 {
+		return errors.New("Mysqld path cant be null.")
 	}
 
-	_, e := os.Stat(this.Mysqld56path)
+	_, e := os.Stat(this.Mysqldpath)
 	if e != nil {
 		return e
 	}
@@ -52,7 +61,7 @@ func (this *Mysqld56Config) Check() error {
 	}
 
 	//r, _ := regexp.Compile("^(?:# *)?(CONFIG_\\w*)(?:=| )(y|n|m|is not set|\\d+|0x.+|\".*\")$")
-	_elf, e := elf.Open(this.Mysqld56path)
+	_elf, e := elf.Open(this.Mysqldpath)
 	if e != nil {
 		return e
 	}
@@ -77,8 +86,17 @@ func (this *Mysqld56Config) Check() error {
 
 	//如果没找到，则报错。
 	if funcName == "" {
-		return errors.New(fmt.Sprintf("cant match mysql query function to hook with mysqld file::%s", this.Mysqld56path))
+		return errors.New(fmt.Sprintf("cant match mysql query function to hook with mysqld file::%s", this.Mysqldpath))
 	}
+
+	this.version = MYSQLD_TYPE_56
+
+	// 判断mysqld 版本
+	found := strings.Contains(funcName, "COM_DATA")
+	if found {
+		this.version = MYSQLD_TYPE_80 // TODO
+	}
+
 	this.FuncName = funcName
 
 	// TODO offset

@@ -15,32 +15,32 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var mc56 = user.NewMysqld56Config()
+var mysqldConfig = user.NewMysqldConfig()
 
-// mysqld56Cmd represents the mysqld56 command
-var mysqld56Cmd = &cobra.Command{
+// mysqldCmd represents the mysqld command
+var mysqldCmd = &cobra.Command{
 	Use:   "mysqld",
-	Short: "capture sql queries from mysqld >5.6 .",
-	Long: ` only support mysqld 5.6 / mariadDB 10.5.
+	Short: "capture sql queries from mysqld 5.6/5.7/8.0 .",
+	Long: ` only support mysqld 5.6/5.7/8.0 and mariadDB 10.5+.
 
 other version coming soon`,
-	Run: mysqld56CommandFunc,
+	Run: mysqldCommandFunc,
 }
 
 func init() {
-	mysqld56Cmd.PersistentFlags().StringVarP(&mc56.Mysqld56path, "mysqld", "m", "/usr/sbin/mariadbd", "mysqld binary file path, use to hook")
-	mysqld56Cmd.PersistentFlags().Uint64VarP(&mc56.Offset, "offset", "", 0, "0x710410")
-	mysqld56Cmd.PersistentFlags().StringVarP(&mc56.FuncName, "funcname", "f", "", "function name to hook")
-	rootCmd.AddCommand(mysqld56Cmd)
+	mysqldCmd.PersistentFlags().StringVarP(&mysqldConfig.Mysqldpath, "mysqld", "m", "/usr/sbin/mariadbd", "mysqld binary file path, use to hook")
+	mysqldCmd.PersistentFlags().Uint64VarP(&mysqldConfig.Offset, "offset", "", 0, "0x710410")
+	mysqldCmd.PersistentFlags().StringVarP(&mysqldConfig.FuncName, "funcname", "f", "", "function name to hook")
+	rootCmd.AddCommand(mysqldCmd)
 }
 
-// mysqld56CommandFunc executes the "mysqld56" command.
-func mysqld56CommandFunc(command *cobra.Command, args []string) {
+// mysqldCommandFunc executes the "mysqld" command.
+func mysqldCommandFunc(command *cobra.Command, args []string) {
 	stopper := make(chan os.Signal, 1)
 	signal.Notify(stopper, os.Interrupt, syscall.SIGTERM)
 	ctx, cancelFun := context.WithCancel(context.TODO())
 
-	mod := user.GetModuleByName(user.MODULE_NAME_MYSQLD56)
+	mod := user.GetModuleByName(user.MODULE_NAME_MYSQLD)
 
 	logger := log.Default()
 
@@ -52,19 +52,19 @@ func mysqld56CommandFunc(command *cobra.Command, args []string) {
 		logger.Fatal(e)
 		os.Exit(1)
 	}
-	mc56.Pid = gConf.Pid
-	mc56.Debug = gConf.Debug
-	mc56.IsHex = gConf.IsHex
+	mysqldConfig.Pid = gConf.Pid
+	mysqldConfig.Debug = gConf.Debug
+	mysqldConfig.IsHex = gConf.IsHex
 
 	log.Printf("pid info :%d", os.Getpid())
 	//bc.Pid = globalFlags.Pid
-	if e := mc56.Check(); e != nil {
+	if e := mysqldConfig.Check(); e != nil {
 		logger.Fatal(e)
 		os.Exit(1)
 	}
 
 	//初始化
-	err := mod.Init(ctx, logger, mc56)
+	err := mod.Init(ctx, logger, mysqldConfig)
 	if err != nil {
 		logger.Fatal(err)
 		os.Exit(1)
