@@ -4,6 +4,7 @@
 #include "common.h"
 
 enum ssl_data_event_type { kSSLRead, kSSLWrite };
+const int32_t invalidFD = -1;
 
 struct ssl_data_event_t {
   enum ssl_data_event_type type;
@@ -51,6 +52,29 @@ struct
     __type(value, struct ssl_data_event_t);
     __uint(max_entries, 1);
 } data_buffer_heap SEC(".maps");
+
+
+struct not_used {
+};
+
+struct BIO {
+    const struct not_used *method;
+    struct not_used callback;
+    struct not_used callback_ex;
+    char *cb_arg;               /* first argument for the callback */
+    int init;
+    int shutdown;
+    int flags;                  /* extra storage */
+    int retry_reason;
+    int num;
+};
+
+struct ssl_st {
+    int version;
+    struct not_used *method;
+    struct BIO *rbio;  //used by SSL_read
+    struct BIO *wbio; //used by SSL_write
+};
 
 /***********************************************************
  * General helper functions
@@ -112,6 +136,21 @@ int probe_entry_SSL_write(struct pt_regs* ctx) {
         return 0;
     }
 
+    void * ssl = (void *) PT_REGS_PARM1(ctx);
+
+    // https://github.com/openssl/openssl/blob/OpenSSL_1_1_1-stable/crypto/bio/bio_local.h
+
+    struct ssl_st  ssl_info;
+    bpf_probe_read_user(&ssl_info, sizeof(ssl_info), ssl);
+    bpf_printk("@ version :%d\n", ssl_info.version);
+
+    struct BIO  bio_w;
+
+    bpf_probe_read_user(&bio_w, sizeof(bio_w), ssl_info.wbio);
+
+    // get fd ssl->rbio->num
+    int rbio_num = bio_w.num;
+    bpf_printk("@ rbio_num :%d\n", rbio_num);
     const char* buf = (const char*)PT_REGS_PARM2(ctx);
     bpf_map_update_elem(&active_ssl_write_args_map, &current_pid_tgid, &buf, BPF_ANY);
     return 0;
