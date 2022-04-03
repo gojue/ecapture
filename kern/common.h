@@ -6,6 +6,9 @@
 #define MAX_DATA_SIZE_MYSQL 256
 #define COM_QUERY 3 //enum_server_command, via https://dev.mysql.com/doc/internals/en/com-query.html COM_QUERT command 03
 
+#define AF_INET 2
+#define AF_INET6 10
+#define SA_DATA_LEN 14
 
 // Optional Target PID
 const volatile u64 target_pid = 0;

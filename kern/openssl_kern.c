@@ -21,6 +21,20 @@ struct
     __uint(type, BPF_MAP_TYPE_PERF_EVENT_ARRAY);
 } tls_events SEC(".maps");
 
+struct connect_event_t {
+  uint64_t timestamp_ns;
+  uint32_t pid;
+  uint32_t tid;
+  uint32_t fd;
+  char sa_data[SA_DATA_LEN];
+  char comm[TASK_COMM_LEN];
+};
+
+struct
+{
+    __uint(type, BPF_MAP_TYPE_PERF_EVENT_ARRAY);
+} connect_events SEC(".maps");
+
 /***********************************************************
  * Internal structs and definitions
  ***********************************************************/
@@ -208,5 +222,46 @@ int probe_ret_SSL_read(struct pt_regs* ctx) {
     }
 
     bpf_map_delete_elem(&active_ssl_read_args_map, &current_pid_tgid);
+    return 0;
+}
+
+
+// https://github.com/lattera/glibc/blob/895ef79e04a953cac1493863bcae29ad85657ee1/socket/connect.c
+// int __connect (int fd, __CONST_SOCKADDR_ARG addr, socklen_t len)
+SEC("uprobe/connect")
+int probe_connect(struct pt_regs* ctx) {
+    uint64_t current_pid_tgid = bpf_get_current_pid_tgid();
+    uint32_t pid = current_pid_tgid >> 32;
+
+    // if target_ppid is 0 then we target all pids
+    if (target_pid != 0 && target_pid != pid) {
+        return 0;
+    }
+
+    u32 fd = (u32)PT_REGS_PARM1(ctx);
+    struct sockaddr *saddr = (struct sockaddr *)PT_REGS_PARM2(ctx);
+    if (!saddr) {
+        return 0;
+    }
+    sa_family_t address_family = 0;
+    bpf_probe_read(&address_family, sizeof(address_family), &saddr->sa_family);
+
+    if (address_family != AF_INET) {
+        return 0;
+    }
+
+    bpf_printk("@ sockaddr FM :%d\n", address_family);
+    bpf_printk("@ sockaddr FM_body :%s\n", saddr->sa_data);
+
+    struct connect_event_t conn;
+   __builtin_memset(&conn, 0, sizeof(conn));
+    conn.timestamp_ns = bpf_ktime_get_ns();
+    conn.pid = pid;
+    conn.tid = current_pid_tgid;
+    conn.fd = fd;
+    bpf_probe_read(&conn.sa_data, SA_DATA_LEN, &saddr->sa_data);
+    bpf_get_current_comm(&conn.comm, sizeof(conn.comm));
+
+    bpf_perf_event_output(ctx, &connect_events, BPF_F_CURRENT_CPU, &conn,sizeof(struct connect_event_t));
     return 0;
 }
