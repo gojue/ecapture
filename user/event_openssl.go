@@ -70,7 +70,7 @@ func (this *SSLDataEvent) StringHex() string {
 		connInfo = fmt.Sprintf("%sRecived %d bytes from %s%s", COLORGREEN, this.Data_len, addr, COLORRESET)
 		perfix = COLORGREEN
 	case PROBE_RET:
-		connInfo = fmt.Sprintf("%sSend %d bytes to %s%s%s", COLORPURPLE, this.Data_len, addr, COLORRESET)
+		connInfo = fmt.Sprintf("%sSend %d bytes to %s%s", COLORPURPLE, this.Data_len, addr, COLORRESET)
 		perfix = fmt.Sprintf("%s\t", COLORPURPLE)
 	default:
 		perfix = fmt.Sprintf("UNKNOW_%d", this.EventType)
