@@ -20,26 +20,26 @@ type eConfig struct {
 	Debug bool
 }
 
-func (e *eConfig) GetPid() uint64 {
-	return e.Pid
+func (this *eConfig) GetPid() uint64 {
+	return this.Pid
 }
 
-func (e *eConfig) GetDebug() bool {
-	return e.Debug
+func (this *eConfig) GetDebug() bool {
+	return this.Debug
 }
 
-func (e *eConfig) GetHex() bool {
-	return e.IsHex
+func (this *eConfig) GetHex() bool {
+	return this.IsHex
 }
 
-func (e *eConfig) SetPid(pid uint64) {
-	e.Pid = pid
+func (this *eConfig) SetPid(pid uint64) {
+	this.Pid = pid
 }
 
-func (e *eConfig) SetDebug(b bool) {
-	e.Debug = b
+func (this *eConfig) SetDebug(b bool) {
+	this.Debug = b
 }
 
-func (e *eConfig) SetHex(isHex bool) {
-	e.IsHex = isHex
+func (this *eConfig) SetHex(isHex bool) {
+	this.IsHex = isHex
 }

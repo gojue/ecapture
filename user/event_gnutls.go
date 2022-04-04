@@ -11,6 +11,7 @@ import (
 )
 
 type GnutlsDataEvent struct {
+	module       IModule
 	EventType    int64
 	Timestamp_ns uint64
 	Pid          uint32
@@ -20,27 +21,27 @@ type GnutlsDataEvent struct {
 	Comm         [16]byte
 }
 
-func (e *GnutlsDataEvent) Decode(payload []byte) (err error) {
+func (this *GnutlsDataEvent) Decode(payload []byte) (err error) {
 	buf := bytes.NewBuffer(payload)
-	if err = binary.Read(buf, binary.LittleEndian, &e.EventType); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &this.EventType); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &e.Timestamp_ns); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &this.Timestamp_ns); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &e.Pid); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &this.Pid); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &e.Tid); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &this.Tid); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &e.Data); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &this.Data); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &e.Data_len); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &this.Data_len); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &e.Comm); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &this.Comm); err != nil {
 		return
 	}
 	return nil
@@ -81,6 +82,14 @@ func (this *GnutlsDataEvent) String() string {
 	return s
 }
 
-func (ei *GnutlsDataEvent) Clone() IEventStruct {
+func (this *GnutlsDataEvent) SetModule(module IModule) {
+	this.module = module
+}
+
+func (this *GnutlsDataEvent) Module() IModule {
+	return this.module
+}
+
+func (this *GnutlsDataEvent) Clone() IEventStruct {
 	return new(GnutlsDataEvent)
 }

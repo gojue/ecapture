@@ -217,13 +217,13 @@ func (this *Module) ringbufEventReader(errChan chan error, em *ebpf.Map) {
 	}
 }
 
-func (e *Module) EventsDecode(payload []byte, es IEventStruct) (s string, err error) {
+func (this *Module) EventsDecode(payload []byte, es IEventStruct) (s string, err error) {
 	te := es.Clone()
 	err = te.Decode(payload)
 	if err != nil {
 		return
 	}
-	if e.conf.GetHex() {
+	if this.conf.GetHex() {
 		s = te.StringHex()
 	} else {
 		s = te.String()
@@ -246,6 +246,5 @@ func (this *Module) Decode(em *ebpf.Map, b []byte) (result string, err error) {
 
 // 写入数据，或者上传到远程数据库，写入到其他chan 等。
 func (this *Module) Write(result string) {
-	//s := fmt.Sprintf("probeName:%s, probeTpye:%s, %s", this.name, this.mType, result)
 	this.logger.Println(result)
 }

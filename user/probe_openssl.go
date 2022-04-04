@@ -13,12 +13,17 @@ import (
 	"os"
 )
 
+const CONN_NOT_FOUND = "[ADDR_NOT_FOUND]"
+
 type MOpenSSLProbe struct {
 	Module
 	bpfManager        *manager.Manager
 	bpfManagerOptions manager.Options
 	eventFuncMaps     map[*ebpf.Map]IEventStruct
 	eventMaps         []*ebpf.Map
+
+	// pid[fd:addr]
+	pidConns map[uint32]map[uint32]string
 }
 
 //对象初始化
@@ -28,6 +33,7 @@ func (this *MOpenSSLProbe) Init(ctx context.Context, logger *log.Logger, conf IC
 	this.Module.SetChild(this)
 	this.eventMaps = make([]*ebpf.Map, 0, 2)
 	this.eventFuncMaps = make(map[*ebpf.Map]IEventStruct)
+	this.pidConns = make(map[uint32]map[uint32]string)
 	return nil
 }
 
@@ -79,20 +85,20 @@ func (this *MOpenSSLProbe) Close() error {
 }
 
 //  通过elf的常量替换方式传递数据
-func (e *MOpenSSLProbe) constantEditor() []manager.ConstantEditor {
+func (this *MOpenSSLProbe) constantEditor() []manager.ConstantEditor {
 	//TODO
 	var editor = []manager.ConstantEditor{
 		{
 			Name:  "target_pid",
-			Value: uint64(e.conf.GetPid()),
+			Value: uint64(this.conf.GetPid()),
 			//FailOnMissing: true,
 		},
 	}
 
-	if e.conf.GetPid() <= 0 {
-		e.logger.Printf("target all process. \n")
+	if this.conf.GetPid() <= 0 {
+		this.logger.Printf("target all process. \n")
 	} else {
-		e.logger.Printf("target PID:%d \n", e.conf.GetPid())
+		this.logger.Printf("target PID:%d \n", this.conf.GetPid())
 	}
 	return editor
 }
@@ -142,37 +148,20 @@ func (this *MOpenSSLProbe) setupManagers() error {
 				AttachToFuncName: "SSL_read",
 				BinaryPath:       binaryPath,
 			},
-			/*
-				{
-						Section:          "uprobe/SSL_write",
-						EbpfFuncName:     "probe_entry_SSL_write",
-						AttachToFuncName: "SSL_write_ex",
-						BinaryPath: binaryPath,
-					},
-					{
-						Section:          "uretprobe/SSL_write",
-						EbpfFuncName:     "probe_ret_SSL_write",
-						AttachToFuncName: "SSL_write_ex",
-						BinaryPath: binaryPath,
-					},
-					{
-						Section:          "uprobe/SSL_read",
-						EbpfFuncName:     "probe_entry_SSL_read",
-						AttachToFuncName: "SSL_read_ex",
-						BinaryPath: binaryPath,
-					},
-					{
-						Section:          "uretprobe/SSL_read",
-						EbpfFuncName:     "probe_ret_SSL_read",
-						AttachToFuncName: "SSL_read_ex",
-						BinaryPath: binaryPath,
-					},
-			*/
+			{
+				Section:          "uprobe/connect",
+				EbpfFuncName:     "probe_connect",
+				AttachToFuncName: "connect",
+				BinaryPath:       "/lib/x86_64-linux-gnu/libpthread.so.0",
+			},
 		},
 
 		Maps: []*manager.Map{
 			{
 				Name: "tls_events",
+			},
+			{
+				Name: "connect_events",
 			},
 		},
 	}
@@ -211,13 +200,86 @@ func (this *MOpenSSLProbe) initDecodeFun() error {
 		return errors.New("cant found map:tls_events")
 	}
 	this.eventMaps = append(this.eventMaps, SSLDumpEventsMap)
-	this.eventFuncMaps[SSLDumpEventsMap] = &SSLDataEvent{}
+	sslEvent := &SSLDataEvent{}
+	sslEvent.SetModule(this)
+	this.eventFuncMaps[SSLDumpEventsMap] = sslEvent
 
+	ConnEventsMap, found, err := this.bpfManager.GetMap("connect_events")
+	if err != nil {
+		return err
+	}
+	if !found {
+		return errors.New("cant found map:connect_events")
+	}
+	this.eventMaps = append(this.eventMaps, ConnEventsMap)
+	connEvent := &ConnDataEvent{}
+	connEvent.SetModule(this)
+	this.eventFuncMaps[ConnEventsMap] = connEvent
 	return nil
 }
 
 func (this *MOpenSSLProbe) Events() []*ebpf.Map {
 	return this.eventMaps
+}
+
+func (this *MOpenSSLProbe) AddConn(pid, fd uint32, addr string) {
+	// save to map
+	var m map[uint32]string
+	var f bool
+	m, f = this.pidConns[pid]
+	if !f {
+		m = make(map[uint32]string)
+	}
+	m[fd] = addr
+	this.pidConns[pid] = m
+	return
+}
+
+// process exit :fd is 0 , delete all pid map
+// fd exit :pid > 0, fd > 0, delete fd value
+// TODO add fd * pid exit event hook
+func (this *MOpenSSLProbe) DelConn(pid, fd uint32) {
+	// delete from map
+	if pid == 0 {
+		return
+	}
+
+	if fd == 0 {
+		delete(this.pidConns, pid)
+	}
+
+	var m map[uint32]string
+	var f bool
+	m, f = this.pidConns[pid]
+	if !f {
+		return
+	}
+	delete(m, fd)
+	this.pidConns[pid] = m
+	return
+}
+
+func (this *MOpenSSLProbe) GetConn(pid, fd uint32) string {
+	addr := ""
+	var m map[uint32]string
+	var f bool
+	m, f = this.pidConns[pid]
+	if !f {
+		return CONN_NOT_FOUND
+	}
+
+	addr, f = m[fd]
+	if !f {
+		return CONN_NOT_FOUND
+	}
+	return addr
+}
+
+func (this *MOpenSSLProbe) Write(result string) {
+	// TODO fixme , check result origin , if connEvent ,do not print
+	if result != "" {
+		this.logger.Println(result)
+	}
 }
 
 func init() {

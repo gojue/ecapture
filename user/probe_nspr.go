@@ -79,20 +79,20 @@ func (this *MNsprProbe) Close() error {
 }
 
 //  通过elf的常量替换方式传递数据
-func (e *MNsprProbe) constantEditor() []manager.ConstantEditor {
+func (this *MNsprProbe) constantEditor() []manager.ConstantEditor {
 	//TODO
 	var editor = []manager.ConstantEditor{
 		{
 			Name:  "target_pid",
-			Value: uint64(e.conf.GetPid()),
+			Value: uint64(this.conf.GetPid()),
 			//FailOnMissing: true,
 		},
 	}
 
-	if e.conf.GetPid() <= 0 {
-		e.logger.Printf("target all process. \n")
+	if this.conf.GetPid() <= 0 {
+		this.logger.Printf("target all process. \n")
 	} else {
-		e.logger.Printf("target PID:%d \n", e.conf.GetPid())
+		this.logger.Printf("target PID:%d \n", this.conf.GetPid())
 	}
 	return editor
 }

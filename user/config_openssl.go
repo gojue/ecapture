@@ -15,6 +15,7 @@ type OpensslConfig struct {
 	eConfig
 	Curlpath string `json:"curlpath"` //curl的文件路径
 	Openssl  string `json:"openssl"`
+	Pthread  string `json:"pthread"` // /lib/x86_64-linux-gnu/libpthread.so.0
 	elfType  uint8  //
 }
 
@@ -65,6 +66,8 @@ func (this *OpensslConfig) Check() error {
 
 	this.Openssl = soPath
 	this.elfType = ELF_TYPE_SO
+
+	// TODO  find /lib/x86_64-linux-gnu/libpthread.so.0 path
 
 	return nil
 }

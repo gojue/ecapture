@@ -151,20 +151,18 @@ int probe_entry_SSL_write(struct pt_regs* ctx) {
     }
 
     void * ssl = (void *) PT_REGS_PARM1(ctx);
-
     // https://github.com/openssl/openssl/blob/OpenSSL_1_1_1-stable/crypto/bio/bio_local.h
-
     struct ssl_st  ssl_info;
     bpf_probe_read_user(&ssl_info, sizeof(ssl_info), ssl);
-    bpf_printk("@ version :%d\n", ssl_info.version);
+    debug_bpf_printk("@ version :%d\n", ssl_info.version);
 
     struct BIO  bio_w;
-
     bpf_probe_read_user(&bio_w, sizeof(bio_w), ssl_info.wbio);
 
-    // get fd ssl->rbio->num
-    int rbio_num = bio_w.num;
-    bpf_printk("@ rbio_num :%d\n", rbio_num);
+    // get fd ssl->wbio->num
+    int fd = bio_w.num;
+    debug_bpf_printk("@ fd :%d\n", fd);
+
     const char* buf = (const char*)PT_REGS_PARM2(ctx);
     bpf_map_update_elem(&active_ssl_write_args_map, &current_pid_tgid, &buf, BPF_ANY);
     return 0;
@@ -200,6 +198,19 @@ int probe_entry_SSL_read(struct pt_regs* ctx) {
     if (target_pid != 0 && target_pid != pid) {
         return 0;
     }
+
+    void * ssl = (void *) PT_REGS_PARM1(ctx);
+    // https://github.com/openssl/openssl/blob/OpenSSL_1_1_1-stable/crypto/bio/bio_local.h
+    struct ssl_st  ssl_info;
+    bpf_probe_read_user(&ssl_info, sizeof(ssl_info), ssl);
+    debug_bpf_printk("@read version :%d\n", ssl_info.version);
+
+    struct BIO  bio_r;
+    bpf_probe_read_user(&bio_r, sizeof(bio_r), ssl_info.rbio);
+
+    // get fd ssl->wbio->num
+    int fd = bio_r.num;
+    debug_bpf_printk("@read from fd :%d\n", fd);
 
     const char* buf = (const char*)PT_REGS_PARM2(ctx);
     bpf_map_update_elem(&active_ssl_read_args_map, &current_pid_tgid, &buf, BPF_ANY);
@@ -250,11 +261,10 @@ int probe_connect(struct pt_regs* ctx) {
         return 0;
     }
 
-    bpf_printk("@ sockaddr FM :%d\n", address_family);
-    bpf_printk("@ sockaddr FM_body :%s\n", saddr->sa_data);
+    debug_bpf_printk("@ sockaddr FM :%d\n", address_family);
 
     struct connect_event_t conn;
-   __builtin_memset(&conn, 0, sizeof(conn));
+    __builtin_memset(&conn, 0, sizeof(conn));
     conn.timestamp_ns = bpf_ktime_get_ns();
     conn.pid = pid;
     conn.tid = current_pid_tgid;

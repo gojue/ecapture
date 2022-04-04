@@ -5,4 +5,6 @@ type IEventStruct interface {
 	String() string
 	StringHex() string
 	Clone() IEventStruct
+	Module() IModule
+	SetModule(IModule)
 }
