@@ -37,6 +37,8 @@ type IModule interface {
 	Events() []*ebpf.Map
 
 	DecodeFun(p *ebpf.Map) (IEventStruct, bool)
+
+	Write(string)
 }
 
 type Module struct {
@@ -246,5 +248,5 @@ func (this *Module) Decode(em *ebpf.Map, b []byte) (result string, err error) {
 
 // 写入数据，或者上传到远程数据库，写入到其他chan 等。
 func (this *Module) Write(result string) {
-	this.logger.Println(result)
+	this.child.Write(result)
 }

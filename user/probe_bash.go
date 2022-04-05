@@ -166,6 +166,10 @@ func (this *MBashProbe) Events() []*ebpf.Map {
 	return this.eventMaps
 }
 
+func (this *MBashProbe) Write(result string) {
+	this.logger.Println(result)
+}
+
 func init() {
 	mod := &MBashProbe{}
 	mod.name = MODULE_NAME_BASH
