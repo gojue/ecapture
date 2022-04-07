@@ -66,6 +66,9 @@ func ParseDynLibConf(pattern string) (dirs []string, err error) {
 	files := GlobMany([]string{pattern}, nil)
 
 	for _, configFile := range files {
+		if strings.Contains(configFile, "lib32") {
+			continue
+		}
 		fd, err := os.Open(configFile)
 		if err != nil {
 			return dirs, err
