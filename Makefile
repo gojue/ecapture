@@ -34,7 +34,10 @@ endif
 # 运行环境  5.4.0-96-generic
 LLC ?= llc
 CLANG ?= clang
-EXTRA_CFLAGS ?= -O2 -mcpu=v1 -nostdinc -Wno-pointer-sign
+EXTRA_CFLAGS ?= -O2 -mcpu=v1 \
+	-DDEBUG_PRINT	\
+	-nostdinc \
+	-Wno-pointer-sign
 
 BPFHEADER = -I./kern \
 
@@ -50,7 +53,7 @@ endif
 all: $(KERN_OBJECTS) assets build
 	@echo $(shell date)
 
-.PHONY: clean assets
+.PHONY: clean assets build
 
 clean:
 	rm -f user/bytecode/*.d

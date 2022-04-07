@@ -61,13 +61,26 @@ func (this *OpensslConfig) Check() error {
 		if e != nil {
 			return e
 		}
-		return nil
+	} else {
+		this.Openssl = soPath
+		this.elfType = ELF_TYPE_SO
 	}
 
-	this.Openssl = soPath
-	this.elfType = ELF_TYPE_SO
-
-	// TODO  find /lib/x86_64-linux-gnu/libpthread.so.0 path
-
+	// find /lib/x86_64-linux-gnu/libpthread.so.0 path
+	pthreadSoPath, e := getDynPathByElf(this.Curlpath, "libpthread.so")
+	if e != nil {
+		_, e = os.Stat(X86_BINARY_PREFIX)
+		prefix := X86_BINARY_PREFIX
+		if e != nil {
+			prefix = OTHERS_BINARY_PREFIX
+		}
+		this.Pthread = filepath.Join(prefix, "libpthread.so.0")
+		_, e = os.Stat(this.Pthread)
+		if e != nil {
+			return e
+		}
+	} else {
+		this.Pthread = pthreadSoPath
+	}
 	return nil
 }

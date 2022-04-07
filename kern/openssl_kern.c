@@ -4,16 +4,17 @@
 #include "common.h"
 
 enum ssl_data_event_type { kSSLRead, kSSLWrite };
-const int32_t invalidFD = -1;
+const u32 invalidFD = 0;
 
 struct ssl_data_event_t {
   enum ssl_data_event_type type;
-  uint64_t timestamp_ns;
-  uint32_t pid;
-  uint32_t tid;
+  u64 timestamp_ns;
+  u32 pid;
+  u32 tid;
   char data[MAX_DATA_SIZE_OPENSSL];
-  int32_t data_len;
+  s32 data_len;
   char comm[TASK_COMM_LEN];
+  u32 fd;
 };
 
 struct
@@ -22,10 +23,10 @@ struct
 } tls_events SEC(".maps");
 
 struct connect_event_t {
-  uint64_t timestamp_ns;
-  uint32_t pid;
-  uint32_t tid;
-  uint32_t fd;
+  u64 timestamp_ns;
+  u32 pid;
+  u32 tid;
+  u32 fd;
   char sa_data[SA_DATA_LEN];
   char comm[TASK_COMM_LEN];
 };
@@ -34,6 +35,11 @@ struct
 {
     __uint(type, BPF_MAP_TYPE_PERF_EVENT_ARRAY);
 } connect_events SEC(".maps");
+
+struct active_ssl_buf {
+    u32 fd;
+    const char* buf;
+};
 
 /***********************************************************
  * Internal structs and definitions
@@ -45,7 +51,7 @@ struct
 {
     __uint(type, BPF_MAP_TYPE_HASH);
     __type(key, u64);
-    __type(value, const char*);
+    __type(value, struct active_ssl_buf);
     __uint(max_entries, 1024);
 } active_ssl_read_args_map SEC(".maps");
 
@@ -53,7 +59,7 @@ struct
 {
     __uint(type, BPF_MAP_TYPE_HASH);
     __type(key, u64);
-    __type(value, const char*);
+    __type(value, struct active_ssl_buf);
     __uint(max_entries, 1024);
 } active_ssl_write_args_map SEC(".maps");
 
@@ -68,13 +74,16 @@ struct
 } data_buffer_heap SEC(".maps");
 
 
-struct not_used {
+// OPENSSL struct to offset , via kern/README.md
+typedef long (*unused_fn)();
+
+struct unused {
 };
 
 struct BIO {
-    const struct not_used *method;
-    struct not_used callback;
-    struct not_used callback_ex;
+    const struct unused *method;
+    unused_fn callback;
+    unused_fn callback_ex;
     char *cb_arg;               /* first argument for the callback */
     int init;
     int shutdown;
@@ -85,7 +94,7 @@ struct BIO {
 
 struct ssl_st {
     int version;
-    struct not_used *method;
+    struct unused *method;
     struct BIO *rbio;  //used by SSL_read
     struct BIO *wbio; //used by SSL_write
 };
@@ -105,6 +114,7 @@ static __inline struct ssl_data_event_t* create_ssl_data_event(uint64_t current_
     event->timestamp_ns = bpf_ktime_get_ns();
     event->pid = current_pid_tgid >> 32;
     event->tid = current_pid_tgid & kMask32b;
+    event->fd = invalidFD;
 
     return event;
 }
@@ -114,7 +124,7 @@ static __inline struct ssl_data_event_t* create_ssl_data_event(uint64_t current_
  ***********************************************************/
 
 static int process_SSL_data(struct pt_regs* ctx, uint64_t id, enum ssl_data_event_type type,
-                            const char* buf) {
+                            const char* buf, u32 fd) {
     int len = (int)PT_REGS_RC(ctx);
     if (len < 0) {
         return 0;
@@ -126,6 +136,7 @@ static int process_SSL_data(struct pt_regs* ctx, uint64_t id, enum ssl_data_even
     }
 
     event->type = type;
+    event->fd = fd;
     // This is a max function, but it is written in such a way to keep older BPF verifiers happy.
     event->data_len = (len < MAX_DATA_SIZE_OPENSSL ? (len & (MAX_DATA_SIZE_OPENSSL - 1)) : MAX_DATA_SIZE_OPENSSL);
     bpf_probe_read(event->data, event->data_len, buf);
@@ -154,17 +165,21 @@ int probe_entry_SSL_write(struct pt_regs* ctx) {
     // https://github.com/openssl/openssl/blob/OpenSSL_1_1_1-stable/crypto/bio/bio_local.h
     struct ssl_st  ssl_info;
     bpf_probe_read_user(&ssl_info, sizeof(ssl_info), ssl);
-    debug_bpf_printk("@ version :%d\n", ssl_info.version);
 
     struct BIO  bio_w;
     bpf_probe_read_user(&bio_w, sizeof(bio_w), ssl_info.wbio);
 
     // get fd ssl->wbio->num
-    int fd = bio_w.num;
-    debug_bpf_printk("@ fd :%d\n", fd);
+    u32 fd = bio_w.num;
+    debug_bpf_printk("uprobe SSL_write FD:%d\n", fd);
 
     const char* buf = (const char*)PT_REGS_PARM2(ctx);
-    bpf_map_update_elem(&active_ssl_write_args_map, &current_pid_tgid, &buf, BPF_ANY);
+    struct active_ssl_buf active_ssl_buf_t;
+    __builtin_memset(&active_ssl_buf_t, 0, sizeof(active_ssl_buf_t));
+    active_ssl_buf_t.fd = fd;
+    active_ssl_buf_t.buf = buf;
+    bpf_map_update_elem(&active_ssl_write_args_map, &current_pid_tgid, &active_ssl_buf_t, BPF_ANY);
+
     return 0;
 }
 
@@ -178,11 +193,13 @@ int probe_ret_SSL_write(struct pt_regs* ctx) {
         return 0;
     }
 
-    const char** buf = bpf_map_lookup_elem(&active_ssl_write_args_map, &current_pid_tgid);
-    if (buf != NULL) {
-        process_SSL_data(ctx, current_pid_tgid, kSSLWrite, *buf);
+    struct active_ssl_buf* active_ssl_buf_t = bpf_map_lookup_elem(&active_ssl_write_args_map, &current_pid_tgid);
+    if (active_ssl_buf_t != NULL) {
+        const char* buf;
+        u32 fd = active_ssl_buf_t->fd;
+        bpf_probe_read(&buf, sizeof(const char *), &active_ssl_buf_t->buf);
+        process_SSL_data(ctx, current_pid_tgid, kSSLWrite, buf, fd);
     }
-
     bpf_map_delete_elem(&active_ssl_write_args_map, &current_pid_tgid);
     return 0;
 }
@@ -203,17 +220,20 @@ int probe_entry_SSL_read(struct pt_regs* ctx) {
     // https://github.com/openssl/openssl/blob/OpenSSL_1_1_1-stable/crypto/bio/bio_local.h
     struct ssl_st  ssl_info;
     bpf_probe_read_user(&ssl_info, sizeof(ssl_info), ssl);
-    debug_bpf_printk("@read version :%d\n", ssl_info.version);
 
     struct BIO  bio_r;
     bpf_probe_read_user(&bio_r, sizeof(bio_r), ssl_info.rbio);
 
-    // get fd ssl->wbio->num
-    int fd = bio_r.num;
-    debug_bpf_printk("@read from fd :%d\n", fd);
+    // get fd ssl->rbio->num
+    u32 fd = bio_r.num;
+    debug_bpf_printk("uprobe SSL_read FD:%d\n", fd);
 
     const char* buf = (const char*)PT_REGS_PARM2(ctx);
-    bpf_map_update_elem(&active_ssl_read_args_map, &current_pid_tgid, &buf, BPF_ANY);
+    struct active_ssl_buf active_ssl_buf_t;
+    __builtin_memset(&active_ssl_buf_t, 0, sizeof(active_ssl_buf_t));
+    active_ssl_buf_t.fd = fd;
+    active_ssl_buf_t.buf = buf;
+    bpf_map_update_elem(&active_ssl_read_args_map, &current_pid_tgid, &active_ssl_buf_t, BPF_ANY);
     return 0;
 }
 
@@ -227,11 +247,13 @@ int probe_ret_SSL_read(struct pt_regs* ctx) {
         return 0;
     }
 
-    const char** buf = bpf_map_lookup_elem(&active_ssl_read_args_map, &current_pid_tgid);
-    if (buf != NULL) {
-        process_SSL_data(ctx, current_pid_tgid, kSSLRead, *buf);
+    struct active_ssl_buf* active_ssl_buf_t = bpf_map_lookup_elem(&active_ssl_read_args_map, &current_pid_tgid);
+    if (active_ssl_buf_t != NULL) {
+        const char* buf;
+        u32 fd = active_ssl_buf_t->fd;
+        bpf_probe_read(&buf, sizeof(const char *), &active_ssl_buf_t->buf);
+        process_SSL_data(ctx, current_pid_tgid, kSSLRead, buf, fd);
     }
-
     bpf_map_delete_elem(&active_ssl_read_args_map, &current_pid_tgid);
     return 0;
 }

@@ -104,7 +104,7 @@ func (this *MOpenSSLProbe) constantEditor() []manager.ConstantEditor {
 }
 
 func (this *MOpenSSLProbe) setupManagers() error {
-	var binaryPath string
+	var binaryPath, libPthread string
 	switch this.conf.(*OpensslConfig).elfType {
 	case ELF_TYPE_BIN:
 		binaryPath = this.conf.(*OpensslConfig).Curlpath
@@ -115,12 +115,17 @@ func (this *MOpenSSLProbe) setupManagers() error {
 		binaryPath = "/lib/x86_64-linux-gnu/libssl.so.1.1"
 	}
 
+	libPthread = this.conf.(*OpensslConfig).Pthread
+	if libPthread == "" {
+		libPthread = "/lib/x86_64-linux-gnu/libpthread.so.0"
+	}
 	_, err := os.Stat(binaryPath)
 	if err != nil {
 		return err
 	}
 
 	this.logger.Printf("HOOK type:%d, binrayPath:%s\n", this.conf.(*OpensslConfig).elfType, binaryPath)
+	this.logger.Printf("libPthread so Path:%s\n", libPthread)
 
 	this.bpfManager = &manager.Manager{
 		Probes: []*manager.Probe{
@@ -152,7 +157,7 @@ func (this *MOpenSSLProbe) setupManagers() error {
 				Section:          "uprobe/connect",
 				EbpfFuncName:     "probe_connect",
 				AttachToFuncName: "connect",
-				BinaryPath:       "/lib/x86_64-linux-gnu/libpthread.so.0",
+				BinaryPath:       libPthread,
 			},
 		},
 

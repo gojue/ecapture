@@ -56,8 +56,10 @@ func (this *SSLDataEvent) Decode(payload []byte) (err error) {
 	if err = binary.Read(buf, binary.LittleEndian, &this.Comm); err != nil {
 		return
 	}
+	if err = binary.Read(buf, binary.LittleEndian, &this.Fd); err != nil {
+		return
+	}
 
-	this.Fd = 5 // TODO
 	return nil
 }
 
@@ -67,10 +69,10 @@ func (this *SSLDataEvent) StringHex() string {
 	var perfix, connInfo string
 	switch AttachType(this.EventType) {
 	case PROBE_ENTRY:
-		connInfo = fmt.Sprintf("%sRecived %d bytes from %s%s", COLORGREEN, this.Data_len, addr, COLORRESET)
+		connInfo = fmt.Sprintf("%sRecived %d%s bytes from %s%s%s", COLORGREEN, this.Data_len, COLORRESET, COLORYELLOW, addr, COLORRESET)
 		perfix = COLORGREEN
 	case PROBE_RET:
-		connInfo = fmt.Sprintf("%sSend %d bytes to %s%s", COLORPURPLE, this.Data_len, addr, COLORRESET)
+		connInfo = fmt.Sprintf("%sSend %d%s bytes to %s%s%s", COLORPURPLE, this.Data_len, COLORRESET, COLORYELLOW, addr, COLORRESET)
 		perfix = fmt.Sprintf("%s\t", COLORPURPLE)
 	default:
 		perfix = fmt.Sprintf("UNKNOW_%d", this.EventType)
@@ -89,10 +91,10 @@ func (this *SSLDataEvent) String() string {
 	var perfix, connInfo string
 	switch AttachType(this.EventType) {
 	case PROBE_ENTRY:
-		connInfo = fmt.Sprintf("%sRecived %d bytes from %s%s", COLORGREEN, this.Data_len, addr, COLORRESET)
+		connInfo = fmt.Sprintf("%sRecived %d%s bytes from %s%s%s", COLORGREEN, this.Data_len, COLORRESET, COLORYELLOW, addr, COLORRESET)
 		perfix = COLORGREEN
 	case PROBE_RET:
-		connInfo = fmt.Sprintf("%sSend %d bytes to %s%s", COLORPURPLE, this.Data_len, addr, COLORRESET)
+		connInfo = fmt.Sprintf("%sSend %d%s bytes to %s%s%s", COLORPURPLE, this.Data_len, COLORRESET, COLORYELLOW, addr, COLORRESET)
 		perfix = COLORPURPLE
 	default:
 		connInfo = fmt.Sprintf("%sUNKNOW_%d%s", COLORRED, this.EventType, COLORRESET)

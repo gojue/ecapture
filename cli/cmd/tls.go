@@ -37,6 +37,7 @@ func init() {
 	opensslCmd.PersistentFlags().StringVar(&gc.Curlpath, "wget", "", "wget file path, default: /usr/bin/wget.")
 	opensslCmd.PersistentFlags().StringVar(&nc.Firefoxpath, "firefox", "", "firefox file path, default: /usr/lib/firefox/firefox.")
 	opensslCmd.PersistentFlags().StringVar(&nc.Nsprpath, "nspr", "", "libnspr44.so file path, will automatically find it from curl default.")
+	opensslCmd.PersistentFlags().StringVar(&oc.Pthread, "pthread", "", "libpthread.so file path, use to hook connect to capture socket FD.will automatically find it from curl.")
 
 	rootCmd.AddCommand(opensslCmd)
 }
@@ -53,7 +54,6 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 	gConf, e := getGlobalConf(command)
 	if e != nil {
 		logger.Fatal(e)
-		os.Exit(1)
 	}
 	log.Printf("pid info :%d", os.Getpid())
 
