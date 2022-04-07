@@ -1,5 +1,23 @@
 <hr>
 
+## v0.1.6 (TDB)
+
+- 更新mysqld数据库审计模块
+- 更新tls网络捕获模块
+
+### mysqld 
+- 支持mysql5.7/8.0, MariadDB 10.5+的Mysqld数据库的查询审计
+  - 自动识别mysqld版本 。
+  - 自动查找hook的sql 查询函数。
+
+### tls
+- 支持openssl的IP地址关联
+  - 支持网络IP地址的存储、关联到网络数据中。
+  - 支持自定义libpthread.so路径指定（定位connect函数）。
+
+
+<hr>
+
 ## v0.1.5 (2022-03-25)
 
 - 增加mysqld数据库审计模块
