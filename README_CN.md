@@ -1,4 +1,8 @@
-#  How eCapture works
+[English](./README.md)
+
+----
+
+#  eCapture 工作原理
 
 ![](./images/how-ecapture-works.png)
 
@@ -7,13 +11,17 @@ eBPF HOOK uprobe实现的各种用户态进程的数据捕获，无需改动原�
 * bash的命令捕获，HIDS的bash命令监控解决方案。
 * mysql query等数据库的数据库审计解决方案。
 
-# eCapture Architecure
+# eCapture 系统架构
 ![](./images/ecapture-architecture.png)
 
 # 演示
 
-## eCapture User Manual
-[![eCapture User Manual](./images/ecapture-user-manual.png)](https://www.youtube.com/watch?v=CoDIjEQCvvA "eCapture User Manual")
+## eCapture 使用方法
+### 介绍文章
+[eCapture：无需CA证书抓https明文通讯](https://mp.weixin.qq.com/s/DvTClH3JmncpkaEfnTQsRg)
+
+### 演示视频
+[![eCapture User Manual](./images/ecapture-user-manual.png)](https://www.bilibili.com/video/BV1si4y1Q74a "eCapture User Manual")
 
 # 使用
 ## 直接运行
@@ -23,8 +31,7 @@ eBPF HOOK uprobe实现的各种用户态进程的数据捕获，无需改动原�
 * 系统linux kernel版本必须高于4.18。
 * 开启BTF [BPF Type Format (BTF)](https://www.kernel.org/doc/html/latest/bpf/btf.html) 支持。
 
-### 
-验证方法：
+### 验证方法：
 ```shell
 cfc4n@vm-server:~$# uname -r
 4.18.0-305.3.1.el8.x86_64
@@ -50,13 +57,12 @@ ps -ef | grep foo
 自行编译对编译环境有要求，参考**原理**章节的介绍。
 
 # 原理
-
 ## eBPF技术
 参考[ebpf](https://ebpf.io)官网的介绍
 
 ## uprobe HOOK
 
-### https的ssl hook
+### openssl hook
 本项目hook了`/lib/x86_64-linux-gnu/libssl.so.1.1`的`SSL_write`、`SSL_read`函数的返回值，拿到明文信息，通过ebpf map传递给用户进程。
 ```go
 Probes: []*manager.Probe{
@@ -96,8 +102,8 @@ hook了`/bin/bash`的`readline`函数。
 
 # 编译方法
 针对个别程序使用的openssl类库是静态编译，也可以自行修改源码实现。若函数名不在符号表里，也可以自行反编译找到函数的offset偏移地址，填写到`UprobeOffset`属性上，进行编译。
-笔者环境`ubuntu 21.04`， linux kernel 5.10以上通用。
-**推荐使用`UBUNTU 21.04`版本的linux测试。**
+笔者环境`ubuntu 21.04`， Linux Kernel 4.18以上通用。
+**推荐使用`UBUNTU 21.04`版本的Linux测试。**
 
 ## 工具链版本
 * golang 1.16
@@ -107,12 +113,6 @@ hook了`/bin/bash`的`readline`函数。
 * clang backend: llvm 12.0.0
 * pahole >= v1.13
 * kernel config:CONFIG_DEBUG_INFO_BTF=y
-
-### 最低要求 (笔者未验证)
-* gcc 5.1 以上
-* clang 9
-* cmake 3.14
-* pahole >= v1.13
 
 
 ## 编译

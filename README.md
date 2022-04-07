@@ -1,11 +1,14 @@
+[简体中文介绍](./README_CN.md)
+
+----
+
 #  How eCapture works
 
 ![](./images/how-ecapture-works.png)
 
-eBPF HOOK uprobe实现的各种用户态进程的数据捕获，无需改动原程序。
-* SSL/HTTPS数据导出功能，针对HTTPS的数据包抓取，不需要导入CA证书。
-* bash的命令捕获，HIDS的bash命令监控解决方案。
-* mysql query等数据库的数据库审计解决方案。
+* SSL/TLS text context capture, support openssl\gnutls\nspr(nss) librarys.
+* bash aduit, capture bash command for Host Security Aduot.
+* mysql query SQL aduit, support mysqld 5.6\5.7\8.0, and mariadDB.
 
 # eCapture Architecure
 ![](./images/ecapture-architecture.png)
@@ -47,20 +50,16 @@ capture bash command.
 ps -ef | grep foo
 ```
 
-# 微信公众号
+# WeChat公众号
 ![](./images/wechat_gzhh.png)
 
-## 自行编译
-自行编译对编译环境有要求，参考**原理**章节的介绍。
-
-# 原理
-## What's eBPF
+# What's eBPF
 [eBPF](https://ebpf.io)
 
 ## uprobe HOOK
 
 ### openssl hook 
-本项目hook了`/lib/x86_64-linux-gnu/libssl.so.1.1`的`SSL_write`、`SSL_read`函数的返回值，拿到明文信息，通过ebpf map传递给用户进程。
+eCapture hook`SSL_write` \ `SSL_read` function of shared library `/lib/x86_64-linux-gnu/libssl.so.1.1`. get text context, and send message to user space by eBPM map.
 ```go
 Probes: []*manager.Probe{
     {
@@ -98,11 +97,9 @@ Probes: []*manager.Probe{
 hook `/bin/bash` `readline` symbol name.
 
 # How to compile
-针对个别程序使用的openssl类库是静态编译，也可以自行修改源码实现。若函数名不在符号表里，也可以自行反编译找到函数的offset偏移地址，填写到`UprobeOffset`属性上，进行编译。
-笔者环境`ubuntu 21.04`， linux kernel 5.10以上通用。
-**推荐使用`UBUNTU 21.04`版本的linux测试。**
+Linux Kernel: >= 4.18.
 
-## 工具链版本
+## Tools 
 * golang 1.16
 * gcc 10.3.0
 * clang 12.0.0  
@@ -111,14 +108,7 @@ hook `/bin/bash` `readline` symbol name.
 * pahole >= v1.13
 * kernel config:CONFIG_DEBUG_INFO_BTF=y
 
-### 最低要求 (笔者未验证)
-* gcc 5.1 以上
-* clang 9
-* cmake 3.14
-* pahole >= v1.13
-
-
-## 编译
+## command
 ```shell
 git clone git@github.com:ehids/ecapture.git
 cd ecapture
@@ -126,6 +116,5 @@ make
 bin/ecapture
 ```
 
-# 参考资料
-[BPF Portability and CO-RE](https://facebookmicrosites.github.io/bpf/blog/2020/02/19/bpf-portability-and-co-re.html)
-[ebpfmanager v0.2.2](https://github.com/ehids/ebpfmanager)
+# Contributing
+See [CONTRIBUTING](./CONTRIBUTING.md) for details on submitting patches and the contribution workflow.
