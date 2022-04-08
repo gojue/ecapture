@@ -62,7 +62,7 @@ clean:
 	rm -f bin/ecapture
 
 $(KERN_OBJECTS): %.o: %.c
-	$(CLANG) -D__TARGET_ARCH_$(LINUX_ARCH) \
+	sudo $(CLANG) -D__TARGET_ARCH_$(LINUX_ARCH) \
 		$(EXTRA_CFLAGS) \
 		$(BPFHEADER) \
 		-target bpfel -c $< -o $(subst kern/,user/bytecode/,$@) \
