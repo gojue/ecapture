@@ -1,10 +1,8 @@
-name: Go
-
+name: Release
 on:
   push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
+    tags:
+      - "v*"
 
 jobs:
 
@@ -12,7 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-
+      with:
+        fetch-depth: 0
     - name: Set up Go
       uses: actions/setup-go@v2
       with:
@@ -27,7 +26,9 @@ jobs:
           sudo ln -s /usr/bin/$tool-12 /usr/bin/$tool
         done
       shell: bash
-    - name: Build
-      run: make
-    - name: Test
-      run: go test -v ./...
+    - name: authenticate
+      run: |
+        gh auth login --with-token <<<'${{ secrets.GITHUB_TOKEN }}'
+    - name: Release
+      run: |
+        make -f builder/Makefile.release release SNAPSHOT_VERSION=${{ steps.vars.outputs.tag }}

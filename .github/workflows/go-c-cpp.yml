@@ -1,4 +1,4 @@
-name: C/C++ CI
+name: GO/C/C++ CI
 
 on:
   push:
@@ -26,5 +26,7 @@ jobs:
         done
       shell: bash
     - uses: actions/checkout@v2
-    - name: make
-      run: make
+    - name: Build
+      run: make all
+    - name: Test
+      run: go test -v ./...
