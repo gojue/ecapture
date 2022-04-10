@@ -1,0 +1,163 @@
+#
+# Responsible for creating ecapture snapshots for testing and releasing
+#
+
+.PHONY: all
+all: help
+release: snapshot publish
+
+#
+# make
+#
+
+.ONESHELL:
+SHELL = /bin/sh
+
+MAKEFLAGS += --no-print-directory
+
+#
+# tools
+#
+
+CMD_CHECKSUM ?= sha256sum
+CMD_GITHUB ?= gh
+CMD_TAR ?= tar
+CMD_GIT ?= git
+CMD_RM ?= rm
+CMD_TOUCH ?= touch
+CMD_MKDIR ?= mkdir
+
+.ONESHELL:
+.check_%:
+#
+	@command -v $* >/dev/null
+	if [ $$? -ne 0 ]; then
+		echo "missing required tool $*"
+		exit 1
+	else
+		touch $@ # avoid target rebuilds due to inexistent file
+	fi
+
+#
+# environment
+#
+
+.PHONY: env
+env:
+	@echo ---------------------------------------
+	@echo "CMD_CHECKSUM          $(CMD_CHECKSUM)"
+	@echo "CMD_GIT               $(CMD_GIT)"
+	@echo "CMD_GITHUB            $(CMD_GITHUB)"
+	@echo "CMD_TAR               $(CMD_TAR)"
+	@echo "CMD_TOUCH             $(CMD_TOUCH)"
+	@echo "CMD_RM                $(CMD_RM)"
+	@echo "CMD_MKDIR             $(CMD_MKDIR)"
+	@echo ---------------------------------------
+	@echo "SNAPSHOT_VERSION      $(SNAPSHOT_VERSION)"
+	@echo ---------------------------------------
+
+#
+# usage
+#
+
+.PHONY: help
+help:
+	@echo ""
+	@echo "Create ecapture snapshots for testing and releasing"
+	@echo ""
+	@echo "To generate a release snapshot:"
+	@echo ""
+	@echo "    $$ make -f builder/Makefile.release snapshot"
+	@echo ""
+	@echo "    - Compiles ecapture"
+	@echo "    - Creates an archive of build artifacts along with license"
+	@echo "    - Takes a checksum of the archive"
+	@echo ""
+	@echo "    Example:"
+	@echo ""
+	@echo "        To create build artifacts versioned by latest git SHA:"
+	@echo ""
+	@echo "        $$ make -f builder/Makefile.release snapshot"
+	@echo ""
+	@echo "        To create build artifacts with version v0.1.6:"
+	@echo ""
+	@echo "        $$ SNAPSHOT_VERSION=v0.1.6 \ "
+	@echo "                make -f builder/Makefile.release snapshot"
+	@echo ""
+	@echo "To publish a release:"
+	@echo ""
+	@echo "    $$ SNAPSHOT_VERSION=v0.1.6 \ "
+	@echo "        make -f builder/Makefile.release publish"
+	@echo ""
+	@echo ""
+	@echo "Clean leftovers:"
+	@echo ""
+	@echo "    $$ make -f builder/Makefile.release clean"
+	@echo ""
+
+#
+# requirements
+#
+
+.PHONY: .check_tree
+.check_tree:
+#
+	@if [ ! -d ./builder ]; then
+		echo "you must be in the root directory"
+		exit 1
+	fi
+
+#
+# output dir
+#
+
+OUTPUT_DIR = ./bin
+RELEASE_NOTES ?= $(OUTPUT_DIR)/release_notes.txt
+
+$(OUTPUT_DIR):
+#
+	$(CMD_MKDIR) -p $@
+	$(CMD_TOUCH) $(RELEASE_NOTES)
+
+#
+# Create a release snapshot
+#
+
+SNAPSHOT_VERSION ?= $(shell git rev-parse HEAD)
+
+RELEASE_FILES = LICENSE
+RELEASE_FILES += $(OUTPUT_DIR)/ecapture
+
+OUT_ARCHIVE := $(OUTPUT_DIR)/ecapture-$(SNAPSHOT_VERSION).tar.gz
+OUT_CHECKSUMS := $(OUTPUT_DIR)/checksum.$(SNAPSHOT_VERSION).txt
+
+.PHONY: snapshot
+snapshot: \
+	$(OUTPUT_DIR) \
+	| .check_tree \
+	.check_$(CMD_TAR) \
+	.check_$(CMD_CHECKSUM) \
+	.check_$(CMD_GITHUB)
+#
+	# build binaries
+	$(MAKE) ARG="all"
+	#CORE=1 $(MAKE) ARG="all"
+	# create the tar ball and checksum files
+	$(CMD_TAR)  -czf $(OUT_ARCHIVE) $(RELEASE_FILES)
+	$(CMD_CHECKSUM) $(OUT_ARCHIVE) > $(OUT_CHECKSUMS)
+
+.PHONY: publish
+publish: \
+	$(OUTPUT_DIR) \
+	$(OUT_ARCHIVE) \
+	$(OUT_CHECKSUMS) \
+	| .check_tree \
+	.check_$(CMD_GITHUB)
+#
+	# release it!
+	$(CMD_GITHUB) release create $(SNAPSHOT_VERSION) $(OUT_ARCHIVE) $(OUT_CHECKSUMS) --title $(SNAPSHOT_VERSION) --notes-file $(RELEASE_NOTES)
+
+.PHONY: clean
+clean:
+#
+	$(MAKE) clean
