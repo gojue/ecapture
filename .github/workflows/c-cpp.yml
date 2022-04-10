@@ -15,6 +15,16 @@ jobs:
     - uses: actions/setup-go@v3
       with:
         go-version: '1.16.14'
+    - name: Install Compilers
+      run: |
+        sudo apt-get update
+        sudo apt-get install --yes build-essential pkgconf libelf-dev llvm-12 clang-12
+        for tool in "clang" "llc" "llvm-strip"
+        do
+          sudo rm -f /usr/bin/$tool
+          sudo ln -s /usr/bin/$tool-12 /usr/bin/$tool
+        done
+      shell: bash
     - uses: actions/checkout@v2
     - name: make
       run: make
