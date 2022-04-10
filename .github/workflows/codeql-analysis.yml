@@ -43,6 +43,16 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v2
 
+    - name: Install Compilers
+      run: |
+        sudo apt-get update
+        sudo apt-get install --yes build-essential pkgconf libelf-dev llvm-12 clang-12
+        for tool in "clang" "llc" "llvm-strip"
+        do
+          sudo rm -f /usr/bin/$tool
+          sudo ln -s /usr/bin/$tool-12 /usr/bin/$tool
+        done
+      shell: bash
     # Initializes the CodeQL tools for scanning.
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v1
