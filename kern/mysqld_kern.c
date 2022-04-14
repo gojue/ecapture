@@ -31,20 +31,20 @@ int mysql56_query(struct pt_regs *ctx) {
     // https://blog.csdn.net/u010502974/article/details/96362601
     //mysql_parse
     // TODO change to macros
-    uint64_t command  = (uint64_t)PT_REGS_PARM1(ctx);
+    u64 command  = (u64)PT_REGS_PARM1(ctx);
     if (command != COM_QUERY) {
         return 0;
     }
 
-    uint64_t current_pid_tgid = bpf_get_current_pid_tgid();
-    uint32_t pid = current_pid_tgid >> 32;
+    u64 current_pid_tgid = bpf_get_current_pid_tgid();
+    u32 pid = current_pid_tgid >> 32;
 
     // if target_ppid is 0 then we target all pids
     if (target_pid != 0 && target_pid != pid) {
         return 0;
     }
 
-    uint64_t len  = (uint64_t)PT_REGS_PARM4(ctx);
+    u64 len  = (u64)PT_REGS_PARM4(ctx);
     if (len < 0) {
         return 0;
     }
@@ -109,20 +109,20 @@ struct COM_QUERY_DATA {
 //
 SEC("uprobe/dispatch_command_57")
 int mysql57_query(struct pt_regs *ctx) {
-    uint64_t command  = (uint64_t)PT_REGS_PARM3(ctx);
+    u64 command  = (u64)PT_REGS_PARM3(ctx);
     if (command != COM_QUERY) {
         return 0;
     }
 
-    uint64_t current_pid_tgid = bpf_get_current_pid_tgid();
-    uint32_t pid = current_pid_tgid >> 32;
+    u64 current_pid_tgid = bpf_get_current_pid_tgid();
+    u32 pid = current_pid_tgid >> 32;
 
     // if target_ppid is 0 then we target all pids
     if (target_pid != 0 && target_pid != pid) {
         return 0;
     }
 
-    uint64_t len  = 0;
+    u64 len  = 0;
     struct data_t data = {};
     data.pid = pid;   // only process id
     data.timestamp = bpf_ktime_get_ns();

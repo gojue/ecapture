@@ -103,14 +103,14 @@ struct ssl_st {
  * General helper functions
  ***********************************************************/
 
-static __inline struct ssl_data_event_t* create_ssl_data_event(uint64_t current_pid_tgid) {
-    uint32_t kZero = 0;
+static __inline struct ssl_data_event_t* create_ssl_data_event(u64 current_pid_tgid) {
+    u32 kZero = 0;
     struct ssl_data_event_t* event = bpf_map_lookup_elem(&data_buffer_heap, &kZero);
     if (event == NULL) {
         return NULL;
     }
 
-    const uint32_t kMask32b = 0xffffffff;
+    const u32 kMask32b = 0xffffffff;
     event->timestamp_ns = bpf_ktime_get_ns();
     event->pid = current_pid_tgid >> 32;
     event->tid = current_pid_tgid & kMask32b;
@@ -123,7 +123,7 @@ static __inline struct ssl_data_event_t* create_ssl_data_event(uint64_t current_
  * BPF syscall processing functions
  ***********************************************************/
 
-static int process_SSL_data(struct pt_regs* ctx, uint64_t id, enum ssl_data_event_type type,
+static int process_SSL_data(struct pt_regs* ctx, u64 id, enum ssl_data_event_type type,
                             const char* buf, u32 fd) {
     int len = (int)PT_REGS_RC(ctx);
     if (len < 0) {
@@ -153,8 +153,8 @@ static int process_SSL_data(struct pt_regs* ctx, uint64_t id, enum ssl_data_even
 // int SSL_write(SSL *ssl, const void *buf, int num);
 SEC("uprobe/SSL_write")
 int probe_entry_SSL_write(struct pt_regs* ctx) {
-    uint64_t current_pid_tgid = bpf_get_current_pid_tgid();
-    uint32_t pid = current_pid_tgid >> 32;
+    u64 current_pid_tgid = bpf_get_current_pid_tgid();
+    u32 pid = current_pid_tgid >> 32;
 
     // if target_ppid is 0 then we target all pids
     if (target_pid != 0 && target_pid != pid) {
@@ -185,8 +185,8 @@ int probe_entry_SSL_write(struct pt_regs* ctx) {
 
 SEC("uretprobe/SSL_write")
 int probe_ret_SSL_write(struct pt_regs* ctx) {
-    uint64_t current_pid_tgid = bpf_get_current_pid_tgid();
-    uint32_t pid = current_pid_tgid >> 32;
+    u64 current_pid_tgid = bpf_get_current_pid_tgid();
+    u32 pid = current_pid_tgid >> 32;
 
     // if target_ppid is 0 then we target all pids
     if (target_pid != 0 && target_pid != pid) {
@@ -208,8 +208,8 @@ int probe_ret_SSL_write(struct pt_regs* ctx) {
 // int SSL_read(SSL *s, void *buf, int num)
 SEC("uprobe/SSL_read")
 int probe_entry_SSL_read(struct pt_regs* ctx) {
-    uint64_t current_pid_tgid = bpf_get_current_pid_tgid();
-    uint32_t pid = current_pid_tgid >> 32;
+    u64 current_pid_tgid = bpf_get_current_pid_tgid();
+    u32 pid = current_pid_tgid >> 32;
 
     // if target_ppid is 0 then we target all pids
     if (target_pid != 0 && target_pid != pid) {
@@ -239,8 +239,8 @@ int probe_entry_SSL_read(struct pt_regs* ctx) {
 
 SEC("uretprobe/SSL_read")
 int probe_ret_SSL_read(struct pt_regs* ctx) {
-    uint64_t current_pid_tgid = bpf_get_current_pid_tgid();
-    uint32_t pid = current_pid_tgid >> 32;
+    u64 current_pid_tgid = bpf_get_current_pid_tgid();
+    u32 pid = current_pid_tgid >> 32;
 
     // if target_ppid is 0 then we target all pids
     if (target_pid != 0 && target_pid != pid) {
@@ -263,8 +263,8 @@ int probe_ret_SSL_read(struct pt_regs* ctx) {
 // int __connect (int fd, __CONST_SOCKADDR_ARG addr, socklen_t len)
 SEC("uprobe/connect")
 int probe_connect(struct pt_regs* ctx) {
-    uint64_t current_pid_tgid = bpf_get_current_pid_tgid();
-    uint32_t pid = current_pid_tgid >> 32;
+    u64 current_pid_tgid = bpf_get_current_pid_tgid();
+    u32 pid = current_pid_tgid >> 32;
 
     // if target_ppid is 0 then we target all pids
     if (target_pid != 0 && target_pid != pid) {
