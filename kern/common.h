@@ -1,8 +1,6 @@
 #ifndef ECAPTURE_COMMON_H
 #define ECAPTURE_COMMON_H
 
-//#define DEBUG_PRINT true
-
 #ifdef DEBUG_PRINT
 #define debug_bpf_printk(fmt, ...)					\
 	do {							\

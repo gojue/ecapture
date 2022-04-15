@@ -1,6 +1,4 @@
-#include "vmlinux.h"
-#include <bpf/bpf_helpers.h>
-#include <bpf/bpf_tracing.h>
+#include "core_type.h"
 #include "common.h"
 
 struct data_t {

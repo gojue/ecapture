@@ -41,11 +41,23 @@ CMD_MD5 ?= md5sum
 	fi
 
 
-EXTRA_CFLAGS ?= -O2 -mcpu=v1 \
-	-DDEBUG_PRINT	\
-	-DCORE	\
-	-nostdinc \
-	-Wno-pointer-sign
+EXTRA_CFLAGS ?= -emit-llvm -O2 -S\
+	-Wunused \
+	-Wall \
+	-Wno-frame-address \
+	-Wno-unused-value \
+	-Wno-unknown-warning-option \
+	-Wno-pragma-once-outside-header \
+	-Wno-pointer-sign \
+	-Wno-gnu-variable-sized-type-not-at-end \
+	-Wno-deprecated-declarations \
+	-Wno-compare-distinct-pointer-types \
+	-Wno-address-of-packed-member \
+	-fno-stack-protector \
+	-fno-jump-tables \
+	-fno-unwind-tables \
+	-fno-asynchronous-unwind-tables \
+	-xc -O2 -g \
 
 BPFHEADER = -I./kern \
 
@@ -222,12 +234,28 @@ clean:
 $(KERN_OBJECTS): %.o: %.c \
 	| .checkver_$(CMD_CLANG) \
 	.checkver_$(CMD_GO)
-	$(CMD_CLANG) -D__TARGET_ARCH_$(LINUX_ARCH) \
-		$(EXTRA_CFLAGS) \
+	$(CMD_CLANG) \
+		-emit-llvm -S \
+		-D__BPF_TRACING__ \
+		-D__KERNEL__ \
+		-DNOCORE \
 		$(BPFHEADER) \
-		-target bpfel -c $< -o $(subst kern/,user/bytecode/,$@) \
-		-fno-ident -fdebug-compilation-dir . -g -D__BPF_TARGET_MISSING="GCC error \"The eBPF is using target specific macros, please provide -target\"" \
-		-MD -MP
+		-include $(KERN_SRC_PATH)/include/linux/kconfig.h \
+		-I $(KERN_SRC_PATH)/arch/$(LINUX_ARCH)/include \
+		-I $(KERN_SRC_PATH)/arch/$(LINUX_ARCH)/include/uapi \
+		-I $(KERN_BUILD_PATH)/arch/$(LINUX_ARCH)/include/generated \
+		-I $(KERN_BUILD_PATH)/arch/$(LINUX_ARCH)/include/generated/uapi \
+		-I $(KERN_SRC_PATH)/include \
+		-I $(KERN_BUILD_PATH)/include \
+		-I $(KERN_SRC_PATH)/include/uapi \
+		-I $(KERN_BUILD_PATH)/include/generated \
+		-I $(KERN_BUILD_PATH)/include/generated/uapi \
+		$(EXTRA_CFLAGS) \
+		-c $< \
+		-o - |$(CMD_LLC) \
+		-march=bpf \
+		-filetype=obj \
+		-o $(subst kern/,user/bytecode/,$(subst .c,.o,$<))
 
 .PHONY: ebpf
 ebpf: $(KERN_OBJECTS)
@@ -243,4 +271,4 @@ assets: \
 build: \
 	.checkver_$(CMD_GO)
 #
-	CGO_ENABLED=0 $(CMD_GO) build -ldflags "-w -s -X 'ecapture/cli/cmd.GitVersion=$(VERSION)'" -o bin/ecapture .
+	CGO_ENABLED=0 $(CMD_GO) build -ldflags "-w -s -X 'ecapture/cli/cmd.GitVersion=[*NOCORE*]_$(VERSION)' -X 'main.enableCORE=false'" -o bin/ecapture .
