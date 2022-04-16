@@ -43,7 +43,6 @@ CMD_MD5 ?= md5sum
 
 EXTRA_CFLAGS ?= -O2 -mcpu=v1 \
 	-DDEBUG_PRINT	\
-	-DCORE	\
 	-nostdinc \
 	-Wno-pointer-sign
 
