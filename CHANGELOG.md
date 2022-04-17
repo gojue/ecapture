@@ -1,5 +1,13 @@
 <hr>
 
+## v0.1.7 (TDB)
+
+- New Feature:need to support no btf linux kernel version >= 5.2 #31
+- Fixed: ubuntu21.10 error :connect symbol cant found #29
+
+
+<hr>
+
 ## v0.1.6 (2022-04-07)
 
 - 更新mysqld数据库审计模块

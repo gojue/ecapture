@@ -112,7 +112,7 @@ hook了`/bin/bash`的`readline`函数。
 * cmake 3.18.4
 * clang backend: llvm 12.0.0
 * pahole >= v1.13
-* kernel config:CONFIG_DEBUG_INFO_BTF=y
+* kernel config:CONFIG_DEBUG_INFO_BTF=y (可选，2022-04-17增加)
 
 
 ## 编译
@@ -122,6 +122,19 @@ cd ecapture
 make
 bin/ecapture
 ```
+
+## 未开启BTF的编译
+2022/04/17起，eCapture支持了未开启BTF的系统编译，编译指令为：`make nocore`。
+
+```shell
+git clone git@github.com:ehids/ecapture.git
+cd ecapture
+make nocore
+bin/ecapture
+```
+
+
+
 
 # 参考资料
 [BPF Portability and CO-RE](https://facebookmicrosites.github.io/bpf/blog/2020/02/19/bpf-portability-and-co-re.html)
