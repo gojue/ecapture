@@ -1,7 +1,9 @@
-.PHONY: all | env
+.PHONY: all | env nocore
 all: ebpf assets build
 	@echo $(shell date)
 
+nocore: ebpf_nocore assets build_nocore
+	@echo $(shell date)
 # centos 8.2  4.18.0-305.3.1.el8.x86_64
 # centos 8.2     gcc Version 8.4.1 20200928 (Red Hat 8.4.1-1) (GCC)
 # clang 12.0.1-4.module_el8.5.0+1025+93159d6c
@@ -40,14 +42,39 @@ CMD_MD5 ?= md5sum
 		touch $@ # avoid target rebuilds due to inexistent file
 	fi
 
+DEBUG_PRINT ?=
+ifeq ($(DEBUG),1)
+DEBUG_PRINT := -DDEBUG_PRINT
+endif
 
 EXTRA_CFLAGS ?= -O2 -mcpu=v1 \
-	-DDEBUG_PRINT	\
+	$(DEBUG_PRINT)	\
 	-nostdinc \
 	-Wno-pointer-sign
 
 BPFHEADER = -I./kern \
 
+EXTRA_CFLAGS_NOCORE ?= -emit-llvm -O2 -S\
+	-xc -g \
+	-D__BPF_TRACING__ \
+	-D__KERNEL__ \
+	-DNOCORE \
+	$(DEBUG_PRINT) \
+	-Wunused \
+	-Wall \
+	-Wno-frame-address \
+	-Wno-unused-value \
+	-Wno-unknown-warning-option \
+	-Wno-pragma-once-outside-header \
+	-Wno-pointer-sign \
+	-Wno-gnu-variable-sized-type-not-at-end \
+	-Wno-deprecated-declarations \
+	-Wno-compare-distinct-pointer-types \
+	-Wno-address-of-packed-member \
+	-fno-stack-protector \
+	-fno-jump-tables \
+	-fno-unwind-tables \
+	-fno-asynchronous-unwind-tables
 #
 # tools version
 #
@@ -150,6 +177,7 @@ TARGETS += kern/mysqld
 # Generate file name-scheme based on TARGETS
 KERN_SOURCES = ${TARGETS:=_kern.c}
 KERN_OBJECTS = ${KERN_SOURCES:.c=.o}
+KERN_OBJECTS_NOCORE = ${KERN_SOURCES:.c=.nocore}
 
 
 .PHONY: env
@@ -243,3 +271,39 @@ build: \
 	.checkver_$(CMD_GO)
 #
 	CGO_ENABLED=0 $(CMD_GO) build -ldflags "-w -s -X 'ecapture/cli/cmd.GitVersion=$(VERSION)'" -o bin/ecapture .
+
+
+
+
+# FOR NO CO-RE
+.PHONY: build_nocore
+build_nocore: \
+	.checkver_$(CMD_GO)
+#
+	CGO_ENABLED=0 $(CMD_GO) build -ldflags "-w -s -X 'ecapture/cli/cmd.GitVersion=[NO_CO_RE]:$(VERSION)' -X 'main.enableCORE=false'" -o bin/ecapture .
+
+
+.PHONY: ebpf_nocore
+ebpf_nocore: $(KERN_OBJECTS_NOCORE)
+
+.PHONY: $(KERN_OBJECTS_NOCORE)
+$(KERN_OBJECTS_NOCORE): %.nocore: %.c \
+	| .checkver_$(CMD_CLANG) \
+	.checkver_$(CMD_GO)
+	$(CMD_CLANG) \
+    		$(BPFHEADER) \
+    		-I $(KERN_SRC_PATH)/arch/$(LINUX_ARCH)/include \
+    		-I $(KERN_SRC_PATH)/arch/$(LINUX_ARCH)/include/uapi \
+    		-I $(KERN_BUILD_PATH)/arch/$(LINUX_ARCH)/include/generated \
+    		-I $(KERN_BUILD_PATH)/arch/$(LINUX_ARCH)/include/generated/uapi \
+    		-I $(KERN_SRC_PATH)/include \
+    		-I $(KERN_BUILD_PATH)/include \
+    		-I $(KERN_SRC_PATH)/include/uapi \
+    		-I $(KERN_BUILD_PATH)/include/generated \
+    		-I $(KERN_BUILD_PATH)/include/generated/uapi \
+    		$(EXTRA_CFLAGS_NOCORE) \
+    		-c $< \
+    		-o - |$(CMD_LLC) \
+    		-march=bpf \
+    		-filetype=obj \
+    		-o $(subst kern/,user/bytecode/,$(subst .c,.o,$<))
