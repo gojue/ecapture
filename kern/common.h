@@ -21,8 +21,11 @@
 #define SA_DATA_LEN 14
 
 // Optional Target PID
+#ifdef NOCORE
+u64 target_pid = 0;
+#else
 const volatile u64 target_pid = 0;
-
+#endif
 
 char __license[] SEC("license") = "Dual MIT/GPL";
 __u32 _version SEC("version") = 0xFFFFFFFE;

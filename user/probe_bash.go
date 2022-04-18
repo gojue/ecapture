@@ -137,9 +137,13 @@ func (this *MBashProbe) setupManagers() {
 			Cur: math.MaxUint64,
 			Max: math.MaxUint64,
 		},
-		// 填充 RewriteContants 对应map
-		ConstantEditors: this.constantEditor(),
 	}
+
+	if this.conf.EnableCoRe() {
+		// 填充 RewriteContants 对应map
+		this.bpfManagerOptions.ConstantEditors = this.constantEditor()
+	}
+
 }
 
 func (this *MBashProbe) DecodeFun(em *ebpf.Map) (IEventStruct, bool) {

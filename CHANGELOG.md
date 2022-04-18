@@ -14,7 +14,7 @@
 - 更新tls网络捕获模块
 
 ### mysqld 
-- 支持mysql5.7/8.0, MariadDB 10.5+的Mysqld数据库的查询审计
+- 支持mysql5.7/8.0, MariadDB 10.5+的Mysqld数据库的查询审计。
   - 自动识别mysqld版本 。
   - 自动查找hook的sql 查询函数。
 
