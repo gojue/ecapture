@@ -24,7 +24,7 @@ func main() {
 	}
 
 	// changed by go build '-ldflags X'
-	if enableCORE == "ture" {
+	if enableCORE == "true" {
 		// BTF支持情况检测
 		enable, e := ebpf.IsEnableBTF()
 		if e != nil {
