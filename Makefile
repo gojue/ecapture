@@ -4,9 +4,6 @@ all: ebpf assets build
 
 nocore: ebpf_nocore assets build_nocore
 	@echo $(shell date)
-# centos 8.2  4.18.0-305.3.1.el8.x86_64
-# centos 8.2     gcc Version 8.4.1 20200928 (Red Hat 8.4.1-1) (GCC)
-# clang 12.0.1-4.module_el8.5.0+1025+93159d6c
 
 .ONESHELL:
 SHELL = /bin/sh
@@ -82,7 +79,7 @@ EXTRA_CFLAGS_NOCORE ?= -emit-llvm -O2 -S\
 CLANG_VERSION = $(shell $(CMD_CLANG) --version 2>/dev/null | \
 	head -1 | $(CMD_TR) -d '[:alpha:]' | $(CMD_TR) -d '[:space:]' | $(CMD_CUT) -d'.' -f1)
 
-#TODO  系统内核版本检测  5.8 以上
+#TODO  系统内核版本检测  5.2 以上
 
 #  clang 编译器版本检测，llvm检测，
 .checkver_$(CMD_CLANG): \
@@ -156,6 +153,10 @@ ifeq ($(UNAME_M),aarch64)
    LINUX_ARCH = arm64
    GO_ARCH = arm64
 endif
+
+#
+# include vpath
+#
 
 KERN_RELEASE ?= $(UNAME_R)
 KERN_BUILD_PATH ?= $(if $(KERN_HEADERS),$(KERN_HEADERS),/lib/modules/$(KERN_RELEASE)/build)
