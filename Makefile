@@ -89,8 +89,8 @@ CLANG_VERSION = $(shell $(CMD_CLANG) --version 2>/dev/null | \
 	| .check_$(CMD_CLANG)
 #
 	@echo $(shell date)
-	@if [ ${CLANG_VERSION} -lt 12 ]; then
-		echo -n "you MUST use clang 12 or newer, "
+	@if [ ${CLANG_VERSION} -lt 9 ]; then
+		echo -n "you MUST use clang 9 or newer, "
 		echo "your current clang version is ${CLANG_VERSION}"
 		exit 1
 	fi
