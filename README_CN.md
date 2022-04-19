@@ -29,7 +29,7 @@ eBPF HOOK uprobe实现的各种用户态进程的数据捕获，无需改动原�
 
 系统配置要求
 * 系统linux kernel版本必须高于4.18。
-* 开启BTF [BPF Type Format (BTF)](https://www.kernel.org/doc/html/latest/bpf/btf.html) 支持。
+* 开启BTF [BPF Type Format (BTF)](https://www.kernel.org/doc/html/latest/bpf/btf.html) 支持。 (可选, 2022-04-17)
 
 ### 验证方法：
 ```shell
