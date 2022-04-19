@@ -1,12 +1,20 @@
 <hr>
 
+## v0.1.7 (TDB)
+
+- New Feature:need to support no btf linux kernel version >= 5.2 #31
+- Fixed: ubuntu21.10 error :connect symbol cant found #29
+
+
+<hr>
+
 ## v0.1.6 (2022-04-07)
 
 - 更新mysqld数据库审计模块
 - 更新tls网络捕获模块
 
 ### mysqld 
-- 支持mysql5.7/8.0, MariadDB 10.5+的Mysqld数据库的查询审计
+- 支持mysql5.7/8.0, MariadDB 10.5+的Mysqld数据库的查询审计。
   - 自动识别mysqld版本 。
   - 自动查找hook的sql 查询函数。
 

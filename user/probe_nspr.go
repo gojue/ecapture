@@ -197,8 +197,11 @@ func (this *MNsprProbe) setupManagers() error {
 			Cur: math.MaxUint64,
 			Max: math.MaxUint64,
 		},
+	}
+
+	if this.conf.EnableCoRe() {
 		// 填充 RewriteContants 对应map
-		ConstantEditors: this.constantEditor(),
+		this.bpfManagerOptions.ConstantEditors = this.constantEditor()
 	}
 	return nil
 }

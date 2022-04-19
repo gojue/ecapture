@@ -24,14 +24,15 @@ func main() {
 	}
 
 	// changed by go build '-ldflags X'
-	if enableCORE == "ture" {
+	if enableCORE == "true" {
 		// BTF支持情况检测
 		enable, e := ebpf.IsEnableBTF()
 		if e != nil {
 			log.Fatal(err)
 		}
 		if !enable {
-			log.Fatal("BTF not support, please check it. shell: cat /boot/config-`uname -r` | grep CONFIG_DEBUG_INFO_BTF ")
+			log.Fatal("BTF not support, please check it. shell: cat /boot/config-`uname -r` | grep CONFIG_DEBUG_INFO_BTF \n " +
+				"Or you can compile a no BTF version with youeself by `make nocore` command,Please read Makefile for more info.")
 		}
 	}
 

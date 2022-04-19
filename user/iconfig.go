@@ -4,6 +4,10 @@ Copyright © 2022 CFC4N <cfc4n.cs@gmail.com>
 */
 package user
 
+var (
+	enableCORE = "true"
+)
+
 type IConfig interface {
 	Check() error //检测配置合法性
 	GetPid() uint64
@@ -12,6 +16,7 @@ type IConfig interface {
 	SetPid(uint64)
 	SetHex(bool)
 	SetDebug(bool)
+	EnableCoRe() bool //
 }
 
 type eConfig struct {
@@ -42,4 +47,12 @@ func (this *eConfig) SetDebug(b bool) {
 
 func (this *eConfig) SetHex(isHex bool) {
 	this.IsHex = isHex
+}
+
+func (this *eConfig) EnableCoRe() bool {
+	if enableCORE == "true" {
+		return true
+	} else {
+		return false
+	}
 }
