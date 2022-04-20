@@ -11,8 +11,8 @@
 ![](./images/how-ecapture-works.png)
 
 * SSL/TLS text context capture, support openssl\gnutls\nspr(nss) libraries.
-* bash aduit, capture bash command for Host Security Aduot.
-* mysql query SQL aduit, support mysqld 5.6\5.7\8.0, and mariadDB.
+* bash audit, capture bash command for Host Security Audit.
+* mysql query SQL audit, support mysqld 5.6\5.7\8.0, and mariadDB.
 
 # eCapture Architecure
 ![](./images/ecapture-architecture.png)
@@ -37,12 +37,12 @@ CONFIG_DEBUG_INFO_BTF=y
 
 ### tls command
 capture tls text context.
-Setp 1:
+Step 1:
 ```shell
 ./ecapture tls --hex
 ```
 
-Setp 2:
+Step 2:
 ```shell
 curl https://github.com
 ```
@@ -117,7 +117,7 @@ bin/ecapture --help
 ```
 
 ## compile without BTF
-eCapture support NO BTF with command `make nocore` to compile at 2022/04/17.
+eCapture support NO BTF with command `make nocore` to compile on 2022/04/17.
 ```shell
 make nocore
 bin/ecapture --help
