@@ -115,33 +115,66 @@ func getDynPathByElf(elfName, soName string) (string, error) {
 	if e != nil {
 		return "", e
 	}
-	var realSoName string
-	for _, so := range sos {
-		if strings.HasPrefix(so, soName) {
-			realSoName = so
-			break
-		}
-	}
-
-	// if not found soName from elfName
-	// return elfName self
-	if len(realSoName) == 0 {
-		return "", errors.New(fmt.Sprintf("cant found so lib from %s", elfName))
-	}
 
 	// search dynamic library form ld.so.conf
 	var searchPath = GetDynLibDirs()
-	for _, entry := range searchPath {
-		path := filepath.Join(entry, realSoName)
-		if _, err := os.Stat(path); !os.IsNotExist(err) {
-			return path, nil
-		} else {
-			// Nothing
+	realSoName := recurseDynStrings(sos, searchPath, soName)
+
+	// if not found soName from elfName
+	if len(realSoName) == 0 {
+		return "", errors.New(fmt.Sprintf("cant found so lib from %s", elfName))
+	}
+	return realSoName, nil
+}
+
+func recurseDynStrings(dynSym []string, searchPath []string, soName string) string {
+	var realSoName string
+	for _, el := range dynSym {
+		// check file path here for library if it doesnot exists panic
+		var fd *os.File
+		for _, entry := range searchPath {
+			path := filepath.Join(entry, el)
+			if _, err := os.Stat(path); !os.IsNotExist(err) {
+				fd, err = os.OpenFile(path, os.O_RDONLY, 0644)
+				if err != nil {
+					//log.Fatal(err)
+					fmt.Printf("open file:%s  error:%v\n", path, err)
+					continue
+				} else {
+					// found
+					if strings.HasPrefix(filepath.Base(path), soName) {
+						realSoName = path
+						break
+					}
+
+					// not match ,will open it, and recurse it
+				}
+			} else {
+				// Nothing
+			}
+		}
+
+		if len(realSoName) > 0 {
+			return realSoName
+		}
+
+		bint, err := elf.NewFile(fd)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		bDynSym, err := bint.DynString(elf.DT_NEEDED)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		realSoName = recurseDynStrings(bDynSym, searchPath, soName)
+		if len(realSoName) > 0 {
+			return realSoName
 		}
 	}
-
-	// try catch ,not found SO from ld.so.conf
-	return "", errors.New(fmt.Sprintf("Not found lib:%s , from %v:", soName, searchPath))
+	// not found
+	return ""
 }
 
 // 格式化输出相关

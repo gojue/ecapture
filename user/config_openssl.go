@@ -85,6 +85,8 @@ func (this *OpensslConfig) checkOpenssl() error {
 		if e != nil {
 			prefix = OTHERS_BINARY_PREFIX
 		}
+
+		//	ubuntu 21.04	libssl.so.1.1   default
 		this.Openssl = filepath.Join(prefix, "libssl.so.1.1")
 		this.elfType = ELF_TYPE_SO
 		_, e = os.Stat(this.Openssl)
