@@ -10,7 +10,7 @@
 
 ![](./images/how-ecapture-works.png)
 
-* SSL/TLS text context capture, support openssl\gnutls\nspr(nss) librarys.
+* SSL/TLS text context capture, support openssl\gnutls\nspr(nss) libraries.
 * bash aduit, capture bash command for Host Security Aduot.
 * mysql query SQL aduit, support mysqld 5.6\5.7\8.0, and mariadDB.
 
