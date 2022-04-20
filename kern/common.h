@@ -21,10 +21,11 @@
 #define SA_DATA_LEN 14
 
 // Optional Target PID
-#ifdef NOCORE
-u64 target_pid = 0;
-#else
+// .rodata section bug via : https://github.com/ehids/ecapture/issues/39
+#ifndef KERNEL_LESS_5_2
 const volatile u64 target_pid = 0;
+#else
+//u64 target_pid = 0;
 #endif
 
 char __license[] SEC("license") = "Dual MIT/GPL";

@@ -154,10 +154,13 @@ int probe_entry_SSL_write(struct pt_regs* ctx) {
     u64 current_pid_tgid = bpf_get_current_pid_tgid();
     u32 pid = current_pid_tgid >> 32;
 
-    // if target_ppid is 0 then we target all pids
-    if (target_pid != 0 && target_pid != pid) {
-        return 0;
-    }
+    #ifndef KERNEL_LESS_5_2
+        // if target_ppid is 0 then we target all pids
+        if (target_pid != 0 && target_pid != pid) {
+            return 0;
+        }
+    #endif
+    debug_bpf_printk("openssl uprobe/SSL_write pid :%d\n", pid);
 
     void * ssl = (void *) PT_REGS_PARM1(ctx);
     // https://github.com/openssl/openssl/blob/OpenSSL_1_1_1-stable/crypto/bio/bio_local.h
@@ -169,7 +172,7 @@ int probe_entry_SSL_write(struct pt_regs* ctx) {
 
     // get fd ssl->wbio->num
     u32 fd = bio_w.num;
-    debug_bpf_printk("uprobe SSL_write FD:%d\n", fd);
+    debug_bpf_printk("openssl uprobe SSL_write FD:%d\n", fd);
 
     const char* buf = (const char*)PT_REGS_PARM2(ctx);
     struct active_ssl_buf active_ssl_buf_t;
@@ -186,11 +189,13 @@ int probe_ret_SSL_write(struct pt_regs* ctx) {
     u64 current_pid_tgid = bpf_get_current_pid_tgid();
     u32 pid = current_pid_tgid >> 32;
 
-    // if target_ppid is 0 then we target all pids
-    if (target_pid != 0 && target_pid != pid) {
-        return 0;
-    }
-
+    #ifndef KERNEL_LESS_5_2
+        // if target_ppid is 0 then we target all pids
+        if (target_pid != 0 && target_pid != pid) {
+            return 0;
+        }
+    #endif
+    debug_bpf_printk("openssl uretprobe/SSL_write pid :%d\n", pid);
     struct active_ssl_buf* active_ssl_buf_t = bpf_map_lookup_elem(&active_ssl_write_args_map, &current_pid_tgid);
     if (active_ssl_buf_t != NULL) {
         const char* buf;
@@ -208,11 +213,14 @@ SEC("uprobe/SSL_read")
 int probe_entry_SSL_read(struct pt_regs* ctx) {
     u64 current_pid_tgid = bpf_get_current_pid_tgid();
     u32 pid = current_pid_tgid >> 32;
+    debug_bpf_printk("openssl uprobe/SSL_read pid :%d\n", pid);
 
-    // if target_ppid is 0 then we target all pids
-    if (target_pid != 0 && target_pid != pid) {
-        return 0;
-    }
+    #ifndef KERNEL_LESS_5_2
+        // if target_ppid is 0 then we target all pids
+        if (target_pid != 0 && target_pid != pid) {
+            return 0;
+        }
+    #endif
 
     void * ssl = (void *) PT_REGS_PARM1(ctx);
     // https://github.com/openssl/openssl/blob/OpenSSL_1_1_1-stable/crypto/bio/bio_local.h
@@ -224,7 +232,7 @@ int probe_entry_SSL_read(struct pt_regs* ctx) {
 
     // get fd ssl->rbio->num
     u32 fd = bio_r.num;
-    debug_bpf_printk("uprobe SSL_read FD:%d\n", fd);
+    debug_bpf_printk("openssl uprobe PID:%d, SSL_read FD:%d\n",pid,  fd);
 
     const char* buf = (const char*)PT_REGS_PARM2(ctx);
     struct active_ssl_buf active_ssl_buf_t;
@@ -239,11 +247,14 @@ SEC("uretprobe/SSL_read")
 int probe_ret_SSL_read(struct pt_regs* ctx) {
     u64 current_pid_tgid = bpf_get_current_pid_tgid();
     u32 pid = current_pid_tgid >> 32;
+    debug_bpf_printk("openssl uretprobe/SSL_read pid :%d\n", pid);
 
-    // if target_ppid is 0 then we target all pids
-    if (target_pid != 0 && target_pid != pid) {
-        return 0;
-    }
+    #ifndef KERNEL_LESS_5_2
+        // if target_ppid is 0 then we target all pids
+        if (target_pid != 0 && target_pid != pid) {
+            return 0;
+        }
+    #endif
 
     struct active_ssl_buf* active_ssl_buf_t = bpf_map_lookup_elem(&active_ssl_read_args_map, &current_pid_tgid);
     if (active_ssl_buf_t != NULL) {
@@ -264,10 +275,12 @@ int probe_connect(struct pt_regs* ctx) {
     u64 current_pid_tgid = bpf_get_current_pid_tgid();
     u32 pid = current_pid_tgid >> 32;
 
-    // if target_ppid is 0 then we target all pids
-    if (target_pid != 0 && target_pid != pid) {
-        return 0;
-    }
+    #ifndef KERNEL_LESS_5_2
+        // if target_ppid is 0 then we target all pids
+        if (target_pid != 0 && target_pid != pid) {
+            return 0;
+        }
+    #endif
 
     u32 fd = (u32)PT_REGS_PARM1(ctx);
     struct sockaddr *saddr = (struct sockaddr *)PT_REGS_PARM2(ctx);
