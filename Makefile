@@ -60,8 +60,8 @@ EXTRA_CFLAGS_NOCORE ?= -emit-llvm -O2 -S\
 	-D__KERNEL__ \
 	-DNOCORE \
 	$(DEBUG_PRINT) \
-	-Wunused \
 	-Wall \
+	-Wno-unused-variable \
 	-Wno-frame-address \
 	-Wno-unused-value \
 	-Wno-unknown-warning-option \
@@ -140,6 +140,24 @@ VERSION ?= $(if $(RELEASE_TAG),$(RELEASE_TAG),$(LAST_GIT_TAG))
 
 UNAME_M := $(shell uname -m)
 UNAME_R := $(shell uname -r)
+
+
+#
+# Kernel Version detect
+#
+
+KERNEL_LESS_5_2_FLAGS ?=
+KERNEL_LESS_VERSION := 5.2.0
+HIGHER_VERSION := $(shell echo -e "$(UNAME_R)\n$(KERNEL_LESS_VERSION)" | sort -V | tail --lines=1)
+
+# kernel version compare
+ifeq ($(HIGHER_VERSION),$(KERNEL_LESS_VERSION))
+   # its an older kernel
+   KERNEL_LESS_5_2_FLAGS = -DKERNEL_LESS_5_2
+else
+  # its a newer kernel
+endif
+
 
 #
 # Target Arch
@@ -280,7 +298,7 @@ build: \
 build_nocore: \
 	.checkver_$(CMD_GO)
 #
-	CGO_ENABLED=0 $(CMD_GO) build -ldflags "-w -s -X 'ecapture/cli/cmd.GitVersion=[NO_CO_RE]:$(VERSION)' -X 'main.enableCORE=false' -X 'user.enableCORE=false'" -o bin/ecapture .
+	CGO_ENABLED=0 $(CMD_GO) build -ldflags "-w -s -X 'ecapture/cli/cmd.GitVersion=[NO_CO_RE]:$(VERSION)' -X 'main.enableCORE=false'" -o bin/ecapture .
 
 
 .PHONY: ebpf_nocore
@@ -302,6 +320,7 @@ $(KERN_OBJECTS_NOCORE): %.nocore: %.c \
     		-I $(KERN_BUILD_PATH)/include/generated \
     		-I $(KERN_BUILD_PATH)/include/generated/uapi \
     		$(EXTRA_CFLAGS_NOCORE) \
+    		$(KERNEL_LESS_5_2_FLAGS) \
     		-c $< \
     		-o - |$(CMD_LLC) \
     		-march=bpf \

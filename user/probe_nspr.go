@@ -132,6 +132,8 @@ func (this *MNsprProbe) setupManagers() error {
 			},
 
 			// for PR_Send start
+			//  |  ``PR_Send`` or ``PR_Write``
+			//   | ``PR_Read`` or ``PR_Recv``
 			{
 				UID:              "PR_Write-PR_Send",
 				Section:          "uprobe/PR_Write",
@@ -199,7 +201,7 @@ func (this *MNsprProbe) setupManagers() error {
 		},
 	}
 
-	if this.conf.EnableCoRe() {
+	if this.conf.EnableGlobalVar() {
 		// 填充 RewriteContants 对应map
 		this.bpfManagerOptions.ConstantEditors = this.constantEditor()
 	}

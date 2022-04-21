@@ -186,7 +186,7 @@ func (this *MOpenSSLProbe) setupManagers() error {
 		},
 	}
 
-	if this.conf.EnableCoRe() {
+	if this.conf.EnableGlobalVar() {
 		// 填充 RewriteContants 对应map
 		this.bpfManagerOptions.ConstantEditors = this.constantEditor()
 	}

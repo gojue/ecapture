@@ -90,14 +90,14 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 
 		if e := conf.Check(); e != nil {
 			logger.Printf("%v", e)
-			break
+			continue
 		}
 
 		//初始化
 		err := mod.Init(ctx, logger, conf)
 		if err != nil {
 			logger.Printf("%v", err)
-			break
+			continue
 		}
 
 		// 加载ebpf，挂载到hook点上，开始监听

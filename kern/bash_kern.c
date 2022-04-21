@@ -16,17 +16,19 @@ const struct event *unused __attribute__((unused));
 
 SEC("uretprobe/bash_readline")
 int uretprobe_bash_readline(struct pt_regs *ctx) {
-    size_t pid_tgid = bpf_get_current_pid_tgid();
+    s64 pid_tgid = bpf_get_current_pid_tgid();
     int pid = pid_tgid >> 32;
 
-    // if target_ppid is 0 then we target all pids
-    if (target_pid != 0 && target_pid != pid) {
-        return 0;
-    }
+    #ifndef KERNEL_LESS_5_2
+        // if target_ppid is 0 then we target all pids
+        if (target_pid != 0 && target_pid != pid) {
+            return 0;
+        }
+    #endif
 
     struct event event;
     //    bpf_printk("!! uretprobe_bash_readline pid:%d",target_pid );
-    event.pid = bpf_get_current_pid_tgid();
+    event.pid = pid;
     bpf_probe_read(&event.line, sizeof(event.line), (void *)PT_REGS_RC(ctx));
 
     bpf_get_current_comm(&event.comm, sizeof(event.comm));
