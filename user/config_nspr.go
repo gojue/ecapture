@@ -43,10 +43,10 @@ func (this *NsprConfig) Check() error {
 		}
 	} else {
 		//如果没配置，则直接指定。
-		this.Nsprpath = "/usr/lib/firefox/firefox"
+		this.Firefoxpath = "/usr/lib/firefox/firefox"
 	}
 
-	soPath, e := getDynPathByElf(this.Nsprpath, "libnspr4.so")
+	soPath, e := getDynPathByElf(this.Firefoxpath, "libnspr4.so")
 	if e != nil {
 		//this.logger.Printf("get bash:%s dynamic library error:%v.\n", bash, e)
 		_, e = os.Stat(X86_BINARY_PREFIX)
