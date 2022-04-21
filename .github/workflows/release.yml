@@ -12,6 +12,10 @@ jobs:
     - uses: actions/checkout@v2
       with:
         fetch-depth: 0
+    - name: Get the version
+      id: get_tags
+      run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
+      shell: bash
     - name: Set up Go
       uses: actions/setup-go@v2
       with:
@@ -31,4 +35,4 @@ jobs:
         gh auth login --with-token <<<'${{ secrets.GITHUB_TOKEN }}'
     - name: Release
       run: |
-        make -f builder/Makefile.release release SNAPSHOT_VERSION=${{ steps.vars.outputs.tag }}
+        make -f builder/Makefile.release release SNAPSHOT_VERSION=${{ steps.get_tags.outputs.VERSION }}
