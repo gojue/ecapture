@@ -298,7 +298,7 @@ build: \
 build_nocore: \
 	.checkver_$(CMD_GO)
 #
-	CGO_ENABLED=0 $(CMD_GO) build -ldflags "-w -s -X 'ecapture/cli/cmd.GitVersion=[NO_CO_RE]:$(VERSION)' -X 'main.enableCORE=false' -X 'user.enableCORE=false'" -o bin/ecapture .
+	CGO_ENABLED=0 $(CMD_GO) build -ldflags "-w -s -X 'ecapture/cli/cmd.GitVersion=[NO_CO_RE]:$(VERSION)' -X 'main.enableCORE=false'" -o bin/ecapture .
 
 
 .PHONY: ebpf_nocore
