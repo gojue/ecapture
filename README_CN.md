@@ -29,7 +29,7 @@ eBPF HOOK uprobe实现的各种用户态进程的数据捕获，无需改动原�
 
 系统配置要求
 * 系统linux kernel版本必须高于4.18。
-* 开启BTF [BPF Type Format (BTF)](https://www.kernel.org/doc/html/latest/bpf/btf.html) 支持。
+* 开启BTF [BPF Type Format (BTF)](https://www.kernel.org/doc/html/latest/bpf/btf.html) 支持。 (可选, 2022-04-17)
 
 ### 验证方法：
 ```shell
@@ -108,9 +108,9 @@ hook了`/bin/bash`的`readline`函数。
 ## 工具链版本
 * golang 1.16
 * gcc 10.3.0
-* clang 12.0.0
+* clang 9.0.0
 * cmake 3.18.4
-* clang backend: llvm 12.0.0
+* clang backend: llvm 9.0.0
 * pahole >= v1.13
 * kernel config:CONFIG_DEBUG_INFO_BTF=y (可选，2022-04-17增加)
 

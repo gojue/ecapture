@@ -25,7 +25,7 @@
 Download ELF zip file [release](https://github.com/ehids/ecapture/releases) , unzip and use by command `./ecapture --help`.
 
 * Linux kernel version >= 4.18
-* Enable BTF [BPF Type Format (BTF)](https://www.kernel.org/doc/html/latest/bpf/btf.html) 
+* Enable BTF [BPF Type Format (BTF)](https://www.kernel.org/doc/html/latest/bpf/btf.html)  (Optional, 2022-04-17)
 
 ### check your server BTF config：
 ```shell
@@ -102,9 +102,9 @@ Linux Kernel: >= 4.18.
 ## Tools 
 * golang 1.16
 * gcc 10.3.0
-* clang 12.0.0  
+* clang 9.0.0  
 * cmake 3.18.4
-* clang backend: llvm 12.0.0   
+* clang backend: llvm 9.0.0   
 * pahole >= v1.13
 * kernel config:CONFIG_DEBUG_INFO_BTF=y (Optional, 2022-04-17)
 
