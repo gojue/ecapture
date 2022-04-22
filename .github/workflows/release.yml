@@ -33,6 +33,12 @@ jobs:
     - name: authenticate
       run: |
         gh auth login --with-token <<<'${{ secrets.GITHUB_TOKEN }}'
+    - name: Build Changelog
+      id: github_release
+      uses: mikepenz/release-changelog-builder-action@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - name: Release
       run: |
+        echo ${{ steps.github_release.outputs.changelog }} | tee ./bin/release_notes.txt
         make -f builder/Makefile.release release SNAPSHOT_VERSION=${{ steps.get_tags.outputs.VERSION }}

@@ -112,12 +112,14 @@ help:
 #
 
 OUTPUT_DIR = ./bin
+
+# from CLI args.
 RELEASE_NOTES ?= $(OUTPUT_DIR)/release_notes.txt
 
 $(OUTPUT_DIR):
 #
 	$(CMD_MKDIR) -p $@
-	$(CMD_TOUCH) $(RELEASE_NOTES)
+#	$(CMD_TOUCH) $(RELEASE_NOTES)
 
 #
 # Create a release snapshot
@@ -126,7 +128,10 @@ $(OUTPUT_DIR):
 SNAPSHOT_VERSION ?= $(shell git rev-parse HEAD)
 
 RELEASE_FILES = LICENSE
+RELEASE_FILES += README.md
+RELEASE_FILES += README_CN.md
 RELEASE_FILES += $(OUTPUT_DIR)/ecapture
+RELEASE_FILES += $(OUTPUT_DIR)/release_notes.txt
 
 OUT_ARCHIVE := $(OUTPUT_DIR)/ecapture-$(SNAPSHOT_VERSION).tar.gz
 OUT_CHECKSUMS := $(OUTPUT_DIR)/checksum-$(SNAPSHOT_VERSION).txt
@@ -141,7 +146,6 @@ snapshot: \
 #
 	# build binaries
 	$(MAKE) ARG="all"
-	#CORE=1 $(MAKE) ARG="all"
 	# create the tar ball and checksum files
 	$(CMD_TAR)  -czf $(OUT_ARCHIVE) $(RELEASE_FILES)
 	$(CMD_CHECKSUM) $(OUT_ARCHIVE) > $(OUT_CHECKSUMS)
@@ -155,7 +159,7 @@ publish: \
 	.check_$(CMD_GITHUB)
 #
 	# release it!
-	$(CMD_GITHUB) release create $(SNAPSHOT_VERSION) $(OUT_ARCHIVE) $(OUT_CHECKSUMS) --title "eCapture $(SNAPSHOT_VERSION) release."
+	$(CMD_GITHUB) release create $(SNAPSHOT_VERSION) $(OUT_ARCHIVE) $(OUT_CHECKSUMS) --title "eCapture $(SNAPSHOT_VERSION) release."  --notes-file $(RELEASE_NOTES)
 
 .PHONY: clean
 clean:
