@@ -1,10 +1,21 @@
 <hr>
 
-## v0.1.7 (TDB)
+## v0.1.7 (2022-04-22)
 
-- New Feature:need to support no btf linux kernel version >= 5.2 #31
-- Fixed: ubuntu21.10 error :connect symbol cant found #29
+### What's Changed
+* user: fix #29 ubuntu21.10 error :connect symbol cant found by @cfc4n in https://github.com/ehids/ecapture/pull/30
+* support no co-re version on linux kernel >= 5.2  by @cfc4n in https://github.com/ehids/ecapture/pull/32
+* merge two Makefile files. by @cfc4n in https://github.com/ehids/ecapture/pull/33
+* images : fix #34 Inaccurate/Confusing Diagrams by @cfc4n in https://github.com/ehids/ecapture/pull/36
+* Fix #37 Shared object dependence by @cfc4n in https://github.com/ehids/ecapture/pull/38
+* README grammar fix by @chriskaliX in https://github.com/ehids/ecapture/pull/35
+* Fix #39 .rodata: map create: read- and write-only maps not supported (requires >= v5.2) by @cfc4n in https://github.com/ehids/ecapture/pull/40
+* set clang version lower to 9 from 12 by @cfc4n in https://github.com/ehids/ecapture/pull/41
 
+### New Contributors
+* @cfc4n made their first contribution in https://github.com/ehids/ecapture/pull/30
+
+**Full Changelog**: https://github.com/ehids/ecapture/compare/v0.1.6...v0.1.7
 
 <hr>
 
