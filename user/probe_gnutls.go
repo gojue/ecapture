@@ -80,7 +80,6 @@ func (this *MGnutlsProbe) Close() error {
 
 //  通过elf的常量替换方式传递数据
 func (this *MGnutlsProbe) constantEditor() []manager.ConstantEditor {
-	//TODO
 	var editor = []manager.ConstantEditor{
 		{
 			Name:  "target_pid",

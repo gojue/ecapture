@@ -86,7 +86,6 @@ func (this *MOpenSSLProbe) Close() error {
 
 //  通过elf的常量替换方式传递数据
 func (this *MOpenSSLProbe) constantEditor() []manager.ConstantEditor {
-	//TODO
 	var editor = []manager.ConstantEditor{
 		{
 			Name:  "target_pid",

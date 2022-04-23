@@ -63,7 +63,7 @@ func (this *NsprDataEvent) StringHex() string {
 
 	var b *bytes.Buffer
 	var s string
-	// firefox 进程的通讯线程名为 Socket Thread ，过滤 TODO
+	// firefox 进程的通讯线程名为 Socket Thread
 	var fire_thread string
 	fire_thread = strings.TrimSpace(fmt.Sprintf("%s", this.Comm[:13]))
 	// disable filter default
@@ -93,7 +93,7 @@ func (this *NsprDataEvent) String() string {
 	}
 
 	var b *bytes.Buffer
-	// firefox 进程的通讯线程名为 Socket Thread ，过滤 TODO
+	// firefox 进程的通讯线程名为 Socket Thread
 	// disable filter default
 	if false && strings.TrimSpace(string(this.Comm[:13])) != "Socket Thread" {
 		b = bytes.NewBufferString("[ignore]")

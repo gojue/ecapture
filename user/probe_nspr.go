@@ -80,12 +80,10 @@ func (this *MNsprProbe) Close() error {
 
 //  通过elf的常量替换方式传递数据
 func (this *MNsprProbe) constantEditor() []manager.ConstantEditor {
-	//TODO
 	var editor = []manager.ConstantEditor{
 		{
 			Name:  "target_pid",
 			Value: uint64(this.conf.GetPid()),
-			//FailOnMissing: true,
 		},
 	}
 

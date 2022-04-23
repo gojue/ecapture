@@ -28,7 +28,6 @@ int mysql56_query(struct pt_regs *ctx) {
 
     // https://blog.csdn.net/u010502974/article/details/96362601
     //mysql_parse
-    // TODO change to macros
     u64 command  = (u64)PT_REGS_PARM1(ctx);
     if (command != COM_QUERY) {
         return 0;
