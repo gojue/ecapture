@@ -79,8 +79,6 @@ EXTRA_CFLAGS_NOCORE ?= -emit-llvm -O2 -S\
 CLANG_VERSION = $(shell $(CMD_CLANG) --version 2>/dev/null | \
 	head -1 | $(CMD_TR) -d '[:alpha:]' | $(CMD_TR) -d '[:space:]' | $(CMD_CUT) -d'.' -f1)
 
-#TODO  系统内核版本检测  5.2 以上
-
 #  clang 编译器版本检测，llvm检测，
 .checkver_$(CMD_CLANG): \
 	| .check_$(CMD_CLANG)
