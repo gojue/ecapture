@@ -1,6 +1,8 @@
 #include "core_type.h"
 #include "common.h"
 
+#define DISPATCH_COMMAND_V57_FAILED -2
+
 struct data_t {
     u64 pid;
     u64 timestamp;
@@ -95,7 +97,7 @@ int mysql56_query_return(struct pt_regs *ctx) {
         }
     #endif
 
-    u64 command_return  = (u64)PT_REGS_RC(ctx);
+    s8 command_return  = (u64)PT_REGS_RC(ctx);
     struct data_t *data = bpf_map_lookup_elem(&sql_hash, &pid);
     if (!data) {
         return 0; // missed start
@@ -181,6 +183,41 @@ int mysql57_query(struct pt_regs *ctx) {
     data.len = len;
     bpf_get_current_comm(&data.comm, sizeof(data.comm));
 
-    bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, &data,sizeof(data));
+    bpf_map_update_elem(&sql_hash, &pid, &data, BPF_ANY);
+//    bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, &data,sizeof(data));
+    return 0;
+}
+
+//@retval
+//    0   ok
+//  @retval
+//    1   request of thread shutdown, i. e. if command is
+//        COM_QUIT
+SEC("uretprobe/dispatch_command_57")
+int mysql57_query_return(struct pt_regs *ctx) {
+    u64 current_pid_tgid = bpf_get_current_pid_tgid();
+    u32 pid = current_pid_tgid >> 32;
+
+    #ifndef KERNEL_LESS_5_2
+        // if target_ppid is 0 then we target all pids
+        if (target_pid != 0 && target_pid != pid) {
+            return 0;
+        }
+    #endif
+
+    u8 command_return  = (u64)PT_REGS_RC(ctx);
+    struct data_t *data = bpf_map_lookup_elem(&sql_hash, &pid);
+    if (!data) {
+        return 0; // missed start
+    }
+    debug_bpf_printk("mysql57+ query:%s\n", data->query);
+    debug_bpf_printk("mysql57+ query return :%d\n", command_return);
+    if (command_return == 1) {
+        data->retval = DISPATCH_COMMAND_V57_FAILED;
+    } else {
+        data->retval = command_return;
+    }
+    bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, data,sizeof(struct data_t));
+
     return 0;
 }

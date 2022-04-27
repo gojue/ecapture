@@ -23,6 +23,7 @@ const MYSQLD_MAX_DATA_SIZE = 256
 
 const (
 	//dispatch_command_return
+	DISPATCH_COMMAND_V57_FAILED       = -2
 	DISPATCH_COMMAND_NOT_CAPTURED     = -1
 	DISPATCH_COMMAND_SUCCESS          = 0
 	DISPATCH_COMMAND_CLOSE_CONNECTION = 1
@@ -42,6 +43,8 @@ func (this dispatch_command_return) String() string {
 		retStr = "DISPATCH_COMMAND_WOULDBLOCK"
 	case DISPATCH_COMMAND_NOT_CAPTURED:
 		retStr = "DISPATCH_COMMAND_NOT_CAPTURED"
+	case DISPATCH_COMMAND_V57_FAILED:
+		retStr = "DISPATCH_COMMAND_V57_FAILED"
 	}
 	return retStr
 }
