@@ -8,7 +8,16 @@ struct data_t {
     u64 alllen;
     u64 len;
     char comm[TASK_COMM_LEN];
+    s8 retval; // dispatch_command return value
 };
+
+struct {
+       __uint(type, BPF_MAP_TYPE_HASH);
+        __type(key, u32);
+        __type(value, struct data_t);
+        __uint(max_entries, 1024);
+} sql_hash SEC(".maps");
+
 
 struct
 {
@@ -52,17 +61,51 @@ int mysql56_query(struct pt_regs *ctx) {
     data.pid = pid;   // only process id
     data.alllen = len;   // origin query sql length
     data.timestamp = bpf_ktime_get_ns();
-
+    data.retval = -1;
     len = (len < MAX_DATA_SIZE_MYSQL ? (len & (MAX_DATA_SIZE_MYSQL - 1)) : MAX_DATA_SIZE_MYSQL);
     data.len = len;   // only process id
     bpf_get_current_comm(&data.comm, sizeof(data.comm));
 
     bpf_probe_read_user(&data.query, len, (void*)PT_REGS_PARM3(ctx));
-    bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, &data,sizeof(data));
+
+    bpf_map_update_elem(&sql_hash, &pid, &data, BPF_ANY);
+//    bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, &data,sizeof(data));
     return 0;
 }
 
+SEC("uretprobe/dispatch_command")
+int mysql56_query_return(struct pt_regs *ctx) {
+    // https://github.com/MariaDB/server/blob/b5852ffbeebc3000982988383daeefb0549e058a/sql/sql_parse.h#L112
+    // enum dispatch_command_return
+    //       {
+    //         DISPATCH_COMMAND_SUCCESS=0,
+    //         DISPATCH_COMMAND_CLOSE_CONNECTION= 1,
+    //         DISPATCH_COMMAND_WOULDBLOCK= 2
+    //       };
+    // dispatch_command_return dispatch_command(enum enum_server_command command, THD *thd,
+    //                                                char* packet, uint packet_length, bool blocking = true);
 
+    u64 current_pid_tgid = bpf_get_current_pid_tgid();
+    u32 pid = current_pid_tgid >> 32;
+
+    #ifndef KERNEL_LESS_5_2
+        // if target_ppid is 0 then we target all pids
+        if (target_pid != 0 && target_pid != pid) {
+            return 0;
+        }
+    #endif
+
+    u64 command_return  = (u64)PT_REGS_RC(ctx);
+    struct data_t *data = bpf_map_lookup_elem(&sql_hash, &pid);
+    if (!data) {
+        return 0; // missed start
+    }
+    debug_bpf_printk("mysql query:%s\n", data->query);
+    data->retval = command_return;
+    debug_bpf_printk("mysql query return :%d\n", command_return);
+    bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, data,sizeof(struct data_t));
+    return 0;
+}
 
 // mysql 8.0
 /*
