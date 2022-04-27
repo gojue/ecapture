@@ -28,6 +28,7 @@ CMD_GO ?= go
 CMD_GREP ?= grep
 CMD_CAT ?= cat
 CMD_MD5 ?= md5sum
+STYLE    ?= "{BasedOnStyle: Google, IndentWidth: 4}"
 
 .check_%:
 #
@@ -325,3 +326,9 @@ $(KERN_OBJECTS_NOCORE): %.nocore: %.c \
     		-march=bpf \
     		-filetype=obj \
     		-o $(subst kern/,user/bytecode/,$(subst .c,.o,$<))
+
+# Format the code
+format:
+	@echo "  ->  Formatting code"
+	@clang-format -i -style=$(STYLE) kern/*.c
+	@clang-format -i -style=$(STYLE) kern/common.h
