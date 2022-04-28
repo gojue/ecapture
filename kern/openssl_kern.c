@@ -1,5 +1,4 @@
-#include "common.h"
-#include "core_type.h"
+#include "ecapture.h"
 
 enum ssl_data_event_type { kSSLRead, kSSLWrite };
 const u32 invalidFD = 0;

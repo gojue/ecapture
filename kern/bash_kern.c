@@ -1,5 +1,4 @@
-#include "common.h"
-#include "core_type.h"
+#include "ecapture.h"
 
 struct event {
     u32 pid;

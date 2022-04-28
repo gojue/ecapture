@@ -1,5 +1,4 @@
-#include "common.h"
-#include "core_type.h"
+#include "ecapture.h"
 
 #define DISPATCH_COMMAND_V57_FAILED -2
 

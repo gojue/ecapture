@@ -1,3 +1,6 @@
+#ifndef ECAPTURE_H
+#define ECAPTURE_H
+
 #ifndef NOCORE
 //CO:RE is enabled
 #include "vmlinux.h"
@@ -11,4 +14,8 @@
 #include <linux/socket.h>
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_tracing.h>
+#endif
+
+#include "common.h"
+
 #endif
