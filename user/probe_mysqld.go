@@ -116,6 +116,13 @@ func (this *MMysqldProbe) setupManagers() error {
 				UprobeOffset:     offset,
 				BinaryPath:       binaryPath,
 			},
+			{
+				Section:          "uretprobe/dispatch_command_57",
+				EbpfFuncName:     "mysql57_query_return",
+				AttachToFuncName: attachFunc,
+				UprobeOffset:     offset,
+				BinaryPath:       binaryPath,
+			},
 		}
 	case MYSQLD_TYPE_80:
 		probes = []*manager.Probe{
@@ -126,12 +133,26 @@ func (this *MMysqldProbe) setupManagers() error {
 				UprobeOffset:     offset,
 				BinaryPath:       binaryPath,
 			},
+			{
+				Section:          "uretprobe/dispatch_command_57",
+				EbpfFuncName:     "mysql57_query_return",
+				AttachToFuncName: attachFunc,
+				UprobeOffset:     offset,
+				BinaryPath:       binaryPath,
+			},
 		}
 	default:
 		probes = []*manager.Probe{
 			{
 				Section:          "uprobe/dispatch_command",
 				EbpfFuncName:     "mysql56_query",
+				AttachToFuncName: attachFunc,
+				UprobeOffset:     offset,
+				BinaryPath:       binaryPath,
+			},
+			{
+				Section:          "uretprobe/dispatch_command",
+				EbpfFuncName:     "mysql56_query_return",
 				AttachToFuncName: attachFunc,
 				UprobeOffset:     offset,
 				BinaryPath:       binaryPath,
