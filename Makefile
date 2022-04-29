@@ -181,6 +181,7 @@ KERN_SRC_PATH ?= $(if $(KERN_HEADERS),$(KERN_HEADERS),$(if $(wildcard /lib/modul
 
 BPF_NOCORE_TAG = $(subst .,_,$(KERN_RELEASE)).$(subst .,_,$(VERSION))
 
+BPFHEADER += -I./kern/vmlinux/${ARCH}/
 
 #
 # BPF Source file
