@@ -1,5 +1,5 @@
 .PHONY: all | env nocore
-all: ebpf assets build
+all: autogen ebpf assets build
 	@echo $(shell date)
 
 nocore: ebpf_nocore assets build_nocore
@@ -28,13 +28,14 @@ CMD_GO ?= go
 CMD_GREP ?= grep
 CMD_CAT ?= cat
 CMD_MD5 ?= md5sum
+CMD_BPFTOOL ?= bpftool
 STYLE    ?= "{BasedOnStyle: Google, IndentWidth: 4}"
 
 .check_%:
 #
 	@command -v $* >/dev/null
 	if [ $$? -ne 0 ]; then
-		echo "missing required tool $*"
+		echo "eCapture Makefile: missing required tool $*"
 		exit 1
 	else
 		touch $@ # avoid target rebuilds due to inexistent file
@@ -109,6 +110,10 @@ GO_VERSION_MIN = $(shell echo $(GO_VERSION) | $(CMD_CUT) -d'.' -f2)
 		fi
 	fi
 	touch $@
+
+# bpftool version
+.checkver_$(CMD_BPFTOOL): \
+	| .check_$(CMD_BPFTOOL)
 
 #
 # version
@@ -332,3 +337,6 @@ format:
 	@echo "  ->  Formatting code"
 	@clang-format -i -style=$(STYLE) kern/*.c
 	@clang-format -i -style=$(STYLE) kern/common.h
+
+autogen: .checkver_$(CMD_BPFTOOL)
+	$(CMD_BPFTOOL) btf dump file /sys/kernel/btf/vmlinux format c > kern/vmlinux.h
