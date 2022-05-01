@@ -46,7 +46,7 @@ jobs:
     - name: Install Compilers
       run: |
         sudo apt-get update
-        sudo apt-get install --yes build-essential pkgconf libelf-dev llvm-12 clang-12
+        sudo apt-get install --yes build-essential pkgconf libelf-dev llvm-12 clang-12 linux-tools-common linux-tools-generic
         for tool in "clang" "llc" "llvm-strip"
         do
           sudo rm -f /usr/bin/$tool
