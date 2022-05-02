@@ -82,6 +82,10 @@ func (this *MBashProbe) constantEditor() []manager.ConstantEditor {
 			Value: uint64(this.conf.GetPid()),
 			//FailOnMissing: true,
 		},
+		{
+			Name: "target_errno",
+			Value: uint32(this.Module.conf.(* BashConfig).ErrNo),
+		},
 	}
 
 	if this.conf.GetPid() <= 0 {
@@ -104,6 +108,7 @@ func (this *MBashProbe) setupManagers() {
 	}
 
 	this.logger.Printf("HOOK binrayPath:%s, FunctionName:readline\n", binaryPath)
+	this.logger.Printf("HOOK binrayPath:%s, FunctionName:execute_command\n", binaryPath)
 
 	this.bpfManager = &manager.Manager{
 		Probes: []*manager.Probe{
@@ -112,6 +117,12 @@ func (this *MBashProbe) setupManagers() {
 				EbpfFuncName:     "uretprobe_bash_readline",
 				AttachToFuncName: "readline",
 				//UprobeOffset: 0x8232, 	//若找不到 readline 函数，则使用offset便宜地址方式。
+				BinaryPath: binaryPath, // 可能是 /bin/bash 也可能是 readline.so的真实地址
+			},
+			{
+				Section:          "uretprobe/bash_retval",
+				EbpfFuncName:     "uretprobe_bash_retval",
+				AttachToFuncName: "execute_command",
 				BinaryPath: binaryPath, // 可能是 /bin/bash 也可能是 readline.so的真实地址
 			},
 		},
@@ -160,7 +171,9 @@ func (this *MBashProbe) initDecodeFun() error {
 		return errors.New("cant found map:events")
 	}
 	this.eventMaps = append(this.eventMaps, bashEventsMap)
-	this.eventFuncMaps[bashEventsMap] = &bashEvent{}
+	bashevent := &bashEvent{}
+	bashevent.SetModule(this)
+	this.eventFuncMaps[bashEventsMap] = bashevent
 
 	return nil
 }

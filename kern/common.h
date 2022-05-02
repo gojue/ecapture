@@ -15,6 +15,7 @@
 #define MAX_DATA_SIZE_OPENSSL 1024 * 4
 #define MAX_DATA_SIZE_MYSQL 256
 #define MAX_DATA_SIZE_POSTGRES 256
+#define MAX_DATA_SIZE_BASH 256
 
 // enum_server_command, via
 // https://dev.mysql.com/doc/internals/en/com-query.html COM_QUERT command 03
@@ -23,11 +24,13 @@
 #define AF_INET 2
 #define AF_INET6 10
 #define SA_DATA_LEN 14
+#define BASH_ERRNO_DEFAULT 128
 
 // Optional Target PID
 // .rodata section bug via : https://github.com/ehids/ecapture/issues/39
 #ifndef KERNEL_LESS_5_2
 const volatile u64 target_pid = 0;
+const volatile int target_errno = BASH_ERRNO_DEFAULT;
 #else
 // u64 target_pid = 0;
 #endif

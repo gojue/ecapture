@@ -8,10 +8,20 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+/*
+ u32 pid;
+ u8 line[MAX_DATE_SIZE_BASH];
+ u32 retval;
+ char comm[TASK_COMM_LEN];
+*/
+
+const MAX_DATA_SIZE_BASH = 256
+
 type bashEvent struct {
 	module IModule
 	Pid    uint32
-	Line   [80]uint8
+	Line   [MAX_DATA_SIZE_BASH]uint8
+	Retval uint32
 	Comm   [16]byte
 }
 
@@ -23,19 +33,23 @@ func (this *bashEvent) Decode(payload []byte) (err error) {
 	if err = binary.Read(buf, binary.LittleEndian, &this.Line); err != nil {
 		return
 	}
+	if err = binary.Read(buf, binary.LittleEndian, &this.Retval); err != nil {
+		return
+	}
 	if err = binary.Read(buf, binary.LittleEndian, &this.Comm); err != nil {
 		return
 	}
+
 	return nil
 }
 
 func (this *bashEvent) String() string {
-	s := fmt.Sprintf(fmt.Sprintf(" PID:%d, \tComm:%s, \tLine:\n%s", this.Pid, this.Comm, unix.ByteSliceToString((this.Line[:]))))
+	s := fmt.Sprintf(fmt.Sprintf(" PID:%d, \tComm:%s, \tRetvalue:%d, \tLine:\n%s", this.Pid, this.Comm, this.Retval, unix.ByteSliceToString((this.Line[:]))))
 	return s
 }
 
 func (this *bashEvent) StringHex() string {
-	s := fmt.Sprintf(fmt.Sprintf(" PID:%d, \tComm:%s, \tLine:\n%s", this.Pid, this.Comm, dumpByteSlice([]byte(unix.ByteSliceToString((this.Line[:]))), "")))
+	s := fmt.Sprintf(fmt.Sprintf(" PID:%d, \tComm:%s, \tRetvalue:%d, \tLine:\n%s,", this.Pid, this.Comm, this.Retval, dumpByteSlice([]byte(unix.ByteSliceToString((this.Line[:]))), "")))
 	return s
 }
 
