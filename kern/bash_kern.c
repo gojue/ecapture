@@ -17,6 +17,7 @@ struct {
     __type(value, struct event);
     __uint(max_entries, 1024);
 } events_t SEC(".maps");
+
 // Force emitting struct event into the ELF.
 const struct event *unused __attribute__((unused));
 
@@ -43,6 +44,7 @@ int uretprobe_bash_readline(struct pt_regs *ctx) {
 }
 SEC("uretprobe/bash_retval")
 int uretprobe_bash_retval(struct pt_regs *ctx) {
+
     s64 pid_tgid = bpf_get_current_pid_tgid();
     int pid = pid_tgid >> 32;
 #ifndef KERNEL_LESS_5_2
@@ -51,6 +53,7 @@ int uretprobe_bash_retval(struct pt_regs *ctx) {
         return 0;
     }
 #endif
+  
     struct event *event_p = bpf_map_lookup_elem(&events_t, &pid);
 
     if (event_p) {
@@ -58,6 +61,7 @@ int uretprobe_bash_retval(struct pt_regs *ctx) {
         bpf_map_update_elem(&events_t, &pid, event_p, BPF_ANY);
         bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, event_p,
                               sizeof(struct event));
+
     }
     return 0;
 }

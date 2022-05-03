@@ -44,6 +44,7 @@ func (this *bashEvent) String() string {
 	}else{
 		s = fmt.Sprintf(fmt.Sprintf(" PID:%d, \tComm:%s, \tRetvalue:%d, \tLine:\n%s", this.Pid, this.Comm, this.Retval, unix.ByteSliceToString((this.Line[:]))))
 	}
+
 	return s
 }
 
