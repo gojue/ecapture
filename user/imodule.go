@@ -38,6 +38,8 @@ type IModule interface {
 
 	DecodeFun(p *ebpf.Map) (IEventStruct, bool)
 
+	GetConf() IConfig
+
 	Write(string)
 }
 
@@ -245,8 +247,12 @@ func (this *Module) Decode(em *ebpf.Map, b []byte) (result string, err error) {
 	}
 	return
 }
-
+func (this *Module) GetConf() IConfig {
+	return this.conf
+}
 // 写入数据，或者上传到远程数据库，写入到其他chan 等。
 func (this *Module) Write(result string) {
-	this.child.Write(result)
+	if result!=""{
+		this.child.Write(result)
+	}
 }

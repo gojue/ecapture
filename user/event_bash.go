@@ -35,7 +35,15 @@ func (this *bashEvent) Decode(payload []byte) (err error) {
 }
 
 func (this *bashEvent) String() string {
-	s := fmt.Sprintf(fmt.Sprintf(" PID:%d, \tComm:%s, \tRetvalue:%d, \tLine:\n%s", this.Pid, this.Comm, this.Retval, unix.ByteSliceToString((this.Line[:]))))
+	var s string
+	errno :=  GetModuleByName(MODULE_NAME_BASH).GetConf().(*BashConfig).ErrNo
+	if(errno != -1){
+		if errno >= 0 && errno < 128 &&uint32(errno) == this.Retval{
+			s = fmt.Sprintf(fmt.Sprintf(" PID:%d, \tComm:%s, \tRetvalue:%d, \tLine:\n%s", this.Pid, this.Comm, this.Retval, unix.ByteSliceToString((this.Line[:]))))
+		}
+	}else{
+		s = fmt.Sprintf(fmt.Sprintf(" PID:%d, \tComm:%s, \tRetvalue:%d, \tLine:\n%s", this.Pid, this.Comm, this.Retval, unix.ByteSliceToString((this.Line[:]))))
+	}
 	return s
 }
 

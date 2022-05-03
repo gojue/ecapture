@@ -3,7 +3,7 @@ package user
 import (
 	"bytes"
 	"context"
-	"ecapture/assets"
+	assets "ecapture/assets"
 	"github.com/cilium/ebpf"
 	manager "github.com/ehids/ebpfmanager"
 	"github.com/pkg/errors"
