@@ -196,6 +196,7 @@ TARGETS += kern/bash
 TARGETS += kern/gnutls
 TARGETS += kern/nspr
 TARGETS += kern/mysqld
+TARGETS += kern/postgres
 
 # Generate file name-scheme based on TARGETS
 KERN_SOURCES = ${TARGETS:=_kern.c}
