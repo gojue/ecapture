@@ -267,6 +267,7 @@ clean:
 	$(CMD_RM) -f user/bytecode/*.o
 	$(CMD_RM) -f assets/ebpf_probe.go
 	$(CMD_RM) -f bin/ecapture
+	$(CMD_RM) -f kern/vmlinux.h
 	$(CMD_RM) -f .check*
 
 .PHONY: $(KERN_OBJECTS)

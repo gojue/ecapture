@@ -25,3 +25,9 @@ const (
 	X86_BINARY_PREFIX    = "/lib/x86_64-linux-gnu"
 	OTHERS_BINARY_PREFIX = "/usr/lib"
 )
+
+const(
+	ERR_NUMBER_DEFAULT = 128
+	ERR_NUMBER_BEGIN = 0
+	ERR_NUMBER_END = 127
+)

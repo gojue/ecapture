@@ -177,7 +177,9 @@ func (this *MBashProbe) Events() []*ebpf.Map {
 }
 
 func (this *MBashProbe) Write(result string) {
-	this.logger.Println(result)
+	if result != ""{
+		this.logger.Println(result)
+	}
 }
 
 func init() {

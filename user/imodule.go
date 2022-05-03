@@ -252,7 +252,5 @@ func (this *Module) GetConf() IConfig {
 }
 // 写入数据，或者上传到远程数据库，写入到其他chan 等。
 func (this *Module) Write(result string) {
-	if result!=""{
 		this.child.Write(result)
-	}
 }
