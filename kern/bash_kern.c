@@ -2,7 +2,7 @@
 
 struct event {
     u32 pid;
-    u8 line[80];
+    u8 line[MAX_DATA_SIZE_BASH];
     u32 retval;
     char comm[TASK_COMM_LEN];
 };
@@ -58,7 +58,7 @@ int uretprobe_bash_retval(struct pt_regs *ctx) {
 
 #ifndef KERNEL_LESS_5_2
     // if target_errno is 128 then we target all
-    if (target_errno != ERRNO_DEFAULT && target_errno != retval) {
+    if (target_errno != BASH_ERRNO_DEFAULT && target_errno != retval) {
         if (event_p) bpf_map_delete_elem(&events_t, &pid);
         return 0;
     }
