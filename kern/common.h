@@ -14,6 +14,7 @@
 #define TASK_COMM_LEN 16
 #define MAX_DATA_SIZE_OPENSSL 1024 * 4
 #define MAX_DATA_SIZE_MYSQL 256
+#define MAX_DATA_SIZE_POSTGRES 256
 
 // enum_server_command, via
 // https://dev.mysql.com/doc/internals/en/com-query.html COM_QUERT command 03

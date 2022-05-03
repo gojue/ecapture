@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"context"
 	"ecapture/assets"
+	"log"
+	"math"
+	"os"
+
 	"github.com/cilium/ebpf"
 	manager "github.com/ehids/ebpfmanager"
 	"github.com/pkg/errors"
 	"golang.org/x/sys/unix"
-	"log"
-	"math"
-	"os"
 )
 
 const CONN_NOT_FOUND = "[ADDR_NOT_FOUND]"
