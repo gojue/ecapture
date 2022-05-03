@@ -8,16 +8,17 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+
 	"golang.org/x/sys/unix"
 )
 
 /*
-	u64 pid;
-    u64 timestamp;
-    char query[MAX_DATA_SIZE];
-    u64 alllen;
-    u64 len;
-    char comm[TASK_COMM_LEN];
+   u64 pid;
+   u64 timestamp;
+   char query[MAX_DATA_SIZE];
+   u64 alllen;
+   u64 len;
+   char comm[TASK_COMM_LEN];
 */
 const MYSQLD_MAX_DATA_SIZE = 256
 
