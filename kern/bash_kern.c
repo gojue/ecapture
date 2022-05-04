@@ -2,7 +2,7 @@
 
 struct event {
     u32 pid;
-    u8 line[80];
+    u8 line[MAX_DATA_SIZE_BASH];
     u32 retval;
     char comm[TASK_COMM_LEN];
 };
