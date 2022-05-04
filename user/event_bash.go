@@ -4,13 +4,23 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+
 	"golang.org/x/sys/unix"
 )
+
+/*
+ u32 pid;
+ u8 line[MAX_DATE_SIZE_BASH];
+ u32 retval;
+ char comm[TASK_COMM_LEN];
+*/
+
+const MAX_DATA_SIZE_BASH = 256
 
 type bashEvent struct {
 	module IModule
 	Pid    uint32
-	Line   [80]uint8
+	Line   [MAX_DATA_SIZE_BASH]uint8
 	Retval uint32
 	Comm   [16]byte
 }
