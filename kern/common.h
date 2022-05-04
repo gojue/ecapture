@@ -24,13 +24,13 @@
 #define AF_INET 2
 #define AF_INET6 10
 #define SA_DATA_LEN 14
-#define ERRNO_DEFAULT 128
+#define BASH_ERRNO_DEFAULT 128
 
 // Optional Target PID
 // .rodata section bug via : https://github.com/ehids/ecapture/issues/39
 #ifndef KERNEL_LESS_5_2
 const volatile u64 target_pid = 0;
-const volatile int target_errno = ERRNO_DEFAULT;
+const volatile int target_errno = BASH_ERRNO_DEFAULT;
 #else
 // u64 target_pid = 0;
 #endif
