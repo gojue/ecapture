@@ -15,6 +15,7 @@ type BashConfig struct {
 	eConfig
 	Bashpath string `json:"bashpath"` //bash的文件路径
 	Readline string `json:"readline"`
+	ErrNo	 int
 	elfType  uint8  //
 }
 

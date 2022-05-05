@@ -28,6 +28,7 @@ Auto find the bash of the current env as the capture target.`,
 func init() {
 	bashCmd.PersistentFlags().StringVar(&bc.Bashpath, "bash", "", "$SHELL file path, eg: /bin/bash , will automatically find it from $ENV default.")
 	bashCmd.PersistentFlags().StringVar(&bc.Readline, "readlineso", "", "readline.so file path, will automatically find it from $BASH_PATH default.")
+	bashCmd.Flags().IntVarP(&bc.ErrNo, "errnumber", "e", user.BASH_ERRNO_DEFAULT, "only show the command which exec reulst equals err number.")
 	rootCmd.AddCommand(bashCmd)
 
 	// Here you will define your flags and configuration settings.

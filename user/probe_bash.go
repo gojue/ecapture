@@ -82,6 +82,10 @@ func (this *MBashProbe) constantEditor() []manager.ConstantEditor {
 			Value: uint64(this.conf.GetPid()),
 			//FailOnMissing: true,
 		},
+		{
+			Name: "target_errno",
+			Value: uint32(this.Module.conf.(* BashConfig).ErrNo),
+		},
 	}
 
 	if this.conf.GetPid() <= 0 {
@@ -167,7 +171,9 @@ func (this *MBashProbe) initDecodeFun() error {
 		return errors.New("cant found map:events")
 	}
 	this.eventMaps = append(this.eventMaps, bashEventsMap)
-	this.eventFuncMaps[bashEventsMap] = &bashEvent{}
+	bashevent := &bashEvent{}
+	bashevent.SetModule(this)
+	this.eventFuncMaps[bashEventsMap] = bashevent
 
 	return nil
 }
