@@ -38,8 +38,8 @@ jobs:
       uses: mikepenz/release-changelog-builder-action@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    - name: Save Changelog
-      uses: DamianReeves/write-file-action
+    - name: Write File
+      uses: DamianReeves/write-file-action@v1.0
       with:
         path: ./bin/release_notes.txt
         contents: |
