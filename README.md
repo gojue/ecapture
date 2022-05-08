@@ -1,13 +1,13 @@
 ![](./images/ecapture-logo-400x400.png)
 
-[简体中文介绍](./README_CN.md)
+[简体中文介绍](./README_CN.md) | English
 
 [![GitHub stars](https://img.shields.io/github/stars/ehids/ecapture.svg?label=Stars&logo=github)](https://github.com/ehids/ecapture)
 [![GitHub forks](https://img.shields.io/github/forks/ehids/ecapture?label=Forks&logo=github)](https://github.com/ehids/ecapture)
 [![CI](https://github.com/ehids/ecapture/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/ehids/ecapture/actions/workflows/code-analysis.yml)
 [![Github Version](https://img.shields.io/github/v/release/ehids/ecapture?display_name=tag&include_prereleases&sort=semver)](https://github.com/ehids/ecapture/releases)
 
-### eCapture:  capture SSL/TLS text content without CA cert by eBPF.
+### eCapture:  capture SSL/TLS text content without CA cert Using eBPF.
 
 ----
 
@@ -99,18 +99,16 @@ Probes: []*manager.Probe{
 },
 ```
 ### bash readline.so hook
-hook `/bin/bash` `readline` symbol name.
+hook `/bin/bash` symbol name `readline`.
 
 # How to compile
 Linux Kernel: >= 4.18.
 
 ## Tools 
 * golang 1.16
-* gcc 10.3.0
 * clang 9.0.0  
 * cmake 3.18.4
 * clang backend: llvm 9.0.0   
-* pahole >= v1.13
 * kernel config:CONFIG_DEBUG_INFO_BTF=y (Optional, 2022-04-17)
 
 ## command

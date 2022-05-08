@@ -1,6 +1,6 @@
 ![](./images/ecapture-logo-400x400.png)
 
-[English](./README.md)
+[English](./README.md) | 简体中文
 
 [![GitHub stars](https://img.shields.io/github/stars/ehids/ecapture.svg?label=Stars&logo=github)](https://github.com/ehids/ecapture)
 [![GitHub forks](https://img.shields.io/github/forks/ehids/ecapture?label=Forks&logo=github)](https://github.com/ehids/ecapture)
@@ -116,11 +116,9 @@ hook了`/bin/bash`的`readline`函数。
 
 ## 工具链版本
 * golang 1.16
-* gcc 10.3.0
 * clang 9.0.0
 * cmake 3.18.4
 * clang backend: llvm 9.0.0
-* pahole >= v1.13
 * kernel config:CONFIG_DEBUG_INFO_BTF=y (可选，2022-04-17增加)
 
 
