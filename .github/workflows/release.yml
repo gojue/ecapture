@@ -36,6 +36,8 @@ jobs:
     - name: Build Changelog
       id: github_release
       uses: mikepenz/release-changelog-builder-action@v1
+      with:
+        configuration: "configuration.json"
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - name: Write File
@@ -43,7 +45,7 @@ jobs:
       with:
         path: ./bin/release_notes.txt
         contents: |
-          echo ${{ steps.github_release.outputs.changelog }}
+          ${{ steps.github_release.outputs.changelog }}
         write-mode: append
     - name: Release
       run: |
