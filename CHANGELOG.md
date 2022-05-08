@@ -2,6 +2,10 @@
 
 ## v0.1.8 (2022-05-08)
 
+### What's Changed
+
+### New Contributors
+
 **Full Changelog**: https://github.com/ehids/ecapture/compare/v0.1.7...v0.1.8
 
 
