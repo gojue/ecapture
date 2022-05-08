@@ -1,13 +1,19 @@
 <hr>
 
 ## v0.1.8 (2022-05-08)
+## What's Changed
+* ADD mysqld dispatch_command return value. by @cfc4n in https://github.com/ehids/ecapture/pull/44
+* autogen  vmlinux header file to compatible current OS by @cfc4n in https://github.com/ehids/ecapture/pull/50
+* feat: support postgres query hook by @yihong0618 in https://github.com/ehids/ecapture/pull/51
+* added return value of bash module. by @huzai9527 in https://github.com/ehids/ecapture/pull/52
+* change bash line size to 256 bytes by @yindex in https://github.com/ehids/ecapture/pull/55
+* add errnumber flag for command bash by @huzai9527 in https://github.com/ehids/ecapture/pull/56
 
-### What's Changed
-
-### New Contributors
+## New Contributors
+* @huzai9527 made their first contribution in https://github.com/ehids/ecapture/pull/52
+* @yindex made their first contribution in https://github.com/ehids/ecapture/pull/55
 
 **Full Changelog**: https://github.com/ehids/ecapture/compare/v0.1.7...v0.1.8
-
 
 <hr>
 
