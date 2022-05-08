@@ -26,6 +26,8 @@ CMD_GIT ?= git
 CMD_RM ?= rm
 CMD_TOUCH ?= touch
 CMD_MKDIR ?= mkdir
+CMD_MV ?= mv
+CMD_CP ?= cp
 
 .ONESHELL:
 .check_%:
@@ -112,6 +114,7 @@ help:
 #
 
 OUTPUT_DIR = ./bin
+TAR_DIR = ecapture-$(SNAPSHOT_VERSION)
 
 # from CLI args.
 RELEASE_NOTES ?= $(OUTPUT_DIR)/release_notes.txt
@@ -127,12 +130,6 @@ $(OUTPUT_DIR):
 
 SNAPSHOT_VERSION ?= $(shell git rev-parse HEAD)
 
-RELEASE_FILES = LICENSE
-RELEASE_FILES += README.md
-RELEASE_FILES += README_CN.md
-RELEASE_FILES += $(OUTPUT_DIR)/ecapture
-RELEASE_FILES += $(OUTPUT_DIR)/release_notes.txt
-
 OUT_ARCHIVE := $(OUTPUT_DIR)/ecapture-$(SNAPSHOT_VERSION).tar.gz
 OUT_CHECKSUMS := $(OUTPUT_DIR)/checksum-$(SNAPSHOT_VERSION).txt
 
@@ -147,7 +144,11 @@ snapshot: \
 	# build binaries
 	$(MAKE) ARG="all"
 	# create the tar ball and checksum files
-	$(CMD_TAR)  -czf $(OUT_ARCHIVE) $(RELEASE_FILES)
+	$(CMD_MKDIR) -p $(TAR_DIR)
+	$(CMD_CP) LICENSE $(TAR_DIR)/LICENSE
+	$(CMD_MV) $(OUTPUT_DIR)/ecapture $(TAR_DIR)/ecapture
+	$(CMD_MV) $(OUTPUT_DIR)/release_notes.txt $(TAR_DIR)/release_notes.txt
+	$(CMD_TAR)  -czf $(OUT_ARCHIVE) $(TAR_DIR)
 	$(CMD_CHECKSUM) $(OUT_ARCHIVE) > $(OUT_CHECKSUMS)
 
 .PHONY: publish
