@@ -230,10 +230,6 @@ func (this *MNsprProbe) Events() []*ebpf.Map {
 	return this.eventMaps
 }
 
-func (this *MNsprProbe) Write(result string) {
-	this.logger.Println(result)
-}
-
 func init() {
 	mod := &MNsprProbe{}
 	mod.name = MODULE_NAME_NSPR

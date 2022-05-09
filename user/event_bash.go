@@ -18,11 +18,12 @@ import (
 const MAX_DATA_SIZE_BASH = 256
 
 type bashEvent struct {
-	module IModule
-	Pid    uint32
-	Line   [MAX_DATA_SIZE_BASH]uint8
-	Retval uint32
-	Comm   [16]byte
+	module     IModule
+	event_type EVENT_TYPE
+	Pid        uint32
+	Line       [MAX_DATA_SIZE_BASH]uint8
+	Retval     uint32
+	Comm       [16]byte
 }
 
 func (this *bashEvent) Decode(payload []byte) (err error) {
@@ -62,5 +63,11 @@ func (this *bashEvent) Module() IModule {
 }
 
 func (this *bashEvent) Clone() IEventStruct {
-	return new(bashEvent)
+	event := new(bashEvent)
+	event.event_type = EVENT_TYPE_OUTPUT
+	return event
+}
+
+func (this *bashEvent) EventType() EVENT_TYPE {
+	return this.event_type
 }

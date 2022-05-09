@@ -23,7 +23,8 @@ const SA_DATA_LEN = 14
 
 type SSLDataEvent struct {
 	module       IModule
-	EventType    int64
+	event_type   EVENT_TYPE
+	DataType     int64
 	Timestamp_ns uint64
 	Pid          uint32
 	Tid          uint32
@@ -35,7 +36,7 @@ type SSLDataEvent struct {
 
 func (this *SSLDataEvent) Decode(payload []byte) (err error) {
 	buf := bytes.NewBuffer(payload)
-	if err = binary.Read(buf, binary.LittleEndian, &this.EventType); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &this.DataType); err != nil {
 		return
 	}
 	if err = binary.Read(buf, binary.LittleEndian, &this.Timestamp_ns); err != nil {
@@ -67,7 +68,7 @@ func (this *SSLDataEvent) StringHex() string {
 	addr := this.module.(*MOpenSSLProbe).GetConn(this.Pid, this.Fd)
 
 	var perfix, connInfo string
-	switch AttachType(this.EventType) {
+	switch AttachType(this.DataType) {
 	case PROBE_ENTRY:
 		connInfo = fmt.Sprintf("%sRecived %d%s bytes from %s%s%s", COLORGREEN, this.Data_len, COLORRESET, COLORYELLOW, addr, COLORRESET)
 		perfix = COLORGREEN
@@ -89,7 +90,7 @@ func (this *SSLDataEvent) String() string {
 	addr := this.module.(*MOpenSSLProbe).GetConn(this.Pid, this.Fd)
 
 	var perfix, connInfo string
-	switch AttachType(this.EventType) {
+	switch AttachType(this.DataType) {
 	case PROBE_ENTRY:
 		connInfo = fmt.Sprintf("%sRecived %d%s bytes from %s%s%s", COLORGREEN, this.Data_len, COLORRESET, COLORYELLOW, addr, COLORRESET)
 		perfix = COLORGREEN
@@ -113,8 +114,12 @@ func (this *SSLDataEvent) Module() IModule {
 
 func (this *SSLDataEvent) Clone() IEventStruct {
 	event := new(SSLDataEvent)
-	event.module = this.module
+	event.event_type = EVENT_TYPE_OUTPUT
 	return event
+}
+
+func (this *SSLDataEvent) EventType() EVENT_TYPE {
+	return this.event_type
 }
 
 //  connect_events map
@@ -128,13 +133,14 @@ uint64_t timestamp_ns;
 */
 type ConnDataEvent struct {
 	module      IModule
+	event_type  EVENT_TYPE
 	TimestampNs uint64
 	Pid         uint32
 	Tid         uint32
 	Fd          uint32
 	SaData      [SA_DATA_LEN]byte
 	Comm        [16]byte
-	addr        string
+	Addr        string
 }
 
 func (this *ConnDataEvent) Decode(payload []byte) (err error) {
@@ -159,24 +165,16 @@ func (this *ConnDataEvent) Decode(payload []byte) (err error) {
 	}
 	port := binary.BigEndian.Uint16(this.SaData[0:2])
 	ip := net.IPv4(this.SaData[2], this.SaData[3], this.SaData[4], this.SaData[5])
-	this.addr = fmt.Sprintf("%s:%d", ip, port)
-
-	// save event to this.module
-	module := this.module.(*MOpenSSLProbe)
-	module.AddConn(this.Pid, this.Fd, this.addr)
+	this.Addr = fmt.Sprintf("%s:%d", ip, port)
 	return nil
 }
 
 func (this *ConnDataEvent) StringHex() string {
 	return ""
-	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, FD:%d, Addr: %s", this.Pid, this.Comm, this.Tid, this.Fd, this.addr)
-	return s
 }
 
 func (this *ConnDataEvent) String() string {
 	return ""
-	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, FD:%d, Addr: %s ", this.Pid, this.Comm, this.Tid, this.Fd, this.addr)
-	return s
 }
 
 func (this *ConnDataEvent) SetModule(module IModule) {
@@ -189,6 +187,10 @@ func (this *ConnDataEvent) Module() IModule {
 
 func (this *ConnDataEvent) Clone() IEventStruct {
 	event := new(ConnDataEvent)
-	event.module = this.module
+	event.event_type = EVENT_TYPE_MODULE_DATA
 	return event
+}
+
+func (this *ConnDataEvent) EventType() EVENT_TYPE {
+	return this.event_type
 }

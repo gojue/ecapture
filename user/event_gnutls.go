@@ -12,7 +12,8 @@ import (
 
 type GnutlsDataEvent struct {
 	module       IModule
-	EventType    int64
+	event_type   EVENT_TYPE
+	DataType     int64
 	Timestamp_ns uint64
 	Pid          uint32
 	Tid          uint32
@@ -23,7 +24,7 @@ type GnutlsDataEvent struct {
 
 func (this *GnutlsDataEvent) Decode(payload []byte) (err error) {
 	buf := bytes.NewBuffer(payload)
-	if err = binary.Read(buf, binary.LittleEndian, &this.EventType); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &this.DataType); err != nil {
 		return
 	}
 	if err = binary.Read(buf, binary.LittleEndian, &this.Timestamp_ns); err != nil {
@@ -49,7 +50,7 @@ func (this *GnutlsDataEvent) Decode(payload []byte) (err error) {
 
 func (this *GnutlsDataEvent) StringHex() string {
 	var perfix, packetType string
-	switch AttachType(this.EventType) {
+	switch AttachType(this.DataType) {
 	case PROBE_ENTRY:
 		packetType = fmt.Sprintf("%sRecived%s", COLORGREEN, COLORRESET)
 		perfix = COLORGREEN
@@ -68,7 +69,7 @@ func (this *GnutlsDataEvent) StringHex() string {
 
 func (this *GnutlsDataEvent) String() string {
 	var perfix, packetType string
-	switch AttachType(this.EventType) {
+	switch AttachType(this.DataType) {
 	case PROBE_ENTRY:
 		packetType = fmt.Sprintf("%sRecived%s", COLORGREEN, COLORRESET)
 		perfix = COLORGREEN
@@ -91,5 +92,11 @@ func (this *GnutlsDataEvent) Module() IModule {
 }
 
 func (this *GnutlsDataEvent) Clone() IEventStruct {
-	return new(GnutlsDataEvent)
+	event := new(GnutlsDataEvent)
+	event.event_type = EVENT_TYPE_OUTPUT
+	return event
+}
+
+func (this *GnutlsDataEvent) EventType() EVENT_TYPE {
+	return this.event_type
 }

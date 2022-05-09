@@ -13,7 +13,8 @@ import (
 
 type NsprDataEvent struct {
 	module       IModule
-	EventType    int64
+	event_type   EVENT_TYPE
+	DataType     int64
 	Timestamp_ns uint64
 	Pid          uint32
 	Tid          uint32
@@ -24,7 +25,7 @@ type NsprDataEvent struct {
 
 func (this *NsprDataEvent) Decode(payload []byte) (err error) {
 	buf := bytes.NewBuffer(payload)
-	if err = binary.Read(buf, binary.LittleEndian, &this.EventType); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &this.DataType); err != nil {
 		return
 	}
 	if err = binary.Read(buf, binary.LittleEndian, &this.Timestamp_ns); err != nil {
@@ -50,7 +51,7 @@ func (this *NsprDataEvent) Decode(payload []byte) (err error) {
 
 func (this *NsprDataEvent) StringHex() string {
 	var perfix, packetType string
-	switch AttachType(this.EventType) {
+	switch AttachType(this.DataType) {
 	case PROBE_ENTRY:
 		packetType = fmt.Sprintf("%sRecived%s", COLORGREEN, COLORRESET)
 		perfix = COLORGREEN
@@ -81,7 +82,7 @@ func (this *NsprDataEvent) StringHex() string {
 
 func (this *NsprDataEvent) String() string {
 	var perfix, packetType string
-	switch AttachType(this.EventType) {
+	switch AttachType(this.DataType) {
 	case PROBE_ENTRY:
 		packetType = fmt.Sprintf("%sRecived%s", COLORGREEN, COLORRESET)
 		perfix = COLORGREEN
@@ -113,5 +114,11 @@ func (this *NsprDataEvent) Module() IModule {
 }
 
 func (this *NsprDataEvent) Clone() IEventStruct {
-	return new(NsprDataEvent)
+	event := new(NsprDataEvent)
+	event.event_type = EVENT_TYPE_OUTPUT
+	return event
+}
+
+func (this *NsprDataEvent) EventType() EVENT_TYPE {
+	return this.event_type
 }

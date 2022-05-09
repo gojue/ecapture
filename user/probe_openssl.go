@@ -23,7 +23,7 @@ type MOpenSSLProbe struct {
 	eventFuncMaps     map[*ebpf.Map]IEventStruct
 	eventMaps         []*ebpf.Map
 
-	// pid[fd:addr]
+	// pid[fd:Addr]
 	pidConns map[uint32]map[uint32]string
 }
 
@@ -283,11 +283,19 @@ func (this *MOpenSSLProbe) GetConn(pid, fd uint32) string {
 	return addr
 }
 
-func (this *MOpenSSLProbe) Write(result string) {
-	// TODO fixme , check result origin , if connEvent ,do not print
-	if result != "" {
-		this.logger.Println(result)
+func (this *MOpenSSLProbe) Dispatcher(event IEventStruct) {
+	// check event type , uploaded for EVENT_TYPE_OUTPUT
+	switch event.EventType() {
+	case EVENT_TYPE_OUTPUT:
+		this.logger.Println(event)
+	case EVENT_TYPE_MODULE_DATA:
+		// Save to cache
 	}
+}
+
+func (this *MOpenSSLProbe) saveToCache(event IEventStruct) {
+	// save event to this.module TODO
+	//this.AddConn(event.Pid, event.Fd, event.Addr)
 }
 
 func init() {
