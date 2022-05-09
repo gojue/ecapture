@@ -284,18 +284,9 @@ func (this *MOpenSSLProbe) GetConn(pid, fd uint32) string {
 }
 
 func (this *MOpenSSLProbe) Dispatcher(event IEventStruct) {
-	// check event type , uploaded for EVENT_TYPE_OUTPUT
-	switch event.EventType() {
-	case EVENT_TYPE_OUTPUT:
-		this.logger.Println(event)
-	case EVENT_TYPE_MODULE_DATA:
-		// Save to cache
-	}
-}
-
-func (this *MOpenSSLProbe) saveToCache(event IEventStruct) {
-	// save event to this.module TODO
-	//this.AddConn(event.Pid, event.Fd, event.Addr)
+	// detect event type TODO
+	this.AddConn(event.(*ConnDataEvent).Pid, event.(*ConnDataEvent).Fd, event.(*ConnDataEvent).Addr)
+	//this.logger.Println(event)
 }
 
 func init() {

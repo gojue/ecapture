@@ -108,6 +108,7 @@ func (this *mysqldEvent) Module() IModule {
 
 func (this *mysqldEvent) Clone() IEventStruct {
 	event := new(mysqldEvent)
+	event.module = this.module
 	event.event_type = EVENT_TYPE_OUTPUT
 	return event
 }

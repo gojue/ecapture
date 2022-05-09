@@ -93,6 +93,7 @@ func (this *GnutlsDataEvent) Module() IModule {
 
 func (this *GnutlsDataEvent) Clone() IEventStruct {
 	event := new(GnutlsDataEvent)
+	event.module = this.module
 	event.event_type = EVENT_TYPE_OUTPUT
 	return event
 }

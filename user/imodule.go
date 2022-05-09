@@ -240,7 +240,7 @@ func (this *Module) Dispatcher(event IEventStruct) {
 	case EVENT_TYPE_OUTPUT:
 		this.logger.Println(event)
 	case EVENT_TYPE_MODULE_DATA:
-		// Save to cache TODO
-		//this.child.Dispatcher(event)
+		// Save to cache
+		this.child.Dispatcher(event)
 	}
 }

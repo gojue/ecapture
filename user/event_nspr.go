@@ -115,6 +115,7 @@ func (this *NsprDataEvent) Module() IModule {
 
 func (this *NsprDataEvent) Clone() IEventStruct {
 	event := new(NsprDataEvent)
+	event.module = this.module
 	event.event_type = EVENT_TYPE_OUTPUT
 	return event
 }

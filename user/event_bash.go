@@ -64,6 +64,7 @@ func (this *bashEvent) Module() IModule {
 
 func (this *bashEvent) Clone() IEventStruct {
 	event := new(bashEvent)
+	event.module = this.module
 	event.event_type = EVENT_TYPE_OUTPUT
 	return event
 }

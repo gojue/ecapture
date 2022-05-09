@@ -114,6 +114,7 @@ func (this *SSLDataEvent) Module() IModule {
 
 func (this *SSLDataEvent) Clone() IEventStruct {
 	event := new(SSLDataEvent)
+	event.module = this.module
 	event.event_type = EVENT_TYPE_OUTPUT
 	return event
 }
@@ -170,11 +171,13 @@ func (this *ConnDataEvent) Decode(payload []byte) (err error) {
 }
 
 func (this *ConnDataEvent) StringHex() string {
-	return ""
+	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, FD:%d, Addr: %s", this.Pid, this.Comm, this.Tid, this.Fd, this.Addr)
+	return s
 }
 
 func (this *ConnDataEvent) String() string {
-	return ""
+	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, FD:%d, Addr: %s", this.Pid, this.Comm, this.Tid, this.Fd, this.Addr)
+	return s
 }
 
 func (this *ConnDataEvent) SetModule(module IModule) {
@@ -187,6 +190,7 @@ func (this *ConnDataEvent) Module() IModule {
 
 func (this *ConnDataEvent) Clone() IEventStruct {
 	event := new(ConnDataEvent)
+	event.module = this.module
 	event.event_type = EVENT_TYPE_MODULE_DATA
 	return event
 }
