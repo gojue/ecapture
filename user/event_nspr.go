@@ -59,7 +59,7 @@ func (this *NsprDataEvent) StringHex() string {
 		packetType = fmt.Sprintf("%sSend%s", COLORPURPLE, COLORRESET)
 		perfix = fmt.Sprintf("%s\t", COLORPURPLE)
 	default:
-		perfix = fmt.Sprintf("UNKNOW_%d", this.EventType)
+		perfix = fmt.Sprintf("UNKNOW_%d", this.DataType)
 	}
 
 	var b *bytes.Buffer
@@ -90,7 +90,7 @@ func (this *NsprDataEvent) String() string {
 		packetType = fmt.Sprintf("%sSend%s", COLORPURPLE, COLORRESET)
 		perfix = COLORPURPLE
 	default:
-		packetType = fmt.Sprintf("%sUNKNOW_%d%s", COLORRED, this.EventType, COLORRESET)
+		packetType = fmt.Sprintf("%sUNKNOW_%d%s", COLORRED, this.DataType, COLORRESET)
 	}
 
 	var b *bytes.Buffer

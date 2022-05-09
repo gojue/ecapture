@@ -76,7 +76,7 @@ func (this *SSLDataEvent) StringHex() string {
 		connInfo = fmt.Sprintf("%sSend %d%s bytes to %s%s%s", COLORPURPLE, this.Data_len, COLORRESET, COLORYELLOW, addr, COLORRESET)
 		perfix = fmt.Sprintf("%s\t", COLORPURPLE)
 	default:
-		perfix = fmt.Sprintf("UNKNOW_%d", this.EventType)
+		perfix = fmt.Sprintf("UNKNOW_%d", this.DataType)
 	}
 
 	b := dumpByteSlice(this.Data[:this.Data_len], perfix)
@@ -98,7 +98,7 @@ func (this *SSLDataEvent) String() string {
 		connInfo = fmt.Sprintf("%sSend %d%s bytes to %s%s%s", COLORPURPLE, this.Data_len, COLORRESET, COLORYELLOW, addr, COLORRESET)
 		perfix = COLORPURPLE
 	default:
-		connInfo = fmt.Sprintf("%sUNKNOW_%d%s", COLORRED, this.EventType, COLORRESET)
+		connInfo = fmt.Sprintf("%sUNKNOW_%d%s", COLORRED, this.DataType, COLORRESET)
 	}
 	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, %s, Payload:\n%s%s%s", this.Pid, this.Comm, this.Tid, connInfo, perfix, string(this.Data[:this.Data_len]), COLORRESET)
 	return s

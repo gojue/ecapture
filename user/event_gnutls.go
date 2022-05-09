@@ -58,7 +58,7 @@ func (this *GnutlsDataEvent) StringHex() string {
 		packetType = fmt.Sprintf("%sSend%s", COLORPURPLE, COLORRESET)
 		perfix = fmt.Sprintf("%s\t", COLORPURPLE)
 	default:
-		perfix = fmt.Sprintf("UNKNOW_%d", this.EventType)
+		perfix = fmt.Sprintf("UNKNOW_%d", this.DataType)
 	}
 
 	b := dumpByteSlice(this.Data[:this.Data_len], perfix)
@@ -77,7 +77,7 @@ func (this *GnutlsDataEvent) String() string {
 		packetType = fmt.Sprintf("%sSend%s", COLORPURPLE, COLORRESET)
 		perfix = COLORPURPLE
 	default:
-		packetType = fmt.Sprintf("%sUNKNOW_%d%s", COLORRED, this.EventType, COLORRESET)
+		packetType = fmt.Sprintf("%sUNKNOW_%d%s", COLORRED, this.DataType, COLORRESET)
 	}
 	s := fmt.Sprintf(" PID:%d, Comm:%s, TID:%d, TYPE:%s, DataLen:%d bytes, Payload:\n%s%s%s", this.Pid, this.Comm, this.Tid, packetType, this.Data_len, perfix, string(this.Data[:this.Data_len]), COLORRESET)
 	return s
