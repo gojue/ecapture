@@ -153,10 +153,6 @@ func (this *MPostgresProbe) Events() []*ebpf.Map {
 	return this.eventMaps
 }
 
-func (this *MPostgresProbe) Write(result string) {
-	this.logger.Println(result)
-}
-
 func init() {
 	mod := &MPostgresProbe{}
 	mod.name = MODULE_NAME_POSTGRES

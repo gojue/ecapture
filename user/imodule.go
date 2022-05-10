@@ -32,13 +32,13 @@ type IModule interface {
 
 	SetChild(module IModule)
 
-	Decode(*ebpf.Map, []byte) (string, error)
+	Decode(*ebpf.Map, []byte) (IEventStruct, error)
 
 	Events() []*ebpf.Map
 
 	DecodeFun(p *ebpf.Map) (IEventStruct, bool)
 
-	Write(string)
+	Dispatcher(IEventStruct)
 }
 
 type Module struct {
@@ -169,15 +169,15 @@ func (this *Module) perfEventReader(errChan chan error, em *ebpf.Map) {
 			continue
 		}
 
-		var result string
-		result, err = this.child.Decode(em, record.RawSample)
+		var event IEventStruct
+		event, err = this.child.Decode(em, record.RawSample)
 		if err != nil {
 			log.Printf("this.child.decode error:%v", err)
 			continue
 		}
 
 		// 上报数据
-		this.Write(result)
+		this.Dispatcher(event)
 	}
 }
 
@@ -207,46 +207,40 @@ func (this *Module) ringbufEventReader(errChan chan error, em *ebpf.Map) {
 			return
 		}
 
-		var result string
-		result, err = this.child.Decode(em, record.RawSample)
+		var event IEventStruct
+		event, err = this.child.Decode(em, record.RawSample)
 		if err != nil {
 			log.Printf("this.child.decode error:%v", err)
 			continue
 		}
 
 		// 上报数据
-		this.Write(result)
+		this.Dispatcher(event)
 	}
 }
 
-func (this *Module) EventsDecode(payload []byte, es IEventStruct) (s string, err error) {
-	te := es.Clone()
-	err = te.Decode(payload)
-	if err != nil {
-		return
-	}
-	if this.conf.GetHex() {
-		s = te.StringHex()
-	} else {
-		s = te.String()
-	}
-	return
-}
-
-func (this *Module) Decode(em *ebpf.Map, b []byte) (result string, err error) {
+func (this *Module) Decode(em *ebpf.Map, b []byte) (event IEventStruct, err error) {
 	es, found := this.child.DecodeFun(em)
 	if !found {
 		err = fmt.Errorf("can't found decode function :%s, address:%p", em.String(), em)
 		return
 	}
-	result, err = this.EventsDecode(b, es)
+
+	te := es.Clone()
+	err = te.Decode(b)
 	if err != nil {
-		return
+		return nil, err
 	}
-	return
+	return te, nil
 }
 
 // 写入数据，或者上传到远程数据库，写入到其他chan 等。
-func (this *Module) Write(result string) {
-	this.child.Write(result)
+func (this *Module) Dispatcher(event IEventStruct) {
+	switch event.EventType() {
+	case EVENT_TYPE_OUTPUT:
+		this.logger.Println(event)
+	case EVENT_TYPE_MODULE_DATA:
+		// Save to cache
+		this.child.Dispatcher(event)
+	}
 }

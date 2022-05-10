@@ -83,8 +83,8 @@ func (this *MBashProbe) constantEditor() []manager.ConstantEditor {
 			//FailOnMissing: true,
 		},
 		{
-			Name: "target_errno",
-			Value: uint32(this.Module.conf.(* BashConfig).ErrNo),
+			Name:  "target_errno",
+			Value: uint32(this.Module.conf.(*BashConfig).ErrNo),
 		},
 	}
 
@@ -123,7 +123,7 @@ func (this *MBashProbe) setupManagers() {
 				Section:          "uretprobe/bash_retval",
 				EbpfFuncName:     "uretprobe_bash_retval",
 				AttachToFuncName: "execute_command",
-				BinaryPath: binaryPath, // 可能是 /bin/bash 也可能是 readline.so的真实地址
+				BinaryPath:       binaryPath, // 可能是 /bin/bash 也可能是 readline.so的真实地址
 			},
 		},
 
@@ -180,10 +180,6 @@ func (this *MBashProbe) initDecodeFun() error {
 
 func (this *MBashProbe) Events() []*ebpf.Map {
 	return this.eventMaps
-}
-
-func (this *MBashProbe) Write(result string) {
-	this.logger.Println(result)
 }
 
 func init() {

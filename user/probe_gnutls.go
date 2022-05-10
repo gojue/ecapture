@@ -196,10 +196,6 @@ func (this *MGnutlsProbe) Events() []*ebpf.Map {
 	return this.eventMaps
 }
 
-func (this *MGnutlsProbe) Write(result string) {
-	this.logger.Println(result)
-}
-
 func init() {
 	mod := &MGnutlsProbe{}
 	mod.name = MODULE_NAME_GNUTLS

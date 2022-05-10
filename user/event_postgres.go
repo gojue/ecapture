@@ -21,11 +21,12 @@ import (
 const POSTGRES_MAX_DATA_SIZE = 256
 
 type postgresEvent struct {
-	module    IModule
-	Pid       uint64
-	Timestamp uint64
-	query     [POSTGRES_MAX_DATA_SIZE]uint8
-	comm      [16]uint8
+	module     IModule
+	event_type EVENT_TYPE
+	Pid        uint64
+	Timestamp  uint64
+	query      [POSTGRES_MAX_DATA_SIZE]uint8
+	comm       [16]uint8
 }
 
 func (this *postgresEvent) Decode(payload []byte) (err error) {
@@ -64,5 +65,11 @@ func (this *postgresEvent) Module() IModule {
 }
 
 func (this *postgresEvent) Clone() IEventStruct {
-	return new(postgresEvent)
+	event := new(postgresEvent)
+	event.event_type = EVENT_TYPE_OUTPUT
+	return event
+}
+
+func (this *postgresEvent) EventType() EVENT_TYPE {
+	return this.event_type
 }

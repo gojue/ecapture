@@ -212,10 +212,6 @@ func (this *MMysqldProbe) Events() []*ebpf.Map {
 	return this.eventMaps
 }
 
-func (this *MMysqldProbe) Write(result string) {
-	this.logger.Println(result)
-}
-
 func init() {
 	mod := &MMysqldProbe{}
 	mod.name = MODULE_NAME_MYSQLD
