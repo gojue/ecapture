@@ -54,6 +54,26 @@ CONFIG_DEBUG_INFO_BTF=y
 curl https://www.qq.com
 ```
 
+### libressl&boringssl的测试验证
+```shell
+# 由于curl等工具依赖于原生openssl的安装，用以下方式测试，也可以重新编译安装相关的工具来测试
+vm@vm-server:~$ ldd /usr/local/bin/openssl
+	linux-vdso.so.1 (0x00007ffc82985000)
+	libssl.so.52 => /usr/local/lib/libssl.so.52 (0x00007f1730f9f000)
+	libcrypto.so.49 => /usr/local/lib/libcrypto.so.49 (0x00007f1730d8a000)
+	libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007f1730b62000)
+	/lib64/ld-linux-x86-64.so.2 (0x00007f17310b2000)
+
+# 使用libssl配置libssl.so的路径
+vm@vm-server:~$ sudo ./ecapture tls --libssl="/usr/local/lib/libssl.so.52" --hex
+
+# 另一个终端使用如下命令开启测试，可输入一些字符串，然后回车，观察ecapture的抓包输出
+vm@vm-server:~$ /usr/local/bin/openssl s_client -connect www.qq.com:443
+
+# boringssl的测试，同理
+/path/to/bin/bssl s_client -connect www.qq.com:443
+```
+
 ### bash的shell捕获
 ```shell
 ps -ef | grep foo
