@@ -15,7 +15,7 @@
 
 ![](./images/how-ecapture-works.png)
 
-* SSL/TLS text context capture, support openssl\gnutls\nspr(nss) libraries.
+* SSL/TLS text context capture, support openssl\libressl\boringssl\gnutls\nspr(nss) libraries.
 * bash audit, capture bash command for Host Security Audit.
 * mysql query SQL audit, support mysqld 5.6\5.7\8.0, and mariadDB.
 
@@ -52,6 +52,26 @@ Step 2:
 curl https://github.com
 ```
 
+### libressl&boringssl
+```shell
+# for installed libressl, libssl.so.52 is the dynamic ssl lib
+vm@vm-server:~$ ldd /usr/local/bin/openssl
+	linux-vdso.so.1 (0x00007ffc82985000)
+	libssl.so.52 => /usr/local/lib/libssl.so.52 (0x00007f1730f9f000)
+	libcrypto.so.49 => /usr/local/lib/libcrypto.so.49 (0x00007f1730d8a000)
+	libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007f1730b62000)
+	/lib64/ld-linux-x86-64.so.2 (0x00007f17310b2000)
+
+# use the libssl to config the libssl.so path
+vm@vm-server:~$ sudo ./ecapture tls --libssl="/usr/local/lib/libssl.so.52" --hex
+
+# in another terminal, use the command, then type some string, watch the output of ecapture
+vm@vm-server:~$ /usr/local/bin/openssl s_client -connect github.com:443
+
+# for installed boringssl, usage is the same
+/path/to/bin/bssl s_client -connect github.com:443
+```
+
 ### bash command
 capture bash command.
 ```shell
@@ -63,7 +83,7 @@ ps -ef | grep foo
 
 ## uprobe HOOK
 
-### openssl hook 
+### openssl\libressl\boringssl hook
 eCapture hook`SSL_write` \ `SSL_read` function of shared library `/lib/x86_64-linux-gnu/libssl.so.1.1`. get text context, and send message to user space by eBPM map.
 ```go
 Probes: []*manager.Probe{
