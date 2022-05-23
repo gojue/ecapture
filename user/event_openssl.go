@@ -21,6 +21,43 @@ const (
 const MAX_DATA_SIZE = 1024 * 4
 const SA_DATA_LEN = 14
 
+const (
+	SSL2_VERSION    = 0x0002
+	SSL3_VERSION    = 0x0300
+	TLS1_VERSION    = 0x0301
+	TLS1_1_VERSION  = 0x0302
+	TLS1_2_VERSION  = 0x0303
+	TLS1_3_VERSION  = 0x0304
+	DTLS1_VERSION   = 0xFEFF
+	DTLS1_2_VERSION = 0xFEFD
+)
+
+type tls_version struct {
+	version int32
+}
+
+func (t tls_version) String() string {
+	switch t.version {
+	case SSL2_VERSION:
+		return "SSL2_VERSION"
+	case SSL3_VERSION:
+		return "SSL3_VERSION"
+	case TLS1_VERSION:
+		return "TLS1_VERSION"
+	case TLS1_1_VERSION:
+		return "TLS1_1_VERSION"
+	case TLS1_2_VERSION:
+		return "TLS1_2_VERSION"
+	case TLS1_3_VERSION:
+		return "TLS1_3_VERSION"
+	case DTLS1_VERSION:
+		return "DTLS1_VERSION"
+	case DTLS1_2_VERSION:
+		return "DTLS1_2_VERSION"
+	}
+	return "TLS_VERSION_UNKNOW"
+}
+
 type SSLDataEvent struct {
 	module       IModule
 	event_type   EVENT_TYPE
@@ -32,6 +69,7 @@ type SSLDataEvent struct {
 	Data_len     int32
 	Comm         [16]byte
 	Fd           uint32
+	Version      int32
 }
 
 func (this *SSLDataEvent) Decode(payload []byte) (err error) {
@@ -60,6 +98,9 @@ func (this *SSLDataEvent) Decode(payload []byte) (err error) {
 	if err = binary.Read(buf, binary.LittleEndian, &this.Fd); err != nil {
 		return
 	}
+	if err = binary.Read(buf, binary.LittleEndian, &this.Version); err != nil {
+		return
+	}
 
 	return nil
 }
@@ -82,7 +123,8 @@ func (this *SSLDataEvent) StringHex() string {
 	b := dumpByteSlice(this.Data[:this.Data_len], perfix)
 	b.WriteString(COLORRESET)
 
-	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, %s, Payload:\n%s", this.Pid, this.Comm, this.Tid, connInfo, b.String())
+	v := tls_version{version: this.Version}
+	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, %s, Version:%s, Payload:\n%s", this.Pid, this.Comm, this.Tid, connInfo, v.String(), b.String())
 	return s
 }
 
@@ -100,7 +142,8 @@ func (this *SSLDataEvent) String() string {
 	default:
 		connInfo = fmt.Sprintf("%sUNKNOW_%d%s", COLORRED, this.DataType, COLORRESET)
 	}
-	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, %s, Payload:\n%s%s%s", this.Pid, this.Comm, this.Tid, connInfo, perfix, string(this.Data[:this.Data_len]), COLORRESET)
+	v := tls_version{version: this.Version}
+	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, Version:%s, %s, Payload:\n%s%s%s", this.Pid, this.Comm, this.Tid, v.String(), connInfo, perfix, string(this.Data[:this.Data_len]), COLORRESET)
 	return s
 }
 

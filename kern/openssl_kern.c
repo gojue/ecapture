@@ -12,6 +12,7 @@ struct ssl_data_event_t {
     s32 data_len;
     char comm[TASK_COMM_LEN];
     u32 fd;
+    s32 version;
 };
 
 struct {
@@ -32,6 +33,12 @@ struct {
 } connect_events SEC(".maps");
 
 struct active_ssl_buf {
+    /*
+     * protocol version (one of SSL2_VERSION, SSL3_VERSION, TLS1_VERSION,
+     * DTLS1_VERSION)
+     * from ssl/ssl_local.h struct ssl_st
+     */
+    s32 version;
     u32 fd;
     const char* buf;
 };
@@ -83,7 +90,7 @@ struct BIO {
 };
 
 struct ssl_st {
-    int version;
+    s32 version;
     struct unused* method;
     struct BIO* rbio;  // used by SSL_read
     struct BIO* wbio;  // used by SSL_write
@@ -117,7 +124,7 @@ static __inline struct ssl_data_event_t* create_ssl_data_event(
 
 static int process_SSL_data(struct pt_regs* ctx, u64 id,
                             enum ssl_data_event_type type, const char* buf,
-                            u32 fd) {
+                            u32 fd, s32 version) {
     int len = (int)PT_REGS_RC(ctx);
     if (len < 0) {
         return 0;
@@ -130,6 +137,7 @@ static int process_SSL_data(struct pt_regs* ctx, u64 id,
 
     event->type = type;
     event->fd = fd;
+    event->version = version;
     // This is a max function, but it is written in such a way to keep older BPF
     // verifiers happy.
     event->data_len =
@@ -177,6 +185,7 @@ int probe_entry_SSL_write(struct pt_regs* ctx) {
     struct active_ssl_buf active_ssl_buf_t;
     __builtin_memset(&active_ssl_buf_t, 0, sizeof(active_ssl_buf_t));
     active_ssl_buf_t.fd = fd;
+    active_ssl_buf_t.version = ssl_info.version;
     active_ssl_buf_t.buf = buf;
     bpf_map_update_elem(&active_ssl_write_args_map, &current_pid_tgid,
                         &active_ssl_buf_t, BPF_ANY);
@@ -201,8 +210,9 @@ int probe_ret_SSL_write(struct pt_regs* ctx) {
     if (active_ssl_buf_t != NULL) {
         const char* buf;
         u32 fd = active_ssl_buf_t->fd;
+        s32 version = active_ssl_buf_t->version;
         bpf_probe_read(&buf, sizeof(const char*), &active_ssl_buf_t->buf);
-        process_SSL_data(ctx, current_pid_tgid, kSSLWrite, buf, fd);
+        process_SSL_data(ctx, current_pid_tgid, kSSLWrite, buf, fd, version);
     }
     bpf_map_delete_elem(&active_ssl_write_args_map, &current_pid_tgid);
     return 0;
@@ -239,6 +249,7 @@ int probe_entry_SSL_read(struct pt_regs* ctx) {
     struct active_ssl_buf active_ssl_buf_t;
     __builtin_memset(&active_ssl_buf_t, 0, sizeof(active_ssl_buf_t));
     active_ssl_buf_t.fd = fd;
+    active_ssl_buf_t.version = ssl_info.version;
     active_ssl_buf_t.buf = buf;
     bpf_map_update_elem(&active_ssl_read_args_map, &current_pid_tgid,
                         &active_ssl_buf_t, BPF_ANY);
@@ -263,8 +274,9 @@ int probe_ret_SSL_read(struct pt_regs* ctx) {
     if (active_ssl_buf_t != NULL) {
         const char* buf;
         u32 fd = active_ssl_buf_t->fd;
+        s32 version = active_ssl_buf_t->version;
         bpf_probe_read(&buf, sizeof(const char*), &active_ssl_buf_t->buf);
-        process_SSL_data(ctx, current_pid_tgid, kSSLRead, buf, fd);
+        process_SSL_data(ctx, current_pid_tgid, kSSLRead, buf, fd, version);
     }
     bpf_map_delete_elem(&active_ssl_read_args_map, &current_pid_tgid);
     return 0;
