@@ -84,7 +84,7 @@ ps -ef | grep foo
 ## uprobe HOOK
 
 ### openssl\libressl\boringssl hook
-eCapture hook`SSL_write` \ `SSL_read` function of shared library `/lib/x86_64-linux-gnu/libssl.so.1.1`. get text context, and send message to user space by eBPM map.
+eCapture hook`SSL_write` \ `SSL_read` function of shared library `/lib/x86_64-linux-gnu/libssl.so.1.1`. get text context, and send message to user space by [eBPF maps](https://www.kernel.org/doc/html/latest/bpf/maps.html).
 ```go
 Probes: []*manager.Probe{
     {
