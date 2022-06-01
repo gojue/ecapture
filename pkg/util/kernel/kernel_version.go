@@ -112,7 +112,7 @@ func currentVersionDebian() (uint32, error) {
 // LINUX_VERSION_CODE format (see KernelVersionFromReleaseString())
 func CurrentKernelVersion() (uint32, error) {
 	// We need extra checks for Debian and Ubuntu as they modify
-	// the kernel version patch number for compatibilty with
+	// the kernel version patch number for compatibility with
 	// out-of-tree modules. Linux perf tools do the same for Ubuntu
 	// systems: https://github.com/torvalds/linux/commit/d18acd15c
 	//
