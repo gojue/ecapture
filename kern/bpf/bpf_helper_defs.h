@@ -3767,7 +3767,7 @@ static struct socket *(*bpf_sock_from_file)(struct file *file) = (void *) 162;
  * 	actual packet size (resulting in negative packet size) will in
  * 	principle not exceed the MTU, why it is not considered a
  * 	failure.  Other BPF-helpers are needed for performing the
- * 	planned size change, why the responsability for catch a negative
+ * 	planned size change, why the responsibility for catch a negative
  * 	packet size belong in those helpers.
  *
  * 	Specifying *ifindex* zero means the MTU check is performed

@@ -150,7 +150,7 @@ func (this *Module) perfEventReader(errChan chan error, em *ebpf.Map) {
 		//判断ctx是不是结束
 		select {
 		case _ = <-this.ctx.Done():
-			log.Printf("readEvent recived close signal from context.Done.")
+			log.Printf("readEvent received close signal from context.Done.")
 			return
 		default:
 		}
@@ -192,7 +192,7 @@ func (this *Module) ringbufEventReader(errChan chan error, em *ebpf.Map) {
 		//判断ctx是不是结束
 		select {
 		case _ = <-this.ctx.Done():
-			this.logger.Printf("readEvent recived close signal from context.Done.")
+			this.logger.Printf("readEvent received close signal from context.Done.")
 			return
 		default:
 		}
