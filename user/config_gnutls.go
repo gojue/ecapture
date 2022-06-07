@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/pkg/errors"
 )
 
 // 最终使用openssl参数
@@ -33,6 +35,10 @@ func (this *GnutlsConfig) Check() error {
 		}
 		this.elfType = ELF_TYPE_SO
 		return nil
+	}
+
+	if this.NoSearch {
+		return errors.New("NoSearch requires specifying lib path")
 	}
 
 	//如果配置 Curlpath的地址，判断文件是否存在，不存在则直接返回

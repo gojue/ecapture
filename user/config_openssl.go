@@ -63,6 +63,10 @@ func (this *OpensslConfig) Check() error {
 		return nil
 	}
 
+	if this.NoSearch {
+		return errors.New("NoSearch requires specifying lib path")
+	}
+
 	if !checkedOpenssl {
 		e := this.checkOpenssl()
 		if e != nil {

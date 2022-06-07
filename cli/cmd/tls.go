@@ -87,6 +87,7 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 		conf.SetPid(gConf.Pid)
 		conf.SetDebug(gConf.Debug)
 		conf.SetHex(gConf.IsHex)
+		conf.SetNoSearch(gConf.NoSearch)
 
 		if e := conf.Check(); e != nil {
 			logger.Printf("%v", e)
