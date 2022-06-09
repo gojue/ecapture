@@ -5,11 +5,12 @@ import (
 	"bytes"
 	"debug/elf"
 	"fmt"
-	"github.com/pkg/errors"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/pkg/errors"
 )
 
 const (
@@ -26,7 +27,16 @@ func GetDynLibDirs() []string {
 	dirs, err := ParseDynLibConf("/etc/ld.so.conf")
 	if err != nil {
 		log.Println(err.Error())
-		return []string{"/usr/lib64", "/lib64"}
+		/*
+		   1, the RPATH binary header (set at build-time) of the library causing the lookup (if any)
+		   2, the RPATH binary header (set at build-time) of the executable
+		   3, the LD_LIBRARY_PATH environment variable (set at run-time)
+		   4, the RUNPATH binary header (set at build-time) of the executable
+		   5, /etc/ld.so.cache
+		   6, base library directories (/lib and /usr/lib)
+		   ref: http://blog.tremily.us/posts/rpath/
+		*/
+		return []string{"/lib", "/usr/lib", "/usr/lib64", "/lib64"}
 	}
 	return append(dirs, "/lib64", "/usr/lib64")
 }
@@ -54,7 +64,10 @@ func GlobMany(targets []string, onErr func(string, error)) []string {
 			}
 			// path is not a wildcard, walk it:
 		} else {
-			filepath.Walk(p, addFile)
+			e := filepath.Walk(p, addFile)
+			if e != nil {
+				return []string{}
+			}
 		}
 	}
 	return rv
@@ -94,6 +107,9 @@ func ParseDynLibConf(pattern string) (dirs []string, err error) {
 				dirs = append(dirs, line)
 			}
 		}
+	}
+	if len(dirs) <= 0 {
+		err = errors.New(fmt.Sprintf("read file :%s error .", pattern))
 	}
 	return dirs, err
 }
@@ -156,6 +172,11 @@ func recurseDynStrings(dynSym []string, searchPath []string, soName string) stri
 
 		if len(realSoName) > 0 {
 			return realSoName
+		}
+
+		if fd == nil {
+			log.Fatal(fmt.Sprintf("cant found lib so:%s in dirs:%v", el, searchPath))
+			continue
 		}
 
 		bint, err := elf.NewFile(fd)
