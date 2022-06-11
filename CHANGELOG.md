@@ -1,9 +1,22 @@
 <hr>
 
-## v0.1.8 (2022-05-08)
+## v0.1.9 (2022-06-11)
+
 ## What's Changed
+
+## New Contributors
+
+**Full Changelog**: https://github.com/ehids/ecapture/compare/v0.1.8...v0.1.9
+
+
+<hr>
+
+## v0.1.8 (2022-05-08)
+
+## What's Changed
+
 * ADD mysqld dispatch_command return value. by @cfc4n in https://github.com/ehids/ecapture/pull/44
-* autogen  vmlinux header file to compatible current OS by @cfc4n in https://github.com/ehids/ecapture/pull/50
+* autogen vmlinux header file to compatible current OS by @cfc4n in https://github.com/ehids/ecapture/pull/50
 * feat: support postgres query hook by @yihong0618 in https://github.com/ehids/ecapture/pull/51
 * added return value of bash module. by @huzai9527 in https://github.com/ehids/ecapture/pull/52
 * change bash line size to 256 bytes by @yindex in https://github.com/ehids/ecapture/pull/55
@@ -51,7 +64,6 @@
   - 支持网络IP地址的存储、关联到网络数据中。
   - 支持自定义libpthread.so路径指定（定位connect函数）。
 
-
 <hr>
 
 ## v0.1.5 (2022-03-25)
@@ -97,13 +109,10 @@
 - 支持自定义openssl的so路径。
 - 支持hex进制的数据输出
 
-
 ### bash模块
 - 支持自定义bash路径参数
 - 支持自定义readline.so路径参数
 - 支持hex进制的数据输出
-
-
 
 <hr>
 
@@ -112,7 +121,6 @@
 ### openssl模块
 - 增加openssl的libssl.so的SSL/TLS数据抓包功能。
 - 根据wget路径，自动选择libssl.so路径。
-
 
 ### bash模块
 - 自动根据ENV查找bash
