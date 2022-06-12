@@ -9,24 +9,36 @@ on:
 jobs:
   build:
 
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
+    name: Build on ${{ matrix.distro }} ${{ matrix.arch }}
+
+    # Run steps on a matrix of 4 arch/distro combinations
+    strategy:
+      matrix:
+        include:
+          - arch: x86_64
+            distro: ubuntu-20.04
+          - arch: aarch64
+            distro: ubuntu-20.04
 
     steps:
-    - uses: actions/setup-go@v3
-      with:
-        go-version: '1.16.14'
-    - name: Install Compilers
-      run: |
-        sudo apt-get update
-        sudo apt-get install --yes build-essential pkgconf libelf-dev llvm-12 clang-12 linux-tools-common linux-tools-generic
-        for tool in "clang" "llc" "llvm-strip"
-        do
-          sudo rm -f /usr/bin/$tool
-          sudo ln -s /usr/bin/$tool-12 /usr/bin/$tool
-        done
-      shell: bash
-    - uses: actions/checkout@v2
-    - name: Build
-      run: make all
-    - name: Test
-      run: go test -v ./...
+      - uses: actions/setup-go@v3
+        with:
+          go-version: '1.16.14'
+          arch: ${{ matrix.arch }}
+          distro: ${{ matrix.distro }}
+      - name: Install Compilers on ${{ matrix.distro }} ${{ matrix.arch }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes build-essential pkgconf libelf-dev llvm-12 clang-12 linux-tools-common linux-tools-generic
+          for tool in "clang" "llc" "llvm-strip"
+          do
+            sudo rm -f /usr/bin/$tool
+            sudo ln -s /usr/bin/$tool-12 /usr/bin/$tool
+          done
+        shell: bash
+      - uses: actions/checkout@v2
+      - name: Build
+        run: make all
+      - name: Test
+        run: go test -v ./...
