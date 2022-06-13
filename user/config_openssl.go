@@ -123,7 +123,9 @@ func (this *OpensslConfig) checkConnect() error {
 			this.Pthread = filepath.Join(prefix, so)
 			_, e = os.Stat(this.Pthread)
 			if e != nil {
-				return e
+				// search all of sharedObjects
+				//return e
+				continue
 			}
 		} else {
 			this.Pthread = pthreadSoPath
@@ -131,12 +133,14 @@ func (this *OpensslConfig) checkConnect() error {
 
 		_elf, e := elf.Open(this.Pthread)
 		if e != nil {
-			return e
+			//return e
+			continue
 		}
 
 		dynamicSymbols, err := _elf.DynamicSymbols()
 		if err != nil {
-			return err
+			//return err
+			continue
 		}
 
 		//
