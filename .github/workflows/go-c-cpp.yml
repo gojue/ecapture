@@ -115,11 +115,11 @@ jobs:
             #                apk update
             #                apk add git
             #                ;;
-                     esac
+            esac
 
-          # Produce a binary artifact and place it in the mounted volume
-        run: |
-          make clean & make all
+            # Produce a binary artifact and place it in the mounted volume
+            run: |
+            make clean & make all
 
       - name: Show the artifact
           # Items placed in /artifacts in the container will be in
