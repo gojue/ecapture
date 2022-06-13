@@ -54,3 +54,75 @@ jobs:
         run: make clean & make nocore
       - name: Test
         run: go test -v ./...
+
+  build-on-ubuntu2204-arm64:
+    runs-on: ubuntu-22.04
+    name: build on UBUNTU 22.04 arm64 (aarch64)
+    # Run steps on a matrix of 3 arch/distro combinations
+    strategy:
+      matrix:
+        include:
+          - arch: aarch64
+            distro: ubuntu22.04
+    steps:
+      - uses: uraimo/run-on-arch-action@v2
+        name: Build artifact
+        id: build
+        with:
+          arch: ${{ matrix.arch }}
+          distro: ${{ matrix.distro }}
+
+          # Not required, but speeds up builds
+          githubToken: ${{ github.token }}
+
+          # Create an artifacts directory
+          setup: |
+            mkdir -p "${PWD}/artifacts"
+
+          # Mount the artifacts directory as /artifacts in the container
+          dockerRunArgs: |
+            --volume "${PWD}/artifacts:/artifacts"
+
+          # Pass some environment variables to the container
+          env: | # YAML, but pipe character is necessary
+            artifact_name: git-${{ matrix.distro }}_${{ matrix.arch }}
+
+          # The shell to run commands with in the container
+          shell: /bin/sh
+
+          # Install some dependencies in the container. This speeds up builds if
+          # you are also using githubToken. Any dependencies installed here will
+          # be part of the container image that gets cached, so subsequent
+          # builds don't have to re-install them. The image layer is cached
+          # publicly in your project's package repository, so it is vital that
+          # no secrets are present in the container state or logs.
+          install: |
+                     case "${{ matrix.distro }}" in
+                     ubuntu*|jessie|stretch|buster|bullseye)
+                     sudo apt-get update -q -y
+                     sudo apt-get install -q -y git build-essential pkgconf libelf-dev llvm-14 clang-14 linux-tools-common linux-tools-generic
+                     for tool in "clang" "llc" "llvm-strip"
+                     do
+                     sudo rm -f /usr/bin/$tool
+                     sudo ln -s /usr/bin/$tool-14 /usr/bin/$tool
+                     done
+                     ;;
+            #              fedora*)
+            #                dnf -y update
+            #                dnf -y install git which
+            #                ;;
+            #              alpine*)
+            #                apk update
+            #                apk add git
+            #                ;;
+                     esac
+
+          # Produce a binary artifact and place it in the mounted volume
+        run: |
+          make clean & make all
+
+      - name: Show the artifact
+          # Items placed in /artifacts in the container will be in
+        # ${PWD}/artifacts on the host.
+        run: |
+          ls -al "${PWD}/artifacts"
