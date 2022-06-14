@@ -3,7 +3,7 @@ on: [ push, pull_request ]
 jobs:
   build_job:
     # The host should always be linux
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-22.04
     name: Build on ${{ matrix.distro }} ${{ matrix.arch }}
 
     # Run steps on a matrix of 3 arch/distro combinations
@@ -11,7 +11,7 @@ jobs:
       matrix:
         include:
           - arch: aarch64
-            distro: ubuntu18.04
+            distro: ubuntu22.04
 
     steps:
       - uses: actions/checkout@v2.1.0
@@ -64,6 +64,7 @@ jobs:
 
           # Produce a binary artifact and place it in the mounted volume
           run: |
+            uname -a
             cp $(which git) "/artifacts/${artifact_name}"
             echo "Produced artifact at /artifacts/${artifact_name}"
 
