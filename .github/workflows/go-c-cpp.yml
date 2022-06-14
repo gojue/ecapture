@@ -102,12 +102,12 @@ jobs:
 
           # Produce a binary artifact and place it in the mounted volume
           run: |
-            sudo apt-get update
-            sudo apt-get install --yes git golang-1.17 build-essential pkgconf libelf-dev llvm-14 clang-14 linux-tools-common linux-tools-generic
+            apt-get update
+            apt-get install --yes git golang-1.17 build-essential pkgconf libelf-dev llvm-14 clang-14 linux-tools-common linux-tools-generic
             for tool in "clang" "llc" "llvm-strip"
             do
-            sudo rm -f /usr/bin/$tool
-            sudo ln -s /usr/bin/$tool-14 /usr/bin/$tool
+            rm -f /usr/bin/$tool
+            ln -s /usr/bin/$tool-14 /usr/bin/$tool
             done
             git clone https://github.com/ehids/ecapture.git
             cd ecapture
