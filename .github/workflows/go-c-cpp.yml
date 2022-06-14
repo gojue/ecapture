@@ -9,6 +9,7 @@ on:
 jobs:
   build-on-ubuntu2004:
     runs-on: ubuntu-20.04
+    name: build on ubuntu-20.04 x86_64
     steps:
       - uses: actions/setup-go@v3
         with:
@@ -33,6 +34,7 @@ jobs:
 
   build-on-ubuntu2204:
     runs-on: ubuntu-22.04
+    name: build on ubuntu-22.04 x86_64
     steps:
       - uses: actions/setup-go@v3
         with:
@@ -57,7 +59,7 @@ jobs:
 
   build-on-ubuntu2204-arm64:
     runs-on: ubuntu-22.04
-    name: build on UBUNTU-22.04 arm64 (aarch64)
+    name: build on ubuntu-22.04 arm64
     # Run steps on a matrix of 3 arch/distro combinations
     strategy:
       matrix:
@@ -98,21 +100,23 @@ jobs:
           # publicly in your project's package repository, so it is vital that
           # no secrets are present in the container state or logs.
           install: |
-            date
-
-          # Produce a binary artifact and place it in the mounted volume
-          run: |
             apt-get update
-            apt-get install --yes git golang-1.17 build-essential pkgconf libelf-dev llvm-14 clang-14 linux-tools-common linux-tools-generic
+            apt-get install --yes git golang-1.17 build-essential pkgconf libelf-dev llvm-14 clang-14 linux-tools-common linux-tools-generic linux-tools-azure
             for tool in "clang" "llc" "llvm-strip"
             do
             rm -f /usr/bin/$tool
             ln -s /usr/bin/$tool-14 /usr/bin/$tool
             done
+          # Produce a binary artifact and place it in the mounted volume
+          run: |
+            uname -a
             git clone https://github.com/ehids/ecapture.git
             cd ecapture
             make clean
             make
+            make clean
+            make nocore
+            go test -v ./...
             cp bin/ecapture "/artifacts/${artifact_name}"
             echo "Produced artifact at /artifacts/${artifact_name}"
 
