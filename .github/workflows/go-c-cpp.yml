@@ -64,18 +64,6 @@ jobs:
         include:
           - arch: aarch64
             distro: ubuntu20.04
-  build_job:
-    # The host should always be linux
-    runs-on: ubuntu-22.04
-    name: Build on ${{ matrix.distro }} ${{ matrix.arch }}
-
-    # Run steps on a matrix of 3 arch/distro combinations
-    strategy:
-      matrix:
-        include:
-          - arch: aarch64
-            distro: ubuntu22.04
-
     steps:
       - uses: actions/checkout@v2.1.0
       - uses: uraimo/run-on-arch-action@v2
