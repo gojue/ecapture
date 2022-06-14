@@ -111,6 +111,7 @@ jobs:
             rm -f /usr/bin/$tool
             ln -s /usr/bin/$tool-14 /usr/bin/$tool
             done
+            date
             which go
             which clang
             clang --version
