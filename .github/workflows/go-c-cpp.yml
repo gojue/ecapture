@@ -64,6 +64,18 @@ jobs:
         include:
           - arch: aarch64
             distro: ubuntu20.04
+  build_job:
+    # The host should always be linux
+    runs-on: ubuntu-22.04
+    name: Build on ${{ matrix.distro }} ${{ matrix.arch }}
+
+    # Run steps on a matrix of 3 arch/distro combinations
+    strategy:
+      matrix:
+        include:
+          - arch: aarch64
+            distro: ubuntu22.04
+
     steps:
       - uses: actions/checkout@v2.1.0
       - uses: uraimo/run-on-arch-action@v2
@@ -86,7 +98,7 @@ jobs:
 
           # Pass some environment variables to the container
           env: | # YAML, but pipe character is necessary
-            artifact_name: git-${{ matrix.distro }}_${{ matrix.arch }}
+            artifact_name: ecapture-${{ matrix.distro }}_${{ matrix.arch }}
 
           # The shell to run commands with in the container
           shell: /bin/sh
@@ -98,20 +110,26 @@ jobs:
           # publicly in your project's package repository, so it is vital that
           # no secrets are present in the container state or logs.
           install: |
-            sudo apt-get update -q -y
-            sudo apt-get install -q -y git build-essential pkgconf libelf-dev llvm-13 clang-13 linux-tools-common linux-tools-generic
+            date
+
+          # Produce a binary artifact and place it in the mounted volume
+          run: |
+            sudo apt-get update
+            sudo apt-get install --yes git golang-1.17 build-essential pkgconf libelf-dev llvm-14 clang-14 linux-tools-common linux-tools-generic
             for tool in "clang" "llc" "llvm-strip"
             do
             sudo rm -f /usr/bin/$tool
-            sudo ln -s /usr/bin/$tool-13 /usr/bin/$tool
+            sudo ln -s /usr/bin/$tool-14 /usr/bin/$tool
             done
-            # Produce a binary artifact and place it in the mounted volume
-          run: |
-            make clean & make all
+            git clone https://github.com/ehids/ecapture.git
+            cd ecapture
+            make clean
+            make
+            cp bin/ecapture "/artifacts/${artifact_name}"
             echo "Produced artifact at /artifacts/${artifact_name}"
 
       - name: Show the artifact
-          # Items placed in /artifacts in the container will be in
+        # Items placed in /artifacts in the container will be in
         # ${PWD}/artifacts on the host.
         run: |
           ls -al "${PWD}/artifacts"
