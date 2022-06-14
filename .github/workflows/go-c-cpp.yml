@@ -98,10 +98,7 @@ jobs:
           # publicly in your project's package repository, so it is vital that
           # no secrets are present in the container state or logs.
           install: |
-            date
-
-          # Produce a binary artifact and place it in the mounted volume
-          run: |
+            uname -a
             apt-get update
             apt-get install --yes git golang-1.17 build-essential pkgconf libelf-dev llvm-14 clang-14 linux-tools-common linux-tools-generic
             for tool in "clang" "llc" "llvm-strip"
@@ -113,6 +110,9 @@ jobs:
             cd ecapture
             make clean
             make
+
+          # Produce a binary artifact and place it in the mounted volume
+          run: |
             cp bin/ecapture "/artifacts/${artifact_name}"
             echo "Produced artifact at /artifacts/${artifact_name}"
 
