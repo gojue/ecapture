@@ -101,12 +101,13 @@ jobs:
           # no secrets are present in the container state or logs.
           install: |
             apt-get update
-            apt-get install --yes git golang-1.17 build-essential pkgconf libelf-dev llvm-14 clang-14 linux-tools-common linux-tools-generic linux-tools-azure
+            apt-get install --yes git golang-1.17 build-essential pkgconf libelf-dev llvm-14 clang-14 linux-tools-common linux-tools-generic
             for tool in "clang" "llc" "llvm-strip"
             do
             rm -f /usr/bin/$tool
             ln -s /usr/bin/$tool-14 /usr/bin/$tool
             done
+            find / -name bpftool
           # Produce a binary artifact and place it in the mounted volume
           run: |
             uname -a
