@@ -56,14 +56,14 @@ jobs:
         run: go test -v ./...
 
   build-on-ubuntu2204-arm64:
-    runs-on: ubuntu-20.04
-    name: build on UBUNTU 20.04 arm64 (aarch64)
+    runs-on: ubuntu-22.04
+    name: build on UBUNTU-22.04 arm64 (aarch64)
     # Run steps on a matrix of 3 arch/distro combinations
     strategy:
       matrix:
         include:
           - arch: aarch64
-            distro: ubuntu20.04
+            distro: ubuntu22.04
     steps:
       - uses: actions/checkout@v2.1.0
       - uses: uraimo/run-on-arch-action@v2
@@ -98,7 +98,10 @@ jobs:
           # publicly in your project's package repository, so it is vital that
           # no secrets are present in the container state or logs.
           install: |
-            uname -a
+            date
+
+          # Produce a binary artifact and place it in the mounted volume
+          run: |
             apt-get update
             apt-get install --yes git golang-1.17 build-essential pkgconf libelf-dev llvm-14 clang-14 linux-tools-common linux-tools-generic
             for tool in "clang" "llc" "llvm-strip"
@@ -110,9 +113,6 @@ jobs:
             cd ecapture
             make clean
             make
-
-          # Produce a binary artifact and place it in the mounted volume
-          run: |
             cp bin/ecapture "/artifacts/${artifact_name}"
             echo "Produced artifact at /artifacts/${artifact_name}"
 
