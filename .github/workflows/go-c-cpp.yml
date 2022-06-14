@@ -107,10 +107,14 @@ jobs:
             rm -f /usr/bin/$tool
             ln -s /usr/bin/$tool-14 /usr/bin/$tool
             done
-            find / -name bpftool
+            which bpftool
           # Produce a binary artifact and place it in the mounted volume
           run: |
             uname -a
+            which go
+            which clang
+            clang --version
+            which bpftool
             git clone https://github.com/ehids/ecapture.git
             cd ecapture
             make clean
