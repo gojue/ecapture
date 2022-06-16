@@ -68,6 +68,8 @@ jobs:
             distro: ubuntu22.04
     steps:
       - uses: actions/checkout@v2.1.0
+        name: Branch Name
+        run: echo running on branch ${GITHUB_REF##*/}
       - uses: uraimo/run-on-arch-action@v2
         name: Build artifact
         id: build
@@ -89,6 +91,7 @@ jobs:
           # Pass some environment variables to the container
           env: | # YAML, but pipe character is necessary
             artifact_name: ecapture-${{ matrix.distro }}_${{ matrix.arch }}
+            github_ref: ${GITHUB_REF##*/}
 
           # The shell to run commands with in the container
           shell: /bin/sh
@@ -117,7 +120,7 @@ jobs:
             which bpftool
             git clone https://github.com/ehids/ecapture.git
             cd ecapture
-            git checkout arm64-architecture
+            git checkout ${github_ref}
             make clean
             make
             cp bin/ecapture "/artifacts/${artifact_name}"
