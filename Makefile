@@ -170,7 +170,7 @@ ifeq ($(UNAME_M),x86_64)
    LINUX_ARCH = x86
    GO_ARCH = amd64
    BPFHEADER = -I ./kern \
-               -I ./kern/x86
+               -I ./kern/bpf/x86
    AUTOGENCMD = $(CMD_BPFTOOL) btf dump file /sys/kernel/btf/vmlinux format c > kern/bpf/x86/vmlinux.h
 endif
 
@@ -179,7 +179,7 @@ ifeq ($(UNAME_M),aarch64)
    LINUX_ARCH = arm64
    GO_ARCH = arm64
    BPFHEADER = -I ./kern \
-               -I ./kern/arm64
+               -I ./kern/bpf/arm64
    AUTOGENCMD = ls -al kern/bpf/arm64/vmlinux.h
 endif
 
