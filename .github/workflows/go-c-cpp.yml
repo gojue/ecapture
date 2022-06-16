@@ -7,26 +7,125 @@ on:
     branches: [ master ]
 
 jobs:
-  build:
-
-    runs-on: ubuntu-latest
-
+  build-on-ubuntu2004:
+    runs-on: ubuntu-20.04
+    name: build on ubuntu-20.04 x86_64
     steps:
-    - uses: actions/setup-go@v3
-      with:
-        go-version: '1.16.14'
-    - name: Install Compilers
-      run: |
-        sudo apt-get update
-        sudo apt-get install --yes build-essential pkgconf libelf-dev llvm-12 clang-12 linux-tools-common linux-tools-generic
-        for tool in "clang" "llc" "llvm-strip"
-        do
-          sudo rm -f /usr/bin/$tool
-          sudo ln -s /usr/bin/$tool-12 /usr/bin/$tool
-        done
-      shell: bash
-    - uses: actions/checkout@v2
-    - name: Build
-      run: make all
-    - name: Test
-      run: go test -v ./...
+      - uses: actions/setup-go@v3
+        with:
+          go-version: '1.16.14'
+      - name: Install Compilers
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes build-essential pkgconf libelf-dev llvm-12 clang-12 linux-tools-common linux-tools-generic
+          for tool in "clang" "llc" "llvm-strip"
+          do
+            sudo rm -f /usr/bin/$tool
+            sudo ln -s /usr/bin/$tool-12 /usr/bin/$tool
+          done
+        shell: bash
+      - uses: actions/checkout@v2
+      - name: Build
+        run: make clean & make all
+      - name: Build NOCORE
+        run: make clean & make nocore
+      - name: Test
+        run: go test -v ./...
+
+  build-on-ubuntu2204:
+    runs-on: ubuntu-22.04
+    name: build on ubuntu-22.04 x86_64
+    steps:
+      - uses: actions/setup-go@v3
+        with:
+          go-version: '1.18.3'
+      - name: Install Compilers
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes build-essential pkgconf libelf-dev llvm-14 clang-14 linux-tools-common linux-tools-generic
+          for tool in "clang" "llc" "llvm-strip"
+          do
+            sudo rm -f /usr/bin/$tool
+            sudo ln -s /usr/bin/$tool-14 /usr/bin/$tool
+          done
+        shell: bash
+      - uses: actions/checkout@v2
+      - name: Build
+        run: make clean & make all
+      - name: Build NOCORE
+        run: make clean & make nocore
+      - name: Test
+        run: go test -v ./...
+
+  build-on-ubuntu2204-arm64:
+    runs-on: ubuntu-22.04
+    name: build on ubuntu-22.04 arm64
+    # Run steps on a matrix of 3 arch/distro combinations
+    strategy:
+      matrix:
+        include:
+          - arch: aarch64
+            distro: ubuntu22.04
+    steps:
+      - uses: actions/checkout@v2.1.0
+      - uses: uraimo/run-on-arch-action@v2
+        name: Build artifact
+        id: build
+        with:
+          arch: ${{ matrix.arch }}
+          distro: ${{ matrix.distro }}
+
+          # Not required, but speeds up builds
+          githubToken: ${{ github.token }}
+
+          # Create an artifacts directory
+          setup: |
+            mkdir -p "${PWD}/artifacts"
+
+          # Mount the artifacts directory as /artifacts in the container
+          dockerRunArgs: |
+            --volume "${PWD}/artifacts:/artifacts"
+
+          # Pass some environment variables to the container
+          env: | # YAML, but pipe character is necessary
+            artifact_name: ecapture-${{ matrix.distro }}_${{ matrix.arch }}
+
+          # The shell to run commands with in the container
+          shell: /bin/sh
+
+          # Install some dependencies in the container. This speeds up builds if
+          # you are also using githubToken. Any dependencies installed here will
+          # be part of the container image that gets cached, so subsequent
+          # builds don't have to re-install them. The image layer is cached
+          # publicly in your project's package repository, so it is vital that
+          # no secrets are present in the container state or logs.
+          install: |
+            uname -a
+            apt-get update
+            apt-get install --yes wget git golang build-essential pkgconf libelf-dev llvm-14 clang-14  linux-tools-generic linux-tools-common
+          # Produce a binary artifact and place it in the mounted volume
+          run: |
+            uname -a
+            date
+            export PATH=$PATH:/usr/local/bin
+            for tool in "clang" "llc" "llvm-strip"
+            do
+            rm -f /usr/bin/$tool
+            ln -s /usr/bin/$tool-14 /usr/bin/$tool
+            done
+            clang --version
+            which bpftool
+            git clone https://github.com/ehids/ecapture.git
+            cd ecapture
+            git checkout arm64-architecture
+            make clean
+            make
+            cp bin/ecapture "/artifacts/${artifact_name}"
+            go test -v ./...
+            echo "Produced artifact at /artifacts/${artifact_name}"
+
+      - name: Show the artifact
+        # Items placed in /artifacts in the container will be in
+        # ${PWD}/artifacts on the host.
+        run: |
+          ls -al "${PWD}/artifacts"

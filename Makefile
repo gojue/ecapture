@@ -51,8 +51,6 @@ EXTRA_CFLAGS ?= -O2 -mcpu=v1 \
 	-nostdinc \
 	-Wno-pointer-sign
 
-BPFHEADER = -I./kern \
-
 EXTRA_CFLAGS_NOCORE ?= -emit-llvm -O2 -S\
 	-xc -g \
 	-D__BPF_TRACING__ \
@@ -115,6 +113,9 @@ GO_VERSION_MIN = $(shell echo $(GO_VERSION) | $(CMD_CUT) -d'.' -f2)
 .checkver_$(CMD_BPFTOOL): \
 	| .check_$(CMD_BPFTOOL)
 
+# autogen cmd
+AUTOGENCMD ?=
+
 #
 # version
 #
@@ -124,15 +125,14 @@ TAG := $(shell git describe --abbrev=0 --tags ${TAG_COMMIT} 2>/dev/null || true)
 COMMIT := $(shell git rev-parse --short HEAD)
 DATE := $(shell git log -1 --format=%cd --date=format:"%Y%m%d")
 LAST_GIT_TAG := $(TAG:v%=%)-$(DATE)-$(COMMIT)
-ifneq ($(COMMIT), $(TAG_COMMIT))
-	LAST_GIT_TAG := $(LAST_GIT_TAG)-prev-$(TAG_COMMIT)
-endif
+#ifneq ($(COMMIT), $(TAG_COMMIT))
+#	LAST_GIT_TAG := $(LAST_GIT_TAG)-prev-$(TAG_COMMIT)
+#endif
 
-ifneq ($(shell git status --porcelain),)
-	LAST_GIT_TAG := $(LAST_GIT_TAG)-dirty
-endif
+#ifneq ($(shell git status --porcelain),)
+#	LAST_GIT_TAG := $(LAST_GIT_TAG)-dirty
+#endif
 
-#LAST_GIT_TAG ?= $(shell $(CMD_GIT) describe --tags --match 'v*' 2>/dev/null)
 VERSION ?= $(if $(RELEASE_TAG),$(RELEASE_TAG),$(LAST_GIT_TAG))
 
 #
@@ -163,17 +163,23 @@ endif
 #
 # Target Arch
 #
-
+BPFHEADER ?=
 ifeq ($(UNAME_M),x86_64)
    ARCH = x86_64
    LINUX_ARCH = x86
    GO_ARCH = amd64
+   BPFHEADER = -I ./kern \
+               -I ./kern/bpf/x86
+   AUTOGENCMD = $(CMD_BPFTOOL) btf dump file /sys/kernel/btf/vmlinux format c > kern/bpf/x86/vmlinux.h
 endif
 
 ifeq ($(UNAME_M),aarch64)
    ARCH = arm64
    LINUX_ARCH = arm64
    GO_ARCH = arm64
+   BPFHEADER = -I ./kern \
+               -I ./kern/bpf/arm64
+   AUTOGENCMD = ls -al kern/bpf/arm64/vmlinux.h
 endif
 
 #
@@ -294,7 +300,7 @@ assets: \
 build: \
 	.checkver_$(CMD_GO)
 #
-	CGO_ENABLED=0 $(CMD_GO) build -ldflags "-w -s -X 'ecapture/cli/cmd.GitVersion=$(VERSION)'" -o bin/ecapture .
+	CGO_ENABLED=0 $(CMD_GO) build -ldflags "-w -s -X 'ecapture/cli/cmd.GitVersion=$(UNAME_M):$(VERSION)'" -o bin/ecapture .
 
 
 
@@ -304,7 +310,7 @@ build: \
 build_nocore: \
 	.checkver_$(CMD_GO)
 #
-	CGO_ENABLED=0 $(CMD_GO) build -ldflags "-w -s -X 'ecapture/cli/cmd.GitVersion=[NO_CO_RE]:$(VERSION)' -X 'main.enableCORE=false'" -o bin/ecapture .
+	CGO_ENABLED=0 $(CMD_GO) build -ldflags "-w -s -X 'ecapture/cli/cmd.GitVersion=$(UNAME_M):$(VERSION):[NOCORE]' -X 'main.enableCORE=false'" -o bin/ecapture .
 
 
 .PHONY: ebpf_nocore
@@ -340,4 +346,4 @@ format:
 	@clang-format -i -style=$(STYLE) kern/common.h
 
 autogen: .checkver_$(CMD_BPFTOOL)
-	$(CMD_BPFTOOL) btf dump file /sys/kernel/btf/vmlinux format c > kern/vmlinux.h
+	$(AUTOGENCMD)
