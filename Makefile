@@ -125,15 +125,14 @@ TAG := $(shell git describe --abbrev=0 --tags ${TAG_COMMIT} 2>/dev/null || true)
 COMMIT := $(shell git rev-parse --short HEAD)
 DATE := $(shell git log -1 --format=%cd --date=format:"%Y%m%d")
 LAST_GIT_TAG := $(TAG:v%=%)-$(DATE)-$(COMMIT)
-ifneq ($(COMMIT), $(TAG_COMMIT))
-	LAST_GIT_TAG := $(LAST_GIT_TAG)-prev-$(TAG_COMMIT)
-endif
+#ifneq ($(COMMIT), $(TAG_COMMIT))
+#	LAST_GIT_TAG := $(LAST_GIT_TAG)-prev-$(TAG_COMMIT)
+#endif
 
-ifneq ($(shell git status --porcelain),)
-	LAST_GIT_TAG := $(LAST_GIT_TAG)-dirty
-endif
+#ifneq ($(shell git status --porcelain),)
+#	LAST_GIT_TAG := $(LAST_GIT_TAG)-dirty
+#endif
 
-#LAST_GIT_TAG ?= $(shell $(CMD_GIT) describe --tags --match 'v*' 2>/dev/null)
 VERSION ?= $(if $(RELEASE_TAG),$(RELEASE_TAG),$(LAST_GIT_TAG))
 
 #
@@ -301,7 +300,7 @@ assets: \
 build: \
 	.checkver_$(CMD_GO)
 #
-	CGO_ENABLED=0 $(CMD_GO) build -ldflags "-w -s -X 'ecapture/cli/cmd.GitVersion=$(VERSION)'" -o bin/ecapture .
+	CGO_ENABLED=0 $(CMD_GO) build -ldflags "-w -s -X 'ecapture/cli/cmd.GitVersion=$(UNAME_M):$(VERSION)'" -o bin/ecapture .
 
 
 
@@ -311,7 +310,7 @@ build: \
 build_nocore: \
 	.checkver_$(CMD_GO)
 #
-	CGO_ENABLED=0 $(CMD_GO) build -ldflags "-w -s -X 'ecapture/cli/cmd.GitVersion=[NO_CO_RE]:$(VERSION)' -X 'main.enableCORE=false'" -o bin/ecapture .
+	CGO_ENABLED=0 $(CMD_GO) build -ldflags "-w -s -X 'ecapture/cli/cmd.GitVersion=$(UNAME_M):$(VERSION):[NOCORE]' -X 'main.enableCORE=false'" -o bin/ecapture .
 
 
 .PHONY: ebpf_nocore

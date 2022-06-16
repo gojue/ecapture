@@ -102,7 +102,7 @@ jobs:
           install: |
             uname -a
             apt-get update
-            apt-get install --yes wget git golang build-essential pkgconf libelf-dev llvm-14 clang-14  linux-tools-generic linux-tools-5.15.0-1010-azure linux-cloud-tools-5.15.0-1010-azure linux-tools-5.15.0-1008-azure linux-cloud-tools-5.15.0-1008-azure
+            apt-get install --yes wget git golang build-essential pkgconf libelf-dev llvm-14 clang-14  linux-tools-generic linux-tools-common
           # Produce a binary artifact and place it in the mounted volume
           run: |
             uname -a
@@ -121,8 +121,6 @@ jobs:
             make clean
             make
             cp bin/ecapture "/artifacts/${artifact_name}"
-            make clean
-            make nocore
             go test -v ./...
             echo "Produced artifact at /artifacts/${artifact_name}"
 
