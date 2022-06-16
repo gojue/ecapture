@@ -68,7 +68,7 @@ jobs:
             distro: ubuntu22.04
     steps:
       - uses: actions/checkout@v2.1.0
-        name: Branch Name
+      - name: Branch Name
         run: echo running on branch ${GITHUB_REF##*/}
       - uses: uraimo/run-on-arch-action@v2
         name: Build artifact
