@@ -101,29 +101,29 @@ jobs:
           # no secrets are present in the container state or logs.
           install: |
             uname -a
+            apt-get update
+            apt-get install --yes wget git golang build-essential pkgconf libelf-dev llvm-14 clang-14  linux-tools-generic linux-tools-5.15.0-1010-azure linux-cloud-tools-5.15.0-1010-azure linux-tools-5.15.0-1008-azure linux-cloud-tools-5.15.0-1008-azure
           # Produce a binary artifact and place it in the mounted volume
           run: |
             uname -a
-            apt-get update
-            apt-get install --yes git golang-1.17 build-essential pkgconf libelf-dev llvm-14 clang-14 linux-tools-common linux-tools-generic
+            date
+            export PATH=$PATH:/usr/local/bin
             for tool in "clang" "llc" "llvm-strip"
             do
             rm -f /usr/bin/$tool
             ln -s /usr/bin/$tool-14 /usr/bin/$tool
             done
-            date
-            which go
-            which clang
             clang --version
             which bpftool
             git clone https://github.com/ehids/ecapture.git
             cd ecapture
+            git checkout arm64-architecture
             make clean
             make
+            cp bin/ecapture "/artifacts/${artifact_name}"
             make clean
             make nocore
             go test -v ./...
-            cp bin/ecapture "/artifacts/${artifact_name}"
             echo "Produced artifact at /artifacts/${artifact_name}"
 
       - name: Show the artifact

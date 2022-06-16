@@ -51,7 +51,7 @@ EXTRA_CFLAGS ?= -O2 -mcpu=v1 \
 	-nostdinc \
 	-Wno-pointer-sign
 
-BPFHEADER = -I./kern \
+BPFHEADER = -I./kern
 
 EXTRA_CFLAGS_NOCORE ?= -emit-llvm -O2 -S\
 	-xc -g \
@@ -115,6 +115,9 @@ GO_VERSION_MIN = $(shell echo $(GO_VERSION) | $(CMD_CUT) -d'.' -f2)
 .checkver_$(CMD_BPFTOOL): \
 	| .check_$(CMD_BPFTOOL)
 
+# autogen cmd
+AUTOGENCMD ?=
+
 #
 # version
 #
@@ -168,12 +171,16 @@ ifeq ($(UNAME_M),x86_64)
    ARCH = x86_64
    LINUX_ARCH = x86
    GO_ARCH = amd64
+   BPFHEADER = $(BPFHEADER) -I ./kern/x86
+   AUTOGENCMD = $(CMD_BPFTOOL) btf dump file /sys/kernel/btf/vmlinux format c > kern/bpf/x86/vmlinux.h
 endif
 
 ifeq ($(UNAME_M),aarch64)
    ARCH = arm64
    LINUX_ARCH = arm64
    GO_ARCH = arm64
+   BPFHEADER = $(BPFHEADER) -I ./kern/arm64
+   AUTOGENCMD = ls -al kern/bpf/arm64/vmlinux.h
 endif
 
 #
@@ -340,4 +347,4 @@ format:
 	@clang-format -i -style=$(STYLE) kern/common.h
 
 autogen: .checkver_$(CMD_BPFTOOL)
-	$(CMD_BPFTOOL) btf dump file /sys/kernel/btf/vmlinux format c > kern/vmlinux.h
+	$(AUTOGENCMD)
