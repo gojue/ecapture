@@ -83,6 +83,11 @@ func (this *MBashProbe) constantEditor() []manager.ConstantEditor {
 			//FailOnMissing: true,
 		},
 		{
+			Name:  "target_uid",
+			Value: uint64(this.conf.GetUid()),
+			//FailOnMissing: true,
+		},
+		{
 			Name:  "target_errno",
 			Value: uint32(this.Module.conf.(*BashConfig).ErrNo),
 		},
@@ -93,6 +98,13 @@ func (this *MBashProbe) constantEditor() []manager.ConstantEditor {
 	} else {
 		this.logger.Printf("target PID:%d \n", this.conf.GetPid())
 	}
+
+	if this.conf.GetUid() <= 0 {
+		this.logger.Printf("target all users. \n")
+	} else {
+		this.logger.Printf("target UID:%d \n", this.conf.GetUid())
+	}
+
 	return editor
 }
 
