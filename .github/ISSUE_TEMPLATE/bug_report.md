@@ -23,10 +23,12 @@ A clear and concise description of what you expected to happen.
 **Screenshots**
 If applicable, add screenshots to help explain your problem.
 
-**Linux Server/Desktop (please complete the following information):**
- - OS: [e.g. iOS]
- - Kernel Version [e.g. 5.10]
- - Version [e.g. 0.1.3-20220313-69c1e0]
+**Linux Server/Android (please complete the following information):**
+
+- OS: [e.g. Ubuntu 21.04]
+- Arch: [e.g. arm_aarch64]
+- Kernel Version: [e.g. 5.10]
+- Version: [e.g. 0.1.3-20220313-69c1e0]
 
 **Additional context**
 Add any other context about the problem here.
