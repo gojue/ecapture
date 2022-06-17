@@ -30,9 +30,9 @@
 // .rodata section bug via : https://github.com/ehids/ecapture/issues/39
 #ifndef KERNEL_LESS_5_2
 const volatile u64 target_pid = 0;
+const volatile u64 target_uid = 0;
 const volatile int target_errno = BASH_ERRNO_DEFAULT;
 #else
-// u64 target_pid = 0;
 #endif
 
 char __license[] SEC("license") = "Dual MIT/GPL";

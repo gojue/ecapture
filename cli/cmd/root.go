@@ -23,6 +23,7 @@ var (
 
 const (
 	defaultPid uint64 = 0
+	defaultUid uint64 = 0
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -75,4 +76,5 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&globalFlags.IsHex, "hex", false, "print byte strings as hex encoded strings")
 	rootCmd.PersistentFlags().BoolVar(&globalFlags.NoSearch, "nosearch", false, "no lib search")
 	rootCmd.PersistentFlags().Uint64VarP(&globalFlags.Pid, "pid", "p", defaultPid, "if pid is 0 then we target all pids")
+	rootCmd.PersistentFlags().Uint64VarP(&globalFlags.Uid, "uid", "u", defaultUid, "if uid is 0 then we target all users")
 }

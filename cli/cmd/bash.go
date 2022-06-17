@@ -61,6 +61,7 @@ func bashCommandFunc(command *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 	bc.Pid = gConf.Pid
+	bc.Uid = gConf.Uid
 	bc.Debug = gConf.Debug
 	bc.IsHex = gConf.IsHex
 

@@ -21,6 +21,7 @@ type bashEvent struct {
 	module     IModule
 	event_type EVENT_TYPE
 	Pid        uint32
+	Uid        uint32
 	Line       [MAX_DATA_SIZE_BASH]uint8
 	Retval     uint32
 	Comm       [16]byte
@@ -29,6 +30,9 @@ type bashEvent struct {
 func (this *bashEvent) Decode(payload []byte) (err error) {
 	buf := bytes.NewBuffer(payload)
 	if err = binary.Read(buf, binary.LittleEndian, &this.Pid); err != nil {
+		return
+	}
+	if err = binary.Read(buf, binary.LittleEndian, &this.Uid); err != nil {
 		return
 	}
 	if err = binary.Read(buf, binary.LittleEndian, &this.Line); err != nil {
@@ -45,12 +49,12 @@ func (this *bashEvent) Decode(payload []byte) (err error) {
 }
 
 func (this *bashEvent) String() string {
-	s := fmt.Sprintf(fmt.Sprintf(" PID:%d, \tComm:%s, \tRetvalue:%d, \tLine:\n%s", this.Pid, this.Comm, this.Retval, unix.ByteSliceToString((this.Line[:]))))
+	s := fmt.Sprintf(fmt.Sprintf("PID:%d, UID:%d, \tComm:%s, \tRetvalue:%d, \tLine:\n%s", this.Pid, this.Uid, this.Comm, this.Retval, unix.ByteSliceToString((this.Line[:]))))
 	return s
 }
 
 func (this *bashEvent) StringHex() string {
-	s := fmt.Sprintf(fmt.Sprintf(" PID:%d, \tComm:%s, \tRetvalue:%d, \tLine:\n%s,", this.Pid, this.Comm, this.Retval, dumpByteSlice([]byte(unix.ByteSliceToString((this.Line[:]))), "")))
+	s := fmt.Sprintf(fmt.Sprintf("PID:%d, UID:%d, \tComm:%s, \tRetvalue:%d, \tLine:\n%s,", this.Pid, this.Uid, this.Comm, this.Retval, dumpByteSlice([]byte(unix.ByteSliceToString((this.Line[:]))), "")))
 	return s
 }
 
