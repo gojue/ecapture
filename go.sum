@@ -3,6 +3,8 @@ github.com/avast/retry-go v3.0.0+incompatible/go.mod h1:XtSnn+n/sHqQIpZ10K1qAevB
 github.com/cilium/ebpf v0.5.0/go.mod h1:4tRaxcgiL706VnOzHOdBlY8IEAIdxINsQBcU4xJJXRs=
 github.com/cilium/ebpf v0.8.1 h1:bLSSEbBLqGPXxls55pGr5qWZaTqcmfDJHhou7t254ao=
 github.com/cilium/ebpf v0.8.1/go.mod h1:f5zLIM0FSNuAkSyLAN7X+Hy6yznlF1mNiWUMfxMtrgk=
+github.com/cilium/ebpf v0.9.0 h1:ldiV+FscPCQ/p3mNEV4O02EPbUZJFsoEtHvIr9xLTvk=
+github.com/cilium/ebpf v0.9.0/go.mod h1:+OhNOIXx/Fnu1IE8bJz2dzOA+VSfyTfdNUVdlQnxUFY=
 github.com/cpuguy83/go-md2man/v2 v2.0.1/go.mod h1:tgQtvFlXSQOSOSIRvRPT7W67SCa46tRHOmNcaadrF8o=
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
@@ -10,6 +12,8 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/ehids/ebpfmanager v0.2.2 h1:pvbqWqP0I5gEpu8eXloYAePfJQOBOZYQrkHZCREA2sE=
 github.com/ehids/ebpfmanager v0.2.2/go.mod h1:Na79A/VRPSpzQTvjsz5ui4WoZZufPG/oRIDpjKEjQvE=
+github.com/ehids/ebpfmanager v0.3.0 h1:unYTs/EtOF6O9VJzjMHGATSchl8CNf6ctC+FmpZFSYE=
+github.com/ehids/ebpfmanager v0.3.0/go.mod h1:Jwz0oZf5h3EtEarz32vx5gChAfUNwDxzqw80DstbQzM=
 github.com/florianl/go-tc v0.4.0 h1:/g8oCl4OUWt1H4pnThn4iz8SJqV78O5VxAh7ykBN09c=
 github.com/florianl/go-tc v0.4.0/go.mod h1:qt66GHXQ60ETsKP1qNg2KljTO28UMNLhfAaB/odORY8=
 github.com/frankban/quicktest v1.11.3/go.mod h1:wRf/ReqHper53s+kmmSZizM8NamnL3IM0I9ntUbOk+k=
