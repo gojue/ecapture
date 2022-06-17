@@ -85,6 +85,7 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 		}
 
 		conf.SetPid(gConf.Pid)
+		conf.SetUid(gConf.Uid)
 		conf.SetDebug(gConf.Debug)
 		conf.SetHex(gConf.IsHex)
 		conf.SetNoSearch(gConf.NoSearch)
