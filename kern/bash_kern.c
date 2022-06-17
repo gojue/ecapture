@@ -34,7 +34,7 @@ int uretprobe_bash_readline(struct pt_regs *ctx) {
         return 0;
     }
     if (target_uid != 0 && target_uid != uid) {
-            return 0;
+        return 0;
     }
 #endif
 

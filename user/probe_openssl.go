@@ -93,6 +93,10 @@ func (this *MOpenSSLProbe) constantEditor() []manager.ConstantEditor {
 			Value: uint64(this.conf.GetPid()),
 			//FailOnMissing: true,
 		},
+		{
+			Name:  "target_uid",
+			Value: uint64(this.conf.GetUid()),
+		},
 	}
 
 	if this.conf.GetPid() <= 0 {
@@ -100,6 +104,13 @@ func (this *MOpenSSLProbe) constantEditor() []manager.ConstantEditor {
 	} else {
 		this.logger.Printf("target PID:%d \n", this.conf.GetPid())
 	}
+
+	if this.conf.GetUid() <= 0 {
+		this.logger.Printf("target all users. \n")
+	} else {
+		this.logger.Printf("target UID:%d \n", this.conf.GetUid())
+	}
+
 	return editor
 }
 
