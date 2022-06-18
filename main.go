@@ -41,6 +41,8 @@ func main() {
 		}
 	}
 
+	// TODO check UPROBE
+
 	cli.Start()
 	return
 }
