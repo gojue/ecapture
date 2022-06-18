@@ -46,6 +46,11 @@ ifeq ($(DEBUG),1)
 DEBUG_PRINT := -DDEBUG_PRINT
 endif
 
+TARGET_TAG ?= linux
+ifeq ($(ANDROID),1)
+TARGET_TAG := android12
+endif
+
 EXTRA_CFLAGS ?= -O2 -mcpu=v1 \
 	$(DEBUG_PRINT)	\
 	-nostdinc \
@@ -299,8 +304,8 @@ assets: \
 .PHONY: build
 build: \
 	.checkver_$(CMD_GO)
-#
-	CGO_ENABLED=0 $(CMD_GO) build -ldflags "-w -s -X 'ecapture/cli/cmd.GitVersion=$(UNAME_M):$(VERSION)'" -o bin/ecapture .
+# -tags android TODO
+	CGO_ENABLED=0 $(CMD_GO) build -tags $(TARGET_TAG) -ldflags "-w -s -X 'ecapture/cli/cmd.GitVersion=$(UNAME_M):$(VERSION):[CORE]'" -o bin/ecapture .
 
 
 
@@ -310,7 +315,7 @@ build: \
 build_nocore: \
 	.checkver_$(CMD_GO)
 #
-	CGO_ENABLED=0 $(CMD_GO) build -ldflags "-w -s -X 'ecapture/cli/cmd.GitVersion=$(UNAME_M):$(VERSION):[NOCORE]' -X 'main.enableCORE=false'" -o bin/ecapture .
+	CGO_ENABLED=0 $(CMD_GO) build -tags $(TARGET_TAG) -ldflags "-w -s -X 'ecapture/cli/cmd.GitVersion=$(UNAME_M):$(VERSION):$(UNAME_R)' -X 'main.enableCORE=false'" -o bin/ecapture .
 
 
 .PHONY: ebpf_nocore
