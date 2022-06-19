@@ -48,7 +48,7 @@ endif
 
 TARGET_TAG ?= linux
 ifeq ($(ANDROID),1)
-TARGET_TAG := android12
+TARGET_TAG := androidgki
 endif
 
 EXTRA_CFLAGS ?= -O2 -mcpu=v1 \
@@ -304,7 +304,7 @@ assets: \
 .PHONY: build
 build: \
 	.checkver_$(CMD_GO)
-# -tags android
+# -tags androidgki
 	CGO_ENABLED=0 $(CMD_GO) build -tags $(TARGET_TAG) -ldflags "-w -s -X 'ecapture/cli/cmd.GitVersion=$(TARGET_TAG)_$(UNAME_M):$(VERSION):[CORE]'" -o bin/ecapture .
 
 

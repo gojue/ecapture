@@ -1,5 +1,5 @@
-//go:build android12
-// +build android12
+//go:build androidgki
+// +build androidgki
 
 package ebpf
 

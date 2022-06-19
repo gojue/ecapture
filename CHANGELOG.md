@@ -1,13 +1,51 @@
 <hr>
 
-## v0.1.9 (2022-06-11)
+## v0.1.10 (2022-06-19)
 
 ## What's Changed
 
 ## New Contributors
 
-**Full Changelog**: https://github.com/ehids/ecapture/compare/v0.1.8...v0.1.9
+**Full Changelog**: https://github.com/ehids/ecapture/compare/v0.1.9...v0.1.10
 
+
+<hr>
+
+## v0.1.9 (2022-06-11)
+
+## 🚀 Features
+
+- code refactoring: event dispatcher
+  - PR: #58
+- add notes for how to use ecapture in other libs
+  - PR: #60
+-
+  * : add TLS/SSL Version info (openssl).
+
+  - PR: #62
+
+## 🐛 Fixes
+
+- Add nosearch argument to skip auto search lib path
+  - PR: #70
+
+## What's Changed
+
+* code refactoring: event dispatcher by @cfc4n in https://github.com/ehids/ecapture/pull/58
+* add notes for how to use ecapture in other libs by @xjas in https://github.com/ehids/ecapture/pull/60
+* add TLS/SSL Version info (openssl). by @cfc4n in https://github.com/ehids/ecapture/pull/62
+* Update README.md by @nfsec in https://github.com/ehids/ecapture/pull/63
+* fix some typos by @cuishuang in https://github.com/ehids/ecapture/pull/68
+* Add nosearch argument to skip auto search lib path by @vincentmli in https://github.com/ehids/ecapture/pull/70
+
+## New Contributors
+
+* @xjas made their first contribution in https://github.com/ehids/ecapture/pull/60
+* @nfsec made their first contribution in https://github.com/ehids/ecapture/pull/63
+* @cuishuang made their first contribution in https://github.com/ehids/ecapture/pull/68
+* @vincentmli made their first contribution in https://github.com/ehids/ecapture/pull/70
+
+**Full Changelog**: https://github.com/ehids/ecapture/compare/v0.1.8...v0.1.9
 
 <hr>
 
