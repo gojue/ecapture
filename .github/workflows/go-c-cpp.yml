@@ -26,9 +26,15 @@ jobs:
         shell: bash
       - uses: actions/checkout@v3
       - name: Build
-        run: make clean & make all
+        run: |
+          make clean
+          make env
+          make
       - name: Build NOCORE
-        run: make clean & make nocore
+        run: |
+          make clean
+          make env
+          make nocore
       - name: Test
         run: go test -v ./...
 
@@ -51,9 +57,15 @@ jobs:
         shell: bash
       - uses: actions/checkout@v3
       - name: Build
-        run: make clean & make all
+        run: |
+          make clean
+          make env
+          make
       - name: Build NOCORE
-        run: make clean & make nocore
+        run: |
+          make clean
+          make env
+          make nocore
       - name: Test
         run: go test -v ./...
 
@@ -75,6 +87,20 @@ jobs:
           echo running on branch ${{ github.ref_name }}
           echo checkout directory ${GITHUB_WORKSPACE}
           echo PWD directory ${PWD}
+      - name: Build Changelog
+        id: github_release
+        uses: mikepenz/release-changelog-builder-action@v1
+        with:
+          configuration: "configuration.json"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Write File
+        uses: DamianReeves/write-file-action@v1.0
+        with:
+          path: ./bin/release_notes.txt
+          contents: |
+            ${{ steps.github_release.outputs.changelog }}
+          write-mode: append
       - uses: uraimo/run-on-arch-action@v2
         name: Build artifact
         id: build
@@ -126,6 +152,7 @@ jobs:
             git config --global --add safe.directory /source_code
             echo "-------------------Makefile ecapture -------------------"
             cd /source_code
+            make env
             make clean
             make
             echo "-------------------ecapture --help-------------------"

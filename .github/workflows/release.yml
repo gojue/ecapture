@@ -49,4 +49,5 @@ jobs:
         write-mode: append
     - name: Release
       run: |
+        make env
         make -f builder/Makefile.release release SNAPSHOT_VERSION=${{ steps.get_tags.outputs.VERSION }}
