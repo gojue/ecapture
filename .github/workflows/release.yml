@@ -198,15 +198,15 @@ jobs:
             go test -v ./...
             echo "Produced artifact at /artifacts/${artifact_name}"
 
-      - name: Update artifacts
+      - name: Upload artifacts
         # Items placed in /artifacts in the container will be in
         # ${PWD}/artifacts on the host.
         # gh command help: https://cli.github.com/manual/gh_release_download
         run: |
           ls -al "${PWD}/artifacts"
           cd "${PWD}/artifacts"
-          gh release download ${SNAPSHOT_VERSION} -p "checksum-${SNAPSHOT_VERSION}.txt"
-          sha256sum ecapture-*.tar.gz >> checksum-${SNAPSHOT_VERSION}.txt
-          files=($(ls ecapture-*.tar.gz ${SNAPSHOT_VERSION}.txt))
+          gh release download ${{ steps.get_tags.outputs.VERSION }} -p "checksum-${{ steps.get_tags.outputs.VERSION }}.txt"
+          sha256sum ecapture-*.tar.gz >> checksum-${{ steps.get_tags.outputs.VERSION }}.txt
+          files=($(ls ecapture-*.tar.gz ${{ steps.get_tags.outputs.VERSION }}.txt))
           echo "-------------------upload files: ${files[@]} -------------------"
-          gh release upload ${SNAPSHOT_VERSION} "${files[@]}" --clobber
+          gh release upload ${{ steps.get_tags.outputs.VERSION }} "${files[@]}" --clobber
