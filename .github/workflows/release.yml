@@ -207,6 +207,6 @@ jobs:
           cd "${PWD}/artifacts"
           gh release download ${{ steps.get_tags.outputs.VERSION }} -p "checksum-${{ steps.get_tags.outputs.VERSION }}.txt"
           sha256sum ecapture-*.tar.gz >> checksum-${{ steps.get_tags.outputs.VERSION }}.txt
-          files=($(ls ecapture-*.tar.gz ${{ steps.get_tags.outputs.VERSION }}.txt))
+          files=($(ls ecapture-*.tar.gz checksum-${{ steps.get_tags.outputs.VERSION }}.txt))
           echo "-------------------upload files: ${files[@]} -------------------"
           gh release upload ${{ steps.get_tags.outputs.VERSION }} "${files[@]}" --clobber
