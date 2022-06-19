@@ -197,7 +197,8 @@ jobs:
         run: |
           ls -al "${PWD}/artifacts"
           cd "${PWD}/artifacts"
-          sha256sum ecapture-*.tar.gz > checksum-${SNAPSHOT_VERSION}.txt
+          gh release download ${SNAPSHOT_VERSION} -p "checksum-${SNAPSHOT_VERSION}.txt"
+          sha256sum ecapture-*.tar.gz >> checksum-${SNAPSHOT_VERSION}.txt
           files=($(ls ecapture-*.tar.gz ${SNAPSHOT_VERSION}.txt))
           echo "-------------------upload files: ${files[@]} -------------------"
           gh release upload ${SNAPSHOT_VERSION} "${files[@]}" --clobber
