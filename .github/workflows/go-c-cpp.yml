@@ -124,13 +124,16 @@ jobs:
             clang --version
             which bpftool
             git config --global --add safe.directory /source_code
+            echo "-------------------Makefile ecapture -------------------"
             cd /source_code
             make clean
             make
+            echo "-------------------ecapture --help-------------------"
             bin/ecapture -h
             echo "-------------------create tar.gz file-------------------"
             UNAME_M=`uname -m`
             OUTPUT_DIR="./bin"
+            SNAPSHOT_VERSION=${{ steps.get_tags.outputs.VERSION }}
             TAR_DIR=ecapture-${SNAPSHOT_VERSION}-linux-${UNAME_M}
             RELEASE_NOTES=${OUTPUT_DIR}/release_notes.txt
             OUT_ARCHIVE=${OUTPUT_DIR}/${artifact_name}
