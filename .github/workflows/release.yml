@@ -65,6 +65,13 @@ jobs:
       - uses: actions/checkout@v3
         with:
           set-safe-directory: '/source_code'
+      - name: Get the version
+        id: get_tags
+        run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
+        shell: bash
+      - name: authenticate
+        run: |
+          gh auth login --with-token <<<'${{ secrets.GITHUB_TOKEN }}'
       - name: Branch Name
         run: |
           echo running on branch ${{ github.ref_name }}
