@@ -127,6 +127,7 @@ jobs:
             cd /source_code
             make clean
             make
+            bin/ecapture -h
             cp bin/ecapture "/artifacts/${artifact_name}"
             go test -v ./...
             echo "Produced artifact at /artifacts/${artifact_name}"
