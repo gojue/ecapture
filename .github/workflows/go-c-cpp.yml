@@ -24,7 +24,7 @@ jobs:
             sudo ln -s /usr/bin/$tool-12 /usr/bin/$tool
           done
         shell: bash
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Build
         run: make clean & make all
       - name: Build NOCORE
@@ -49,7 +49,7 @@ jobs:
             sudo ln -s /usr/bin/$tool-14 /usr/bin/$tool
           done
         shell: bash
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Build
         run: make clean & make all
       - name: Build NOCORE
@@ -67,9 +67,14 @@ jobs:
           - arch: aarch64
             distro: ubuntu22.04
     steps:
-      - uses: actions/checkout@v2.1.0
+      - uses: actions/checkout@v3
+        with:
+          set-safe-directory: '/source_code'
       - name: Branch Name
-        run: echo running on branch ${{ github.ref_name }}
+        run: |
+          echo running on branch ${{ github.ref_name }}
+          echo checkout directory ${GITHUB_WORKSPACE}
+          echo PWD directory ${PWD}
       - uses: uraimo/run-on-arch-action@v2
         name: Build artifact
         id: build
@@ -87,6 +92,7 @@ jobs:
           # Mount the artifacts directory as /artifacts in the container
           dockerRunArgs: |
             --volume "${PWD}/artifacts:/artifacts"
+            --volume "${GITHUB_WORKSPACE}:/source_code"
 
           # Pass some environment variables to the container
           env: | # YAML, but pipe character is necessary
@@ -117,11 +123,11 @@ jobs:
             done
             clang --version
             which bpftool
-            git clone https://github.com/ehids/ecapture.git
-            cd ecapture
-            git checkout ${{ github.ref_name }}
+            git config --global --add safe.directory /source_code
+            cd /source_code
             make clean
             make
+            bin/ecapture -h
             cp bin/ecapture "/artifacts/${artifact_name}"
             go test -v ./...
             echo "Produced artifact at /artifacts/${artifact_name}"
