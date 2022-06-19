@@ -87,19 +87,12 @@ jobs:
           echo running on branch ${{ github.ref_name }}
           echo checkout directory ${GITHUB_WORKSPACE}
           echo PWD directory ${PWD}
-      - name: Build Changelog
-        id: github_release
-        uses: mikepenz/release-changelog-builder-action@v1
-        with:
-          configuration: "configuration.json"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Write File
         uses: DamianReeves/write-file-action@v1.0
         with:
           path: ./bin/release_notes.txt
           contents: |
-            ${{ steps.github_release.outputs.changelog }}
+            "just for CI"
           write-mode: append
       - uses: uraimo/run-on-arch-action@v2
         name: Build artifact
