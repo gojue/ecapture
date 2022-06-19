@@ -123,6 +123,7 @@ jobs:
             done
             clang --version
             which bpftool
+            git config --global --add safe.directory /source_code
             cd /source_code
             make clean
             make
