@@ -68,6 +68,8 @@ jobs:
             distro: ubuntu22.04
     steps:
       - uses: actions/checkout@v3
+        with:
+          set-safe-directory: '/source_code'
       - name: Branch Name
         run: |
           echo running on branch ${{ github.ref_name }}
