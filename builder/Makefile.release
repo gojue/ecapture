@@ -29,6 +29,9 @@ CMD_MKDIR ?= mkdir
 CMD_MV ?= mv
 CMD_CP ?= cp
 
+UNAME_M := $(shell uname -m)
+SNAPSHOT_VERSION ?= $(shell git rev-parse HEAD)
+
 .ONESHELL:
 .check_%:
 #
@@ -114,7 +117,7 @@ help:
 #
 
 OUTPUT_DIR = ./bin
-TAR_DIR = ecapture-$(SNAPSHOT_VERSION)
+TAR_DIR = ecapture-$(SNAPSHOT_VERSION)-linux-$(UNAME_M)
 
 # from CLI args.
 RELEASE_NOTES ?= $(OUTPUT_DIR)/release_notes.txt
@@ -128,9 +131,7 @@ $(OUTPUT_DIR):
 # Create a release snapshot
 #
 
-SNAPSHOT_VERSION ?= $(shell git rev-parse HEAD)
-
-OUT_ARCHIVE := $(OUTPUT_DIR)/ecapture-$(SNAPSHOT_VERSION).tar.gz
+OUT_ARCHIVE := $(OUTPUT_DIR)/$(TAR_DIR).tar.gz
 OUT_CHECKSUMS := $(OUTPUT_DIR)/checksum-$(SNAPSHOT_VERSION).txt
 
 .PHONY: snapshot
@@ -146,6 +147,9 @@ snapshot: \
 	# create the tar ball and checksum files
 	$(CMD_MKDIR) -p $(TAR_DIR)
 	$(CMD_CP) LICENSE $(TAR_DIR)/LICENSE
+	$(CMD_CP) CHANGELOG.md $(TAR_DIR)/CHANGELOG.md
+	$(CMD_CP) README.md $(TAR_DIR)/README.md
+	$(CMD_CP) README_CN.md $(TAR_DIR)/README_CN.md
 	$(CMD_MV) $(OUTPUT_DIR)/ecapture $(TAR_DIR)/ecapture
 	$(CMD_MV) $(OUTPUT_DIR)/release_notes.txt $(TAR_DIR)/release_notes.txt
 	$(CMD_TAR)  -czf $(OUT_ARCHIVE) $(TAR_DIR)
@@ -160,7 +164,7 @@ publish: \
 	.check_$(CMD_GITHUB)
 #
 	# release it!
-	$(CMD_GITHUB) release create $(SNAPSHOT_VERSION) $(OUT_ARCHIVE) $(OUT_CHECKSUMS) --title "eCapture $(SNAPSHOT_VERSION) release."  --notes-file $(TAR_DIR)/release_notes.txt
+	$(CMD_GITHUB) release create $(SNAPSHOT_VERSION) $(OUT_ARCHIVE) $(OUT_CHECKSUMS) --title "eCapture $(SNAPSHOT_VERSION) release (Linux x86_64/aarch64, Android GKI)."  --notes-file $(TAR_DIR)/release_notes.txt
 
 .PHONY: clean
 clean:
