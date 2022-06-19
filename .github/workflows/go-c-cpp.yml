@@ -26,9 +26,15 @@ jobs:
         shell: bash
       - uses: actions/checkout@v3
       - name: Build
-        run: make clean & make all
+        run: |
+          make clean
+          make env
+          make
       - name: Build NOCORE
-        run: make clean & make nocore
+        run: |
+          make clean
+          make env
+          make nocore
       - name: Test
         run: go test -v ./...
 
@@ -51,9 +57,15 @@ jobs:
         shell: bash
       - uses: actions/checkout@v3
       - name: Build
-        run: make clean & make all
+        run: |
+          make clean
+          make env
+          make
       - name: Build NOCORE
-        run: make clean & make nocore
+        run: |
+          make clean
+          make env
+          make nocore
       - name: Test
         run: go test -v ./...
 
@@ -75,6 +87,13 @@ jobs:
           echo running on branch ${{ github.ref_name }}
           echo checkout directory ${GITHUB_WORKSPACE}
           echo PWD directory ${PWD}
+      - name: Write File
+        uses: DamianReeves/write-file-action@v1.0
+        with:
+          path: ./bin/release_notes.txt
+          contents: |
+            "just for CI"
+          write-mode: append
       - uses: uraimo/run-on-arch-action@v2
         name: Build artifact
         id: build
@@ -96,7 +115,7 @@ jobs:
 
           # Pass some environment variables to the container
           env: | # YAML, but pipe character is necessary
-            artifact_name: ecapture-${{ matrix.distro }}_${{ matrix.arch }}
+            artifact_name: ecapture-${{ steps.get_tags.outputs.VERSION }}
 
           # The shell to run commands with in the container
           shell: /bin/sh
@@ -125,10 +144,60 @@ jobs:
             which bpftool
             git config --global --add safe.directory /source_code
             cd /source_code
+            echo "-------------------end: Create ecapture.tar.gz of Linux -------------------"
+            make env
             make clean
             make
+            echo "-------------------ecapture --help-------------------"
             bin/ecapture -h
-            cp bin/ecapture "/artifacts/${artifact_name}"
+            echo "-------------------create tar.gz file-------------------"
+            UNAME_M=`uname -m`
+            OUTPUT_DIR="./bin"
+            SNAPSHOT_VERSION=${{ steps.get_tags.outputs.VERSION }}
+            echo "#${SNAPSHOT_VERSION}#"
+            if [ -z "${SNAPSHOT_VERSION}" ]; then
+              SNAPSHOT_VERSION="v0.0.0"
+            fi
+            TAR_DIR=ecapture-${SNAPSHOT_VERSION}-linux-${UNAME_M}
+            RELEASE_NOTES=${OUTPUT_DIR}/release_notes.txt
+            OUT_ARCHIVE=${OUTPUT_DIR}/${artifact_name}-linux-${{ matrix.arch }}.tar.gz
+            mkdir -p ${TAR_DIR}
+            cp LICENSE ${TAR_DIR}/LICENSE
+            cp CHANGELOG.md ${TAR_DIR}/CHANGELOG.md
+            cp README.md ${TAR_DIR}/README.md
+            cp README_CN.md ${TAR_DIR}/README_CN.md
+            cp ${OUTPUT_DIR}/ecapture ${TAR_DIR}/ecapture
+            cp ${OUTPUT_DIR}/release_notes.txt ${TAR_DIR}/release_notes.txt
+            tar  -czf ${OUT_ARCHIVE} ${TAR_DIR}
+            cp ${OUT_ARCHIVE} "/artifacts/"
+            echo "-------------------end: Create ecapture.tar.gz of Linux -------------------"
+            echo "-------------------end: Create ecapture.tar.gz of Android GKI -------------------"
+            make env
+            make clean
+            ANDROID=1 make
+            echo "-------------------ecapture --help-------------------"
+            bin/ecapture -h
+            echo "-------------------create tar.gz file-------------------"
+            UNAME_M=`uname -m`
+            OUTPUT_DIR="./bin"
+            SNAPSHOT_VERSION=${{ steps.get_tags.outputs.VERSION }}
+            echo "#${SNAPSHOT_VERSION}#"
+            if [ -z "${SNAPSHOT_VERSION}" ]; then
+              SNAPSHOT_VERSION="v0.0.0"
+            fi
+            TAR_DIR=ecapture-${SNAPSHOT_VERSION}-android_gki-${UNAME_M}
+            RELEASE_NOTES=${OUTPUT_DIR}/release_notes.txt
+            OUT_ARCHIVE=${OUTPUT_DIR}/${artifact_name}-android_gki-${{ matrix.arch }}.tar.gz
+            mkdir -p ${TAR_DIR}
+            cp LICENSE ${TAR_DIR}/LICENSE
+            cp CHANGELOG.md ${TAR_DIR}/CHANGELOG.md
+            cp README.md ${TAR_DIR}/README.md
+            cp README_CN.md ${TAR_DIR}/README_CN.md
+            cp ${OUTPUT_DIR}/ecapture ${TAR_DIR}/ecapture
+            cp ${OUTPUT_DIR}/release_notes.txt ${TAR_DIR}/release_notes.txt
+            tar  -czf ${OUT_ARCHIVE} ${TAR_DIR}
+            cp ${OUT_ARCHIVE} "/artifacts/"
+            echo "-------------------end: Create ecapture.tar.gz of Android GKI -------------------"
             go test -v ./...
             echo "Produced artifact at /artifacts/${artifact_name}"
 

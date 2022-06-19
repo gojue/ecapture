@@ -304,8 +304,8 @@ assets: \
 .PHONY: build
 build: \
 	.checkver_$(CMD_GO)
-# -tags android TODO
-	CGO_ENABLED=0 $(CMD_GO) build -tags $(TARGET_TAG) -ldflags "-w -s -X 'ecapture/cli/cmd.GitVersion=$(UNAME_M):$(VERSION):[CORE]'" -o bin/ecapture .
+# -tags android
+	CGO_ENABLED=0 $(CMD_GO) build -tags $(TARGET_TAG) -ldflags "-w -s -X 'ecapture/cli/cmd.GitVersion=$(TARGET_TAG)_$(UNAME_M):$(VERSION):[CORE]'" -o bin/ecapture .
 
 
 
@@ -315,7 +315,7 @@ build: \
 build_nocore: \
 	.checkver_$(CMD_GO)
 #
-	CGO_ENABLED=0 $(CMD_GO) build -tags $(TARGET_TAG) -ldflags "-w -s -X 'ecapture/cli/cmd.GitVersion=$(UNAME_M):$(VERSION):$(UNAME_R)' -X 'main.enableCORE=false'" -o bin/ecapture .
+	CGO_ENABLED=0 $(CMD_GO) build -tags $(TARGET_TAG) -ldflags "-w -s -X 'ecapture/cli/cmd.GitVersion=linux_$(UNAME_M):$(VERSION):$(UNAME_R)' -X 'main.enableCORE=false'" -o bin/ecapture .
 
 
 .PHONY: ebpf_nocore
