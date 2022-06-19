@@ -194,6 +194,7 @@ jobs:
       - name: Update artifacts
         # Items placed in /artifacts in the container will be in
         # ${PWD}/artifacts on the host.
+        # gh command help: https://cli.github.com/manual/gh_release_download
         run: |
           ls -al "${PWD}/artifacts"
           cd "${PWD}/artifacts"
