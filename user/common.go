@@ -120,7 +120,11 @@ func getDynPathByElf(elfName, soName string) (string, error) {
 
 	sos, e := getDynsFromElf(elfName)
 	if e != nil {
-		return "", e
+		searchedSoPath := recurseSearchPath(GetDynLibDirs(), soName)
+		if len(searchedSoPath) == 0 {
+			return "", errors.New(fmt.Sprintf("cant found so lib by search %s", soName))
+		}
+		return searchedSoPath, nil
 	}
 
 	// search dynamic library form ld.so.conf
@@ -132,6 +136,25 @@ func getDynPathByElf(elfName, soName string) (string, error) {
 		return "", errors.New(fmt.Sprintf("cant found so lib from %s", elfName))
 	}
 	return realSoName, nil
+}
+
+func recurseSearchPath(searchPath []string, soName string) string {
+	for _, entry := range searchPath {
+		path := filepath.Join(entry, soName)
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			_, err = os.OpenFile(path, os.O_RDONLY, 0644)
+			if err != nil {
+				//log.Fatal(err)
+				fmt.Printf("open file:%s  error:%v\n", path, err)
+				continue
+			} else {
+				// found
+				return path;
+			}
+		}
+	}
+
+	return ""
 }
 
 func recurseDynStrings(dynSym []string, searchPath []string, soName string) string {
