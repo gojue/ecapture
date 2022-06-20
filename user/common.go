@@ -178,8 +178,6 @@ func recurseDynStrings(dynSym []string, searchPath []string, soName string) stri
 
 					// not match ,will open it, and recurse it
 				}
-			} else {
-				// Nothing
 			}
 		}
 
