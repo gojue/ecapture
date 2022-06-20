@@ -108,6 +108,7 @@ func (this *OpensslConfig) checkConnect() error {
 	var sharedObjects = []string{
 		"libpthread.so.0", // ubuntu 21.04 server
 		"libc.so.6",       // ubuntu 21.10 server
+		"libc.so",         // Android
 	}
 
 	var funcName = ""
