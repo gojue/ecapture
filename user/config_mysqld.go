@@ -76,7 +76,7 @@ func (this *MysqldConfig) Check() error {
 
 	// _Z16dispatch_command19enum_server_commandP3THDPcjbb
 
-	r, _ := regexp.Compile("\\w+dispatch_command\\w+")
+	r, _ := regexp.Compile(`\w+dispatch_command\w+`)
 	funcName := ""
 	for _, sym := range dynamicSymbols {
 		match := r.FindStringSubmatch(sym.Name)

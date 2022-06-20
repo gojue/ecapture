@@ -163,7 +163,7 @@ func (this *OpensslConfig) checkConnect() error {
 
 	//如果没找到，则报错。
 	if !found || funcName == "" {
-		return errors.New(fmt.Sprintf("cant found 'connect' function to hook in files::%v", sharedObjects))
+		return fmt.Errorf("cant found 'connect' function to hook in files::%v", sharedObjects)
 	}
 	return nil
 }

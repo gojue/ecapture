@@ -60,7 +60,6 @@ type Module struct {
 func (this *Module) Init(ctx context.Context, logger *log.Logger) {
 	this.ctx = ctx
 	this.logger = logger
-	return
 }
 
 func (this *Module) SetChild(module IModule) {
