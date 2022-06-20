@@ -25,6 +25,11 @@ jobs:
           done
         shell: bash
       - uses: actions/checkout@v3
+      - name: Build
+        run: |
+          make clean
+          make env
+          make
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3
         with:
@@ -49,11 +54,6 @@ jobs:
 
           # Optional: if set to true then the action don't cache or restore ~/.cache/go-build.
           # skip-build-cache: true
-      - name: Build
-        run: |
-          make clean
-          make env
-          make
       - name: Build NOCORE
         run: |
           make clean
@@ -80,6 +80,11 @@ jobs:
           done
         shell: bash
       - uses: actions/checkout@v3
+      - name: Build
+        run: |
+          make clean
+          make env
+          make
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3
         with:
@@ -104,11 +109,6 @@ jobs:
 
           # Optional: if set to true then the action don't cache or restore ~/.cache/go-build.
           # skip-build-cache: true
-      - name: Build
-        run: |
-          make clean
-          make env
-          make
       - name: Build NOCORE
         run: |
           make clean
