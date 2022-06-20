@@ -10,5 +10,4 @@ import (
 
 func Start() {
 	cmd.Execute()
-	return
 }
