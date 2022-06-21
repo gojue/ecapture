@@ -1,13 +1,13 @@
 ![](./images/ecapture-logo-400x400.png)
 
-[简体中文介绍](./README_CN.md) | English
+[中文介绍](./README_CN.md) | English
 
 [![GitHub stars](https://img.shields.io/github/stars/ehids/ecapture.svg?label=Stars&logo=github)](https://github.com/ehids/ecapture)
 [![GitHub forks](https://img.shields.io/github/forks/ehids/ecapture?label=Forks&logo=github)](https://github.com/ehids/ecapture)
 [![CI](https://github.com/ehids/ecapture/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/ehids/ecapture/actions/workflows/code-analysis.yml)
 [![Github Version](https://img.shields.io/github/v/release/ehids/ecapture?display_name=tag&include_prereleases&sort=semver)](https://github.com/ehids/ecapture/releases)
 
-### eCapture:  capture SSL/TLS text content without CA cert Using eBPF.
+### eCapture(旁观者):  capture SSL/TLS text content without CA cert Using eBPF.
 
 ----
 
