@@ -18,6 +18,7 @@ import (
 var oc = user.NewOpensslConfig()
 var gc = user.NewGnutlsConfig()
 var nc = user.NewNsprConfig()
+var goc = user.NewGoSSLConfig()
 
 // opensslCmd represents the openssl command
 var opensslCmd = &cobra.Command{
@@ -38,6 +39,7 @@ func init() {
 	opensslCmd.PersistentFlags().StringVar(&nc.Firefoxpath, "firefox", "", "firefox file path, default: /usr/lib/firefox/firefox.")
 	opensslCmd.PersistentFlags().StringVar(&nc.Nsprpath, "nspr", "", "libnspr44.so file path, will automatically find it from curl default.")
 	opensslCmd.PersistentFlags().StringVar(&oc.Pthread, "pthread", "", "libpthread.so file path, use to hook connect to capture socket FD.will automatically find it from curl.")
+	opensslCmd.PersistentFlags().StringVar(&goc.Path, "gobin", "", "path to binary built with Go toolchain.")
 
 	rootCmd.AddCommand(opensslCmd)
 }
@@ -57,7 +59,7 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 	}
 	log.Printf("pid info :%d", os.Getpid())
 
-	modNames := []string{user.MODULE_NAME_OPENSSL, user.MODULE_NAME_GNUTLS, user.MODULE_NAME_NSPR}
+	modNames := []string{user.MODULE_NAME_OPENSSL, user.MODULE_NAME_GNUTLS, user.MODULE_NAME_NSPR, user.MODULE_NAME_GOSSL}
 
 	var runMods uint8
 	for _, modName := range modNames {
@@ -76,6 +78,8 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 			conf = gc
 		case user.MODULE_NAME_NSPR:
 			conf = nc
+		case user.MODULE_NAME_GOSSL:
+			conf = goc
 		default:
 		}
 
