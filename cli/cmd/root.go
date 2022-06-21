@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	cliName        = "ecapture"
+	cliName        = "eCapture"
 	cliDescription = "capture text SSL content without CA cert by ebpf hook."
 )
 
@@ -32,7 +32,7 @@ var rootCmd = &cobra.Command{
 	Short:      cliDescription,
 	SuggestFor: []string{"ecapture"},
 
-	Long: `eCapture is a tool that can capture plaintext packets 
+	Long: `eCapture(旁观者) is a tool that can capture plaintext packets 
 such as HTTPS and TLS without installing a CA certificate.
 It can also capture bash commands, which is suitable for 
 security auditing scenarios, such as database auditing of mysqld, etc.

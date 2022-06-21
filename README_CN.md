@@ -1,21 +1,26 @@
 ![](./images/ecapture-logo-400x400.png)
 
-[English](./README.md) | 简体中文
+[English](./README.md) | 中文介绍
 
 [![GitHub stars](https://img.shields.io/github/stars/ehids/ecapture.svg?label=Stars&logo=github)](https://github.com/ehids/ecapture)
 [![GitHub forks](https://img.shields.io/github/forks/ehids/ecapture?label=Forks&logo=github)](https://github.com/ehids/ecapture)
 [![CI](https://github.com/ehids/ecapture/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/ehids/ecapture/actions/workflows/code-analysis.yml)
 [![Github Version](https://img.shields.io/github/v/release/ehids/ecapture?display_name=tag&include_prereleases&sort=semver)](https://github.com/ehids/ecapture/releases)
 
-### eCapture: 基于eBPF技术实现TLS加密的明文捕获。
+### eCapture(旁观者): 基于eBPF技术实现TLS加密的明文捕获。
 
 ----
 
-#  eCapture 工作原理
+# eCapture旁观者
+
+eCapture的中文名字为**旁观者**，即「**当局者迷，旁观者清**」，与其本身功能**旁路、观察**契合，且发音与英文有相似之处。
+
+# eCapture 工作原理
 
 ![](./images/how-ecapture-works.png)
 
 eBPF HOOK uprobe实现的各种用户态进程的数据捕获，无需改动原程序。
+
 * SSL/HTTPS数据导出功能，针对HTTPS的数据包抓取，不需要导入CA证书。
 * bash的命令捕获，HIDS的bash命令监控解决方案。
 * mysql query等数据库的数据库审计解决方案。
