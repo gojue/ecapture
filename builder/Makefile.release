@@ -141,9 +141,9 @@ snapshot: \
 	.check_$(CMD_TAR) \
 	.check_$(CMD_CHECKSUM) \
 	.check_$(CMD_GITHUB)
-#
+
 	# build binaries
-	$(MAKE) ARG="all"
+	$(MAKE)
 	# create the tar ball and checksum files
 	$(CMD_MKDIR) -p $(TAR_DIR)
 	$(CMD_CP) LICENSE $(TAR_DIR)/LICENSE
@@ -153,7 +153,9 @@ snapshot: \
 	$(CMD_MV) $(OUTPUT_DIR)/ecapture $(TAR_DIR)/ecapture
 	$(CMD_MV) $(OUTPUT_DIR)/release_notes.txt $(TAR_DIR)/release_notes.txt
 	$(CMD_TAR)  -czf $(OUT_ARCHIVE) $(TAR_DIR)
-	$(CMD_CHECKSUM) $(OUT_ARCHIVE) > $(OUT_CHECKSUMS)
+	cd $(OUTPUT_DIR)
+	$(CMD_CHECKSUM) $(TAR_DIR).tar.gz > ./../$(OUT_CHECKSUMS)
+	cd ../
 
 .PHONY: publish
 publish: \
