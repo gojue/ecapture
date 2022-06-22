@@ -1,3 +1,6 @@
+//go:build !androidgki
+// +build !androidgki
+
 /*
 Copyright © 2022 CFC4N <cfc4n.cs@gmail.com>
 

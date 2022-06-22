@@ -3,10 +3,6 @@
 
 package user
 
-const (
-	LD_LOAD_PATH = "/etc/ld.so.conf"
-)
-
 // https://source.android.com/devices/architecture/vndk/linker-namespace
 var (
 	default_so_paths = []string{
@@ -15,3 +11,7 @@ var (
 		"/apex/com.android.runtime/lib64/bionic",
 	}
 )
+
+func GetDynLibDirs() []string {
+	return default_so_paths
+}

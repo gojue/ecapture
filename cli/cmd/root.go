@@ -35,7 +35,7 @@ var rootCmd = &cobra.Command{
 	Long: `eCapture(旁观者) is a tool that can capture plaintext packets 
 such as HTTPS and TLS without installing a CA certificate.
 It can also capture bash commands, which is suitable for 
-security auditing scenarios, such as database auditing of mysqld, etc.
+security auditing scenarios, such as database auditing of mysqld, etc (disabled on Android).
 
 Repository: https://github.com/ehids/ecapture
 `,

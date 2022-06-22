@@ -10,11 +10,8 @@ import (
 )
 
 const (
-	BOOT_CONFIG_PATH             = "/boot/config-%s"
-	CONFIG_BTF_TAGNAME           = "CONFIG_DEBUG_INFO_BTF"
-	SYS_KERNEL_BTF_VMLINUX       = "/sys/kernel/btf/vmlinux"
-	CONFIG_ARCH_SUPPORTS_UPROBES = "CONFIG_ARCH_SUPPORTS_UPROBES"
-	CONFIG_UPROBES               = "CONFIG_UPROBES"
+	SYS_KERNEL_BTF_VMLINUX = "/sys/kernel/btf/vmlinux"
+	CONFIG_DEBUG_INFO_BTF  = "CONFIG_DEBUG_INFO_BTF"
 )
 
 var (
@@ -30,42 +27,50 @@ var (
 		"/usr/lib/debug/boot/vmlinux-%s.debug",
 		"/usr/lib/debug/lib/modules/%s/vmlinux",
 	}
+
+	configPaths = []string{
+		"/proc/config.gz",
+		"/boot/config",
+		"/boot/config-%s",
+	}
 )
 
-func IsEnableBTF() (bool, error) {
-	found, e := checkKernelBTF()
-	if e == nil && found {
-		return true, nil
-	}
+func GetSystemConfig() (map[string]string, error) {
+	var KernelConfig = make(map[string]string)
 
 	i, e := getOSUnamer()
 	if e != nil {
-		return false, e
+		return KernelConfig, e
 	}
-	bootConf := fmt.Sprintf(BOOT_CONFIG_PATH, i.Release)
+
+	for _, system_config_path := range configPaths {
+		bootConf := fmt.Sprintf(system_config_path, i.Release)
+		KernelConfig, e = getLinuxConfig(bootConf)
+		if e != nil {
+			continue
+		}
+
+		if len(KernelConfig) > 0 {
+			break
+		}
+	}
+
+	return KernelConfig, nil
+}
+
+func getLinuxConfig(filename string) (map[string]string, error) {
+	var KernelConfig = make(map[string]string)
 
 	// Open file bootConf.
-	f, err := os.Open(bootConf)
+	f, err := os.Open(filename)
 	if err != nil {
-		return false, err
+		return KernelConfig, err
 	}
 	defer f.Close()
 
-	var KernelConfig = make(map[string]string)
 	s := bufio.NewScanner(f)
 	if err := parse(s, KernelConfig); err != nil {
-		return false, err
+		return KernelConfig, err
 	}
-	bc, found := KernelConfig[CONFIG_BTF_TAGNAME]
-	if !found {
-		// 没有这个配置项
-		return false, nil
-	}
-
-	//如果有，在判断配置项的值
-	if bc != "y" {
-		// 没有开启
-		return false, nil
-	}
-	return true, nil
+	return KernelConfig, nil
 }

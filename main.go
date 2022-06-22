@@ -27,6 +27,15 @@ func main() {
 		log.Fatalf("Linux Kernel version %v is not supported. Need > 4.18 .", kv)
 	}
 
+	enable, e := ebpf.IsEnableBPF()
+	if e != nil {
+		log.Fatalf("Kernel config read failed, error:%v", e)
+	}
+
+	if !enable {
+		log.Fatalf("Kernel not support, error:%v", e)
+	}
+
 	// changed by go build '-ldflags X'
 	if enableCORE == "true" {
 		// BTF支持情况检测

@@ -3,6 +3,8 @@
 
 package user
 
+import "log"
+
 const (
 	LD_LOAD_PATH = "/etc/ld.so.conf"
 )
@@ -24,3 +26,12 @@ var (
 		"/lib64",
 	}
 )
+
+func GetDynLibDirs() []string {
+	dirs, err := ParseDynLibConf(LD_LOAD_PATH)
+	if err != nil {
+		log.Println(err.Error())
+		return default_so_paths
+	}
+	return append(dirs, "/lib64", "/usr/lib64")
+}
