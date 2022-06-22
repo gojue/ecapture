@@ -17,3 +17,5 @@
 
 # VSCode
 .vscode/settings.json
+
+kern/bpf/x86/vmlinux.h
