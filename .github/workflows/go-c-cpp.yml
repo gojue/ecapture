@@ -197,7 +197,7 @@ jobs:
             make clean
             make
             echo "-------------------ecapture --help-------------------"
-            bin/ecapture -h
+            echo "bin/ecapture -h #BPF check failed on this docker"
             echo "-------------------create tar.gz file-------------------"
             UNAME_M=`uname -m`
             OUTPUT_DIR="./bin"
@@ -219,12 +219,12 @@ jobs:
             tar  -czf ${OUT_ARCHIVE} ${TAR_DIR}
             cp ${OUT_ARCHIVE} "/artifacts/"
             echo "-------------------end: Create ecapture.tar.gz of Linux -------------------"
-            echo "-------------------end: Create ecapture.tar.gz of Android GKI -------------------"
+            echo "-------------------start: Create ecapture.tar.gz of Android GKI -------------------"
             make env
             make clean
             ANDROID=1 make
             echo "-------------------ecapture --help-------------------"
-            bin/ecapture -h
+            echo "bin/ecapture -h #BPF check failed on this docker"
             echo "-------------------create tar.gz file-------------------"
             UNAME_M=`uname -m`
             OUTPUT_DIR="./bin"

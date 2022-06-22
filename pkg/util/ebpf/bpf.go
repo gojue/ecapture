@@ -6,6 +6,15 @@ import (
 	"os"
 )
 
+// CONFIG CHECK ITEMS
+var (
+	configCheckItems = []string{
+		"CONFIG_BPF",
+		"CONFIG_UPROBES",
+		"CONFIG_ARCH_SUPPORTS_UPROBES",
+	}
+)
+
 type UnameInfo struct {
 	SysName    string
 	Nodename   string
@@ -76,4 +85,58 @@ func findVMLinux() (bool, error) {
 		return true, nil
 	}
 	return false, err
+}
+
+func IsEnableBTF() (bool, error) {
+	found, e := checkKernelBTF()
+	if e == nil && found {
+		return true, nil
+	}
+
+	var KernelConfig = make(map[string]string)
+
+	KernelConfig, e = GetSystemConfig()
+	if e != nil {
+		return false, e
+	}
+
+	bc, found := KernelConfig[CONFIG_DEBUG_INFO_BTF]
+	if !found {
+		// 没有这个配置项
+		return false, nil
+	}
+
+	//如果有，在判断配置项的值
+	if bc != "y" {
+		// 没有开启
+		return false, nil
+	}
+	return true, nil
+}
+
+// check BPF CONFIG
+func IsEnableBPF() (bool, error) {
+	var e error
+	var KernelConfig = make(map[string]string)
+
+	KernelConfig, e = GetSystemConfig()
+	if e != nil {
+		return false, e
+	}
+
+	for _, item := range configCheckItems {
+		bc, found := KernelConfig[item]
+		if !found {
+			// 没有这个配置项
+			return false, fmt.Errorf("Config not found,  item:%s.", item)
+		}
+
+		//如果有，在判断配置项的值
+		if bc != "y" {
+			// 没有开启
+			return false, fmt.Errorf("Config disabled, item :%s.", item)
+		}
+	}
+
+	return true, nil
 }

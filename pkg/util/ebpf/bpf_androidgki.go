@@ -6,16 +6,13 @@ package ebpf
 import (
 	"bufio"
 	"compress/gzip"
-	"fmt"
 	"os"
 )
 
 const (
-	BOOT_CONFIG_PATH             = "/proc/config.gz"
-	CONFIG_BTF_TAGNAME           = "CONFIG_DEBUG_INFO_BTF"
-	SYS_KERNEL_BTF_VMLINUX       = "/sys/kernel/btf/vmlinux"
-	CONFIG_ARCH_SUPPORTS_UPROBES = "CONFIG_ARCH_SUPPORTS_UPROBES"
-	CONFIG_UPROBES               = "CONFIG_UPROBES"
+	BOOT_CONFIG_PATH       = "/proc/config.gz"
+	CONFIG_DEBUG_INFO_BTF  = "CONFIG_DEBUG_INFO_BTF"
+	SYS_KERNEL_BTF_VMLINUX = "/sys/kernel/btf/vmlinux"
 )
 
 var (
@@ -23,47 +20,33 @@ var (
 	// https://android.googlesource.com/platform/external/libbpf/
 
 	locations = []string{
-		//"/sys/kernel/btf/vmlinux",
+		"/sys/kernel/btf/vmlinux",
 	}
 )
 
-func IsEnableBTF() (bool, error) {
-	found, e := checkKernelBTF()
-	if e == nil && found {
-		return true, nil
-	}
+func GetSystemConfig() (map[string]string, error) {
+	return getAndroidConfig(BOOT_CONFIG_PATH)
+}
 
-	bootConf := fmt.Sprintf(BOOT_CONFIG_PATH)
-
+func getAndroidConfig(filename string) (map[string]string, error) {
+	var KernelConfig = make(map[string]string)
 	// Open file bootConf.
-	f, err := os.Open(bootConf)
+	f, err := os.Open(filename)
 	if err != nil {
-		return false, err
+		return KernelConfig, err
 	}
 	defer f.Close()
 
 	// uncompress
 	reader, err := gzip.NewReader(f)
 	if err != nil {
-		return false, err
+		return KernelConfig, err
 	}
 	defer reader.Close()
 
-	var KernelConfig = make(map[string]string)
 	s := bufio.NewScanner(reader)
-	if err := parse(s, KernelConfig); err != nil {
-		return false, err
+	if err = parse(s, KernelConfig); err != nil {
+		return KernelConfig, err
 	}
-	bc, found := KernelConfig[CONFIG_BTF_TAGNAME]
-	if !found {
-		// 没有这个配置项
-		return false, nil
-	}
-
-	//如果有，在判断配置项的值
-	if bc != "y" {
-		// 没有开启
-		return false, nil
-	}
-	return true, nil
+	return KernelConfig, nil
 }

@@ -13,21 +13,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-const (
-	AF_FILE  = uint16(1)
-	AF_INET  = uint16(2)
-	AF_INET6 = uint16(10)
-)
-
-func GetDynLibDirs() []string {
-	dirs, err := ParseDynLibConf(LD_LOAD_PATH)
-	if err != nil {
-		log.Println(err.Error())
-		return default_so_paths
-	}
-	return append(dirs, "/lib64", "/usr/lib64")
-}
-
 func GlobMany(targets []string, onErr func(string, error)) []string {
 	rv := make([]string, 0, 20)
 	addFile := func(path string, fi os.FileInfo, err error) error {
@@ -119,11 +104,7 @@ func getDynPathByElf(elfName, soName string) (string, error) {
 
 	sos, e := getDynsFromElf(elfName)
 	if e != nil {
-		searchedSoPath := recurseSearchPath(GetDynLibDirs(), soName)
-		if len(searchedSoPath) == 0 {
-			return "", errors.New(fmt.Sprintf("cant found so lib by search %s", soName))
-		}
-		return searchedSoPath, nil
+		return "", e
 	}
 
 	// search dynamic library form ld.so.conf
@@ -135,25 +116,6 @@ func getDynPathByElf(elfName, soName string) (string, error) {
 		return "", errors.New(fmt.Sprintf("cant found so lib from %s", elfName))
 	}
 	return realSoName, nil
-}
-
-func recurseSearchPath(searchPath []string, soName string) string {
-	for _, entry := range searchPath {
-		path := filepath.Join(entry, soName)
-		if _, err := os.Stat(path); !os.IsNotExist(err) {
-			_, err = os.OpenFile(path, os.O_RDONLY, 0644)
-			if err != nil {
-				//log.Fatal(err)
-				fmt.Printf("open file:%s  error:%v\n", path, err)
-				continue
-			} else {
-				// found
-				return path
-			}
-		}
-	}
-
-	return ""
 }
 
 func recurseDynStrings(dynSym []string, searchPath []string, soName string) string {
