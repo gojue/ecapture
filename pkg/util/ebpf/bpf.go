@@ -114,6 +114,7 @@ func IsEnableBTF() (bool, error) {
 	return true, nil
 }
 
+// check BPF CONFIG
 func IsEnableBPF() (bool, error) {
 	var e error
 	var KernelConfig = make(map[string]string)
@@ -127,13 +128,13 @@ func IsEnableBPF() (bool, error) {
 		bc, found := KernelConfig[item]
 		if !found {
 			// 没有这个配置项
-			return false, fmt.Errorf("Notfound config item:%s", item)
+			return false, fmt.Errorf("Config not found,  item:%s.", item)
 		}
 
 		//如果有，在判断配置项的值
 		if bc != "y" {
 			// 没有开启
-			return false, fmt.Errorf("config item:%s not enable.", item)
+			return false, fmt.Errorf("Config disabled, item :%s.", item)
 		}
 	}
 
