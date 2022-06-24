@@ -143,7 +143,7 @@ static int process_SSL_data(struct pt_regs* ctx, u64 id,
     event->data_len =
         (len < MAX_DATA_SIZE_OPENSSL ? (len & (MAX_DATA_SIZE_OPENSSL - 1))
                                      : MAX_DATA_SIZE_OPENSSL);
-    bpf_probe_read(event->data, event->data_len, buf);
+    bpf_probe_read_user(event->data, event->data_len, buf);
     bpf_get_current_comm(&event->comm, sizeof(event->comm));
     bpf_perf_event_output(ctx, &tls_events, BPF_F_CURRENT_CPU, event,
                           sizeof(struct ssl_data_event_t));
