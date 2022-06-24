@@ -33,7 +33,7 @@ int postgres_query(struct pt_regs *ctx) {
 
     char *sql_string = (char *)PT_REGS_PARM1(ctx);
     bpf_get_current_comm(&data.comm, sizeof(data.comm));
-    bpf_probe_read(&data.query, sizeof(data.query), sql_string);
+    bpf_probe_read_user(&data.query, sizeof(data.query), sql_string);
     bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, &data, sizeof(data));
     return 0;
 }
