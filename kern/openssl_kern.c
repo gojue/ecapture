@@ -327,7 +327,7 @@ int probe_connect(struct pt_regs* ctx) {
         return 0;
     }
     sa_family_t address_family = 0;
-    bpf_probe_read(&address_family, sizeof(address_family), &saddr->sa_family);
+    bpf_probe_read_user(&address_family, sizeof(address_family), &saddr->sa_family);
 
     if (address_family != AF_INET) {
         return 0;
@@ -341,7 +341,7 @@ int probe_connect(struct pt_regs* ctx) {
     conn.pid = pid;
     conn.tid = current_pid_tgid;
     conn.fd = fd;
-    bpf_probe_read(&conn.sa_data, SA_DATA_LEN, &saddr->sa_data);
+    bpf_probe_read_user(&conn.sa_data, SA_DATA_LEN, &saddr->sa_data);
     bpf_get_current_comm(&conn.comm, sizeof(conn.comm));
 
     bpf_perf_event_output(ctx, &connect_events, BPF_F_CURRENT_CPU, &conn,

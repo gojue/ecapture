@@ -42,7 +42,7 @@ int uretprobe_bash_readline(struct pt_regs *ctx) {
     event.pid = pid;
     event.uid = uid;
     // bpf_printk("!! uretprobe_bash_readline pid:%d",target_pid );
-    bpf_probe_read(&event.line, sizeof(event.line), (void *)PT_REGS_RC(ctx));
+    bpf_probe_read_user(&event.line, sizeof(event.line), (void *)PT_REGS_RC(ctx));
     bpf_get_current_comm(&event.comm, sizeof(event.comm));
     bpf_map_update_elem(&events_t, &pid, &event, BPF_ANY);
 
