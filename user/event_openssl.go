@@ -1,6 +1,6 @@
 /*
-Copyright © 2022 CFC4N <cfc4n.cs@gmail.com>
-
+	Copyright © 2022 CFC4N <cfc4n.cs@gmail.com>
+	WebSite: https://www.cnxct.com
 */
 package user
 
