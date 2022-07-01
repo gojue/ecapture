@@ -67,7 +67,7 @@ func TestEventProcessor_Serve(t *testing.T) {
 		copy(event.Data[:], b)
 		ep.Write(&user.SSLDataEvent{Data_len: event.Data_len, Data: event.Data, DataType: event.DataType, Timestamp_ns: event.Timestamp_ns, Pid: event.Pid, Tid: event.Tid, Comm: event.Comm, Fd: event.Fd, Version: event.Version})
 		i++
-		if i > 4 {
+		if i > 40 {
 			break
 		}
 	}

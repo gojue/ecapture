@@ -19,7 +19,7 @@ type IWorker interface {
 }
 
 const (
-	MAX_TICKER_COUNT = 5  // 定时器超时时间
+	MAX_TICKER_COUNT = 10 // 1 Sencond/(eventWorker.ticker.C) = 10
 	MAX_CHAN_LEN     = 16 // 包队列长度
 	//MAX_EVENT_LEN    = 16 // 事件数组长度
 )
@@ -46,7 +46,7 @@ func NewEventWorker(uuid string, processor *EventProcessor) IWorker {
 }
 
 func (this *eventWorker) init(uuid string, processor *EventProcessor) {
-	this.ticker = time.NewTicker(time.Second * 1)
+	this.ticker = time.NewTicker(time.Millisecond * 100)
 	this.incoming = make(chan user.IEventStruct, MAX_CHAN_LEN)
 	this.UUID = uuid
 	this.processor = processor
@@ -63,15 +63,11 @@ func (this *eventWorker) Write(event user.IEventStruct) error {
 
 // 输出包内容
 func (this *eventWorker) Display() {
-	if this.parser == nil || !this.parser.IsDone() {
-		return
-	}
-
+	// 解析器类型检测
 	if this.parser.ParserType() != PARSER_TYPE_HTTP_REQUEST {
 		//TODO 临时i调试
 		return
 	}
-	log.Println("eventWorker:", this.UUID, "display")
 
 	//  输出包内容
 	b := this.parser.Display()
@@ -88,16 +84,23 @@ func (this *eventWorker) Display() {
 // 解析类型，输出
 func (this *eventWorker) parserEvent(event user.IEventStruct) {
 	if this.status == PROCESS_STATE_INIT {
-		// 识别包类型
+		// 识别包类型，只检测，不把payload设置到parser的属性中，需要重新调用parser.Write()写入
 		parser := NewParser(event.Payload())
 		this.parser = parser
 	}
+
+	// 设定当前worker的状态为正在解析
+	this.status = PROCESS_STATE_PROCESSING
+
+	// 写入payload到parser
 	_, err := this.parser.Write(event.Payload()[:event.PayloadLen()])
 	if err != nil {
 		this.processor.GetLogger().Fatal("eventWorker: detect packet type error:", zap.String("uuid", this.UUID), zap.Error(err))
 	}
 
-	//this.processor.GetLogger().Info("eventWorker:detect packet type", zap.String("uuid", this.UUID), zap.Uint8("type", uint8(this.parser.ParserType())), zap.String("IParser Name", this.parser.Name()))
+	if this.parser.ParserType() == PARSER_TYPE_HTTP_REQUEST {
+		log.Printf("eventWorker:detect packet type %s %d %s %p\n", this.UUID, this.parser.ParserType(), this.parser.Name(), this.parser)
+	}
 	// 是否接收完成，能否输出
 	if this.parser.IsDone() {
 		this.Display()
@@ -124,6 +127,7 @@ func (this *eventWorker) Run() {
 }
 
 func (this *eventWorker) Close() {
+	// 即将关闭， 必须输出结果
 	this.Display()
 	this.tickerCount = 0
 	this.processor.delWorkerByUUID(this)

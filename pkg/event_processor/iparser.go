@@ -11,7 +11,7 @@ type PARSER_TYPE uint8
 
 const (
 	PROCESS_STATE_INIT PROCESS_STATUS = iota
-	PROCESS_STATE_ING
+	PROCESS_STATE_PROCESSING
 	PROCESS_STATE_DONE
 )
 
@@ -59,12 +59,26 @@ func GetAllModules() map[string]IParser {
 	return parsers
 }
 
+// GetModules 获取modules列表
+func GetModuleByName(name string) IParser {
+	return parsers[name]
+}
+
 func NewParser(payload []byte) IParser {
 	if len(payload) > 0 {
 		for _, parser := range GetAllModules() {
 			err := parser.detect(payload)
 			if err == nil {
-				return parser
+				var newParser IParser
+				switch parser.ParserType() {
+				case PARSER_TYPE_NULL:
+					newParser = new(NullParser)
+				case PARSER_TYPE_HTTP_REQUEST:
+					newParser = new(HTTPRequest)
+				case PARSER_TYPE_HTTP_RESPONSE:
+					//newParser = new(HTTPResponse)
+				}
+				return newParser
 			}
 		}
 	}
