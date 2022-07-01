@@ -1,0 +1,19 @@
+GET / HTTP/1.1
+Host: www.qq.com
+Accept-Encoding: deflate, gzip, br
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9
+Accept-Language: zh-CN,zh;q=0.9
+Cache-Control: max-age=0
+Connection: keep-alive
+Cookie: RK=aRBoGv2qOV; ptcz=98c414ce1bc7b2ba4475a06b77bb0076994450a726ead46734a77a2366097448; tvfe_boss_uuid=24a0550f5b267ce3; pgv_pvid=9174253759; eas_sid=41r6V3t3c9w5V7x8Q8e9l8z4p9; livelink_pvid=4601100288; o_cookie=112633; pac_uid=1_112633; _tc_unionid=62b56677-fab3-4075-989f-65cb525c8bf8; iip=0; fqm_pvqid=c2abbbe0-6649-40b3-bf14-4a6852f065b2; pt_sms_phone=137******44; _clck=1f6vrw9|1|f2e|0; _hjSessionUser_3021617=eyJpZCI6ImE4NDM3NGI4LTlhYTQtNWY1MC1iYTE0LTljMWY4ZTkyZmMwNCIsImNyZWF0ZWQiOjE2NTU0NTkwMTUwNTksImV4aXN0aW5nIjpmYWxzZX0=; pgv_info=ssid=s5965125642; ts_last=www.qq.com/; ts_uid=8120521728; ad_play_index=42; ariaDefaultTheme=undefined
+DNT: 1
+Sec-Fetch-Dest: document
+Sec-Fetch-Mode: navigate
+Sec-Fetch-Site: none
+Sec-Fetch-User: ?1
+Upgrade-Insecure-Requests: 1
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.0.0 Safari/537.36
+sec-ch-ua: " Not A;Brand";v="99", "Chromium";v="102", "Google Chrome";v="102"
+sec-ch-ua-mobile: ?0
+sec-ch-ua-platform: "macOS"
+
