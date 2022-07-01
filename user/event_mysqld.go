@@ -119,3 +119,15 @@ func (this *mysqldEvent) Clone() IEventStruct {
 func (this *mysqldEvent) EventType() EVENT_TYPE {
 	return this.event_type
 }
+
+func (this *mysqldEvent) GetUUID() string {
+	return fmt.Sprintf("%d_%s", this.Pid, this.comm)
+}
+
+func (this *mysqldEvent) Payload() []byte {
+	return this.query[:this.len]
+}
+
+func (this *mysqldEvent) PayloadLen() int {
+	return int(this.len)
+}

@@ -122,3 +122,15 @@ func (this *NsprDataEvent) Clone() IEventStruct {
 func (this *NsprDataEvent) EventType() EVENT_TYPE {
 	return this.event_type
 }
+
+func (this *NsprDataEvent) GetUUID() string {
+	return fmt.Sprintf("%d_%d_%s_%d", this.Pid, this.Tid, this.Comm, this.DataType)
+}
+
+func (this *NsprDataEvent) Payload() []byte {
+	return this.Data[:this.Data_len]
+}
+
+func (this *NsprDataEvent) PayloadLen() int {
+	return int(this.Data_len)
+}

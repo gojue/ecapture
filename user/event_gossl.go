@@ -50,3 +50,15 @@ func (e *goSSLEvent) SetModule(m IModule) {
 func (e *goSSLEvent) EventType() EVENT_TYPE {
 	return EVENT_TYPE_OUTPUT
 }
+
+func (this *goSSLEvent) GetUUID() string {
+	return fmt.Sprintf("%d_%d_%s", this.Pid, this.Tid, this.Comm)
+}
+
+func (this *goSSLEvent) Payload() []byte {
+	return this.Data[:this.Len]
+}
+
+func (this *goSSLEvent) PayloadLen() int {
+	return int(this.Len)
+}

@@ -76,3 +76,15 @@ func (this *bashEvent) Clone() IEventStruct {
 func (this *bashEvent) EventType() EVENT_TYPE {
 	return this.event_type
 }
+
+func (this *bashEvent) GetUUID() string {
+	return fmt.Sprintf("%d_%d_%s", this.Pid, this.Uid, this.Comm)
+}
+
+func (this *bashEvent) Payload() []byte {
+	return this.Line[:]
+}
+
+func (this *bashEvent) PayloadLen() int {
+	return len(this.Line)
+}

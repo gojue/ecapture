@@ -101,3 +101,16 @@ func (this *GnutlsDataEvent) Clone() IEventStruct {
 func (this *GnutlsDataEvent) EventType() EVENT_TYPE {
 	return this.event_type
 }
+
+func (this *GnutlsDataEvent) GetUUID() string {
+	//return fmt.Sprintf("%d_%d_%s", this.Pid, this.Tid, this.Comm)
+	return fmt.Sprintf("%d_%d_%s_%d", this.Pid, this.Tid, this.Comm, this.DataType)
+}
+
+func (this *GnutlsDataEvent) Payload() []byte {
+	return this.Data[:this.Data_len]
+}
+
+func (this *GnutlsDataEvent) PayloadLen() int {
+	return int(this.Data_len)
+}

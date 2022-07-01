@@ -12,6 +12,8 @@ const (
 
 type IEventStruct interface {
 	Decode(payload []byte) (err error)
+	Payload() []byte
+	PayloadLen() int
 	String() string
 	StringHex() string
 	Clone() IEventStruct

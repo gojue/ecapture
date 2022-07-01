@@ -76,3 +76,15 @@ func (this *postgresEvent) Clone() IEventStruct {
 func (this *postgresEvent) EventType() EVENT_TYPE {
 	return this.event_type
 }
+
+func (this *postgresEvent) GetUUID() string {
+	return fmt.Sprintf("%d_%s", this.Pid, this.comm)
+}
+
+func (this *postgresEvent) Payload() []byte {
+	return this.query[:]
+}
+
+func (this *postgresEvent) PayloadLen() int {
+	return len(this.query)
+}
