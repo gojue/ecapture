@@ -8,7 +8,6 @@ import (
 
 type HTTPRequest struct {
 	request    *http.Request
-	parserType PARSER_TYPE
 	packerType PACKET_TYPE
 	isDone     bool
 	isInit     bool
@@ -32,8 +31,7 @@ func (this *HTTPRequest) PacketType() PACKET_TYPE {
 }
 
 func (this *HTTPRequest) ParserType() PARSER_TYPE {
-	this.parserType = PARSER_TYPE_HTTP_REQUEST
-	return this.parserType
+	return PARSER_TYPE_HTTP_REQUEST
 }
 
 func (this *HTTPRequest) Write(b []byte) (int, error) {
@@ -72,7 +70,6 @@ func (this *HTTPRequest) detect(payload []byte) error {
 	if err != nil {
 		return err
 	}
-	this.parserType = PARSER_TYPE_HTTP_REQUEST
 	this.request = req
 	return nil
 }
