@@ -98,6 +98,7 @@ func (this *eventWorker) parserEvent(event user.IEventStruct) {
 		this.processor.GetLogger().Fatal("eventWorker: detect packet type error:", zap.String("uuid", this.UUID), zap.Error(err))
 	}
 
+	log.Println("eventWorker: parserEvent:", this.UUID, this.parser.ParserType())
 	if this.parser.ParserType() == PARSER_TYPE_HTTP_REQUEST {
 		log.Printf("eventWorker:detect packet type %s %d %s %p\n", this.UUID, this.parser.ParserType(), this.parser.Name(), this.parser)
 	}

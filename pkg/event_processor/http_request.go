@@ -32,6 +32,7 @@ func (this *HTTPRequest) PacketType() PACKET_TYPE {
 }
 
 func (this *HTTPRequest) ParserType() PARSER_TYPE {
+	this.parserType = PARSER_TYPE_HTTP_REQUEST
 	return this.parserType
 }
 
