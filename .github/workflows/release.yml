@@ -146,7 +146,7 @@ jobs:
             make clean
             make
             echo "-------------------ecapture --help-------------------"
-            bin/ecapture -h
+            echo "bin/ecapture -h"
             echo "-------------------create tar.gz file-------------------"
             UNAME_M=`uname -m`
             OUTPUT_DIR="./bin"
@@ -168,12 +168,12 @@ jobs:
             tar  -czf ${OUT_ARCHIVE} ${TAR_DIR}
             cp ${OUT_ARCHIVE} "/artifacts/"
             echo "-------------------end: Create ecapture.tar.gz of Linux -------------------"
-            echo "-------------------end: Create ecapture.tar.gz of Android GKI -------------------"
+            echo "-------------------start: Create ecapture.tar.gz of Android kernel 4.18+ -------------------"
             make env
             make clean
-            ANDROID=1 make
+            ANDROID=1 make nocore
             echo "-------------------ecapture --help-------------------"
-            bin/ecapture -h
+            echo "bin/ecapture -h"
             echo "-------------------create tar.gz file-------------------"
             UNAME_M=`uname -m`
             OUTPUT_DIR="./bin"
@@ -184,7 +184,7 @@ jobs:
             fi
             TAR_DIR=ecapture-${SNAPSHOT_VERSION}-android_gki-${UNAME_M}
             RELEASE_NOTES=${OUTPUT_DIR}/release_notes.txt
-            OUT_ARCHIVE=${OUTPUT_DIR}/${artifact_name}-android_gki-${{ matrix.arch }}.tar.gz
+            OUT_ARCHIVE=${OUTPUT_DIR}/${artifact_name}-android-${{ matrix.arch }}.tar.gz
             mkdir -p ${TAR_DIR}
             cp LICENSE ${TAR_DIR}/LICENSE
             cp CHANGELOG.md ${TAR_DIR}/CHANGELOG.md
@@ -194,7 +194,7 @@ jobs:
             cp ${OUTPUT_DIR}/release_notes.txt ${TAR_DIR}/release_notes.txt
             tar  -czf ${OUT_ARCHIVE} ${TAR_DIR}
             cp ${OUT_ARCHIVE} "/artifacts/"
-            echo "-------------------end: Create ecapture.tar.gz of Android GKI -------------------"
+            echo "-------------------end: Create ecapture.tar.gz of Android kernel 4.18+ -------------------"
             go test -v ./...
             echo "Produced artifact at /artifacts/${artifact_name}"
 
