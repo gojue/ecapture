@@ -11,12 +11,12 @@ import (
 // GlobalFlags are flags that defined globally
 // and are inherited to all sub-commands.
 type GlobalFlags struct {
-	IsHex    bool
-	Debug    bool
-	Pid      uint64 // PID
-	Uid      uint64 // UID
-	NoSearch bool   // No lib search
-	SaveFile string // save file
+	IsHex      bool
+	Debug      bool
+	Pid        uint64 // PID
+	Uid        uint64 // UID
+	NoSearch   bool   // No lib search
+	loggerFile string // save file
 }
 
 func getGlobalConf(command *cobra.Command) (conf GlobalFlags, err error) {
@@ -45,7 +45,7 @@ func getGlobalConf(command *cobra.Command) (conf GlobalFlags, err error) {
 		return
 	}
 
-	conf.SaveFile, err = command.Flags().GetString("write-file")
+	conf.loggerFile, err = command.Flags().GetString("write-file")
 	if err != nil {
 		return
 	}

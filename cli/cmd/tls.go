@@ -57,10 +57,11 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 	if e != nil {
 		logger.Fatal(e)
 	}
-	if gConf.SaveFile != "" {
-		f, e := os.Create(gConf.SaveFile)
+	if gConf.loggerFile != "" {
+		f, e := os.Create(gConf.loggerFile)
 		if e != nil {
 			logger.Fatal(e)
+			return
 		}
 		logger.SetOutput(f)
 	}

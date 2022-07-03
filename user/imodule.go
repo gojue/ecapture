@@ -55,12 +55,15 @@ type Module struct {
 	mType string
 
 	conf IConfig
+
+	processor *event_processor.EventProcessor
 }
 
 // Init 对象初始化
 func (this *Module) Init(ctx context.Context, logger *log.Logger) {
 	this.ctx = ctx
 	this.logger = logger
+	this.processor = event_processor.NewEventProcessor(logger)
 }
 
 func (this *Module) SetChild(module IModule) {
@@ -97,6 +100,10 @@ func (this *Module) Run() error {
 
 	go func() {
 		this.run()
+	}()
+
+	go func() {
+		this.processor.Serve()
 	}()
 	return nil
 }
@@ -238,9 +245,15 @@ func (this *Module) Decode(em *ebpf.Map, b []byte) (event event_processor.IEvent
 func (this *Module) Dispatcher(event event_processor.IEventStruct) {
 	switch event.EventType() {
 	case event_processor.EVENT_TYPE_OUTPUT:
-		this.logger.Println(event)
+		//this.logger.Println(event)
+		this.processor.Write(event)
 	case event_processor.EVENT_TYPE_MODULE_DATA:
 		// Save to cache
 		this.child.Dispatcher(event)
 	}
+}
+
+func (this *Module) Close() error {
+	err := this.processor.Close()
+	return err
 }

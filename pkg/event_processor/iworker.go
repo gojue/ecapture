@@ -97,7 +97,7 @@ func (this *eventWorker) parserEvent(event IEventStruct) {
 	// 写入payload到parser
 	_, err := this.parser.Write(event.Payload()[:event.PayloadLen()])
 	if err != nil {
-		this.processor.GetLogger().Fatal("eventWorker: detect packet type error, UUID:%s, error:%v", this.UUID, err)
+		this.processor.GetLogger().Fatalf("eventWorker: detect packet type error, UUID:%s, error:%v", this.UUID, err)
 	}
 
 	// 是否接收完成，能否输出

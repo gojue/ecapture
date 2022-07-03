@@ -1,7 +1,6 @@
 package event_processor
 
 import (
-	"ecapture/user"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -54,7 +53,6 @@ func TestEventProcessor_Serve(t *testing.T) {
 		if line == "" {
 			continue
 		}
-		//ep.Write(user.NewEventStruct(line))
 		var event SSLDataEventTmp
 		err := json.Unmarshal([]byte(line), &event)
 		if err != nil {
@@ -66,7 +64,7 @@ func TestEventProcessor_Serve(t *testing.T) {
 			t.Fatalf("read payload file error: %s, file:%s", e.Error(), payloadFile)
 		}
 		copy(event.Data[:], b)
-		ep.Write(&user.SSLDataEvent{Data_len: event.Data_len, Data: event.Data, DataType: event.DataType, Timestamp_ns: event.Timestamp_ns, Pid: event.Pid, Tid: event.Tid, Comm: event.Comm, Fd: event.Fd, Version: event.Version})
+		ep.Write(&BaseEvent{Data_len: event.Data_len, Data: event.Data, DataType: event.DataType, Timestamp_ns: event.Timestamp_ns, Pid: event.Pid, Tid: event.Tid, Comm: event.Comm, Fd: event.Fd, Version: event.Version})
 	}
 
 	tick := time.NewTicker(time.Second * 3)
