@@ -37,6 +37,7 @@ type IParser interface {
 	Body() []byte
 	Name() string
 	IsDone() bool
+	Init()
 	Display() []byte
 	Reset()
 }
@@ -76,8 +77,9 @@ func NewParser(payload []byte) IParser {
 				case PARSER_TYPE_HTTP_REQUEST:
 					newParser = new(HTTPRequest)
 				case PARSER_TYPE_HTTP_RESPONSE:
-					//newParser = new(HTTPResponse)
+					newParser = new(HTTPResponse)
 				}
+				newParser.Init()
 				return newParser
 			}
 		}
@@ -120,6 +122,10 @@ func (this *NullParser) Name() string {
 
 func (this *NullParser) IsDone() bool {
 	return this.isdone
+}
+
+func (this *NullParser) Init() {
+
 }
 
 func (this *NullParser) Display() []byte {

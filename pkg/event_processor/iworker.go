@@ -3,7 +3,6 @@ package event_processor
 import (
 	"ecapture/user"
 	"go.uber.org/zap"
-	"log"
 	"time"
 )
 
@@ -48,6 +47,7 @@ func NewEventWorker(uuid string, processor *EventProcessor) IWorker {
 func (this *eventWorker) init(uuid string, processor *EventProcessor) {
 	this.ticker = time.NewTicker(time.Millisecond * 100)
 	this.incoming = make(chan user.IEventStruct, MAX_CHAN_LEN)
+	this.status = PROCESS_STATE_INIT
 	this.UUID = uuid
 	this.processor = processor
 }
@@ -66,12 +66,12 @@ func (this *eventWorker) Display() {
 	// 解析器类型检测
 	if this.parser.ParserType() != PARSER_TYPE_HTTP_REQUEST {
 		//TODO 临时i调试
-		return
+		//return
 	}
 
 	//  输出包内容
 	b := this.parser.Display()
-	this.processor.GetLogger().Info("eventWorker:display packet", zap.String("uuid", this.UUID), zap.Int("payload", len(b)))
+	this.processor.GetLogger().Info("eventWorker:display packet", zap.String("uuid", this.UUID), zap.String("Parser Name", this.parser.Name()), zap.String("payload", string(b)))
 	// 重置状态
 	this.parser.Reset()
 
@@ -98,9 +98,8 @@ func (this *eventWorker) parserEvent(event user.IEventStruct) {
 		this.processor.GetLogger().Fatal("eventWorker: detect packet type error:", zap.String("uuid", this.UUID), zap.Error(err))
 	}
 
-	log.Println("eventWorker: parserEvent:", this.UUID, this.parser.ParserType())
 	if this.parser.ParserType() == PARSER_TYPE_HTTP_REQUEST {
-		log.Printf("eventWorker:detect packet type %s %d %s %p\n", this.UUID, this.parser.ParserType(), this.parser.Name(), this.parser)
+		//log.Printf("eventWorker:detect packet type %s %d %s %p, event len:%d\n", this.UUID, this.parser.ParserType(), this.parser.Name(), this.parser, event.PayloadLen())
 	}
 	// 是否接收完成，能否输出
 	if this.parser.IsDone() {

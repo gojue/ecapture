@@ -3,7 +3,9 @@ package event_processor
 import (
 	"bufio"
 	"bytes"
+	"log"
 	"net/http"
+	"net/http/httputil"
 )
 
 type HTTPRequest struct {
@@ -12,14 +14,17 @@ type HTTPRequest struct {
 	isDone     bool
 	isInit     bool
 	reader     *bytes.Buffer
+	bufReader  *bufio.Reader
 }
 
 func (this *HTTPRequest) Body() []byte {
-	return nil
+	return this.reader.Bytes()
+	//return nil
 }
 
-func (this *HTTPRequest) init() {
-
+func (this *HTTPRequest) Init() {
+	this.reader = bytes.NewBuffer(nil)
+	this.bufReader = bufio.NewReader(this.reader)
 }
 
 func (this *HTTPRequest) Name() string {
@@ -37,15 +42,17 @@ func (this *HTTPRequest) ParserType() PARSER_TYPE {
 func (this *HTTPRequest) Write(b []byte) (int, error) {
 	// 如果未初始化
 	if !this.isInit {
-		this.reader = bytes.NewBuffer(b)
-		buf := bufio.NewReader(this.reader)
-		req, err := http.ReadRequest(buf)
+		n, e := this.reader.Write(b)
+		if e != nil {
+			return n, e
+		}
+		req, err := http.ReadRequest(this.bufReader)
 		if err != nil {
 			return 0, err
 		}
 		this.request = req
 		this.isInit = true
-		return len(b), nil
+		return n, nil
 	}
 
 	// 如果已初始化
@@ -53,6 +60,7 @@ func (this *HTTPRequest) Write(b []byte) (int, error) {
 	if e != nil {
 		return 0, e
 	}
+	log.Println("reader:", l)
 
 	// TODO 检测是否接收完整个包
 	if false {
@@ -63,7 +71,7 @@ func (this *HTTPRequest) Write(b []byte) (int, error) {
 }
 
 func (this *HTTPRequest) detect(payload []byte) error {
-	this.init()
+	//this.Init()
 	rd := bytes.NewReader(payload)
 	buf := bufio.NewReader(rd)
 	req, err := http.ReadRequest(buf)
@@ -82,17 +90,20 @@ func (this *HTTPRequest) Reset() {
 	this.isDone = false
 	this.isInit = false
 	this.reader.Reset()
+	this.bufReader.Reset(this.reader)
 }
 
 func (this *HTTPRequest) Display() []byte {
-	// TODO 获取 http.request的body
-
-	return this.reader.Bytes()
-	return nil
+	b, e := httputil.DumpRequest(this.request, true)
+	if e != nil {
+		log.Println("DumpRequest error:", e)
+		return nil
+	}
+	return b
 }
 
 func init() {
 	hr := &HTTPRequest{}
-	hr.reader = bytes.NewBuffer(nil)
+	hr.Init()
 	Register(hr)
 }
