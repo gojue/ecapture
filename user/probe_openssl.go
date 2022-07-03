@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"ecapture/assets"
+	"ecapture/pkg/event_processor"
 	"log"
 	"math"
 	"os"
@@ -20,7 +21,7 @@ type MOpenSSLProbe struct {
 	Module
 	bpfManager        *manager.Manager
 	bpfManagerOptions manager.Options
-	eventFuncMaps     map[*ebpf.Map]IEventStruct
+	eventFuncMaps     map[*ebpf.Map]event_processor.IEventStruct
 	eventMaps         []*ebpf.Map
 
 	// pid[fd:Addr]
@@ -33,7 +34,7 @@ func (this *MOpenSSLProbe) Init(ctx context.Context, logger *log.Logger, conf IC
 	this.conf = conf
 	this.Module.SetChild(this)
 	this.eventMaps = make([]*ebpf.Map, 0, 2)
-	this.eventFuncMaps = make(map[*ebpf.Map]IEventStruct)
+	this.eventFuncMaps = make(map[*ebpf.Map]event_processor.IEventStruct)
 	this.pidConns = make(map[uint32]map[uint32]string)
 	return nil
 }
@@ -204,7 +205,7 @@ func (this *MOpenSSLProbe) setupManagers() error {
 	return nil
 }
 
-func (this *MOpenSSLProbe) DecodeFun(em *ebpf.Map) (IEventStruct, bool) {
+func (this *MOpenSSLProbe) DecodeFun(em *ebpf.Map) (event_processor.IEventStruct, bool) {
 	fun, found := this.eventFuncMaps[em]
 	return fun, found
 }
@@ -294,7 +295,7 @@ func (this *MOpenSSLProbe) GetConn(pid, fd uint32) string {
 	return addr
 }
 
-func (this *MOpenSSLProbe) Dispatcher(event IEventStruct) {
+func (this *MOpenSSLProbe) Dispatcher(event event_processor.IEventStruct) {
 	// detect event type TODO
 	this.AddConn(event.(*ConnDataEvent).Pid, event.(*ConnDataEvent).Fd, event.(*ConnDataEvent).Addr)
 	//this.logger.Println(event)

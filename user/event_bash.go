@@ -2,6 +2,7 @@ package user
 
 import (
 	"bytes"
+	"ecapture/pkg/event_processor"
 	"encoding/binary"
 	"fmt"
 
@@ -19,7 +20,7 @@ const MAX_DATA_SIZE_BASH = 256
 
 type bashEvent struct {
 	module     IModule
-	event_type EVENT_TYPE
+	event_type event_processor.EVENT_TYPE
 	Pid        uint32
 	Uid        uint32
 	Line       [MAX_DATA_SIZE_BASH]uint8
@@ -66,13 +67,25 @@ func (this *bashEvent) Module() IModule {
 	return this.module
 }
 
-func (this *bashEvent) Clone() IEventStruct {
+func (this *bashEvent) Clone() event_processor.IEventStruct {
 	event := new(bashEvent)
 	event.module = this.module
-	event.event_type = EVENT_TYPE_OUTPUT
+	event.event_type = event_processor.EVENT_TYPE_OUTPUT
 	return event
 }
 
-func (this *bashEvent) EventType() EVENT_TYPE {
+func (this *bashEvent) EventType() event_processor.EVENT_TYPE {
 	return this.event_type
+}
+
+func (this *bashEvent) GetUUID() string {
+	return fmt.Sprintf("%d_%d_%s", this.Pid, this.Uid, this.Comm)
+}
+
+func (this *bashEvent) Payload() []byte {
+	return this.Line[:]
+}
+
+func (this *bashEvent) PayloadLen() int {
+	return len(this.Line)
 }

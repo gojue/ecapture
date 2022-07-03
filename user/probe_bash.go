@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"ecapture/assets"
+	"ecapture/pkg/event_processor"
 	"github.com/cilium/ebpf"
 	manager "github.com/ehids/ebpfmanager"
 	"github.com/pkg/errors"
@@ -16,7 +17,7 @@ type MBashProbe struct {
 	Module
 	bpfManager        *manager.Manager
 	bpfManagerOptions manager.Options
-	eventFuncMaps     map[*ebpf.Map]IEventStruct
+	eventFuncMaps     map[*ebpf.Map]event_processor.IEventStruct
 	eventMaps         []*ebpf.Map
 }
 
@@ -26,7 +27,7 @@ func (this *MBashProbe) Init(ctx context.Context, logger *log.Logger, conf IConf
 	this.conf = conf
 	this.Module.SetChild(this)
 	this.eventMaps = make([]*ebpf.Map, 0, 2)
-	this.eventFuncMaps = make(map[*ebpf.Map]IEventStruct)
+	this.eventFuncMaps = make(map[*ebpf.Map]event_processor.IEventStruct)
 	return nil
 }
 
@@ -168,7 +169,7 @@ func (this *MBashProbe) setupManagers() {
 
 }
 
-func (this *MBashProbe) DecodeFun(em *ebpf.Map) (IEventStruct, bool) {
+func (this *MBashProbe) DecodeFun(em *ebpf.Map) (event_processor.IEventStruct, bool) {
 	fun, found := this.eventFuncMaps[em]
 	return fun, found
 }

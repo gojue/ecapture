@@ -1,11 +1,12 @@
 /*
-Copyright © 2022 CFC4N <cfc4n.cs@gmail.com>
-
+	Copyright © 2022 CFC4N <cfc4n.cs@gmail.com>
+	WebSite: https://www.cnxct.com
 */
 package user
 
 import (
 	"bytes"
+	"ecapture/pkg/event_processor"
 	"encoding/binary"
 	"fmt"
 	"net"
@@ -55,12 +56,12 @@ func (t tls_version) String() string {
 	case DTLS1_2_VERSION:
 		return "DTLS1_2_VERSION"
 	}
-	return "TLS_VERSION_UNKNOW"
+	return fmt.Sprintf("TLS_VERSION_UNKNOW_%d", t.version)
 }
 
 type SSLDataEvent struct {
 	module       IModule
-	event_type   EVENT_TYPE
+	event_type   event_processor.EVENT_TYPE
 	DataType     int64
 	Timestamp_ns uint64
 	Pid          uint32
@@ -105,6 +106,18 @@ func (this *SSLDataEvent) Decode(payload []byte) (err error) {
 	return nil
 }
 
+func (this *SSLDataEvent) GetUUID() string {
+	return fmt.Sprintf("%d_%d_%s_%d_%d", this.Pid, this.Tid, CToGoString(this.Comm[:]), this.Fd, this.DataType)
+}
+
+func (this *SSLDataEvent) Payload() []byte {
+	return this.Data[:this.Data_len]
+}
+
+func (this *SSLDataEvent) PayloadLen() int {
+	return int(this.Data_len)
+}
+
 func (this *SSLDataEvent) StringHex() string {
 	addr := this.module.(*MOpenSSLProbe).GetConn(this.Pid, this.Fd)
 
@@ -124,7 +137,7 @@ func (this *SSLDataEvent) StringHex() string {
 	b.WriteString(COLORRESET)
 
 	v := tls_version{version: this.Version}
-	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, %s, Version:%s, Payload:\n%s", this.Pid, this.Comm, this.Tid, connInfo, v.String(), b.String())
+	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, %s, Version:%s, Payload:\n%s", this.Pid, CToGoString(this.Comm[:]), this.Tid, connInfo, v.String(), b.String())
 	return s
 }
 
@@ -143,7 +156,7 @@ func (this *SSLDataEvent) String() string {
 		connInfo = fmt.Sprintf("%sUNKNOW_%d%s", COLORRED, this.DataType, COLORRESET)
 	}
 	v := tls_version{version: this.Version}
-	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, Version:%s, %s, Payload:\n%s%s%s", this.Pid, this.Comm, this.Tid, v.String(), connInfo, perfix, string(this.Data[:this.Data_len]), COLORRESET)
+	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, Version:%s, %s, Payload:\n%s%s%s", this.Pid, bytes.TrimSpace(this.Comm[:]), this.Tid, v.String(), connInfo, perfix, string(this.Data[:this.Data_len]), COLORRESET)
 	return s
 }
 
@@ -155,14 +168,14 @@ func (this *SSLDataEvent) Module() IModule {
 	return this.module
 }
 
-func (this *SSLDataEvent) Clone() IEventStruct {
+func (this *SSLDataEvent) Clone() event_processor.IEventStruct {
 	event := new(SSLDataEvent)
 	event.module = this.module
-	event.event_type = EVENT_TYPE_OUTPUT
+	event.event_type = event_processor.EVENT_TYPE_OUTPUT
 	return event
 }
 
-func (this *SSLDataEvent) EventType() EVENT_TYPE {
+func (this *SSLDataEvent) EventType() event_processor.EVENT_TYPE {
 	return this.event_type
 }
 
@@ -177,7 +190,7 @@ uint64_t timestamp_ns;
 */
 type ConnDataEvent struct {
 	module      IModule
-	event_type  EVENT_TYPE
+	event_type  event_processor.EVENT_TYPE
 	TimestampNs uint64
 	Pid         uint32
 	Tid         uint32
@@ -214,12 +227,12 @@ func (this *ConnDataEvent) Decode(payload []byte) (err error) {
 }
 
 func (this *ConnDataEvent) StringHex() string {
-	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, FD:%d, Addr: %s", this.Pid, this.Comm, this.Tid, this.Fd, this.Addr)
+	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, FD:%d, Addr: %s", this.Pid, bytes.TrimSpace(this.Comm[:]), this.Tid, this.Fd, this.Addr)
 	return s
 }
 
 func (this *ConnDataEvent) String() string {
-	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, FD:%d, Addr: %s", this.Pid, this.Comm, this.Tid, this.Fd, this.Addr)
+	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, FD:%d, Addr: %s", this.Pid, bytes.TrimSpace(this.Comm[:]), this.Tid, this.Fd, this.Addr)
 	return s
 }
 
@@ -231,13 +244,25 @@ func (this *ConnDataEvent) Module() IModule {
 	return this.module
 }
 
-func (this *ConnDataEvent) Clone() IEventStruct {
+func (this *ConnDataEvent) Clone() event_processor.IEventStruct {
 	event := new(ConnDataEvent)
 	event.module = this.module
-	event.event_type = EVENT_TYPE_MODULE_DATA
+	event.event_type = event_processor.EVENT_TYPE_MODULE_DATA
 	return event
 }
 
-func (this *ConnDataEvent) EventType() EVENT_TYPE {
+func (this *ConnDataEvent) EventType() event_processor.EVENT_TYPE {
 	return this.event_type
+}
+
+func (this *ConnDataEvent) GetUUID() string {
+	return fmt.Sprintf("%d_%d_%s_%d", this.Pid, this.Tid, bytes.TrimSpace(this.Comm[:]), this.Fd)
+}
+
+func (this *ConnDataEvent) Payload() []byte {
+	return []byte(this.Addr)
+}
+
+func (this *ConnDataEvent) PayloadLen() int {
+	return len(this.Addr)
 }

@@ -1,0 +1,7 @@
+GET / HTTP/1.1
+User-Agent: wget/1.21-1ubuntu3 Ubuntu/21.04 GNU/Linux/5.11.0-49-generic/x86_64 Intel(R)/Core(TM)/i7-9750H/CPU/@/2.60GHz cloud_id/none
+Accept: */*
+Accept-Encoding: identity
+Host: motd.ubuntu.com
+Connection: Keep-Alive
+
