@@ -45,7 +45,7 @@ func getGlobalConf(command *cobra.Command) (conf GlobalFlags, err error) {
 		return
 	}
 
-	conf.SaveFile, err = command.Flags().GetString("savefile")
+	conf.SaveFile, err = command.Flags().GetString("write-file")
 	if err != nil {
 		return
 	}
