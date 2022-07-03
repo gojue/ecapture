@@ -3,7 +3,7 @@ package event_processor
 import (
 	"ecapture/user"
 	"fmt"
-	"go.uber.org/zap"
+	"log"
 	"sync"
 )
 
@@ -20,10 +20,10 @@ type EventProcessor struct {
 	// key为 PID+UID+COMMON等确定唯一的信息
 	workerQueue map[string]IWorker
 
-	logger *zap.Logger
+	logger *log.Logger
 }
 
-func (this *EventProcessor) GetLogger() *zap.Logger {
+func (this *EventProcessor) GetLogger() *log.Logger {
 	return this.logger
 }
 
@@ -102,7 +102,7 @@ func (this *EventProcessor) Close() error {
 	return nil
 }
 
-func NewEventProcessor(logger *zap.Logger) *EventProcessor {
+func NewEventProcessor(logger *log.Logger) *EventProcessor {
 	var ep *EventProcessor
 	ep = &EventProcessor{}
 	ep.logger = logger

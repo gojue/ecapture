@@ -16,6 +16,7 @@ type GlobalFlags struct {
 	Pid      uint64 // PID
 	Uid      uint64 // UID
 	NoSearch bool   // No lib search
+	SaveFile string // save file
 }
 
 func getGlobalConf(command *cobra.Command) (conf GlobalFlags, err error) {
@@ -40,6 +41,11 @@ func getGlobalConf(command *cobra.Command) (conf GlobalFlags, err error) {
 	}
 
 	conf.NoSearch, err = command.Flags().GetBool("nosearch")
+	if err != nil {
+		return
+	}
+
+	conf.SaveFile, err = command.Flags().GetString("savefile")
 	if err != nil {
 		return
 	}

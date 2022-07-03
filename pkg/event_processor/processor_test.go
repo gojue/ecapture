@@ -4,7 +4,6 @@ import (
 	"ecapture/user"
 	"encoding/json"
 	"fmt"
-	"go.uber.org/zap"
 	"io/ioutil"
 	"log"
 	"strings"
@@ -31,11 +30,14 @@ type SSLDataEventTmp struct {
 
 func TestEventProcessor_Serve(t *testing.T) {
 
-	cfg := zap.NewProductionConfig()
-	cfg.OutputPaths = []string{"stdout", "./output.log"}
-	cfg.ErrorOutputPaths = []string{"stderr", "./error.log"}
-	logger, err := cfg.Build()
-
+	logger := log.Default()
+	/*
+		f, e := os.Create("./output.log")
+		if e != nil {
+			t.Fatal(e)
+		}
+		logger.SetOutput(f)
+	*/
 	ep := NewEventProcessor(logger)
 
 	go func() {

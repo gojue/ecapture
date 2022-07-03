@@ -57,7 +57,14 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 	if e != nil {
 		logger.Fatal(e)
 	}
-	log.Printf("pid info :%d", os.Getpid())
+	if gConf.SaveFile != "" {
+		f, e := os.Create(gConf.SaveFile)
+		if e != nil {
+			logger.Fatal(e)
+		}
+		logger.SetOutput(f)
+	}
+	logger.Printf("pid info :%d", os.Getpid())
 
 	modNames := []string{user.MODULE_NAME_OPENSSL, user.MODULE_NAME_GNUTLS, user.MODULE_NAME_NSPR, user.MODULE_NAME_GOSSL}
 

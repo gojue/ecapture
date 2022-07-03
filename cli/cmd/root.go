@@ -80,4 +80,5 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&globalFlags.NoSearch, "nosearch", false, "no lib search")
 	rootCmd.PersistentFlags().Uint64VarP(&globalFlags.Pid, "pid", "p", defaultPid, "if pid is 0 then we target all pids")
 	rootCmd.PersistentFlags().Uint64VarP(&globalFlags.Uid, "uid", "u", defaultUid, "if uid is 0 then we target all users")
+	rootCmd.PersistentFlags().StringVarP(&globalFlags.SaveFile, "write", "w", "", "-w file Write the packets to file")
 }
