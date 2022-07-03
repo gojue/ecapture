@@ -64,9 +64,9 @@ func (this *eventWorker) Write(event user.IEventStruct) error {
 // 输出包内容
 func (this *eventWorker) Display() {
 	// 解析器类型检测
-	if this.parser.ParserType() != PARSER_TYPE_HTTP_REQUEST {
+	if this.parser.ParserType() != PARSER_TYPE_HTTP_RESPONSE {
 		//TODO 临时i调试
-		//return
+		return
 	}
 
 	//  输出包内容
@@ -98,9 +98,6 @@ func (this *eventWorker) parserEvent(event user.IEventStruct) {
 		this.processor.GetLogger().Fatal("eventWorker: detect packet type error:", zap.String("uuid", this.UUID), zap.Error(err))
 	}
 
-	if this.parser.ParserType() == PARSER_TYPE_HTTP_REQUEST {
-		//log.Printf("eventWorker:detect packet type %s %d %s %p, event len:%d\n", this.UUID, this.parser.ParserType(), this.parser.Name(), this.parser, event.PayloadLen())
-	}
 	// 是否接收完成，能否输出
 	if this.parser.IsDone() {
 		this.Display()
