@@ -73,7 +73,9 @@ func (this *eventWorker) Display() {
 	//  输出包内容
 	b := this.parser.Display()
 	this.processor.GetLogger().Info("eventWorker:display packet", zap.String("uuid", this.UUID), zap.String("Parser Name", this.parser.Name()), zap.Int("length", len(b)))
-	log.Println(this.parser.Display())
+
+	// TODO 格式化的终端输出
+	log.Println(string(this.parser.Display()))
 	// 重置状态
 	this.parser.Reset()
 

@@ -98,20 +98,21 @@ func (this *HTTPResponse) Display() []byte {
 			log.Println(err)
 			break
 		}
+
+		// gzip uncompressed success
+		this.response.Body = reader
 		defer reader.Close()
 	default:
-		reader = this.response.Body
+		//reader = this.response.Body
+
+		//TODO for debug
+		//return []byte("")
 	}
 
-	if reader == nil {
-		return []byte("")
-	}
-
-	this.response.Body = reader
 	b, e := httputil.DumpResponse(this.response, true)
 	if e != nil {
 		log.Println("DumpResponse error:", e)
-		return nil
+		return []byte("")
 	}
 	return b
 }

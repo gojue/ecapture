@@ -47,8 +47,7 @@ func TestEventProcessor_Serve(t *testing.T) {
 		log.Fatalf("open file error: %s, file:%s", err.Error(), testFile)
 	}
 	lines := strings.Split(string(content), "\n")
-	//log.Println(lines)
-	var i int
+
 	for _, line := range lines {
 		if line == "" {
 			continue
@@ -66,19 +65,15 @@ func TestEventProcessor_Serve(t *testing.T) {
 		}
 		copy(event.Data[:], b)
 		ep.Write(&user.SSLDataEvent{Data_len: event.Data_len, Data: event.Data, DataType: event.DataType, Timestamp_ns: event.Timestamp_ns, Pid: event.Pid, Tid: event.Tid, Comm: event.Comm, Fd: event.Fd, Version: event.Version})
-		i++
-		if i > 40 {
-			break
-		}
 	}
 
-	tick := time.NewTicker(time.Second * 6)
+	tick := time.NewTicker(time.Second * 3)
 	select {
 	case <-tick.C:
 	}
 	err = ep.Close()
 	if err != nil {
-		log.Fatal(err)
+		t.Fatalf("close error: %s", err.Error())
 	}
-	log.Println("done")
+	t.Log("done")
 }
