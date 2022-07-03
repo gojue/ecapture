@@ -33,7 +33,6 @@ func (this *EventProcessor) init() {
 
 // Write event 处理器读取事件
 func (this *EventProcessor) Serve() {
-	this.logger.Printf("EventProcessor.Serve(): start")
 	for {
 		select {
 		case event := <-this.incoming:
