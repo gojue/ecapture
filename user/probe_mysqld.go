@@ -173,7 +173,7 @@ func (this *MMysqldProbe) setupManagers() error {
 		},
 	}
 
-	this.logger.Printf("Mysql Version:%s, binrayPath:%s, FunctionName:%s ,UprobeOffset:%d\n", versionInfo, binaryPath, attachFunc, offset)
+	this.logger.Printf("%s\tMysql Version:%s, binrayPath:%s, FunctionName:%s ,UprobeOffset:%d\n", this.Name(), versionInfo, binaryPath, attachFunc, offset)
 
 	this.bpfManagerOptions = manager.Options{
 		DefaultKProbeMaxActive: 512,

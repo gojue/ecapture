@@ -1,7 +1,6 @@
 package event_processor
 
 import (
-	"log"
 	"time"
 )
 
@@ -73,7 +72,7 @@ func (this *eventWorker) Display() {
 	this.processor.GetLogger().Printf("UUID:%s, Name:%s, Length:%d", this.UUID, this.parser.Name(), len(b))
 
 	// TODO 格式化的终端输出
-	log.Println(string(this.parser.Display()))
+	this.processor.GetLogger().Println(string(this.parser.Display()))
 	// 重置状态
 	this.parser.Reset()
 

@@ -50,7 +50,7 @@ func bashCommandFunc(command *cobra.Command, args []string) {
 
 	mod := user.GetModuleByName(user.MODULE_NAME_BASH)
 
-	logger := log.New(os.Stdout, "ecapture_", log.LstdFlags)
+	logger := log.New(os.Stdout, "bash_", log.LstdFlags)
 
 	logger.Printf("start to run %s module", mod.Name())
 

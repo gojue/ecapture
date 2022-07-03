@@ -87,19 +87,17 @@ func (this *Module) Name() string {
 }
 
 func (this *Module) Run() error {
-	this.logger.Printf("Module.Run() %s", this.Name())
+	this.logger.Printf("%s\tModule.Run()", this.Name())
 	//  start
 	err := this.child.Start()
 	if err != nil {
 		return err
 	}
-	this.logger.Printf("Module.Run() %s start success", this.Name())
 
 	go func() {
 		this.run()
 	}()
 
-	this.logger.Printf("Module:%s run success.", this.child.Name())
 	go func() {
 		this.processor.Serve()
 	}()

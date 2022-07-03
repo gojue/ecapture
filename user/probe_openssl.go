@@ -101,15 +101,15 @@ func (this *MOpenSSLProbe) constantEditor() []manager.ConstantEditor {
 	}
 
 	if this.conf.GetPid() <= 0 {
-		this.logger.Printf("target all process. \n")
+		this.logger.Printf("%s\ttarget all process. \n", this.Name())
 	} else {
-		this.logger.Printf("target PID:%d \n", this.conf.GetPid())
+		this.logger.Printf("%s\ttarget PID:%d \n", this.Name(), this.conf.GetPid())
 	}
 
 	if this.conf.GetUid() <= 0 {
-		this.logger.Printf("target all users. \n")
+		this.logger.Printf("%s\ttarget all users. \n", this.Name())
 	} else {
-		this.logger.Printf("target UID:%d \n", this.conf.GetUid())
+		this.logger.Printf("%s\ttarget UID:%d \n", this.Name(), this.conf.GetUid())
 	}
 
 	return editor
@@ -136,8 +136,8 @@ func (this *MOpenSSLProbe) setupManagers() error {
 		return err
 	}
 
-	this.logger.Printf("HOOK type:%d, binrayPath:%s\n", this.conf.(*OpensslConfig).elfType, binaryPath)
-	this.logger.Printf("libPthread so Path:%s\n", libPthread)
+	this.logger.Printf("%s\tHOOK type:%d, binrayPath:%s\n", this.Name(), this.conf.(*OpensslConfig).elfType, binaryPath)
+	this.logger.Printf("%s\tlibPthread so Path:%s\n", this.Name(), libPthread)
 
 	this.bpfManager = &manager.Manager{
 		Probes: []*manager.Probe{

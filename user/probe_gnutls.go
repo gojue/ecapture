@@ -90,9 +90,9 @@ func (this *MGnutlsProbe) constantEditor() []manager.ConstantEditor {
 	}
 
 	if this.conf.GetPid() <= 0 {
-		this.logger.Printf("target all process. \n")
+		this.logger.Printf("%s\ttarget all process. \n", this.Name())
 	} else {
-		this.logger.Printf("target PID:%d \n", this.conf.GetPid())
+		this.logger.Printf("%s\ttarget PID:%d \n", this.Name(), this.conf.GetPid())
 	}
 	return editor
 }
@@ -114,7 +114,7 @@ func (this *MGnutlsProbe) setupManagers() error {
 		return err
 	}
 
-	this.logger.Printf("HOOK type:%d, binrayPath:%s\n", this.conf.(*GnutlsConfig).elfType, binaryPath)
+	this.logger.Printf("%s\tHOOK type:%d, binrayPath:%s\n", this.Name(), this.conf.(*GnutlsConfig).elfType, binaryPath)
 
 	this.bpfManager = &manager.Manager{
 		Probes: []*manager.Probe{
