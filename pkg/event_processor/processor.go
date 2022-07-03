@@ -33,6 +33,7 @@ func (this *EventProcessor) init() {
 
 // Write event 处理器读取事件
 func (this *EventProcessor) Serve() {
+	this.logger.Printf("EventProcessor.Serve(): start")
 	for {
 		select {
 		case event := <-this.incoming:
@@ -42,6 +43,7 @@ func (this *EventProcessor) Serve() {
 }
 
 func (this *EventProcessor) dispatch(event IEventStruct) {
+	//this.logger.Printf("event ID:%s", event.GetUUID())
 	var uuid string = event.GetUUID()
 	found, eWorker := this.getWorkerByUUID(uuid)
 	if !found {

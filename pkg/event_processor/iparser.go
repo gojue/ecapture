@@ -73,7 +73,7 @@ func NewParser(payload []byte) IParser {
 				var newParser IParser
 				switch parser.ParserType() {
 				case PARSER_TYPE_NULL:
-					newParser = new(NullParser)
+					newParser = new(DefaultParser)
 				case PARSER_TYPE_HTTP_REQUEST:
 					newParser = new(HTTPRequest)
 				case PARSER_TYPE_HTTP_RESPONSE:
@@ -84,51 +84,51 @@ func NewParser(payload []byte) IParser {
 			}
 		}
 	}
-	var np = &NullParser{}
+	var np = &DefaultParser{}
 	np.reader = bytes.NewBuffer(nil)
 	return np
 }
 
-type NullParser struct {
+type DefaultParser struct {
 	reader *bytes.Buffer
 	isdone bool
 }
 
-func (this *NullParser) ParserType() PARSER_TYPE {
+func (this *DefaultParser) ParserType() PARSER_TYPE {
 	return PARSER_TYPE_NULL
 }
 
-func (this *NullParser) PacketType() PACKET_TYPE {
+func (this *DefaultParser) PacketType() PACKET_TYPE {
 	return PACKET_TYPE_NULL
 }
 
-func (this *NullParser) Write(b []byte) (int, error) {
+func (this *DefaultParser) Write(b []byte) (int, error) {
 	this.isdone = true
 	return this.reader.Write(b)
 }
 
-// NullParser 检测包类型
-func (this *NullParser) detect(b []byte) error {
+// DefaultParser 检测包类型
+func (this *DefaultParser) detect(b []byte) error {
 	return nil
 }
 
-func (this *NullParser) Name() string {
-	return "NullParser"
+func (this *DefaultParser) Name() string {
+	return "DefaultParser"
 }
 
-func (this *NullParser) IsDone() bool {
+func (this *DefaultParser) IsDone() bool {
 	return this.isdone
 }
 
-func (this *NullParser) Init() {
+func (this *DefaultParser) Init() {
 
 }
 
-func (this *NullParser) Display() []byte {
-	return this.reader.Bytes()
+func (this *DefaultParser) Display() []byte {
+	return []byte(CToGoString(this.reader.Bytes()))
 }
 
-func (this *NullParser) Reset() {
+func (this *DefaultParser) Reset() {
 	this.isdone = false
 	this.reader.Reset()
 }

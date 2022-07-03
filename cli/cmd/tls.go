@@ -50,7 +50,7 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 	signal.Notify(stopper, os.Interrupt, syscall.SIGTERM)
 	ctx, cancelFun := context.WithCancel(context.TODO())
 
-	logger := log.Default()
+	logger := log.New(os.Stdout, "ecapture_", log.LstdFlags)
 
 	// save global config
 	gConf, e := getGlobalConf(command)
@@ -76,7 +76,6 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 			logger.Printf("cant found module: %s", modName)
 			break
 		}
-		logger.Printf("start to run %s module", mod.Name())
 
 		var conf user.IConfig
 		switch mod.Name() {
@@ -102,15 +101,16 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 		conf.SetHex(gConf.IsHex)
 		conf.SetNoSearch(gConf.NoSearch)
 
+		logger.Printf("start to init %s module", mod.Name())
 		if e := conf.Check(); e != nil {
-			logger.Printf("%v", e)
+			logger.Printf("%s module init failed. skip it. error:%+v", mod.Name(), e)
 			continue
 		}
 
 		//初始化
 		err := mod.Init(ctx, logger, conf)
 		if err != nil {
-			logger.Printf("%v", err)
+			logger.Printf("%s module init failed, skip it. error:%+v", mod.Name(), err)
 			continue
 		}
 
@@ -118,7 +118,7 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 		go func(module user.IModule) {
 			err := module.Run()
 			if err != nil {
-				logger.Printf("%v", err)
+				logger.Printf("%s module run failed, skip it. error:%+v", module.Name(), err)
 				return
 			}
 		}(mod)
