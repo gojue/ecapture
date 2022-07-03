@@ -1,4 +1,4 @@
-package user
+package event_processor
 
 type EVENT_TYPE uint8
 
@@ -12,10 +12,13 @@ const (
 
 type IEventStruct interface {
 	Decode(payload []byte) (err error)
+	Payload() []byte
+	PayloadLen() int
 	String() string
 	StringHex() string
 	Clone() IEventStruct
-	Module() IModule
-	SetModule(IModule)
+	//Module() IModule
+	//SetModule(IModule)
 	EventType() EVENT_TYPE
+	GetUUID() string
 }

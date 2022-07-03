@@ -1,0 +1,71 @@
+��3月</a></li>
+	<li><a href='https://www.cnxct.com/2010/01/'>2010年1月</a></li>
+	<li><a href='https://www.cnxct.com/2009/12/'>2009年12月</a></li>
+	<li><a href='https://www.cnxct.com/2009/10/'>2009年10月</a></li>
+	<li><a href='https://www.cnxct.com/2009/09/'>2009年9月</a></li>
+	<li><a href='https://www.cnxct.com/2009/07/'>2009年7月</a></li>
+				</ul>
+			</aside>
+
+			<aside id="meta" class="widget">
+				<h1 class="widget-title">Meta</h1>
+				<ul>
+										<li><a href="https://www.cnxct.com/wp-login.php">登录</a></li>
+									</ul>
+			</aside>
+
+			</div><!-- #secondary -->
+                </div><!-- close .row -->
+            </div><!-- close .container -->
+        </div><!-- close .site-content -->
+
+	<div id="footer-area">
+		<div class="container footer-inner">
+			
+	
+	<div class="footer-widget-area">
+				<div class="col-sm-6 col-md-4 footer-widget" role="complementary">
+			
+        <div class="widget tabbed">
+            <div class="tabs-wrapper">
+                <ul class="nav nav-tabs">
+                      <li class="active"><a href="#popular-posts" data-toggle="tab">Popular</a></li>
+                      <li><a href="#recent" data-toggle="tab">Recent</a></li>
+                      <li><a href="#messages" data-toggle="tab"><i class="fa fa-comments tab-comment"></i></a></li>
+                </ul>
+
+            <div class="tab-content">
+                <ul id="popular-posts" class="tab-pane active">
+
+                    
+                                            <li>
+                                                        <div class="content">
+                                <a class="tab-entry" href="https://www.cnxct.com/etcd-lease-keepalive-debug-note/" rel="bookmark" title="etcd clientv3的lease keepalive租约频繁续期bug 排查小记">etcd clientv3的lease keepalive租约频繁续期bug 排查小记</a>
+                                <i>
+                                    7月 18, 2018                                </i>
+                            </div>
+                        </li>
+                                            <li>
+                                                        <div class="content">
+                                <a class="tab-entry" href="https://www.cnxct.com/%e5%b9%bf%e5%8f%91%e8%8b%b1%e9%9b%84%e5%b8%96-%e6%8b%9b%e8%81%98%e5%b9%bf%e5%91%8a%ef%bc%88dba%e3%80%81php%e5%bc%80%e5%8f%91%e3%80%81%e8%bf%90%e7%bb%b4%e5%b7%a5%e7%a8%8b%e5%b8%88%e3%80%81bi%e4%b8%93/" rel="bookmark" title="广发英雄帖-招聘广告（DBA、PHP开发、运维工程师、BI专员）">广发英雄帖-招聘广告（DBA、PHP开发、运维工程师、BI专员）</a>
+                                <i>
+                                    11月 12, 2010                                </i>
+                            </div>
+                        </li>
+                                            <li>
+                                                        <div class="content">
+                                <a class="tab-entry" href="https://www.cnxct.com/distributed-hids-cluster-architecture-design/" rel="bookmark" title="保障IDC安全：分布式HIDS集群架构设计">保障IDC安全：分布式HIDS集群架构设计</a>
+                                <i>
+                                    1月 18, 2019                                </i>
+                            </div>
+                        </li>
+                                            <li>
+                                                        <div class="content">
+                                <a class="tab-entry" href="https://www.cnxct.com/libmysql-mysqlnd-which-is-best-and-what-about-mysqli-pdomysql-mysql/" rel="bookmark" title="php与mysql通讯那点事">php与mysql通讯那点事</a>
+                                <i>
+                                    12月 15, 2012                                </i>
+                            </div>
+                        </li>
+                                            <li>
+                                                        <div class="content">
+                        

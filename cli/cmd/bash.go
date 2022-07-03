@@ -50,7 +50,7 @@ func bashCommandFunc(command *cobra.Command, args []string) {
 
 	mod := user.GetModuleByName(user.MODULE_NAME_BASH)
 
-	logger := log.Default()
+	logger := log.New(os.Stdout, "bash_", log.LstdFlags)
 
 	logger.Printf("start to run %s module", mod.Name())
 
@@ -65,7 +65,7 @@ func bashCommandFunc(command *cobra.Command, args []string) {
 	bc.Debug = gConf.Debug
 	bc.IsHex = gConf.IsHex
 
-	log.Printf("pid info :%d", os.Getpid())
+	logger.Printf("pid info :%d", os.Getpid())
 	//bc.Pid = globalFlags.Pid
 	if e := bc.Check(); e != nil {
 		logger.Fatal(e)

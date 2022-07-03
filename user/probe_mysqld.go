@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"context"
 	"ecapture/assets"
+	"ecapture/pkg/event_processor"
 	"github.com/cilium/ebpf"
 	manager "github.com/ehids/ebpfmanager"
 	"github.com/pkg/errors"
@@ -24,7 +25,7 @@ type MMysqldProbe struct {
 	Module
 	bpfManager        *manager.Manager
 	bpfManagerOptions manager.Options
-	eventFuncMaps     map[*ebpf.Map]IEventStruct
+	eventFuncMaps     map[*ebpf.Map]event_processor.IEventStruct
 	eventMaps         []*ebpf.Map
 }
 
@@ -34,7 +35,7 @@ func (this *MMysqldProbe) Init(ctx context.Context, logger *log.Logger, conf ICo
 	this.conf = conf
 	this.Module.SetChild(this)
 	this.eventMaps = make([]*ebpf.Map, 0, 2)
-	this.eventFuncMaps = make(map[*ebpf.Map]IEventStruct)
+	this.eventFuncMaps = make(map[*ebpf.Map]event_processor.IEventStruct)
 	return nil
 }
 
@@ -172,7 +173,7 @@ func (this *MMysqldProbe) setupManagers() error {
 		},
 	}
 
-	this.logger.Printf("Mysql Version:%s, binrayPath:%s, FunctionName:%s ,UprobeOffset:%d\n", versionInfo, binaryPath, attachFunc, offset)
+	this.logger.Printf("%s\tMysql Version:%s, binrayPath:%s, FunctionName:%s ,UprobeOffset:%d\n", this.Name(), versionInfo, binaryPath, attachFunc, offset)
 
 	this.bpfManagerOptions = manager.Options{
 		DefaultKProbeMaxActive: 512,
@@ -191,7 +192,7 @@ func (this *MMysqldProbe) setupManagers() error {
 	return nil
 }
 
-func (this *MMysqldProbe) DecodeFun(em *ebpf.Map) (IEventStruct, bool) {
+func (this *MMysqldProbe) DecodeFun(em *ebpf.Map) (event_processor.IEventStruct, bool) {
 	fun, found := this.eventFuncMaps[em]
 	return fun, found
 }

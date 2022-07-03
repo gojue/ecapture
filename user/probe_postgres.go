@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"context"
 	"ecapture/assets"
+	"ecapture/pkg/event_processor"
 	"log"
 	"math"
 	"os"
@@ -25,7 +26,7 @@ type MPostgresProbe struct {
 	Module
 	bpfManager        *manager.Manager
 	bpfManagerOptions manager.Options
-	eventFuncMaps     map[*ebpf.Map]IEventStruct
+	eventFuncMaps     map[*ebpf.Map]event_processor.IEventStruct
 	eventMaps         []*ebpf.Map
 }
 
@@ -35,7 +36,7 @@ func (this *MPostgresProbe) Init(ctx context.Context, logger *log.Logger, conf I
 	this.conf = conf
 	this.Module.SetChild(this)
 	this.eventMaps = make([]*ebpf.Map, 0, 2)
-	this.eventFuncMaps = make(map[*ebpf.Map]IEventStruct)
+	this.eventFuncMaps = make(map[*ebpf.Map]event_processor.IEventStruct)
 	return nil
 }
 
@@ -132,7 +133,7 @@ func (this *MPostgresProbe) setupManagers() error {
 	return nil
 }
 
-func (this *MPostgresProbe) DecodeFun(em *ebpf.Map) (IEventStruct, bool) {
+func (this *MPostgresProbe) DecodeFun(em *ebpf.Map) (event_processor.IEventStruct, bool) {
 	fun, found := this.eventFuncMaps[em]
 	return fun, found
 }

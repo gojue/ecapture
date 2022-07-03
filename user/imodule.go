@@ -2,6 +2,7 @@ package user
 
 import (
 	"context"
+	"ecapture/pkg/event_processor"
 	"errors"
 	"fmt"
 	"github.com/cilium/ebpf"
@@ -32,13 +33,13 @@ type IModule interface {
 
 	SetChild(module IModule)
 
-	Decode(*ebpf.Map, []byte) (IEventStruct, error)
+	Decode(*ebpf.Map, []byte) (event_processor.IEventStruct, error)
 
 	Events() []*ebpf.Map
 
-	DecodeFun(p *ebpf.Map) (IEventStruct, bool)
+	DecodeFun(p *ebpf.Map) (event_processor.IEventStruct, bool)
 
-	Dispatcher(IEventStruct)
+	Dispatcher(event_processor.IEventStruct)
 }
 
 type Module struct {
@@ -54,12 +55,15 @@ type Module struct {
 	mType string
 
 	conf IConfig
+
+	processor *event_processor.EventProcessor
 }
 
 // Init 对象初始化
 func (this *Module) Init(ctx context.Context, logger *log.Logger) {
 	this.ctx = ctx
 	this.logger = logger
+	this.processor = event_processor.NewEventProcessor(logger)
 }
 
 func (this *Module) SetChild(module IModule) {
@@ -74,7 +78,7 @@ func (this *Module) Events() []*ebpf.Map {
 	panic("Module.Events() not implemented yet")
 }
 
-func (this *Module) DecodeFun(p *ebpf.Map) (IEventStruct, bool) {
+func (this *Module) DecodeFun(p *ebpf.Map) (event_processor.IEventStruct, bool) {
 	panic("Module.DecodeFun() not implemented yet")
 }
 
@@ -83,13 +87,9 @@ func (this *Module) Name() string {
 }
 
 func (this *Module) Run() error {
+	this.logger.Printf("%s\tModule.Run()", this.Name())
 	//  start
 	err := this.child.Start()
-	if err != nil {
-		return err
-	}
-
-	err = this.readEvents()
 	if err != nil {
 		return err
 	}
@@ -97,6 +97,16 @@ func (this *Module) Run() error {
 	go func() {
 		this.run()
 	}()
+
+	go func() {
+		this.processor.Serve()
+	}()
+
+	err = this.readEvents()
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 func (this *Module) Stop() error {
@@ -168,7 +178,7 @@ func (this *Module) perfEventReader(errChan chan error, em *ebpf.Map) {
 			continue
 		}
 
-		var event IEventStruct
+		var event event_processor.IEventStruct
 		event, err = this.child.Decode(em, record.RawSample)
 		if err != nil {
 			log.Printf("this.child.decode error:%v", err)
@@ -206,7 +216,7 @@ func (this *Module) ringbufEventReader(errChan chan error, em *ebpf.Map) {
 			return
 		}
 
-		var event IEventStruct
+		var event event_processor.IEventStruct
 		event, err = this.child.Decode(em, record.RawSample)
 		if err != nil {
 			log.Printf("this.child.decode error:%v", err)
@@ -218,7 +228,7 @@ func (this *Module) ringbufEventReader(errChan chan error, em *ebpf.Map) {
 	}
 }
 
-func (this *Module) Decode(em *ebpf.Map, b []byte) (event IEventStruct, err error) {
+func (this *Module) Decode(em *ebpf.Map, b []byte) (event event_processor.IEventStruct, err error) {
 	es, found := this.child.DecodeFun(em)
 	if !found {
 		err = fmt.Errorf("can't found decode function :%s, address:%p", em.String(), em)
@@ -234,12 +244,18 @@ func (this *Module) Decode(em *ebpf.Map, b []byte) (event IEventStruct, err erro
 }
 
 // 写入数据，或者上传到远程数据库，写入到其他chan 等。
-func (this *Module) Dispatcher(event IEventStruct) {
+func (this *Module) Dispatcher(event event_processor.IEventStruct) {
 	switch event.EventType() {
-	case EVENT_TYPE_OUTPUT:
-		this.logger.Println(event)
-	case EVENT_TYPE_MODULE_DATA:
+	case event_processor.EVENT_TYPE_OUTPUT:
+		//this.logger.Println(event)
+		this.processor.Write(event)
+	case event_processor.EVENT_TYPE_MODULE_DATA:
 		// Save to cache
 		this.child.Dispatcher(event)
 	}
+}
+
+func (this *Module) Close() error {
+	err := this.processor.Close()
+	return err
 }

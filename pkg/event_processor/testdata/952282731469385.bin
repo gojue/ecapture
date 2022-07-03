@@ -1,0 +1,58 @@
+c%af/" rel="category tag">所谓技术</a>			</span>
+					
+		
+		</div><!-- .entry-meta -->
+			</header><!-- .entry-header -->
+
+		<div class="entry-content">
+
+					<p><a href="//image.cnxct.com/2022/03/rootkit-logo.png"><img loading="lazy" src="//image.cnxct.com/2022/03/rootkit-logo.png" alt="" width="150" height="150" class="alignleft sided inline" /></a>在《Bvp47 美国NSA方程式的顶级后门》的文章，里面提到后门使用BPF技术做通信信道的隐藏，本身不监听端口，通过特定SYN包唤醒后门。而且隐藏近二十年之久。恰巧笔者近期在学习eBPF，且在春节前用eBPF技术实现了类似功能的后门DEMO，对这块特别感兴趣。 好奇它的兼容性是如何做的，HOOK点是如何选择的？用的BPF/eBPF哪个内核版本的类库？</p>
+				<p><a class="btn btn-default read-more" href="https://www.cnxct.com/talk-about-bvp47-tier_backdoor_of_us_nsa-with-bpf-hide-network/">Continue reading <i class="fa fa-chevron-right"></i></a></p>
+
+		<a href="https://www.cnxct.com/talk-about-bvp47-tier_backdoor_of_us_nsa-with-bpf-hide-network/" title="聊一聊《Bvp47 美国NSA方程式的顶级后门》中的BPF隐藏信道"></a>
+
+
+			</div><!-- .entry-content -->
+	
+	<hr class="section-divider">
+</article><!-- #post-## -->
+
+                        
+                                
+<article id="post-2454" class="post-2454 post type-post status-publish format-standard hentry category-9 tag-ebpf tag-linux tag-network tag-security tag-198 tag-435">
+	<header class="entry-header page-header">
+
+		<h1 class="entry-title"><a href="https://www.cnxct.com/ebpf-slide-pdf-share/" rel="bookmark">分享一些eBPF技术相关的PDF</a></h1>
+
+				<div class="entry-meta">
+			<span class="posted-on"><i class="fa fa-calendar"></i> <a href="https://www.cnxct.com/ebpf-slide-pdf-share/" rel="bookmark"><time class="entry-date published" datetime="2022-01-25T21:45:48+08:00">2022/01/25</time><time class="updated" datetime="2022-01-25T21:47:57+08:00">2022/01/25</time></a></span><span class="byline"> <i class="fa fa-user"></i> <span class="author vcard"><a class="url fn n" href="https://www.cnxct.com/author/admin/">CFC4N</a></span></span>		<span class="comments-link"><i class="fa fa-comment-o"></i><a href="https://www.cnxct.com/ebpf-slide-pdf-share/#respond">Leave a comment</a></span>
+		
+								<span class="cat-links"><i class="fa fa-folder-open-o"></i>
+				 <a href="https://www.cnxct.com/category/%e6%89%80%e8%b0%93%e6%8a%80%e6%9c%af/" rel="category tag">所谓技术</a>			</span>
+					
+		
+		</div><!-- .entry-meta -->
+			</header><!-- .entry-header -->
+
+		<div class="entry-content">
+
+					<p><a href="//image.cnxct.com/2021/11/ebpf.png"><img loading="lazy" src="//image.cnxct.com/2021/11/ebpf.png" alt="" width="150" height="150" class="alignleft sided inline" /></a>笔者在学习eBPF技术期间，收集了很多高质量的PDF，覆盖网络安全、网络编排、运维监控、性能抽样、调试跟踪等场景，所谓吃水不忘挖井人，在这里分享给大家，帮助大家一起成长。</p>
+				<p><a class="btn btn-default read-more" href="https://www.cnxct.com/ebpf-slide-pdf-share/">Continue reading <i class="fa fa-chevron-right"></i></a></p>
+
+		<a href="https://www.cnxct.com/ebpf-slide-pdf-share/" title="分享一些eBPF技术相关的PDF"></a>
+
+
+			</div><!-- .entry-content -->
+	
+	<hr class="section-divider">
+</article><!-- #post-## -->
+
+                        
+                                
+<article id="post-2447" class="post-2447 post type-post status-publish format-standard hentry category-9 tag-docker tag-ebpf tag-golang tag-hids tag-kernel-space tag-421 tag-432 tag-422">
+	<header class="entry-header page-header">
+
+		<h1 class="entry-title"><a href="https://www.cnxct.com/container-escape-in-linux-kernel-space-by-ebpf/" rel="bookmark">内核态eBPF程序实现容器逃逸与隐藏账号rootkit</a></h1>
+
+				<div class="entry-meta">
+			<span class="posted-on"><i class="fa fa-calendar"></i> <a href="https://www.cnxct.com/container-escape-in-linux-kernel-space-by-ebpf/" rel="bookma
