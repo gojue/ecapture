@@ -1,7 +1,6 @@
 package event_processor
 
 import (
-	"ecapture/user"
 	"fmt"
 	"log"
 	"sync"
@@ -15,7 +14,7 @@ const (
 type EventProcessor struct {
 	sync.Mutex
 	// 收包，来自调用者发来的新事件
-	incoming chan user.IEventStruct
+	incoming chan IEventStruct
 
 	// key为 PID+UID+COMMON等确定唯一的信息
 	workerQueue map[string]IWorker
@@ -28,7 +27,7 @@ func (this *EventProcessor) GetLogger() *log.Logger {
 }
 
 func (this *EventProcessor) init() {
-	this.incoming = make(chan user.IEventStruct, MAX_INCOMING_CHAN_LEN)
+	this.incoming = make(chan IEventStruct, MAX_INCOMING_CHAN_LEN)
 	this.workerQueue = make(map[string]IWorker, MAX_PARSER_QUEUE_LEN)
 }
 
@@ -42,7 +41,7 @@ func (this *EventProcessor) Serve() {
 	}
 }
 
-func (this *EventProcessor) dispatch(event user.IEventStruct) {
+func (this *EventProcessor) dispatch(event IEventStruct) {
 	var uuid string = event.GetUUID()
 	found, eWorker := this.getWorkerByUUID(uuid)
 	if !found {
@@ -88,7 +87,7 @@ func (this *EventProcessor) delWorkerByUUID(worker IWorker) {
 
 // Write event
 // 外部调用者调用该方法
-func (this *EventProcessor) Write(event user.IEventStruct) {
+func (this *EventProcessor) Write(event IEventStruct) {
 	select {
 	case this.incoming <- event:
 		return

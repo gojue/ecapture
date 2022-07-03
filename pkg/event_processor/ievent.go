@@ -1,4 +1,4 @@
-package user
+package event_processor
 
 type EVENT_TYPE uint8
 
@@ -17,8 +17,8 @@ type IEventStruct interface {
 	String() string
 	StringHex() string
 	Clone() IEventStruct
-	Module() IModule
-	SetModule(IModule)
+	//Module() IModule
+	//SetModule(IModule)
 	EventType() EVENT_TYPE
 	GetUUID() string
 }

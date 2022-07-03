@@ -9,6 +9,7 @@ package user
 
 import (
 	"bytes"
+	"ecapture/pkg/event_processor"
 	"encoding/binary"
 	"fmt"
 
@@ -55,7 +56,7 @@ func (this dispatch_command_return) String() string {
 
 type mysqldEvent struct {
 	module     IModule
-	event_type EVENT_TYPE
+	event_type event_processor.EVENT_TYPE
 	Pid        uint64
 	Timestamp  uint64
 	query      [MYSQLD_MAX_DATA_SIZE]uint8
@@ -109,14 +110,14 @@ func (this *mysqldEvent) Module() IModule {
 	return this.module
 }
 
-func (this *mysqldEvent) Clone() IEventStruct {
+func (this *mysqldEvent) Clone() event_processor.IEventStruct {
 	event := new(mysqldEvent)
 	event.module = this.module
-	event.event_type = EVENT_TYPE_OUTPUT
+	event.event_type = event_processor.EVENT_TYPE_OUTPUT
 	return event
 }
 
-func (this *mysqldEvent) EventType() EVENT_TYPE {
+func (this *mysqldEvent) EventType() event_processor.EVENT_TYPE {
 	return this.event_type
 }
 

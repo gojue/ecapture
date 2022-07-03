@@ -6,13 +6,14 @@ package user
 
 import (
 	"bytes"
+	"ecapture/pkg/event_processor"
 	"encoding/binary"
 	"fmt"
 )
 
 type GnutlsDataEvent struct {
 	module       IModule
-	event_type   EVENT_TYPE
+	event_type   event_processor.EVENT_TYPE
 	DataType     int64
 	Timestamp_ns uint64
 	Pid          uint32
@@ -91,14 +92,14 @@ func (this *GnutlsDataEvent) Module() IModule {
 	return this.module
 }
 
-func (this *GnutlsDataEvent) Clone() IEventStruct {
+func (this *GnutlsDataEvent) Clone() event_processor.IEventStruct {
 	event := new(GnutlsDataEvent)
 	event.module = this.module
-	event.event_type = EVENT_TYPE_OUTPUT
+	event.event_type = event_processor.EVENT_TYPE_OUTPUT
 	return event
 }
 
-func (this *GnutlsDataEvent) EventType() EVENT_TYPE {
+func (this *GnutlsDataEvent) EventType() event_processor.EVENT_TYPE {
 	return this.event_type
 }
 

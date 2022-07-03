@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"ecapture/assets"
+	"ecapture/pkg/event_processor"
 	"ecapture/pkg/proc"
 	"log"
 	"math"
@@ -108,7 +109,7 @@ func (p *GoSSLProbe) Events() []*ebpf.Map {
 	return maps
 }
 
-func (p *GoSSLProbe) DecodeFun(m *ebpf.Map) (IEventStruct, bool) {
+func (p *GoSSLProbe) DecodeFun(m *ebpf.Map) (event_processor.IEventStruct, bool) {
 	return &goSSLEvent{}, true
 }
 
