@@ -1,9 +1,28 @@
 <hr>
 
+## v0.2.0 (2022-07-14)
+
+## What's Changed
+
+## New Contributors
+
+**Full Changelog**: https://github.com/ehids/ecapture/compare/v0.1.10...v0.2.0
+
+<hr>
+
 ## v0.1.10 (2022-06-20)
 
 ## What's Changed
 
+* user : fixed bug. #76 libpthread.so not found. by @cfc4n in https://github.com/ehids/ecapture/pull/77
+* Support for ARM64 architecture by @cfc4n in https://github.com/ehids/ecapture/pull/75
+* fixed: outputing blank text on linux 4.18 #81 by @cfc4n in https://github.com/ehids/ecapture/pull/82
+* New feature: update ebpfmanager package to 0.3.0 by @cfc4n in https://github.com/ehids/ecapture/pull/83
+* New feature: #80 event filter by uid by @cfc4n in https://github.com/ehids/ecapture/pull/84
+* New feature: #85 event filter by uid for module tls by @cfc4n in https://github.com/ehids/ecapture/pull/86
+* New feature: #87 support Android GKI by @cfc4n in https://github.com/ehids/ecapture/pull/88
+* fixed: #92 github checkout error while a PR sent. by @cfc4n in https://github.com/ehids/ecapture/pull/93
+* New Feature: #79 Auto release for android gki by @cfc4n in https://github.com/ehids/ecapture/pull/94
 ## New Contributors
 
 **Full Changelog**: https://github.com/ehids/ecapture/compare/v0.1.9...v0.1.10
