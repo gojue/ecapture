@@ -3,6 +3,7 @@ package event_processor
 import (
 	"ecapture/user"
 	"go.uber.org/zap"
+	"log"
 	"time"
 )
 
@@ -65,13 +66,14 @@ func (this *eventWorker) Write(event user.IEventStruct) error {
 func (this *eventWorker) Display() {
 	// 解析器类型检测
 	if this.parser.ParserType() != PARSER_TYPE_HTTP_RESPONSE {
-		//TODO 临时i调试
-		return
+		//临时调试开关
+		//return
 	}
 
 	//  输出包内容
 	b := this.parser.Display()
-	this.processor.GetLogger().Info("eventWorker:display packet", zap.String("uuid", this.UUID), zap.String("Parser Name", this.parser.Name()), zap.String("payload", string(b)))
+	this.processor.GetLogger().Info("eventWorker:display packet", zap.String("uuid", this.UUID), zap.String("Parser Name", this.parser.Name()), zap.Int("length", len(b)))
+	log.Println(this.parser.Display())
 	// 重置状态
 	this.parser.Reset()
 

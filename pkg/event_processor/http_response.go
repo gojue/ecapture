@@ -5,28 +5,10 @@ import (
 	"bytes"
 	"compress/gzip"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"net/http/httputil"
 )
-
-func readHTTPResponse(payload []byte) (*http.Response, error) {
-	rd := bytes.NewReader(payload)
-	buf := bufio.NewReader(rd)
-	rep := new(http.Request)
-	resp, err := http.ReadResponse(buf, rep)
-	if err != nil {
-		return nil, err
-	}
-
-	//save response body
-	b := new(bytes.Buffer)
-	io.Copy(b, resp.Body)
-	resp.Body.Close()
-	resp.Body = ioutil.NopCloser(b)
-	return resp, nil
-}
 
 type HTTPResponse struct {
 	response   *http.Response
@@ -35,11 +17,6 @@ type HTTPResponse struct {
 	isInit     bool
 	reader     *bytes.Buffer
 	bufReader  *bufio.Reader
-}
-
-func (this *HTTPResponse) Body() []byte {
-	return this.reader.Bytes()
-	//return nil
 }
 
 func (this *HTTPResponse) Init() {
@@ -133,7 +110,7 @@ func (this *HTTPResponse) Display() []byte {
 	this.response.Body = reader
 	b, e := httputil.DumpResponse(this.response, true)
 	if e != nil {
-		log.Println("DumpRequest error:", e)
+		log.Println("DumpResponse error:", e)
 		return nil
 	}
 	return b

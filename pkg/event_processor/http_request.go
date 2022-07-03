@@ -17,11 +17,6 @@ type HTTPRequest struct {
 	bufReader  *bufio.Reader
 }
 
-func (this *HTTPRequest) Body() []byte {
-	return this.reader.Bytes()
-	//return nil
-}
-
 func (this *HTTPRequest) Init() {
 	this.reader = bytes.NewBuffer(nil)
 	this.bufReader = bufio.NewReader(this.reader)
@@ -60,7 +55,6 @@ func (this *HTTPRequest) Write(b []byte) (int, error) {
 	if e != nil {
 		return 0, e
 	}
-	log.Println("reader:", l)
 
 	// TODO 检测是否接收完整个包
 	if false {

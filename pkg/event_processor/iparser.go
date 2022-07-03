@@ -34,7 +34,7 @@ type IParser interface {
 	Write(b []byte) (int, error)
 	ParserType() PARSER_TYPE
 	PacketType() PACKET_TYPE
-	Body() []byte
+	//Body() []byte
 	Name() string
 	IsDone() bool
 	Init()
@@ -94,10 +94,6 @@ type NullParser struct {
 	isdone bool
 }
 
-func (this *NullParser) Body() []byte {
-	return this.reader.Bytes()
-}
-
 func (this *NullParser) ParserType() PARSER_TYPE {
 	return PARSER_TYPE_NULL
 }
@@ -129,7 +125,7 @@ func (this *NullParser) Init() {
 }
 
 func (this *NullParser) Display() []byte {
-	return this.Body()
+	return this.reader.Bytes()
 }
 
 func (this *NullParser) Reset() {
