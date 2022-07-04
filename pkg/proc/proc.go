@@ -62,7 +62,7 @@ func ExtraceGoVersion(path string) (*GoVersion, error) {
 				if !ok {
 					continue
 				}
-				return parseGoVersion(val)
+				return ParseGoVersion(val)
 			}
 		}
 	}
@@ -70,7 +70,7 @@ func ExtraceGoVersion(path string) (*GoVersion, error) {
 	return nil, ErrVersionNotFound
 }
 
-func parseGoVersion(r string) (*GoVersion, error) {
+func ParseGoVersion(r string) (*GoVersion, error) {
 	ver := strings.TrimPrefix(r, goVersionPrefix)
 
 	if strings.HasPrefix(ver, "go") {

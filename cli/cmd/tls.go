@@ -40,6 +40,7 @@ func init() {
 	opensslCmd.PersistentFlags().StringVar(&nc.Nsprpath, "nspr", "", "libnspr44.so file path, will automatically find it from curl default.")
 	opensslCmd.PersistentFlags().StringVar(&oc.Pthread, "pthread", "", "libpthread.so file path, use to hook connect to capture socket FD.will automatically find it from curl.")
 	opensslCmd.PersistentFlags().StringVar(&goc.Path, "gobin", "", "path to binary built with Go toolchain.")
+	opensslCmd.PersistentFlags().StringVar(&goc.Gover, "gover", "", "Go version for stripped Go app binary.")
 
 	rootCmd.AddCommand(opensslCmd)
 }

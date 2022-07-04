@@ -9,7 +9,8 @@ import (
 // GoSSLConfig represents configuration for Go SSL probe
 type GoSSLConfig struct {
 	eConfig
-	Path string
+	Path  string
+	Gover string
 }
 
 // NewGoSSLConfig creates a new config for Go SSL

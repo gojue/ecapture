@@ -26,6 +26,7 @@ type GoSSLProbe struct {
 
 	mngr          *manager.Manager
 	path          string
+	gover         string
 	isRegisterABI bool
 }
 
@@ -33,10 +34,25 @@ func (p *GoSSLProbe) Init(ctx context.Context, l *log.Logger, cfg IConfig) error
 	p.Module.Init(ctx, l)
 	p.Module.SetChild(p)
 
+	var (
+		ver *proc.GoVersion
+		err error
+	)
+
 	p.path = cfg.(*GoSSLConfig).Path
-	ver, err := proc.ExtraceGoVersion(p.path)
-	if err != nil {
-		return err
+
+	if len(cfg.(*GoSSLConfig).Gover) > 0 {
+		p.gover = cfg.(*GoSSLConfig).Gover
+		ver, err = proc.ParseGoVersion(p.gover)
+		if err != nil {
+			return err
+		}
+
+	} else {
+		ver, err = proc.ExtraceGoVersion(p.path)
+		if err != nil {
+			return err
+		}
 	}
 
 	if ver.After(1, 15) {
