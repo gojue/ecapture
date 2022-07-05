@@ -246,7 +246,6 @@ jobs:
             tar  -czf ${OUT_ARCHIVE} ${TAR_DIR}
             cp ${OUT_ARCHIVE} "/artifacts/"
             echo "-------------------end: Create ecapture.tar.gz of Android GKI -------------------"
-            go test -v ./...
             echo "Produced artifact at /artifacts/${artifact_name}"
 
       - name: Show the artifact
