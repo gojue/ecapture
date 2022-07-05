@@ -11,7 +11,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/pkg/errors"
+	"errors"
 )
 
 type PostgresConfig struct {

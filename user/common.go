@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/pkg/errors"
+	"errors"
 )
 
 func GlobMany(targets []string, onErr func(string, error)) []string {
