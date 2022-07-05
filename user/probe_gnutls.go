@@ -5,9 +5,10 @@ import (
 	"context"
 	"ecapture/assets"
 	"ecapture/pkg/event_processor"
+	"errors"
+	"fmt"
 	"github.com/cilium/ebpf"
 	manager "github.com/ehids/ebpfmanager"
-	"github.com/pkg/errors"
 	"golang.org/x/sys/unix"
 	"log"
 	"math"
@@ -44,23 +45,23 @@ func (this *MGnutlsProbe) start() error {
 	// fetch ebpf assets
 	byteBuf, err := assets.Asset("user/bytecode/gnutls_kern.o")
 	if err != nil {
-		return errors.Wrap(err, "couldn't find asset")
+		return fmt.Errorf("couldn't find asset %v", err)
 	}
 
 	// setup the managers
 	err = this.setupManagers()
 	if err != nil {
-		return errors.Wrap(err, "tls(gnutls) module couldn't find binPath.")
+		return fmt.Errorf("tls(gnutls) module couldn't find binPath %v", err)
 	}
 
 	// initialize the bootstrap manager
-	if err := this.bpfManager.InitWithOptions(bytes.NewReader(byteBuf), this.bpfManagerOptions); err != nil {
-		return errors.Wrap(err, "couldn't init manager")
+	if err = this.bpfManager.InitWithOptions(bytes.NewReader(byteBuf), this.bpfManagerOptions); err != nil {
+		return fmt.Errorf("couldn't init manager %v", err)
 	}
 
 	// start the bootstrap manager
-	if err := this.bpfManager.Start(); err != nil {
-		return errors.Wrap(err, "couldn't start bootstrap manager")
+	if err = this.bpfManager.Start(); err != nil {
+		return fmt.Errorf("couldn't start bootstrap manager %v", err)
 	}
 
 	// 加载map信息，map对应events decode表。
@@ -74,7 +75,7 @@ func (this *MGnutlsProbe) start() error {
 
 func (this *MGnutlsProbe) Close() error {
 	if err := this.bpfManager.Stop(manager.CleanAll); err != nil {
-		return errors.Wrap(err, "couldn't stop manager")
+		return fmt.Errorf("couldn't stop manager %v", err)
 	}
 	return nil
 }

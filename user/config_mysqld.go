@@ -10,8 +10,8 @@ package user
 import (
 	"bytes"
 	"debug/elf"
+	"errors"
 	"fmt"
-	"github.com/pkg/errors"
 	"os"
 	"regexp"
 	"strings"
