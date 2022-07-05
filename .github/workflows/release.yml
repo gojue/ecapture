@@ -182,7 +182,7 @@ jobs:
             if [ -z "${SNAPSHOT_VERSION}" ]; then
               SNAPSHOT_VERSION="v0.0.0"
             fi
-            TAR_DIR=ecapture-${SNAPSHOT_VERSION}-android_gki-${UNAME_M}
+            TAR_DIR=ecapture-${SNAPSHOT_VERSION}-android_4.18-${UNAME_M}
             RELEASE_NOTES=${OUTPUT_DIR}/release_notes.txt
             OUT_ARCHIVE=${OUTPUT_DIR}/${artifact_name}-android-${{ matrix.arch }}.tar.gz
             mkdir -p ${TAR_DIR}

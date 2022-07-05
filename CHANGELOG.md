@@ -1,16 +1,44 @@
 <hr>
 
-## v0.2.0 (2022-07-14)
+# v0.2.1 (2022-07-05)
 
 ## What's Changed
 
 ## New Contributors
 
+**Full Changelog**: https://github.com/ehids/ecapture/compare/v0.2.0...v0.2.1
+
+
+<hr>
+
+# v0.2.0 (2022-07-04)
+
+## What's Changed
+
+* Directly search so in search path when /usr/bin/curl is not exist by @tiann
+  in https://github.com/ehids/ecapture/pull/97
+* Add GitHub Action ：Golangci lint by @cfc4n in https://github.com/ehids/ecapture/pull/99
+* Add Chinese name 旁观者. by @cfc4n in https://github.com/ehids/ecapture/pull/103
+* build: change tar.gz file path in checksum.txt by @cfc4n in https://github.com/ehids/ecapture/pull/104
+* Support Golang HTTPS introspection by @chenhengqi in https://github.com/ehids/ecapture/pull/100
+* New Feature: support Android without GKI (kernel version > 4.18) by @cfc4n
+  in https://github.com/ehids/ecapture/pull/107
+* fixed :#108 tls module cannot to capture payload on Aarch64 kernel 4.18 by @huzai9527
+  in https://github.com/ehids/ecapture/pull/109
+* fixed #108: ip address lost on aarch64 kernel 4.18 by @cfc4n in https://github.com/ehids/ecapture/pull/111
+* New feature: add payload parser. by @cfc4n in https://github.com/ehids/ecapture/pull/113
+* document: message friendly by @cfc4n in https://github.com/ehids/ecapture/pull/119
+
+## New Contributors
+
+* @tiann made their first contribution in https://github.com/ehids/ecapture/pull/97
+* @chenhengqi made their first contribution in https://github.com/ehids/ecapture/pull/100
+
 **Full Changelog**: https://github.com/ehids/ecapture/compare/v0.1.10...v0.2.0
 
 <hr>
 
-## v0.1.10 (2022-06-20)
+# v0.1.10 (2022-06-20)
 
 ## What's Changed
 
@@ -30,7 +58,7 @@
 
 <hr>
 
-## v0.1.9 (2022-06-11)
+# v0.1.9 (2022-06-11)
 
 ## 🚀 Features
 
@@ -68,7 +96,7 @@
 
 <hr>
 
-## v0.1.8 (2022-05-08)
+# v0.1.8 (2022-05-08)
 
 ## What's Changed
 
@@ -87,7 +115,7 @@
 
 <hr>
 
-## v0.1.7 (2022-04-22)
+# v0.1.7 (2022-04-22)
 
 ### What's Changed
 * user: fix #29 ubuntu21.10 error :connect symbol cant found by @cfc4n in https://github.com/ehids/ecapture/pull/30
@@ -106,47 +134,48 @@
 
 <hr>
 
-## v0.1.6 (2022-04-07)
+# v0.1.6 (2022-04-07)
 
 - 更新mysqld数据库审计模块
 - 更新tls网络捕获模块
 
-### mysqld 
+## mysqld
+
 - 支持mysql5.7/8.0, MariadDB 10.5+的Mysqld数据库的查询审计。
   - 自动识别mysqld版本 。
   - 自动查找hook的sql 查询函数。
 
-### tls
+## tls
 - 支持openssl的IP地址关联
   - 支持网络IP地址的存储、关联到网络数据中。
   - 支持自定义libpthread.so路径指定（定位connect函数）。
 
 <hr>
 
-## v0.1.5 (2022-03-25)
+# v0.1.5 (2022-03-25)
 
 - 增加mysqld数据库审计模块
 
-### mysqld 模块
+## mysqld 模块
 - 支持mysql5.6的mariaDB数据库的查询审计
   - 默认path目录为/usr/sbin/mariadb 。 
   - 支持function name、offset两个参数自定义。
 
 <hr>
 
-## v0.1.4 (2022-03-22)
+# v0.1.4 (2022-03-22)
 
 - 调整运行环境检测方式
   - 判断BTF支持的方法，改为优先判断`/sys/kernel/btf/vmlinux`文件，以及其他BTF特征的`vmlinux-*`目录等 。
   - 增加运行原理图。
 
-### tls(openssl) 模块
+## tls(openssl) 模块
 - 支持gnutls 、 nspr 两个类库的数据捕获
 - 重命名子命令，由`openssl`改为`tls`
 
 <hr>
 
-## v0.1.3 (2022-03-20)
+# v0.1.3 (2022-03-20)
 
 - 增加运行环境检测
   - 检测linux kernel必须大于4.18 。
@@ -156,29 +185,29 @@
 
 <hr>
 
-## v0.1.1 (2022-03-19)
+# v0.1.1 (2022-03-19)
 
 - 模块拆分，启用子命令模式
 - 增加全局可选PID参数，针对特定PID进行数据捕获
 - 增加hexdump打印模式
 
-### openssl模块
+## openssl模块
 - 支持自定义openssl的so路径。
 - 支持hex进制的数据输出
 
-### bash模块
+## bash模块
 - 支持自定义bash路径参数
 - 支持自定义readline.so路径参数
 - 支持hex进制的数据输出
 
 <hr>
 
-## v0.1.0 (2022-03-17)
+# v0.1.0 (2022-03-17)
 
-### openssl模块
+## openssl模块
 - 增加openssl的libssl.so的SSL/TLS数据抓包功能。
 - 根据wget路径，自动选择libssl.so路径。
 
-### bash模块
+## bash模块
 - 自动根据ENV查找bash
 - 根据bash自动查找`readline.so`，并进行bash命令捕获

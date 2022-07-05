@@ -219,7 +219,7 @@ jobs:
             tar  -czf ${OUT_ARCHIVE} ${TAR_DIR}
             cp ${OUT_ARCHIVE} "/artifacts/"
             echo "-------------------end: Create ecapture.tar.gz of Linux -------------------"
-            echo "-------------------start: Create ecapture.tar.gz of Android GKI -------------------"
+            echo "-------------------start: Create ecapture.tar.gz of Android kernel 4.18+ -------------------"
             make env
             make clean
             ANDROID=1 make
@@ -245,7 +245,7 @@ jobs:
             cp ${OUTPUT_DIR}/release_notes.txt ${TAR_DIR}/release_notes.txt
             tar  -czf ${OUT_ARCHIVE} ${TAR_DIR}
             cp ${OUT_ARCHIVE} "/artifacts/"
-            echo "-------------------end: Create ecapture.tar.gz of Android GKI -------------------"
+            echo "-------------------end: Create ecapture.tar.gz of Android kernel 4.18+ -------------------"
             echo "Produced artifact at /artifacts/${artifact_name}"
 
       - name: Show the artifact
