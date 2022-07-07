@@ -11,8 +11,9 @@ import (
 )
 
 const (
-	SYS_KERNEL_BTF_VMLINUX = "/sys/kernel/btf/vmlinux"
-	CONFIG_DEBUG_INFO_BTF  = "CONFIG_DEBUG_INFO_BTF"
+	SYS_KERNEL_BTF_VMLINUX     = "/sys/kernel/btf/vmlinux"
+	CONFIG_DEBUG_INFO_BTF      = "CONFIG_DEBUG_INFO_BTF"
+	PROC_CONTAINER_CGROUP_PATH = "/proc/1/cgroup"
 )
 
 var (
@@ -83,4 +84,25 @@ func getLinuxConfig(filename string) (map[string]string, error) {
 		return KernelConfig, err
 	}
 	return KernelConfig, nil
+}
+
+// IsContainer returns true if the process is running in a container.
+func IsContainer() (bool, error) {
+	var f *os.File
+	var err error
+	var i int
+	f, err = os.Open(PROC_CONTAINER_CGROUP_PATH)
+	if err != nil {
+		return false, err
+	}
+	defer f.Close()
+	b := make([]byte, 1024)
+	i, err = f.Read(b)
+	if err != nil {
+		return false, err
+	}
+	if strings.Contains(string(b[:i]), "docker") {
+		return true, nil
+	}
+	return false, nil
 }

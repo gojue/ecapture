@@ -5,6 +5,7 @@ import (
 )
 
 func TestBpfConfig(t *testing.T) {
+	t.Log("TestBpfConfig with fake config")
 	configPaths = []string{
 		"/xxxxx/proc/config.gz", // android
 	}
@@ -14,6 +15,7 @@ func TestBpfConfig(t *testing.T) {
 		t.Logf("GetSystemConfig error:%s", e.Error())
 	}
 
+	t.Log("TestBpfConfig with true config")
 	configPaths = []string{
 		"/proc/config.gz", // android
 		"/boot/config",    // linux
@@ -37,4 +39,16 @@ func TestBpfConfig(t *testing.T) {
 		}
 	}
 	t.Logf("GetSystemConfig success")
+}
+
+func TestIsContainer(t *testing.T) {
+	isContainer, err := IsContainer()
+	if err != nil {
+		t.Fatalf("IsContainer error:%s", err.Error())
+	}
+	if isContainer {
+		t.Logf("IsContainer true")
+	} else {
+		t.Logf("IsContainer false")
+	}
 }
