@@ -106,8 +106,8 @@ GO_VERSION_MIN = $(shell echo $(GO_VERSION) | $(CMD_CUT) -d'.' -f2)
 	| .check_$(CMD_GO)
 #
 	@if [ ${GO_VERSION_MAJ} -eq 1 ]; then
-		if [ ${GO_VERSION_MIN} -lt 16 ]; then
-			echo -n "you MUST use golang 1.16 or newer, "
+		if [ ${GO_VERSION_MIN} -lt 17 ]; then
+			echo -n "you MUST use golang 1.17 or newer, "
 			echo "your current golang version is ${GO_VERSION}"
 			exit 1
 		fi
@@ -169,23 +169,23 @@ endif
 # Target Arch
 #
 BPFHEADER ?=
-ifeq ($(UNAME_M),x86_64)
-   ARCH = x86_64
-   LINUX_ARCH = x86
-   GO_ARCH = amd64
-   BPFHEADER = -I ./kern \
-               -I ./kern/bpf/x86
-   AUTOGENCMD = $(CMD_BPFTOOL) btf dump file /sys/kernel/btf/vmlinux format c > kern/bpf/x86/vmlinux.h
+ifeq ($(UNAME_M),aarch64)
+	 ARCH = arm64
+	 LINUX_ARCH = arm64
+	 GO_ARCH = arm64
+	 BPFHEADER = -I ./kern \
+				 -I ./kern/bpf/arm64
+	 AUTOGENCMD = ls -al kern/bpf/arm64/vmlinux.h
+else
+	# x86_64 default
+	ARCH = x86_64
+	LINUX_ARCH = x86
+	GO_ARCH = amd64
+	BPFHEADER = -I ./kern \
+			    -I ./kern/bpf/x86
+	AUTOGENCMD = $(CMD_BPFTOOL) btf dump file /sys/kernel/btf/vmlinux format c > kern/bpf/x86/vmlinux.h
 endif
 
-ifeq ($(UNAME_M),aarch64)
-   ARCH = arm64
-   LINUX_ARCH = arm64
-   GO_ARCH = arm64
-   BPFHEADER = -I ./kern \
-               -I ./kern/bpf/arm64
-   AUTOGENCMD = ls -al kern/bpf/arm64/vmlinux.h
-endif
 
 #
 # include vpath
@@ -219,7 +219,7 @@ KERN_OBJECTS_NOCORE = ${KERN_SOURCES:.c=.nocore}
 .PHONY: env
 env:
 	@echo ---------------------------------------
-	@echo "Makefile Environment:"
+	@echo "eCapture Makefile Environment:"
 	@echo ---------------------------------------
 	@echo "PARALLEL                 $(PARALLEL)"
 	@echo ---------------------------------------
@@ -248,6 +248,8 @@ env:
 	@echo "KERN_SRC_PATH            $(KERN_SRC_PATH)"
 	@echo ---------------------------------------
 	@echo "GO_ARCH                  $(GO_ARCH)"
+	@echo "ANDROID                  $(ANDROID)"
+	@echo "AUTOGENCMD               $(AUTOGENCMD)"
 	@echo ---------------------------------------
 
 #

@@ -168,10 +168,10 @@ jobs:
             tar  -czf ${OUT_ARCHIVE} ${TAR_DIR}
             cp ${OUT_ARCHIVE} "/artifacts/"
             echo "-------------------end: Create ecapture.tar.gz of Linux -------------------"
-            echo "-------------------start: Create ecapture.tar.gz of Android kernel 4.18+ -------------------"
+            echo "-------------------start: Create ecapture.tar.gz of Android kernel CO:RE -------------------"
             make env
             make clean
-            ANDROID=1 make nocore
+            ANDROID=1 make
             echo "-------------------ecapture --help-------------------"
             echo "bin/ecapture -h"
             echo "-------------------create tar.gz file-------------------"
@@ -182,7 +182,7 @@ jobs:
             if [ -z "${SNAPSHOT_VERSION}" ]; then
               SNAPSHOT_VERSION="v0.0.0"
             fi
-            TAR_DIR=ecapture-${SNAPSHOT_VERSION}-android_4.18-${UNAME_M}
+            TAR_DIR=ecapture-${SNAPSHOT_VERSION}-android_core-${UNAME_M}
             RELEASE_NOTES=${OUTPUT_DIR}/release_notes.txt
             OUT_ARCHIVE=${OUTPUT_DIR}/${artifact_name}-android-${{ matrix.arch }}.tar.gz
             mkdir -p ${TAR_DIR}
@@ -194,7 +194,7 @@ jobs:
             cp ${OUTPUT_DIR}/release_notes.txt ${TAR_DIR}/release_notes.txt
             tar  -czf ${OUT_ARCHIVE} ${TAR_DIR}
             cp ${OUT_ARCHIVE} "/artifacts/"
-            echo "-------------------end: Create ecapture.tar.gz of Android kernel 4.18+ -------------------"
+            echo "-------------------end: Create ecapture.tar.gz of Android kernel CO:RE -------------------"
             echo "Produced artifact at /artifacts/${artifact_name}"
 
       - name: Upload artifacts
