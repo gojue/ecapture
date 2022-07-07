@@ -190,6 +190,7 @@ jobs:
             done
             clang --version
             which bpftool
+            cat /proc/1/cgroup
             git config --global --add safe.directory /source_code
             cd /source_code
             echo "-------------------end: Create ecapture.tar.gz of Linux -------------------"
