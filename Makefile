@@ -6,7 +6,7 @@ nocore: ebpf_nocore assets build_nocore
 	@echo $(shell date)
 
 .ONESHELL:
-SHELL = /bin/sh
+SHELL = /bin/bash
 
 PARALLEL = $(shell $(CMD_GREP) -c ^processor /proc/cpuinfo)
 MAKE = make

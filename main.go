@@ -23,8 +23,8 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if kv < kernel.VersionCode(4, 18, 0) {
-		log.Fatalf("Linux Kernel version %v is not supported. Need > 4.18 .", kv)
+	if kv < kernel.VersionCode(4, 15, 0) {
+		log.Fatalf("Linux Kernel version %v is not supported. Need > 4.15 .", kv)
 	}
 
 	enable, e := ebpf.IsEnableBPF()

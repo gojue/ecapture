@@ -76,7 +76,6 @@ func (this *eConfig) EnableGlobalVar() bool {
 		return true
 	}
 	if kv < kernel.VersionCode(5, 2, 0) {
-		//log.Fatalf("Linux Kernel version %v is not supported. Need > 4.18 .", kv)
 		return false
 	}
 	return true
