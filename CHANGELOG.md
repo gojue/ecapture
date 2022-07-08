@@ -1,8 +1,23 @@
 <hr>
 
+# v0.2.2 (2022-07-09)
+
+## What's Changed
+
+## New Contributors
+
+**Full Changelog**: https://github.com/ehids/ecapture/compare/v0.2.1...v0.2.2
+
+
+<hr>
+
 # v0.2.1 (2022-07-05)
 
 ## What's Changed
+
+* pkg : fix Kernel config read failed, error:Config not found #117 by @cfc4n
+  in https://github.com/ehids/ecapture/pull/123
+* user : Clean up unnecessary information. fix #122 by @cfc4n in https://github.com/ehids/ecapture/pull/124
 
 ## New Contributors
 
