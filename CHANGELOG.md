@@ -3,6 +3,12 @@
 # v0.2.2 (2022-07-09)
 
 ## What's Changed
+* workflows: build failed on aarch 64 ubuntu : 'linux/kconfig.h' file not found #125 by @cfc4n
+  in https://github.com/ehids/ecapture/pull/126
+* Makefile: shell running,with a unexcepted result: lost DKERNEL_LESS_5_2 on kernel 4.15 #129 by @cfc4n
+  in https://github.com/ehids/ecapture/pull/132
+* ebpf: remove detection of BPF config when running at container #127 by @cfc4n
+  in https://github.com/ehids/ecapture/pull/128
 
 ## New Contributors
 
