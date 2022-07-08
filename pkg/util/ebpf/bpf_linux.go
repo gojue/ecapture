@@ -94,14 +94,15 @@ func IsContainer() (bool, error) {
 		return false, e
 	}
 
-	// if b is false, continue to check /proc/1/sched
+	// if b is true, it's a container
 	if b {
-		b, e = isCOntainerSched()
-		if e != nil {
-			return false, e
-		}
+		return true, nil
+	}
 
-		return b, nil
+	// if b is false, continue to check sched
+	b, e = isCOntainerSched()
+	if e != nil {
+		return false, e
 	}
 
 	return b, nil
@@ -158,6 +159,13 @@ func isCOntainerSched() (bool, error) {
 	switch {
 	case strings.Contains(string(b[:i]), "bash (1, #threads"):
 		return true, nil
+	case strings.Contains(string(b[:i]), "run-on-arch-com (1, #threads"):
+		return true, nil
+	case strings.Contains(string(b[:i]), "init (1, #threads:"):
+		return false, nil
+	case strings.Contains(string(b[:i]), "systemd (1, #threads"):
+		return false, nil
 	}
+
 	return false, nil
 }
