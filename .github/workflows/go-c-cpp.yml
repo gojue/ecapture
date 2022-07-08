@@ -190,10 +190,13 @@ jobs:
             done
             clang --version
             which bpftool
+            echo "cat /proc/1/cgroup:"
             cat /proc/1/cgroup
+            echo "cat /proc/1/sched:"
+            cat /proc/1/sched
             git config --global --add safe.directory /source_code
             cd /source_code
-            echo "-------------------end: Create ecapture.tar.gz of Linux -------------------"
+            echo "-------------------start: Create ecapture.tar.gz of Linux -------------------"
             make env
             make clean
             make

@@ -14,6 +14,7 @@ const (
 	SYS_KERNEL_BTF_VMLINUX     = "/sys/kernel/btf/vmlinux"
 	CONFIG_DEBUG_INFO_BTF      = "CONFIG_DEBUG_INFO_BTF"
 	PROC_CONTAINER_CGROUP_PATH = "/proc/1/cgroup"
+	PROC_CONTAINER_SCHED_PATH  = "/proc/1/sched"
 )
 
 var (
@@ -88,6 +89,28 @@ func getLinuxConfig(filename string) (map[string]string, error) {
 
 // IsContainer returns true if the process is running in a container.
 func IsContainer() (bool, error) {
+	b, e := isCOntainerCgroup()
+	if e != nil {
+		return false, e
+	}
+
+	// if b is false, continue to check /proc/1/sched
+	if b {
+		b, e = isCOntainerSched()
+		if e != nil {
+			return false, e
+		}
+
+		return b, nil
+	}
+
+	return b, nil
+}
+
+// isCOntainerCgroup returns true if the process is running in a container.
+// https://www.baeldung.com/linux/is-process-running-inside-container
+
+func isCOntainerCgroup() (bool, error) {
 	var f *os.File
 	var err error
 	var i int
@@ -101,7 +124,39 @@ func IsContainer() (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if strings.Contains(string(b[:i]), "docker") {
+	switch {
+	case strings.Contains(string(b[:i]), "cpuset:/docker"):
+		// CGROUP V1 docker container
+		return true, nil
+	case strings.Contains(string(b[:i]), "cpuset:/kubepods"):
+		// k8s container
+		return true, nil
+	case strings.Contains(string(b[:i]), "0::/\n"):
+		// CGROUP V2 docker container
+		return true, nil
+	}
+
+	return false, nil
+}
+
+// isCOntainerSched returns true if the process is running in a container.
+// https://man7.org/linux/man-pages/man7/sched.7.html
+func isCOntainerSched() (bool, error) {
+	var f *os.File
+	var err error
+	var i int
+	f, err = os.Open(PROC_CONTAINER_SCHED_PATH)
+	if err != nil {
+		return false, err
+	}
+	defer f.Close()
+	b := make([]byte, 1024)
+	i, err = f.Read(b)
+	if err != nil {
+		return false, err
+	}
+	switch {
+	case strings.Contains(string(b[:i]), "bash (1, #threads"):
 		return true, nil
 	}
 	return false, nil
