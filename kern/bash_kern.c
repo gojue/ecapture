@@ -78,7 +78,8 @@ int uretprobe_bash_retval(struct pt_regs *ctx) {
 
     if (event_p) {
         event_p->retval = retval;
-        bpf_map_update_elem(&events_t, &pid, event_p, BPF_ANY);
+//        bpf_map_update_elem(&events_t, &pid, event_p, BPF_ANY);
+        bpf_map_delete_elem(&events_t, &pid);
         bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, event_p,
                               sizeof(struct event));
     }
