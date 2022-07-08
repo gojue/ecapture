@@ -228,7 +228,7 @@ jobs:
             make clean
             ANDROID=1 make
             echo "-------------------ecapture --help-------------------"
-            bin/ecapture -v
+            echo "bin/ecapture -v"
             echo "-------------------create tar.gz file-------------------"
             UNAME_M=`uname -m`
             OUTPUT_DIR="./bin"
