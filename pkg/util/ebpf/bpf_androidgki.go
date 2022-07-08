@@ -50,3 +50,8 @@ func getAndroidConfig(filename string) (map[string]string, error) {
 	}
 	return KernelConfig, nil
 }
+
+// IsContainedInCgroup returns true if the process is running in a container.
+func IsContainer() (bool, error) {
+	return false, nil
+}

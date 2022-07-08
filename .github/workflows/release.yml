@@ -146,7 +146,7 @@ jobs:
             make clean
             make
             echo "-------------------ecapture --help-------------------"
-            echo "bin/ecapture -h"
+            bin/ecapture -v
             echo "-------------------create tar.gz file-------------------"
             UNAME_M=`uname -m`
             OUTPUT_DIR="./bin"
@@ -173,7 +173,7 @@ jobs:
             make clean
             ANDROID=1 make
             echo "-------------------ecapture --help-------------------"
-            echo "bin/ecapture -h"
+            echo "bin/ecapture -v"
             echo "-------------------create tar.gz file-------------------"
             UNAME_M=`uname -m`
             OUTPUT_DIR="./bin"
