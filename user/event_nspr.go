@@ -14,7 +14,7 @@ import (
 
 type NsprDataEvent struct {
 	module       IModule
-	event_type   event_processor.EVENT_TYPE
+	event_type   event_processor.EventType
 	DataType     int64
 	Timestamp_ns uint64
 	Pid          uint32
@@ -116,11 +116,11 @@ func (this *NsprDataEvent) Module() IModule {
 func (this *NsprDataEvent) Clone() event_processor.IEventStruct {
 	event := new(NsprDataEvent)
 	event.module = this.module
-	event.event_type = event_processor.EVENT_TYPE_OUTPUT
+	event.event_type = event_processor.EventTypeEventProcessor
 	return event
 }
 
-func (this *NsprDataEvent) EventType() event_processor.EVENT_TYPE {
+func (this *NsprDataEvent) EventType() event_processor.EventType {
 	return this.event_type
 }
 

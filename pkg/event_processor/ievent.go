@@ -1,13 +1,16 @@
 package event_processor
 
-type EVENT_TYPE uint8
+type EventType uint8
 
 const (
-	// upload to server or write to logfile.
-	EVENT_TYPE_OUTPUT EVENT_TYPE = iota
+	// EventTypeOutput upload to server or write to logfile.
+	EventTypeOutput EventType = iota
 
-	// set as module cache data
-	EVENT_TYPE_MODULE_DATA
+	// EventTypeModuleData set as module cache data
+	EventTypeModuleData
+
+	// EventTypeEventProcessor display by event_processor.
+	EventTypeEventProcessor
 )
 
 type IEventStruct interface {
@@ -19,6 +22,6 @@ type IEventStruct interface {
 	Clone() IEventStruct
 	//Module() IModule
 	//SetModule(IModule)
-	EventType() EVENT_TYPE
+	EventType() EventType
 	GetUUID() string
 }
