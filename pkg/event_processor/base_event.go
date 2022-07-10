@@ -59,7 +59,7 @@ func (t tls_version) String() string {
 }
 
 type BaseEvent struct {
-	event_type   EVENT_TYPE
+	event_type   EventType
 	DataType     int64
 	Timestamp_ns uint64
 	Pid          uint32
@@ -153,11 +153,11 @@ func (this *BaseEvent) String() string {
 
 func (this *BaseEvent) Clone() IEventStruct {
 	event := new(BaseEvent)
-	event.event_type = EVENT_TYPE_OUTPUT
+	event.event_type = EventTypeOutput
 	return event
 }
 
-func (this *BaseEvent) EventType() EVENT_TYPE {
+func (this *BaseEvent) EventType() EventType {
 	return this.event_type
 }
 

@@ -52,7 +52,7 @@ func bashCommandFunc(command *cobra.Command, args []string) {
 
 	logger := log.New(os.Stdout, "bash_", log.LstdFlags)
 
-	logger.Printf("start to run %s module", mod.Name())
+	logger.Printf("ECAPTURE :: start to run %s module", mod.Name())
 
 	// save global config
 	gConf, e := getGlobalConf(command)
@@ -65,7 +65,7 @@ func bashCommandFunc(command *cobra.Command, args []string) {
 	bc.Debug = gConf.Debug
 	bc.IsHex = gConf.IsHex
 
-	logger.Printf("pid info :%d", os.Getpid())
+	logger.Printf("ECAPTURE :: pid info :%d", os.Getpid())
 	//bc.Pid = globalFlags.Pid
 	if e := bc.Check(); e != nil {
 		logger.Fatal(e)

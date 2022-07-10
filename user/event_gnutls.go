@@ -13,7 +13,7 @@ import (
 
 type GnutlsDataEvent struct {
 	module       IModule
-	event_type   event_processor.EVENT_TYPE
+	event_type   event_processor.EventType
 	DataType     int64
 	Timestamp_ns uint64
 	Pid          uint32
@@ -95,11 +95,11 @@ func (this *GnutlsDataEvent) Module() IModule {
 func (this *GnutlsDataEvent) Clone() event_processor.IEventStruct {
 	event := new(GnutlsDataEvent)
 	event.module = this.module
-	event.event_type = event_processor.EVENT_TYPE_OUTPUT
+	event.event_type = event_processor.EventTypeEventProcessor
 	return event
 }
 
-func (this *GnutlsDataEvent) EventType() event_processor.EVENT_TYPE {
+func (this *GnutlsDataEvent) EventType() event_processor.EventType {
 	return this.event_type
 }
 

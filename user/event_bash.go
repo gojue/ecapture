@@ -20,7 +20,7 @@ const MAX_DATA_SIZE_BASH = 256
 
 type bashEvent struct {
 	module     IModule
-	event_type event_processor.EVENT_TYPE
+	event_type event_processor.EventType
 	Pid        uint32
 	Uid        uint32
 	Line       [MAX_DATA_SIZE_BASH]uint8
@@ -70,11 +70,11 @@ func (this *bashEvent) Module() IModule {
 func (this *bashEvent) Clone() event_processor.IEventStruct {
 	event := new(bashEvent)
 	event.module = this.module
-	event.event_type = event_processor.EVENT_TYPE_OUTPUT
+	event.event_type = event_processor.EventTypeOutput
 	return event
 }
 
-func (this *bashEvent) EventType() event_processor.EVENT_TYPE {
+func (this *bashEvent) EventType() event_processor.EventType {
 	return this.event_type
 }
 

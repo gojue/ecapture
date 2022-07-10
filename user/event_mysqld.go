@@ -56,7 +56,7 @@ func (this dispatch_command_return) String() string {
 
 type mysqldEvent struct {
 	module     IModule
-	event_type event_processor.EVENT_TYPE
+	event_type event_processor.EventType
 	Pid        uint64
 	Timestamp  uint64
 	query      [MYSQLD_MAX_DATA_SIZE]uint8
@@ -113,11 +113,11 @@ func (this *mysqldEvent) Module() IModule {
 func (this *mysqldEvent) Clone() event_processor.IEventStruct {
 	event := new(mysqldEvent)
 	event.module = this.module
-	event.event_type = event_processor.EVENT_TYPE_OUTPUT
+	event.event_type = event_processor.EventTypeOutput
 	return event
 }
 
-func (this *mysqldEvent) EventType() event_processor.EVENT_TYPE {
+func (this *mysqldEvent) EventType() event_processor.EventType {
 	return this.event_type
 }
 

@@ -65,7 +65,7 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 		}
 		logger.SetOutput(f)
 	}
-	logger.Printf("pid info :%d", os.Getpid())
+	logger.Printf("ECAPTURE :: pid info :%d", os.Getpid())
 
 	modNames := []string{user.MODULE_NAME_OPENSSL, user.MODULE_NAME_GNUTLS, user.MODULE_NAME_NSPR, user.MODULE_NAME_GOSSL}
 
@@ -73,7 +73,7 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 	for _, modName := range modNames {
 		mod := user.GetModuleByName(modName)
 		if mod == nil {
-			logger.Printf("[eCapture]\tcant found module: %s", modName)
+			logger.Printf("ECAPTURE :: \tcant found module: %s", modName)
 			break
 		}
 
@@ -91,7 +91,7 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 		}
 
 		if conf == nil {
-			logger.Printf("[eCapture]\tcant found module %s config info.", mod.Name())
+			logger.Printf("ECAPTURE :: \tcant found module %s config info.", mod.Name())
 			break
 		}
 

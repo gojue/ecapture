@@ -48,8 +48,8 @@ func (e *goSSLEvent) SetModule(m IModule) {
 	e.m = m
 }
 
-func (e *goSSLEvent) EventType() event_processor.EVENT_TYPE {
-	return event_processor.EVENT_TYPE_OUTPUT
+func (e *goSSLEvent) EventType() event_processor.EventType {
+	return event_processor.EventTypeOutput
 }
 
 func (this *goSSLEvent) GetUUID() string {

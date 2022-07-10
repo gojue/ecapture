@@ -61,7 +61,7 @@ func (t tls_version) String() string {
 
 type SSLDataEvent struct {
 	module       IModule
-	event_type   event_processor.EVENT_TYPE
+	event_type   event_processor.EventType
 	DataType     int64
 	Timestamp_ns uint64
 	Pid          uint32
@@ -171,11 +171,11 @@ func (this *SSLDataEvent) Module() IModule {
 func (this *SSLDataEvent) Clone() event_processor.IEventStruct {
 	event := new(SSLDataEvent)
 	event.module = this.module
-	event.event_type = event_processor.EVENT_TYPE_OUTPUT
+	event.event_type = event_processor.EventTypeEventProcessor
 	return event
 }
 
-func (this *SSLDataEvent) EventType() event_processor.EVENT_TYPE {
+func (this *SSLDataEvent) EventType() event_processor.EventType {
 	return this.event_type
 }
 
@@ -190,7 +190,7 @@ uint64_t timestamp_ns;
 */
 type ConnDataEvent struct {
 	module      IModule
-	event_type  event_processor.EVENT_TYPE
+	event_type  event_processor.EventType
 	TimestampNs uint64
 	Pid         uint32
 	Tid         uint32
@@ -247,11 +247,11 @@ func (this *ConnDataEvent) Module() IModule {
 func (this *ConnDataEvent) Clone() event_processor.IEventStruct {
 	event := new(ConnDataEvent)
 	event.module = this.module
-	event.event_type = event_processor.EVENT_TYPE_MODULE_DATA
+	event.event_type = event_processor.EventTypeModuleData
 	return event
 }
 
-func (this *ConnDataEvent) EventType() event_processor.EVENT_TYPE {
+func (this *ConnDataEvent) EventType() event_processor.EventType {
 	return this.event_type
 }
 

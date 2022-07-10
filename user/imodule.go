@@ -246,10 +246,11 @@ func (this *Module) Decode(em *ebpf.Map, b []byte) (event event_processor.IEvent
 // 写入数据，或者上传到远程数据库，写入到其他chan 等。
 func (this *Module) Dispatcher(event event_processor.IEventStruct) {
 	switch event.EventType() {
-	case event_processor.EVENT_TYPE_OUTPUT:
-		//this.logger.Println(event)
+	case event_processor.EventTypeOutput:
+		this.logger.Println(event)
+	case event_processor.EventTypeEventProcessor:
 		this.processor.Write(event)
-	case event_processor.EVENT_TYPE_MODULE_DATA:
+	case event_processor.EventTypeModuleData:
 		// Save to cache
 		this.child.Dispatcher(event)
 	}

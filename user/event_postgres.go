@@ -26,7 +26,7 @@ const POSTGRES_MAX_DATA_SIZE = 256
 
 type postgresEvent struct {
 	module     IModule
-	event_type event_processor.EVENT_TYPE
+	event_type event_processor.EventType
 	Pid        uint64
 	Timestamp  uint64
 	query      [POSTGRES_MAX_DATA_SIZE]uint8
@@ -70,11 +70,11 @@ func (this *postgresEvent) Module() IModule {
 
 func (this *postgresEvent) Clone() event_processor.IEventStruct {
 	event := new(postgresEvent)
-	event.event_type = event_processor.EVENT_TYPE_OUTPUT
+	event.event_type = event_processor.EventTypeOutput
 	return event
 }
 
-func (this *postgresEvent) EventType() event_processor.EVENT_TYPE {
+func (this *postgresEvent) EventType() event_processor.EventType {
 	return this.event_type
 }
 
