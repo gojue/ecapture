@@ -45,9 +45,9 @@ func mysqldCommandFunc(command *cobra.Command, args []string) {
 
 	mod := user.GetModuleByName(user.MODULE_NAME_MYSQLD)
 
-	logger := log.Default()
+	logger := log.New(os.Stdout, "mysqld_", log.LstdFlags)
 
-	logger.Printf("start to run %s module", mod.Name())
+	logger.Printf("ECAPTURE :: start to run %s module", mod.Name())
 
 	// save global config
 	gConf, e := getGlobalConf(command)
@@ -59,7 +59,7 @@ func mysqldCommandFunc(command *cobra.Command, args []string) {
 	mysqldConfig.Debug = gConf.Debug
 	mysqldConfig.IsHex = gConf.IsHex
 
-	log.Printf("pid info :%d", os.Getpid())
+	log.Printf("ECAPTURE :: pid info :%d", os.Getpid())
 	//bc.Pid = globalFlags.Pid
 	if e := mysqldConfig.Check(); e != nil {
 		logger.Fatal(e)
