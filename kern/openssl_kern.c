@@ -1,4 +1,5 @@
 #include "ecapture.h"
+#include "masterkey_kern.h"
 
 enum ssl_data_event_type { kSSLRead, kSSLWrite };
 const u32 invalidFD = 0;
@@ -327,7 +328,8 @@ int probe_connect(struct pt_regs* ctx) {
         return 0;
     }
     sa_family_t address_family = 0;
-    bpf_probe_read_user(&address_family, sizeof(address_family), &saddr->sa_family);
+    bpf_probe_read_user(&address_family, sizeof(address_family),
+                        &saddr->sa_family);
 
     if (address_family != AF_INET) {
         return 0;

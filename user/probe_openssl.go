@@ -142,6 +142,7 @@ func (this *MOpenSSLProbe) setupManagers() error {
 
 	this.bpfManager = &manager.Manager{
 		Probes: []*manager.Probe{
+
 			{
 				Section:          "uprobe/SSL_write",
 				EbpfFuncName:     "probe_entry_SSL_write",
@@ -166,11 +167,52 @@ func (this *MOpenSSLProbe) setupManagers() error {
 				AttachToFuncName: "SSL_read",
 				BinaryPath:       binaryPath,
 			},
+
+			// --------------------------------------------------
+			// for SSL_write_ex \ SSL_read_ex
+			{
+				Section:          "uprobe/SSL_write",
+				EbpfFuncName:     "probe_entry_SSL_write",
+				AttachToFuncName: "SSL_write_ex",
+				BinaryPath:       binaryPath,
+				UID:              "uprobe_SSL_write_ex",
+			},
+			{
+				Section:          "uretprobe/SSL_write",
+				EbpfFuncName:     "probe_ret_SSL_write",
+				AttachToFuncName: "SSL_write_ex",
+				BinaryPath:       binaryPath,
+				UID:              "uretprobe_SSL_write_ex",
+			},
+			{
+				Section:          "uprobe/SSL_read",
+				EbpfFuncName:     "probe_entry_SSL_read",
+				AttachToFuncName: "SSL_read_ex",
+				BinaryPath:       binaryPath,
+				UID:              "uprobe_SSL_read_ex",
+			},
+			{
+				Section:          "uretprobe/SSL_read",
+				EbpfFuncName:     "probe_ret_SSL_read",
+				AttachToFuncName: "SSL_read_ex",
+				BinaryPath:       binaryPath,
+				UID:              "uretprobe_SSL_read_ex",
+			},
 			{
 				Section:          "uprobe/connect",
 				EbpfFuncName:     "probe_connect",
 				AttachToFuncName: "connect",
 				BinaryPath:       libPthread,
+			},
+			// --------------------------------------------------
+
+			// openssl masterkey
+			{
+				Section:          "uprobe/SSL_write_key",
+				EbpfFuncName:     "probe_ssl_master_key",
+				AttachToFuncName: "SSL_write",
+				BinaryPath:       binaryPath,
+				UID:              "uprobe_ssl_master_key",
 			},
 		},
 
@@ -180,6 +222,9 @@ func (this *MOpenSSLProbe) setupManagers() error {
 			},
 			{
 				Name: "connect_events",
+			},
+			{
+				Name: "masterkey_events",
 			},
 		},
 	}
@@ -236,6 +281,18 @@ func (this *MOpenSSLProbe) initDecodeFun() error {
 	connEvent := &ConnDataEvent{}
 	connEvent.SetModule(this)
 	this.eventFuncMaps[ConnEventsMap] = connEvent
+
+	MasterkeyEventsMap, found, err := this.bpfManager.GetMap("masterkey_events")
+	if err != nil {
+		return err
+	}
+	if !found {
+		return errors.New("cant found map:masterkey_events")
+	}
+	this.eventMaps = append(this.eventMaps, MasterkeyEventsMap)
+	masterkeyEvent := &MasterKeyEvent{}
+	masterkeyEvent.SetModule(this)
+	this.eventFuncMaps[MasterkeyEventsMap] = masterkeyEvent
 	return nil
 }
 
