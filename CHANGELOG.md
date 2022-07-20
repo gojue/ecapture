@@ -5,20 +5,18 @@
 **Capture TLS master_key ,save to file. Support openssl `1.1.1.X` . `TLS 1.2` .**
 
 Quick Guide:
-  - use `ecapture` to capture TLS master_key, will save master secret to `ecapture_masterkey_[pid].log`.
-  - use `tcpdump` to capture and save packets to `xxx.pcapng` file.
-  - open `xxx.pcapng` file with `wireshark`.
-  - Setting : `Wireshark` --> `Preferences` -->  `Protocols` --> `TLS` --> `(Pre)-Master-Secret log filename`, select `ecapture_masterkey_[pid].log`.
-  - Using : right click packet item, select `follow` -> `HTTP Stream` / `HTTP/2 Stream`
+- use `ecapture` to capture TLS master_key, will save master secret to `ecapture_masterkey_[pid].log`.
+- use `tcpdump` to capture and save packets to `xxx.pcapng` file.
+- open `xxx.pcapng` file with `wireshark`.
+- Setting : `Wireshark` --> `Preferences` -->  `Protocols` --> `TLS` --> `(Pre)-Master-Secret log filename`, select `ecapture_masterkey_[pid].log`.
+- Using : right click packet item, select `follow` -> `HTTP Stream` / `HTTP/2 Stream`
 
 ## What's Changed
-
-
-## New Contributors
+* all : refactor event_processor EventType. by @cfc4n in https://github.com/ehids/ecapture/pull/134
+* fixed #138 : You have an error in your yaml syntax on line 79 by @cfc4n in https://github.com/ehids/ecapture/pull/139
+* New feature: capture openssl masterkey  #27 by @cfc4n in https://github.com/ehids/ecapture/pull/140
 
 **Full Changelog**: https://github.com/ehids/ecapture/compare/v0.2.2...v0.3.0
-
-
 
 <hr>
 
