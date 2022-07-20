@@ -16,7 +16,10 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-const CONN_NOT_FOUND = "[ADDR_NOT_FOUND]"
+const (
+	CLIENT_RANDOM  = "CLIENT_RANDOM"
+	CONN_NOT_FOUND = "[ADDR_NOT_FOUND]"
+)
 
 type MOpenSSLProbe struct {
 	Module
@@ -27,6 +30,10 @@ type MOpenSSLProbe struct {
 
 	// pid[fd:Addr]
 	pidConns map[uint32]map[uint32]string
+
+	filename   string
+	file       *os.File
+	masterKeys map[string]string
 }
 
 //对象初始化
@@ -37,6 +44,15 @@ func (this *MOpenSSLProbe) Init(ctx context.Context, logger *log.Logger, conf IC
 	this.eventMaps = make([]*ebpf.Map, 0, 2)
 	this.eventFuncMaps = make(map[*ebpf.Map]event_processor.IEventStruct)
 	this.pidConns = make(map[uint32]map[uint32]string)
+	this.masterKeys = make(map[string]string)
+	fd := os.Getpid()
+	this.filename = fmt.Sprintf("ecapture_masterkey_%d.log", fd)
+	file, err := os.OpenFile(this.filename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+	if err != nil {
+		return err
+	}
+	this.file = file
+	this.logger.Printf("master key file: %s\n", this.filename)
 	return nil
 }
 
@@ -353,9 +369,34 @@ func (this *MOpenSSLProbe) GetConn(pid, fd uint32) string {
 	return addr
 }
 
+func (this *MOpenSSLProbe) saveMasterKey(client_random [32]byte, master_key [48]byte) {
+	var k = fmt.Sprintf("%02x", client_random)
+	var v = fmt.Sprintf("%02x", master_key)
+
+	v, f := this.masterKeys[k]
+	if f {
+		return
+	}
+	this.masterKeys[k] = v
+
+	// save to file
+	var b = fmt.Sprintf("%s %02x %02x\n", CLIENT_RANDOM, client_random, master_key)
+	l, e := this.file.WriteString(b)
+	if e != nil {
+		this.logger.Fatalf("save CLIENT_RANDOM to file error:%s", e.Error())
+		return
+	}
+	this.logger.Printf("save CLIENT_RANDOM %02x to file success, %d bytes", client_random, l)
+}
+
 func (this *MOpenSSLProbe) Dispatcher(event event_processor.IEventStruct) {
 	// detect event type TODO
-	this.AddConn(event.(*ConnDataEvent).Pid, event.(*ConnDataEvent).Fd, event.(*ConnDataEvent).Addr)
+	switch event.(type) {
+	case *ConnDataEvent:
+		this.AddConn(event.(*ConnDataEvent).Pid, event.(*ConnDataEvent).Fd, event.(*ConnDataEvent).Addr)
+	case *MasterKeyEvent:
+		this.saveMasterKey(event.(*MasterKeyEvent).ClientRandom, event.(*MasterKeyEvent).MasterKey)
+	}
 	//this.logger.Println(event)
 }
 

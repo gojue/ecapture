@@ -59,7 +59,7 @@ func (this *MasterKeyEvent) Module() IModule {
 func (this *MasterKeyEvent) Clone() event_processor.IEventStruct {
 	event := new(MasterKeyEvent)
 	event.module = this.module
-	event.event_type = event_processor.EventTypeOutput
+	event.event_type = event_processor.EventTypeModuleData
 	return event
 }
 
