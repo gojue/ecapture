@@ -5,20 +5,28 @@ import (
 	"context"
 	"ecapture/assets"
 	"ecapture/pkg/event_processor"
-	"fmt"
-	"log"
-	"math"
-	"os"
-
 	"errors"
+	"fmt"
 	"github.com/cilium/ebpf"
 	manager "github.com/ehids/ebpfmanager"
 	"golang.org/x/sys/unix"
+	"log"
+	"math"
+	"os"
 )
 
 const (
-	CLIENT_RANDOM  = "CLIENT_RANDOM"
 	CONN_NOT_FOUND = "[ADDR_NOT_FOUND]"
+
+	// tls 1.2
+	CLIENT_RANDOM = "CLIENT_RANDOM"
+
+	// tls 1.3
+	SERVER_HANDSHAKE_TRAFFIC_SECRET = "SERVER_HANDSHAKE_TRAFFIC_SECRET"
+	EXPORTER_SECRET                 = "EXPORTER_SECRET"
+	SERVER_TRAFFIC_SECRET_0         = "SERVER_TRAFFIC_SECRET_0"
+	CLIENT_HANDSHAKE_TRAFFIC_SECRET = "CLIENT_HANDSHAKE_TRAFFIC_SECRET"
+	CLIENT_TRAFFIC_SECRET_0         = "CLIENT_TRAFFIC_SECRET_0"
 )
 
 type MOpenSSLProbe struct {
@@ -33,7 +41,7 @@ type MOpenSSLProbe struct {
 
 	filename   string
 	file       *os.File
-	masterKeys map[string]string
+	masterKeys map[string]bool
 }
 
 //对象初始化
@@ -44,7 +52,7 @@ func (this *MOpenSSLProbe) Init(ctx context.Context, logger *log.Logger, conf IC
 	this.eventMaps = make([]*ebpf.Map, 0, 2)
 	this.eventFuncMaps = make(map[*ebpf.Map]event_processor.IEventStruct)
 	this.pidConns = make(map[uint32]map[uint32]string)
-	this.masterKeys = make(map[string]string)
+	this.masterKeys = make(map[string]bool)
 	fd := os.Getpid()
 	this.filename = fmt.Sprintf("ecapture_masterkey_%d.log", fd)
 	file, err := os.OpenFile(this.filename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
@@ -306,7 +314,7 @@ func (this *MOpenSSLProbe) initDecodeFun() error {
 		return errors.New("cant found map:masterkey_events")
 	}
 	this.eventMaps = append(this.eventMaps, MasterkeyEventsMap)
-	masterkeyEvent := &MasterKeyEvent{}
+	masterkeyEvent := &MasterSecretEvent{}
 	masterkeyEvent.SetModule(this)
 	this.eventFuncMaps[MasterkeyEventsMap] = masterkeyEvent
 	return nil
@@ -369,33 +377,42 @@ func (this *MOpenSSLProbe) GetConn(pid, fd uint32) string {
 	return addr
 }
 
-func (this *MOpenSSLProbe) saveMasterKey(client_random [32]byte, master_key [48]byte) {
-	var k = fmt.Sprintf("%02x", client_random)
-	var v = fmt.Sprintf("%02x", master_key)
+func (this *MOpenSSLProbe) saveMasterSecret(event *MasterSecretEvent) {
 
-	v, f := this.masterKeys[k]
+	var k = fmt.Sprintf("%02x", event.ClientRandom)
+
+	_, f := this.masterKeys[k]
 	if f {
+		// 已存在该随机数的masterSecret，不需要重复写入
 		return
 	}
-	this.masterKeys[k] = v
+	this.masterKeys[k] = true
 
 	// save to file
-	var b = fmt.Sprintf("%s %02x %02x\n", CLIENT_RANDOM, client_random, master_key)
-	l, e := this.file.WriteString(b)
+	var b *bytes.Buffer
+	switch event.Version {
+	case TLS1_2_VERSION:
+		b = bytes.NewBufferString(fmt.Sprintf("%s %02x %02x\n", CLIENT_RANDOM, event.ClientRandom, event.MasterKey))
+	case TLS1_3_VERSION:
+		// TODO fixme
+		b = bytes.NewBufferString(fmt.Sprintf("%s %02x %02x\n", SERVER_HANDSHAKE_TRAFFIC_SECRET, event.ClientRandom, event.MasterKey))
+	}
+	v := tls_version{version: event.Version}
+	l, e := this.file.WriteString(b.String())
 	if e != nil {
-		this.logger.Fatalf("save CLIENT_RANDOM to file error:%s", e.Error())
+		this.logger.Fatalf("%s: save CLIENT_RANDOM to file error:%s", e.Error())
 		return
 	}
-	this.logger.Printf("save CLIENT_RANDOM %02x to file success, %d bytes", client_random, l)
+	this.logger.Printf("%s: save CLIENT_RANDOM %02x to file success, %d bytes", v.String(), event.ClientRandom, l)
 }
 
 func (this *MOpenSSLProbe) Dispatcher(event event_processor.IEventStruct) {
-	// detect event type TODO
+	// detect event type
 	switch event.(type) {
 	case *ConnDataEvent:
 		this.AddConn(event.(*ConnDataEvent).Pid, event.(*ConnDataEvent).Fd, event.(*ConnDataEvent).Addr)
-	case *MasterKeyEvent:
-		this.saveMasterKey(event.(*MasterKeyEvent).ClientRandom, event.(*MasterKeyEvent).MasterKey)
+	case *MasterSecretEvent:
+		this.saveMasterSecret(event.(*MasterSecretEvent))
 	}
 	//this.logger.Println(event)
 }
