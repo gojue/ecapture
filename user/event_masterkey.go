@@ -35,6 +35,9 @@ type MasterSecretEvent struct {
 
 func (this *MasterSecretEvent) Decode(payload []byte) (err error) {
 	buf := bytes.NewBuffer(payload)
+	if err = binary.Read(buf, binary.LittleEndian, &this.Version); err != nil {
+		return
+	}
 	if err = binary.Read(buf, binary.LittleEndian, &this.ClientRandom); err != nil {
 		return
 	}
