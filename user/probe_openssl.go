@@ -29,6 +29,14 @@ const (
 	CLIENT_TRAFFIC_SECRET_0         = "CLIENT_TRAFFIC_SECRET_0"
 )
 
+type Tls13MasterSecret struct {
+	ServerHandshakeTrafficSecret []byte
+	ExporterSecret               []byte
+	ServerTrafficSecret0         []byte
+	ClientHandshakeTrafficSecret []byte
+	ClientTrafficSecret0         []byte
+}
+
 type MOpenSSLProbe struct {
 	Module
 	bpfManager        *manager.Manager
@@ -396,11 +404,13 @@ func (this *MOpenSSLProbe) saveMasterSecret(event *MasterSecretEvent) {
 	case TLS1_3_VERSION:
 		// TODO fixme
 		b = bytes.NewBufferString(fmt.Sprintf("%s %02x %02x\n", SERVER_HANDSHAKE_TRAFFIC_SECRET, event.ClientRandom, event.MasterKey))
+	default:
+		b = bytes.NewBufferString(fmt.Sprintf("%s %02x %02x\n", CLIENT_RANDOM, event.ClientRandom, event.MasterKey))
 	}
 	v := tls_version{version: event.Version}
 	l, e := this.file.WriteString(b.String())
 	if e != nil {
-		this.logger.Fatalf("%s: save CLIENT_RANDOM to file error:%s", e.Error())
+		this.logger.Fatalf("%s: save CLIENT_RANDOM to file error:%s", v.String(), e.Error())
 		return
 	}
 	this.logger.Printf("%s: save CLIENT_RANDOM %02x to file success, %d bytes", v.String(), event.ClientRandom, l)
