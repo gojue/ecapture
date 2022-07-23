@@ -18,7 +18,7 @@
 // ssl->session 在 ssl_st 结构中的偏移量
 #define SSL_SESSION_OFFSET 0x510
 
-// session->ssl_session_st 在 SSL_SESSION 中的偏移量
+// session->master_key 在 SSL_SESSION 中的偏移量
 #define MASTER_KEY_OFFSET 80
 
 // ssl->s3 在 ssl_st中的偏移量
@@ -27,6 +27,11 @@
 // s3->client_random 在 ssl3_state_st 中的偏移量
 #define SSL_S3_CLIENT_RANDOM_OFFSET 0xD8
 
+// session->cipher 在 SSL_SESSION 中的偏移量
+#define SESSION_CIPHER_OFFSET 496   // 已计算 char *psk_identity_hint; + char *psk_identity;
+
+// session->cipher->id 在 ssl_cipher_st 中的偏移量
+#define SESSION_CIPHER_ID_OFFSET 24
 
 
 
@@ -172,8 +177,11 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
             "bpf_probe_read tls_version failed, ret :%d\n", ret);
         return 0;
     }
-    debug_bpf_printk("tls_version: %d\n", version);
+    mastersecret->version = version;
+    debug_bpf_printk("tls_version: %d\n", mastersecret->version);
 
+
+    // Get SSL_SESSION_t pointer
     u64 address;
     ret =
         bpf_probe_read_user(&address, sizeof(address), ssl_session_st_ptr);
@@ -183,7 +191,10 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
         return 0;
     }
 
-    // Access the TLS 1.2 master secret
+    // Get SSL_SESSION->cipher pointer
+    u64 *ssl_cipher_st_ptr = (u64 *)(address + SESSION_CIPHER_OFFSET);
+
+    ///////////////////////// get TLS 1.2 master secret ////////////////////
     void *ms_ptr = (void *)(address + MASTER_KEY_OFFSET);
     ret = bpf_probe_read_user(&mastersecret->master_key,
                               sizeof(mastersecret->master_key), ms_ptr);
@@ -224,11 +235,33 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
     bpf_perf_event_output(ctx, &mastersecret_events, BPF_F_CURRENT_CPU, mastersecret,
                         sizeof(struct mastersecret_t));
 
-    // check tls version eq to TLS 1.3
+
+    //////////////////// check tls version eq to TLS 1.3 ////////////////////////
     if (version != TLS1_3_VERSION) {
         return 0;
     }
-    // TLS 1.3 master secret
+
+    // get cipher_suite_st pointer
+    debug_bpf_printk("cipher_suite_st pointer: %x\n", ssl_cipher_st_ptr);
+    ret = bpf_probe_read_user(&address, sizeof(address), ssl_cipher_st_ptr);
+    if (ret) {
+        debug_bpf_printk(
+            "bpf_probe_read ssl_cipher_st_ptr failed, ret :%d\n", ret);
+        return 0;
+    }
+
+    void *cipher_id_ptr = (void *)(address + SESSION_CIPHER_ID_OFFSET);
+    ret = bpf_probe_read_user(&mastersecret->cipher_id,
+                              sizeof(mastersecret->cipher_id), cipher_id_ptr);
+    if (ret) {
+        debug_bpf_printk(
+            "bpf_probe_read SESSION_CIPHER_ID_OFFSET failed, ret :%d\n", ret);
+        return 0;
+    }
+
+    //////////////////// TLS 1.3 master secret ////////////////////////
+    debug_bpf_printk("cipher_id: %d\n", mastersecret->cipher_id);
+
     void *ms_ptr_tls13 = (void *)(ssl_st_ptr + MASTER_SECRET_OFFSET);
     unsigned char master_secret[EVP_MAX_MD_SIZE];
     ret = bpf_probe_read_user(&master_secret, sizeof(master_secret), (void *)ms_ptr_tls13);
