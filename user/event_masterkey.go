@@ -7,7 +7,7 @@ import (
 	"fmt"
 )
 
-// openssl_masterkey_events
+// openssl_mastersecret_events
 
 const (
 	SSL3_RANDOM_SIZE      = 32
