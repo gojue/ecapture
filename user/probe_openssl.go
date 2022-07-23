@@ -248,7 +248,7 @@ func (this *MOpenSSLProbe) setupManagers() error {
 				Name: "connect_events",
 			},
 			{
-				Name: "masterkey_events",
+				Name: "mastersecret_events",
 			},
 		},
 	}
@@ -306,12 +306,12 @@ func (this *MOpenSSLProbe) initDecodeFun() error {
 	connEvent.SetModule(this)
 	this.eventFuncMaps[ConnEventsMap] = connEvent
 
-	MasterkeyEventsMap, found, err := this.bpfManager.GetMap("masterkey_events")
+	MasterkeyEventsMap, found, err := this.bpfManager.GetMap("mastersecret_events")
 	if err != nil {
 		return err
 	}
 	if !found {
-		return errors.New("cant found map:masterkey_events")
+		return errors.New("cant found map:mastersecret_events")
 	}
 	this.eventMaps = append(this.eventMaps, MasterkeyEventsMap)
 	masterkeyEvent := &MasterSecretEvent{}
