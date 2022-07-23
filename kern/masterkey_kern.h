@@ -232,12 +232,10 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
         return 0;
     }
 
-    bpf_perf_event_output(ctx, &mastersecret_events, BPF_F_CURRENT_CPU, mastersecret,
-                        sizeof(struct mastersecret_t));
-
-
     //////////////////// check tls version eq to TLS 1.3 ////////////////////////
     if (version != TLS1_3_VERSION) {
+        bpf_perf_event_output(ctx, &mastersecret_events, BPF_F_CURRENT_CPU, mastersecret,
+                            sizeof(struct mastersecret_t));
         return 0;
     }
 
@@ -258,18 +256,51 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
             "bpf_probe_read SESSION_CIPHER_ID_OFFSET failed, ret :%d\n", ret);
         return 0;
     }
-
-    //////////////////// TLS 1.3 master secret ////////////////////////
     debug_bpf_printk("cipher_id: %d\n", mastersecret->cipher_id);
 
+    //////////////////// TLS 1.3 master secret ////////////////////////
+
+    void *hs_ptr_tls13 = (void *)(ssl_st_ptr + HANDSHAKE_SECRET_OFFSET);
+    ret = bpf_probe_read_user(&mastersecret->handshake_secret, sizeof(mastersecret->handshake_secret), (void *)hs_ptr_tls13);
+    if (ret) {
+        debug_bpf_printk(
+            "bpf_probe_read HANDSHAKE_SECRET_OFFSET failed, ret :%d\n", ret);
+        return 0;
+    }
+
     void *ms_ptr_tls13 = (void *)(ssl_st_ptr + MASTER_SECRET_OFFSET);
-    unsigned char master_secret[EVP_MAX_MD_SIZE];
-    ret = bpf_probe_read_user(&master_secret, sizeof(master_secret), (void *)ms_ptr_tls13);
+    ret = bpf_probe_read_user(&mastersecret->master_secret, sizeof(mastersecret->master_secret), (void *)ms_ptr_tls13);
     if (ret) {
         debug_bpf_printk(
             "bpf_probe_read MASTER_SECRET_OFFSET failed, ret :%d\n", ret);
         return 0;
     }
-    debug_bpf_printk("*****master_secret*****: %x %x %x\n",master_secret[0],master_secret[1],master_secret[2]);
+
+    void *sf_ptr_tls13 = (void *)(ssl_st_ptr + SERVER_FINISHED_HASH_OFFSET);
+    ret = bpf_probe_read_user(&mastersecret->server_finished_hash, sizeof(mastersecret->server_finished_hash), (void *)sf_ptr_tls13);
+    if (ret) {
+        debug_bpf_printk(
+            "bpf_probe_read SERVER_FINISHED_HASH_OFFSET failed, ret :%d\n", ret);
+        return 0;
+    }
+
+    void *hth_ptr_tls13 = (void *)(ssl_st_ptr + HANDSHAKE_TRAFFIC_HASH_OFFSET);
+    ret = bpf_probe_read_user(&mastersecret->handshake_traffic_hash, sizeof(mastersecret->handshake_traffic_hash), (void *)hth_ptr_tls13);
+    if (ret) {
+        debug_bpf_printk(
+            "bpf_probe_read HANDSHAKE_TRAFFIC_HASH_OFFSET failed, ret :%d\n", ret);
+        return 0;
+    }
+
+    void *ems_ptr_tls13 = (void *)(ssl_st_ptr + EXPORTER_MASTER_SECRET_OFFSET);
+    ret = bpf_probe_read_user(&mastersecret->exporter_master_secret, sizeof(mastersecret->exporter_master_secret), (void *)ems_ptr_tls13);
+    if (ret) {
+        debug_bpf_printk(
+            "bpf_probe_read EXPORTER_MASTER_SECRET_OFFSET failed, ret :%d\n", ret);
+        return 0;
+    }
+    debug_bpf_printk("*****master_secret*****: %x %x %x\n",mastersecret->master_secret[0],mastersecret->master_secret[1],mastersecret->master_secret[2]);
+    bpf_perf_event_output(ctx, &mastersecret_events, BPF_F_CURRENT_CPU, mastersecret,
+                            sizeof(struct mastersecret_t));
     return 0;
 }
