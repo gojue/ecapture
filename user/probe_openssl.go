@@ -3,8 +3,10 @@ package user
 import (
 	"bytes"
 	"context"
+	"crypto"
 	"ecapture/assets"
 	"ecapture/pkg/event_processor"
+	"ecapture/pkg/util/hkdf"
 	"errors"
 	"fmt"
 	"github.com/cilium/ebpf"
@@ -403,7 +405,26 @@ func (this *MOpenSSLProbe) saveMasterSecret(event *MasterSecretEvent) {
 		b = bytes.NewBufferString(fmt.Sprintf("%s %02x %02x\n", CLIENT_RANDOM, event.ClientRandom, event.MasterKey))
 	case TLS1_3_VERSION:
 		// TODO fixme
-		b = bytes.NewBufferString(fmt.Sprintf("%s %02x %02x\n", SERVER_HANDSHAKE_TRAFFIC_SECRET, event.ClientRandom, event.MasterKey))
+		transcript := crypto.SHA256.New()
+		transcript.Write(event.HandshakeTrafficHash[:])
+		clientSecret := hkdf.ExpandLabel(event.HandshakeSecret[:],
+			hkdf.ClientHandshakeTrafficLabel, transcript.Sum(nil), transcript.Size())
+		b = bytes.NewBufferString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelClientHandshake, event.ClientRandom, clientSecret))
+
+		serverHandshakeSecret := hkdf.ExpandLabel(event.HandshakeSecret[:],
+			hkdf.ServerHandshakeTrafficLabel, transcript.Sum(nil), transcript.Size())
+		b.WriteString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelClientHandshake, event.ClientRandom, serverHandshakeSecret))
+
+		transcript.Reset()
+		transcript.Write(event.ServerFinishedHash[:])
+
+		trafficSecret := hkdf.ExpandLabel(event.MasterSecret[:],
+			hkdf.ClientApplicationTrafficLabel, transcript.Sum(nil), transcript.Size())
+		b.WriteString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelClientTraffic, event.ClientRandom, trafficSecret))
+		serverSecret := hkdf.ExpandLabel(event.MasterSecret[:],
+			hkdf.ServerApplicationTrafficLabel, transcript.Sum(nil), transcript.Size())
+		b.WriteString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelServerTraffic, event.ClientRandom, serverSecret))
+
 	default:
 		b = bytes.NewBufferString(fmt.Sprintf("%s %02x %02x\n", CLIENT_RANDOM, event.ClientRandom, event.MasterKey))
 	}
