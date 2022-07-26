@@ -405,11 +405,18 @@ func (this *MOpenSSLProbe) saveMasterSecret(event *MasterSecretEvent) {
 	case TLS1_2_VERSION:
 		b = bytes.NewBufferString(fmt.Sprintf("%s %02x %02x\n", CLIENT_RANDOM, event.ClientRandom, event.MasterKey))
 	case TLS1_3_VERSION:
-		// TODO fixme : use event.CipherId to get cipher name
+		// event.CipherId = 0x1301    // 50336513
+
 		var transcript hash.Hash
-		switch event.CipherId {
-		default:
+		// TODO fixme check crypto type
+		switch event.CipherId & 0x0000FFFF {
+		case 0x1301, 0x1303, 0x1304, 0x1305:
 			transcript = crypto.SHA256.New()
+		case 0x1302:
+			transcript = crypto.SHA3_384.New()
+		default:
+			this.logger.Printf("non-tls 1.3 ciphersuite in tls13_hkdf_expand, CipherId: %d", event.CipherId)
+			return
 		}
 		transcript.Write(event.HandshakeTrafficHash[:])
 		clientSecret := hkdf.ExpandLabel(event.HandshakeSecret[:],
