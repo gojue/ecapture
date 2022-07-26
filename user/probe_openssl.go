@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/ebpf"
 	manager "github.com/ehids/ebpfmanager"
 	"golang.org/x/sys/unix"
+	"hash"
 	"log"
 	"math"
 	"os"
@@ -404,8 +405,12 @@ func (this *MOpenSSLProbe) saveMasterSecret(event *MasterSecretEvent) {
 	case TLS1_2_VERSION:
 		b = bytes.NewBufferString(fmt.Sprintf("%s %02x %02x\n", CLIENT_RANDOM, event.ClientRandom, event.MasterKey))
 	case TLS1_3_VERSION:
-		// TODO fixme
-		transcript := crypto.SHA256.New()
+		// TODO fixme : use event.CipherId to get cipher name
+		var transcript hash.Hash
+		switch event.CipherId {
+		default:
+			transcript = crypto.SHA256.New()
+		}
 		transcript.Write(event.HandshakeTrafficHash[:])
 		clientSecret := hkdf.ExpandLabel(event.HandshakeSecret[:],
 			hkdf.ClientHandshakeTrafficLabel, transcript.Sum(nil), transcript.Size())
@@ -425,6 +430,7 @@ func (this *MOpenSSLProbe) saveMasterSecret(event *MasterSecretEvent) {
 			hkdf.ServerApplicationTrafficLabel, transcript.Sum(nil), transcript.Size())
 		b.WriteString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelServerTraffic, event.ClientRandom, serverSecret))
 
+		// TODO MasterSecret sum
 	default:
 		b = bytes.NewBufferString(fmt.Sprintf("%s %02x %02x\n", CLIENT_RANDOM, event.ClientRandom, event.MasterKey))
 	}
