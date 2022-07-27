@@ -408,33 +408,31 @@ func (this *MOpenSSLProbe) saveMasterSecret(event *MasterSecretEvent) {
 		// event.CipherId = 0x1301    // 50336513
 
 		var transcript hash.Hash
-		// TODO fixme check crypto type
-		switch event.CipherId & 0x0000FFFF {
-		case 0x1301, 0x1303, 0x1304, 0x1305:
+		// check crypto type
+		switch uint16(event.CipherId & 0x0000FFFF) {
+		case hkdf.TLS_AES_128_GCM_SHA256:
 			transcript = crypto.SHA256.New()
-		case 0x1302:
-			transcript = crypto.SHA3_384.New()
+		case hkdf.TLS_AES_256_GCM_SHA384:
+			transcript = crypto.SHA384.New()
+		case hkdf.TLS_CHACHA20_POLY1305_SHA256:
+			transcript = crypto.SHA256.New()
 		default:
 			this.logger.Printf("non-tls 1.3 ciphersuite in tls13_hkdf_expand, CipherId: %d", event.CipherId)
 			return
 		}
 		transcript.Write(event.HandshakeTrafficHash[:])
-		clientSecret := hkdf.ExpandLabel(event.HandshakeSecret[:],
-			hkdf.ClientHandshakeTrafficLabel, transcript.Sum(nil), transcript.Size())
+		clientSecret := hkdf.DeriveSecret(event.HandshakeSecret[:], hkdf.ClientHandshakeTrafficLabel, transcript)
 		b = bytes.NewBufferString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelClientHandshake, event.ClientRandom, clientSecret))
 
-		serverHandshakeSecret := hkdf.ExpandLabel(event.HandshakeSecret[:],
-			hkdf.ServerHandshakeTrafficLabel, transcript.Sum(nil), transcript.Size())
+		serverHandshakeSecret := hkdf.DeriveSecret(event.HandshakeSecret[:], hkdf.ServerHandshakeTrafficLabel, transcript)
 		b.WriteString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelClientHandshake, event.ClientRandom, serverHandshakeSecret))
 
 		transcript.Reset()
 		transcript.Write(event.ServerFinishedHash[:])
 
-		trafficSecret := hkdf.ExpandLabel(event.MasterSecret[:],
-			hkdf.ClientApplicationTrafficLabel, transcript.Sum(nil), transcript.Size())
+		trafficSecret := hkdf.DeriveSecret(event.MasterSecret[:], hkdf.ClientApplicationTrafficLabel, transcript)
 		b.WriteString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelClientTraffic, event.ClientRandom, trafficSecret))
-		serverSecret := hkdf.ExpandLabel(event.MasterSecret[:],
-			hkdf.ServerApplicationTrafficLabel, transcript.Sum(nil), transcript.Size())
+		serverSecret := hkdf.DeriveSecret(event.MasterSecret[:], hkdf.ServerApplicationTrafficLabel, transcript)
 		b.WriteString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelServerTraffic, event.ClientRandom, serverSecret))
 
 		// TODO MasterSecret sum
