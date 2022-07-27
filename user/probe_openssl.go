@@ -3,13 +3,16 @@ package user
 import (
 	"bytes"
 	"context"
+	"crypto"
 	"ecapture/assets"
 	"ecapture/pkg/event_processor"
+	"ecapture/pkg/util/hkdf"
 	"errors"
 	"fmt"
 	"github.com/cilium/ebpf"
 	manager "github.com/ehids/ebpfmanager"
 	"golang.org/x/sys/unix"
+	"hash"
 	"log"
 	"math"
 	"os"
@@ -28,6 +31,14 @@ const (
 	CLIENT_HANDSHAKE_TRAFFIC_SECRET = "CLIENT_HANDSHAKE_TRAFFIC_SECRET"
 	CLIENT_TRAFFIC_SECRET_0         = "CLIENT_TRAFFIC_SECRET_0"
 )
+
+type Tls13MasterSecret struct {
+	ServerHandshakeTrafficSecret []byte
+	ExporterSecret               []byte
+	ServerTrafficSecret0         []byte
+	ClientHandshakeTrafficSecret []byte
+	ClientTrafficSecret0         []byte
+}
 
 type MOpenSSLProbe struct {
 	Module
@@ -394,13 +405,44 @@ func (this *MOpenSSLProbe) saveMasterSecret(event *MasterSecretEvent) {
 	case TLS1_2_VERSION:
 		b = bytes.NewBufferString(fmt.Sprintf("%s %02x %02x\n", CLIENT_RANDOM, event.ClientRandom, event.MasterKey))
 	case TLS1_3_VERSION:
-		// TODO fixme
-		b = bytes.NewBufferString(fmt.Sprintf("%s %02x %02x\n", SERVER_HANDSHAKE_TRAFFIC_SECRET, event.ClientRandom, event.MasterKey))
+		// event.CipherId = 0x1301    // 50336513
+
+		var transcript hash.Hash
+		// check crypto type
+		switch uint16(event.CipherId & 0x0000FFFF) {
+		case hkdf.TLS_AES_128_GCM_SHA256:
+			transcript = crypto.SHA256.New()
+		case hkdf.TLS_AES_256_GCM_SHA384:
+			transcript = crypto.SHA384.New()
+		case hkdf.TLS_CHACHA20_POLY1305_SHA256:
+			transcript = crypto.SHA256.New()
+		default:
+			this.logger.Printf("non-tls 1.3 ciphersuite in tls13_hkdf_expand, CipherId: %d", event.CipherId)
+			return
+		}
+		transcript.Write(event.HandshakeTrafficHash[:])
+		clientSecret := hkdf.DeriveSecret(event.HandshakeSecret[:], hkdf.ClientHandshakeTrafficLabel, transcript)
+		b = bytes.NewBufferString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelClientHandshake, event.ClientRandom, clientSecret))
+
+		serverHandshakeSecret := hkdf.DeriveSecret(event.HandshakeSecret[:], hkdf.ServerHandshakeTrafficLabel, transcript)
+		b.WriteString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelClientHandshake, event.ClientRandom, serverHandshakeSecret))
+
+		transcript.Reset()
+		transcript.Write(event.ServerFinishedHash[:])
+
+		trafficSecret := hkdf.DeriveSecret(event.MasterSecret[:], hkdf.ClientApplicationTrafficLabel, transcript)
+		b.WriteString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelClientTraffic, event.ClientRandom, trafficSecret))
+		serverSecret := hkdf.DeriveSecret(event.MasterSecret[:], hkdf.ServerApplicationTrafficLabel, transcript)
+		b.WriteString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelServerTraffic, event.ClientRandom, serverSecret))
+
+		// TODO MasterSecret sum
+	default:
+		b = bytes.NewBufferString(fmt.Sprintf("%s %02x %02x\n", CLIENT_RANDOM, event.ClientRandom, event.MasterKey))
 	}
 	v := tls_version{version: event.Version}
 	l, e := this.file.WriteString(b.String())
 	if e != nil {
-		this.logger.Fatalf("%s: save CLIENT_RANDOM to file error:%s", e.Error())
+		this.logger.Fatalf("%s: save CLIENT_RANDOM to file error:%s", v.String(), e.Error())
 		return
 	}
 	this.logger.Printf("%s: save CLIENT_RANDOM %02x to file success, %d bytes", v.String(), event.ClientRandom, l)
