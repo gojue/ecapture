@@ -90,8 +90,17 @@ func (this *MOpenSSLProbe) start() error {
 		return fmt.Errorf("couldn't find asset %v .", err)
 	}
 
+	if len(this.conf.(*OpensslConfig).Write) > 0 {
+		// TC PROBE
+		this.logger.Printf("%s\tTC MODEL\n", this.Name())
+		err = this.setupManagersTC()
+	} else {
+		// UPROBE
+		this.logger.Printf("%s\tUPROBE MODEL\n", this.Name())
+		err = this.setupManagersUprobe()
+	}
 	// setup the managers
-	err = this.setupManagers()
+
 	if err != nil {
 		return fmt.Errorf("tls module couldn't find binPath %v .", err)
 	}
@@ -151,7 +160,85 @@ func (this *MOpenSSLProbe) constantEditor() []manager.ConstantEditor {
 	return editor
 }
 
-func (this *MOpenSSLProbe) setupManagers() error {
+func (this *MOpenSSLProbe) setupManagersTC() error {
+	var writeFile, ifname, binaryPath string
+
+	writeFile = this.conf.(*OpensslConfig).Write
+	ifname = this.conf.(*OpensslConfig).Ifname
+
+	_, err := os.Stat(writeFile)
+	if err != nil {
+		return err
+	}
+
+	switch this.conf.(*OpensslConfig).elfType {
+	case ELF_TYPE_BIN:
+		binaryPath = this.conf.(*OpensslConfig).Curlpath
+	case ELF_TYPE_SO:
+		binaryPath = this.conf.(*OpensslConfig).Openssl
+	default:
+		//如果没找到
+		binaryPath = "/lib/x86_64-linux-gnu/libssl.so.1.1"
+	}
+
+	this.logger.Printf("%s\teBPF Program type TC, interface:%s, save pcapng file:%s\n", ifname, writeFile)
+
+	this.bpfManager = &manager.Manager{
+		Probes: []*manager.Probe{
+			{
+				Section:          "classifier/egress",
+				EbpfFuncName:     "egress_cls_func",
+				Ifname:           ifname,
+				NetworkDirection: manager.Egress,
+			},
+			{
+				Section:          "classifier/ingress",
+				EbpfFuncName:     "ingress_cls_func",
+				Ifname:           ifname,
+				NetworkDirection: manager.Ingress,
+			},
+			// --------------------------------------------------
+
+			// openssl masterkey
+			{
+				Section:          "uprobe/SSL_write_key",
+				EbpfFuncName:     "probe_ssl_master_key",
+				AttachToFuncName: "SSL_write",
+				BinaryPath:       binaryPath,
+				UID:              "uprobe_ssl_master_key",
+			},
+		},
+
+		Maps: []*manager.Map{
+			{
+				Name: "mastersecret_events",
+			},
+		},
+	}
+
+	this.bpfManagerOptions = manager.Options{
+		DefaultKProbeMaxActive: 512,
+
+		VerifierOptions: ebpf.CollectionOptions{
+			Programs: ebpf.ProgramOptions{
+				LogSize: 2097152,
+			},
+		},
+
+		RLimit: &unix.Rlimit{
+			Cur: math.MaxUint64,
+			Max: math.MaxUint64,
+		},
+	}
+
+	if this.conf.EnableGlobalVar() {
+		// 填充 RewriteContants 对应map
+		this.bpfManagerOptions.ConstantEditors = this.constantEditor()
+	}
+	return nil
+}
+
+func (this *MOpenSSLProbe) setupManagersUprobe() error {
 	var binaryPath, libPthread string
 	switch this.conf.(*OpensslConfig).elfType {
 	case ELF_TYPE_BIN:
