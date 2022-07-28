@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	ErrorGoBINNotFound = errors.New("GO binary not found")
+	ErrorGoBINNotSET = errors.New("GO binary not set")
 )
 
 // GoSSLConfig represents configuration for Go SSL probe
@@ -23,7 +23,7 @@ func NewGoSSLConfig() *GoSSLConfig {
 
 func (c *GoSSLConfig) Check() error {
 	if c.Path == "" {
-		return ErrorGoBINNotFound
+		return ErrorGoBINNotSET
 	}
 	_, err := os.Stat(c.Path)
 	return err

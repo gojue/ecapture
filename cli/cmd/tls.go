@@ -107,8 +107,9 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 		err := conf.Check()
 
 		if err != nil {
-			// ErrorGoBINNotFound is a special error, we should not print it.
-			if errors.Is(err, user.ErrorGoBINNotFound) {
+			// ErrorGoBINNotSET is a special error, we should not print it.
+			if errors.Is(err, user.ErrorGoBINNotSET) {
+				logger.Printf("%s\tmodule [disabled].", mod.Name())
 				continue
 			}
 
