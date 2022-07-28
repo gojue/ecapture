@@ -16,6 +16,7 @@ import (
 	"log"
 	"math"
 	"os"
+	"path/filepath"
 )
 
 const (
@@ -40,6 +41,13 @@ type Tls13MasterSecret struct {
 	ClientTrafficSecret0         []byte
 }
 
+type EBPFPROGRAMTYPE uint8
+
+const (
+	EBPFPROGRAMTYPE_OPENSSL_TC EBPFPROGRAMTYPE = iota
+	EBPFPROGRAMTYPE_OPENSSL_UPROBE
+)
+
 type MOpenSSLProbe struct {
 	Module
 	bpfManager        *manager.Manager
@@ -50,9 +58,11 @@ type MOpenSSLProbe struct {
 	// pid[fd:Addr]
 	pidConns map[uint32]map[uint32]string
 
-	filename   string
-	file       *os.File
-	masterKeys map[string]bool
+	keyloggerFilename string
+	keylogger         *os.File
+	masterKeys        map[string]bool
+	eBPFProgramType   EBPFPROGRAMTYPE
+	pcapngFilename    string
 }
 
 //对象初始化
@@ -65,21 +75,30 @@ func (this *MOpenSSLProbe) Init(ctx context.Context, logger *log.Logger, conf IC
 	this.pidConns = make(map[uint32]map[uint32]string)
 	this.masterKeys = make(map[string]bool)
 	fd := os.Getpid()
-	this.filename = fmt.Sprintf("ecapture_masterkey_%d.log", fd)
-	file, err := os.OpenFile(this.filename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+	this.keyloggerFilename = fmt.Sprintf("ecapture_masterkey_%d.log", fd)
+	file, err := os.OpenFile(this.keyloggerFilename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
 	if err != nil {
 		return err
 	}
-	this.file = file
-	this.logger.Printf("%s\tmaster key file: %s\n", this.Name(), this.filename)
+	this.keylogger = file
+	var writeFile = this.conf.(*OpensslConfig).Write
+	if len(writeFile) > 0 {
+		this.eBPFProgramType = EBPFPROGRAMTYPE_OPENSSL_TC
+		fileInfo, err := filepath.Abs(writeFile)
+		if err != nil {
+			return err
+		}
+		this.pcapngFilename = fileInfo
+	} else {
+		this.eBPFProgramType = EBPFPROGRAMTYPE_OPENSSL_UPROBE
+		this.logger.Printf("%s\tmaster key keylogger: %s\n", this.Name(), this.keyloggerFilename)
+	}
+
 	return nil
 }
 
 func (this *MOpenSSLProbe) Start() error {
-	if err := this.start(); err != nil {
-		return err
-	}
-	return nil
+	return this.start()
 }
 
 func (this *MOpenSSLProbe) start() error {
@@ -90,16 +109,18 @@ func (this *MOpenSSLProbe) start() error {
 		return fmt.Errorf("%s\tcouldn't find asset %v .", this.Name(), err)
 	}
 
-	if len(this.conf.(*OpensslConfig).Write) > 0 {
-		// TC PROBE
+	// setup the managers
+	switch this.eBPFProgramType {
+	case EBPFPROGRAMTYPE_OPENSSL_TC:
 		this.logger.Printf("%s\tTC MODEL\n", this.Name())
 		err = this.setupManagersTC()
-	} else {
-		// UPROBE
+	case EBPFPROGRAMTYPE_OPENSSL_UPROBE:
+		this.logger.Printf("%s\tUPROBE MODEL\n", this.Name())
+		err = this.setupManagersUprobe()
+	default:
 		this.logger.Printf("%s\tUPROBE MODEL\n", this.Name())
 		err = this.setupManagersUprobe()
 	}
-	// setup the managers
 
 	if err != nil {
 		return fmt.Errorf("tls module couldn't find binPath %v .", err)
@@ -158,84 +179,6 @@ func (this *MOpenSSLProbe) constantEditor() []manager.ConstantEditor {
 	}
 
 	return editor
-}
-
-func (this *MOpenSSLProbe) setupManagersTC() error {
-	var writeFile, ifname, binaryPath string
-
-	writeFile = this.conf.(*OpensslConfig).Write
-	ifname = this.conf.(*OpensslConfig).Ifname
-
-	_, err := os.Stat(writeFile)
-	if err != nil {
-		return err
-	}
-
-	switch this.conf.(*OpensslConfig).elfType {
-	case ELF_TYPE_BIN:
-		binaryPath = this.conf.(*OpensslConfig).Curlpath
-	case ELF_TYPE_SO:
-		binaryPath = this.conf.(*OpensslConfig).Openssl
-	default:
-		//如果没找到
-		binaryPath = "/lib/x86_64-linux-gnu/libssl.so.1.1"
-	}
-
-	this.logger.Printf("%s\teBPF Program type TC, interface:%s, save pcapng file:%s\n", ifname, writeFile)
-
-	this.bpfManager = &manager.Manager{
-		Probes: []*manager.Probe{
-			{
-				Section:          "classifier/egress",
-				EbpfFuncName:     "egress_cls_func",
-				Ifname:           ifname,
-				NetworkDirection: manager.Egress,
-			},
-			{
-				Section:          "classifier/ingress",
-				EbpfFuncName:     "ingress_cls_func",
-				Ifname:           ifname,
-				NetworkDirection: manager.Ingress,
-			},
-			// --------------------------------------------------
-
-			// openssl masterkey
-			{
-				Section:          "uprobe/SSL_write_key",
-				EbpfFuncName:     "probe_ssl_master_key",
-				AttachToFuncName: "SSL_write",
-				BinaryPath:       binaryPath,
-				UID:              "uprobe_ssl_master_key",
-			},
-		},
-
-		Maps: []*manager.Map{
-			{
-				Name: "mastersecret_events",
-			},
-		},
-	}
-
-	this.bpfManagerOptions = manager.Options{
-		DefaultKProbeMaxActive: 512,
-
-		VerifierOptions: ebpf.CollectionOptions{
-			Programs: ebpf.ProgramOptions{
-				LogSize: 2097152,
-			},
-		},
-
-		RLimit: &unix.Rlimit{
-			Cur: math.MaxUint64,
-			Max: math.MaxUint64,
-		},
-	}
-
-	if this.conf.EnableGlobalVar() {
-		// 填充 RewriteContants 对应map
-		this.bpfManagerOptions.ConstantEditors = this.constantEditor()
-	}
-	return nil
 }
 
 func (this *MOpenSSLProbe) setupManagersUprobe() error {
@@ -527,7 +470,7 @@ func (this *MOpenSSLProbe) saveMasterSecret(event *MasterSecretEvent) {
 		b = bytes.NewBufferString(fmt.Sprintf("%s %02x %02x\n", CLIENT_RANDOM, event.ClientRandom, event.MasterKey))
 	}
 	v := tls_version{version: event.Version}
-	l, e := this.file.WriteString(b.String())
+	l, e := this.keylogger.WriteString(b.String())
 	if e != nil {
 		this.logger.Fatalf("%s: save CLIENT_RANDOM to file error:%s", v.String(), e.Error())
 		return

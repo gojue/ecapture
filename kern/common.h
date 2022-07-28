@@ -26,6 +26,10 @@
 #define SA_DATA_LEN 14
 #define BASH_ERRNO_DEFAULT 128
 
+///////// for TC & XDP ebpf programs in openssl_tc.h
+#define TC_ACT_OK		0
+
+
 // Optional Target PID
 // .rodata section bug via : https://github.com/ehids/ecapture/issues/39
 #ifndef KERNEL_LESS_5_2
