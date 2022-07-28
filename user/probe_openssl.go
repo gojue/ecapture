@@ -71,7 +71,7 @@ func (this *MOpenSSLProbe) Init(ctx context.Context, logger *log.Logger, conf IC
 		return err
 	}
 	this.file = file
-	this.logger.Printf("master key file: %s\n", this.filename)
+	this.logger.Printf("%s\tmaster key file: %s\n", this.Name(), this.filename)
 	return nil
 }
 
@@ -87,7 +87,7 @@ func (this *MOpenSSLProbe) start() error {
 	// fetch ebpf assets
 	byteBuf, err := assets.Asset("user/bytecode/openssl_kern.o")
 	if err != nil {
-		return fmt.Errorf("couldn't find asset %v .", err)
+		return fmt.Errorf("%s\tcouldn't find asset %v .", this.Name(), err)
 	}
 
 	if len(this.conf.(*OpensslConfig).Write) > 0 {
