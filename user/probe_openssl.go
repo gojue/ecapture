@@ -137,7 +137,14 @@ func (this *MOpenSSLProbe) start() error {
 	}
 
 	// 加载map信息，map对应events decode表。
-	err = this.initDecodeFun()
+	switch this.eBPFProgramType {
+	case EBPFPROGRAMTYPE_OPENSSL_TC:
+		err = this.initDecodeFunTC()
+	case EBPFPROGRAMTYPE_OPENSSL_UPROBE:
+		err = this.initDecodeFun()
+	default:
+		err = this.initDecodeFun()
+	}
 	if err != nil {
 		return err
 	}
@@ -485,6 +492,8 @@ func (this *MOpenSSLProbe) Dispatcher(event event_processor.IEventStruct) {
 		this.AddConn(event.(*ConnDataEvent).Pid, event.(*ConnDataEvent).Fd, event.(*ConnDataEvent).Addr)
 	case *MasterSecretEvent:
 		this.saveMasterSecret(event.(*MasterSecretEvent))
+	case *TcSkbEvent:
+		this.dumpTcSkb(event.(*TcSkbEvent))
 	}
 	//this.logger.Println(event)
 }

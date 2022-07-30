@@ -353,6 +353,7 @@ format:
 	@clang-format -i -style=$(STYLE) kern/*.c
 	@clang-format -i -style=$(STYLE) kern/common.h
 	@clang-format -i -style=$(STYLE) kern/masterkey_kern.h
+	@clang-format -i -style=$(STYLE) kern/openssl_tc.h
 
 autogen: .checkver_$(CMD_BPFTOOL)
 	$(AUTOGENCMD)

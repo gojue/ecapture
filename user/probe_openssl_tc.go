@@ -1,6 +1,7 @@
 package user
 
 import (
+	"errors"
 	"github.com/cilium/ebpf"
 	manager "github.com/ehids/ebpfmanager"
 	"golang.org/x/sys/unix"
@@ -26,6 +27,9 @@ func (this *MOpenSSLProbe) setupManagersTC() error {
 
 	this.bpfManager = &manager.Manager{
 		Probes: []*manager.Probe{
+			// customize deleteed TC filter
+			// tc filter del dev eth0 ingress
+			// tc filter del dev eth0 egress
 			{
 				Section:          "classifier/egress",
 				EbpfFuncName:     "egress_cls_func",
@@ -54,6 +58,9 @@ func (this *MOpenSSLProbe) setupManagersTC() error {
 			{
 				Name: "mastersecret_events",
 			},
+			{
+				Name: "skb_events",
+			},
 		},
 	}
 
@@ -77,4 +84,37 @@ func (this *MOpenSSLProbe) setupManagersTC() error {
 		this.bpfManagerOptions.ConstantEditors = this.constantEditor()
 	}
 	return nil
+}
+
+func (this *MOpenSSLProbe) initDecodeFunTC() error {
+	//SSLDumpEventsMap 与解码函数映射
+	SkbEventsMap, found, err := this.bpfManager.GetMap("skb_events")
+	if err != nil {
+		return err
+	}
+	if !found {
+		return errors.New("cant found map:skb_events")
+	}
+	this.eventMaps = append(this.eventMaps, SkbEventsMap)
+	sslEvent := &TcSkbEvent{}
+	sslEvent.SetModule(this)
+	this.eventFuncMaps[SkbEventsMap] = sslEvent
+
+	MasterkeyEventsMap, found, err := this.bpfManager.GetMap("mastersecret_events")
+	if err != nil {
+		return err
+	}
+	if !found {
+		return errors.New("cant found map:mastersecret_events")
+	}
+	this.eventMaps = append(this.eventMaps, MasterkeyEventsMap)
+	masterkeyEvent := &MasterSecretEvent{}
+	masterkeyEvent.SetModule(this)
+	this.eventFuncMaps[MasterkeyEventsMap] = masterkeyEvent
+	return nil
+}
+
+func (this *MOpenSSLProbe) dumpTcSkb(event *TcSkbEvent) {
+	this.logger.Printf("%s\t%s, length:%d\n", this.Name(), event.String(), event.DataLen)
+	return
 }

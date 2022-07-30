@@ -27,8 +27,9 @@
 #define BASH_ERRNO_DEFAULT 128
 
 ///////// for TC & XDP ebpf programs in openssl_tc.h
-#define TC_ACT_OK		0
-
+#define TC_ACT_OK 0
+#define ETH_P_IP 0x0800 /* Internet Protocol packet        */
+#define SKB_MAX_DATA_SIZE 2048
 
 // Optional Target PID
 // .rodata section bug via : https://github.com/ehids/ecapture/issues/39
