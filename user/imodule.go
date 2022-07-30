@@ -247,7 +247,11 @@ func (this *Module) Decode(em *ebpf.Map, b []byte) (event event_processor.IEvent
 func (this *Module) Dispatcher(event event_processor.IEventStruct) {
 	switch event.EventType() {
 	case event_processor.EventTypeOutput:
-		this.logger.Println(event)
+		if this.conf.GetHex() {
+			this.logger.Println(event.StringHex())
+		} else {
+			this.logger.Println(event.String())
+		}
 	case event_processor.EventTypeEventProcessor:
 		this.processor.Write(event)
 	case event_processor.EventTypeModuleData:
