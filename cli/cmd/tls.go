@@ -10,6 +10,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	"github.com/spf13/cobra"
@@ -70,6 +71,9 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 	modNames := []string{user.MODULE_NAME_OPENSSL, user.MODULE_NAME_GNUTLS, user.MODULE_NAME_NSPR, user.MODULE_NAME_GOSSL}
 
 	var runMods uint8
+	var runModules = make(map[string]user.IModule)
+	var wg sync.WaitGroup
+
 	for _, modName := range modNames {
 		mod := user.GetModuleByName(modName)
 		if mod == nil {
@@ -122,7 +126,9 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 				return
 			}
 		}(mod)
+		runModules[mod.Name()] = mod
 		logger.Printf("%s\tmodule started successfully.", mod.Name())
+		wg.Add(1)
 		runMods++
 	}
 
@@ -131,5 +137,16 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 		<-stopper
 	}
 	cancelFun()
+
+	// clean up
+	for _, mod := range runModules {
+		e = mod.Close()
+		if e != nil {
+			logger.Fatalf("%s\tmodule close failed. error:%+v", mod.Name(), e)
+		}
+		wg.Done()
+	}
+
+	wg.Wait()
 	os.Exit(0)
 }
