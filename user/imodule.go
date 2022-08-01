@@ -120,7 +120,7 @@ func (this *Module) run() {
 		case _ = <-this.ctx.Done():
 			err := this.child.Stop()
 			if err != nil {
-				this.logger.Fatalf("stop Module:%s error:%v.", this.child.Name(), err)
+				this.logger.Fatalf("%s\t stop Module error:%v.", this.child.Name(), err)
 			}
 			return
 		}
@@ -136,7 +136,7 @@ func (this *Module) readEvents() error {
 		case event.Type() == ebpf.PerfEventArray:
 			go this.perfEventReader(errChan, event)
 		default:
-			errChan <- fmt.Errorf("Not support mapType:%s , mapinfo:%s", event.Type().String(), event.String())
+			errChan <- fmt.Errorf("%s\tNot support mapType:%s , mapinfo:%s", this.child.Name(), event.Type().String(), event.String())
 		}
 	}
 
@@ -159,7 +159,7 @@ func (this *Module) perfEventReader(errChan chan error, em *ebpf.Map) {
 		//判断ctx是不是结束
 		select {
 		case _ = <-this.ctx.Done():
-			log.Printf("readEvent received close signal from context.Done.")
+			this.logger.Printf("%s\tperfEventReader received close signal from context.Done().", this.child.Name())
 			return
 		default:
 		}
@@ -169,19 +169,19 @@ func (this *Module) perfEventReader(errChan chan error, em *ebpf.Map) {
 			if errors.Is(err, perf.ErrClosed) {
 				return
 			}
-			errChan <- fmt.Errorf("reading from perf event reader: %s", err)
+			errChan <- fmt.Errorf("%s\treading from perf event reader: %s", this.child.Name(), err)
 			return
 		}
 
 		if record.LostSamples != 0 {
-			log.Printf("perf event ring buffer full, dropped %d samples", record.LostSamples)
+			this.logger.Printf("%s\tperf event ring buffer full, dropped %d samples", this.child.Name(), record.LostSamples)
 			continue
 		}
 
 		var event event_processor.IEventStruct
 		event, err = this.child.Decode(em, record.RawSample)
 		if err != nil {
-			log.Printf("this.child.decode error:%v", err)
+			this.logger.Printf("%s\tthis.child.decode error:%v", this.child.Name(), err)
 			continue
 		}
 
@@ -193,7 +193,7 @@ func (this *Module) perfEventReader(errChan chan error, em *ebpf.Map) {
 func (this *Module) ringbufEventReader(errChan chan error, em *ebpf.Map) {
 	rd, err := ringbuf.NewReader(em)
 	if err != nil {
-		errChan <- fmt.Errorf("creating %s reader dns: %s", em.String(), err)
+		errChan <- fmt.Errorf("%s\tcreating %s reader dns: %s", this.child.Name(), em.String(), err)
 		return
 	}
 	defer rd.Close()
@@ -201,7 +201,7 @@ func (this *Module) ringbufEventReader(errChan chan error, em *ebpf.Map) {
 		//判断ctx是不是结束
 		select {
 		case _ = <-this.ctx.Done():
-			this.logger.Printf("readEvent received close signal from context.Done.")
+			this.logger.Printf("%s\tringbufEventReader received close signal from context.Done().", this.child.Name())
 			return
 		default:
 		}
@@ -209,17 +209,17 @@ func (this *Module) ringbufEventReader(errChan chan error, em *ebpf.Map) {
 		record, err := rd.Read()
 		if err != nil {
 			if errors.Is(err, ringbuf.ErrClosed) {
-				this.logger.Println("Received signal, exiting..")
+				this.logger.Println("%s\tReceived signal, exiting..", this.child.Name())
 				return
 			}
-			errChan <- fmt.Errorf("reading from ringbuf reader: %s", err)
+			errChan <- fmt.Errorf("%s\treading from ringbuf reader: %s", this.child.Name(), err)
 			return
 		}
 
 		var event event_processor.IEventStruct
 		event, err = this.child.Decode(em, record.RawSample)
 		if err != nil {
-			log.Printf("this.child.decode error:%v", err)
+			this.logger.Printf("%s\tthis.child.decode error:%v", this.child.Name(), err)
 			continue
 		}
 
@@ -231,7 +231,7 @@ func (this *Module) ringbufEventReader(errChan chan error, em *ebpf.Map) {
 func (this *Module) Decode(em *ebpf.Map, b []byte) (event event_processor.IEventStruct, err error) {
 	es, found := this.child.DecodeFun(em)
 	if !found {
-		err = fmt.Errorf("can't found decode function :%s, address:%p", em.String(), em)
+		err = fmt.Errorf("%s\tcan't found decode function :%s, address:%p", this.child.Name(), em.String(), em)
 		return
 	}
 
