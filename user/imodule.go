@@ -209,7 +209,7 @@ func (this *Module) ringbufEventReader(errChan chan error, em *ebpf.Map) {
 		record, err := rd.Read()
 		if err != nil {
 			if errors.Is(err, ringbuf.ErrClosed) {
-				this.logger.Println("%s\tReceived signal, exiting..", this.child.Name())
+				this.logger.Printf("%s\tReceived signal, exiting..", this.child.Name())
 				return
 			}
 			errChan <- fmt.Errorf("%s\treading from ringbuf reader: %s", this.child.Name(), err)
