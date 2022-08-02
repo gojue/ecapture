@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"github.com/cilium/ebpf"
 	manager "github.com/ehids/ebpfmanager"
+	"github.com/google/gopacket/pcapgo"
 	"golang.org/x/sys/unix"
 	"hash"
 	"log"
@@ -63,6 +64,9 @@ type MOpenSSLProbe struct {
 	masterKeys        map[string]bool
 	eBPFProgramType   EBPFPROGRAMTYPE
 	pcapngFilename    string
+	ifIdex            int
+	ifName            string
+	pcapWriter        *pcapgo.NgWriter
 }
 
 //对象初始化
@@ -153,10 +157,18 @@ func (this *MOpenSSLProbe) start() error {
 }
 
 func (this *MOpenSSLProbe) Close() error {
+	if this.eBPFProgramType == EBPFPROGRAMTYPE_OPENSSL_TC {
+		this.logger.Printf("saving pcapng file %s\n", this.pcapngFilename)
+		err := this.savePcapng()
+		if err != nil {
+			return err
+		}
+	}
+
 	if err := this.bpfManager.Stop(manager.CleanAll); err != nil {
 		return fmt.Errorf("couldn't stop manager %v .", err)
 	}
-	return nil
+	return this.Module.Close()
 }
 
 //  通过elf的常量替换方式传递数据
