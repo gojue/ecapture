@@ -33,7 +33,11 @@ func (e *goSSLEvent) String() string {
 }
 
 func (e *goSSLEvent) StringHex() string {
-	return e.String()
+	perfix := COLORGREEN
+	b := dumpByteSlice(e.Data[:e.Len], perfix)
+	b.WriteString(COLORRESET)
+	s := fmt.Sprintf("PID: %d, Comm: %s, TID: %d, Payload: %s\n", e.Pid, string(e.Comm[:]), e.Tid, b.String())
+	return s
 }
 
 func (e *goSSLEvent) Clone() event_processor.IEventStruct {

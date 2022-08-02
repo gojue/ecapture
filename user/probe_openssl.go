@@ -157,6 +157,7 @@ func (this *MOpenSSLProbe) start() error {
 }
 
 func (this *MOpenSSLProbe) Close() error {
+
 	if this.eBPFProgramType == EBPFPROGRAMTYPE_OPENSSL_TC {
 		this.logger.Printf("saving pcapng file %s\n", this.pcapngFilename)
 		err := this.savePcapng()
@@ -164,6 +165,8 @@ func (this *MOpenSSLProbe) Close() error {
 			return err
 		}
 	}
+
+	this.logger.Printf("%s\tclose. \n", this.Name())
 
 	if err := this.bpfManager.Stop(manager.CleanAll); err != nil {
 		return fmt.Errorf("couldn't stop manager %v .", err)
