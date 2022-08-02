@@ -152,9 +152,9 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 
 	// clean up
 	for _, mod := range runModules {
-		e = mod.Close()
-		if e != nil {
-			logger.Fatalf("%s\tmodule close failed. error:%+v", mod.Name(), e)
+		err = mod.Close()
+		if err != nil {
+			logger.Fatalf("%s\tmodule close failed. error:%+v", mod.Name(), err)
 		}
 		wg.Done()
 	}

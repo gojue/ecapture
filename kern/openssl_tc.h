@@ -104,7 +104,7 @@ int capture_packets(struct __sk_buff *skb, bool is_ingress) {
     }
     if (!skb_revalidate_data(skb, &data_start, &data_end, l4_hdr_off + sizeof(struct tcphdr)))
     {
-        return TC_ACT_UNSPEC;
+        return TC_ACT_OK;
     }
     struct tcphdr *tcp = (struct tcphdr *) (data_start + l4_hdr_off);
 
