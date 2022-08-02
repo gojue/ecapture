@@ -159,7 +159,7 @@ func (this *MOpenSSLProbe) initDecodeFunTC() error {
 	return nil
 }
 
-func (this *MOpenSSLProbe) dumpTcSkb(event *TcSkbEvent) error {
+func (this *MOpenSSLProbe) dumpTcSkb(event *TcSkbEvent) {
 
 	this.logger.Printf("%s\t%s, length:%d\n", this.Name(), event.String(), event.DataLen)
 	var netEventMetadata *NetEventMetadata = &NetEventMetadata{}
@@ -168,9 +168,9 @@ func (this *MOpenSSLProbe) dumpTcSkb(event *TcSkbEvent) error {
 	packetBytes := make([]byte, event.DataLen)
 	packetBytes = event.Data[:event.DataLen]
 	if err := this.writePacket(event.DataLen, this.ifIdex, time.Unix(0, int64(netEventMetadata.TimeStamp)), packetBytes); err != nil {
-		return err
+		this.logger.Printf("%s\t save packet error %s .\n", this.Name(), err.Error())
 	}
-	return nil
+	return
 }
 
 // save pcapng file ,merge master key into pcapng file TODO
