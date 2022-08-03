@@ -59,7 +59,12 @@ func (this *MOpenSSLProbe) setupManagersTC() error {
 	this.logger.Printf("%s\tInterface:%s, Pcapng filepath:%s\n", this.Name(), ifname, this.pcapngFilename)
 
 	// create pcapng writer
-	err = this.createPcapng()
+	netIfs, err := net.Interfaces()
+	if err != nil {
+		return err
+	}
+
+	err = this.createPcapng(netIfs[1:])
 	if err != nil {
 		return err
 	}
@@ -161,13 +166,13 @@ func (this *MOpenSSLProbe) initDecodeFunTC() error {
 
 func (this *MOpenSSLProbe) dumpTcSkb(event *TcSkbEvent) {
 
-	this.logger.Printf("%s\t%s, length:%d\n", this.Name(), event.String(), event.DataLen)
+	this.logger.Printf("%s\t%s\n", this.Name(), event.String())
 	var netEventMetadata *NetEventMetadata = &NetEventMetadata{}
-	netEventMetadata.TimeStamp = uint64(time.Now().UnixNano())
+	// timeStamp is nanoseconds since system boot time
+	// To get the monotonic time since tracee was started, we have to subtract the start time from the timestamp.
+	netEventMetadata.TimeStamp += this.bootTime
 
-	packetBytes := make([]byte, event.DataLen)
-	packetBytes = event.Data[:event.DataLen]
-	if err := this.writePacket(event.DataLen, this.ifIdex, time.Unix(0, int64(netEventMetadata.TimeStamp)), packetBytes); err != nil {
+	if err := this.writePacket(event.Len, this.ifIdex, time.Unix(0, int64(netEventMetadata.TimeStamp)), event.Payload()); err != nil {
 		this.logger.Printf("%s\t save packet error %s .\n", this.Name(), err.Error())
 	}
 	return
@@ -178,8 +183,7 @@ func (this *MOpenSSLProbe) savePcapng() error {
 	return this.pcapWriter.Flush()
 }
 
-func (this *MOpenSSLProbe) createPcapng() error {
-
+func (this *MOpenSSLProbe) createPcapng(netIfs []net.Interface) error {
 	pcapFile, err := os.OpenFile(this.pcapngFilename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
 	if err != nil {
 		return fmt.Errorf("error creating pcap file: %v", err)
@@ -187,7 +191,7 @@ func (this *MOpenSSLProbe) createPcapng() error {
 
 	ngIface := pcapgo.NgInterface{
 		Name:       this.conf.(*OpensslConfig).Ifname,
-		Comment:    "eCapture TC capture",
+		Comment:    "eCapture (旁观者): github.com/ehids/ecapture",
 		Filter:     "",
 		LinkType:   layers.LinkTypeEthernet,
 		SnapLength: uint32(math.MaxUint16),
@@ -198,6 +202,21 @@ func (this *MOpenSSLProbe) createPcapng() error {
 		return err
 	}
 
+	// insert other interfaces into pcapng file
+	for _, iface := range netIfs {
+		ngIface = pcapgo.NgInterface{
+			Name:       iface.Name,
+			Comment:    "eCapture (旁观者): github.com/ehids/ecapture",
+			Filter:     "",
+			LinkType:   layers.LinkTypeEthernet,
+			SnapLength: uint32(math.MaxUint16),
+		}
+
+		_, err := pcapWriter.AddInterface(ngIface)
+		if err != nil {
+			return err
+		}
+	}
 	// Flush the header
 	err = pcapWriter.Flush()
 	if err != nil {

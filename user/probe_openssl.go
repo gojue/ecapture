@@ -18,6 +18,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 const (
@@ -67,6 +68,8 @@ type MOpenSSLProbe struct {
 	ifIdex            int
 	ifName            string
 	pcapWriter        *pcapgo.NgWriter
+	startTime         uint64
+	bootTime          uint64
 }
 
 //对象初始化
@@ -98,6 +101,15 @@ func (this *MOpenSSLProbe) Init(ctx context.Context, logger *log.Logger, conf IC
 		this.logger.Printf("%s\tmaster key keylogger: %s\n", this.Name(), this.keyloggerFilename)
 	}
 
+	var ts unix.Timespec
+	unix.ClockGettime(unix.CLOCK_MONOTONIC, &ts)
+	startTime := ts.Nano()
+	// Calculate the boot time using the monotonic time (since this is the clock we're using as a timestamp)
+	// Note: this is NOT the real boot time, as the monotonic clock doesn't take into account system sleeps.
+	bootTime := time.Now().UnixNano() - startTime
+
+	this.startTime = uint64(startTime)
+	this.bootTime = uint64(bootTime)
 	return nil
 }
 

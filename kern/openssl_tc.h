@@ -1,7 +1,11 @@
+#define TC_PACKET_MIN_SIZE 36
 
 struct skb_data_event_t {
-    u32 data_len;
-    char data[SKB_MAX_DATA_SIZE];
+    uint64_t ts;
+    u32 pid;
+    char comm[TASK_COMM_LEN];
+    u32 len;
+    u32 ifindex;
 };
 
 typedef struct net_id {
@@ -70,7 +74,6 @@ skb_revalidate_data(struct __sk_buff *skb, uint8_t **head, uint8_t **tail, const
 ///////////////////// ebpf functions //////////////////////
 int capture_packets(struct __sk_buff *skb, bool is_ingress) {
 
-
     // packet data
     unsigned char *data_start = (void *)(long)skb->data;
     unsigned char *data_end = (void *)(long)skb->data_end;
@@ -115,18 +118,25 @@ int capture_packets(struct __sk_buff *skb, bool is_ingress) {
     debug_bpf_printk("capture_packets port : %d, dest port :%d\n", bpf_ntohs(tcp->source), bpf_ntohs(tcp->dest));
     // get the skb data event
     net_id_t connect_id = {0};
-    struct skb_data_event_t* event = make_skb_data_event();
+    // new packet event
+    struct skb_data_event_t event = {0};
+    event.ts = bpf_ktime_get_ns();
+    event.len = skb->len;
+    event.ifindex = skb->ifindex;
 
-    if (event == NULL) {
-        return 0;
-    }
-    // make sure data_len is not negative
-    event->data_len = data_len;
+    u64 flags = BPF_F_CURRENT_CPU;
+    flags |= (u64) skb->len << 32;
 
-    bpf_probe_read_kernel(event->data, sizeof(event->data), &data_start);
+    // via aquasecurity/tracee    tracee.bpf.c tc_probe
+    // if net_packet event not chosen, send minimal data only:
+    //     timestamp (u64)      8 bytes
+    //     pid (u32)            4 bytes
+    //     comm (char[])       16 bytes
+    //     packet len (u32)     4 bytes
+    //     ifindex (u32)        4 bytes
+    size_t pkt_size = TC_PACKET_MIN_SIZE;
+    bpf_perf_event_output(skb, &skb_events, flags, &event, pkt_size);
 
-    bpf_perf_event_output(skb, &skb_events, BPF_F_CURRENT_CPU, event,
-                          sizeof(struct skb_data_event_t));
     debug_bpf_printk("new packet captured on egress/ingress (TC), length:%d\n", data_len);
     return TC_ACT_OK;
 }
