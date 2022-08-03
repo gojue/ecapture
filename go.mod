@@ -5,8 +5,10 @@ go 1.17
 require (
 	github.com/cilium/ebpf v0.9.0
 	github.com/ehids/ebpfmanager v0.3.0
+	github.com/google/gopacket v1.1.19
 	github.com/spf13/cobra v1.4.0
 	github.com/spf13/pflag v1.0.5
+	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa
 	golang.org/x/sys v0.0.0-20211210111614-af8b64212486
 )
 
@@ -24,6 +26,5 @@ require (
 	github.com/stretchr/testify v1.7.0 // indirect
 	github.com/vishvananda/netlink v1.1.0 // indirect
 	github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df // indirect
-	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa // indirect
 	golang.org/x/net v0.0.0-20211112202133-69e39bad7dc2 // indirect
 )

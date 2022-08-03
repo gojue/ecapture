@@ -4,6 +4,7 @@ import (
 	"ecapture/cli"
 	"ecapture/pkg/util/ebpf"
 	"ecapture/pkg/util/kernel"
+	_ "github.com/shuLhan/go-bindata" // add for bindata in Makefile
 	"log"
 )
 

@@ -1,5 +1,6 @@
 #include "ecapture.h"
 #include "masterkey_kern.h"
+#include "openssl_tc.h"
 
 enum ssl_data_event_type { kSSLRead, kSSLWrite };
 const u32 invalidFD = 0;

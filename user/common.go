@@ -84,12 +84,12 @@ func ParseDynLibConf(pattern string) (dirs []string, err error) {
 		}
 	}
 	if len(dirs) <= 0 {
-		err = errors.New(fmt.Sprintf("read file :%s error .", pattern))
+		err = errors.New(fmt.Sprintf("read keylogger :%s error .", pattern))
 	}
 	return dirs, err
 }
 
-// getDynsFromElf get shared objects from ELF file
+// getDynsFromElf get shared objects from ELF keylogger
 func getDynsFromElf(file string) ([]string, error) {
 	f, e := elf.Open(file)
 	if e != nil {
@@ -121,7 +121,7 @@ func getDynPathByElf(elfName, soName string) (string, error) {
 func recurseDynStrings(dynSym []string, searchPath []string, soName string) string {
 	var realSoName string
 	for _, el := range dynSym {
-		// check file path here for library if it doesnot exists panic
+		// check keylogger path here for library if it doesnot exists panic
 		var fd *os.File
 		for _, entry := range searchPath {
 			path := filepath.Join(entry, el)
@@ -129,7 +129,7 @@ func recurseDynStrings(dynSym []string, searchPath []string, soName string) stri
 				fd, err = os.OpenFile(path, os.O_RDONLY, 0644)
 				if err != nil {
 					//log.Fatal(err)
-					fmt.Printf("open file:%s  error:%v\n", path, err)
+					fmt.Printf("open keylogger:%s  error:%v\n", path, err)
 					continue
 				} else {
 					// found
