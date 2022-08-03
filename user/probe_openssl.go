@@ -102,7 +102,10 @@ func (this *MOpenSSLProbe) Init(ctx context.Context, logger *log.Logger, conf IC
 	}
 
 	var ts unix.Timespec
-	unix.ClockGettime(unix.CLOCK_MONOTONIC, &ts)
+	err = unix.ClockGettime(unix.CLOCK_MONOTONIC, &ts)
+	if err != nil {
+		return err
+	}
 	startTime := ts.Nano()
 	// Calculate the boot time using the monotonic time (since this is the clock we're using as a timestamp)
 	// Note: this is NOT the real boot time, as the monotonic clock doesn't take into account system sleeps.
