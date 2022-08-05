@@ -44,6 +44,7 @@ func init() {
 	opensslCmd.PersistentFlags().StringVar(&goc.Path, "gobin", "", "path to binary built with Go toolchain.")
 	opensslCmd.PersistentFlags().StringVarP(&oc.Write, "write", "w", "", "write the  raw packets to file as pcapng format.")
 	opensslCmd.PersistentFlags().StringVarP(&oc.Ifname, "ifname", "i", "", "(TC Classifier) Interface name on which the probe will be attached.")
+	opensslCmd.PersistentFlags().Uint16Var(&oc.Port, "port", 443, "port number to capture, default:443.")
 
 	rootCmd.AddCommand(opensslCmd)
 }

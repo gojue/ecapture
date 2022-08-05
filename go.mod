@@ -25,6 +25,8 @@ require (
 	github.com/shuLhan/go-bindata v4.0.0+incompatible // indirect
 	github.com/stretchr/testify v1.7.0 // indirect
 	github.com/vishvananda/netlink v1.1.0 // indirect
-	github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df // indirect
+	github.com/vishvananda/netns v0.0.0-20210104183010-2eb08e3e575f // indirect
 	golang.org/x/net v0.0.0-20211112202133-69e39bad7dc2 // indirect
 )
+
+replace github.com/google/gopacket v1.1.19 => github.com/cfc4n/gopacket v1.1.20

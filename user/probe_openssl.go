@@ -70,6 +70,7 @@ type MOpenSSLProbe struct {
 	pcapWriter        *pcapgo.NgWriter
 	startTime         uint64
 	bootTime          uint64
+	tcPackets         []*TcPacket
 }
 
 //对象初始化
@@ -113,6 +114,8 @@ func (this *MOpenSSLProbe) Init(ctx context.Context, logger *log.Logger, conf IC
 
 	this.startTime = uint64(startTime)
 	this.bootTime = uint64(bootTime)
+
+	this.tcPackets = make([]*TcPacket, 0, 1024)
 	return nil
 }
 
@@ -172,9 +175,8 @@ func (this *MOpenSSLProbe) start() error {
 }
 
 func (this *MOpenSSLProbe) Close() error {
-
 	if this.eBPFProgramType == EBPFPROGRAMTYPE_OPENSSL_TC {
-		this.logger.Printf("saving pcapng file %s\n", this.pcapngFilename)
+		this.logger.Printf("%s\tsaving pcapng file %s\n", this.Name(), this.pcapngFilename)
 		err := this.savePcapng()
 		if err != nil {
 			return err
@@ -200,6 +202,10 @@ func (this *MOpenSSLProbe) constantEditor() []manager.ConstantEditor {
 		{
 			Name:  "target_uid",
 			Value: uint64(this.conf.GetUid()),
+		},
+		{
+			Name:  "target_port",
+			Value: uint32(this.conf.(*OpensslConfig).Port),
 		},
 	}
 
@@ -512,7 +518,18 @@ func (this *MOpenSSLProbe) saveMasterSecret(event *MasterSecretEvent) {
 		this.logger.Fatalf("%s: save CLIENT_RANDOM to file error:%s", v.String(), e.Error())
 		return
 	}
-	this.logger.Printf("%s: save CLIENT_RANDOM %02x to file success, %d bytes", v.String(), event.ClientRandom, l)
+
+	//
+	switch this.eBPFProgramType {
+	case EBPFPROGRAMTYPE_OPENSSL_TC:
+		e = this.savePcapngSslKeyLog(b.Bytes())
+		if e != nil {
+			this.logger.Fatalf("%s: save CLIENT_RANDOM to pcapng error:%s", v.String(), e.Error())
+			return
+		}
+	default:
+		this.logger.Printf("%s: save CLIENT_RANDOM %02x to file success, %d bytes", v.String(), event.ClientRandom, l)
+	}
 }
 
 func (this *MOpenSSLProbe) Dispatcher(event event_processor.IEventStruct) {
