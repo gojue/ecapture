@@ -12,6 +12,7 @@ type OpensslConfig struct {
 	Pthread  string `json:"pthread"` // /lib/x86_64-linux-gnu/libpthread.so.0
 	Write    string `json:"write"`   // Write  the  raw  packets  to file rather than parsing and printing them out.
 	Ifname   string `json:"ifname"`  // (TC Classifier) Interface name on which the probe will be attached.
+	Port     uint16 `json:"port"`    // capture port
 	elfType  uint8  //
 }
 

@@ -111,7 +111,7 @@ int capture_packets(struct __sk_buff *skb, bool is_ingress) {
     }
     struct tcphdr *tcp = (struct tcphdr *) (data_start + l4_hdr_off);
 
-    if (tcp->source != bpf_htons(443) && tcp->dest != bpf_htons(443)) {
+    if (tcp->source != bpf_htons(target_port) && tcp->dest != bpf_htons(target_port)) {
         return TC_ACT_OK;
     }
 
@@ -150,6 +150,5 @@ int egress_cls_func(struct __sk_buff *skb) {
 // ingress_cls_func is called for packets that are coming into the network
 SEC("classifier/ingress")
 int ingress_cls_func(struct __sk_buff *skb) {
-    return TC_ACT_OK;
     return capture_packets(skb, true);
 };

@@ -15,9 +15,10 @@ import (
 	"time"
 )
 
-type netPcap struct {
-	FileObj os.File
-	Writer  pcapgo.NgWriter
+// packets of TC probe
+type TcPacket struct {
+	info gopacket.CaptureInfo
+	data []byte
 }
 
 type NetCaptureData struct {
@@ -56,7 +57,7 @@ func (this *MOpenSSLProbe) setupManagersTC() error {
 		binaryPath = "/lib/x86_64-linux-gnu/libssl.so.1.1"
 	}
 
-	this.logger.Printf("%s\tInterface:%s, Pcapng filepath:%s\n", this.Name(), ifname, this.pcapngFilename)
+	this.logger.Printf("%s\tInterface:%s, Port:%d, Pcapng filepath:%s\n", this.Name(), ifname, this.conf.(*OpensslConfig).Port, this.pcapngFilename)
 
 	// create pcapng writer
 	netIfs, err := net.Interfaces()
@@ -137,7 +138,7 @@ func (this *MOpenSSLProbe) setupManagersTC() error {
 }
 
 func (this *MOpenSSLProbe) initDecodeFunTC() error {
-	//SSLDumpEventsMap 与解码函数映射
+	//SkbEventsMap 与解码函数映射
 	SkbEventsMap, found, err := this.bpfManager.GetMap("skb_events")
 	if err != nil {
 		return err
@@ -166,7 +167,7 @@ func (this *MOpenSSLProbe) initDecodeFunTC() error {
 
 func (this *MOpenSSLProbe) dumpTcSkb(event *TcSkbEvent) {
 
-	this.logger.Printf("%s\t%s\n", this.Name(), event.String())
+	//this.logger.Printf("%s\t%s\n", this.Name(), event.String())
 	var netEventMetadata *NetEventMetadata = &NetEventMetadata{}
 	// timeStamp is nanoseconds since system boot time
 	// To get the monotonic time since tracee was started, we have to subtract the start time from the timestamp.
@@ -180,15 +181,34 @@ func (this *MOpenSSLProbe) dumpTcSkb(event *TcSkbEvent) {
 
 // save pcapng file ,merge master key into pcapng file TODO
 func (this *MOpenSSLProbe) savePcapng() error {
+	var i int = 0
+	for _, packet := range this.tcPackets {
+		err := this.pcapWriter.WritePacket(packet.info, packet.data)
+		i++
+		if err != nil {
+			return err
+		}
+	}
+	this.logger.Printf("%s\t save %d packets into pcapng file.\n", this.Name(), i)
 	return this.pcapWriter.Flush()
 }
 
 func (this *MOpenSSLProbe) createPcapng(netIfs []net.Interface) error {
-	pcapFile, err := os.OpenFile(this.pcapngFilename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
+	pcapFile, err := os.OpenFile(this.pcapngFilename, os.O_TRUNC|os.O_WRONLY|os.O_CREATE, 0644)
 	if err != nil {
 		return fmt.Errorf("error creating pcap file: %v", err)
 	}
 
+	// TODO : write Application "ecapture.lua" to decode PID/Comm info.
+	pcapOption := pcapgo.NgWriterOptions{
+		SectionInfo: pcapgo.NgSectionInfo{
+			Hardware:    "eCapture Hardware",
+			OS:          "",
+			Application: "ecapture.lua",
+			Comment:     "see https://ecapture.cc for more information. CFC4N <cfc4n@cnxct.com>",
+		},
+	}
+	// write interface description
 	ngIface := pcapgo.NgInterface{
 		Name:       this.conf.(*OpensslConfig).Ifname,
 		Comment:    "eCapture (旁观者): github.com/ehids/ecapture",
@@ -197,7 +217,7 @@ func (this *MOpenSSLProbe) createPcapng(netIfs []net.Interface) error {
 		SnapLength: uint32(math.MaxUint16),
 	}
 
-	pcapWriter, err := pcapgo.NewNgWriterInterface(pcapFile, ngIface, pcapgo.NgWriterOptions{})
+	pcapWriter, err := pcapgo.NewNgWriterInterface(pcapFile, ngIface, pcapOption)
 	if err != nil {
 		return err
 	}
@@ -236,10 +256,13 @@ func (this *MOpenSSLProbe) writePacket(dataLen uint32, ifaceIdx int, timeStamp t
 		InterfaceIndex: ifaceIdx,
 	}
 
-	// TODO 按照进程PID方式，划分独立的Writer
-	err := this.pcapWriter.WritePacket(info, packetBytes)
-	if err != nil {
-		return err
-	}
+	packet := &TcPacket{info: info, data: packetBytes}
+
+	this.tcPackets = append(this.tcPackets, packet)
 	return nil
+}
+
+func (this *MOpenSSLProbe) savePcapngSslKeyLog(sslKeyLog []byte) (err error) {
+	err = this.pcapWriter.WriteDecryptionSecretsBlock(pcapgo.DSB_SECRETS_TYPE_TLS, sslKeyLog)
+	return
 }
