@@ -6,6 +6,7 @@ require (
 	github.com/cilium/ebpf v0.9.0
 	github.com/ehids/ebpfmanager v0.3.0
 	github.com/google/gopacket v1.1.19
+	github.com/shuLhan/go-bindata v4.0.0+incompatible
 	github.com/spf13/cobra v1.4.0
 	github.com/spf13/pflag v1.0.5
 	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa
@@ -22,7 +23,6 @@ require (
 	github.com/josharian/native v0.0.0-20200817173448-b6b71def0850 // indirect
 	github.com/mdlayher/netlink v1.4.1 // indirect
 	github.com/mdlayher/socket v0.0.0-20210307095302-262dc9984e00 // indirect
-	github.com/shuLhan/go-bindata v4.0.0+incompatible // indirect
 	github.com/stretchr/testify v1.7.0 // indirect
 	github.com/vishvananda/netlink v1.1.0 // indirect
 	github.com/vishvananda/netns v0.0.0-20210104183010-2eb08e3e575f // indirect
