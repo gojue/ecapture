@@ -18,6 +18,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 )
 
@@ -71,6 +72,7 @@ type MOpenSSLProbe struct {
 	startTime         uint64
 	bootTime          uint64
 	tcPackets         []*TcPacket
+	tcPacketLocker    *sync.Mutex
 }
 
 //对象初始化
@@ -116,6 +118,7 @@ func (this *MOpenSSLProbe) Init(ctx context.Context, logger *log.Logger, conf IC
 	this.bootTime = uint64(bootTime)
 
 	this.tcPackets = make([]*TcPacket, 0, 1024)
+	this.tcPacketLocker = &sync.Mutex{}
 	return nil
 }
 
