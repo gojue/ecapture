@@ -226,9 +226,6 @@ func (this *MOpenSSLProbe) createPcapng(netIfs []net.Interface) error {
 
 	// insert other interfaces into pcapng file
 	for _, iface := range netIfs {
-		if iface.Name == this.ifName {
-			continue
-		}
 		ngIface = pcapgo.NgInterface{
 			Name:       iface.Name,
 			Comment:    "eCapture (旁观者): github.com/ehids/ecapture",
