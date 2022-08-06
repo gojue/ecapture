@@ -57,7 +57,7 @@ func (this *MOpenSSLProbe) setupManagersTC() error {
 		binaryPath = "/lib/x86_64-linux-gnu/libssl.so.1.1"
 	}
 
-	this.logger.Printf("%s\tInterface:%s, Port:%d, Pcapng filepath:%s\n", this.Name(), ifname, this.conf.(*OpensslConfig).Port, this.pcapngFilename)
+	this.logger.Printf("%s\tIfname:%s, Ifindex:%d,  Port:%d, Pcapng filepath:%s\n", this.Name(), this.ifName, this.ifIdex, this.conf.(*OpensslConfig).Port, this.pcapngFilename)
 
 	// create pcapng writer
 	netIfs, err := net.Interfaces()
@@ -182,6 +182,8 @@ func (this *MOpenSSLProbe) dumpTcSkb(event *TcSkbEvent) {
 // save pcapng file ,merge master key into pcapng file TODO
 func (this *MOpenSSLProbe) savePcapng() error {
 	var i int = 0
+	this.tcPacketLocker.Lock()
+	defer this.tcPacketLocker.Unlock()
 	for _, packet := range this.tcPackets {
 		err := this.pcapWriter.WritePacket(packet.info, packet.data)
 		i++
@@ -240,6 +242,7 @@ func (this *MOpenSSLProbe) createPcapng(netIfs []net.Interface) error {
 			return err
 		}
 	}
+
 	// Flush the header
 	err = pcapWriter.Flush()
 	if err != nil {
