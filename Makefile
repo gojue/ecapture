@@ -101,7 +101,7 @@ GO_VERSION_MAJ = $(shell echo $(GO_VERSION) | $(CMD_CUT) -d'.' -f1)
 GO_VERSION_MIN = $(shell echo $(GO_VERSION) | $(CMD_CUT) -d'.' -f2)
 
 
-# golang 版本检测  1.16 以上
+# golang 版本检测  1.17 以上
 .checkver_$(CMD_GO): \
 	| .check_$(CMD_GO)
 #
