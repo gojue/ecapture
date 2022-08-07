@@ -7,7 +7,14 @@
 [![CI](https://github.com/ehids/ecapture/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/ehids/ecapture/actions/workflows/code-analysis.yml)
 [![Github Version](https://img.shields.io/github/v/release/ehids/ecapture?display_name=tag&include_prereleases&sort=semver)](https://github.com/ehids/ecapture/releases)
 
-### eCapture(旁观者): 基于eBPF技术实现TLS加密的明文捕获。
+### eCapture(旁观者): 基于eBPF技术实现TLS加密的明文捕获，无需CA证书。
+
+> **Note**
+> 支持 Linux系统内核4.15以上版本，支持Android系统内核5.4以上版本。
+>
+> 不支持Windows、macOS系统。
+
+官方网站： [https://ecapture.cc](https://ecapture.cc)
 
 ----
 
@@ -19,7 +26,7 @@ eCapture的中文名字为**旁观者**，即「**当局者迷，旁观者清**�
 
 ![](./images/how-ecapture-works.png)
 
-eBPF HOOK uprobe实现的各种用户态进程的数据捕获，无需改动原程序。
+eBPF `Uprobe`/`Traffic Control`实现的各种用户空间/内核空间的数据捕获，无需改动原程序。
 
 * SSL/HTTPS数据导出功能，针对HTTPS的数据包抓取，不需要导入CA证书。
 * bash的命令捕获，HIDS的bash命令监控解决方案。
@@ -35,17 +42,42 @@ eBPF HOOK uprobe实现的各种用户态进程的数据捕获，无需改动原�
 [eCapture：无需CA证书抓https明文通讯](https://mp.weixin.qq.com/s/DvTClH3JmncpkaEfnTQsRg)
 
 ### 演示视频
+
 [![eCapture User Manual](./images/ecapture-user-manual.png)](https://www.bilibili.com/video/BV1si4y1Q74a "eCapture User Manual")
 
 # 使用
+
 ## 直接运行
+
 下载 [release](https://github.com/ehids/ecapture/releases) 的二进制包，可直接使用。
 
 系统配置要求
+
 * 系统linux kernel版本必须高于4.15。
 * 开启BTF [BPF Type Format (BTF)](https://www.kernel.org/doc/html/latest/bpf/btf.html) 支持。 (可选, 2022-04-17)
 
+## 命令参数
+
+> **Note**
+>
+> 需要ROOT权限执行。
+
+eCapture默认查找`/etc/ld.so.conf`文件，查找SO文件的加载目录，并查找`openssl`等动态链接路位置。你也可以通过`--libssl`
+参数指定动态链接库路径。
+
+如果目标程序使用静态编译方式，则可以直接将`--libssl`参数设定为该程序的路径。
+
+### Pcapng输出格式
+
+`./ecapture tls -i eth0 -w pcapng -p 443` 直接讲捕获的明文数据包保存为pcapng格式，直接使用`Wireshark`打开查看。
+
+### 文本输出格式
+
+`./ecapture tls` 将会输出所有的明文数据包，并捕获openssl TLS的密钥`Master Secret`
+文件到当前目录的ecapture_master.log中。你也可以同时开启`tcpdump`抓包，再使用`Wireshark`打开，设置`Master Secret`路径，查看明文数据包。
+
 ### 验证方法：
+
 ```shell
 cfc4n@vm-server:~$# uname -r
 4.18.0-305.3.1.el8.x86_64
