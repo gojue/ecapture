@@ -85,8 +85,8 @@ func (this *MOpenSSLProbe) Init(ctx context.Context, logger *log.Logger, conf IC
 	this.eventFuncMaps = make(map[*ebpf.Map]event_processor.IEventStruct)
 	this.pidConns = make(map[uint32]map[uint32]string)
 	this.masterKeys = make(map[string]bool)
-	fd := os.Getpid()
-	this.keyloggerFilename = fmt.Sprintf("ecapture_masterkey.log", fd)
+	//fd := os.Getpid()
+	this.keyloggerFilename = "ecapture_masterkey.log"
 	file, err := os.OpenFile(this.keyloggerFilename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
 	if err != nil {
 		return err
