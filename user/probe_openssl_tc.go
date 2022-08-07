@@ -182,6 +182,10 @@ func (this *MOpenSSLProbe) dumpTcSkb(event *TcSkbEvent) {
 // save pcapng file ,merge master key into pcapng file TODO
 func (this *MOpenSSLProbe) savePcapng() error {
 	var i int = 0
+	err := this.pcapWriter.WriteDecryptionSecretsBlock(pcapgo.DSB_SECRETS_TYPE_TLS, this.masterKeyBuffer.Bytes())
+	if err != nil {
+		return err
+	}
 	this.tcPacketLocker.Lock()
 	defer this.tcPacketLocker.Unlock()
 	for _, packet := range this.tcPackets {
@@ -266,6 +270,6 @@ func (this *MOpenSSLProbe) writePacket(dataLen uint32, ifaceIdx int, timeStamp t
 }
 
 func (this *MOpenSSLProbe) savePcapngSslKeyLog(sslKeyLog []byte) (err error) {
-	err = this.pcapWriter.WriteDecryptionSecretsBlock(pcapgo.DSB_SECRETS_TYPE_TLS, sslKeyLog)
-	return
+	_, e := this.masterKeyBuffer.Write(sslKeyLog)
+	return e
 }

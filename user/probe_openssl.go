@@ -72,6 +72,7 @@ type MOpenSSLProbe struct {
 	startTime         uint64
 	bootTime          uint64
 	tcPackets         []*TcPacket
+	masterKeyBuffer   *bytes.Buffer
 	tcPacketLocker    *sync.Mutex
 }
 
@@ -119,6 +120,7 @@ func (this *MOpenSSLProbe) Init(ctx context.Context, logger *log.Logger, conf IC
 
 	this.tcPackets = make([]*TcPacket, 0, 1024)
 	this.tcPacketLocker = &sync.Mutex{}
+	this.masterKeyBuffer = bytes.NewBuffer([]byte{})
 	return nil
 }
 
