@@ -9,6 +9,11 @@
 
 ### eCapture(旁观者):  capture SSL/TLS text content without CA cert Using eBPF.
 
+> **Note**
+>
+> Support Linux Kernel 4.15 or newer,Support Android Kernel 5.4 or newer.
+>
+> Do not support Windows and macOS system.
 ----
 
 #  How eCapture works
@@ -23,16 +28,46 @@
 ![](./images/ecapture-architecture.png)
 
 # eCapture User Manual
+
 [![eCapture User Manual](./images/ecapture-user-manual.png)](https://www.youtube.com/watch?v=CoDIjEQCvvA "eCapture User Manual")
 
 # Getting started
+
 ## use ELF binary file
-Download ELF zip file [release](https://github.com/ehids/ecapture/releases) , unzip and use by command `./ecapture --help`.
+
+Download ELF zip file [release](https://github.com/ehids/ecapture/releases) , unzip and use by
+command `./ecapture --help`.
 
 * Linux kernel version >= 4.15 is required.
 * Enable BTF [BPF Type Format (BTF)](https://www.kernel.org/doc/html/latest/bpf/btf.html)  (Optional, 2022-04-17)
 
+## Command line options
+
+> **Note**
+>
+> Need ROOT permission.
+>
+eCapture search `/etc/ld.so.conf` file default, to search load directories of  `SO` file, and search `openssl` shard
+libraries location. or you can use `--libssl`
+flag to set shard library path.
+
+If target program is compile statically, you can set program path as `--libssl` flag value directly。
+
+### Pcapng result
+
+`./ecapture tls -i eth0 -w pcapng -p 443` capture plaintext packets save as pcapng file, use `Wireshark` read it
+directly.
+
+### plaintext result
+
+`./ecapture tls` will capture all plaintext context ,output to console, and capture `Master Secret` of `openssl TLS`
+save to `ecapture_master.log`. You can also use `tcpdump` to capture raw packet,and use `Wireshark` to read them
+with `Master Secret` settings.
+
+>
+
 ### check your server BTF config：
+
 ```shell
 cfc4n@vm-server:~$# uname -r
 4.18.0-305.3.1.el8.x86_64
@@ -41,6 +76,7 @@ CONFIG_DEBUG_INFO_BTF=y
 ```
 
 ### tls command
+
 capture tls text context.
 Step 1:
 ```shell
