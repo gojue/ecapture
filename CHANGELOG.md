@@ -1,10 +1,37 @@
 <hr>
 
-# v0.3.0 (2022-07-20)
+# v0.4.0 (2022-08-07)
+
 ## Breaking Changes
+
+**Support : capture plaintext packet as pcapng files for openssl TLS encryption.**
+
+> **Note:**
+>
+> Support `Wireshark` to open directly. Do not need to setting up `Master Secrets` files.
+>
+> Capture `raw packet` by Traffic Control eBPF filter. Added `Master Secrets` information into pcapng
+> with `Decryption Secrets Block` (DSB).
+
+> **Warning**
+>
+> change `loggerFile` flag as `-l` from `-w` , because `-w` is reserved for `Wireshark`, and keep same as `-w`
+> for `tcpdump`.
+> use `ecapture -h` for help.
+> change `master secrets` filename from `ecapture_masterkey_[pid].log` to `ecapture_masterkey.log`.
+
+## What's Changed
+
+<hr>
+
+# v0.3.0 (2022-07-20)
+
+## Breaking Changes
+
 **Capture TLS master_key ,save to file. Support openssl `1.1.1.X` . `TLS 1.2` .**
 
 Quick Guide:
+
 - use `ecapture` to capture TLS master_key, will save master secret to `ecapture_masterkey_[pid].log`.
 - use `tcpdump` to capture and save packets to `xxx.pcapng` file.
 - open `xxx.pcapng` file with `wireshark`.
@@ -14,7 +41,7 @@ Quick Guide:
 ## What's Changed
 * all : refactor event_processor EventType. by @cfc4n in https://github.com/ehids/ecapture/pull/134
 * fixed #138 : You have an error in your yaml syntax on line 79 by @cfc4n in https://github.com/ehids/ecapture/pull/139
-* New feature: capture openssl masterkey  #27 by @cfc4n in https://github.com/ehids/ecapture/pull/140
+* New feature: capture openssl masterkey #27 by @cfc4n in https://github.com/ehids/ecapture/pull/140
 
 **Full Changelog**: https://github.com/ehids/ecapture/compare/v0.2.2...v0.3.0
 
