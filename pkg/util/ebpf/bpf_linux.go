@@ -46,6 +46,7 @@ func GetSystemConfig() (map[string]string, error) {
 		return KernelConfig, e
 	}
 
+	var err error
 	for _, system_config_path := range configPaths {
 		var bootConf = system_config_path
 		if strings.Index(system_config_path, "%s") != -1 {
@@ -54,6 +55,7 @@ func GetSystemConfig() (map[string]string, error) {
 
 		KernelConfig, e = getLinuxConfig(bootConf)
 		if e != nil {
+			err = e
 			// 没有找到配置文件，继续找下一个
 			continue
 		}
@@ -65,7 +67,7 @@ func GetSystemConfig() (map[string]string, error) {
 	}
 
 	if !found {
-		return nil, fmt.Errorf("KernelConfig not found.")
+		return nil, fmt.Errorf("KernelConfig not found. with error: %v", err)
 	}
 	return KernelConfig, nil
 }

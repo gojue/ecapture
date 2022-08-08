@@ -529,6 +529,7 @@ func (this *MOpenSSLProbe) saveMasterSecret(event *MasterSecretEvent) {
 	//
 	switch this.eBPFProgramType {
 	case EBPFPROGRAMTYPE_OPENSSL_TC:
+		this.logger.Printf("%s: save CLIENT_RANDOM %02x to file success, %d bytes", v.String(), event.ClientRandom, l)
 		e = this.savePcapngSslKeyLog(b.Bytes())
 		if e != nil {
 			this.logger.Fatalf("%s: save CLIENT_RANDOM to pcapng error:%s", v.String(), e.Error())
