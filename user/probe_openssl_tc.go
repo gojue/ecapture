@@ -41,9 +41,16 @@ func (this *MOpenSSLProbe) setupManagersTC() error {
 
 	ifname = this.conf.(*OpensslConfig).Ifname
 	this.ifName = ifname
-	interf, err := net.InterfaceByName(this.conf.(*OpensslConfig).Ifname)
+	interf, err := net.InterfaceByName(this.ifName)
 	if err != nil {
 		return err
+	}
+
+	// loopback devices are special, some tc probes should be skipped
+	isNetIfaceLo := interf.Flags&net.FlagLoopback == net.FlagLoopback
+	skipLoopback := true // TODO: detect loopback devices via aquasecrity/tracee/pkg/ebpf/probes/probe.go line 322
+	if isNetIfaceLo && skipLoopback {
+		return fmt.Errorf("%s\t%s is a loopback interface, skip it", this.Name(), this.ifName)
 	}
 	this.ifIdex = interf.Index
 
@@ -57,6 +64,7 @@ func (this *MOpenSSLProbe) setupManagersTC() error {
 		binaryPath = "/lib/x86_64-linux-gnu/libssl.so.1.1"
 	}
 
+	this.logger.Printf("%s\tHOOK type:%d, binrayPath:%s\n", this.Name(), this.conf.(*OpensslConfig).elfType, binaryPath)
 	this.logger.Printf("%s\tIfname:%s, Ifindex:%d,  Port:%d, Pcapng filepath:%s\n", this.Name(), this.ifName, this.ifIdex, this.conf.(*OpensslConfig).Port, this.pcapngFilename)
 
 	// create pcapng writer
