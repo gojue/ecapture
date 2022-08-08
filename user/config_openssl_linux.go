@@ -12,6 +12,10 @@ import (
 	"strings"
 )
 
+const (
+	DEFAULT_IFNAME = "eth0"
+)
+
 func (this *OpensslConfig) checkOpenssl() error {
 	soPath, e := getDynPathByElf(this.Curlpath, "libssl.so")
 	if e != nil {
@@ -130,6 +134,10 @@ func (this *OpensslConfig) Check() error {
 			return e
 		}
 		checkedConnect = true
+	}
+
+	if this.Ifname == "" || len(strings.TrimSpace(this.Ifname)) == 0 {
+		this.Ifname = DEFAULT_IFNAME
 	}
 
 	if checkedConnect && checkedOpenssl {

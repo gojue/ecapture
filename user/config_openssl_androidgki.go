@@ -11,6 +11,8 @@ import (
 const (
 	DEFAULT_OPENSSL_PATH = "/apex/com.android.conscrypt/lib64/libssl.so"
 	DEFAULT_LIBC_PATH    = "/apex/com.android.runtime/lib64/bionic/libc.so"
+
+	DEFAULT_IFNAME = "wlan0"
 )
 
 func (this *OpensslConfig) Check() error {
@@ -35,5 +37,8 @@ func (this *OpensslConfig) Check() error {
 		this.Pthread = DEFAULT_LIBC_PATH
 	}
 
+	if this.Ifname == "" || len(strings.TrimSpace(this.Ifname)) == 0 {
+		this.Ifname = DEFAULT_IFNAME
+	}
 	return nil
 }
