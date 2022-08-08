@@ -12,12 +12,12 @@ import (
 	"context"
 	"ecapture/assets"
 	"ecapture/pkg/event_processor"
+	"errors"
 	"fmt"
 	"log"
 	"math"
 	"os"
 
-	"errors"
 	"github.com/cilium/ebpf"
 	manager "github.com/ehids/ebpfmanager"
 	"golang.org/x/sys/unix"

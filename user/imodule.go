@@ -5,11 +5,12 @@ import (
 	"ecapture/pkg/event_processor"
 	"errors"
 	"fmt"
+	"log"
+	"os"
+
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/perf"
 	"github.com/cilium/ebpf/ringbuf"
-	"log"
-	"os"
 )
 
 type IModule interface {

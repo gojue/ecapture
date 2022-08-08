@@ -15,9 +15,10 @@ package hkdf
 
 import (
 	"crypto"
+	"hash"
+
 	"golang.org/x/crypto/cryptobyte"
 	"golang.org/x/crypto/hkdf"
-	"hash"
 )
 
 const (

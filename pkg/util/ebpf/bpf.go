@@ -2,8 +2,9 @@ package ebpf
 
 import (
 	"fmt"
-	"golang.org/x/sys/unix"
 	"os"
+
+	"golang.org/x/sys/unix"
 )
 
 // CONFIG CHECK ITEMS

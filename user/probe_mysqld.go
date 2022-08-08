@@ -14,12 +14,13 @@ import (
 	"ecapture/pkg/event_processor"
 	"errors"
 	"fmt"
-	"github.com/cilium/ebpf"
-	manager "github.com/ehids/ebpfmanager"
-	"golang.org/x/sys/unix"
 	"log"
 	"math"
 	"os"
+
+	"github.com/cilium/ebpf"
+	manager "github.com/ehids/ebpfmanager"
+	"golang.org/x/sys/unix"
 )
 
 type MMysqldProbe struct {

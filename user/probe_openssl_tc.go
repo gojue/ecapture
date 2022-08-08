@@ -3,16 +3,17 @@ package user
 import (
 	"errors"
 	"fmt"
+	"math"
+	"net"
+	"os"
+	"time"
+
 	"github.com/cilium/ebpf"
 	manager "github.com/ehids/ebpfmanager"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcapgo"
 	"golang.org/x/sys/unix"
-	"math"
-	"net"
-	"os"
-	"time"
 )
 
 // packets of TC probe

@@ -7,11 +7,12 @@ import (
 	"ecapture/pkg/event_processor"
 	"errors"
 	"fmt"
+	"log"
+	"math"
+
 	"github.com/cilium/ebpf"
 	manager "github.com/ehids/ebpfmanager"
 	"golang.org/x/sys/unix"
-	"log"
-	"math"
 )
 
 type MBashProbe struct {

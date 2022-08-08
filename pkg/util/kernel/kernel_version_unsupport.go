@@ -5,7 +5,6 @@ package kernel
 
 import (
 	"fmt"
-
 	"runtime"
 )
 

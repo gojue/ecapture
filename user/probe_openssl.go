@@ -9,10 +9,6 @@ import (
 	"ecapture/pkg/util/hkdf"
 	"errors"
 	"fmt"
-	"github.com/cilium/ebpf"
-	manager "github.com/ehids/ebpfmanager"
-	"github.com/google/gopacket/pcapgo"
-	"golang.org/x/sys/unix"
 	"hash"
 	"log"
 	"math"
@@ -20,6 +16,11 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/cilium/ebpf"
+	manager "github.com/ehids/ebpfmanager"
+	"github.com/google/gopacket/pcapgo"
+	"golang.org/x/sys/unix"
 )
 
 const (

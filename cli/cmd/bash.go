@@ -7,11 +7,12 @@ package cmd
 import (
 	"context"
 	"ecapture/user"
-	"github.com/spf13/cobra"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/spf13/cobra"
 )
 
 var bc = user.NewBashConfig()
