@@ -28,8 +28,8 @@ var opensslCmd = &cobra.Command{
 	Aliases: []string{"openssl", "gnutls", "nss"},
 	Short:   "alias name:openssl , use to capture tls/ssl text content without CA cert.",
 	Long: `use eBPF uprobe to capture process event data, not used libpcap.
-Can used to trace, debug, database audit, security event aduit etc.
-`,
+	Can used to trace, debug, database audit, security event aduit etc.
+	`,
 	Run: openSSLCommandFunc,
 }
 
@@ -42,8 +42,8 @@ func init() {
 	opensslCmd.PersistentFlags().StringVar(&nc.Nsprpath, "nspr", "", "libnspr44.so file path, will automatically find it from curl default.")
 	opensslCmd.PersistentFlags().StringVar(&oc.Pthread, "pthread", "", "libpthread.so file path, use to hook connect to capture socket FD.will automatically find it from curl.")
 	opensslCmd.PersistentFlags().StringVar(&goc.Path, "gobin", "", "path to binary built with Go toolchain.")
-	opensslCmd.PersistentFlags().StringVarP(&oc.Write, "write", "w", "", "write the  raw packets to file as pcapng format.")
-	opensslCmd.PersistentFlags().StringVarP(&oc.Ifname, "ifname", "i", "", "(TC Classifier) Interface name on which the probe will be attached.")
+	opensslCmd.PersistentFlags().StringVarP(&oc.Write, "write", "w", "", "write the raw packets to file as pcapng format.")
+	opensslCmd.PersistentFlags().StringVarP(&oc.Ifname, "ifname", "i", "", "(TC Classifier) Interface name to which the probe will be attached.")
 	opensslCmd.PersistentFlags().Uint16Var(&oc.Port, "port", 443, "port number to capture, default:443.")
 
 	rootCmd.AddCommand(opensslCmd)
@@ -81,7 +81,7 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 	for _, modName := range modNames {
 		mod := user.GetModuleByName(modName)
 		if mod == nil {
-			logger.Printf("ECAPTURE :: \tcant found module: %s", modName)
+			logger.Printf("ECAPTURE :: \tcan't found module: %s", modName)
 			break
 		}
 
@@ -99,7 +99,7 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 		}
 
 		if conf == nil {
-			logger.Printf("ECAPTURE :: \tcant found module %s config info.", mod.Name())
+			logger.Printf("ECAPTURE :: \tcan't found module %s config info.", mod.Name())
 			break
 		}
 
@@ -110,7 +110,6 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 		conf.SetNoSearch(gConf.NoSearch)
 
 		err := conf.Check()
-
 		if err != nil {
 			// ErrorGoBINNotSET is a special error, we should not print it.
 			if errors.Is(err, user.ErrorGoBINNotSET) {
