@@ -109,7 +109,7 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 		conf.SetHex(gConf.IsHex)
 		conf.SetNoSearch(gConf.NoSearch)
 
-		err := conf.Check()
+		err = conf.Check()
 
 		if err != nil {
 			// ErrorGoBINNotSET is a special error, we should not print it.
@@ -132,13 +132,14 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 		}
 
 		// 加载ebpf，挂载到hook点上，开始监听
-		go func(module user.IModule) {
-			err := module.Run()
-			if err != nil {
-				logger.Printf("%s\tmodule run failed, [skip it]. error:%+v", module.Name(), err)
-				return
-			}
-		}(mod)
+		//go func(module user.IModule) {
+		//
+		//}(mod)
+		err = mod.Run()
+		if err != nil {
+			logger.Printf("%s\tmodule run failed, [skip it]. error:%+v", mod.Name(), err)
+			continue
+		}
 		runModules[mod.Name()] = mod
 		logger.Printf("%s\tmodule started successfully.", mod.Name())
 		wg.Add(1)
@@ -147,17 +148,21 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 
 	// needs runmods > 0
 	if runMods > 0 {
+		logger.Printf("ECAPTURE :: \tstart to %d modules", runMods)
 		<-stopper
+	} else {
+		logger.Println("ECAPTURE :: \tNo runnable modules, Exit(1)")
+		os.Exit(1)
 	}
 	cancelFun()
 
 	// clean up
 	for _, mod := range runModules {
 		err = mod.Close()
+		wg.Done()
 		if err != nil {
 			logger.Fatalf("%s\tmodule close failed. error:%+v", mod.Name(), err)
 		}
-		wg.Done()
 	}
 
 	wg.Wait()

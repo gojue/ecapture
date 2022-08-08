@@ -85,7 +85,7 @@ func (this *MPostgresProbe) Close() error {
 	if err := this.bpfManager.Stop(manager.CleanAll); err != nil {
 		return fmt.Errorf("couldn't stop manager %v.", err)
 	}
-	return nil
+	return this.Module.Close()
 }
 
 func (this *MPostgresProbe) setupManagers() error {

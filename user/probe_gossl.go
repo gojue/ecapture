@@ -114,5 +114,5 @@ func (p *GoSSLProbe) DecodeFun(m *ebpf.Map) (event_processor.IEventStruct, bool)
 }
 
 func (p *GoSSLProbe) Close() error {
-	return nil
+	return p.Module.Close()
 }
