@@ -171,7 +171,7 @@ jobs:
             echo "-------------------start: Create ecapture.tar.gz of Android kernel CO:RE -------------------"
             make env
             make clean
-            ANDROID=1 make
+            ANDROID=1 make nocore
             echo "-------------------ecapture --help-------------------"
             echo "bin/ecapture -v"
             echo "-------------------create tar.gz file-------------------"
