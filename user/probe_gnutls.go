@@ -77,7 +77,7 @@ func (this *MGnutlsProbe) Close() error {
 	if err := this.bpfManager.Stop(manager.CleanAll); err != nil {
 		return fmt.Errorf("couldn't stop manager %v", err)
 	}
-	return nil
+	return this.Module.Close()
 }
 
 //  通过elf的常量替换方式传递数据

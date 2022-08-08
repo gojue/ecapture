@@ -132,20 +132,23 @@ func (this *Module) readEvents() error {
 	for _, event := range this.child.Events() {
 		switch {
 		case event.Type() == ebpf.RingBuf:
-			go this.ringbufEventReader(errChan, event)
+			this.ringbufEventReader(errChan, event)
 		case event.Type() == ebpf.PerfEventArray:
-			go this.perfEventReader(errChan, event)
+			this.perfEventReader(errChan, event)
 		default:
-			errChan <- fmt.Errorf("%s\tNot support mapType:%s , mapinfo:%s", this.child.Name(), event.Type().String(), event.String())
+			return fmt.Errorf("%s\tNot support mapType:%s , mapinfo:%s", this.child.Name(), event.Type().String(), event.String())
 		}
 	}
 
-	for {
-		select {
-		case err := <-errChan:
-			return err
+	go func() {
+		for {
+			select {
+			case err := <-errChan:
+				this.logger.Printf("%s\treadEvents error:%v", this.child.Name(), err)
+			}
 		}
-	}
+	}()
+	return nil
 }
 
 func (this *Module) perfEventReader(errChan chan error, em *ebpf.Map) {
@@ -154,40 +157,42 @@ func (this *Module) perfEventReader(errChan chan error, em *ebpf.Map) {
 		errChan <- fmt.Errorf("creating %s reader dns: %s", em.String(), err)
 		return
 	}
-	defer rd.Close()
-	for {
-		//判断ctx是不是结束
-		select {
-		case _ = <-this.ctx.Done():
-			this.logger.Printf("%s\tperfEventReader received close signal from context.Done().", this.child.Name())
-			return
-		default:
-		}
+	this.reader = append(this.reader, rd)
+	go func() {
+		for {
+			//判断ctx是不是结束
+			select {
+			case _ = <-this.ctx.Done():
+				this.logger.Printf("%s\tperfEventReader received close signal from context.Done().", this.child.Name())
+				return
+			default:
+			}
 
-		record, err := rd.Read()
-		if err != nil {
-			if errors.Is(err, perf.ErrClosed) {
+			record, err := rd.Read()
+			if err != nil {
+				if errors.Is(err, perf.ErrClosed) {
+					return
+				}
+				errChan <- fmt.Errorf("%s\treading from perf event reader: %s", this.child.Name(), err)
 				return
 			}
-			errChan <- fmt.Errorf("%s\treading from perf event reader: %s", this.child.Name(), err)
-			return
-		}
 
-		if record.LostSamples != 0 {
-			this.logger.Printf("%s\tperf event ring buffer full, dropped %d samples", this.child.Name(), record.LostSamples)
-			continue
-		}
+			if record.LostSamples != 0 {
+				this.logger.Printf("%s\tperf event ring buffer full, dropped %d samples", this.child.Name(), record.LostSamples)
+				continue
+			}
 
-		var event event_processor.IEventStruct
-		event, err = this.child.Decode(em, record.RawSample)
-		if err != nil {
-			this.logger.Printf("%s\tthis.child.decode error:%v", this.child.Name(), err)
-			continue
-		}
+			var event event_processor.IEventStruct
+			event, err = this.child.Decode(em, record.RawSample)
+			if err != nil {
+				this.logger.Printf("%s\tthis.child.decode error:%v", this.child.Name(), err)
+				continue
+			}
 
-		// 上报数据
-		this.Dispatcher(event)
-	}
+			// 上报数据
+			this.Dispatcher(event)
+		}
+	}()
 }
 
 func (this *Module) ringbufEventReader(errChan chan error, em *ebpf.Map) {
@@ -196,36 +201,38 @@ func (this *Module) ringbufEventReader(errChan chan error, em *ebpf.Map) {
 		errChan <- fmt.Errorf("%s\tcreating %s reader dns: %s", this.child.Name(), em.String(), err)
 		return
 	}
-	defer rd.Close()
-	for {
-		//判断ctx是不是结束
-		select {
-		case _ = <-this.ctx.Done():
-			this.logger.Printf("%s\tringbufEventReader received close signal from context.Done().", this.child.Name())
-			return
-		default:
-		}
+	this.reader = append(this.reader, rd)
+	go func() {
+		for {
+			//判断ctx是不是结束
+			select {
+			case _ = <-this.ctx.Done():
+				this.logger.Printf("%s\tringbufEventReader received close signal from context.Done().", this.child.Name())
+				return
+			default:
+			}
 
-		record, err := rd.Read()
-		if err != nil {
-			if errors.Is(err, ringbuf.ErrClosed) {
-				this.logger.Printf("%s\tReceived signal, exiting..", this.child.Name())
+			record, err := rd.Read()
+			if err != nil {
+				if errors.Is(err, ringbuf.ErrClosed) {
+					this.logger.Printf("%s\tReceived signal, exiting..", this.child.Name())
+					return
+				}
+				errChan <- fmt.Errorf("%s\treading from ringbuf reader: %s", this.child.Name(), err)
 				return
 			}
-			errChan <- fmt.Errorf("%s\treading from ringbuf reader: %s", this.child.Name(), err)
-			return
-		}
 
-		var event event_processor.IEventStruct
-		event, err = this.child.Decode(em, record.RawSample)
-		if err != nil {
-			this.logger.Printf("%s\tthis.child.decode error:%v", this.child.Name(), err)
-			continue
-		}
+			var event event_processor.IEventStruct
+			event, err = this.child.Decode(em, record.RawSample)
+			if err != nil {
+				this.logger.Printf("%s\tthis.child.decode error:%v", this.child.Name(), err)
+				continue
+			}
 
-		// 上报数据
-		this.Dispatcher(event)
-	}
+			// 上报数据
+			this.Dispatcher(event)
+		}
+	}()
 }
 
 func (this *Module) Decode(em *ebpf.Map, b []byte) (event event_processor.IEventStruct, err error) {
@@ -261,6 +268,12 @@ func (this *Module) Dispatcher(event event_processor.IEventStruct) {
 }
 
 func (this *Module) Close() error {
+	this.logger.Printf("%s\tclose", this.child.Name())
+	for _, iClose := range this.reader {
+		if err := iClose.Close(); err != nil {
+			return err
+		}
+	}
 	err := this.processor.Close()
 	return err
 }
