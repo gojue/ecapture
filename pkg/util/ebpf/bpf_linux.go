@@ -105,7 +105,10 @@ func getLinuxConfig(filename string) (map[string]string, error) {
 		s = bufio.NewScanner(reader)
 	} else {
 		// not gzip file
-		f.Seek(0, 0)
+		_, err = f.Seek(0, 0)
+		if err != nil {
+			return KernelConfig, err
+		}
 		s = bufio.NewScanner(f)
 	}
 
