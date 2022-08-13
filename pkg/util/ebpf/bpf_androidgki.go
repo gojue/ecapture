@@ -6,6 +6,7 @@ package ebpf
 import (
 	"bufio"
 	"compress/gzip"
+	"fmt"
 	"os"
 )
 
