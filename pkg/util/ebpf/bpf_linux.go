@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"compress/gzip"
 )
 
 const (
@@ -83,6 +84,16 @@ func getLinuxConfig(filename string) (map[string]string, error) {
 	defer f.Close()
 
 	s := bufio.NewScanner(f)
+
+	if strings.HasSuffix(filename, ".gz") {
+		reader, err := gzip.NewReader(f)
+		if err != nil {
+			return KernelConfig, err
+		}
+		defer reader.Close()
+		s = bufio.NewScanner(reader)
+	}
+
 	if err = parse(s, KernelConfig); err != nil {
 		return KernelConfig, err
 	}
