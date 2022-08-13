@@ -5,6 +5,7 @@ package ebpf
 
 import (
 	"bufio"
+	"compress/gzip"
 	"fmt"
 	"os"
 	"strings"
@@ -82,7 +83,32 @@ func getLinuxConfig(filename string) (map[string]string, error) {
 	}
 	defer f.Close()
 
-	s := bufio.NewScanner(f)
+	// check if the file is gzipped
+	var magic []byte
+	var i int
+	magic = make([]byte, 2)
+	i, err = f.Read(magic)
+	if err != nil {
+		return KernelConfig, err
+	}
+	if i != 2 {
+		return KernelConfig, fmt.Errorf("read %d bytes, expected 2", i)
+	}
+
+	var s *bufio.Scanner
+	if magic[0] == 0x1f && magic[1] == 0x8b {
+		// gzip file
+		reader, e := gzip.NewReader(f)
+		if e != nil {
+			return KernelConfig, err
+		}
+		s = bufio.NewScanner(reader)
+	} else {
+		// not gzip file
+		f.Seek(0, 0)
+		s = bufio.NewScanner(f)
+	}
+
 	if err = parse(s, KernelConfig); err != nil {
 		return KernelConfig, err
 	}
