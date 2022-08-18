@@ -96,7 +96,10 @@ func getLinuxConfig(filename string) (map[string]string, error) {
 	}
 
 	var s *bufio.Scanner
-	if magic[0] == 0x1f && magic[1] == 0x8b {
+
+	// big-endian magic number for gzip is 0x1f8b
+	// little-endian magic number for gzip is 0x8b1f
+	if (magic[0] == 0x1f && magic[1] == 0x8b) || (magic[0] == 0x8b && magic[1] == 0x1f) {
 		// gzip file
 		reader, e := gzip.NewReader(f)
 		if e != nil {
