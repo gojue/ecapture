@@ -94,6 +94,10 @@ func getLinuxConfig(filename string) (map[string]string, error) {
 	if i != 2 {
 		return KernelConfig, fmt.Errorf("read %d bytes, expected 2", i)
 	}
+	_, err = f.Seek(0, 0)
+	if err != nil {
+	return KernelConfig, err
+	}
 
 	var s *bufio.Scanner
 
@@ -108,10 +112,6 @@ func getLinuxConfig(filename string) (map[string]string, error) {
 		s = bufio.NewScanner(reader)
 	} else {
 		// not gzip file
-		_, err = f.Seek(0, 0)
-		if err != nil {
-			return KernelConfig, err
-		}
 		s = bufio.NewScanner(f)
 	}
 
