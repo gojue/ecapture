@@ -175,14 +175,22 @@ hook了`/bin/bash`的`readline`函数。
 
 ## 工具链版本
 * golang 1.17
-* clang 9.0.0
+* clang 12.0.0
 * cmake 3.18.4
-* clang backend: llvm 9.0.0
+* clang backend: llvm 12.0.0
 * kernel config:CONFIG_DEBUG_INFO_BTF=y (可选，2022-04-17增加)
 
 
 ## 编译
+
 ```shell
+sudo apt-get update
+sudo apt-get install --yes build-essential pkgconf libelf-dev llvm-12 clang-12 linux-tools-common linux-tools-generic
+for tool in "clang" "llc" "llvm-strip"
+do
+  sudo rm -f /usr/bin/$tool
+  sudo ln -s /usr/bin/$tool-12 /usr/bin/$tool
+done
 git clone git@github.com:ehids/ecapture.git
 cd ecapture
 make

@@ -170,6 +170,13 @@ Linux Kernel: >= 4.15.
 
 ## command
 ```shell
+sudo apt-get update
+sudo apt-get install --yes build-essential pkgconf libelf-dev llvm-12 clang-12 linux-tools-common linux-tools-generic
+for tool in "clang" "llc" "llvm-strip"
+do
+  sudo rm -f /usr/bin/$tool
+  sudo ln -s /usr/bin/$tool-12 /usr/bin/$tool
+done
 git clone git@github.com:ehids/ecapture.git
 cd ecapture
 make
