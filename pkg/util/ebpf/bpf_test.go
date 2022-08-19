@@ -28,6 +28,7 @@ func TestBpfConfig(t *testing.T) {
 		t.Logf("GetSystemConfig error:%s", e.Error())
 	}
 
+	// 测试 config.gz 的解压，查找配置项
 	t.Log("TestBpfConfig with correct configuration (gzip compressed)")
 	configPaths = []string{
 		"config.gz", // test file from pixel 6 android 12
@@ -36,7 +37,25 @@ func TestBpfConfig(t *testing.T) {
 	if e != nil {
 		t.Fatalf("GetSystemConfig(gzip) error:%s", e.Error())
 	}
+	for _, item := range configCheckItems {
+		bc, found := m[item]
+		if !found {
+			// 没有这个配置项
+			t.Logf("Config not found,  item:%s.", item)
+		} else {
+			t.Logf("Config found, item:%s, value:%s.", item, bc)
+		}
 
+		//如果有，在判断配置项的值
+		if bc != "y" {
+			// 没有开启
+			t.Logf("Config disabled, item :%s.", item)
+		} else {
+			t.Logf("Config enabled, item :%s.", item)
+		}
+	}
+
+	//
 	t.Log("TestBpfConfig with correct configuration")
 	configPaths = []string{
 		"/proc/config.gz", // android
