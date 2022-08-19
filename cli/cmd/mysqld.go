@@ -46,7 +46,7 @@ func mysqldCommandFunc(command *cobra.Command, args []string) {
 	mod := user.GetModuleByName(user.MODULE_NAME_MYSQLD)
 
 	logger := log.New(os.Stdout, "mysqld_", log.LstdFlags)
-
+	logger.Printf("ECAPTURE :: version :%s", GitVersion)
 	logger.Printf("ECAPTURE :: start to run %s module", mod.Name())
 
 	// save global config

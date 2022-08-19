@@ -129,6 +129,15 @@ func (this *Module) run() {
 
 func (this *Module) readEvents() error {
 	var errChan = make(chan error, 8)
+	go func() {
+		for {
+			select {
+			case err := <-errChan:
+				this.logger.Printf("%s\treadEvents error:%v", this.child.Name(), err)
+			}
+		}
+	}()
+
 	for _, event := range this.child.Events() {
 		switch {
 		case event.Type() == ebpf.RingBuf:
@@ -140,14 +149,6 @@ func (this *Module) readEvents() error {
 		}
 	}
 
-	go func() {
-		for {
-			select {
-			case err := <-errChan:
-				this.logger.Printf("%s\treadEvents error:%v", this.child.Name(), err)
-			}
-		}
-	}()
 	return nil
 }
 

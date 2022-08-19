@@ -70,6 +70,7 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 		}
 		logger.SetOutput(f)
 	}
+	logger.Printf("ECAPTURE :: version :%s", GitVersion)
 	logger.Printf("ECAPTURE :: pid info :%d", os.Getpid())
 
 	modNames := []string{user.MODULE_NAME_OPENSSL, user.MODULE_NAME_GNUTLS, user.MODULE_NAME_NSPR, user.MODULE_NAME_GOSSL}
@@ -148,7 +149,7 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 
 	// needs runmods > 0
 	if runMods > 0 {
-		logger.Printf("ECAPTURE :: \tstart to %d modules", runMods)
+		logger.Printf("ECAPTURE :: \tstart %d modules", runMods)
 		<-stopper
 	} else {
 		logger.Println("ECAPTURE :: \tNo runnable modules, Exit(1)")
