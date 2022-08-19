@@ -42,7 +42,7 @@ func postgresCommandFunc(command *cobra.Command, args []string) {
 	mod := user.GetModuleByName(user.MODULE_NAME_POSTGRES)
 
 	logger := log.New(os.Stdout, "postgress_", log.LstdFlags)
-
+	logger.Printf("ECAPTURE :: version :%s", GitVersion)
 	logger.Printf("ECAPTURE :: start to run %s module", mod.Name())
 
 	// save global config
