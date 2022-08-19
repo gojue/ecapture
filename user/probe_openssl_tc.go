@@ -174,14 +174,8 @@ func (this *MOpenSSLProbe) initDecodeFunTC() error {
 }
 
 func (this *MOpenSSLProbe) dumpTcSkb(event *TcSkbEvent) {
-
-	//this.logger.Printf("%s\t%s\n", this.Name(), event.String())
-	var netEventMetadata *NetEventMetadata = &NetEventMetadata{}
-	// timeStamp is nanoseconds since system boot time
-	// To get the monotonic time since tracee was started, we have to subtract the start time from the timestamp.
-	netEventMetadata.TimeStamp += this.bootTime
-
-	if err := this.writePacket(event.Len, this.ifIdex, time.Unix(0, int64(netEventMetadata.TimeStamp)), event.Payload()); err != nil {
+	var timeStamp = this.bootTime + event.Ts
+	if err := this.writePacket(event.Len, this.ifIdex, time.Unix(0, int64(timeStamp)), event.Payload()); err != nil {
 		this.logger.Printf("%s\t save packet error %s .\n", this.Name(), err.Error())
 	}
 	return
