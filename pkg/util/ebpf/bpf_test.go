@@ -28,11 +28,21 @@ func TestBpfConfig(t *testing.T) {
 		t.Logf("GetSystemConfig error:%s", e.Error())
 	}
 
-	t.Log("TestBpfConfig with true config")
+	t.Log("TestBpfConfig with correct configuration (gzip compressed)")
+	configPaths = []string{
+		"config.gz", // test file from pixel 6 android 12
+	}
+	m, e = GetSystemConfig()
+	if e != nil {
+		t.Fatalf("GetSystemConfig(gzip) error:%s", e.Error())
+	}
+
+	t.Log("TestBpfConfig with correct configuration")
 	configPaths = []string{
 		"/proc/config.gz", // android
 		"/boot/config",    // linux
 		"/boot/config-%s", // linux
+		"config.gz",       // test file from pixel 6 android 12
 	}
 	m, e = GetSystemConfig()
 	if e != nil {
