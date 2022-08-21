@@ -1,5 +1,13 @@
 <hr>
 
+# v0.4.1 (2022-08-21)
+
+## Breaking Changes
+
+## What's Changed
+
+<hr>
+
 # v0.4.0 (2022-08-07)
 
 ## Breaking Changes
@@ -16,11 +24,17 @@
 > **Warning**
 >
 > change `loggerFile` flag as `-l` from `-w` , because `-w` is reserved for `Wireshark`, and keep same as `-w`
-> for `tcpdump`.
-> use `ecapture -h` for help.
+> for `tcpdump`. use `ecapture -h` for help.
 > change `master secrets` filename from `ecapture_masterkey_[pid].log` to `ecapture_masterkey.log`.
 
 ## What's Changed
+
+* new feature: capture TLS 1.3 master secret by @cfc4n in https://github.com/ehids/ecapture/pull/143
+* user : echo String() or StringHex() by CLI argument. by @cfc4n in https://github.com/ehids/ecapture/pull/149
+* cli/cmd : clean up all probe while process exit. (#150) by @cfc4n in https://github.com/ehids/ecapture/pull/151
+* save as Pcapng files #145 by @cfc4n in https://github.com/ehids/ecapture/pull/148
+* user : Support writing pcapng files with Decryption Secrets Block (DSB). by @cfc4n
+  in https://github.com/ehids/ecapture/pull/153
 
 <hr>
 
