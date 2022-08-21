@@ -2,9 +2,19 @@
 
 # v0.4.1 (2022-08-21)
 
-## Breaking Changes
-
 ## What's Changed
+* kern : define variable target_port always. by @cfc4n in https://github.com/ehids/ecapture/pull/157
+* workflows : build nocore version for Android default. by @cfc4n in https://github.com/ehids/ecapture/pull/159
+* pkg : Ifname default value. by @cfc4n in https://github.com/ehids/ecapture/pull/161
+* user : skip loopback network interface by @cfc4n in https://github.com/ehids/ecapture/pull/163
+* user : tls models exit gracefully. by @cfc4n in https://github.com/ehids/ecapture/pull/165
+* git: ignore .check* files by @blaisewang in https://github.com/ehids/ecapture/pull/168
+* pkg : fix config file parse failed, when as gzip format. by @cfc4n in https://github.com/ehids/ecapture/pull/169
+* fix gzip read err by @4ft35t in https://github.com/ehids/ecapture/pull/175
+* pkg/util/ebpf : add unit testing for kernel CONFIG reader by @cfc4n in https://github.com/ehids/ecapture/pull/176
+* user : fix incorrect TimeStamp by @cfc4n in https://github.com/ehids/ecapture/pull/179
+* cli/cmd : print version info by @cfc4n in https://github.com/ehids/ecapture/pull/177
+* kern : support boringssl offset for Android 12. by @cfc4n in https://github.com/ehids/ecapture/pull/181
 
 <hr>
 
