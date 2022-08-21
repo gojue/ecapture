@@ -46,9 +46,11 @@ ifeq ($(DEBUG),1)
 DEBUG_PRINT := -DDEBUG_PRINT
 endif
 
+BORINGSSL_FLAGS ?=
 TARGET_TAG ?= linux
 ifeq ($(ANDROID),1)
 TARGET_TAG := androidgki
+BORINGSSL_FLAGS := -DBORINGSSL
 endif
 
 EXTRA_CFLAGS ?= -O2 -mcpu=v1 \
@@ -89,8 +91,8 @@ CLANG_VERSION = $(shell $(CMD_CLANG) --version 2>/dev/null | \
 	| .check_$(CMD_CLANG)
 #
 	@echo $(shell date)
-	@if [ ${CLANG_VERSION} -lt 9 ]; then
-		echo -n "you MUST use clang 9 or newer, "
+	@if [ ${CLANG_VERSION} -lt 12 ]; then
+		echo -n "you MUST use clang 12 or newer, "
 		echo "your current clang version is ${CLANG_VERSION}"
 		exit 1
 	fi
@@ -290,6 +292,7 @@ $(KERN_OBJECTS): %.o: %.c \
 	$(CMD_CLANG) -D__TARGET_ARCH_$(LINUX_ARCH) \
 		$(EXTRA_CFLAGS) \
 		$(BPFHEADER) \
+		$(BORINGSSL_FLAGS) \
 		-target bpfel -c $< -o $(subst kern/,user/bytecode/,$@) \
 		-fno-ident -fdebug-compilation-dir . -g -D__BPF_TARGET_MISSING="GCC error \"The eBPF is using target specific macros, please provide -target\"" \
 		-MD -MP
@@ -341,6 +344,7 @@ $(KERN_OBJECTS_NOCORE): %.nocore: %.c \
     		-I $(KERN_BUILD_PATH)/include/generated/uapi \
     		$(EXTRA_CFLAGS_NOCORE) \
     		$(KERNEL_LESS_5_2_FLAGS) \
+    		$(BORINGSSL_FLAGS) \
     		-c $< \
     		-o - |$(CMD_LLC) \
     		-march=bpf \
