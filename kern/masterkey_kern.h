@@ -12,8 +12,11 @@
  * openssl 1.1.1.X 版本相关的常量
  * 参考：https://wiki.openssl.org/index.php/TLS1.3
  */
+#ifndef BORINGSSL
+//------------------------------------------
 
-////////// TLS 1.2 or older /////////
+// ssl->version 在 ssl_st 结构体中的偏移量
+#define SSL_VERSION_OFFSET 0
 // ssl->session 在 ssl_st 结构中的偏移量
 #define SSL_SESSION_OFFSET 0x510
 
@@ -25,6 +28,27 @@
 
 // s3->client_random 在 ssl3_state_st 中的偏移量
 #define SSL_S3_CLIENT_RANDOM_OFFSET 0xD8
+//------------------------------------------
+#else
+// android boringssl 版本
+// ssl->version 在 ssl_st 结构体中的偏移量
+#define SSL_VERSION_OFFSET 16
+
+// ssl->session 在 ssl_st 结构中的偏移量
+#define SSL_SESSION_OFFSET 88
+
+// session->secret 在 SSL_SESSION 中的偏移量
+#define MASTER_KEY_OFFSET 16
+
+// ssl->s3 在 ssl_st中的偏移量
+#define SSL_S3_OFFSET 48
+
+// s3->client_random 在 ssl3_state_st 中的偏移量
+#define SSL_S3_CLIENT_RANDOM_OFFSET 48
+#endif
+
+////////// TLS 1.2 or older /////////
+
 
 // session->cipher 在 SSL_SESSION 中的偏移量
 #define SESSION_CIPHER_OFFSET 496
@@ -162,13 +186,15 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
         debug_bpf_printk("mastersecret is null\n");
         return 0;
     }
+    u64 *ssl_version_ptr = (u64 *)(ssl_st_ptr + SSL_VERSION_OFFSET);
     // Get a ssl_session_st pointer
     u64 *ssl_session_st_ptr = (u64 *)(ssl_st_ptr + SSL_SESSION_OFFSET);
     u64 *ssl_s3_st_ptr = (u64 *)(ssl_st_ptr + SSL_S3_OFFSET);
 
+    // Get SSL->version pointer
     int version;
     int ret =
-        bpf_probe_read_user(&version, sizeof(version), (void *)ssl_st_ptr);
+        bpf_probe_read_user(&version, sizeof(version), (void *)ssl_version_ptr);
     if (ret) {
         debug_bpf_printk("bpf_probe_read tls_version failed, ret :%d\n", ret);
         return 0;
