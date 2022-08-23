@@ -25,6 +25,7 @@ If applicable, add screenshots to help explain your problem.
 
 **Linux Server/Android (please complete the following information):**
 
+- Env: [run `make env` to get the environment variables]
 - OS: [e.g. Ubuntu 21.04]
 - Arch: [e.g. arm_aarch64]
 - Kernel Version: [e.g. 5.10]
