@@ -17,10 +17,10 @@ var (
 type SSLDataEventTmp struct {
 	//Event_type   uint8    `json:"Event_type"`
 	DataType     int64      `json:"DataType"`
-	Timestamp_ns uint64     `json:"Timestamp_ns"`
+	Timestamp_ns uint64     `json:"Timestamp"`
 	Pid          uint32     `json:"Pid"`
 	Tid          uint32     `json:"Tid"`
-	Data_len     int32      `json:"Data_len"`
+	Data_len     int32      `json:"DataLen"`
 	Comm         [16]byte   `json:"Comm"`
 	Fd           uint32     `json:"Fd"`
 	Version      int32      `json:"Version"`

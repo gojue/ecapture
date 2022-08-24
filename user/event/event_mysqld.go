@@ -18,10 +18,10 @@ import (
 /*
    u64 pid;
    u64 timestamp;
-   char query[MAX_DATA_SIZE];
-   u64 alllen;
-   u64 len;
-   char comm[TASK_COMM_LEN];
+   char Query[MAX_DATA_SIZE];
+   u64 Alllen;
+   u64 Len;
+   char Comm[TASK_COMM_LEN];
 */
 const MYSQLD_MAX_DATA_SIZE = 256
 
@@ -55,13 +55,13 @@ func (this dispatch_command_return) String() string {
 
 type MysqldEvent struct {
 	event_type EventType
-	Pid        uint64
-	Timestamp  uint64
-	query      [MYSQLD_MAX_DATA_SIZE]uint8
-	alllen     uint64
-	len        uint64
-	comm       [16]uint8
-	retval     dispatch_command_return
+	Pid        uint64                      `json:"pid"`
+	Timestamp  uint64                      `json:"timestamp"`
+	Query      [MYSQLD_MAX_DATA_SIZE]uint8 `json:"Query"`
+	Alllen     uint64                      `json:"Alllen"`
+	Len        uint64                      `json:"Len"`
+	Comm       [16]uint8                   `json:"Comm"`
+	Retval     dispatch_command_return     `json:"retval"`
 }
 
 func (this *MysqldEvent) Decode(payload []byte) (err error) {
@@ -72,31 +72,31 @@ func (this *MysqldEvent) Decode(payload []byte) (err error) {
 	if err = binary.Read(buf, binary.LittleEndian, &this.Timestamp); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.query); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &this.Query); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.alllen); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &this.Alllen); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.len); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &this.Len); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.comm); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &this.Comm); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.retval); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &this.Retval); err != nil {
 		return
 	}
 	return nil
 }
 
 func (this *MysqldEvent) String() string {
-	s := fmt.Sprintf(fmt.Sprintf(" PID:%d, Comm:%s, Time:%d,  length:(%d/%d),  return:%s, Line:%s", this.Pid, this.comm, this.Timestamp, this.len, this.alllen, this.retval, unix.ByteSliceToString((this.query[:]))))
+	s := fmt.Sprintf(fmt.Sprintf(" PID:%d, Comm:%s, Time:%d,  length:(%d/%d),  return:%s, Line:%s", this.Pid, this.Comm, this.Timestamp, this.Len, this.Alllen, this.Retval, unix.ByteSliceToString((this.Query[:]))))
 	return s
 }
 
 func (this *MysqldEvent) StringHex() string {
-	s := fmt.Sprintf(fmt.Sprintf(" PID:%d, Comm:%s, Time:%d,  length:(%d/%d),  return:%s, Line:%s", this.Pid, this.comm, this.Timestamp, this.len, this.alllen, this.retval, unix.ByteSliceToString((this.query[:]))))
+	s := fmt.Sprintf(fmt.Sprintf(" PID:%d, Comm:%s, Time:%d,  length:(%d/%d),  return:%s, Line:%s", this.Pid, this.Comm, this.Timestamp, this.Len, this.Alllen, this.Retval, unix.ByteSliceToString((this.Query[:]))))
 	return s
 }
 
@@ -111,13 +111,13 @@ func (this *MysqldEvent) EventType() EventType {
 }
 
 func (this *MysqldEvent) GetUUID() string {
-	return fmt.Sprintf("%d_%s", this.Pid, this.comm)
+	return fmt.Sprintf("%d_%s", this.Pid, this.Comm)
 }
 
 func (this *MysqldEvent) Payload() []byte {
-	return this.query[:this.len]
+	return this.Query[:this.Len]
 }
 
 func (this *MysqldEvent) PayloadLen() int {
-	return int(this.len)
+	return int(this.Len)
 }

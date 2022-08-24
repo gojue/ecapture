@@ -11,19 +11,19 @@ import (
 /*
  u32 pid;
  u8 line[MAX_DATE_SIZE_BASH];
- u32 retval;
- char comm[TASK_COMM_LEN];
+ u32 Retval;
+ char Comm[TASK_COMM_LEN];
 */
 
 const MAX_DATA_SIZE_BASH = 256
 
 type BashEvent struct {
 	event_type EventType
-	Pid        uint32
-	Uid        uint32
-	Line       [MAX_DATA_SIZE_BASH]uint8
-	Retval     uint32
-	Comm       [16]byte
+	Pid        uint32                    `json:"pid"`
+	Uid        uint32                    `json:"uid"`
+	Line       [MAX_DATA_SIZE_BASH]uint8 `json:"line"`
+	Retval     uint32                    `json:"Retval"`
+	Comm       [16]byte                  `json:"Comm"`
 }
 
 func (this *BashEvent) Decode(payload []byte) (err error) {

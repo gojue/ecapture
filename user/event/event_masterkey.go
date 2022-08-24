@@ -20,19 +20,19 @@ const (
 */
 type MasterSecretEvent struct {
 	event_type EventType
-	Version    int32 // TLS Version
+	Version    int32 `json:"version"` // TLS Version
 
 	// TLS 1.2 or older
-	ClientRandom [SSL3_RANDOM_SIZE]byte
-	MasterKey    [MASTER_SECRET_MAX_LEN]byte
+	ClientRandom [SSL3_RANDOM_SIZE]byte      `json:"clientRandom"` // Client Random
+	MasterKey    [MASTER_SECRET_MAX_LEN]byte `json:"masterKey"`    // Master Key
 
 	// TLS 1.3
-	CipherId             uint32
-	HandshakeSecret      [EVP_MAX_MD_SIZE]byte
-	MasterSecret         [EVP_MAX_MD_SIZE]byte
-	ServerFinishedHash   [EVP_MAX_MD_SIZE]byte
-	HandshakeTrafficHash [EVP_MAX_MD_SIZE]byte
-	ExporterMasterSecret [EVP_MAX_MD_SIZE]byte
+	CipherId             uint32                `json:"cipherId"`             // Cipher ID
+	HandshakeSecret      [EVP_MAX_MD_SIZE]byte `json:"handshakeSecret"`      // Handshake Secret
+	MasterSecret         [EVP_MAX_MD_SIZE]byte `json:"masterSecret"`         // Master Secret
+	ServerFinishedHash   [EVP_MAX_MD_SIZE]byte `json:"serverFinishedHash"`   // Server Finished Hash
+	HandshakeTrafficHash [EVP_MAX_MD_SIZE]byte `json:"handshakeTrafficHash"` // Handshake Traffic Hash
+	ExporterMasterSecret [EVP_MAX_MD_SIZE]byte `json:"exporterMasterSecret"` // Exporter Master Secret
 	payload              string
 }
 

@@ -12,14 +12,14 @@ import (
 )
 
 type NsprDataEvent struct {
-	event_type   EventType
-	DataType     int64
-	Timestamp_ns uint64
-	Pid          uint32
-	Tid          uint32
-	Data         [MAX_DATA_SIZE]byte
-	Data_len     int32
-	Comm         [16]byte
+	event_type EventType
+	DataType   int64               `json:"dataType"`
+	Timestamp  uint64              `json:"timestamp"`
+	Pid        uint32              `json:"pid"`
+	Tid        uint32              `json:"tid"`
+	Data       [MAX_DATA_SIZE]byte `json:"data"`
+	DataLen    int32               `json:"dataLen"`
+	Comm       [16]byte            `json:"Comm"`
 }
 
 func (this *NsprDataEvent) Decode(payload []byte) (err error) {
@@ -27,7 +27,7 @@ func (this *NsprDataEvent) Decode(payload []byte) (err error) {
 	if err = binary.Read(buf, binary.LittleEndian, &this.DataType); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.Timestamp_ns); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &this.Timestamp); err != nil {
 		return
 	}
 	if err = binary.Read(buf, binary.LittleEndian, &this.Pid); err != nil {
@@ -39,7 +39,7 @@ func (this *NsprDataEvent) Decode(payload []byte) (err error) {
 	if err = binary.Read(buf, binary.LittleEndian, &this.Data); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.Data_len); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &this.DataLen); err != nil {
 		return
 	}
 	if err = binary.Read(buf, binary.LittleEndian, &this.Comm); err != nil {
@@ -68,11 +68,11 @@ func (this *NsprDataEvent) StringHex() string {
 	// disable filter default
 	if false && strings.Compare(fire_thread, "Socket Thread") != 0 {
 		b = bytes.NewBufferString(fmt.Sprintf("%s[ignore]%s", COLORBLUE, COLORRESET))
-		s = fmt.Sprintf("PID:%d, Comm:%s, Type:%s, TID:%d, DataLen:%d bytes, Payload:%s", this.Pid, this.Comm, packetType, this.Tid, this.Data_len, b.String())
+		s = fmt.Sprintf("PID:%d, Comm:%s, Type:%s, TID:%d, DataLen:%d bytes, Payload:%s", this.Pid, this.Comm, packetType, this.Tid, this.DataLen, b.String())
 	} else {
-		b = dumpByteSlice(this.Data[:this.Data_len], perfix)
+		b = dumpByteSlice(this.Data[:this.DataLen], perfix)
 		b.WriteString(COLORRESET)
-		s = fmt.Sprintf("PID:%d, Comm:%s, Type:%s, TID:%d, DataLen:%d bytes, Payload:\n%s", this.Pid, this.Comm, packetType, this.Tid, this.Data_len, b.String())
+		s = fmt.Sprintf("PID:%d, Comm:%s, Type:%s, TID:%d, DataLen:%d bytes, Payload:\n%s", this.Pid, this.Comm, packetType, this.Tid, this.DataLen, b.String())
 	}
 
 	return s
@@ -97,9 +97,9 @@ func (this *NsprDataEvent) String() string {
 	if false && strings.TrimSpace(string(this.Comm[:13])) != "Socket Thread" {
 		b = bytes.NewBufferString("[ignore]")
 	} else {
-		b = bytes.NewBuffer(this.Data[:this.Data_len])
+		b = bytes.NewBuffer(this.Data[:this.DataLen])
 	}
-	s := fmt.Sprintf(" PID:%d, Comm:%s, TID:%d, TYPE:%s, DataLen:%d bytes, Payload:\n%s%s%s", this.Pid, this.Comm, this.Tid, packetType, this.Data_len, perfix, b.String(), COLORRESET)
+	s := fmt.Sprintf(" PID:%d, Comm:%s, TID:%d, TYPE:%s, DataLen:%d bytes, Payload:\n%s%s%s", this.Pid, this.Comm, this.Tid, packetType, this.DataLen, perfix, b.String(), COLORRESET)
 	return s
 }
 
@@ -118,9 +118,9 @@ func (this *NsprDataEvent) GetUUID() string {
 }
 
 func (this *NsprDataEvent) Payload() []byte {
-	return this.Data[:this.Data_len]
+	return this.Data[:this.DataLen]
 }
 
 func (this *NsprDataEvent) PayloadLen() int {
-	return int(this.Data_len)
+	return int(this.DataLen)
 }

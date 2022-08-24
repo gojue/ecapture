@@ -8,12 +8,12 @@ import (
 )
 
 type inner struct {
-	TimestampNS uint64
-	Pid         uint32
-	Tid         uint32
-	Len         int32
-	Comm        [16]byte
-	Data        [4096]byte
+	TimestampNS uint64     `json:"timestamp"`
+	Pid         uint32     `json:"pid"`
+	Tid         uint32     `json:"tid"`
+	Len         int32      `json:"Len"`
+	Comm        [16]byte   `json:"Comm"`
+	Data        [4096]byte `json:"data"`
 }
 
 type GoSSLEvent struct {

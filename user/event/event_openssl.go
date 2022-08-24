@@ -59,16 +59,16 @@ func (t TlsVersion) String() string {
 }
 
 type SSLDataEvent struct {
-	event_type   EventType
-	DataType     int64
-	Timestamp_ns uint64
-	Pid          uint32
-	Tid          uint32
-	Data         [MAX_DATA_SIZE]byte
-	Data_len     int32
-	Comm         [16]byte
-	Fd           uint32
-	Version      int32
+	event_type EventType
+	DataType   int64               `json:"dataType"`
+	Timestamp  uint64              `json:"timestamp"`
+	Pid        uint32              `json:"pid"`
+	Tid        uint32              `json:"tid"`
+	Data       [MAX_DATA_SIZE]byte `json:"data"`
+	DataLen    int32               `json:"dataLen"`
+	Comm       [16]byte            `json:"Comm"`
+	Fd         uint32              `json:"fd"`
+	Version    int32               `json:"version"`
 }
 
 func (this *SSLDataEvent) Decode(payload []byte) (err error) {
@@ -76,7 +76,7 @@ func (this *SSLDataEvent) Decode(payload []byte) (err error) {
 	if err = binary.Read(buf, binary.LittleEndian, &this.DataType); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.Timestamp_ns); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &this.Timestamp); err != nil {
 		return
 	}
 	if err = binary.Read(buf, binary.LittleEndian, &this.Pid); err != nil {
@@ -88,7 +88,7 @@ func (this *SSLDataEvent) Decode(payload []byte) (err error) {
 	if err = binary.Read(buf, binary.LittleEndian, &this.Data); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.Data_len); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &this.DataLen); err != nil {
 		return
 	}
 	if err = binary.Read(buf, binary.LittleEndian, &this.Comm); err != nil {
@@ -109,11 +109,11 @@ func (this *SSLDataEvent) GetUUID() string {
 }
 
 func (this *SSLDataEvent) Payload() []byte {
-	return this.Data[:this.Data_len]
+	return this.Data[:this.DataLen]
 }
 
 func (this *SSLDataEvent) PayloadLen() int {
-	return int(this.Data_len)
+	return int(this.DataLen)
 }
 
 func (this *SSLDataEvent) StringHex() string {
@@ -122,16 +122,16 @@ func (this *SSLDataEvent) StringHex() string {
 	var perfix, connInfo string
 	switch AttachType(this.DataType) {
 	case PROBE_ENTRY:
-		connInfo = fmt.Sprintf("%sRecived %d%s bytes from %s%s%s", COLORGREEN, this.Data_len, COLORRESET, COLORYELLOW, addr, COLORRESET)
+		connInfo = fmt.Sprintf("%sRecived %d%s bytes from %s%s%s", COLORGREEN, this.DataLen, COLORRESET, COLORYELLOW, addr, COLORRESET)
 		perfix = COLORGREEN
 	case PROBE_RET:
-		connInfo = fmt.Sprintf("%sSend %d%s bytes to %s%s%s", COLORPURPLE, this.Data_len, COLORRESET, COLORYELLOW, addr, COLORRESET)
+		connInfo = fmt.Sprintf("%sSend %d%s bytes to %s%s%s", COLORPURPLE, this.DataLen, COLORRESET, COLORYELLOW, addr, COLORRESET)
 		perfix = fmt.Sprintf("%s\t", COLORPURPLE)
 	default:
 		perfix = fmt.Sprintf("UNKNOW_%d", this.DataType)
 	}
 
-	b := dumpByteSlice(this.Data[:this.Data_len], perfix)
+	b := dumpByteSlice(this.Data[:this.DataLen], perfix)
 	b.WriteString(COLORRESET)
 
 	v := TlsVersion{Version: this.Version}
@@ -145,16 +145,16 @@ func (this *SSLDataEvent) String() string {
 	var perfix, connInfo string
 	switch AttachType(this.DataType) {
 	case PROBE_ENTRY:
-		connInfo = fmt.Sprintf("%sRecived %d%s bytes from %s%s%s", COLORGREEN, this.Data_len, COLORRESET, COLORYELLOW, addr, COLORRESET)
+		connInfo = fmt.Sprintf("%sRecived %d%s bytes from %s%s%s", COLORGREEN, this.DataLen, COLORRESET, COLORYELLOW, addr, COLORRESET)
 		perfix = COLORGREEN
 	case PROBE_RET:
-		connInfo = fmt.Sprintf("%sSend %d%s bytes to %s%s%s", COLORPURPLE, this.Data_len, COLORRESET, COLORYELLOW, addr, COLORRESET)
+		connInfo = fmt.Sprintf("%sSend %d%s bytes to %s%s%s", COLORPURPLE, this.DataLen, COLORRESET, COLORYELLOW, addr, COLORRESET)
 		perfix = COLORPURPLE
 	default:
 		connInfo = fmt.Sprintf("%sUNKNOW_%d%s", COLORRED, this.DataType, COLORRESET)
 	}
 	v := TlsVersion{Version: this.Version}
-	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, Version:%s, %s, Payload:\n%s%s%s", this.Pid, bytes.TrimSpace(this.Comm[:]), this.Tid, v.String(), connInfo, perfix, string(this.Data[:this.Data_len]), COLORRESET)
+	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, Version:%s, %s, Payload:\n%s%s%s", this.Pid, bytes.TrimSpace(this.Comm[:]), this.Tid, v.String(), connInfo, perfix, string(this.Data[:this.DataLen]), COLORRESET)
 	return s
 }
 
@@ -175,17 +175,17 @@ uint64_t timestamp_ns;
   uint32_t tid;
   uint32_t fd;
   char sa_data[SA_DATA_LEN];
-  char comm[TASK_COMM_LEN];
+  char Comm[TASK_COMM_LEN];
 */
 type ConnDataEvent struct {
 	event_type  EventType
-	TimestampNs uint64
-	Pid         uint32
-	Tid         uint32
-	Fd          uint32
-	SaData      [SA_DATA_LEN]byte
-	Comm        [16]byte
-	Addr        string
+	TimestampNs uint64            `json:"timestampNs"`
+	Pid         uint32            `json:"pid"`
+	Tid         uint32            `json:"tid"`
+	Fd          uint32            `json:"fd"`
+	SaData      [SA_DATA_LEN]byte `json:"saData"`
+	Comm        [16]byte          `json:"Comm"`
+	Addr        string            `json:"addr"`
 }
 
 func (this *ConnDataEvent) Decode(payload []byte) (err error) {

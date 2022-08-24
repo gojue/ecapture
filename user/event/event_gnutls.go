@@ -11,14 +11,14 @@ import (
 )
 
 type GnutlsDataEvent struct {
-	event_type   EventType
-	DataType     int64
-	Timestamp_ns uint64
-	Pid          uint32
-	Tid          uint32
-	Data         [MAX_DATA_SIZE]byte
-	Data_len     int32
-	Comm         [16]byte
+	event_type EventType
+	DataType   int64               `json:"dataType"`
+	Timestamp  uint64              `json:"timestamp"`
+	Pid        uint32              `json:"pid"`
+	Tid        uint32              `json:"tid"`
+	Data       [MAX_DATA_SIZE]byte `json:"data"`
+	Data_len   int32               `json:"data_len"`
+	Comm       [16]byte            `json:"Comm"`
 }
 
 func (this *GnutlsDataEvent) Decode(payload []byte) (err error) {
@@ -26,7 +26,7 @@ func (this *GnutlsDataEvent) Decode(payload []byte) (err error) {
 	if err = binary.Read(buf, binary.LittleEndian, &this.DataType); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.Timestamp_ns); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &this.Timestamp); err != nil {
 		return
 	}
 	if err = binary.Read(buf, binary.LittleEndian, &this.Pid); err != nil {

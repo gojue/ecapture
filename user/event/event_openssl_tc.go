@@ -13,11 +13,11 @@ const (
 
 type TcSkbEvent struct {
 	event_type EventType
-	Ts         uint64
-	Pid        uint32
-	Comm       [TASK_COMM_LEN]byte
-	Len        uint32
-	Ifindex    uint32
+	Ts         uint64              `json:"ts"`
+	Pid        uint32              `json:"pid"`
+	Comm       [TASK_COMM_LEN]byte `json:"Comm"`
+	Len        uint32              `json:"len"`
+	Ifindex    uint32              `json:"ifindex"`
 	payload    []byte
 }
 
