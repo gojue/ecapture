@@ -1,6 +1,7 @@
 package event_processor
 
 import (
+	"ecapture/user/event"
 	"fmt"
 	"log"
 	"sync"
@@ -14,7 +15,7 @@ const (
 type EventProcessor struct {
 	sync.Mutex
 	// 收包，来自调用者发来的新事件
-	incoming chan IEventStruct
+	incoming chan event.IEventStruct
 
 	// key为 PID+UID+COMMON等确定唯一的信息
 	workerQueue map[string]IWorker
@@ -27,7 +28,7 @@ func (this *EventProcessor) GetLogger() *log.Logger {
 }
 
 func (this *EventProcessor) init() {
-	this.incoming = make(chan IEventStruct, MAX_INCOMING_CHAN_LEN)
+	this.incoming = make(chan event.IEventStruct, MAX_INCOMING_CHAN_LEN)
 	this.workerQueue = make(map[string]IWorker, MAX_PARSER_QUEUE_LEN)
 }
 
@@ -35,23 +36,23 @@ func (this *EventProcessor) init() {
 func (this *EventProcessor) Serve() {
 	for {
 		select {
-		case event := <-this.incoming:
-			this.dispatch(event)
+		case e := <-this.incoming:
+			this.dispatch(e)
 		}
 	}
 }
 
-func (this *EventProcessor) dispatch(event IEventStruct) {
+func (this *EventProcessor) dispatch(e event.IEventStruct) {
 	//this.logger.Printf("event ID:%s", event.GetUUID())
-	var uuid string = event.GetUUID()
+	var uuid string = e.GetUUID()
 	found, eWorker := this.getWorkerByUUID(uuid)
 	if !found {
 		// ADD a new eventWorker into queue
-		eWorker = NewEventWorker(event.GetUUID(), this)
+		eWorker = NewEventWorker(e.GetUUID(), this)
 		this.addWorkerByUUID(eWorker)
 	}
 
-	err := eWorker.Write(event)
+	err := eWorker.Write(e)
 	if err != nil {
 		//...
 	}
@@ -88,9 +89,9 @@ func (this *EventProcessor) delWorkerByUUID(worker IWorker) {
 
 // Write event
 // 外部调用者调用该方法
-func (this *EventProcessor) Write(event IEventStruct) {
+func (this *EventProcessor) Write(e event.IEventStruct) {
 	select {
-	case this.incoming <- event:
+	case this.incoming <- e:
 		return
 	}
 }

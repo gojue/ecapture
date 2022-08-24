@@ -6,7 +6,8 @@ package cmd
 
 import (
 	"context"
-	"ecapture/user"
+	"ecapture/user/config"
+	"ecapture/user/module"
 	"github.com/spf13/cobra"
 	"log"
 	"os"
@@ -14,7 +15,7 @@ import (
 	"syscall"
 )
 
-var bc = user.NewBashConfig()
+var bc = config.NewBashConfig()
 
 // bashCmd represents the bash command
 var bashCmd = &cobra.Command{
@@ -28,7 +29,7 @@ Auto find the bash of the current env as the capture target.`,
 func init() {
 	bashCmd.PersistentFlags().StringVar(&bc.Bashpath, "bash", "", "$SHELL file path, eg: /bin/bash , will automatically find it from $ENV default.")
 	bashCmd.PersistentFlags().StringVar(&bc.Readline, "readlineso", "", "readline.so file path, will automatically find it from $BASH_PATH default.")
-	bashCmd.Flags().IntVarP(&bc.ErrNo, "errnumber", "e", user.BASH_ERRNO_DEFAULT, "only show the command which exec reulst equals err number.")
+	bashCmd.Flags().IntVarP(&bc.ErrNo, "errnumber", "e", module.BASH_ERRNO_DEFAULT, "only show the command which exec reulst equals err number.")
 	rootCmd.AddCommand(bashCmd)
 
 	// Here you will define your flags and configuration settings.
@@ -48,7 +49,7 @@ func bashCommandFunc(command *cobra.Command, args []string) {
 	signal.Notify(stopper, os.Interrupt, syscall.SIGTERM)
 	ctx, cancelFun := context.WithCancel(context.TODO())
 
-	mod := user.GetModuleByName(user.MODULE_NAME_BASH)
+	mod := module.GetModuleByName(module.MODULE_NAME_BASH)
 
 	logger := log.New(os.Stdout, "bash_", log.LstdFlags)
 	logger.Printf("ECAPTURE :: version :%s", GitVersion)
@@ -80,7 +81,7 @@ func bashCommandFunc(command *cobra.Command, args []string) {
 	}
 
 	// 加载ebpf，挂载到hook点上，开始监听
-	go func(module user.IModule) {
+	go func(module module.IModule) {
 		err := module.Run()
 		if err != nil {
 			logger.Fatalf("%v", err)

@@ -6,7 +6,8 @@ package cmd
 
 import (
 	"context"
-	"ecapture/user"
+	"ecapture/user/config"
+	"ecapture/user/module"
 	"errors"
 	"log"
 	"os"
@@ -17,10 +18,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var oc = user.NewOpensslConfig()
-var gc = user.NewGnutlsConfig()
-var nc = user.NewNsprConfig()
-var goc = user.NewGoSSLConfig()
+var oc = config.NewOpensslConfig()
+var gc = config.NewGnutlsConfig()
+var nc = config.NewNsprConfig()
+var goc = config.NewGoSSLConfig()
 
 // opensslCmd represents the openssl command
 var opensslCmd = &cobra.Command{
@@ -73,28 +74,28 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 	logger.Printf("ECAPTURE :: version :%s", GitVersion)
 	logger.Printf("ECAPTURE :: pid info :%d", os.Getpid())
 
-	modNames := []string{user.MODULE_NAME_OPENSSL, user.MODULE_NAME_GNUTLS, user.MODULE_NAME_NSPR, user.MODULE_NAME_GOSSL}
+	modNames := []string{module.MODULE_NAME_OPENSSL, module.MODULE_NAME_GNUTLS, module.MODULE_NAME_NSPR, module.MODULE_NAME_GOSSL}
 
 	var runMods uint8
-	var runModules = make(map[string]user.IModule)
+	var runModules = make(map[string]module.IModule)
 	var wg sync.WaitGroup
 
 	for _, modName := range modNames {
-		mod := user.GetModuleByName(modName)
+		mod := module.GetModuleByName(modName)
 		if mod == nil {
 			logger.Printf("ECAPTURE :: \tcant found module: %s", modName)
 			break
 		}
 
-		var conf user.IConfig
+		var conf config.IConfig
 		switch mod.Name() {
-		case user.MODULE_NAME_OPENSSL:
+		case module.MODULE_NAME_OPENSSL:
 			conf = oc
-		case user.MODULE_NAME_GNUTLS:
+		case module.MODULE_NAME_GNUTLS:
 			conf = gc
-		case user.MODULE_NAME_NSPR:
+		case module.MODULE_NAME_NSPR:
 			conf = nc
-		case user.MODULE_NAME_GOSSL:
+		case module.MODULE_NAME_GOSSL:
 			conf = goc
 		default:
 		}
@@ -114,7 +115,7 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 
 		if err != nil {
 			// ErrorGoBINNotSET is a special error, we should not print it.
-			if errors.Is(err, user.ErrorGoBINNotSET) {
+			if errors.Is(err, config.ErrorGoBINNotSET) {
 				logger.Printf("%s\tmodule [disabled].", mod.Name())
 				continue
 			}

@@ -2,6 +2,7 @@ package event_processor
 
 import (
 	"bytes"
+	"ecapture/user/event"
 	"encoding/binary"
 	"fmt"
 )
@@ -59,7 +60,7 @@ func (t tls_version) String() string {
 }
 
 type BaseEvent struct {
-	event_type   EventType
+	event_type   event.EventType
 	DataType     int64
 	Timestamp_ns uint64
 	Pid          uint32
@@ -151,13 +152,13 @@ func (this *BaseEvent) String() string {
 	return s
 }
 
-func (this *BaseEvent) Clone() IEventStruct {
-	event := new(BaseEvent)
-	event.event_type = EventTypeOutput
-	return event
+func (this *BaseEvent) Clone() event.IEventStruct {
+	e := new(BaseEvent)
+	e.event_type = event.EventTypeOutput
+	return e
 }
 
-func (this *BaseEvent) EventType() EventType {
+func (this *BaseEvent) EventType() event.EventType {
 	return this.event_type
 }
 
