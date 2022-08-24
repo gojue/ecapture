@@ -1,6 +1,7 @@
 package event_processor
 
 import (
+	"ecapture/user/event"
 	"time"
 )
 
@@ -11,7 +12,7 @@ type IWorker interface {
 	// 定时器2， 定时判断没后续包，则通知上层销毁自己
 
 	// 收包
-	Write(event IEventStruct) error
+	Write(event.IEventStruct) error
 	GetUUID() string
 }
 
@@ -22,7 +23,7 @@ const (
 )
 
 type eventWorker struct {
-	incoming chan IEventStruct
+	incoming chan event.IEventStruct
 	//events      []user.IEventStruct
 	status      PROCESS_STATUS
 	packetType  PACKET_TYPE
@@ -44,7 +45,7 @@ func NewEventWorker(uuid string, processor *EventProcessor) IWorker {
 
 func (this *eventWorker) init(uuid string, processor *EventProcessor) {
 	this.ticker = time.NewTicker(time.Millisecond * 100)
-	this.incoming = make(chan IEventStruct, MAX_CHAN_LEN)
+	this.incoming = make(chan event.IEventStruct, MAX_CHAN_LEN)
 	this.status = PROCESS_STATE_INIT
 	this.UUID = uuid
 	this.processor = processor
@@ -54,8 +55,8 @@ func (this *eventWorker) GetUUID() string {
 	return this.UUID
 }
 
-func (this *eventWorker) Write(event IEventStruct) error {
-	this.incoming <- event
+func (this *eventWorker) Write(e event.IEventStruct) error {
+	this.incoming <- e
 	return nil
 }
 
@@ -83,10 +84,10 @@ func (this *eventWorker) Display() {
 }
 
 // 解析类型，输出
-func (this *eventWorker) parserEvent(event IEventStruct) {
+func (this *eventWorker) parserEvent(e event.IEventStruct) {
 	if this.status == PROCESS_STATE_INIT {
 		// 识别包类型，只检测，不把payload设置到parser的属性中，需要重新调用parser.Write()写入
-		parser := NewParser(event.Payload())
+		parser := NewParser(e.Payload())
 		this.parser = parser
 	}
 
@@ -94,7 +95,7 @@ func (this *eventWorker) parserEvent(event IEventStruct) {
 	this.status = PROCESS_STATE_PROCESSING
 
 	// 写入payload到parser
-	_, err := this.parser.Write(event.Payload()[:event.PayloadLen()])
+	_, err := this.parser.Write(e.Payload()[:e.PayloadLen()])
 	if err != nil {
 		this.processor.GetLogger().Fatalf("eventWorker: detect packet type error, UUID:%s, error:%v", this.UUID, err)
 	}
@@ -115,10 +116,10 @@ func (this *eventWorker) Run() {
 				return
 			}
 			this.tickerCount++
-		case event := <-this.incoming:
+		case e := <-this.incoming:
 			// reset tickerCount
 			this.tickerCount = 0
-			this.parserEvent(event)
+			this.parserEvent(e)
 		}
 	}
 

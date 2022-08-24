@@ -9,7 +9,8 @@ package cmd
 
 import (
 	"context"
-	"ecapture/user"
+	"ecapture/user/config"
+	"ecapture/user/module"
 	"log"
 	"os"
 	"os/signal"
@@ -18,7 +19,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var mysqldConfig = user.NewMysqldConfig()
+var mysqldConfig = config.NewMysqldConfig()
 
 // mysqldCmd represents the mysqld command
 var mysqldCmd = &cobra.Command{
@@ -43,7 +44,7 @@ func mysqldCommandFunc(command *cobra.Command, args []string) {
 	signal.Notify(stopper, os.Interrupt, syscall.SIGTERM)
 	ctx, cancelFun := context.WithCancel(context.TODO())
 
-	mod := user.GetModuleByName(user.MODULE_NAME_MYSQLD)
+	mod := module.GetModuleByName(module.MODULE_NAME_MYSQLD)
 
 	logger := log.New(os.Stdout, "mysqld_", log.LstdFlags)
 	logger.Printf("ECAPTURE :: version :%s", GitVersion)
@@ -74,7 +75,7 @@ func mysqldCommandFunc(command *cobra.Command, args []string) {
 	}
 
 	// 加载ebpf，挂载到hook点上，开始监听
-	go func(module user.IModule) {
+	go func(module module.IModule) {
 		err := module.Run()
 		if err != nil {
 			logger.Fatalf("%v", err)

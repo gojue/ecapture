@@ -9,7 +9,8 @@ package cmd
 
 import (
 	"context"
-	"ecapture/user"
+	"ecapture/user/config"
+	"ecapture/user/module"
 	"log"
 	"os"
 	"os/signal"
@@ -18,7 +19,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var postgresConfig = user.NewPostgresConfig()
+var postgresConfig = config.NewPostgresConfig()
 
 //postgres Cmd represents the postgres command
 var postgresCmd = &cobra.Command{
@@ -39,7 +40,7 @@ func postgresCommandFunc(command *cobra.Command, args []string) {
 	signal.Notify(stopper, os.Interrupt, syscall.SIGTERM)
 	ctx, cancelFun := context.WithCancel(context.TODO())
 
-	mod := user.GetModuleByName(user.MODULE_NAME_POSTGRES)
+	mod := module.GetModuleByName(module.MODULE_NAME_POSTGRES)
 
 	logger := log.New(os.Stdout, "postgress_", log.LstdFlags)
 	logger.Printf("ECAPTURE :: version :%s", GitVersion)
@@ -69,7 +70,7 @@ func postgresCommandFunc(command *cobra.Command, args []string) {
 	}
 
 	// 加载ebpf，挂载到hook点上，开始监听
-	go func(module user.IModule) {
+	go func(module module.IModule) {
 		err := module.Run()
 		if err != nil {
 			logger.Fatalf("%v", err)
