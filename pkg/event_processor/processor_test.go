@@ -53,18 +53,18 @@ func TestEventProcessor_Serve(t *testing.T) {
 		if line == "" {
 			continue
 		}
-		var event SSLDataEventTmp
-		err := json.Unmarshal([]byte(line), &event)
+		var eventSSL SSLDataEventTmp
+		err := json.Unmarshal([]byte(line), &eventSSL)
 		if err != nil {
-			t.Fatalf("json unmarshal error: %s", err.Error())
+			t.Fatalf("json unmarshal error: %s, body:%v", err.Error(), line)
 		}
-		payloadFile := fmt.Sprintf("testdata/%d.bin", event.Timestamp)
+		payloadFile := fmt.Sprintf("testdata/%d.bin", eventSSL.Timestamp)
 		b, e := ioutil.ReadFile(payloadFile)
 		if e != nil {
 			t.Fatalf("read payload file error: %s, file:%s", e.Error(), payloadFile)
 		}
-		copy(event.Data[:], b)
-		ep.Write(&BaseEvent{Data_len: event.Data_len, Data: event.Data, DataType: event.DataType, Timestamp: event.Timestamp, Pid: event.Pid, Tid: event.Tid, Comm: event.Comm, Fd: event.Fd, Version: event.Version})
+		copy(eventSSL.Data[:], b)
+		ep.Write(&BaseEvent{Data_len: eventSSL.Data_len, Data: eventSSL.Data, DataType: eventSSL.DataType, Timestamp: eventSSL.Timestamp, Pid: eventSSL.Pid, Tid: eventSSL.Tid, Comm: eventSSL.Comm, Fd: eventSSL.Fd, Version: eventSSL.Version})
 	}
 
 	tick := time.NewTicker(time.Second * 3)
