@@ -67,22 +67,30 @@ func GetModuleByName(name string) IParser {
 
 func NewParser(payload []byte) IParser {
 	if len(payload) > 0 {
+		var newParser IParser
 		for _, parser := range GetAllModules() {
 			err := parser.detect(payload)
 			if err == nil {
-				var newParser IParser
 				switch parser.ParserType() {
-				case PARSER_TYPE_NULL:
-					newParser = new(DefaultParser)
+				//case PARSER_TYPE_NULL:
+				//	newParser = new(DefaultParser)
 				case PARSER_TYPE_HTTP_REQUEST:
 					newParser = new(HTTPRequest)
 				case PARSER_TYPE_HTTP_RESPONSE:
 					newParser = new(HTTPResponse)
 				}
-				newParser.Init()
-				return newParser
+				break
+			} else {
+				//fmt.Println(err)
 			}
 		}
+		if newParser == nil {
+			newParser = new(DefaultParser)
+		}
+		newParser.Init()
+		return newParser
+	} else {
+		//fmt.Println("payload is empty")
 	}
 	var np = &DefaultParser{}
 	np.reader = bytes.NewBuffer(nil)
