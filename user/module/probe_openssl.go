@@ -77,7 +77,7 @@ type MOpenSSLProbe struct {
 	tcPacketLocker    *sync.Mutex
 }
 
-//对象初始化
+// 对象初始化
 func (this *MOpenSSLProbe) Init(ctx context.Context, logger *log.Logger, conf config.IConfig) error {
 	this.Module.Init(ctx, logger)
 	this.conf = conf
@@ -197,7 +197,7 @@ func (this *MOpenSSLProbe) Close() error {
 	return this.Module.Close()
 }
 
-//  通过elf的常量替换方式传递数据
+// 通过elf的常量替换方式传递数据
 func (this *MOpenSSLProbe) constantEditor() []manager.ConstantEditor {
 	var editor = []manager.ConstantEditor{
 		{
