@@ -506,7 +506,7 @@ func (this *MOpenSSLProbe) saveMasterSecret(secretEvent *event.MasterSecretEvent
 		b = bytes.NewBufferString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelClientHandshake, secretEvent.ClientRandom, clientSecret))
 
 		serverHandshakeSecret := hkdf.DeriveSecret(secretEvent.HandshakeSecret[:], hkdf.ServerHandshakeTrafficLabel, transcript)
-		b.WriteString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelClientHandshake, secretEvent.ClientRandom, serverHandshakeSecret))
+		b.WriteString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelServerHandshake, secretEvent.ClientRandom, serverHandshakeSecret))
 
 		transcript.Reset()
 		transcript.Write(secretEvent.ServerFinishedHash[:])
