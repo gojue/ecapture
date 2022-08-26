@@ -72,16 +72,12 @@ func NewParser(payload []byte) IParser {
 			err := parser.detect(payload)
 			if err == nil {
 				switch parser.ParserType() {
-				//case PARSER_TYPE_NULL:
-				//	newParser = new(DefaultParser)
 				case PARSER_TYPE_HTTP_REQUEST:
 					newParser = new(HTTPRequest)
 				case PARSER_TYPE_HTTP_RESPONSE:
 					newParser = new(HTTPResponse)
 				}
 				break
-			} else {
-				//fmt.Println(err)
 			}
 		}
 		if newParser == nil {
@@ -89,11 +85,9 @@ func NewParser(payload []byte) IParser {
 		}
 		newParser.Init()
 		return newParser
-	} else {
-		//fmt.Println("payload is empty")
 	}
 	var np = &DefaultParser{}
-	np.reader = bytes.NewBuffer(nil)
+	np.Init()
 	return np
 }
 
@@ -129,7 +123,7 @@ func (this *DefaultParser) IsDone() bool {
 }
 
 func (this *DefaultParser) Init() {
-
+	this.reader = bytes.NewBuffer(nil)
 }
 
 func (this *DefaultParser) Display() []byte {
