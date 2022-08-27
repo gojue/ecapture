@@ -101,10 +101,11 @@ func (this *HTTPResponse) Display() []byte {
 
 		// gzip uncompressed success
 		this.response.Body = reader
+		this.packerType = PACKET_TYPE_GZIP
 		defer reader.Close()
 	default:
 		//reader = this.response.Body
-
+		this.packerType = PACKET_TYPE_NULL
 		//TODO for debug
 		//return []byte("")
 	}
