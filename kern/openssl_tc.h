@@ -42,9 +42,9 @@ struct {
 */
 
 ////////////////////// General helper functions //////////////////////
-static __inline struct skb_data_event_t* make_skb_data_event() {
+static __inline struct skb_data_event_t *make_skb_data_event() {
     u32 kZero = 0;
-    struct skb_data_event_t* event =
+    struct skb_data_event_t *event =
         bpf_map_lookup_elem(&skb_data_buffer_heap, &kZero);
     if (event == NULL) {
         return NULL;
@@ -52,16 +52,16 @@ static __inline struct skb_data_event_t* make_skb_data_event() {
     return event;
 }
 
-static __always_inline bool
-skb_revalidate_data(struct __sk_buff *skb, uint8_t **head, uint8_t **tail, const u32 offset)
-{
+static __always_inline bool skb_revalidate_data(struct __sk_buff *skb,
+                                                uint8_t **head, uint8_t **tail,
+                                                const u32 offset) {
     if (*head + offset > *tail) {
         if (bpf_skb_pull_data(skb, offset) < 0) {
             return false;
         }
 
-        *head = (uint8_t *) (long) skb->data;
-        *tail = (uint8_t *) (long) skb->data_end;
+        *head = (uint8_t *)(long)skb->data;
+        *tail = (uint8_t *)(long)skb->data_end;
 
         if (*head + offset > *tail) {
             return false;
@@ -73,7 +73,6 @@ skb_revalidate_data(struct __sk_buff *skb, uint8_t **head, uint8_t **tail, const
 
 ///////////////////// ebpf functions //////////////////////
 int capture_packets(struct __sk_buff *skb, bool is_ingress) {
-
     // packet data
     unsigned char *data_start = (void *)(long)skb->data;
     unsigned char *data_end = (void *)(long)skb->data_end;
@@ -86,7 +85,8 @@ int capture_packets(struct __sk_buff *skb, bool is_ingress) {
     struct iphdr *iph = (struct iphdr *)(data_start + sizeof(struct ethhdr));
 
     // Simple length check
-    if ((data_start + sizeof(struct ethhdr) + sizeof(struct iphdr)) > data_end) {
+    if ((data_start + sizeof(struct ethhdr) + sizeof(struct iphdr)) >
+        data_end) {
         return TC_ACT_OK;
     }
 
@@ -96,8 +96,7 @@ int capture_packets(struct __sk_buff *skb, bool is_ingress) {
         return TC_ACT_OK;
     }
     l4_hdr_off = sizeof(struct ethhdr) + sizeof(struct iphdr);
-    if (!skb_revalidate_data(skb, &data_start, &data_end, l4_hdr_off))
-    {
+    if (!skb_revalidate_data(skb, &data_start, &data_end, l4_hdr_off)) {
         return TC_ACT_OK;
     }
 
@@ -105,17 +104,19 @@ int capture_packets(struct __sk_buff *skb, bool is_ingress) {
     if (iph->protocol != IPPROTO_TCP) {
         return TC_ACT_OK;
     }
-    if (!skb_revalidate_data(skb, &data_start, &data_end, l4_hdr_off + sizeof(struct tcphdr)))
-    {
+    if (!skb_revalidate_data(skb, &data_start, &data_end,
+                             l4_hdr_off + sizeof(struct tcphdr))) {
         return TC_ACT_OK;
     }
-    struct tcphdr *tcp = (struct tcphdr *) (data_start + l4_hdr_off);
+    struct tcphdr *tcp = (struct tcphdr *)(data_start + l4_hdr_off);
 
-    if (tcp->source != bpf_htons(target_port) && tcp->dest != bpf_htons(target_port)) {
+    if (tcp->source != bpf_htons(target_port) &&
+        tcp->dest != bpf_htons(target_port)) {
         return TC_ACT_OK;
     }
 
-    debug_bpf_printk("capture_packets port : %d, dest port :%d\n", bpf_ntohs(tcp->source), bpf_ntohs(tcp->dest));
+    //    debug_bpf_printk("capture_packets port : %d, dest port :%d\n",
+    //    bpf_ntohs(tcp->source), bpf_ntohs(tcp->dest));
     // get the skb data event
     net_id_t connect_id = {0};
     // new packet event
@@ -125,7 +126,7 @@ int capture_packets(struct __sk_buff *skb, bool is_ingress) {
     event.ifindex = skb->ifindex;
 
     u64 flags = BPF_F_CURRENT_CPU;
-    flags |= (u64) skb->len << 32;
+    flags |= (u64)skb->len << 32;
 
     // via aquasecurity/tracee    tracee.bpf.c tc_probe
     // if net_packet event not chosen, send minimal data only:
@@ -137,14 +138,15 @@ int capture_packets(struct __sk_buff *skb, bool is_ingress) {
     size_t pkt_size = TC_PACKET_MIN_SIZE;
     bpf_perf_event_output(skb, &skb_events, flags, &event, pkt_size);
 
-    debug_bpf_printk("new packet captured on egress/ingress (TC), length:%d\n", data_len);
+    //    debug_bpf_printk("new packet captured on egress/ingress (TC),
+    //    length:%d\n", data_len);
     return TC_ACT_OK;
 }
 
 // egress_cls_func is called for packets that are going out of the network
 SEC("classifier/egress")
 int egress_cls_func(struct __sk_buff *skb) {
-   return capture_packets(skb, false);
+    return capture_packets(skb, false);
 };
 
 // ingress_cls_func is called for packets that are coming into the network
