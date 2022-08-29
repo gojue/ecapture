@@ -491,8 +491,7 @@ func (this *MOpenSSLProbe) saveMasterSecret(secretEvent *event.MasterSecretEvent
 		var transcript hash.Hash
 		// check crypto type
 		switch uint16(secretEvent.CipherId & 0x0000FFFF) {
-		case hkdf.TLS_AES_128_GCM_SHA256:
-		case hkdf.TLS_CHACHA20_POLY1305_SHA256:
+		case hkdf.TLS_AES_128_GCM_SHA256, hkdf.TLS_CHACHA20_POLY1305_SHA256:
 			transcript = crypto.SHA256.New()
 		case hkdf.TLS_AES_256_GCM_SHA384:
 			transcript = crypto.SHA384.New()
