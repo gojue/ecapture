@@ -77,26 +77,20 @@
     unsigned char early_exporter_master_secret[EVP_MAX_MD_SIZE];
 */
 
-// session->cipher 在 SSL_SESSION 中的偏移量
-#define CIPHER_OFFSET 0xEC
-
-// ssl_cipher_st-> id 在 ssl_cipher_st 中的偏移量
-#define CIPHER_ID_OFFSET 0x18
-
 // ssl->handshake_secret 在 ssl_st 中的偏移量
-#define HANDSHAKE_SECRET_OFFSET 0x13C  // 316
+#define HANDSHAKE_SECRET_OFFSET 0x17C  // 380
 
 // ssl->master_secret 在 ssl_st 中的偏移量
-#define MASTER_SECRET_OFFSET 0x17C  // 380
+#define MASTER_SECRET_OFFSET 0x1BC  // 444
 
 // ssl->server_finished_hash 在 ssl_st 中的偏移量
-#define SERVER_FINISHED_HASH_OFFSET 0x27C  // 636
+#define SERVER_FINISHED_HASH_OFFSET 0x2BC  // 700
 
 // ssl->handshake_traffic_hash 在 ssl_st 中的偏移量
-#define HANDSHAKE_TRAFFIC_HASH_OFFSET 0x2BC  // 700
+#define HANDSHAKE_TRAFFIC_HASH_OFFSET 0x2FC  // 764
 
 // ssl->exporter_master_secret 在 ssl_st 中的偏移量
-#define EXPORTER_MASTER_SECRET_OFFSET 0x37C  // 892
+#define EXPORTER_MASTER_SECRET_OFFSET 0x3BC  // 956
 
 struct mastersecret_t {
     // TLS 1.2 or older
