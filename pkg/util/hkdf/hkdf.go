@@ -15,6 +15,7 @@ package hkdf
 
 import (
 	"crypto"
+	"fmt"
 	"golang.org/x/crypto/cryptobyte"
 	"golang.org/x/crypto/hkdf"
 	"hash"
@@ -48,7 +49,7 @@ const (
 	TLS_CHACHA20_POLY1305_SHA256 uint16 = 0x1303
 )
 
-//expandLabel implements HKDF-Expand-Label from RFC 8446, Section 7.1.
+// expandLabel implements HKDF-Expand-Label from RFC 8446, Section 7.1.
 func expandLabel(secret []byte, label string, context []byte, length int) []byte {
 	var hkdfLabel cryptobyte.Builder
 	hkdfLabel.AddUint16(uint16(length))
@@ -60,7 +61,16 @@ func expandLabel(secret []byte, label string, context []byte, length int) []byte
 		b.AddBytes(context)
 	})
 	out := make([]byte, length)
-	transcript := crypto.SHA256 // TODO  fixme : use cipher_id argument
+
+	var transcript crypto.Hash
+	switch length {
+	case 32:
+		transcript = crypto.SHA256
+	case 48:
+		transcript = crypto.SHA384
+	default:
+		panic(fmt.Sprintf("non-tls 1.3 hash found, length: %d", length))
+	}
 	n, err := hkdf.Expand(transcript.New, secret, hkdfLabel.BytesOrPanic()).Read(out)
 	if err != nil || n != length {
 		panic("tls: HKDF-Expand-Label invocation failed unexpectedly")
