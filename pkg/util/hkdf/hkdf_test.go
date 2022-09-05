@@ -10,19 +10,14 @@ import (
 func TestHkdf(t *testing.T) {
 	t.Log("TestHkdf")
 	//TODO
-	var cipher_id = 50336513
+	var cipherId uint32 = 50336513
 	var transcript hash.Hash
-	// test with different cipher_id
-	switch cipher_id & 0x0000FFFF {
-	case 0x1301:
-		t.Log("TLS_AES_128_GCM_SHA256")
+	// test with different cipherID
+	switch uint16(cipherId & 0x0000FFFF) {
+	case TLS_AES_128_GCM_SHA256, TLS_CHACHA20_POLY1305_SHA256:
 		transcript = crypto.SHA256.New()
-	case 0x1302:
-		t.Log("TLS_AES_256_GCM_SHA384")
+	case TLS_AES_256_GCM_SHA384:
 		transcript = crypto.SHA384.New()
-	case 0x1303:
-		t.Log("TLS_CHACHA20_POLY1305_SHA256")
-		transcript = crypto.SHA256.New()
 	default:
 		t.Log("Unknown cipher")
 	}
@@ -42,17 +37,17 @@ func TestHkdf(t *testing.T) {
 
 	transcript.Write(handshakeTrafficHash)
 	clientSecret := DeriveSecret(handshakeSecret,
-		ClientHandshakeTrafficLabel, transcript)
+		ClientHandshakeTrafficLabel, transcript, cipherId)
 	t.Logf("%s: %x", KeyLogLabelClientHandshake, clientSecret)
 
 	serverHandshakeSecret := DeriveSecret(handshakeSecret,
-		ServerHandshakeTrafficLabel, transcript)
+		ServerHandshakeTrafficLabel, transcript, cipherId)
 	t.Logf("%s: %x", KeyLogLabelServerHandshake, serverHandshakeSecret)
 
 	transcript = crypto.SHA256.New()
 	transcript.Write(serverFinishedHash)
 	trafficSecret := DeriveSecret(masterSecret,
-		ClientApplicationTrafficLabel, transcript)
+		ClientApplicationTrafficLabel, transcript, cipherId)
 	t.Logf("%s: %x", KeyLogLabelClientTraffic, trafficSecret)
 
 	transcript = crypto.SHA256.New()
@@ -63,7 +58,7 @@ func TestHkdf(t *testing.T) {
 	//hs.transcript.Write(finished.marshal())
 	transcript.Write(serverFinishedHash)
 	serverSecret := DeriveSecret(masterSecret,
-		ServerApplicationTrafficLabel, transcript)
+		ServerApplicationTrafficLabel, transcript, cipherId)
 	t.Logf("%s: %x", KeyLogLabelServerTraffic, serverSecret)
 
 	t.Logf("%s: %x", KeyLogLabelServerTraffic, exporterMasterSecret[:transcript.Size()])

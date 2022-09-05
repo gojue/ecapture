@@ -50,7 +50,7 @@ const (
 )
 
 // expandLabel implements HKDF-Expand-Label from RFC 8446, Section 7.1.
-func expandLabel(secret []byte, label string, context []byte, length int) []byte {
+func expandLabel(secret []byte, label string, context []byte, length int, cipherId uint32) []byte {
 	var hkdfLabel cryptobyte.Builder
 	hkdfLabel.AddUint16(uint16(length))
 	hkdfLabel.AddUint8LengthPrefixed(func(b *cryptobyte.Builder) {
@@ -63,13 +63,13 @@ func expandLabel(secret []byte, label string, context []byte, length int) []byte
 	out := make([]byte, length)
 
 	var transcript crypto.Hash
-	switch length {
-	case 32:
+	switch uint16(cipherId & 0x0000FFFF) {
+	case TLS_AES_128_GCM_SHA256, TLS_CHACHA20_POLY1305_SHA256:
 		transcript = crypto.SHA256
-	case 48:
+	case TLS_AES_256_GCM_SHA384:
 		transcript = crypto.SHA384
 	default:
-		panic(fmt.Sprintf("non-tls 1.3 hash found, length: %d", length))
+		panic(fmt.Sprintf("Unknown cipher: %d", cipherId))
 	}
 	n, err := hkdf.Expand(transcript.New, secret, hkdfLabel.BytesOrPanic()).Read(out)
 	if err != nil || n != length {
@@ -80,6 +80,6 @@ func expandLabel(secret []byte, label string, context []byte, length int) []byte
 
 // from crypto/tls/key_schedule.go line 35
 // DeriveSecret implements Derive-Secret from RFC 8446, Section 7.1.
-func DeriveSecret(secret []byte, label string, transcript hash.Hash) []byte {
-	return expandLabel(secret, label, transcript.Sum(nil), transcript.Size())
+func DeriveSecret(secret []byte, label string, transcript hash.Hash, cipherId uint32) []byte {
+	return expandLabel(secret, label, transcript.Sum(nil), transcript.Size(), cipherId)
 }

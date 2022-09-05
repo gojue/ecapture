@@ -500,18 +500,18 @@ func (this *MOpenSSLProbe) saveMasterSecret(secretEvent *event.MasterSecretEvent
 			return
 		}
 		transcript.Write(secretEvent.HandshakeTrafficHash[:])
-		clientSecret := hkdf.DeriveSecret(secretEvent.HandshakeSecret[:], hkdf.ClientHandshakeTrafficLabel, transcript)
+		clientSecret := hkdf.DeriveSecret(secretEvent.HandshakeSecret[:], hkdf.ClientHandshakeTrafficLabel, transcript, secretEvent.CipherId)
 		b = bytes.NewBufferString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelClientHandshake, secretEvent.ClientRandom, clientSecret))
 
-		serverHandshakeSecret := hkdf.DeriveSecret(secretEvent.HandshakeSecret[:], hkdf.ServerHandshakeTrafficLabel, transcript)
+		serverHandshakeSecret := hkdf.DeriveSecret(secretEvent.HandshakeSecret[:], hkdf.ServerHandshakeTrafficLabel, transcript, secretEvent.CipherId)
 		b.WriteString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelServerHandshake, secretEvent.ClientRandom, serverHandshakeSecret))
 
 		transcript.Reset()
 		transcript.Write(secretEvent.ServerFinishedHash[:])
 
-		trafficSecret := hkdf.DeriveSecret(secretEvent.MasterSecret[:], hkdf.ClientApplicationTrafficLabel, transcript)
+		trafficSecret := hkdf.DeriveSecret(secretEvent.MasterSecret[:], hkdf.ClientApplicationTrafficLabel, transcript, secretEvent.CipherId)
 		b.WriteString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelClientTraffic, secretEvent.ClientRandom, trafficSecret))
-		serverSecret := hkdf.DeriveSecret(secretEvent.MasterSecret[:], hkdf.ServerApplicationTrafficLabel, transcript)
+		serverSecret := hkdf.DeriveSecret(secretEvent.MasterSecret[:], hkdf.ServerApplicationTrafficLabel, transcript, secretEvent.CipherId)
 		b.WriteString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelServerTraffic, secretEvent.ClientRandom, serverSecret))
 
 		// TODO MasterSecret sum
