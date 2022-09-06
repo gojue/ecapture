@@ -121,6 +121,8 @@ struct ssl3_state_st {
     unsigned char client_random[SSL3_RANDOM_SIZE];
 };
 
+#define TLS1_1_VERSION 0x0302
+#define TLS1_2_VERSION 0x0303
 #define TLS1_3_VERSION 0x0304
 
 /////////////////////////BPF MAPS ////////////////////////////////
@@ -242,26 +244,28 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
     u64 *ssl_cipher_st_ptr = (u64 *)(address + SESSION_CIPHER_OFFSET);
 
     ///////////////////////// get TLS 1.2 master secret ////////////////////
-    void *ms_ptr = (void *)(address + MASTER_KEY_OFFSET);
-    ret = bpf_probe_read_user(&mastersecret->master_key,
-                              sizeof(mastersecret->master_key), ms_ptr);
-    if (ret) {
-        debug_bpf_printk(
-            "bpf_probe_read MASTER_KEY_OFFSET failed, ms_ptr:%llx, ret :%d\n",
-            ms_ptr, ret);
-        return 0;
-    }
+    if (mastersecret->version != TLS1_3_VERSION) {
+        void *ms_ptr = (void *)(address + MASTER_KEY_OFFSET);
+        ret = bpf_probe_read_user(&mastersecret->master_key,
+                                  sizeof(mastersecret->master_key), ms_ptr);
+        if (ret) {
+            debug_bpf_printk(
+                "bpf_probe_read MASTER_KEY_OFFSET failed, ms_ptr:%llx, ret "
+                ":%d\n",
+                ms_ptr, ret);
+            return 0;
+        }
 
-    debug_bpf_printk("master_key: %x %x %x\n", mastersecret->master_key[0],
-                     mastersecret->master_key[1], mastersecret->master_key[2]);
+        debug_bpf_printk("master_key: %x %x %x\n", mastersecret->master_key[0],
+                         mastersecret->master_key[1],
+                         mastersecret->master_key[2]);
 
-    ///////////////////////// get TLS 1.3 master secret ////////////////////
-    if (version != TLS1_3_VERSION) {
         bpf_perf_event_output(ctx, &mastersecret_events, BPF_F_CURRENT_CPU,
                               mastersecret, sizeof(struct mastersecret_t));
         return 0;
     }
 
+    ///////////////////////// get TLS 1.3 master secret ////////////////////
     // get cipher_suite_st pointer
     debug_bpf_printk("cipher_suite_st pointer: %x\n", ssl_cipher_st_ptr);
     ret = bpf_probe_read_user(&address, sizeof(address), ssl_cipher_st_ptr);
