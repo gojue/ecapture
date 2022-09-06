@@ -70,17 +70,17 @@ func (this *eventWorker) Display() {
 
 	//  输出包内容
 	b := this.parser.Display()
-	this.processor.GetLogger().Printf("UUID:%s, Name:%s, Type:%d, Length:%d", this.UUID, this.parser.Name(), this.parser.ParserType(), len(b))
 
 	// TODO 格式化的终端输出
-	this.processor.GetLogger().Println(string(this.parser.Display()))
 	// 重置状态
-	this.parser.Reset()
-
-	// 设定状态、重置包类型
-	this.status = PROCESS_STATE_DONE
-	this.packetType = PACKET_TYPE_NULL
-
+	if len(b) > 0 {
+		this.processor.GetLogger().Printf("UUID:%s, Name:%s, Type:%d, Length:%d", this.UUID, this.parser.Name(), this.parser.ParserType(), len(b))
+		this.processor.GetLogger().Println(string(b))
+		this.parser.Reset()
+		// 设定状态、重置包类型
+		this.status = PROCESS_STATE_DONE
+		this.packetType = PACKET_TYPE_NULL
+	}
 }
 
 // 解析类型，输出
