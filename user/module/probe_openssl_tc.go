@@ -109,7 +109,7 @@ func (this *MOpenSSLProbe) setupManagersTC() error {
 			{
 				Section:          "uprobe/SSL_write_key",
 				EbpfFuncName:     "probe_ssl_master_key",
-				AttachToFuncName: "SSL_write",
+				AttachToFuncName: "SSL_do_handshake", // SSL_do_handshake or SSL_write
 				BinaryPath:       binaryPath,
 				UID:              "uprobe_ssl_master_key",
 			},
