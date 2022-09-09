@@ -166,7 +166,7 @@ publish: \
 	.check_$(CMD_GITHUB)
 #
 	# release it!
-	$(CMD_GITHUB) release create $(SNAPSHOT_VERSION) $(OUT_ARCHIVE) $(OUT_CHECKSUMS) --title "$(SNAPSHOT_VERSION)"  --notes-file $(TAR_DIR)/release_notes.txt
+	$(CMD_GITHUB) release create $(SNAPSHOT_VERSION) $(OUT_ARCHIVE) $(OUT_CHECKSUMS) --title "eCapture $(SNAPSHOT_VERSION)"  --notes-file $(TAR_DIR)/release_notes.txt
 
 .PHONY: clean
 clean:

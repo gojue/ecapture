@@ -1,8 +1,19 @@
 <hr>
 
+# v0.4.3 (2022-09-09)
+
+## What's Changed
+
+
+<hr>
+
 # v0.4.2 (2022-09-04)
 
 ## What's Changed
+* refactor user package. by @cfc4n in https://github.com/ehids/ecapture/pull/183
+* pkg/event_processor: DefaultParser init(). by @cfc4n in https://github.com/ehids/ecapture/pull/186
+* Fix: correct ssl_st member offsets by @blaisewang in https://github.com/ehids/ecapture/pull/184
+* Boringssl decrypt failed by @cfc4n in https://github.com/ehids/ecapture/pull/188
 
 <hr>
 
