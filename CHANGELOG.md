@@ -3,7 +3,8 @@
 # v0.4.3 (2022-09-09)
 
 ## What's Changed
-
+* fix: use cipher id to derive secret by @blaisewang in https://github.com/ehids/ecapture/pull/192
+* kern: get ssl_session in the `*SSL_get_session()` order .   by @cfc4n in https://github.com/ehids/ecapture/pull/193
 
 <hr>
 
