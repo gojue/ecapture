@@ -15,6 +15,15 @@
         "test",
         "code"
       ]
+    },
+    {
+      "login": "cuishuang",
+      "name": "cui fliter",
+      "avatar_url": "https://avatars.githubusercontent.com/u/15921519?v=4",
+      "profile": "http://www.dashen.tech",
+      "contributions": [
+        "code"
+      ]
     }
   ],
   "contributorsPerLine": 7,
