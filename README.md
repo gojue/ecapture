@@ -206,6 +206,7 @@ See [CONTRIBUTING](./CONTRIBUTING.md) for details on submitting patches and the 
   <tbody>
     <tr>
       <td align="center"><a href="https://www.cnxct.com"><img src="https://avatars.githubusercontent.com/u/709947?v=4?s=100" width="100px;" alt=""/><br /><sub><b>CFC4N</b></sub></a><br /><a href="#infra-cfc4n" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a> <a href="https://github.com/ehids/ecapture/commits?author=cfc4n" title="Tests">⚠️</a> <a href="https://github.com/ehids/ecapture/commits?author=cfc4n" title="Code">💻</a></td>
+      <td align="center"><a href="https://chenhengqi.com"><img src="https://avatars.githubusercontent.com/u/4277743?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Hengqi Chen</b></sub></a><br /><a href="https://github.com/ehids/ecapture/commits?author=chenhengqi" title="Code">💻</a></td>      
       <td align="center"><a href="https://blaise.wang/"><img src="https://avatars.githubusercontent.com/u/9657268?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Blaise Wang</b></sub></a><br /><a href="https://github.com/ehids/ecapture/commits?author=blaisewang" title="Code">💻</a></td>
     </tr>
   </tbody>
