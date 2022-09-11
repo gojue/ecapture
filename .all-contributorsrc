@@ -15,6 +15,17 @@
         "test",
         "code"
       ]
+    },
+    {
+      "login": "chenhengqi",
+      "name": "Hengqi Chen",
+      "avatar_url": "https://avatars.githubusercontent.com/u/4277743?v=4",
+      "profile": "https://chenhengqi.com",
+      "contributions": [
+        "infra",
+        "test",
+        "code"
+      ]
     }
   ],
   "contributorsPerLine": 7,
