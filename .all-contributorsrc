@@ -15,6 +15,15 @@
         "test",
         "code"
       ]
+    },
+    {
+      "login": "vincentmli",
+      "name": "Vincent Li",
+      "avatar_url": "https://avatars.githubusercontent.com/u/3729694?v=4",
+      "profile": "https://youtube.com/c/LinuxMonkinCloud",
+      "contributions": [
+        "code"
+      ]
     }
   ],
   "contributorsPerLine": 7,
