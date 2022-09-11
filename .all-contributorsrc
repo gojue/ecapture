@@ -15,6 +15,15 @@
         "test",
         "code"
       ]
+    },
+    {
+      "login": "tiann",
+      "name": "weishu",
+      "avatar_url": "https://avatars.githubusercontent.com/u/4233744?v=4",
+      "profile": "https://weishu.me",
+      "contributions": [
+        "code"
+      ]
     }
   ],
   "contributorsPerLine": 7,
