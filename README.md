@@ -1,6 +1,6 @@
 ![](./images/ecapture-logo-400x400.png)
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
-[![All Contributors](https://img.shields.io/badge/all_contributors-12-orange.svg?style=flat-square)](#contributors-)
+[![All Contributors](https://img.shields.io/badge/all_contributors-13-orange.svg?style=flat-square)](#contributors-)
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 
 [中文介绍](./README_CN.md) | English
@@ -219,6 +219,7 @@ See [CONTRIBUTING](./CONTRIBUTING.md) for details on submitting patches and the 
       <td align="center"><a href="http://www.dashen.tech"><img src="https://avatars.githubusercontent.com/u/15921519?v=4?s=100" width="100px;" alt=""/><br /><sub><b>cui fliter</b></sub></a><br /><a href="https://github.com/ehids/ecapture/commits?author=cuishuang" title="Code">💻</a></td>
       <td align="center"><a href="https://nfsec.pl"><img src="https://avatars.githubusercontent.com/u/15172919?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Patryk Krawaczyński</b></sub></a><br /><a href="https://github.com/ehids/ecapture/commits?author=nfsec" title="Code">💻</a></td>
       <td align="center"><a href="https://github.com/yindex"><img src="https://avatars.githubusercontent.com/u/38709569?v=4?s=100" width="100px;" alt=""/><br /><sub><b>yindex</b></sub></a><br /><a href="https://github.com/ehids/ecapture/commits?author=yindex" title="Code">💻</a></td>
+      <td align="center"><a href="https://github.com/xujiajiadexiaokeai"><img src="https://avatars.githubusercontent.com/u/30225423?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Wenhao Jiang</b></sub></a><br /><a href="https://github.com/ehids/ecapture/commits?author=xujiajiadexiaokeai" title="Code">💻</a></td>
     </tr>
   </tbody>
 </table>
