@@ -15,6 +15,15 @@
         "test",
         "code"
       ]
+    },
+    {
+      "login": "yihong0618",
+      "name": "yihong",
+      "avatar_url": "https://avatars.githubusercontent.com/u/15976103?v=4",
+      "profile": "http://yihong.run",
+      "contributions": [
+        "code"
+      ]
     }
   ],
   "contributorsPerLine": 7,
