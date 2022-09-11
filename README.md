@@ -1,6 +1,6 @@
 ![](./images/ecapture-logo-400x400.png)
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
-[![All Contributors](https://img.shields.io/badge/all_contributors-1-orange.svg?style=flat-square)](#contributors-)
+[![All Contributors](https://img.shields.io/badge/all_contributors-2-orange.svg?style=flat-square)](#contributors-)
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 
 [中文介绍](./README_CN.md) | English
@@ -206,6 +206,7 @@ See [CONTRIBUTING](./CONTRIBUTING.md) for details on submitting patches and the 
   <tbody>
     <tr>
       <td align="center"><a href="https://www.cnxct.com"><img src="https://avatars.githubusercontent.com/u/709947?v=4?s=100" width="100px;" alt=""/><br /><sub><b>CFC4N</b></sub></a><br /><a href="#infra-cfc4n" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a> <a href="https://github.com/ehids/ecapture/commits?author=cfc4n" title="Tests">⚠️</a> <a href="https://github.com/ehids/ecapture/commits?author=cfc4n" title="Code">💻</a></td>
+      <td align="center"><a href="https://4ft35t.github.io/"><img src="https://avatars.githubusercontent.com/u/2051049?v=4?s=100" width="100px;" alt=""/><br /><sub><b>4ft35t</b></sub></a><br /><a href="https://github.com/ehids/ecapture/commits?author=4ft35t" title="Code">💻</a></td>
     </tr>
   </tbody>
 </table>
