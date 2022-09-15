@@ -283,11 +283,6 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
     mastersecret->version = version;  // int version;
 #endif
     debug_bpf_printk("TLS version :%d\n", mastersecret->version);
-    if (mastersecret->version == TLS1_3_VERSION) {
-        // for debug TODO
-        // TLS 1.3 return 0
-        return 0;
-    }
 
     // Get ssl3_state_st pointer
     ret = bpf_probe_read_user(&address, sizeof(address), ssl_s3_st_ptr);
