@@ -15,10 +15,8 @@ package hkdf
 
 import (
 	"crypto"
-	"fmt"
 	"golang.org/x/crypto/cryptobyte"
 	"golang.org/x/crypto/hkdf"
-	"hash"
 )
 
 const (
@@ -41,16 +39,16 @@ const (
 	KeyLogLabelExporterSecret  = "EXPORTER_SECRET"
 )
 
+// crypto/tls/cipher_suites.go line 678
+// TLS 1.3 cipher suites.
 const (
-	// crypto/tls/cipher_suites.go line 678
-	// TLS 1.3 cipher suites.
 	TLS_AES_128_GCM_SHA256       uint16 = 0x1301
 	TLS_AES_256_GCM_SHA384       uint16 = 0x1302
 	TLS_CHACHA20_POLY1305_SHA256 uint16 = 0x1303
 )
 
-// expandLabel implements HKDF-Expand-Label from RFC 8446, Section 7.1.
-func expandLabel(secret []byte, label string, context []byte, length int, cipherId uint32) []byte {
+// ExpandLabel implements HKDF-Expand-Label from RFC 8446, Section 7.1.
+func ExpandLabel(secret []byte, label string, context []byte, length int, transcript crypto.Hash) []byte {
 	var hkdfLabel cryptobyte.Builder
 	hkdfLabel.AddUint16(uint16(length))
 	hkdfLabel.AddUint8LengthPrefixed(func(b *cryptobyte.Builder) {
@@ -58,28 +56,13 @@ func expandLabel(secret []byte, label string, context []byte, length int, cipher
 		b.AddBytes([]byte(label))
 	})
 	hkdfLabel.AddUint8LengthPrefixed(func(b *cryptobyte.Builder) {
-		b.AddBytes(context)
+		b.AddBytes(context[:length])
 	})
 	out := make([]byte, length)
 
-	var transcript crypto.Hash
-	switch uint16(cipherId & 0x0000FFFF) {
-	case TLS_AES_128_GCM_SHA256, TLS_CHACHA20_POLY1305_SHA256:
-		transcript = crypto.SHA256
-	case TLS_AES_256_GCM_SHA384:
-		transcript = crypto.SHA384
-	default:
-		panic(fmt.Sprintf("Unknown cipher: %d", cipherId))
-	}
-	n, err := hkdf.Expand(transcript.New, secret, hkdfLabel.BytesOrPanic()).Read(out)
+	n, err := hkdf.Expand(transcript.New, secret[:length], hkdfLabel.BytesOrPanic()).Read(out)
 	if err != nil || n != length {
 		panic("tls: HKDF-Expand-Label invocation failed unexpectedly")
 	}
 	return out
-}
-
-// from crypto/tls/key_schedule.go line 35
-// DeriveSecret implements Derive-Secret from RFC 8446, Section 7.1.
-func DeriveSecret(secret []byte, label string, transcript hash.Hash, cipherId uint32) []byte {
-	return expandLabel(secret, label, transcript.Sum(nil), transcript.Size(), cipherId)
 }
