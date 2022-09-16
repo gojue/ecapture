@@ -43,9 +43,11 @@ eBPF `Uprobe`/`Traffic Control`实现的各种用户空间/内核空间的数据
 [eCapture：无需CA证书抓https明文通讯](https://mp.weixin.qq.com/s/DvTClH3JmncpkaEfnTQsRg)
 
 ### 演示视频
-
+#### Linux上使用eCapture
 [![eCapture User Manual](./images/ecapture-user-manual.png)](https://www.bilibili.com/video/BV1si4y1Q74a "eCapture User Manual")
 
+#### Android上使用eCapture
+[![eCapture User Manual](./images/ecapture-user-manual-on-android.png)](https://www.bilibili.com/video/BV1xP4y1Z7HB "eCapture for Android")
 # 使用
 
 ## 直接运行
@@ -172,6 +174,10 @@ hook了`/bin/bash`的`readline`函数。
 针对个别程序使用的openssl类库是静态编译，也可以自行修改源码实现。若函数名不在符号表里，也可以自行反编译找到函数的offset偏移地址，填写到`UprobeOffset`属性上，进行编译。
 笔者环境`ubuntu 21.04`， Linux Kernel 4.15以上通用。
 **推荐使用`UBUNTU 21.04`版本的Linux测试。**
+
+> **Note**
+> 
+> Android版本编译方法见 [eCapture旁观者：Android HTTPS明文抓包](https://mp.weixin.qq.com/s/KWm5d0uuzOzReRtr9PmuWQ)
 
 ## 工具链版本
 * golang 1.17
