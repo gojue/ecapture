@@ -68,7 +68,7 @@ type MOpenSSLProbe struct {
 
 // 对象初始化
 func (this *MOpenSSLProbe) Init(ctx context.Context, logger *log.Logger, conf config.IConfig) error {
-	this.Module.Init(ctx, logger)
+	this.Module.Init(ctx, logger, conf)
 	this.conf = conf
 	this.Module.SetChild(this)
 	this.eventMaps = make([]*ebpf.Map, 0, 2)
