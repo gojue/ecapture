@@ -62,10 +62,10 @@ type Module struct {
 }
 
 // Init 对象初始化
-func (this *Module) Init(ctx context.Context, logger *log.Logger) {
+func (this *Module) Init(ctx context.Context, logger *log.Logger, conf config.IConfig) {
 	this.ctx = ctx
 	this.logger = logger
-	this.processor = event_processor.NewEventProcessor(logger)
+	this.processor = event_processor.NewEventProcessor(logger, conf.GetHex())
 }
 
 func (this *Module) SetChild(module IModule) {

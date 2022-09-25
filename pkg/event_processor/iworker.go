@@ -2,6 +2,7 @@ package event_processor
 
 import (
 	"ecapture/user/event"
+	"encoding/hex"
 	"time"
 )
 
@@ -71,16 +72,22 @@ func (this *eventWorker) Display() {
 	//  输出包内容
 	b := this.parser.Display()
 
+	if len(b) <= 0 {
+		return
+	}
+
+	if this.processor.isHex {
+		b = []byte(hex.Dump(b))
+	}
+
 	// TODO 格式化的终端输出
 	// 重置状态
-	if len(b) > 0 {
-		this.processor.GetLogger().Printf("UUID:%s, Name:%s, Type:%d, Length:%d", this.UUID, this.parser.Name(), this.parser.ParserType(), len(b))
-		this.processor.GetLogger().Println(string(b))
-		this.parser.Reset()
-		// 设定状态、重置包类型
-		this.status = PROCESS_STATE_DONE
-		this.packetType = PACKET_TYPE_NULL
-	}
+	this.processor.GetLogger().Printf("UUID:%s, Name:%s, Type:%d, Length:%d", this.UUID, this.parser.Name(), this.parser.ParserType(), len(b))
+	this.processor.GetLogger().Println("\n" + string(b))
+	this.parser.Reset()
+	// 设定状态、重置包类型
+	this.status = PROCESS_STATE_DONE
+	this.packetType = PACKET_TYPE_NULL
 }
 
 // 解析类型，输出
