@@ -37,7 +37,7 @@ func TestEventProcessor_Serve(t *testing.T) {
 		}
 		logger.SetOutput(f)
 	*/
-	ep := NewEventProcessor(logger)
+	ep := NewEventProcessor(logger, true)
 
 	go func() {
 		ep.Serve()
