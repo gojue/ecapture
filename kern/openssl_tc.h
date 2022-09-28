@@ -110,11 +110,12 @@ int capture_packets(struct __sk_buff *skb, bool is_ingress) {
     }
     struct tcphdr *tcp = (struct tcphdr *)(data_start + l4_hdr_off);
 
+#ifndef KERNEL_LESS_5_2
     if (tcp->source != bpf_htons(target_port) &&
         tcp->dest != bpf_htons(target_port)) {
         return TC_ACT_OK;
     }
-
+#endif
     //    debug_bpf_printk("capture_packets port : %d, dest port :%d\n",
     //    bpf_ntohs(tcp->source), bpf_ntohs(tcp->dest));
     // get the skb data event
