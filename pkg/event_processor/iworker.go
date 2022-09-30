@@ -119,6 +119,7 @@ func (this *eventWorker) Run() {
 		case _ = <-this.ticker.C:
 			// 输出包
 			if this.tickerCount > MAX_TICKER_COUNT {
+				this.processor.GetLogger().Printf("eventWorker TickerCount > %d, event closed.", MAX_TICKER_COUNT)
 				this.Close()
 				return
 			}
