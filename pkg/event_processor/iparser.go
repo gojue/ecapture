@@ -26,7 +26,9 @@ const (
 const (
 	PARSER_TYPE_NULL PARSER_TYPE = iota
 	PARSER_TYPE_HTTP_REQUEST
+	PARSER_TYPE_HTTP2_REQUEST
 	PARSER_TYPE_HTTP_RESPONSE
+	PARSER_TYPE_HTTP2_RESPONSE
 	PARSER_TYPE_WEB_SOCKET
 )
 
@@ -77,6 +79,12 @@ func NewParser(payload []byte) IParser {
 					newParser = new(HTTPRequest)
 				case PARSER_TYPE_HTTP_RESPONSE:
 					newParser = new(HTTPResponse)
+				case PARSER_TYPE_HTTP2_REQUEST:
+					// TODO support HTTP2 request
+					// via golang.org/x/net/http2
+					//hpack.NewEncoder(buf)
+				case PARSER_TYPE_HTTP2_RESPONSE:
+					// TODO  support HTTP2 response
 				}
 				break
 			}
