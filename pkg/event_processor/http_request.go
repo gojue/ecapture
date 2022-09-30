@@ -88,6 +88,9 @@ func (this *HTTPRequest) Reset() {
 }
 
 func (this *HTTPRequest) Display() []byte {
+	if this.request.Proto == "HTTP/2.0" {
+		return this.reader.Bytes()
+	}
 	b, e := httputil.DumpRequest(this.request, true)
 	if e != nil {
 		log.Println("DumpRequest error:", e)

@@ -2,6 +2,7 @@ package event_processor
 
 import (
 	"bytes"
+	"encoding/hex"
 	"fmt"
 )
 
@@ -127,6 +128,13 @@ func (this *DefaultParser) Init() {
 }
 
 func (this *DefaultParser) Display() []byte {
+	b := this.reader.Bytes()
+	if len(b) <= 0 {
+		return []byte{}
+	}
+	if b[0] < 32 || b[0] > 126 {
+		return []byte(hex.Dump(b))
+	}
 	return []byte(CToGoString(this.reader.Bytes()))
 }
 
