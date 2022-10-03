@@ -1,5 +1,12 @@
 <hr>
 
+# v0.4.4 (2022-10-03)
+
+## What's Changed
+
+
+<hr>
+
 # v0.4.3 (2022-09-09)
 
 ## What's Changed
