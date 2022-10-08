@@ -63,8 +63,11 @@
 // session->cipher 在 SSL_SESSION 中的偏移量
 #define SESSION_CIPHER_OFFSET 496
 
-// session->cipher->id 在 ssl_cipher_st 中的偏移量
-#define SESSION_CIPHER_ID_OFFSET 24
+// session->cipher_id 在 SSL_SESSION 中的偏移量
+#define SESSION_CIPHER_ID_OFFSET 0x1f8
+
+// cipher->id 在 ssl_cipher_st 中的偏移量
+#define CIPHER_ID_OFFSET 0x18
 
 ////////// TLS 1.3 /////////
 
@@ -362,20 +365,38 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
     // get cipher_suite_st pointer
     debug_bpf_printk("cipher_suite_st pointer: %x\n", ssl_cipher_st_ptr);
     ret = bpf_probe_read_user(&address, sizeof(address), ssl_cipher_st_ptr);
-    if (ret) {
-        debug_bpf_printk("bpf_probe_read ssl_cipher_st_ptr failed, ret :%d\n",
-                         ret);
-        return 0;
+    if (ret || address == 0) {
+        debug_bpf_printk(
+            "bpf_probe_read ssl_cipher_st_ptr failed, ret :%d, address:%x\n",
+            ret, address);
+        // return 0;
+        void *cipher_id_ptr =
+            (void *)(ssl_session_st_addr + SESSION_CIPHER_ID_OFFSET);
+        ret =
+            bpf_probe_read_user(&mastersecret->cipher_id,
+                                sizeof(mastersecret->cipher_id), cipher_id_ptr);
+        if (ret) {
+            debug_bpf_printk(
+                "bpf_probe_read SESSION_CIPHER_ID_OFFSET failed from "
+                "SSL_SESSION->cipher_id, ret :%d\n",
+                ret);
+            return 0;
+        }
+    } else {
+        debug_bpf_printk("cipher_suite_st value: %x\n", address);
+        void *cipher_id_ptr = (void *)(address + CIPHER_ID_OFFSET);
+        ret =
+            bpf_probe_read_user(&mastersecret->cipher_id,
+                                sizeof(mastersecret->cipher_id), cipher_id_ptr);
+        if (ret) {
+            debug_bpf_printk(
+                "bpf_probe_read CIPHER_ID_OFFSET failed from "
+                "ssl_cipher_st->id, ret :%d\n",
+                ret);
+            return 0;
+        }
     }
 
-    void *cipher_id_ptr = (void *)(address + SESSION_CIPHER_ID_OFFSET);
-    ret = bpf_probe_read_user(&mastersecret->cipher_id,
-                              sizeof(mastersecret->cipher_id), cipher_id_ptr);
-    if (ret) {
-        debug_bpf_printk(
-            "bpf_probe_read SESSION_CIPHER_ID_OFFSET failed, ret :%d\n", ret);
-        return 0;
-    }
     debug_bpf_printk("cipher_id: %d\n", mastersecret->cipher_id);
 
     //////////////////// TLS 1.3 master secret ////////////////////////
