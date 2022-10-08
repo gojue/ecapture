@@ -486,8 +486,11 @@ func (this *MOpenSSLProbe) saveMasterSecret(secretEvent *event.MasterSecretEvent
 			length = 48
 			transcript = crypto.SHA384
 		default:
-			this.logger.Printf("non-TLSv1.3 cipher suite in tls13_hkdf_expand, CipherId: %d", secretEvent.CipherId)
-			return
+			// TODO need to get root cause,
+			length = 32
+			transcript = crypto.SHA256
+			this.logger.Printf("non-TLSv1.3 cipher suite in tls13_hkdf_expand, CipherId: %d, use SHA256 default.", secretEvent.CipherId)
+			//return
 		}
 
 		clientHandshakeSecret := hkdf.ExpandLabel(secretEvent.HandshakeSecret[:length],
