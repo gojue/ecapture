@@ -1,5 +1,12 @@
 <hr>
 
+# v0.4.5 (2022-10-10)
+
+## What's Changed
+* kern: capture master secrets for tls 1.3  @cfc4n in https://github.com/ehids/ecapture/pull/232
+
+<hr>
+
 # v0.4.4 (2022-10-03)
 
 ## What's Changed
