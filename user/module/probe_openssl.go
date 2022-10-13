@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto"
+	"debug/elf"
 	"ecapture/assets"
 	"ecapture/pkg/util/hkdf"
 	"ecapture/user/config"
@@ -18,12 +19,15 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 )
 
 const (
-	CONN_NOT_FOUND = "[ADDR_NOT_FOUND]"
+	CONN_NOT_FOUND           = "[ADDR_NOT_FOUND]"
+	LINUX_DEFAULE_FILENAME   = "linux_default"
+	ANDROID_DEFAULE_FILENAME = "android_default"
 )
 
 type Tls13MasterSecret struct {
@@ -64,6 +68,8 @@ type MOpenSSLProbe struct {
 	tcPackets         []*TcPacket
 	masterKeyBuffer   *bytes.Buffer
 	tcPacketLocker    *sync.Mutex
+
+	bpfFileKey string
 }
 
 // 对象初始化
@@ -75,6 +81,7 @@ func (this *MOpenSSLProbe) Init(ctx context.Context, logger *log.Logger, conf co
 	this.eventFuncMaps = make(map[*ebpf.Map]event.IEventStruct)
 	this.pidConns = make(map[uint32]map[uint32]string)
 	this.masterKeys = make(map[string]bool)
+
 	//fd := os.Getpid()
 	this.keyloggerFilename = "ecapture_masterkey.log"
 	file, err := os.OpenFile(this.keyloggerFilename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
@@ -111,6 +118,108 @@ func (this *MOpenSSLProbe) Init(ctx context.Context, logger *log.Logger, conf co
 	this.tcPackets = make([]*TcPacket, 0, 1024)
 	this.tcPacketLocker = &sync.Mutex{}
 	this.masterKeyBuffer = bytes.NewBuffer([]byte{})
+
+	var isAndroid = this.conf.(*config.OpensslConfig).IsAndroid
+	if isAndroid {
+		this.bpfFileKey = ANDROID_DEFAULE_FILENAME
+	} else {
+		this.bpfFileKey = LINUX_DEFAULE_FILENAME
+	}
+	return nil
+}
+
+func (this *MOpenSSLProbe) initOpensslOffset() {
+	var m = make(map[string]string, 4)
+	// openssl
+	m["OpenSSL 1.1.1a"] = "openssl_1.1.1a_kern.o"
+	m["OpenSSL 1.1.1b"] = "openssl_1.1.1b-c_kern.o"
+	m["OpenSSL 1.1.1c"] = "openssl_1.1.1b-c_kern.o"
+	m["OpenSSL 1.1.1d"] = "openssl_1.1.1d-i_kern.o"
+	m["OpenSSL 1.1.1e"] = "openssl_1.1.1d-i_kern.o"
+	m["OpenSSL 1.1.1f"] = "openssl_1.1.1d-i_kern.o"
+	m["OpenSSL 1.1.1g"] = "openssl_1.1.1d-i_kern.o"
+	m["OpenSSL 1.1.1h"] = "openssl_1.1.1d-i_kern.o"
+	m["OpenSSL 1.1.1i"] = "openssl_1.1.1d-i_kern.o"
+	m["OpenSSL 1.1.1j"] = "openssl_1.1.1j-q_kern.o"
+	m["OpenSSL 1.1.1k"] = "openssl_1.1.1j-q_kern.o"
+	m["OpenSSL 1.1.1l"] = "openssl_1.1.1j-q_kern.o"
+	m["OpenSSL 1.1.1m"] = "openssl_1.1.1j-q_kern.o"
+	m["OpenSSL 1.1.1n"] = "openssl_1.1.1j-q_kern.o"
+	m["OpenSSL 1.1.1o"] = "openssl_1.1.1j-q_kern.o"
+	m["OpenSSL 1.1.1p"] = "openssl_1.1.1j-q_kern.o"
+	m["OpenSSL 1.1.1q"] = "openssl_1.1.1j-q_kern.o"
+	m[LINUX_DEFAULE_FILENAME] = "openssl_1.1.1j-q_kern.o"
+
+	// boringssl
+	m["BoringSSL 1.1.1"] = "boringssl_1.1.1_kern.o"
+	m[ANDROID_DEFAULE_FILENAME] = "boringssl_1.1.1_kern.o"
+}
+
+func (this *MOpenSSLProbe) detectOpenssl(soPath string) error {
+	f, err := os.OpenFile(soPath, os.O_RDONLY, os.ModePerm)
+	if err != nil {
+		return errors.New("failed to open the file")
+	}
+	r, e := elf.NewFile(f)
+	if e != nil {
+		return errors.New("failed to parse the ELF file succesfully")
+	}
+
+	s := r.Section(".rodata")
+	if s == nil {
+		// not found
+		return nil
+	}
+
+	sectionSize := int64(s.Offset)
+
+	_, err = f.Seek(0, 0)
+	if err != nil {
+		return nil
+	}
+
+	ret, err := f.Seek(sectionSize, 0)
+	if ret != sectionSize || err != nil {
+		return nil
+	}
+
+	buf := make([]byte, s.Size)
+	if buf == nil {
+		return nil
+	}
+
+	_, err = f.Read(buf)
+	if err != nil {
+		return nil
+	}
+
+	// 按照\x00 拆分  buf
+	var slice [][]byte
+	if slice = bytes.Split(buf, []byte("\x00")); slice == nil {
+		return nil
+	}
+
+	dumpStrings := make(map[uint64][]byte, len(slice))
+	length := uint64(len(slice))
+
+	var offset uint64
+
+	for i := uint64(0); i < length; i++ {
+		if len(slice[i]) == 0 {
+			continue
+		}
+
+		dumpStrings[offset] = slice[i]
+
+		offset += (uint64(len(slice[i])) + 1)
+	}
+
+	for _, v := range dumpStrings {
+		if strings.Contains(string(v), "OpenSSL") {
+			fmt.Println(string(v))
+		}
+	}
+
 	return nil
 }
 
@@ -120,12 +229,7 @@ func (this *MOpenSSLProbe) Start() error {
 
 func (this *MOpenSSLProbe) start() error {
 
-	// fetch ebpf assets
-	byteBuf, err := assets.Asset("user/bytecode/openssl_kern.o")
-	if err != nil {
-		return fmt.Errorf("%s\tcouldn't find asset %v .", this.Name(), err)
-	}
-
+	var err error
 	// setup the managers
 	switch this.eBPFProgramType {
 	case EBPFPROGRAMTYPE_OPENSSL_TC:
@@ -137,6 +241,12 @@ func (this *MOpenSSLProbe) start() error {
 	default:
 		this.logger.Printf("%s\tUPROBE MODEL\n", this.Name())
 		err = this.setupManagersUprobe()
+	}
+
+	// fetch ebpf assets
+	byteBuf, err := assets.Asset("user/bytecode/openssl_kern.o")
+	if err != nil {
+		return fmt.Errorf("%s\tcouldn't find asset %v .", this.Name(), err)
 	}
 
 	if err != nil {
@@ -226,9 +336,17 @@ func (this *MOpenSSLProbe) setupManagersUprobe() error {
 		binaryPath = this.conf.(*config.OpensslConfig).Curlpath
 	case config.ELF_TYPE_SO:
 		binaryPath = this.conf.(*config.OpensslConfig).Openssl
+		err := this.detectOpenssl(binaryPath)
+		if err != nil {
+			return err
+		}
 	default:
 		//如果没找到
 		binaryPath = "/lib/x86_64-linux-gnu/libssl.so.1.1"
+		err := this.detectOpenssl(binaryPath)
+		if err != nil {
+			return err
+		}
 	}
 
 	libPthread = this.conf.(*config.OpensslConfig).Pthread

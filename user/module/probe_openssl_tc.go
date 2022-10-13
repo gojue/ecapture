@@ -61,9 +61,17 @@ func (this *MOpenSSLProbe) setupManagersTC() error {
 		binaryPath = this.conf.(*config.OpensslConfig).Curlpath
 	case config.ELF_TYPE_SO:
 		binaryPath = this.conf.(*config.OpensslConfig).Openssl
+		err := this.detectOpenssl(binaryPath)
+		if err != nil {
+			return err
+		}
 	default:
 		//如果没找到
 		binaryPath = "/lib/x86_64-linux-gnu/libssl.so.1.1"
+		err := this.detectOpenssl(binaryPath)
+		if err != nil {
+			return err
+		}
 	}
 
 	this.logger.Printf("%s\tHOOK type:%d, binrayPath:%s\n", this.Name(), this.conf.(*config.OpensslConfig).ElfType, binaryPath)
