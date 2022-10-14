@@ -62,3 +62,4 @@
 #endif
 
 #include "openssl.h"
+#include "boringssl_masterkey.h"

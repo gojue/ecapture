@@ -19,3 +19,4 @@
 #endif
 
 #include "openssl.h"
+#include "openssl_masterkey.h"
