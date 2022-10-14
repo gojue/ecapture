@@ -71,8 +71,8 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 		}
 		logger.SetOutput(f)
 	}
-	logger.Printf("ECAPTURE :: version :%s", GitVersion)
-	logger.Printf("ECAPTURE :: pid info :%d", os.Getpid())
+	logger.Printf("ECAPTURE :: %s Version :%s", cliName, GitVersion)
+	logger.Printf("ECAPTURE :: Pid Info :%d", os.Getpid())
 
 	modNames := []string{module.MODULE_NAME_OPENSSL, module.MODULE_NAME_GNUTLS, module.MODULE_NAME_NSPR, module.MODULE_NAME_GOSSL}
 

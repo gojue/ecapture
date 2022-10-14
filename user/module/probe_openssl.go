@@ -121,7 +121,9 @@ func (this *MOpenSSLProbe) Start() error {
 func (this *MOpenSSLProbe) start() error {
 
 	// fetch ebpf assets
-	byteBuf, err := assets.Asset("user/bytecode/openssl_kern.o")
+	var bpfFileName = this.geteBPFName("user/bytecode/openssl_kern.o")
+	this.logger.Printf("%s\tBPF bytecode filename:%s\n", this.Name(), bpfFileName)
+	byteBuf, err := assets.Asset(bpfFileName)
 	if err != nil {
 		return fmt.Errorf("%s\tcouldn't find asset %v .", this.Name(), err)
 	}

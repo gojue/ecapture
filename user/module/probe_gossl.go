@@ -30,33 +30,33 @@ type GoSSLProbe struct {
 	isRegisterABI bool
 }
 
-func (p *GoSSLProbe) Init(ctx context.Context, l *log.Logger, cfg config.IConfig) error {
-	p.Module.Init(ctx, l, cfg)
-	p.Module.SetChild(p)
+func (this *GoSSLProbe) Init(ctx context.Context, l *log.Logger, cfg config.IConfig) error {
+	this.Module.Init(ctx, l, cfg)
+	this.Module.SetChild(this)
 
-	p.path = cfg.(*config.GoSSLConfig).Path
-	ver, err := proc.ExtraceGoVersion(p.path)
+	this.path = cfg.(*config.GoSSLConfig).Path
+	ver, err := proc.ExtraceGoVersion(this.path)
 	if err != nil {
 		return err
 	}
 
 	if ver.After(1, 15) {
-		p.isRegisterABI = true
+		this.isRegisterABI = true
 	}
 	return nil
 }
 
-func (p *GoSSLProbe) Name() string {
+func (this *GoSSLProbe) Name() string {
 	return MODULE_NAME_GOSSL
 }
 
-func (p *GoSSLProbe) Start() error {
+func (this *GoSSLProbe) Start() error {
 	var (
 		sec string
 		fn  string
 	)
 
-	if p.isRegisterABI {
+	if this.isRegisterABI {
 		sec = "uprobe/abi_register"
 		fn = "probe_register"
 	} else {
@@ -64,13 +64,13 @@ func (p *GoSSLProbe) Start() error {
 		fn = "probe_stack"
 	}
 
-	p.mngr = &manager.Manager{
+	this.mngr = &manager.Manager{
 		Probes: []*manager.Probe{
 			{
 				Section:          sec,
 				EbpfFuncName:     fn,
 				AttachToFuncName: "crypto/tls.(*Conn).writeRecordLocked",
-				BinaryPath:       p.path,
+				BinaryPath:       this.path,
 			},
 		},
 		Maps: []*manager.Map{
@@ -80,7 +80,9 @@ func (p *GoSSLProbe) Start() error {
 		},
 	}
 
-	data, err := assets.Asset("user/bytecode/gossl_kern.o")
+	var bpfFileName = this.geteBPFName("user/bytecode/gossl_kern.o")
+	this.logger.Printf("%s\tBPF bytecode filename:%s\n", this.Name(), bpfFileName)
+	byteBuf, err := assets.Asset(bpfFileName)
 	if err != nil {
 		return err
 	}
@@ -91,17 +93,17 @@ func (p *GoSSLProbe) Start() error {
 			Max: math.MaxUint64,
 		},
 	}
-	if err := p.mngr.InitWithOptions(bytes.NewReader(data), opts); err != nil {
+	if err := this.mngr.InitWithOptions(bytes.NewReader(byteBuf), opts); err != nil {
 		return err
 	}
 
-	return p.mngr.Start()
+	return this.mngr.Start()
 }
 
-func (p *GoSSLProbe) Events() []*ebpf.Map {
+func (this *GoSSLProbe) Events() []*ebpf.Map {
 	var maps []*ebpf.Map
 
-	m, ok, err := p.mngr.GetMap("events")
+	m, ok, err := this.mngr.GetMap("events")
 	if err != nil || !ok {
 		return maps
 	}
@@ -110,10 +112,10 @@ func (p *GoSSLProbe) Events() []*ebpf.Map {
 	return maps
 }
 
-func (p *GoSSLProbe) DecodeFun(m *ebpf.Map) (event.IEventStruct, bool) {
+func (this *GoSSLProbe) DecodeFun(m *ebpf.Map) (event.IEventStruct, bool) {
 	return &event.GoSSLEvent{}, true
 }
 
-func (p *GoSSLProbe) Close() error {
-	return p.Module.Close()
+func (this *GoSSLProbe) Close() error {
+	return this.Module.Close()
 }
