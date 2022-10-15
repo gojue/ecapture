@@ -1,5 +1,12 @@
 <hr>
 
+# v0.4.6 (2022-10-15)
+
+## What's Changed
+* user/module : compatiable Linux kernel less or more than 5.2   @cfc4n in https://github.com/ehids/ecapture/pull/238
+
+<hr>
+
 # v0.4.5 (2022-10-10)
 
 ## What's Changed
