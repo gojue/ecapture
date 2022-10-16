@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto"
-	"debug/elf"
 	"ecapture/assets"
 	"ecapture/pkg/util/hkdf"
 	"ecapture/user/config"
@@ -19,15 +18,14 @@ import (
 	"math"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 )
 
 const (
-	CONN_NOT_FOUND           = "[ADDR_NOT_FOUND]"
-	LINUX_DEFAULE_FILENAME   = "linux_default"
-	ANDROID_DEFAULE_FILENAME = "android_default"
+	ConnNotFound           = "[ADDR_NOT_FOUND]"
+	LinuxDefauleFilename   = "linux_default"
+	AndroidDefauleFilename = "android_default"
 )
 
 type Tls13MasterSecret struct {
@@ -41,8 +39,8 @@ type Tls13MasterSecret struct {
 type EBPFPROGRAMTYPE uint8
 
 const (
-	EBPFPROGRAMTYPE_OPENSSL_TC EBPFPROGRAMTYPE = iota
-	EBPFPROGRAMTYPE_OPENSSL_UPROBE
+	EbpfprogramtypeOpensslTc EBPFPROGRAMTYPE = iota
+	EbpfprogramtypeOpensslUprobe
 )
 
 type MOpenSSLProbe struct {
@@ -69,7 +67,9 @@ type MOpenSSLProbe struct {
 	masterKeyBuffer   *bytes.Buffer
 	tcPacketLocker    *sync.Mutex
 
-	bpfFileKey string
+	bpfFileKey       string
+	sslVersionBpfMap map[string]string // bpf map key: ssl version, value: bpf map key
+	sslBpfFile       string            // ssl bpf file
 }
 
 // 对象初始化
@@ -81,6 +81,7 @@ func (this *MOpenSSLProbe) Init(ctx context.Context, logger *log.Logger, conf co
 	this.eventFuncMaps = make(map[*ebpf.Map]event.IEventStruct)
 	this.pidConns = make(map[uint32]map[uint32]string)
 	this.masterKeys = make(map[string]bool)
+	this.sslVersionBpfMap = make(map[string]string)
 
 	//fd := os.Getpid()
 	this.keyloggerFilename = "ecapture_masterkey.log"
@@ -91,14 +92,14 @@ func (this *MOpenSSLProbe) Init(ctx context.Context, logger *log.Logger, conf co
 	this.keylogger = file
 	var writeFile = this.conf.(*config.OpensslConfig).Write
 	if len(writeFile) > 0 {
-		this.eBPFProgramType = EBPFPROGRAMTYPE_OPENSSL_TC
+		this.eBPFProgramType = EbpfprogramtypeOpensslTc
 		fileInfo, err := filepath.Abs(writeFile)
 		if err != nil {
 			return err
 		}
 		this.pcapngFilename = fileInfo
 	} else {
-		this.eBPFProgramType = EBPFPROGRAMTYPE_OPENSSL_UPROBE
+		this.eBPFProgramType = EbpfprogramtypeOpensslUprobe
 		this.logger.Printf("%s\tmaster key keylogger: %s\n", this.Name(), this.keyloggerFilename)
 	}
 
@@ -121,106 +122,57 @@ func (this *MOpenSSLProbe) Init(ctx context.Context, logger *log.Logger, conf co
 
 	var isAndroid = this.conf.(*config.OpensslConfig).IsAndroid
 	if isAndroid {
-		this.bpfFileKey = ANDROID_DEFAULE_FILENAME
+		this.bpfFileKey = AndroidDefauleFilename
 	} else {
-		this.bpfFileKey = LINUX_DEFAULE_FILENAME
+		this.bpfFileKey = LinuxDefauleFilename
 	}
 	return nil
 }
 
 func (this *MOpenSSLProbe) initOpensslOffset() {
-	var m = make(map[string]string, 4)
-	// openssl
-	m["OpenSSL 1.1.1a"] = "openssl_1.1.1a_kern.o"
-	m["OpenSSL 1.1.1b"] = "openssl_1.1.1b-c_kern.o"
-	m["OpenSSL 1.1.1c"] = "openssl_1.1.1b-c_kern.o"
-	m["OpenSSL 1.1.1d"] = "openssl_1.1.1d-i_kern.o"
-	m["OpenSSL 1.1.1e"] = "openssl_1.1.1d-i_kern.o"
-	m["OpenSSL 1.1.1f"] = "openssl_1.1.1d-i_kern.o"
-	m["OpenSSL 1.1.1g"] = "openssl_1.1.1d-i_kern.o"
-	m["OpenSSL 1.1.1h"] = "openssl_1.1.1d-i_kern.o"
-	m["OpenSSL 1.1.1i"] = "openssl_1.1.1d-i_kern.o"
-	m["OpenSSL 1.1.1j"] = "openssl_1.1.1j-q_kern.o"
-	m["OpenSSL 1.1.1k"] = "openssl_1.1.1j-q_kern.o"
-	m["OpenSSL 1.1.1l"] = "openssl_1.1.1j-q_kern.o"
-	m["OpenSSL 1.1.1m"] = "openssl_1.1.1j-q_kern.o"
-	m["OpenSSL 1.1.1n"] = "openssl_1.1.1j-q_kern.o"
-	m["OpenSSL 1.1.1o"] = "openssl_1.1.1j-q_kern.o"
-	m["OpenSSL 1.1.1p"] = "openssl_1.1.1j-q_kern.o"
-	m["OpenSSL 1.1.1q"] = "openssl_1.1.1j-q_kern.o"
-	m[LINUX_DEFAULE_FILENAME] = "openssl_1.1.1j-q_kern.o"
+	this.sslVersionBpfMap = map[string]string{
 
-	// boringssl
-	m["BoringSSL 1.1.1"] = "boringssl_1.1.1_kern.o"
-	m[ANDROID_DEFAULE_FILENAME] = "boringssl_1.1.1_kern.o"
+		// openssl 1.1.1*
+		"OpenSSL 1.1.1a":     "openssl_1.1.1a_kern.o",
+		"OpenSSL 1.1.1b":     "openssl_1.1.1b-c_kern.o",
+		"OpenSSL 1.1.1c":     "openssl_1.1.1b-c_kern.o",
+		"OpenSSL 1.1.1d":     "openssl_1.1.1d-i_kern.o",
+		"OpenSSL 1.1.1e":     "openssl_1.1.1d-i_kern.o",
+		"OpenSSL 1.1.1f":     "openssl_1.1.1d-i_kern.o",
+		"OpenSSL 1.1.1g":     "openssl_1.1.1d-i_kern.o",
+		"OpenSSL 1.1.1h":     "openssl_1.1.1d-i_kern.o",
+		"OpenSSL 1.1.1i":     "openssl_1.1.1d-i_kern.o",
+		"OpenSSL 1.1.1j":     "openssl_1.1.1j-q_kern.o",
+		"OpenSSL 1.1.1k":     "openssl_1.1.1j-q_kern.o",
+		"OpenSSL 1.1.1l":     "openssl_1.1.1j-q_kern.o",
+		"OpenSSL 1.1.1m":     "openssl_1.1.1j-q_kern.o",
+		"OpenSSL 1.1.1n":     "openssl_1.1.1j-q_kern.o",
+		"OpenSSL 1.1.1o":     "openssl_1.1.1j-q_kern.o",
+		"OpenSSL 1.1.1p":     "openssl_1.1.1j-q_kern.o",
+		"OpenSSL 1.1.1q":     "openssl_1.1.1j-q_kern.o",
+		LinuxDefauleFilename: "openssl_1.1.1j-q_kern.o",
+
+		// openssl 3.0.*
+
+		// boringssl
+		"BoringSSL 1.1.1":      "boringssl_1.1.1_kern.o",
+		AndroidDefauleFilename: "boringssl_1.1.1_kern.o",
+	}
 }
 
-func (this *MOpenSSLProbe) detectOpenssl(soPath string) error {
-	f, err := os.OpenFile(soPath, os.O_RDONLY, os.ModePerm)
-	if err != nil {
-		return errors.New("failed to open the file")
-	}
-	r, e := elf.NewFile(f)
-	if e != nil {
-		return errors.New("failed to parse the ELF file succesfully")
-	}
-
-	s := r.Section(".rodata")
-	if s == nil {
-		// not found
-		return nil
-	}
-
-	sectionSize := int64(s.Offset)
-
-	_, err = f.Seek(0, 0)
-	if err != nil {
-		return nil
-	}
-
-	ret, err := f.Seek(sectionSize, 0)
-	if ret != sectionSize || err != nil {
-		return nil
-	}
-
-	buf := make([]byte, s.Size)
-	if buf == nil {
-		return nil
-	}
-
-	_, err = f.Read(buf)
-	if err != nil {
-		return nil
-	}
-
-	// 按照\x00 拆分  buf
-	var slice [][]byte
-	if slice = bytes.Split(buf, []byte("\x00")); slice == nil {
-		return nil
-	}
-
-	dumpStrings := make(map[uint64][]byte, len(slice))
-	length := uint64(len(slice))
-
-	var offset uint64
-
-	for i := uint64(0); i < length; i++ {
-		if len(slice[i]) == 0 {
-			continue
-		}
-
-		dumpStrings[offset] = slice[i]
-
-		offset += (uint64(len(slice[i])) + 1)
-	}
-
-	for _, v := range dumpStrings {
-		if strings.Contains(string(v), "OpenSSL") {
-			fmt.Println(string(v))
+// getSslBpfFile 根据sslVersion参数，获取对应的bpf文件
+func (this *MOpenSSLProbe) getSslBpfFile(soPath, sslVersion string) error {
+	if sslVersion != "" {
+		bpfFile, found := this.sslVersionBpfMap[sslVersion]
+		if found {
+			this.sslBpfFile = bpfFile
+			return nil
 		}
 	}
 
-	return nil
+	// 未找到对应的bpf文件，尝试从so文件中获取
+	err := this.detectOpenssl(soPath)
+	return err
 }
 
 func (this *MOpenSSLProbe) Start() error {
@@ -232,10 +184,10 @@ func (this *MOpenSSLProbe) start() error {
 	var err error
 	// setup the managers
 	switch this.eBPFProgramType {
-	case EBPFPROGRAMTYPE_OPENSSL_TC:
+	case EbpfprogramtypeOpensslTc:
 		this.logger.Printf("%s\tTC MODEL\n", this.Name())
 		err = this.setupManagersTC()
-	case EBPFPROGRAMTYPE_OPENSSL_UPROBE:
+	case EbpfprogramtypeOpensslUprobe:
 		this.logger.Printf("%s\tUPROBE MODEL\n", this.Name())
 		err = this.setupManagersUprobe()
 	default:
@@ -244,13 +196,13 @@ func (this *MOpenSSLProbe) start() error {
 	}
 
 	// fetch ebpf assets
-	byteBuf, err := assets.Asset("user/bytecode/openssl_kern.o")
-	if err != nil {
-		return fmt.Errorf("%s\tcouldn't find asset %v .", this.Name(), err)
-	}
+	// user/bytecode/openssl_kern.o
+	var bpfFileName = this.geteBPFName(filepath.Join("user/bytecode", this.sslBpfFile))
+	this.logger.Printf("%s\tBPF bytecode filename:%s\n", this.Name(), bpfFileName)
+	byteBuf, err := assets.Asset(bpfFileName)
 
 	if err != nil {
-		return fmt.Errorf("tls module couldn't find binPath %v .", err)
+		return fmt.Errorf("%s\tcouldn't find asset %v .", this.Name(), err)
 	}
 
 	// initialize the bootstrap manager
@@ -265,9 +217,9 @@ func (this *MOpenSSLProbe) start() error {
 
 	// 加载map信息，map对应events decode表。
 	switch this.eBPFProgramType {
-	case EBPFPROGRAMTYPE_OPENSSL_TC:
+	case EbpfprogramtypeOpensslTc:
 		err = this.initDecodeFunTC()
-	case EBPFPROGRAMTYPE_OPENSSL_UPROBE:
+	case EbpfprogramtypeOpensslUprobe:
 		err = this.initDecodeFun()
 	default:
 		err = this.initDecodeFun()
@@ -280,7 +232,7 @@ func (this *MOpenSSLProbe) start() error {
 }
 
 func (this *MOpenSSLProbe) Close() error {
-	if this.eBPFProgramType == EBPFPROGRAMTYPE_OPENSSL_TC {
+	if this.eBPFProgramType == EbpfprogramtypeOpensslTc {
 		this.logger.Printf("%s\tsaving pcapng file %s\n", this.Name(), this.pcapngFilename)
 		err := this.savePcapng()
 		if err != nil {
@@ -330,20 +282,21 @@ func (this *MOpenSSLProbe) constantEditor() []manager.ConstantEditor {
 }
 
 func (this *MOpenSSLProbe) setupManagersUprobe() error {
-	var binaryPath, libPthread string
+	var binaryPath, libPthread, sslVersion string
+	sslVersion = this.conf.(*config.OpensslConfig).SslVersion
 	switch this.conf.(*config.OpensslConfig).ElfType {
 	case config.ELF_TYPE_BIN:
 		binaryPath = this.conf.(*config.OpensslConfig).Curlpath
 	case config.ELF_TYPE_SO:
 		binaryPath = this.conf.(*config.OpensslConfig).Openssl
-		err := this.detectOpenssl(binaryPath)
+		err := this.getSslBpfFile(binaryPath, sslVersion)
 		if err != nil {
 			return err
 		}
 	default:
 		//如果没找到
 		binaryPath = "/lib/x86_64-linux-gnu/libssl.so.1.1"
-		err := this.detectOpenssl(binaryPath)
+		err := this.getSslBpfFile(binaryPath, sslVersion)
 		if err != nil {
 			return err
 		}
@@ -566,12 +519,12 @@ func (this *MOpenSSLProbe) GetConn(pid, fd uint32) string {
 	var f bool
 	m, f = this.pidConns[pid]
 	if !f {
-		return CONN_NOT_FOUND
+		return ConnNotFound
 	}
 
 	addr, f = m[fd]
 	if !f {
-		return CONN_NOT_FOUND
+		return ConnNotFound
 	}
 	return addr
 }
@@ -651,7 +604,7 @@ func (this *MOpenSSLProbe) saveMasterSecret(secretEvent *event.MasterSecretEvent
 
 	//
 	switch this.eBPFProgramType {
-	case EBPFPROGRAMTYPE_OPENSSL_TC:
+	case EbpfprogramtypeOpensslTc:
 		this.logger.Printf("%s: save CLIENT_RANDOM %02x to file success, %d bytes", v.String(), secretEvent.ClientRandom, l)
 		e = this.savePcapngSslKeyLog(b.Bytes())
 		if e != nil {

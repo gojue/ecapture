@@ -51,7 +51,9 @@ func (this *MMysqldProbe) Start() error {
 func (this *MMysqldProbe) start() error {
 
 	// fetch ebpf assets
-	byteBuf, err := assets.Asset("user/bytecode/mysqld_kern.o")
+	var bpfFileName = this.geteBPFName("user/bytecode/mysqld_kern.o")
+	this.logger.Printf("%s\tBPF bytecode filename:%s\n", this.Name(), bpfFileName)
+	byteBuf, err := assets.Asset(bpfFileName)
 	if err != nil {
 		return fmt.Errorf("couldn't find asset %v.", err)
 	}

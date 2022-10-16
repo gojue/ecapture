@@ -46,6 +46,7 @@ func init() {
 	opensslCmd.PersistentFlags().StringVarP(&oc.Write, "write", "w", "", "write the  raw packets to file as pcapng format.")
 	opensslCmd.PersistentFlags().StringVarP(&oc.Ifname, "ifname", "i", "", "(TC Classifier) Interface name on which the probe will be attached.")
 	opensslCmd.PersistentFlags().Uint16Var(&oc.Port, "port", 443, "port number to capture, default:443.")
+	opensslCmd.PersistentFlags().StringVar(&oc.SslVersion, "ssl_version", "", "openssl/boringssl version like 1.1.1a/1.1.1f/boringssl_1.1.1")
 
 	rootCmd.AddCommand(opensslCmd)
 }
@@ -71,8 +72,8 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 		}
 		logger.SetOutput(f)
 	}
-	logger.Printf("ECAPTURE :: version :%s", GitVersion)
-	logger.Printf("ECAPTURE :: pid info :%d", os.Getpid())
+	logger.Printf("ECAPTURE :: %s Version :%s", cliName, GitVersion)
+	logger.Printf("ECAPTURE :: Pid Info :%d", os.Getpid())
 
 	modNames := []string{module.MODULE_NAME_OPENSSL, module.MODULE_NAME_GNUTLS, module.MODULE_NAME_NSPR, module.MODULE_NAME_GOSSL}
 

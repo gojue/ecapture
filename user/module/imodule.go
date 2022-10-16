@@ -3,6 +3,7 @@ package module
 import (
 	"context"
 	"ecapture/pkg/event_processor"
+	"ecapture/pkg/util/kernel"
 	"ecapture/user/config"
 	"ecapture/user/event"
 	"errors"
@@ -12,6 +13,7 @@ import (
 	"github.com/cilium/ebpf/ringbuf"
 	"log"
 	"os"
+	"strings"
 )
 
 type IModule interface {
@@ -44,6 +46,8 @@ type IModule interface {
 	Dispatcher(event.IEventStruct)
 }
 
+const KERNEL_LESS_5_2_PREFIX = "_less52.o"
+
 type Module struct {
 	opts   *ebpf.CollectionOptions
 	reader []IClose
@@ -58,7 +62,8 @@ type Module struct {
 
 	conf config.IConfig
 
-	processor *event_processor.EventProcessor
+	processor       *event_processor.EventProcessor
+	isKernelLess5_2 bool //is  kernel version less 5.2
 }
 
 // Init 对象初始化
@@ -66,6 +71,21 @@ func (this *Module) Init(ctx context.Context, logger *log.Logger, conf config.IC
 	this.ctx = ctx
 	this.logger = logger
 	this.processor = event_processor.NewEventProcessor(logger, conf.GetHex())
+	this.isKernelLess5_2 = false //set false default
+	kv, err := kernel.HostVersion()
+	if err != nil {
+		// nothing to do.
+	}
+	if kv < kernel.VersionCode(5, 2, 0) {
+		this.isKernelLess5_2 = true
+	}
+}
+
+func (this *Module) geteBPFName(filename string) string {
+	if this.isKernelLess5_2 {
+		return strings.Replace(filename, ".o", KERNEL_LESS_5_2_PREFIX, 1)
+	}
+	return filename
 }
 
 func (this *Module) SetChild(module IModule) {
