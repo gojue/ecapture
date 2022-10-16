@@ -126,6 +126,7 @@ func (this *MOpenSSLProbe) Init(ctx context.Context, logger *log.Logger, conf co
 	} else {
 		this.bpfFileKey = LinuxDefauleFilename
 	}
+	this.initOpensslOffset()
 	return nil
 }
 
@@ -163,10 +164,13 @@ func (this *MOpenSSLProbe) initOpensslOffset() {
 // getSslBpfFile 根据sslVersion参数，获取对应的bpf文件
 func (this *MOpenSSLProbe) getSslBpfFile(soPath, sslVersion string) error {
 	if sslVersion != "" {
+		this.logger.Printf("%s\tOpenSSL/BoringSSL version: %s\n", this.Name(), sslVersion)
 		bpfFile, found := this.sslVersionBpfMap[sslVersion]
 		if found {
 			this.sslBpfFile = bpfFile
 			return nil
+		} else {
+			this.logger.Printf("%s\tCan't found OpenSSL/BoringSSL bpf bytecode file. auto detected.\n", this.Name())
 		}
 	}
 

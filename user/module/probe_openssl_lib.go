@@ -3,6 +3,7 @@ package module
 import (
 	"bytes"
 	"debug/elf"
+	"ecapture/user/config"
 	"errors"
 	"os"
 	"regexp"
@@ -29,12 +30,12 @@ func (this *MOpenSSLProbe) detectOpenssl(soPath string) error {
 
 	_, err = f.Seek(0, 0)
 	if err != nil {
-		return nil
+		return err
 	}
 
 	ret, err := f.Seek(sectionSize, 0)
 	if ret != sectionSize || err != nil {
-		return nil
+		return err
 	}
 
 	buf := make([]byte, s.Size)
@@ -44,7 +45,7 @@ func (this *MOpenSSLProbe) detectOpenssl(soPath string) error {
 
 	_, err = f.Read(buf)
 	if err != nil {
-		return nil
+		return err
 	}
 
 	// 按照\x00 拆分  buf
@@ -69,31 +70,45 @@ func (this *MOpenSSLProbe) detectOpenssl(soPath string) error {
 	}
 
 	// e.g : OpenSSL 1.1.1j  16 Feb 2021
-	rex, err := regexp.Compile(`OpenSSL\s(1\.1\.1[a-z]+)\s\s`)
+	rex, err := regexp.Compile(`(OpenSSL\s1\.1\.1[a-z]+)`)
 	if err != nil {
 		return nil
 	}
 
-	versionKey := LinuxDefauleFilename
+	versionKey := ""
+	isAndroid := this.conf.(*config.OpensslConfig).IsAndroid
+
 	for _, v := range dumpStrings {
 		if strings.Contains(string(v), "OpenSSL") {
 			match := rex.FindStringSubmatch(string(v))
 			if match != nil {
-				versionKey = match[1]
+				versionKey = match[0]
 				break
 			}
 		}
 	}
 
-	// find the sslVersion bpfFile from sslVersionBpfMap
-	bpfFile, found := this.sslVersionBpfMap[versionKey]
-	if found {
-		this.sslBpfFile = bpfFile
-		return nil
+	this.logger.Printf("versionKey:%s", versionKey)
+
+	var bpfFile string
+	var found bool
+	if versionKey != "" {
+		// find the sslVersion bpfFile from sslVersionBpfMap
+		bpfFile, found = this.sslVersionBpfMap[versionKey]
+		if found {
+			this.sslBpfFile = bpfFile
+			return nil
+		}
 	}
 
 	// if not found, use default
-	bpfFile, _ = this.sslVersionBpfMap[LinuxDefauleFilename]
+	if isAndroid {
+		bpfFile, _ = this.sslVersionBpfMap[AndroidDefauleFilename]
+		this.logger.Printf("%s\tOpenSSL/BoringSSL version not found, used default version :%s\n", this.Name(), AndroidDefauleFilename)
+	} else {
+		bpfFile, _ = this.sslVersionBpfMap[LinuxDefauleFilename]
+		this.logger.Printf("%s\tOpenSSL/BoringSSL version not found from shared library file, used default version:%s\n", this.Name(), LinuxDefauleFilename)
+	}
 	this.sslBpfFile = bpfFile
 	return nil
 }
