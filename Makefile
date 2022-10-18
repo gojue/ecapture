@@ -187,7 +187,11 @@ BPF_NOCORE_TAG = $(subst .,_,$(KERN_RELEASE)).$(subst .,_,$(VERSION))
 # BPF Source file
 #
 
-TARGETS := kern/openssl
+TARGETS := kern/openssl_1.1.1a
+TARGETS += kern/openssl_1.1.1b-c
+TARGETS += kern/openssl_1.1.1d-i
+TARGETS += kern/openssl_1.1.1j-q
+TARGETS += kern/boringssl_1.1.1
 TARGETS += kern/bash
 TARGETS += kern/gnutls
 TARGETS += kern/nspr

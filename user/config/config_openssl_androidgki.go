@@ -16,6 +16,7 @@ const (
 )
 
 func (this *OpensslConfig) Check() error {
+	this.IsAndroid = true
 	// 如果readline 配置，且存在，则直接返回。
 	if this.Openssl != "" || len(strings.TrimSpace(this.Openssl)) > 0 {
 		_, e := os.Stat(this.Openssl)

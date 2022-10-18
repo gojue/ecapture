@@ -39,7 +39,7 @@ type NetEventMetadata struct {
 }
 
 func (this *MOpenSSLProbe) setupManagersTC() error {
-	var ifname, binaryPath string
+	var ifname, binaryPath, sslVersion string
 
 	ifname = this.conf.(*config.OpensslConfig).Ifname
 	this.ifName = ifname
@@ -56,14 +56,23 @@ func (this *MOpenSSLProbe) setupManagersTC() error {
 	}
 	this.ifIdex = interf.Index
 
+	sslVersion = this.conf.(*config.OpensslConfig).SslVersion
 	switch this.conf.(*config.OpensslConfig).ElfType {
 	case config.ELF_TYPE_BIN:
 		binaryPath = this.conf.(*config.OpensslConfig).Curlpath
 	case config.ELF_TYPE_SO:
 		binaryPath = this.conf.(*config.OpensslConfig).Openssl
+		err := this.getSslBpfFile(binaryPath, sslVersion)
+		if err != nil {
+			return err
+		}
 	default:
 		//如果没找到
 		binaryPath = "/lib/x86_64-linux-gnu/libssl.so.1.1"
+		err := this.getSslBpfFile(binaryPath, sslVersion)
+		if err != nil {
+			return err
+		}
 	}
 
 	this.logger.Printf("%s\tHOOK type:%d, binrayPath:%s\n", this.Name(), this.conf.(*config.OpensslConfig).ElfType, binaryPath)

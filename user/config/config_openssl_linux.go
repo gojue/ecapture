@@ -105,7 +105,7 @@ func (this *OpensslConfig) checkConnect() error {
 }
 
 func (this *OpensslConfig) Check() error {
-
+	this.IsAndroid = false
 	var checkedOpenssl, checkedConnect bool
 	// 如果readline 配置，且存在，则直接返回。
 	if this.Openssl != "" || len(strings.TrimSpace(this.Openssl)) > 0 {
