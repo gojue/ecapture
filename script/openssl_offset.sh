@@ -16,7 +16,7 @@ cp openssl_offset.c ~/openssl/
 #for tag in "e" "f" "g" "h" "i" "j" "k" "l" "m" "n" "o" "p" "q"
 for tag in "a" "b" "c" "d"
 do
-git checkout OpenSSL_1.1.1$tag
+git checkout OpenSSL_1_1_1$tag
 date
 tag_name=`git describe --tags --abbrev=0`
 echo $tag_name

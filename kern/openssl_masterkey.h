@@ -324,13 +324,13 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
         return 0;
     }
 
-    void *sf_ptr_tls13 = (void *)(ssl_st_ptr + SSL_ST_SERVER_FINISHED_SECRET);
+    void *sf_ptr_tls13 = (void *)(ssl_st_ptr + SSL_ST_SERVER_FINISHED_HASH);
     ret = bpf_probe_read_user(&mastersecret->server_finished_hash,
                               sizeof(mastersecret->server_finished_hash),
                               (void *)sf_ptr_tls13);
     if (ret) {
         debug_bpf_printk(
-            "bpf_probe_read SSL_ST_SERVER_FINISHED_SECRET failed, ret :%d\n",
+            "bpf_probe_read SSL_ST_SERVER_FINISHED_HASH failed, ret :%d\n",
             ret);
         return 0;
     }

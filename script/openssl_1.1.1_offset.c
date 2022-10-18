@@ -16,7 +16,7 @@
     X(ssl_cipher_st, id) \
     X(ssl_st, handshake_secret)          \
     X(ssl_st, master_secret)             \
-    X(ssl_st, server_finished_secret)    \
+    X(ssl_st, server_finished_hash)    \
     X(ssl_st, handshake_traffic_hash)    \
     X(ssl_st, exporter_master_secret)
 
@@ -25,7 +25,7 @@ int main() {
            OPENSSL_VERSION_TEXT, OPENSSL_VERSION_NUMBER);
 
 #define X(struct_name, field_name)                         \
-    printf("#define " #struct_name "_" #field_name " 0x%lx\n", \
+    printf("// "#struct_name"->"#field_name" \n#define " #struct_name "_" #field_name " 0x%lx\n", \
            offsetof(struct struct_name, field_name));
     SSL_STRUCT_OFFSETS
 #undef X
