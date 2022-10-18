@@ -8,72 +8,6 @@
 #define MASTER_SECRET_MAX_LEN 48
 #define EVP_MAX_MD_SIZE 64
 
-/*
- * openssl 1.1.1.X 版本相关的常量
- * 参考：https://wiki.openssl.org/index.php/TLS1.3
-
-// ssl->version 在 ssl_st 结构体中的偏移量
-#define SSL_VERSION_OFFSET 0
-// ssl->session 在 ssl_st 结构中的偏移量
-#define SSL_SESSION_OFFSET 0x510
-
-// session->master_key 在 SSL_SESSION 中的偏移量
-#define MASTER_KEY_OFFSET 80
-
-// ssl->s3 在 ssl_st中的偏移量
-#define SSL_S3_OFFSET 0xA8
-
-// s3->client_random 在 ssl3_state_st 中的偏移量
-#define SSL_S3_CLIENT_RANDOM_OFFSET 0xD8
-
-
-////////// TLS 1.2 or older /////////
-
-// session->cipher 在 SSL_SESSION 中的偏移量
-#define SESSION_CIPHER_OFFSET 496
-
-// session->cipher_id 在 SSL_SESSION 中的偏移量
-#define SESSION_CIPHER_ID_OFFSET 0x1f8
-
-// cipher->id 在 ssl_cipher_st 中的偏移量
-#define CIPHER_ID_OFFSET 0x18
-
-////////// TLS 1.3 /////////
-
-
-     // openssl 1.1.1J repo:
-   https://github.com/openssl/openssl/tree/OpenSSL_1_1_1j
-     // ssl/ssl_local.h line 1143
-     * The TLS1.3 secrets.
-    unsigned char early_secret[EVP_MAX_MD_SIZE];
-    unsigned char handshake_secret[EVP_MAX_MD_SIZE];  // 【NEED】
-    unsigned char master_secret[EVP_MAX_MD_SIZE]; // 【NEED】
-    unsigned char resumption_master_secret[EVP_MAX_MD_SIZE];
-    unsigned char client_finished_secret[EVP_MAX_MD_SIZE];
-    unsigned char server_finished_secret[EVP_MAX_MD_SIZE];
-    unsigned char server_finished_hash[EVP_MAX_MD_SIZE]; //【NEED】
-    unsigned char handshake_traffic_hash[EVP_MAX_MD_SIZE]; //【NEED】
-    unsigned char client_app_traffic_secret[EVP_MAX_MD_SIZE];
-    unsigned char server_app_traffic_secret[EVP_MAX_MD_SIZE];
-    unsigned char exporter_master_secret[EVP_MAX_MD_SIZE];  //【NEED】
-    unsigned char early_exporter_master_secret[EVP_MAX_MD_SIZE];
-
-// ssl->handshake_secret 在 ssl_st 中的偏移量
-#define HANDSHAKE_SECRET_OFFSET 0x17C  // 380
-
-// ssl->master_secret 在 ssl_st 中的偏移量
-#define MASTER_SECRET_OFFSET 0x1BC  // 444
-
-// ssl->server_finished_hash 在 ssl_st 中的偏移量
-#define SERVER_FINISHED_HASH_OFFSET 0x2BC  // 700
-
-// ssl->handshake_traffic_hash 在 ssl_st 中的偏移量
-#define HANDSHAKE_TRAFFIC_HASH_OFFSET 0x2FC  // 764
-
-// ssl->exporter_master_secret 在 ssl_st 中的偏移量
-#define EXPORTER_MASTER_SECRET_OFFSET 0x3BC  // 956
-
-*/
 struct mastersecret_t {
     // TLS 1.2 or older
     s32 version;
@@ -92,15 +26,10 @@ struct mastersecret_t {
 // ssl/ssl_local.h 1556行
 struct ssl3_state_st {
     long flags;
-#ifdef BORINGSSL
-    //  确保BORINGSSL的state_st 中client_random 的偏移量是48
-    u64 unused;
-#else
     size_t read_mac_secret_size;
     unsigned char read_mac_secret[EVP_MAX_MD_SIZE];
     size_t write_mac_secret_size;
     unsigned char write_mac_secret[EVP_MAX_MD_SIZE];
-#endif
     unsigned char server_random[SSL3_RANDOM_SIZE];
     unsigned char client_random[SSL3_RANDOM_SIZE];
 };
@@ -183,11 +112,7 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
         debug_bpf_printk("bpf_probe_read tls_version failed, ret :%d\n", ret);
         return 0;
     }
-#ifdef BORINGSSL
-    mastersecret->version = version & 0xFFFF;  //  uint16_t version;
-#else
     mastersecret->version = version;  // int version;
-#endif
     debug_bpf_printk("TLS version :%d\n", mastersecret->version);
 
     // Get ssl3_state_st pointer
@@ -220,14 +145,7 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
     // Get ssl_session_st pointer
     u64 *ssl_session_st_ptr;
     u64 ssl_session_st_addr;
-#ifdef BORINGSSL
-    ssl_session_st_addr = get_session_addr(ssl_st_ptr, s3_address);
-    if (ssl_session_st_addr == 0) {
-        debug_bpf_printk("ssl_session_st_addr is null\n");
-        return 0;
-    }
 
-#else
     ssl_session_st_ptr = (u64 *)(ssl_st_ptr + SSL_ST_SESSION);
     ret = bpf_probe_read_user(&ssl_session_st_addr, sizeof(ssl_session_st_addr),
                               ssl_session_st_ptr);
@@ -237,7 +155,7 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
             ret);
         return 0;
     }
-#endif
+
     ///////////////////////// get TLS 1.2 master secret ////////////////////
     if (mastersecret->version != TLS1_3_VERSION) {
         void *ms_ptr = (void *)(ssl_session_st_addr + SSL_SESSION_ST_MASTER_KEY);
