@@ -27,30 +27,44 @@
 // private 前面的属性是max_version ，offset是30
 // private 第一个属性是size_t hash_len_，内存对齐后，offset就是32
 // secret的offset即 32 + sizeof(size_t) ，即 40 。其他的累加 SSL_MAX_MD_SIZE长度即可。
-#define SSL_STRUCT_OFFSETS               \
-    X(ssl_st, version)              \
-    X(ssl_st, session)              \
-    X(ssl_st, s3)              \
-    X(ssl_session_st, secret)        \
-    X(ssl_session_st, secret_length)  \
-    X(bssl::SSL3_STATE, hs) \
-    X(bssl::SSL3_STATE, client_random)      \
-    X(bssl::SSL_HANDSHAKE, new_session) \
-    X(bssl::SSL_HANDSHAKE, early_session) \
-    X(bssl::SSL3_STATE, established_session) \
+#define SSL_STRUCT_OFFSETS                      \
+    X(ssl_st, version)                          \
+    X(ssl_st, session)                          \
+    X(ssl_st, s3)                               \
+    X(ssl_session_st, secret)                   \
+    X(ssl_session_st, secret_length)            \
+    X(bssl::SSL3_STATE, hs)                     \
+    X(bssl::SSL3_STATE, client_random)          \
+    X(bssl::SSL_HANDSHAKE, new_session)         \
+    X(bssl::SSL_HANDSHAKE, early_session)       \
+    X(bssl::SSL3_STATE, established_session)    \
     X(bssl::SSL_HANDSHAKE, max_version)
 
+void toUpper(char *s) {
+    int i = 0;
+    while (s[i] != '\0') {
+        putchar(toupper(s[i]));
+        i++;
+    }
+}
 
-
+void format(char *struct_name, char *field_name, size_t offset) {
+    printf("// %s->%s\n", struct_name, field_name);
+    printf("#define ");
+    toUpper(struct_name);
+    printf("_");
+    toUpper(field_name);
+    printf(" 0x%lx\n\n", offset);
+}
 
 int main() {
-    printf("/* OPENSSL_VERSION_TEXT: %s, OPENSSL_VERSION_NUMBER:%ld */\n",
+    printf("/* OPENSSL_VERSION_TEXT: %s, OPENSSL_VERSION_NUMBER: %ld */\n\n",
            OPENSSL_VERSION_TEXT, OPENSSL_VERSION_NUMBER);
 
-#define X(struct_name, field_name)                         \
-    printf("#define " #struct_name "_" #field_name " 0x%lx\n", \
-           offsetof(struct struct_name, field_name));
+#define X(struct_name, field_name)      \
+    format(#struct_name, #field_name, offsetof(struct struct_name, field_name));
     SSL_STRUCT_OFFSETS
 #undef X
+
     return 0;
 }
