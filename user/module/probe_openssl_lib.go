@@ -15,30 +15,17 @@ func (this *MOpenSSLProbe) initOpensslOffset() {
 	this.sslVersionBpfMap = map[string]string{
 
 		// openssl 1.1.1*
-		"OpenSSL 1.1.1a":     "openssl_1.1.1a_kern.o",
-		"OpenSSL 1.1.1b":     "openssl_1.1.1b-c_kern.o",
-		"OpenSSL 1.1.1c":     "openssl_1.1.1b-c_kern.o",
-		"OpenSSL 1.1.1d":     "openssl_1.1.1d-i_kern.o",
-		"OpenSSL 1.1.1e":     "openssl_1.1.1d-i_kern.o",
-		"OpenSSL 1.1.1f":     "openssl_1.1.1d-i_kern.o",
-		"OpenSSL 1.1.1g":     "openssl_1.1.1d-i_kern.o",
-		"OpenSSL 1.1.1h":     "openssl_1.1.1d-i_kern.o",
-		"OpenSSL 1.1.1i":     "openssl_1.1.1d-i_kern.o",
-		"OpenSSL 1.1.1j":     "openssl_1.1.1j-q_kern.o",
-		"OpenSSL 1.1.1k":     "openssl_1.1.1j-q_kern.o",
-		"OpenSSL 1.1.1l":     "openssl_1.1.1j-q_kern.o",
-		"OpenSSL 1.1.1m":     "openssl_1.1.1j-q_kern.o",
-		"OpenSSL 1.1.1n":     "openssl_1.1.1j-q_kern.o",
-		"OpenSSL 1.1.1o":     "openssl_1.1.1j-q_kern.o",
-		"OpenSSL 1.1.1p":     "openssl_1.1.1j-q_kern.o",
-		"OpenSSL 1.1.1q":     "openssl_1.1.1j-q_kern.o",
-		LinuxDefauleFilename: "openssl_1.1.1j-q_kern.o",
+		LinuxDefauleFilename: "openssl_1_1_1" + string(MaxSupportedOpenSSL111Version) + "_kern.o",
 
 		// openssl 3.0.*
 
 		// boringssl
-		"BoringSSL 1.1.1":      "boringssl_1.1.1_kern.o",
-		AndroidDefauleFilename: "boringssl_1.1.1_kern.o",
+		"BoringSSL 1.1.1":      "boringssl_1_1_1_kern.o",
+		AndroidDefauleFilename: "boringssl_1_1_1_kern.o",
+	}
+
+	for ch := 'a'; ch <= MaxSupportedOpenSSL111Version; ch++ {
+		this.sslVersionBpfMap["OpenSSL 1.1.1"+string(ch)] = "openssl_1_1_1" + string(ch) + "_kern.o"
 	}
 }
 

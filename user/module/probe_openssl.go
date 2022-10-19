@@ -519,7 +519,6 @@ func (this *MOpenSSLProbe) saveMasterSecret(secretEvent *event.MasterSecretEvent
 	case event.TLS1_2_VERSION:
 		b = bytes.NewBufferString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelTLS12, secretEvent.ClientRandom, secretEvent.MasterKey))
 	case event.TLS1_3_VERSION:
-		// secretEvent.CipherId = 0x1301    // 50336513
 		var length int
 		var transcript crypto.Hash
 		switch uint16(secretEvent.CipherId & 0x0000FFFF) {
@@ -530,16 +529,8 @@ func (this *MOpenSSLProbe) saveMasterSecret(secretEvent *event.MasterSecretEvent
 			length = 48
 			transcript = crypto.SHA384
 		default:
-			// TODO: multi version compatible.
-			// root cause : cipher's offset in ssl_st struct was changed between 1.1.1*.
-			// group a : 1.1.1a
-			// group b : 1.1.1b-1.1.1c
-			// group c : 1.1.1d-1.1.1i
-			// group e : 1.1.1j-1.1.1q
-			length = 32
-			transcript = crypto.SHA256
-			this.logger.Printf("non-TLSv1.3 cipher suite in tls13_hkdf_expand, CipherId: %d, use SHA256 default.", secretEvent.CipherId)
-			//return
+			this.logger.Printf("non-TLSv1.3 cipher suite found, CipherId: %d", secretEvent.CipherId)
+			return
 		}
 
 		clientHandshakeSecret := hkdf.ExpandLabel(secretEvent.HandshakeSecret[:length],
