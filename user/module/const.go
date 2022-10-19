@@ -16,6 +16,11 @@ const (
 	MODULE_NAME_NSPR     = "EBPFProbeNSPR"
 	MODULE_NAME_GOSSL    = "EBPFProbeGoSSL"
 )
+
 const (
 	BASH_ERRNO_DEFAULT int = 128
+)
+
+const (
+	MaxSupportedOpenSSL111Version = 'r'
 )

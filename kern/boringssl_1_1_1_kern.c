@@ -94,8 +94,7 @@
 // ssl->exporter_master_secret 在 ssl_st 中的偏移量
 #define SSL_ST_EXPORTER_MASTER_SECRET 0x3BC  // 956
 
+#endif
+
 #include "openssl.h"
 #include "boringssl_masterkey.h"
-
-
-#endif
