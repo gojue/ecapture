@@ -158,7 +158,8 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
 
     ///////////////////////// get TLS 1.2 master secret ////////////////////
     if (mastersecret->version != TLS1_3_VERSION) {
-        void *ms_ptr = (void *)(ssl_session_st_addr + SSL_SESSION_ST_MASTER_KEY);
+        void *ms_ptr =
+            (void *)(ssl_session_st_addr + SSL_SESSION_ST_MASTER_KEY);
         ret = bpf_probe_read_user(&mastersecret->master_key,
                                   sizeof(mastersecret->master_key), ms_ptr);
         if (ret) {
