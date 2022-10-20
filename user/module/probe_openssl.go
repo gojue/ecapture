@@ -167,6 +167,9 @@ func (this *MOpenSSLProbe) start() error {
 		this.logger.Printf("%s\tUPROBE MODEL\n", this.Name())
 		err = this.setupManagersUprobe()
 	}
+	if err != nil {
+		return err
+	}
 
 	// fetch ebpf assets
 	// user/bytecode/openssl_kern.o

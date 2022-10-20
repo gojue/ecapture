@@ -20,7 +20,3 @@ const (
 const (
 	BASH_ERRNO_DEFAULT int = 128
 )
-
-const (
-	MaxSupportedOpenSSL111Version = 'r'
-)
