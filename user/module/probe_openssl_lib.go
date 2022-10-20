@@ -10,6 +10,11 @@ import (
 	"strings"
 )
 
+const (
+	MaxSupportedOpenSSL111Version = 'r'
+	MaxSupportedOpenSSL30Version  = '6'
+)
+
 // initOpensslOffset initial BpfMap
 func (this *MOpenSSLProbe) initOpensslOffset() {
 	this.sslVersionBpfMap = map[string]string{
@@ -26,6 +31,10 @@ func (this *MOpenSSLProbe) initOpensslOffset() {
 
 	for ch := 'a'; ch <= MaxSupportedOpenSSL111Version; ch++ {
 		this.sslVersionBpfMap["OpenSSL 1.1.1"+string(ch)] = "openssl_1_1_1" + string(ch) + "_kern.o"
+	}
+
+	for ch := '0'; ch <= MaxSupportedOpenSSL30Version; ch++ {
+		this.sslVersionBpfMap["OpenSSL 3.0."+string(ch)] = "openssl_3_0_" + string(ch) + "_kern.o"
 	}
 }
 
@@ -89,7 +98,7 @@ func (this *MOpenSSLProbe) detectOpenssl(soPath string) error {
 	}
 
 	// e.g : OpenSSL 1.1.1j  16 Feb 2021
-	rex, err := regexp.Compile(`(OpenSSL\s1\.1\.1[a-z]+)`)
+	rex, err := regexp.Compile(`(OpenSSL\s\d\.\d\.[0-9a-z]+)`)
 	if err != nil {
 		return nil
 	}
