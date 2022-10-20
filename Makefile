@@ -369,7 +369,9 @@ format:
 	@echo "  ->  Formatting code"
 	@clang-format -i -style=$(STYLE) kern/*.c
 	@clang-format -i -style=$(STYLE) kern/common.h
-	@clang-format -i -style=$(STYLE) kern/masterkey_kern.h
+	@clang-format -i -style=$(STYLE) kern/openssl_masterkey.h
+	@clang-format -i -style=$(STYLE) kern/openssl_masterkey_3.0.h
+	@clang-format -i -style=$(STYLE) kern/boringssl_masterkey.h
 	@clang-format -i -style=$(STYLE) kern/openssl_tc.h
 
 autogen: .checkver_$(CMD_BPFTOOL)
