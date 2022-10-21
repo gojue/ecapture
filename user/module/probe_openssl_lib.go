@@ -5,6 +5,7 @@ import (
 	"debug/elf"
 	"ecapture/user/config"
 	"errors"
+	"fmt"
 	"os"
 	"regexp"
 	"strings"
@@ -20,9 +21,10 @@ func (this *MOpenSSLProbe) initOpensslOffset() {
 	this.sslVersionBpfMap = map[string]string{
 
 		// openssl 1.1.1*
-		LinuxDefauleFilename: "openssl_1_1_1" + string(MaxSupportedOpenSSL111Version) + "_kern.o",
+		LinuxDefauleFilename_1_1_1: "openssl_1_1_1" + string(MaxSupportedOpenSSL111Version) + "_kern.o",
 
 		// openssl 3.0.*
+		LinuxDefauleFilename_3_0: "openssl_3_0_" + string(MaxSupportedOpenSSL30Version) + "_kern.o",
 
 		// boringssl
 		"BoringSSL 1.1.1":      "boringssl_1_1_1_kern.o",
@@ -46,6 +48,13 @@ func (this *MOpenSSLProbe) detectOpenssl(soPath string) error {
 	r, e := elf.NewFile(f)
 	if e != nil {
 		return errors.New("failed to parse the ELF file succesfully")
+	}
+
+	switch r.FileHeader.Machine {
+	case elf.EM_X86_64:
+	case elf.EM_AARCH64:
+	default:
+		return fmt.Errorf("unsupported arch library ,ELF Header Machine is :%s", r.FileHeader.Machine.String())
 	}
 
 	s := r.Section(".rodata")
@@ -134,8 +143,13 @@ func (this *MOpenSSLProbe) detectOpenssl(soPath string) error {
 		bpfFile, _ = this.sslVersionBpfMap[AndroidDefauleFilename]
 		this.logger.Printf("%s\tOpenSSL/BoringSSL version not found, used default version :%s\n", this.Name(), AndroidDefauleFilename)
 	} else {
-		bpfFile, _ = this.sslVersionBpfMap[LinuxDefauleFilename]
-		this.logger.Printf("%s\tOpenSSL/BoringSSL version not found from shared library file, used default version:%s\n", this.Name(), LinuxDefauleFilename)
+		if strings.Contains(soPath, "libssl.so.3") {
+			bpfFile, _ = this.sslVersionBpfMap[LinuxDefauleFilename_3_0]
+			this.logger.Printf("%s\tOpenSSL/BoringSSL version not found from shared library file, used default version:%s\n", this.Name(), LinuxDefauleFilename_3_0)
+		} else {
+			bpfFile, _ = this.sslVersionBpfMap[LinuxDefauleFilename_1_1_1]
+			this.logger.Printf("%s\tOpenSSL/BoringSSL version not found from shared library file, used default version:%s\n", this.Name(), LinuxDefauleFilename_1_1_1)
+		}
 	}
 	this.sslBpfFile = bpfFile
 	return nil
