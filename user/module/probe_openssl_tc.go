@@ -14,6 +14,7 @@ import (
 	"math"
 	"net"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -57,6 +58,7 @@ func (this *MOpenSSLProbe) setupManagersTC() error {
 	this.ifIdex = interf.Index
 
 	sslVersion = this.conf.(*config.OpensslConfig).SslVersion
+	sslVersion = strings.ToLower(sslVersion)
 	switch this.conf.(*config.OpensslConfig).ElfType {
 	case config.ELF_TYPE_BIN:
 		binaryPath = this.conf.(*config.OpensslConfig).Curlpath

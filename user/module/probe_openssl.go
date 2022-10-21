@@ -18,6 +18,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 )
@@ -254,6 +255,7 @@ func (this *MOpenSSLProbe) constantEditor() []manager.ConstantEditor {
 func (this *MOpenSSLProbe) setupManagersUprobe() error {
 	var binaryPath, libPthread, sslVersion string
 	sslVersion = this.conf.(*config.OpensslConfig).SslVersion
+	sslVersion = strings.ToLower(sslVersion)
 	switch this.conf.(*config.OpensslConfig).ElfType {
 	case config.ELF_TYPE_BIN:
 		binaryPath = this.conf.(*config.OpensslConfig).Curlpath
