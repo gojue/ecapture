@@ -23,9 +23,10 @@ import (
 )
 
 const (
-	ConnNotFound           = "[ADDR_NOT_FOUND]"
-	LinuxDefauleFilename   = "linux_default"
-	AndroidDefauleFilename = "android_default"
+	ConnNotFound               = "[ADDR_NOT_FOUND]"
+	LinuxDefauleFilename_1_1_1 = "linux_default_1_1_1"
+	LinuxDefauleFilename_3_0   = "linux_default_3_0"
+	AndroidDefauleFilename     = "android_default"
 )
 
 type Tls13MasterSecret struct {
@@ -67,7 +68,6 @@ type MOpenSSLProbe struct {
 	masterKeyBuffer   *bytes.Buffer
 	tcPacketLocker    *sync.Mutex
 
-	bpfFileKey       string
 	sslVersionBpfMap map[string]string // bpf map key: ssl version, value: bpf map key
 	sslBpfFile       string            // ssl bpf file
 }
@@ -120,12 +120,6 @@ func (this *MOpenSSLProbe) Init(ctx context.Context, logger *log.Logger, conf co
 	this.tcPacketLocker = &sync.Mutex{}
 	this.masterKeyBuffer = bytes.NewBuffer([]byte{})
 
-	var isAndroid = this.conf.(*config.OpensslConfig).IsAndroid
-	if isAndroid {
-		this.bpfFileKey = AndroidDefauleFilename
-	} else {
-		this.bpfFileKey = LinuxDefauleFilename
-	}
 	this.initOpensslOffset()
 	return nil
 }
