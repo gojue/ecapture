@@ -62,7 +62,7 @@ func (this *MysqldConfig) Check() error {
 
 	//如果配置 Offset ，则使用用户指定的Offset
 	if this.Offset > 0 {
-		this.FuncName = "[_NONEED_]"
+		this.FuncName = "[_IGNORE_]"
 		return nil
 	}
 

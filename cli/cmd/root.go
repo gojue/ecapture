@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	cliName        = "eCapture"
+	cliName        = "ecapture"
 	cliDescription = "capture text SSL content without CA cert by ebpf hook."
 )
 
@@ -38,6 +38,7 @@ It can also capture bash commands, which is suitable for
 security auditing scenarios, such as database auditing of mysqld, etc (disabled on Android).
 
 Repository: https://github.com/ehids/ecapture
+HomePage: https://ecapture.cc
 `,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
