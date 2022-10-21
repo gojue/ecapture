@@ -28,21 +28,27 @@ var goc = config.NewGoSSLConfig()
 var opensslCmd = &cobra.Command{
 	Use:     "tls",
 	Aliases: []string{"openssl", "gnutls", "nss"},
-	Short:   "alias name:openssl , use to capture tls/ssl text content without CA cert.",
-	Long: `use eBPF uprobe to capture process event data, not used libpcap.
-Can used to trace, debug, database audit, security event aduit etc.
+	Short:   "use to capture tls/ssl text content without CA cert. (Support Linux 4.18/Android 5.4)",
+	Long: `use eBPF uprobe/TC to capture process event data and network data,do not used libpcap.
+ecapture tls
+ecapture tls --hex --pid=3423
+ecapture tls -l save.log --pid=3423
+ecapture tls --libssl=/lib/x86_64-linux-gnu/libssl.so.1.1
+ecapture tls -w save_3_0_5.pcapng --ssl_version="OpenSSL 3.0.5" --libssl=/lib/x86_64-linux-gnu/libssl.so.3 
+ecapture tls -w save_android.pcapng -i wlan0 --libssl=/apex/com.android.conscrypt/lib64/libssl.so --ssl_version="BoringSSL 1.1.1" --port 443
+.
 `,
 	Run: openSSLCommandFunc,
 }
 
 func init() {
-	opensslCmd.PersistentFlags().StringVar(&oc.Curlpath, "curl", "", "curl or wget file path, use to dectet openssl.so path, default:/usr/bin/curl")
+	opensslCmd.PersistentFlags().StringVar(&oc.Curlpath, "curl", "", "curl or wget file path, use to dectet openssl.so path, default:/usr/bin/curl. (Deprecated)")
 	opensslCmd.PersistentFlags().StringVar(&oc.Openssl, "libssl", "", "libssl.so file path, will automatically find it from curl default.")
 	opensslCmd.PersistentFlags().StringVar(&gc.Gnutls, "gnutls", "", "libgnutls.so file path, will automatically find it from curl default.")
-	opensslCmd.PersistentFlags().StringVar(&gc.Curlpath, "wget", "", "wget file path, default: /usr/bin/wget.")
-	opensslCmd.PersistentFlags().StringVar(&nc.Firefoxpath, "firefox", "", "firefox file path, default: /usr/lib/firefox/firefox.")
+	opensslCmd.PersistentFlags().StringVar(&gc.Curlpath, "wget", "", "wget file path, default: /usr/bin/wget. (Deprecated)")
+	opensslCmd.PersistentFlags().StringVar(&nc.Firefoxpath, "firefox", "", "firefox file path, default: /usr/lib/firefox/firefox. (Deprecated)")
 	opensslCmd.PersistentFlags().StringVar(&nc.Nsprpath, "nspr", "", "libnspr44.so file path, will automatically find it from curl default.")
-	opensslCmd.PersistentFlags().StringVar(&oc.Pthread, "pthread", "", "libpthread.so file path, use to hook connect to capture socket FD.will automatically find it from curl.")
+	opensslCmd.PersistentFlags().StringVar(&oc.Pthread, "pthread", "", "libpthread.so file path, use to hook connect to capture socket FD.will automatically find it from curl. (Deprecated)")
 	opensslCmd.PersistentFlags().StringVar(&goc.Path, "gobin", "", "path to binary built with Go toolchain.")
 	opensslCmd.PersistentFlags().StringVarP(&oc.Write, "write", "w", "", "write the  raw packets to file as pcapng format.")
 	opensslCmd.PersistentFlags().StringVarP(&oc.Ifname, "ifname", "i", "", "(TC Classifier) Interface name on which the probe will be attached.")
