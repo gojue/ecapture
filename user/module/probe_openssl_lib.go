@@ -27,16 +27,16 @@ func (this *MOpenSSLProbe) initOpensslOffset() {
 		LinuxDefauleFilename_3_0: "openssl_3_0_" + string(MaxSupportedOpenSSL30Version) + "_kern.o",
 
 		// boringssl
-		"BoringSSL 1.1.1":      "boringssl_1_1_1_kern.o",
+		"boringssl 1.1.1":      "boringssl_1_1_1_kern.o",
 		AndroidDefauleFilename: "boringssl_1_1_1_kern.o",
 	}
 
 	for ch := 'a'; ch <= MaxSupportedOpenSSL111Version; ch++ {
-		this.sslVersionBpfMap["OpenSSL 1.1.1"+string(ch)] = "openssl_1_1_1" + string(ch) + "_kern.o"
+		this.sslVersionBpfMap["openssl 1.1.1"+string(ch)] = "openssl_1_1_1" + string(ch) + "_kern.o"
 	}
 
 	for ch := '0'; ch <= MaxSupportedOpenSSL30Version; ch++ {
-		this.sslVersionBpfMap["OpenSSL 3.0."+string(ch)] = "openssl_3_0_" + string(ch) + "_kern.o"
+		this.sslVersionBpfMap["openssl 3.0."+string(ch)] = "openssl_3_0_" + string(ch) + "_kern.o"
 	}
 }
 
