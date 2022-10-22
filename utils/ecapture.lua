@@ -1,4 +1,4 @@
--- eCapture enhances the capture function viewable in the Wireshark
+-- eCapture enhances the capture data viewable in the Wireshark, will show more information about process information.
 -- HomePage : https://ecapture.cc
 -- Repo : https://github.com/ehids/ecapture
 -- Author : CFC4N <cfc4n.cs@gmail.com>
@@ -6,7 +6,7 @@
 -- Version : 0.1.0
 -- Date : 2022-10-22
 
-ecapture = Proto("eCapture", "eCapture data")
+ecapture = Proto("eCapture", "eCapture enhances the capture data viewable in the Wireshark, will show more information about process information. more information: https://ecapture.cc")
 
 local ECAPTURE_MAGIC = 0xCC0C4CFC
 
