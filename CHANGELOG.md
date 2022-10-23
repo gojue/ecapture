@@ -1,5 +1,30 @@
 <hr>
 
+# v0.4.7 (2022-10-23)
+
+## Breaking Changes
+**add `--ssl_version` flag to set the SSL library version**
+supported ssl library version lists:
+- openssl 1.1.1* , (1.1.1a - 1.1.1r)
+- openssl 3.0.* , (3.0.0 - 3.0.6)
+- boringssl 1.1.1
+
+```bash
+ecapture tls
+ecapture tls --hex --pid=3423
+ecapture tls -l save.log --pid=3423
+ecapture tls --libssl=/lib/x86_64-linux-gnu/libssl.so.1.1
+ecapture tls -w save_3_0_5.pcapng --ssl_version="openssl 3.0.5" --libssl=/lib/x86_64-linux-gnu/libssl.so.3 
+ecapture tls -w save_android.pcapng -i wlan0 --libssl=/apex/com.android.conscrypt/lib64/libssl.so --ssl_version="boringssl 1.1.1" --port 443
+```
+
+
+## What's Changed
+* feat : support openssl 3.0 @cfc4n in https://github.com/ehids/ecapture/pull/244
+* feat: automate openssl offset header file generation @blaisewang in https://github.com/ehids/ecapture/pull/241
+
+<hr>
+
 # v0.4.6 (2022-10-15)
 
 ## What's Changed
