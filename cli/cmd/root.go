@@ -39,6 +39,10 @@ security auditing scenarios, such as database auditing of mysqld, etc (disabled 
 
 Repository: https://github.com/ehids/ecapture
 HomePage: https://ecapture.cc
+
+Usage:
+  ecapture tls -h
+  ecapture bash -h
 `,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
