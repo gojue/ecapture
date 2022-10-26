@@ -113,7 +113,6 @@ func (this *MOpenSSLProbe) detectOpenssl(soPath string) error {
 	}
 
 	versionKey := ""
-	isAndroid := this.conf.(*config.OpensslConfig).IsAndroid
 
 	for _, v := range dumpStrings {
 		if strings.Contains(string(v), "OpenSSL") {
@@ -125,19 +124,20 @@ func (this *MOpenSSLProbe) detectOpenssl(soPath string) error {
 		}
 	}
 
-	this.logger.Printf("versionKey:%s", versionKey)
-
 	var bpfFile string
 	var found bool
 	if versionKey != "" {
+		versionKeyLower := strings.ToLower(versionKey)
+		this.logger.Printf("%s\torigin version:%s, as key:%s", this.Name(), versionKey, versionKeyLower)
 		// find the sslVersion bpfFile from sslVersionBpfMap
-		bpfFile, found = this.sslVersionBpfMap[versionKey]
+		bpfFile, found = this.sslVersionBpfMap[versionKeyLower]
 		if found {
 			this.sslBpfFile = bpfFile
 			return nil
 		}
 	}
 
+	isAndroid := this.conf.(*config.OpensslConfig).IsAndroid
 	// if not found, use default
 	if isAndroid {
 		bpfFile, _ = this.sslVersionBpfMap[AndroidDefauleFilename]
