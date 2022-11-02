@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	MaxSupportedOpenSSL111Version = 'r'
-	MaxSupportedOpenSSL30Version  = '6'
+	MaxSupportedOpenSSL111Version = 's'
+	MaxSupportedOpenSSL30Version  = '7'
 )
 
 // initOpensslOffset initial BpfMap
@@ -21,22 +21,37 @@ func (this *MOpenSSLProbe) initOpensslOffset() {
 	this.sslVersionBpfMap = map[string]string{
 
 		// openssl 1.1.1*
-		LinuxDefauleFilename_1_1_1: "openssl_1_1_1" + string(MaxSupportedOpenSSL111Version) + "_kern.o",
+		LinuxDefauleFilename_1_1_1: "openssl_1_1_1j_kern.o",
 
 		// openssl 3.0.*
-		LinuxDefauleFilename_3_0: "openssl_3_0_" + string(MaxSupportedOpenSSL30Version) + "_kern.o",
+		LinuxDefauleFilename_3_0: "openssl_3_0_0_kern.o",
 
 		// boringssl
 		"boringssl 1.1.1":      "boringssl_1_1_1_kern.o",
 		AndroidDefauleFilename: "boringssl_1_1_1_kern.o",
 	}
 
-	for ch := 'a'; ch <= MaxSupportedOpenSSL111Version; ch++ {
-		this.sslVersionBpfMap["openssl 1.1.1"+string(ch)] = "openssl_1_1_1" + string(ch) + "_kern.o"
+	// in openssl source files, there are 4 offset groups for all 1.1.1* version.
+	// group a : 1.1.1a
+	this.sslVersionBpfMap["openssl 1.1.1a"] = "openssl_1_1_1a_kern.o"
+
+	// group b : 1.1.1b-1.1.1c
+	this.sslVersionBpfMap["openssl 1.1.1b"] = "openssl_1_1_1b_kern.o"
+	this.sslVersionBpfMap["openssl 1.1.1c"] = "openssl_1_1_1b_kern.o"
+
+	// group c : 1.1.1d-1.1.1i
+	for ch := 'd'; ch <= 'i'; ch++ {
+		this.sslVersionBpfMap["openssl 1.1.1"+string(ch)] = "openssl_1_1_1d_kern.o"
 	}
 
+	// group e : 1.1.1j-1.1.1s
+	for ch := 'j'; ch <= MaxSupportedOpenSSL111Version; ch++ {
+		this.sslVersionBpfMap["openssl 1.1.1"+string(ch)] = "openssl_1_1_1j_kern.o"
+	}
+
+	// openssl 3.0.0 - 3.0.7
 	for ch := '0'; ch <= MaxSupportedOpenSSL30Version; ch++ {
-		this.sslVersionBpfMap["openssl 3.0."+string(ch)] = "openssl_3_0_" + string(ch) + "_kern.o"
+		this.sslVersionBpfMap["openssl 3.0."+string(ch)] = "openssl_3_0_0_kern.o"
 	}
 }
 
