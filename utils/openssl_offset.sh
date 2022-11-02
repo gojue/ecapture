@@ -11,7 +11,7 @@ if [[ ! -f "go.mod" ]]; then
 fi
 
 # skip cloning if the header file of the max supported version is already generated
-if [[ ! -f "${OUTPUT_DIR}/openssl_1_1_1r_kern.c" ]]; then
+if [[ ! -f "${OUTPUT_DIR}/openssl_1_1_1j_kern.c" ]]; then
   # skip cloning if the openssl directory already exists
   if [[ ! -d "${OPENSSL_DIR}" ]]; then
     git clone https://github.com/openssl/openssl.git ${OPENSSL_DIR}
@@ -21,11 +21,38 @@ fi
 function run() {
   git fetch --tags
   cp -f ${PROJECT_ROOT_DIR}/utils/openssl_1_1_1_offset.c ${OPENSSL_DIR}/offset.c
+  declare -A sslVerMap=()
+  sslVerMap["a"]="a"
 
-  for ver in {a..r}; do
+  sslVerMap["b"]="b"
+  sslVerMap["c"]="b"
+
+  sslVerMap["d"]="d"
+  sslVerMap["e"]="d"
+  sslVerMap["f"]="d"
+  sslVerMap["g"]="d"
+  sslVerMap["h"]="d"
+  sslVerMap["i"]="d"
+
+  sslVerMap["j"]="j"
+  sslVerMap["k"]="j"
+  sslVerMap["l"]="j"
+  sslVerMap["m"]="j"
+  sslVerMap["n"]="j"
+  sslVerMap["o"]="j"
+  sslVerMap["p"]="j"
+  sslVerMap["q"]="j"
+  sslVerMap["r"]="j"
+  sslVerMap["s"]="j"
+
+
+#  exit 0
+#  for ver in {a..r}; do
+  for ver in ${!sslVerMap[@]}; do
     tag="OpenSSL_1_1_1${ver}"
-    header_file="${OUTPUT_DIR}/openssl_1_1_1${ver}_kern.c"
-    header_define="OPENSSL_1_1_1_$(echo ${ver} | tr "[:lower:]" "[:upper:]")_KERN_H"
+    val=${sslVerMap[$ver]}
+    header_file="${OUTPUT_DIR}/openssl_1_1_1${val}_kern.c"
+    header_define="OPENSSL_1_1_1_$(echo ${val} | tr "[:lower:]" "[:upper:]")_KERN_H"
 
     if [[ -f ${header_file} ]]; then
       echo "Skip ${header_file}"

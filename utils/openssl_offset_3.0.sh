@@ -21,11 +21,21 @@ fi
 function run() {
   git fetch --tags
   cp -f ${PROJECT_ROOT_DIR}/utils/openssl_3_0_offset.c ${OPENSSL_DIR}/offset.c
+  declare -A sslVerMap=()
+  sslVerMap["0"]="0"
+  sslVerMap["1"]="0"
+  sslVerMap["2"]="0"
+  sslVerMap["3"]="0"
+  sslVerMap["4"]="0"
+  sslVerMap["5"]="0"
+  sslVerMap["6"]="0"
+  sslVerMap["7"]="0"
 
-  for ver in {0..6}; do
+  for ver in ${!sslVerMap[@]}; do
     tag="openssl-3.0.${ver}"
-    header_file="${OUTPUT_DIR}/openssl_3_0_${ver}_kern.c"
-    header_define="OPENSSL_3_0_$(echo ${ver} | tr "[:lower:]" "[:upper:]")_KERN_H"
+    val=${sslVerMap[$ver]}
+    header_file="${OUTPUT_DIR}/openssl_3_0_${val}_kern.c"
+    header_define="OPENSSL_3_0_$(echo ${val} | tr "[:lower:]" "[:upper:]")_KERN_H"
 
     if [[ -f ${header_file} ]]; then
       echo "Skip ${header_file}"
