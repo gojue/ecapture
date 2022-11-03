@@ -166,9 +166,9 @@ Linux Kernel: >= 4.15.
 
 ## Tools 
 * golang 1.17
-* clang 12.0.0
+* clang 9.0
 * cmake 3.18.4
-* clang backend: llvm 12.0.0
+* clang backend: llvm 9.0
 * kernel config:CONFIG_DEBUG_INFO_BTF=y (Optional, 2022-04-17)
 
 ## command
