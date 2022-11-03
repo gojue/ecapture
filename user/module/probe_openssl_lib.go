@@ -12,6 +12,16 @@ import (
 )
 
 const (
+	LinuxDefauleFilename_1_0_2 = "linux_default_1_0_2"
+	LinuxDefauleFilename_1_1_0 = "linux_default_1_1_0"
+	LinuxDefauleFilename_1_1_1 = "linux_default_1_1_1"
+	LinuxDefauleFilename_3_0   = "linux_default_3_0"
+	AndroidDefauleFilename     = "android_default"
+)
+
+const (
+	MaxSupportedOpenSSL102Version = 'u'
+	MaxSupportedOpenSSL110Version = 'l'
 	MaxSupportedOpenSSL111Version = 's'
 	MaxSupportedOpenSSL30Version  = '7'
 )
@@ -19,6 +29,11 @@ const (
 // initOpensslOffset initial BpfMap
 func (this *MOpenSSLProbe) initOpensslOffset() {
 	this.sslVersionBpfMap = map[string]string{
+		// openssl 1.0.2*
+		LinuxDefauleFilename_1_0_2: "openssl_1_0_2a_kern.o",
+
+		// openssl 1.1.0*
+		LinuxDefauleFilename_1_1_0: "openssl_1_1_0a_kern.o",
 
 		// openssl 1.1.1*
 		LinuxDefauleFilename_1_1_1: "openssl_1_1_1j_kern.o",
@@ -53,6 +68,17 @@ func (this *MOpenSSLProbe) initOpensslOffset() {
 	for ch := '0'; ch <= MaxSupportedOpenSSL30Version; ch++ {
 		this.sslVersionBpfMap["openssl 3.0."+string(ch)] = "openssl_3_0_0_kern.o"
 	}
+
+	// openssl 1.1.0a - 1.1.0l
+	for ch := 'a'; ch <= MaxSupportedOpenSSL110Version; ch++ {
+		this.sslVersionBpfMap["openssl 1.1.0"+string(ch)] = "openssl_1_1_1a_kern.o"
+	}
+
+	// openssl 1.0.2a - 1.0.2u
+	for ch := 'a'; ch <= MaxSupportedOpenSSL102Version; ch++ {
+		this.sslVersionBpfMap["openssl 1.0.2"+string(ch)] = "openssl_1_0_2a_kern.o"
+	}
+
 }
 
 func (this *MOpenSSLProbe) detectOpenssl(soPath string) error {
