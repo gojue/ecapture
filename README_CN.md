@@ -181,9 +181,9 @@ hook了`/bin/bash`的`readline`函数。
 
 ## 工具链版本
 * golang 1.17
-* clang 12.0.0
+* clang 9.0
 * cmake 3.18.4
-* clang backend: llvm 12.0.0
+* clang backend: llvm 9.0
 * kernel config:CONFIG_DEBUG_INFO_BTF=y (可选，2022-04-17增加)
 
 
