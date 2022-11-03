@@ -29,14 +29,13 @@ var opensslCmd = &cobra.Command{
 	Use:     "tls",
 	Aliases: []string{"openssl", "gnutls", "nss"},
 	Short:   "use to capture tls/ssl text content without CA cert. (Support Linux 4.18/Android 5.4)",
-	Long: `use eBPF uprobe/TC to capture process event data and network data,do not used libpcap.
+	Long: `use eBPF uprobe/TC to capture process event data and network data.also support pcap-NG format.
 ecapture tls
 ecapture tls --hex --pid=3423
 ecapture tls -l save.log --pid=3423
 ecapture tls --libssl=/lib/x86_64-linux-gnu/libssl.so.1.1
 ecapture tls -w save_3_0_5.pcapng --ssl_version="openssl 3.0.5" --libssl=/lib/x86_64-linux-gnu/libssl.so.3 
 ecapture tls -w save_android.pcapng -i wlan0 --libssl=/apex/com.android.conscrypt/lib64/libssl.so --ssl_version="boringssl 1.1.1" --port 443
-.
 `,
 	Run: openSSLCommandFunc,
 }

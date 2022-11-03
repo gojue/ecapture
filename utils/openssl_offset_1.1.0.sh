@@ -11,7 +11,7 @@ if [[ ! -f "go.mod" ]]; then
 fi
 
 # skip cloning if the header file of the max supported version is already generated
-if [[ ! -f "${OUTPUT_DIR}/openssl_3_0_0_kern.c" ]]; then
+if [[ ! -f "${OUTPUT_DIR}/openssl_1_1_0a_kern.c" ]]; then
   # skip cloning if the openssl directory already exists
   if [[ ! -d "${OPENSSL_DIR}" ]]; then
     git clone https://github.com/openssl/openssl.git ${OPENSSL_DIR}
@@ -20,22 +20,33 @@ fi
 
 function run() {
   git fetch --tags
-  cp -f ${PROJECT_ROOT_DIR}/utils/openssl_3_0_offset.c ${OPENSSL_DIR}/offset.c
+  cp -f ${PROJECT_ROOT_DIR}/utils/openssl_1_1_0_offset.c ${OPENSSL_DIR}/offset.c
   declare -A sslVerMap=()
-  sslVerMap["0"]="0"
-  sslVerMap["1"]="0"
-  sslVerMap["2"]="0"
-  sslVerMap["3"]="0"
-  sslVerMap["4"]="0"
-  sslVerMap["5"]="0"
-  sslVerMap["6"]="0"
-  sslVerMap["7"]="0"
+#  sslVerMap[""]=""
+  sslVerMap["a"]="a"
 
+  sslVerMap["b"]="a"
+  sslVerMap["c"]="a"
+
+  sslVerMap["d"]="a"
+  sslVerMap["e"]="a"
+  sslVerMap["f"]="a"
+  sslVerMap["g"]="a"
+  sslVerMap["h"]="a"
+  sslVerMap["i"]="a"
+
+  sslVerMap["j"]="a"
+  sslVerMap["k"]="a"
+  sslVerMap["l"]="a"
+
+
+#  exit 0
+#  for ver in {a..r}; do
   for ver in ${!sslVerMap[@]}; do
-    tag="openssl-3.0.${ver}"
+    tag="OpenSSL_1_1_0${ver}"
     val=${sslVerMap[$ver]}
-    header_file="${OUTPUT_DIR}/openssl_3_0_${val}_kern.c"
-    header_define="OPENSSL_3_0_$(echo ${val} | tr "[:lower:]" "[:upper:]")_KERN_H"
+    header_file="${OUTPUT_DIR}/openssl_1_1_0${val}_kern.c"
+    header_define="OPENSSL_1_1_0_$(echo ${val} | tr "[:lower:]" "[:upper:]")_KERN_H"
 
     if [[ -f ${header_file} ]]; then
       echo "Skip ${header_file}"
@@ -45,23 +56,21 @@ function run() {
     git checkout ${tag}
     echo "Generating ${header_file}"
 
-
-    # config and make openssl/opensslconf.h
     ./config
-
-#    make reconfigure reconf
-    make include/openssl/opensslconf.h
-    make include/openssl/configuration.h
-    make build_generated
-
 
     clang -I include/ -I . offset.c -o offset $flag
 
     echo -e "#ifndef ECAPTURE_${header_define}" >${header_file}
     echo -e "#define ECAPTURE_${header_define}\n" >>${header_file}
     ./offset >>${header_file}
+    echo -e "// openssl 1.1.0 does not support TLS 1.3, set 0 default" >>${header_file}
+    echo -e "#define SSL_ST_HANDSHAKE_SECRET 0" >>${header_file}
+    echo -e "#define SSL_ST_MASTER_SECRET 0" >>${header_file}
+    echo -e "#define SSL_ST_SERVER_FINISHED_HASH 0" >>${header_file}
+    echo -e "#define SSL_ST_HANDSHAKE_TRAFFIC_HASH 0" >>${header_file}
+    echo -e "#define SSL_ST_EXPORTER_MASTER_SECRET 0\n" >>${header_file}
     echo -e "#include \"openssl.h\"" >>${header_file}
-    echo -e "#include \"openssl_masterkey_3.0.h\"" >>${header_file}
+    echo -e "#include \"openssl_masterkey.h\"" >>${header_file}
     echo -e "\n#endif\n" >>${header_file}
 
     # clean up

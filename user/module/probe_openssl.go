@@ -24,10 +24,7 @@ import (
 )
 
 const (
-	ConnNotFound               = "[ADDR_NOT_FOUND]"
-	LinuxDefauleFilename_1_1_1 = "linux_default_1_1_1"
-	LinuxDefauleFilename_3_0   = "linux_default_3_0"
-	AndroidDefauleFilename     = "android_default"
+	ConnNotFound = "[ADDR_NOT_FOUND]"
 )
 
 type Tls13MasterSecret struct {
