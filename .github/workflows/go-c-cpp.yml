@@ -118,14 +118,14 @@ jobs:
         run: go test -v ./...
 
   build-on-ubuntu2004-arm64:
-    runs-on: ubuntu-20.04
-    name: build on ubuntu-20.04 arm64
+    runs-on: ubuntu-22.04
+    name: build on ubuntu-22.04 arm64
     # Run steps on a matrix of 3 arch/distro combinations
     strategy:
       matrix:
         include:
           - arch: aarch64
-            distro: ubuntu20.04
+            distro: ubuntu22.04
     steps:
       - uses: actions/checkout@v3
         with:
@@ -177,19 +177,17 @@ jobs:
           install: |
             uname -a
             apt-get update
-            apt-get install --yes wget git golang build-essential pkgconf libelf-dev llvm-9 clang-9  linux-tools-generic linux-tools-common
-            wget https://golang.google.cn/dl/go1.18.8.linux-arm64.tar.gz
-            rm -rf /usr/local/go && tar -C /usr/local -xzf go1.18.8.linux-arm64.tar.gz
+            apt-get install --yes wget git golang build-essential pkgconf libelf-dev llvm-12 clang-12  linux-tools-generic linux-tools-common
           # Produce a binary artifact and place it in the mounted volume
           run: |
             uname -a
             date
-            export PATH=/usr/local/go/bin:$PATH:/usr/local/bin
+            export PATH=$PATH:/usr/local/bin
             echo $PATH
             for tool in "clang" "llc" "llvm-strip"
             do
             rm -f /usr/bin/$tool
-            ln -s /usr/bin/$tool-9 /usr/bin/$tool
+            ln -s /usr/bin/$tool-12 /usr/bin/$tool
             done
             clang --version
             which bpftool
@@ -202,7 +200,7 @@ jobs:
             echo "-------------------start: Create ecapture.tar.gz of Linux -------------------"
             make env
             make clean
-            make nocore
+            make
             echo "-------------------ecapture --help-------------------"
             bin/ecapture -v
             echo "-------------------create tar.gz file-------------------"
@@ -229,7 +227,7 @@ jobs:
             echo "-------------------start: Create ecapture.tar.gz of Android kernel CO:RE -------------------"
             make env
             make clean
-            ANDROID=1 make nocore
+            ANDROID=1 make
             echo "-------------------ecapture --help-------------------"
             echo "bin/ecapture -v"
             echo "-------------------create tar.gz file-------------------"
