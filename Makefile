@@ -47,6 +47,11 @@ ifeq ($(DEBUG),1)
 DEBUG_PRINT := -DDEBUG_PRINT
 endif
 
+TARGET_TAG ?= linux
+ifeq ($(ANDROID),1)
+TARGET_TAG := androidgki
+endif
+
 EXTRA_CFLAGS ?= -O2 -mcpu=v1 \
 	$(DEBUG_PRINT)	\
 	-nostdinc \
