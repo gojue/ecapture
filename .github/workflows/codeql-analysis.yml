@@ -77,6 +77,6 @@ jobs:
 
       - run: |
           make env
-          make
+          make nocore
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v2
