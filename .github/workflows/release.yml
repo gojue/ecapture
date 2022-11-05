@@ -87,7 +87,7 @@ jobs:
       - name: Write File
         uses: DamianReeves/write-file-action@v1.0
         with:
-          path: ./bin/release_notes.txt
+          path: ./release_notes.txt
           contents: |
             ${{ steps.github_release.outputs.changelog }}
           write-mode: append

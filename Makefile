@@ -47,13 +47,6 @@ ifeq ($(DEBUG),1)
 DEBUG_PRINT := -DDEBUG_PRINT
 endif
 
-BORINGSSL_FLAGS ?=
-TARGET_TAG ?= linux
-ifeq ($(ANDROID),1)
-TARGET_TAG := androidgki
-BORINGSSL_FLAGS := -DBORINGSSL
-endif
-
 EXTRA_CFLAGS ?= -O2 -mcpu=v1 \
 	$(DEBUG_PRINT)	\
 	-nostdinc \
@@ -282,7 +275,6 @@ $(KERN_OBJECTS): %.o: %.c \
 	$(CMD_CLANG) -D__TARGET_ARCH_$(LINUX_ARCH) \
 		$(EXTRA_CFLAGS) \
 		$(BPFHEADER) \
-		$(BORINGSSL_FLAGS) \
 		-target bpfel -c $< -o $(subst kern/,user/bytecode/,$@) \
 		-fno-ident -fdebug-compilation-dir . -g -D__BPF_TARGET_MISSING="GCC error \"The eBPF is using target specific macros, please provide -target\"" \
 		-MD -MP
@@ -290,7 +282,6 @@ $(KERN_OBJECTS): %.o: %.c \
 		$(EXTRA_CFLAGS) \
 		$(BPFHEADER) \
 		-DKERNEL_LESS_5_2 \
-		$(BORINGSSL_FLAGS) \
 		-target bpfel -c $< -o $(subst kern/,user/bytecode/,$(subst .c,$(KERNEL_LESS_5_2_PREFIX),$<)) \
 		-fno-ident -fdebug-compilation-dir . -g -D__BPF_TARGET_MISSING="GCC error \"The eBPF is using target specific macros, please provide -target\"" \
 		-MD -MP
@@ -341,7 +332,6 @@ $(KERN_OBJECTS_NOCORE): %.nocore: %.c \
     		-I $(KERN_BUILD_PATH)/include/generated \
     		-I $(KERN_BUILD_PATH)/include/generated/uapi \
     		$(EXTRA_CFLAGS_NOCORE) \
-    		$(BORINGSSL_FLAGS) \
     		-c $< \
     		-o - |$(CMD_LLC) \
     		-march=bpf \
@@ -360,7 +350,6 @@ $(KERN_OBJECTS_NOCORE): %.nocore: %.c \
         		-I $(KERN_BUILD_PATH)/include/generated/uapi \
         		$(EXTRA_CFLAGS_NOCORE) \
         		-DKERNEL_LESS_5_2 \
-        		$(BORINGSSL_FLAGS) \
         		-c $< \
         		-o - |$(CMD_LLC) \
         		-march=bpf \
