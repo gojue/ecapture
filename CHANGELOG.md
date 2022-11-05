@@ -1,10 +1,21 @@
 <hr>
 
+# v0.4.8 (2022-11-05)
+
+## Breaking Changes
+Changed license to Apache License 2.0 from AGPL 3.0.
+Supported versions of openssl are 1.1.0* , 1.0.2* .
+Supported minimum version of Clang is 9.0.
+Added GitHub release Action of Android X86_64 binaries(default: no co-re version).
+## What's Changed
+
+<hr>
+
 # v0.4.7 (2022-10-23)
 
 ## Breaking Changes
-**add `--ssl_version` flag to set the SSL library version**
-supported ssl library version lists:
+**add `--ssl_version` flag to set the SSL libraries version**
+supported ssl libraries version lists:
 - openssl 1.1.1* , (1.1.1a - 1.1.1r)
 - openssl 3.0.* , (3.0.0 - 3.0.6)
 - boringssl 1.1.1
