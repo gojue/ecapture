@@ -126,12 +126,14 @@ jobs:
           install: |
             uname -a
             apt-get update
-            apt-get install --yes wget git golang build-essential pkgconf libelf-dev llvm-9 clang-9  linux-tools-generic linux-tools-common
+            apt-get install --yes wget git build-essential pkgconf libelf-dev llvm-9 clang-9  linux-tools-generic linux-tools-common
+            wget https://golang.google.cn/dl/go1.18.8.linux-arm64.tar.gz
+            rm -rf /usr/local/go && tar -C /usr/local -xzf go1.18.8.linux-arm64.tar.gz
           # Produce a binary artifact and place it in the mounted volume
           run: |
             uname -a
             date
-            export PATH=$PATH:/usr/local/bin
+            export PATH=/usr/local/go/bin:$PATH:/usr/local/bin
             for tool in "clang" "llc" "llvm-strip"
             do
             rm -f /usr/bin/$tool
@@ -144,7 +146,7 @@ jobs:
             echo "-------------------end: Create ecapture.tar.gz of Linux -------------------"
             make env
             make clean
-            make
+            make nocore
             echo "-------------------ecapture --help-------------------"
             bin/ecapture -v
             echo "-------------------create tar.gz file-------------------"
@@ -171,7 +173,7 @@ jobs:
             echo "-------------------start: Create ecapture.tar.gz of Android kernel CO:RE -------------------"
             make env
             make clean
-            ANDROID=1 make
+            ANDROID=1 make nocore
             echo "-------------------ecapture --help-------------------"
             echo "bin/ecapture -v"
             echo "-------------------create tar.gz file-------------------"
