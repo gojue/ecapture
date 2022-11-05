@@ -133,6 +133,7 @@ $(OUTPUT_DIR):
 #
 
 OUT_ARCHIVE := $(OUTPUT_DIR)/$(TAR_DIR).tar.gz
+OUT_ARCHIVE_ANDROID := $(OUTPUT_DIR)/$(TAR_DIR_ANDROID).tar.gz
 OUT_CHECKSUMS := $(OUTPUT_DIR)/checksum-$(SNAPSHOT_VERSION).txt
 
 .PHONY: snapshot
@@ -187,13 +188,13 @@ snapshot_android: \
 publish: \
 	$(OUTPUT_DIR) \
 	$(OUT_ARCHIVE) \
-	$(TAR_DIR_ANDROID) \
+	$(OUT_ARCHIVE_ANDROID) \
 	$(OUT_CHECKSUMS) \
 	| .check_tree \
 	.check_$(CMD_GITHUB)
 #
 	# release it!
-	$(CMD_GITHUB) release create $(SNAPSHOT_VERSION) $(OUT_ARCHIVE) $(TAR_DIR_ANDROID) $(OUT_CHECKSUMS) --title "eCapture $(SNAPSHOT_VERSION)"  --notes-file $(TAR_DIR)/release_notes.txt
+	$(CMD_GITHUB) release create $(SNAPSHOT_VERSION) $(OUT_ARCHIVE) $(OUT_ARCHIVE_ANDROID) $(OUT_CHECKSUMS) --title "eCapture $(SNAPSHOT_VERSION)"  --notes-file $(TAR_DIR)/release_notes.txt
 
 .PHONY: clean
 clean:
