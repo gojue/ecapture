@@ -286,7 +286,6 @@ $(KERN_OBJECTS): %.o: %.c \
 		-target bpfel -c $< -o $(subst kern/,user/bytecode/,$@) \
 		-fno-ident -fdebug-compilation-dir . -g -D__BPF_TARGET_MISSING="GCC error \"The eBPF is using target specific macros, please provide -target\"" \
 		-MD -MP
-	#KERNEL_LESS_5_2
 	$(CMD_CLANG) -D__TARGET_ARCH_$(LINUX_ARCH) \
 		$(EXTRA_CFLAGS) \
 		$(BPFHEADER) \
@@ -348,7 +347,6 @@ $(KERN_OBJECTS_NOCORE): %.nocore: %.c \
     		-march=bpf \
     		-filetype=obj \
     		-o $(subst kern/,user/bytecode/,$(subst .c,.o,$<))
-	# -DKERNEL_LESS_5_2
 	$(CMD_CLANG) \
         		$(BPFHEADER) \
         		-I $(KERN_SRC_PATH)/arch/$(LINUX_ARCH)/include \
