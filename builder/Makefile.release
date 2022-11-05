@@ -4,7 +4,7 @@
 
 .PHONY: all
 all: help
-release: snapshot publish
+release: snapshot snapshot_android publish
 
 #
 # make
@@ -118,6 +118,7 @@ help:
 
 OUTPUT_DIR = ./bin
 TAR_DIR = ecapture-$(SNAPSHOT_VERSION)-linux-$(UNAME_M)
+TAR_DIR_ANDROID = ecapture-$(SNAPSHOT_VERSION)-android-$(UNAME_M)
 
 # from CLI args.
 RELEASE_NOTES ?= $(OUTPUT_DIR)/release_notes.txt
@@ -143,7 +144,8 @@ snapshot: \
 	.check_$(CMD_GITHUB)
 
 	# build binaries
-	$(MAKE)
+	$(MAKE) clean
+	$(MAKE) nocore
 	# create the tar ball and checksum files
 	$(CMD_MKDIR) -p $(TAR_DIR)
 	$(CMD_CP) LICENSE $(TAR_DIR)/LICENSE
@@ -157,16 +159,41 @@ snapshot: \
 	$(CMD_CHECKSUM) $(TAR_DIR).tar.gz > ./../$(OUT_CHECKSUMS)
 	cd ../
 
+.PHONY: snapshot_android
+snapshot_android: \
+	$(OUTPUT_DIR) \
+	| .check_tree \
+	.check_$(CMD_TAR) \
+	.check_$(CMD_CHECKSUM) \
+	.check_$(CMD_GITHUB)
+
+	# build binaries
+	$(MAKE) clean
+	ANDROID=1 $(MAKE) nocore
+	# create the tar ball and checksum files
+	$(CMD_MKDIR) -p $(TAR_DIR_ANDROID)
+	$(CMD_CP) LICENSE $(TAR_DIR_ANDROID)/LICENSE
+	$(CMD_CP) CHANGELOG.md $(TAR_DIR_ANDROID)/CHANGELOG.md
+	$(CMD_CP) README.md $(TAR_DIR_ANDROID)/README.md
+	$(CMD_CP) README_CN.md $(TAR_DIR_ANDROID)/README_CN.md
+	$(CMD_MV) $(OUTPUT_DIR)/ecapture $(TAR_DIR_ANDROID)/ecapture
+	$(CMD_MV) $(OUTPUT_DIR)/release_notes.txt $(TAR_DIR_ANDROID)/release_notes.txt
+	$(CMD_TAR)  -czf $(OUT_ARCHIVE) $(TAR_DIR_ANDROID)
+	cd $(OUTPUT_DIR)
+	$(CMD_CHECKSUM) $(TAR_DIR_ANDROID).tar.gz >> ./../$(OUT_CHECKSUMS)
+	cd ../
+
 .PHONY: publish
 publish: \
 	$(OUTPUT_DIR) \
 	$(OUT_ARCHIVE) \
+	$(TAR_DIR_ANDROID) \
 	$(OUT_CHECKSUMS) \
 	| .check_tree \
 	.check_$(CMD_GITHUB)
 #
 	# release it!
-	$(CMD_GITHUB) release create $(SNAPSHOT_VERSION) $(OUT_ARCHIVE) $(OUT_CHECKSUMS) --title "eCapture $(SNAPSHOT_VERSION)"  --notes-file $(TAR_DIR)/release_notes.txt
+	$(CMD_GITHUB) release create $(SNAPSHOT_VERSION) $(OUT_ARCHIVE) $(TAR_DIR_ANDROID) $(OUT_CHECKSUMS) --title "eCapture $(SNAPSHOT_VERSION)"  --notes-file $(TAR_DIR)/release_notes.txt
 
 .PHONY: clean
 clean:
