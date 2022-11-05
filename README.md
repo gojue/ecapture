@@ -187,7 +187,7 @@ bin/ecapture --help
 ```
 
 ## compile without BTF
-eCapture support NO BTF with command `make nocore` to compile on 2022/04/17.
+eCapture support BTF disabled with command `make nocore` to compile on 2022/04/17.
 ```shell
 make nocore
 bin/ecapture --help
