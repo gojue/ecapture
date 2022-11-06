@@ -3,12 +3,23 @@
 # v0.4.8 (2022-11-05)
 
 ## Breaking Changes
-Changed license to Apache License 2.0 from AGPL 3.0.
-Supported versions of openssl are 1.1.0* , 1.0.2* .
-Supported minimum version of Clang is 9.0.
-Added GitHub release Action of Android X86_64 binaries(default: no co-re version).
-## What's Changed
 
+1. Changed license to Apache License 2.0 from AGPL 3.0.
+2. Supported versions of openssl are 1.1.0* , 1.0.2* .
+3. Supported minimum version of Clang is 9.0.
+4. Added GitHub release action of Android X86_64 binaries(default: no co-re version).
+
+## What's Changed
+* user : Tolower openssl version strings. by @cfc4n in https://github.com/ehids/ecapture/pull/250
+* cli : remove other modules on android. by @cfc4n in https://github.com/ehids/ecapture/pull/251
+* utils: add eCapture lua script for wireshark plugin. by @cfc4n in https://github.com/ehids/ecapture/pull/248
+* feat: updated new openssl version by @cfc4n in https://github.com/ehids/ecapture/pull/255
+* feat : support openssl 1.1.0* and 1.0.2* by @cfc4n in https://github.com/ehids/ecapture/pull/257
+* fix: Build failed on clang10 (#256) by @cfc4n in https://github.com/ehids/ecapture/pull/258
+* docs : Change license to Apache License 2.0 by @cfc4n in https://github.com/ehids/ecapture/pull/259
+* workflows :  release Android x86_64 use nocore model. by @cfc4n in https://github.com/ehids/ecapture/pull/260
+
+**Full Changelog**: https://github.com/ehids/ecapture/compare/v0.4.7...v0.4.8
 <hr>
 
 # v0.4.7 (2022-10-23)
