@@ -244,7 +244,7 @@ func (this *MOpenSSLProbe) constantEditor() []manager.ConstantEditor {
 		},
 		{
 			Name:  "target_port",
-			Value: uint32(this.conf.(*config.OpensslConfig).Port),
+			Value: uint64(this.conf.(*config.OpensslConfig).Port),
 		},
 	}
 
