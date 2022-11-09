@@ -181,7 +181,8 @@ func (this *Module) readEvents() error {
 		case e.Type() == ebpf.PerfEventArray:
 			this.perfEventReader(errChan, e)
 		default:
-			return fmt.Errorf("%s\tNot support mapType:%s , mapinfo:%s", this.child.Name(), e.Type().String(), e.String())
+			return fmt.Errorf("%s\tunsupported mapType:%s , mapinfo:%s",
+				this.child.Name(), e.Type().String(), e.String())
 		}
 	}
 

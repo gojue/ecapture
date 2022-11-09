@@ -48,7 +48,7 @@
 // .rodata section bug via : https://github.com/ehids/ecapture/issues/39
 #ifndef KERNEL_LESS_5_2
 // alawyse, we used it in openssl_tc.h
-const volatile u32 target_port = 443;
+const volatile u64 target_port = 443;
 // Optional Target PID
 const volatile u64 target_pid = 0;
 const volatile u64 target_uid = 0;
