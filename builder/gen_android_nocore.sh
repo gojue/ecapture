@@ -8,7 +8,8 @@ ANDROID=1 make nocore
 TAR_DIR=ecapture-android-${UNAME_M}_nocore-${SNAPSHOT_VERSION}
 
 # bash build/gen_android_nocore.sh 1.0.0
-OUT_ARCHIVE=${OUTPUT_DIR}/ecapture-android-${UNAME_M}_nocore-${SNAPSHOT_VERSION}.tar.gz
+# ecapture-v0.4.8-android-x86_64.tar.gz
+OUT_ARCHIVE=${OUTPUT_DIR}/ecapture-${SNAPSHOT_VERSION}-android-${UNAME_M}-nocore.tar.gz
 mkdir -p ${TAR_DIR}
 cp LICENSE ${TAR_DIR}/LICENSE
 cp CHANGELOG.md ${TAR_DIR}/CHANGELOG.md
