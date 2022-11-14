@@ -80,19 +80,19 @@
 ///////////////////////////  END   ///////////////////////////
 
 // ssl->handshake_secret 在 ssl_st 中的偏移量
-#define SSL_ST_HANDSHAKE_SECRET 0x17C  // 380
-
-// ssl->master_secret 在 ssl_st 中的偏移量
-#define SSL_ST_MASTER_SECRET 0x1BC  // 444
-
-// ssl->server_finished_hash 在 ssl_st 中的偏移量
-#define SSL_ST_SERVER_FINISHED_HASH 0x2BC  // 700
+#define SSL_ST_HANDSHAKE_SECRET 0x17c  // 380
 
 // ssl->handshake_traffic_hash 在 ssl_st 中的偏移量
-#define SSL_ST_HANDSHAKE_TRAFFIC_HASH 0x2FC  // 764
+#define SSL_ST_HANDSHAKE_TRAFFIC_HASH 0x2fc  // 764
+
+// ssl_st->client_app_traffic_secret
+#define SSL_ST_CLIENT_APP_TRAFFIC_SECRET 0x33c  // 828
+
+// ssl_st->server_app_traffic_secret
+#define SSL_ST_SERVER_APP_TRAFFIC_SECRET 0x37c  // 892
 
 // ssl->exporter_master_secret 在 ssl_st 中的偏移量
-#define SSL_ST_EXPORTER_MASTER_SECRET 0x3BC  // 956
+#define SSL_ST_EXPORTER_MASTER_SECRET 0x3bc  // 956
 
 #endif
 

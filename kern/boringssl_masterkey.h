@@ -22,72 +22,6 @@
 #define MASTER_SECRET_MAX_LEN 48
 #define EVP_MAX_MD_SIZE 64
 
-/*
- * openssl 1.1.1.X 版本相关的常量
- * 参考：https://wiki.openssl.org/index.php/TLS1.3
-
-// ssl->version 在 ssl_st 结构体中的偏移量
-#define SSL_VERSION_OFFSET 0
-// ssl->session 在 ssl_st 结构中的偏移量
-#define SSL_SESSION_OFFSET 0x510
-
-// session->master_key 在 SSL_SESSION 中的偏移量
-#define MASTER_KEY_OFFSET 80
-
-// ssl->s3 在 ssl_st中的偏移量
-#define SSL_S3_OFFSET 0xA8
-
-// s3->client_random 在 ssl3_state_st 中的偏移量
-#define SSL_S3_CLIENT_RANDOM_OFFSET 0xD8
-
-
-////////// TLS 1.2 or older /////////
-
-// session->cipher 在 SSL_SESSION 中的偏移量
-#define SESSION_CIPHER_OFFSET 496
-
-// session->cipher_id 在 SSL_SESSION 中的偏移量
-#define SESSION_CIPHER_ID_OFFSET 0x1f8
-
-// cipher->id 在 ssl_cipher_st 中的偏移量
-#define CIPHER_ID_OFFSET 0x18
-
-////////// TLS 1.3 /////////
-
-
-     // openssl 1.1.1J repo:
-   https://github.com/openssl/openssl/tree/OpenSSL_1_1_1j
-     // ssl/ssl_local.h line 1143
-     * The TLS1.3 secrets.
-    unsigned char early_secret[EVP_MAX_MD_SIZE];
-    unsigned char handshake_secret[EVP_MAX_MD_SIZE];  // 【NEED】
-    unsigned char master_secret[EVP_MAX_MD_SIZE]; // 【NEED】
-    unsigned char resumption_master_secret[EVP_MAX_MD_SIZE];
-    unsigned char client_finished_secret[EVP_MAX_MD_SIZE];
-    unsigned char server_finished_secret[EVP_MAX_MD_SIZE];
-    unsigned char server_finished_hash[EVP_MAX_MD_SIZE]; //【NEED】
-    unsigned char handshake_traffic_hash[EVP_MAX_MD_SIZE]; //【NEED】
-    unsigned char client_app_traffic_secret[EVP_MAX_MD_SIZE];
-    unsigned char server_app_traffic_secret[EVP_MAX_MD_SIZE];
-    unsigned char exporter_master_secret[EVP_MAX_MD_SIZE];  //【NEED】
-    unsigned char early_exporter_master_secret[EVP_MAX_MD_SIZE];
-
-// ssl->handshake_secret 在 ssl_st 中的偏移量
-#define HANDSHAKE_SECRET_OFFSET 0x17C  // 380
-
-// ssl->master_secret 在 ssl_st 中的偏移量
-#define MASTER_SECRET_OFFSET 0x1BC  // 444
-
-// ssl->server_finished_hash 在 ssl_st 中的偏移量
-#define SERVER_FINISHED_HASH_OFFSET 0x2BC  // 700
-
-// ssl->handshake_traffic_hash 在 ssl_st 中的偏移量
-#define HANDSHAKE_TRAFFIC_HASH_OFFSET 0x2FC  // 764
-
-// ssl->exporter_master_secret 在 ssl_st 中的偏移量
-#define EXPORTER_MASTER_SECRET_OFFSET 0x3BC  // 956
-
-*/
 struct mastersecret_t {
     // TLS 1.2 or older
     s32 version;
@@ -97,9 +31,9 @@ struct mastersecret_t {
     // TLS 1.3
     u32 cipher_id;
     u8 handshake_secret[EVP_MAX_MD_SIZE];
-    u8 master_secret[EVP_MAX_MD_SIZE];
-    u8 server_finished_hash[EVP_MAX_MD_SIZE];
     u8 handshake_traffic_hash[EVP_MAX_MD_SIZE];
+    u8 client_app_traffic_secret[EVP_MAX_MD_SIZE];
+    u8 server_app_traffic_secret[EVP_MAX_MD_SIZE];
     u8 exporter_master_secret[EVP_MAX_MD_SIZE];
 };
 
@@ -370,27 +304,6 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
         return 0;
     }
 
-    void *ms_ptr_tls13 = (void *)(ssl_st_ptr + SSL_ST_MASTER_SECRET);
-    ret = bpf_probe_read_user(&mastersecret->master_secret,
-                              sizeof(mastersecret->master_secret),
-                              (void *)ms_ptr_tls13);
-    if (ret) {
-        debug_bpf_printk(
-            "bpf_probe_read SSL_ST_MASTER_SECRET failed, ret :%d\n", ret);
-        return 0;
-    }
-
-    void *sf_ptr_tls13 = (void *)(ssl_st_ptr + SSL_ST_SERVER_FINISHED_HASH);
-    ret = bpf_probe_read_user(&mastersecret->server_finished_hash,
-                              sizeof(mastersecret->server_finished_hash),
-                              (void *)sf_ptr_tls13);
-    if (ret) {
-        debug_bpf_printk(
-            "bpf_probe_read SSL_ST_SERVER_FINISHED_HASH failed, ret :%d\n",
-            ret);
-        return 0;
-    }
-
     void *hth_ptr_tls13 = (void *)(ssl_st_ptr + SSL_ST_HANDSHAKE_TRAFFIC_HASH);
     ret = bpf_probe_read_user(&mastersecret->handshake_traffic_hash,
                               sizeof(mastersecret->handshake_traffic_hash),
@@ -398,6 +311,28 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
     if (ret) {
         debug_bpf_printk(
             "bpf_probe_read SSL_ST_HANDSHAKE_TRAFFIC_HASH failed, ret :%d\n",
+            ret);
+        return 0;
+    }
+
+    void *cats_ptr_tls13 = (void *)(ssl_st_ptr + SSL_ST_CLIENT_APP_TRAFFIC_SECRET);
+    ret = bpf_probe_read_user(&mastersecret->client_app_traffic_secret,
+                              sizeof(mastersecret->client_app_traffic_secret),
+                              (void *)cats_ptr_tls13);
+    if (ret) {
+        debug_bpf_printk(
+            "bpf_probe_read SSL_ST_CLIENT_APP_TRAFFIC_SECRET failed, ret :%d\n",
+            ret);
+        return 0;
+    }
+
+    void *sats_ptr_tls13 = (void *)(ssl_st_ptr + SSL_ST_SERVER_APP_TRAFFIC_SECRET);
+    ret = bpf_probe_read_user(&mastersecret->server_app_traffic_secret,
+                              sizeof(mastersecret->server_app_traffic_secret),
+                              (void *)sats_ptr_tls13);
+    if (ret) {
+        debug_bpf_printk(
+            "bpf_probe_read SSL_ST_SERVER_APP_TRAFFIC_SECRET failed, ret :%d\n",
             ret);
         return 0;
     }
