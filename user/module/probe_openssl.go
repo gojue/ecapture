@@ -553,15 +553,11 @@ func (this *MOpenSSLProbe) saveMasterSecret(secretEvent *event.MasterSecretEvent
 		b.WriteString(fmt.Sprintf("%s %02x %02x\n",
 			hkdf.KeyLogLabelServerHandshake, secretEvent.ClientRandom, serverHandshakeSecret))
 
-		clientTrafficSecret := hkdf.ExpandLabel(secretEvent.MasterSecret[:length],
-			hkdf.ClientApplicationTrafficLabel, secretEvent.ServerFinishedHash[:length], length, transcript)
 		b.WriteString(fmt.Sprintf("%s %02x %02x\n",
-			hkdf.KeyLogLabelClientTraffic, secretEvent.ClientRandom, clientTrafficSecret))
+			hkdf.KeyLogLabelClientTraffic, secretEvent.ClientRandom, secretEvent.ClientAppTrafficSecret))
 
-		serverTrafficSecret := hkdf.ExpandLabel(secretEvent.MasterSecret[:length],
-			hkdf.ServerApplicationTrafficLabel, secretEvent.ServerFinishedHash[:length], length, transcript)
 		b.WriteString(fmt.Sprintf("%s %02x %02x\n",
-			hkdf.KeyLogLabelServerTraffic, secretEvent.ClientRandom, serverTrafficSecret))
+			hkdf.KeyLogLabelServerTraffic, secretEvent.ClientRandom, secretEvent.ServerAppTrafficSecret))
 
 		b.WriteString(fmt.Sprintf("%s %02x %02x\n",
 			hkdf.KeyLogLabelExporterSecret, secretEvent.ClientRandom, secretEvent.ExporterMasterSecret[:length]))

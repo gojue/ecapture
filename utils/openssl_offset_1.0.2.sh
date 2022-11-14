@@ -74,9 +74,9 @@ function run() {
     ./offset >>${header_file}
     echo -e "// openssl 1.0.2 does not support TLS 1.3, set 0 default" >>${header_file}
     echo -e "#define SSL_ST_HANDSHAKE_SECRET 0" >>${header_file}
-    echo -e "#define SSL_ST_MASTER_SECRET 0" >>${header_file}
-    echo -e "#define SSL_ST_SERVER_FINISHED_HASH 0" >>${header_file}
     echo -e "#define SSL_ST_HANDSHAKE_TRAFFIC_HASH 0" >>${header_file}
+    echo -e "#define SSL_ST_CLIENT_APP_TRAFFIC_SECRET 0" >>${header_file}
+    echo -e "#define SSL_ST_SERVER_APP_TRAFFIC_SECRET 0" >>${header_file}
     echo -e "#define SSL_ST_EXPORTER_MASTER_SECRET 0\n" >>${header_file}
     echo -e "#include \"openssl.h\"" >>${header_file}
     echo -e "#include \"openssl_masterkey.h\"" >>${header_file}

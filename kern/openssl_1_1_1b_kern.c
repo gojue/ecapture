@@ -30,14 +30,14 @@
 // ssl_st->handshake_secret
 #define SSL_ST_HANDSHAKE_SECRET 0x174
 
-// ssl_st->master_secret
-#define SSL_ST_MASTER_SECRET 0x1b4
-
-// ssl_st->server_finished_hash
-#define SSL_ST_SERVER_FINISHED_HASH 0x2b4
-
 // ssl_st->handshake_traffic_hash
 #define SSL_ST_HANDSHAKE_TRAFFIC_HASH 0x2f4
+
+// ssl_st->client_app_traffic_secret
+#define SSL_ST_CLIENT_APP_TRAFFIC_SECRET 0x334
+
+// ssl_st->server_app_traffic_secret
+#define SSL_ST_SERVER_APP_TRAFFIC_SECRET 0x374
 
 // ssl_st->exporter_master_secret
 #define SSL_ST_EXPORTER_MASTER_SECRET 0x3b4

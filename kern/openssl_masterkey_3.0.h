@@ -31,9 +31,9 @@ struct mastersecret_t {
     // TLS 1.3
     u32 cipher_id;
     u8 handshake_secret[EVP_MAX_MD_SIZE];
-    u8 master_secret[EVP_MAX_MD_SIZE];
-    u8 server_finished_hash[EVP_MAX_MD_SIZE];
     u8 handshake_traffic_hash[EVP_MAX_MD_SIZE];
+    u8 client_app_traffic_secret[EVP_MAX_MD_SIZE];
+    u8 server_app_traffic_secret[EVP_MAX_MD_SIZE];
     u8 exporter_master_secret[EVP_MAX_MD_SIZE];
 };
 
@@ -229,27 +229,6 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
         return 0;
     }
 
-    void *ms_ptr_tls13 = (void *)(ssl_st_ptr + SSL_ST_MASTER_SECRET);
-    ret = bpf_probe_read_user(&mastersecret->master_secret,
-                              sizeof(mastersecret->master_secret),
-                              (void *)ms_ptr_tls13);
-    if (ret) {
-        debug_bpf_printk(
-            "bpf_probe_read SSL_ST_MASTER_SECRET failed, ret :%d\n", ret);
-        return 0;
-    }
-
-    void *sf_ptr_tls13 = (void *)(ssl_st_ptr + SSL_ST_SERVER_FINISHED_HASH);
-    ret = bpf_probe_read_user(&mastersecret->server_finished_hash,
-                              sizeof(mastersecret->server_finished_hash),
-                              (void *)sf_ptr_tls13);
-    if (ret) {
-        debug_bpf_printk(
-            "bpf_probe_read SSL_ST_SERVER_FINISHED_HASH failed, ret :%d\n",
-            ret);
-        return 0;
-    }
-
     void *hth_ptr_tls13 = (void *)(ssl_st_ptr + SSL_ST_HANDSHAKE_TRAFFIC_HASH);
     ret = bpf_probe_read_user(&mastersecret->handshake_traffic_hash,
                               sizeof(mastersecret->handshake_traffic_hash),
@@ -257,6 +236,28 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
     if (ret) {
         debug_bpf_printk(
             "bpf_probe_read SSL_ST_HANDSHAKE_TRAFFIC_HASH failed, ret :%d\n",
+            ret);
+        return 0;
+    }
+
+    void *cats_ptr_tls13 = (void *)(ssl_st_ptr + SSL_ST_CLIENT_APP_TRAFFIC_SECRET);
+    ret = bpf_probe_read_user(&mastersecret->client_app_traffic_secret,
+                              sizeof(mastersecret->client_app_traffic_secret),
+                              (void *)cats_ptr_tls13);
+    if (ret) {
+        debug_bpf_printk(
+            "bpf_probe_read SSL_ST_CLIENT_APP_TRAFFIC_SECRET failed, ret :%d\n",
+            ret);
+        return 0;
+    }
+
+    void *sats_ptr_tls13 = (void *)(ssl_st_ptr + SSL_ST_SERVER_APP_TRAFFIC_SECRET);
+    ret = bpf_probe_read_user(&mastersecret->server_app_traffic_secret,
+                              sizeof(mastersecret->server_app_traffic_secret),
+                              (void *)sats_ptr_tls13);
+    if (ret) {
+        debug_bpf_printk(
+            "bpf_probe_read SSL_ST_SERVER_APP_TRAFFIC_SECRET failed, ret :%d\n",
             ret);
         return 0;
     }

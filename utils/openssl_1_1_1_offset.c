@@ -9,19 +9,19 @@
 #include <ssl/ssl_local.h>
 #endif
 
-#define SSL_STRUCT_OFFSETS              \
-    X(ssl_st, version)                  \
-    X(ssl_st, session)                  \
-    X(ssl_st, s3)                       \
-    X(ssl_session_st, master_key)       \
-    X(ssl3_state_st, client_random)     \
-    X(ssl_session_st, cipher)           \
-    X(ssl_session_st, cipher_id)        \
-    X(ssl_cipher_st, id)                \
-    X(ssl_st, handshake_secret)         \
-    X(ssl_st, master_secret)            \
-    X(ssl_st, server_finished_hash)     \
-    X(ssl_st, handshake_traffic_hash)   \
+#define SSL_STRUCT_OFFSETS                      \
+    X(ssl_st, version)                          \
+    X(ssl_st, session)                          \
+    X(ssl_st, s3)                               \
+    X(ssl_session_st, master_key)               \
+    X(ssl3_state_st, client_random)             \
+    X(ssl_session_st, cipher)                   \
+    X(ssl_session_st, cipher_id)                \
+    X(ssl_cipher_st, id)                        \
+    X(ssl_st, handshake_secret)                 \
+    X(ssl_st, handshake_traffic_hash)           \
+    X(ssl_st, client_app_traffic_secret)        \
+    X(ssl_st, server_app_traffic_secret)        \
     X(ssl_st, exporter_master_secret)
 
 void toUpper(char *s) {
