@@ -29,9 +29,9 @@
 
 // openssl 1.0.2 does not support TLS 1.3, set 0 default
 #define SSL_ST_HANDSHAKE_SECRET 0
-#define SSL_ST_MASTER_SECRET 0
-#define SSL_ST_SERVER_FINISHED_HASH 0
 #define SSL_ST_HANDSHAKE_TRAFFIC_HASH 0
+#define SSL_ST_CLIENT_APP_TRAFFIC_SECRET 0
+#define SSL_ST_SERVER_APP_TRAFFIC_SECRET 0
 #define SSL_ST_EXPORTER_MASTER_SECRET 0
 
 #include "openssl.h"

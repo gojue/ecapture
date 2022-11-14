@@ -29,8 +29,8 @@ const (
 )
 
 /*
-	u8 client_random[SSL3_RANDOM_SIZE];
-    u8 master_key[MASTER_SECRET_MAX_LEN];
+		u8 client_random[SSL3_RANDOM_SIZE];
+	    u8 master_key[MASTER_SECRET_MAX_LEN];
 */
 type MasterSecretEvent struct {
 	event_type EventType
@@ -41,13 +41,13 @@ type MasterSecretEvent struct {
 	MasterKey    [MASTER_SECRET_MAX_LEN]byte `json:"masterKey"`    // Master Key
 
 	// TLS 1.3
-	CipherId             uint32                `json:"cipherId"`             // Cipher ID
-	HandshakeSecret      [EVP_MAX_MD_SIZE]byte `json:"handshakeSecret"`      // Handshake Secret
-	MasterSecret         [EVP_MAX_MD_SIZE]byte `json:"masterSecret"`         // Master Secret
-	ServerFinishedHash   [EVP_MAX_MD_SIZE]byte `json:"serverFinishedHash"`   // Server Finished Hash
-	HandshakeTrafficHash [EVP_MAX_MD_SIZE]byte `json:"handshakeTrafficHash"` // Handshake Traffic Hash
-	ExporterMasterSecret [EVP_MAX_MD_SIZE]byte `json:"exporterMasterSecret"` // Exporter Master Secret
-	payload              string
+	CipherId               uint32                `json:"cipherId"`               // Cipher ID
+	HandshakeSecret        [EVP_MAX_MD_SIZE]byte `json:"handshakeSecret"`        // Handshake Secret
+	HandshakeTrafficHash   [EVP_MAX_MD_SIZE]byte `json:"handshakeTrafficHash"`   // Handshake Traffic Hash
+	ClientAppTrafficSecret [EVP_MAX_MD_SIZE]byte `json:"clientAppTrafficSecret"` // Client App Traffic Secret
+	ServerAppTrafficSecret [EVP_MAX_MD_SIZE]byte `json:"serverAppTrafficSecret"` // Server App Traffic Secret
+	ExporterMasterSecret   [EVP_MAX_MD_SIZE]byte `json:"exporterMasterSecret"`   // Exporter Master Secret
+	payload                string
 }
 
 func (this *MasterSecretEvent) Decode(payload []byte) (err error) {
@@ -67,13 +67,13 @@ func (this *MasterSecretEvent) Decode(payload []byte) (err error) {
 	if err = binary.Read(buf, binary.LittleEndian, &this.HandshakeSecret); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.MasterSecret); err != nil {
-		return
-	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.ServerFinishedHash); err != nil {
-		return
-	}
 	if err = binary.Read(buf, binary.LittleEndian, &this.HandshakeTrafficHash); err != nil {
+		return
+	}
+	if err = binary.Read(buf, binary.LittleEndian, &this.ClientAppTrafficSecret); err != nil {
+		return
+	}
+	if err = binary.Read(buf, binary.LittleEndian, &this.ServerAppTrafficSecret); err != nil {
 		return
 	}
 	if err = binary.Read(buf, binary.LittleEndian, &this.ExporterMasterSecret); err != nil {
