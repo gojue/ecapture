@@ -2,7 +2,7 @@
 all: autogen ebpf assets build
 	@echo $(shell date)
 
-nocore: ebpf_nocore assets build_nocore
+nocore: ebpf_nocore assets_nocore build_nocore
 	@echo $(shell date)
 
 .ONESHELL:
@@ -33,7 +33,6 @@ KERNEL_LESS_5_2_PREFIX ?= _less52.o
 STYLE    ?= "{BasedOnStyle: Google, IndentWidth: 4}"
 
 .check_%:
-#
 	@command -v $* >/dev/null
 	if [ $$? -ne 0 ]; then
 		echo "eCapture Makefile: missing required tool $*"
@@ -78,10 +77,10 @@ EXTRA_CFLAGS_NOCORE ?= -emit-llvm -O2 -S\
 	-fno-jump-tables \
 	-fno-unwind-tables \
 	-fno-asynchronous-unwind-tables
+
 #
 # tools version
 #
-
 CLANG_VERSION = $(shell $(CMD_CLANG) --version 2>/dev/null | \
 	head -1 | $(CMD_TR) -d '[:alpha:]' | $(CMD_TR) -d '[:space:]' | $(CMD_CUT) -d'.' -f1)
 
@@ -105,7 +104,6 @@ GO_VERSION_MIN = $(shell echo $(GO_VERSION) | $(CMD_CUT) -d'.' -f2)
 # golang 版本检测  1.17 以上
 .checkver_$(CMD_GO): \
 	| .check_$(CMD_GO)
-#
 	@if [ ${GO_VERSION_MAJ} -eq 1 ]; then
 		if [ ${GO_VERSION_MIN} -lt 17 ]; then
 			echo -n "you MUST use golang 1.17 or newer, "
@@ -276,7 +274,8 @@ clean:
 .PHONY: $(KERN_OBJECTS)
 $(KERN_OBJECTS): %.o: %.c \
 	| .checkver_$(CMD_CLANG) \
-	.checkver_$(CMD_GO)
+	.checkver_$(CMD_GO) \
+	autogen
 	$(CMD_CLANG) -D__TARGET_ARCH_$(LINUX_ARCH) \
 		$(EXTRA_CFLAGS) \
 		$(BPFHEADER) \
@@ -291,32 +290,12 @@ $(KERN_OBJECTS): %.o: %.c \
 		-fno-ident -fdebug-compilation-dir . -g -D__BPF_TARGET_MISSING="GCC error \"The eBPF is using target specific macros, please provide -target\"" \
 		-MD -MP
 
+.PHONY: autogen
+autogen: .checkver_$(CMD_BPFTOOL)
+	$(AUTOGENCMD)
+
 .PHONY: ebpf
-ebpf: $(KERN_OBJECTS)
-
-.PHONY: assets
-assets: \
-	.checkver_$(CMD_GO)
-#
-	$(CMD_GO) run github.com/shuLhan/go-bindata/cmd/go-bindata -pkg assets -o "assets/ebpf_probe.go" $(wildcard ./user/bytecode/*.o)
-
-
-.PHONY: build
-build: \
-	.checkver_$(CMD_GO)
-# -tags androidgki
-	CGO_ENABLED=0 $(CMD_GO) build -tags $(TARGET_TAG) -ldflags "-w -s -X 'ecapture/cli/cmd.GitVersion=$(TARGET_TAG)_$(UNAME_M):$(VERSION):[CORE]'" -o bin/ecapture .
-
-
-
-
-# FOR NO CO-RE
-.PHONY: build_nocore
-build_nocore: \
-	.checkver_$(CMD_GO)
-#
-	CGO_ENABLED=0 $(CMD_GO) build -tags $(TARGET_TAG) -ldflags "-w -s -X 'ecapture/cli/cmd.GitVersion=$(TARGET_TAG)_$(UNAME_M):$(VERSION):$(UNAME_R)' -X 'main.enableCORE=false'" -o bin/ecapture .
-
+ebpf: autogen $(KERN_OBJECTS)
 
 .PHONY: ebpf_nocore
 ebpf_nocore: $(KERN_OBJECTS_NOCORE)
@@ -361,6 +340,33 @@ $(KERN_OBJECTS_NOCORE): %.nocore: %.c \
         		-filetype=obj \
         		-o $(subst kern/,user/bytecode/,$(subst .c,$(KERNEL_LESS_5_2_PREFIX),$<))
 
+.PHONY: assets
+assets: \
+	.checkver_$(CMD_GO) \
+	ebpf
+	$(CMD_GO) run github.com/shuLhan/go-bindata/cmd/go-bindata -pkg assets -o "assets/ebpf_probe.go" $(wildcard ./user/bytecode/*.o)
+
+.PHONY: assets_nocore
+assets_nocore: \
+	.checkver_$(CMD_GO) \
+	ebpf_nocore
+	$(CMD_GO) run github.com/shuLhan/go-bindata/cmd/go-bindata -pkg assets -o "assets/ebpf_probe.go" $(wildcard ./user/bytecode/*.o)
+
+.PHONY: build
+build: \
+	.checkver_$(CMD_GO) \
+	assets
+	CGO_ENABLED=0 $(CMD_GO) build -tags $(TARGET_TAG) -ldflags "-w -s -X 'ecapture/cli/cmd.GitVersion=$(TARGET_TAG)_$(UNAME_M):$(VERSION):[CORE]'" -o bin/ecapture .
+
+
+# FOR NON-CORE
+.PHONY: build_nocore
+build_nocore: \
+	.checkver_$(CMD_GO) \
+	assets_nocore \
+	ebpf_nocore
+	CGO_ENABLED=0 $(CMD_GO) build -tags $(TARGET_TAG) -ldflags "-w -s -X 'ecapture/cli/cmd.GitVersion=$(TARGET_TAG)_$(UNAME_M):$(VERSION):$(UNAME_R)' -X 'main.enableCORE=false'" -o bin/ecapture .
+
 # Format the code
 format:
 	@echo "  ->  Formatting code"
@@ -370,6 +376,3 @@ format:
 	@clang-format -i -style=$(STYLE) kern/openssl_masterkey_3.0.h
 	@clang-format -i -style=$(STYLE) kern/boringssl_masterkey.h
 	@clang-format -i -style=$(STYLE) kern/openssl_tc.h
-
-autogen: .checkver_$(CMD_BPFTOOL)
-	$(AUTOGENCMD)
