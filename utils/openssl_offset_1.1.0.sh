@@ -57,6 +57,7 @@ function run() {
     echo "Generating ${header_file}"
 
     ./config
+    make include/openssl/opensslconf.h
 
     clang -I include/ -I . offset.c -o offset $flag
 
