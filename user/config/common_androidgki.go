@@ -26,6 +26,8 @@ var (
 	}
 )
 
+const ELF_ARCH_ISANDROID = true
+
 func GetDynLibDirs() []string {
 	return default_so_paths
 }

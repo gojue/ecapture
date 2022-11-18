@@ -20,7 +20,8 @@ package config
 import "log"
 
 const (
-	LD_LOAD_PATH = "/etc/ld.so.conf"
+	LD_LOAD_PATH       = "/etc/ld.so.conf"
+	ELF_ARCH_ISANDROID = false
 )
 
 /*
