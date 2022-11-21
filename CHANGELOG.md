@@ -1,8 +1,16 @@
 <hr>
+
 # v0.4.9 (2022-11-19)
 
 ## What's Changed
+* constant value has to be of type uint64 (#261) by @cfc4n in https://github.com/ehids/ecapture/pull/264
+* builder: rename android non-core archive file name by @cfc4n in https://github.com/ehids/ecapture/pull/266
+* chore(openssl/boringssl): remove redundant calculation by @blaisewang in https://github.com/ehids/ecapture/pull/267
+* makefile : support make parallel （#265） by @cfc4n in https://github.com/ehids/ecapture/pull/268
+* disable gnutls/nss modules on Android. by @cfc4n in https://github.com/ehids/ecapture/pull/269
 
+
+**Full Changelog**: https://github.com/ehids/ecapture/compare/v0.4.8...v0.4.9
 
 <hr>
 
@@ -13,7 +21,7 @@
 1. Changed license to Apache License 2.0 from AGPL 3.0.
 2. Supported versions of openssl are 1.1.0* , 1.0.2* .
 3. Supported minimum version of Clang is 9.0.
-4. Added GitHub release action of Android X86_64 binaries(default: no co-re version).
+4. Added GitHub release action of Android X86_64 binaries(default: non-CORE version).
 
 ## What's Changed
 * user : Tolower openssl version strings. by @cfc4n in https://github.com/ehids/ecapture/pull/250
