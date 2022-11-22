@@ -4,18 +4,12 @@
 # /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/ehids/ecapture/build-shell/builder/inint_env.sh)"
 
 # 环境检测
-code_name=$(lsb_release -c --short)
+release_num=$(lsb_release -r --short)
 if [ $? -ne 0 ]; then
   echo "command not found, supported ubuntu only."
   exit
 fi
 
-if [ ${code_name} != "ubuntu" ]; then
-  echo "supported ubuntu only."
-  exit
-fi
-
-release_num=$(lsb_release -r --short)
 CLANG_NUM=12
 MAKE_ECAPTURE=make
 if [ ${release_num} == "20.04" ]; then
@@ -52,14 +46,13 @@ GOBIN_ZIP="go1.18.8.linux-${ARCH}.tar.gz"
 echo "GOBIN_ZIP:${GOBIN_ZIP}"
 
 
-sudo su
 cd ~
 
 uname -a
-apt-get update
+sudo apt-get update
 
 # 环境安装
-apt-get install --yes build-essential pkgconf libelf-dev llvm-${CLANG_NUM} clang-${CLANG_NUM} linux-tools-common linux-tools-generic
+sudo apt-get install --yes build-essential pkgconf libelf-dev llvm-${CLANG_NUM} clang-${CLANG_NUM} linux-tools-common linux-tools-generic
 for tool in "clang" "llc" "llvm-strip"
 do
   sudo rm -f /usr/bin/$tool
@@ -70,7 +63,7 @@ clang --version
 
 # 安装golang，设置goproxy
 wget https://golang.google.cn/dl/${GOBIN_ZIP}
-rm -rf /usr/local/go && tar -C /usr/local -xzf ${GOBIN_ZIP}
+sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf ${GOBIN_ZIP}
 export PATH=/usr/local/go/bin:$PATH
 export GOPROXY=https://goproxy.cn
 
