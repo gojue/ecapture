@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 
 # /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/ehids/ecapture/master/builder/gen_android_nocore.sh)"
+# /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/ehids/ecapture/build-shell/builder/inint_env.sh)"
 
 # 环境检测
-code_name=$(lsb_releaseaaa -c --short)
+code_name=$(lsb_release -c --short)
 if [ $? -ne 0 ]; then
   echo "command not found, supported ubuntu only."
   exit
