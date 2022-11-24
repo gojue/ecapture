@@ -11,7 +11,7 @@
 
 > **Note**
 >
-> 支持 Linux系统内核4.15以上版本，支持Android系统内核5.4以上版本。
+> 支持 Linux系统内核4.18以上版本，支持Android系统内核5.4以上版本。
 >
 > 不支持Windows、macOS系统。
 
@@ -56,7 +56,7 @@ eBPF `Uprobe`/`Traffic Control`实现的各种用户空间/内核空间的数据
 
 系统配置要求
 
-* 系统linux kernel版本必须高于4.15。
+* 系统linux kernel版本必须高于4.18。
 * 开启BTF [BPF Type Format (BTF)](https://www.kernel.org/doc/html/latest/bpf/btf.html) 支持。 (可选, 2022-04-17)
 
 ## 命令参数
@@ -172,7 +172,7 @@ hook了`/bin/bash`的`readline`函数。
 # 编译方法
 
 针对个别程序使用的openssl类库是静态编译，也可以自行修改源码实现。若函数名不在符号表里，也可以自行反编译找到函数的offset偏移地址，填写到`UprobeOffset`属性上，进行编译。
-笔者环境`ubuntu 21.04`， Linux Kernel 4.15以上通用。
+笔者环境`ubuntu 21.04`， Linux Kernel 4.18以上通用。
 **推荐使用`UBUNTU 21.04`版本的Linux测试。**
 
 > **Note**

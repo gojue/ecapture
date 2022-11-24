@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"debug/elf"
 	"ecapture/user/config"
-	"errors"
 	"fmt"
 	"os"
 	"regexp"
@@ -98,18 +97,18 @@ func (this *MOpenSSLProbe) initOpensslOffset() {
 func (this *MOpenSSLProbe) detectOpenssl(soPath string) error {
 	f, err := os.OpenFile(soPath, os.O_RDONLY, os.ModePerm)
 	if err != nil {
-		return errors.New("failed to open the file")
+		return fmt.Errorf("can not open %s, with error:%v", soPath, err)
 	}
 	r, e := elf.NewFile(f)
 	if e != nil {
-		return errors.New("failed to parse the ELF file succesfully")
+		return fmt.Errorf("parse the ELF file  %s failed, with error:%v", soPath, err)
 	}
 
 	switch r.FileHeader.Machine {
 	case elf.EM_X86_64:
 	case elf.EM_AARCH64:
 	default:
-		return fmt.Errorf("unsupported arch library ,ELF Header Machine is :%s, must be one of EM_X86_64/EM_AARCH64", r.FileHeader.Machine.String())
+		return fmt.Errorf("unsupported arch library ,ELF Header Machine is :%s, must be one of EM_X86_64 and EM_AARCH64", r.FileHeader.Machine.String())
 	}
 
 	s := r.Section(".rodata")
