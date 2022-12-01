@@ -20,7 +20,7 @@
 // s3->hs 在 ssl3_state_st 中的偏移量
 #define SSL_HS_OFFSET 272
 
-// hs->established_session 在 SSL_HANDSHAKE 中的偏移量
+// s3->established_session 在 SSL_HANDSHAKE 中的偏移量
 #define SSL_ESTABLISHED_SESSION_OFFSET 456
 
 // hs->new_session 在 SSL_HANDSHAKE 中的偏移量
@@ -57,6 +57,8 @@
 // bssl::SSL_HANDSHAKE_max_version = 30
 
 ///////////////////////////  NEW   ///////////////////////////
+
+// ssl_st->s3->hs
 // bssl::SSL_HANDSHAKE->secret_
 #define SSL_HANDSHAKE_SECRET_ = 40
 
