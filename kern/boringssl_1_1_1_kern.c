@@ -6,19 +6,16 @@
 //------------------------------------------
 // android boringssl 版本
 // ssl->version 在 ssl_st 结构体中的偏移量
-#define SSL_ST_VERSION 16
+#define SSL_ST_VERSION 0x10
 
 // ssl->session 在 ssl_st 结构中的偏移量
-#define SSL_ST_SESSION 88
-
-// session->secret 在 SSL_SESSION 中的偏移量
-#define SSL_SESSION_ST_MASTER_KEY 16
+#define SSL_ST_SESSION 0x58
 
 // ssl->s3 在 ssl_st中的偏移量
-#define SSL_ST_S3 48
+#define SSL_ST_S3 0x30
 
 // s3->hs 在 ssl3_state_st 中的偏移量
-#define SSL_HS_OFFSET 272
+#define SSL_HS_OFFSET 0x118
 
 // s3->established_session 在 SSL_HANDSHAKE 中的偏移量
 #define SSL_ESTABLISHED_SESSION_OFFSET 456
@@ -60,25 +57,25 @@
 
 // ssl_st->s3->hs
 // bssl::SSL_HANDSHAKE->secret_
-#define SSL_HANDSHAKE_SECRET_ = 40
+#define SSL_HANDSHAKE_SECRET_ 40
 
 // bssl::SSL_HANDSHAKE->early_traffic_secret_
-#define SSL_HANDSHAKE_EARLY_TRAFFIC_SECRET_ = 88
+#define SSL_HANDSHAKE_EARLY_TRAFFIC_SECRET_ 88
 
 // bssl::SSL_HANDSHAKE->client_handshake_secret_
-#define SSL_HANDSHAKE_CLIENT_HANDSHAKE_SECRET_ = 136
+#define SSL_HANDSHAKE_CLIENT_HANDSHAKE_SECRET_ 136
 
 // bssl::SSL_HANDSHAKE->server_handshake_secret_
-#define SSL_HANDSHAKE_SERVER_HANDSHAKE_SECRET_ = 184
+#define SSL_HANDSHAKE_SERVER_HANDSHAKE_SECRET_ 184
 
 // bssl::SSL_HANDSHAKE->client_traffic_secret_0_
-#define SSL_HANDSHAKE_CLIENT_TRAFFIC_SECRET_0_ = 232
+#define SSL_HANDSHAKE_CLIENT_TRAFFIC_SECRET_0_ 232
 
 // bssl::SSL_HANDSHAKE->server_traffic_secret_0_
-#define SSL_HANDSHAKE_SERVER_TRAFFIC_SECRET_0_ = 280
+#define SSL_HANDSHAKE_SERVER_TRAFFIC_SECRET_0_ 280
 
 // bssl::SSL_HANDSHAKE->expected_client_finished_
-#define SSL_HANDSHAKE_EXPECTED_CLIENT_FINISHED_ = 328
+#define SSL_HANDSHAKE_EXPECTED_CLIENT_FINISHED_ 328
 ///////////////////////////  END   ///////////////////////////
 
 // ssl->handshake_secret 在 ssl_st 中的偏移量
@@ -88,13 +85,13 @@
 #define SSL_ST_HANDSHAKE_TRAFFIC_HASH 0x2fc  // 764
 
 // ssl_st->client_app_traffic_secret
-#define SSL_ST_CLIENT_APP_TRAFFIC_SECRET 0x33c  // 828
+//#define SSL_ST_CLIENT_APP_TRAFFIC_SECRET 0x33c  // 828
 
 // ssl_st->server_app_traffic_secret
-#define SSL_ST_SERVER_APP_TRAFFIC_SECRET 0x37c  // 892
+//#define SSL_ST_SERVER_APP_TRAFFIC_SECRET 0x37c  // 892
 
 // ssl->exporter_master_secret 在 ssl_st 中的偏移量
-#define SSL_ST_EXPORTER_MASTER_SECRET 0x3bc  // 956
+//#define SSL_ST_EXPORTER_MASTER_SECRET 0x3bc  // 956
 
 #endif
 
