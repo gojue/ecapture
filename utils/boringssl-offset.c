@@ -47,6 +47,8 @@
     X(ssl_st, s3)                               \
     X(ssl_session_st, secret)                   \
     X(ssl_session_st, secret_length)            \
+    X(ssl_session_st, cipher)            \
+    X(ssl_cipher_st, id)            \
     X(bssl::SSL3_STATE, hs)                     \
     X(bssl::SSL3_STATE, client_random)          \
     X(bssl::SSL_HANDSHAKE, new_session)         \
@@ -57,7 +59,11 @@
 void toUpper(char *s) {
     int i = 0;
     while (s[i] != '\0') {
-        putchar(toupper(s[i]));
+          if (s[i] == '.' || s[i] == ':') {
+            putchar('_');
+          } else {
+            putchar(toupper(s[i]));
+          }
         i++;
     }
 }

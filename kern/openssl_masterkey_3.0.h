@@ -273,8 +273,8 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
         return 0;
     }
     debug_bpf_printk(
-        "*****master_secret*****: %x %x %x\n", mastersecret->master_secret[0],
-        mastersecret->master_secret[1], mastersecret->master_secret[2]);
+        "*****master_secret*****: %x %x %x\n", mastersecret->master_key[0],
+        mastersecret->master_key[1], mastersecret->master_key[2]);
     bpf_perf_event_output(ctx, &mastersecret_events, BPF_F_CURRENT_CPU,
                           mastersecret, sizeof(struct mastersecret_t));
     return 0;
