@@ -45,12 +45,13 @@ const (
 )
 
 const (
-	KeyLogLabelTLS12           = "CLIENT_RANDOM"
-	KeyLogLabelClientHandshake = "CLIENT_HANDSHAKE_TRAFFIC_SECRET"
-	KeyLogLabelServerHandshake = "SERVER_HANDSHAKE_TRAFFIC_SECRET"
-	KeyLogLabelClientTraffic   = "CLIENT_TRAFFIC_SECRET_0"
-	KeyLogLabelServerTraffic   = "SERVER_TRAFFIC_SECRET_0"
-	KeyLogLabelExporterSecret  = "EXPORTER_SECRET"
+	KeyLogLabelTLS12                   = "CLIENT_RANDOM"
+	KeyLogLabelClientHandshake         = "CLIENT_HANDSHAKE_TRAFFIC_SECRET"
+	KeyLogLabelServerHandshake         = "SERVER_HANDSHAKE_TRAFFIC_SECRET"
+	KeyLogLabelClientTraffic           = "CLIENT_TRAFFIC_SECRET_0"
+	KeyLogLabelServerTraffic           = "SERVER_TRAFFIC_SECRET_0"
+	KeyLogLabelExporterSecret          = "EXPORTER_SECRET"
+	KeyLogLabelClientEarlyTafficSecret = "CLIENT_EARLY_TRAFFIC_SECRET"
 )
 
 // crypto/tls/cipher_suites.go line 678
