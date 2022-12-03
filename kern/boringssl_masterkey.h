@@ -30,10 +30,17 @@ struct mastersecret_t {
 
     // TLS 1.3
     u32 cipher_id;
-    u8 handshake_secret[EVP_MAX_MD_SIZE];
-    u8 handshake_traffic_hash[EVP_MAX_MD_SIZE];
-    u8 client_app_traffic_secret[EVP_MAX_MD_SIZE];
-    u8 server_app_traffic_secret[EVP_MAX_MD_SIZE];
+
+    // ????
+    u8 early_traffic_secret_[EVP_MAX_MD_SIZE];
+    u8 client_handshake_secret_[EVP_MAX_MD_SIZE];
+    u8 server_handshake_secret_[EVP_MAX_MD_SIZE];
+
+    // SSL_HANDSHAKE_CLIENT_TRAFFIC_SECRET_0_
+    u8 client_traffic_secret_0_[EVP_MAX_MD_SIZE];
+
+
+    u8 server_traffic_secret_0_[EVP_MAX_MD_SIZE];
     u8 exporter_master_secret[EVP_MAX_MD_SIZE];
 };
 
@@ -238,8 +245,8 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
     debug_bpf_printk("ssl_hs_st_ptr :%llx, ssl_hs_st_addr:%llx\n", ssl_hs_st_ptr, ssl_hs_st_addr);
 
     void *hs_ptr_tls13 = (void *)(ssl_hs_st_addr + SSL_ST_HANDSHAKE_SECRET);
-    ret = bpf_probe_read_user(&mastersecret->handshake_secret,
-                              sizeof(mastersecret->handshake_secret),
+    ret = bpf_probe_read_user(&mastersecret->client_handshake_secret_,
+                              sizeof(mastersecret->client_handshake_secret_),
                               (void *)hs_ptr_tls13);
     if (ret) {
         debug_bpf_printk(
@@ -317,8 +324,8 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
     //////////////////// TLS 1.3 master secret ////////////////////////
 
     void *hth_ptr_tls13 = (void *)(ssl_hs_st_addr + SSL_ST_HANDSHAKE_TRAFFIC_HASH);
-    ret = bpf_probe_read_user(&mastersecret->handshake_traffic_hash,
-                              sizeof(mastersecret->handshake_traffic_hash),
+    ret = bpf_probe_read_user(&mastersecret->server_handshake_secret_,
+                              sizeof(mastersecret->server_handshake_secret_),
                               (void *)hth_ptr_tls13);
     if (ret) {
         debug_bpf_printk(
@@ -328,8 +335,8 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
     }
 
     void *cats_ptr_tls13 = (void *)(ssl_hs_st_addr + SSL_HANDSHAKE_CLIENT_TRAFFIC_SECRET_0_);
-    ret = bpf_probe_read_user(&mastersecret->client_app_traffic_secret,
-                              sizeof(mastersecret->client_app_traffic_secret),
+    ret = bpf_probe_read_user(&mastersecret->client_traffic_secret_0_,
+                              sizeof(mastersecret->client_traffic_secret_0_),
                               (void *)cats_ptr_tls13);
     if (ret) {
         debug_bpf_printk(
@@ -339,8 +346,8 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
     }
 
     void *sats_ptr_tls13 = (void *)(ssl_hs_st_addr + SSL_HANDSHAKE_SERVER_TRAFFIC_SECRET_0_);
-    ret = bpf_probe_read_user(&mastersecret->server_app_traffic_secret,
-                              sizeof(mastersecret->server_app_traffic_secret),
+    ret = bpf_probe_read_user(&mastersecret->server_traffic_secret_0_,
+                              sizeof(mastersecret->server_traffic_secret_0_),
                               (void *)sats_ptr_tls13);
     if (ret) {
         debug_bpf_printk(
