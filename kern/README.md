@@ -115,3 +115,74 @@ struct bio_st {
     CRYPTO_EX_DATA ex_data;
 };
 ```
+
+## master secrets 
+
+| openssl label name          | openssl struct                  | Label Name                      | boringssl struct              |     |
+|-----------------------------|---------------------------------|---------------------------------|-------------------------------|-----|
+| MASTER_SECRET_LABEL         | s->session->master_key          | CLIENT_RANDOM                   | session->secret               |     |     
+| EXPORTER_SECRET             | s->exporter_master_secret       | EXPORTER_SECRET                 | ssl->s3->exporter_secret      |     |     
+| EARLY_EXPORTER_SECRET_LABEL | s->early_exporter_master_secret | EARLY_EXPORTER_SECRET           | -                             |     |     
+| SERVER_APPLICATION_LABEL    | s->server_app_traffic_secret    | SERVER_TRAFFIC_SECRET_0         | hs->server_traffic_secret_0() |     |     
+| CLIENT_APPLICATION_LABEL    | s->client_app_traffic_secret    | CLIENT_TRAFFIC_SECRET_0         | hs->client_traffic_secret_0() |     |     
+| SERVER_HANDSHAKE_LABEL      |                                 | SERVER_HANDSHAKE_TRAFFIC_SECRET | hs->server_handshake_secret() |     |     
+| CLIENT_HANDSHAKE_LABEL      |                                 | CLIENT_HANDSHAKE_TRAFFIC_SECRET | hs->client_handshake_secret() |     |     
+| CLIENT_EARLY_LABEL          |                                 | CLIENT_EARLY_TRAFFIC_SECRET     | hs->early_traffic_secret()    |     |     
+
+### EARLY_EXPORTER_SECRET_LABEL  EXPORTER_SECRET_LABEL
+-
+
+### SERVER_APPLICATION_LABEL
+insecret = s->master_secret;
+label = server_application_traffic;
+labellen = sizeof(server_application_traffic) - 1;
+log_label = SERVER_APPLICATION_LABEL;
+
+### CLIENT_APPLICATION_LABEL
+insecret = s->master_secret;
+label = client_application_traffic;
+labellen = sizeof(client_application_traffic) - 1;
+log_label = CLIENT_APPLICATION_LABEL;
+
+### SERVER_HANDSHAKE_LABEL
+insecret = s->handshake_secret;
+finsecret = s->server_finished_secret;
+finsecretlen = EVP_MD_size(ssl_handshake_md(s));
+label = server_handshake_traffic;
+labellen = sizeof(server_handshake_traffic) - 1;
+log_label = SERVER_HANDSHAKE_LABEL;
+
+**再计算**
+memcpy(s->handshake_traffic_hash, hashval, hashlen);
+derive_secret_key_and_iv(s, which & SSL3_CC_WRITE, md, cipher,
+insecret, hash, label, labellen, secret, iv,
+ciph_ctx)
+
+### SERVER_HANDSHAKE_LABEL
+insecret = s->handshake_secret;
+finsecret = s->server_finished_secret;
+finsecretlen = EVP_MD_size(ssl_handshake_md(s));
+label = server_handshake_traffic;
+labellen = sizeof(server_handshake_traffic) - 1;
+log_label = SERVER_HANDSHAKE_LABEL;
+
+**再计算**
+memcpy(s->handshake_traffic_hash, hashval, hashlen);
+derive_secret_key_and_iv(s, which & SSL3_CC_WRITE, md, cipher,
+insecret, hash, label, labellen, secret, iv,
+ciph_ctx)
+
+### CLIENT_HANDSHAKE_LABEL
+insecret = s->handshake_secret;
+finsecret = s->client_finished_secret;
+finsecretlen = EVP_MD_size(ssl_handshake_md(s));
+label = client_handshake_traffic;
+labellen = sizeof(client_handshake_traffic) - 1;
+log_label = CLIENT_HANDSHAKE_LABEL;
+hash = s->handshake_traffic_hash;
+
+### CLIENT_EARLY_LABEL
+insecret = s->early_secret;
+label = client_early_traffic;
+labellen = sizeof(client_early_traffic) - 1;
+log_label = CLIENT_EARLY_LABEL;
