@@ -128,7 +128,7 @@ type MasterSecretBoringSSLEvent struct {
 
 	// TLS 1.2 or older
 	ClientRandom [SSL3_RANDOM_SIZE]byte      `json:"clientRandom"` // Client Random
-	MasterKey    [MASTER_SECRET_MAX_LEN]byte `json:"masterKey"`    // Master Key
+	Secret       [MASTER_SECRET_MAX_LEN]byte `json:"secret"`    // secret Key
 
 	// TLS 1.3
 	CipherId              uint32                `json:"cipherId"`              // Cipher ID
@@ -137,7 +137,7 @@ type MasterSecretBoringSSLEvent struct {
 	ServerHandshakeSecret [EVP_MAX_MD_SIZE]byte `json:"serverHandshakeSecret"` // SERVER_HANDSHAKE_TRAFFIC_SECRET
 	ClientTrafficSecret0  [EVP_MAX_MD_SIZE]byte `json:"clientTrafficSecret0"`  // SSL_HANDSHAKE_CLIENT_TRAFFIC_SECRET_0_
 	ServerTrafficSecret0  [EVP_MAX_MD_SIZE]byte `json:"serverTrafficSecret0"`  // SERVER_TRAFFIC_SECRET_0
-	ExporterMasterSecret  [EVP_MAX_MD_SIZE]byte `json:"exporterMasterSecret"`  // EXPORTER_SECRET
+	ExporterSecret        [EVP_MAX_MD_SIZE]byte `json:"exporterSecret"`        // EXPORTER_SECRET
 	payload               string
 }
 
@@ -149,7 +149,7 @@ func (this *MasterSecretBoringSSLEvent) Decode(payload []byte) (err error) {
 	if err = binary.Read(buf, binary.LittleEndian, &this.ClientRandom); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.MasterKey); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &this.Secret); err != nil {
 		return
 	}
 	if err = binary.Read(buf, binary.LittleEndian, &this.CipherId); err != nil {
@@ -170,10 +170,10 @@ func (this *MasterSecretBoringSSLEvent) Decode(payload []byte) (err error) {
 	if err = binary.Read(buf, binary.LittleEndian, &this.ServerTrafficSecret0); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.ExporterMasterSecret); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &this.ExporterSecret); err != nil {
 		return
 	}
-	this.payload = fmt.Sprintf("CLIENT_RANDOM %02x %02x", this.ClientRandom, this.MasterKey)
+	this.payload = fmt.Sprintf("CLIENT_RANDOM %02x %02x", this.ClientRandom, this.Secret)
 	return nil
 }
 

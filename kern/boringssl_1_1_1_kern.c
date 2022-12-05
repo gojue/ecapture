@@ -14,8 +14,35 @@
 // ssl->s3 在 ssl_st中的偏移量
 #define SSL_ST_S3 0x30
 
-// s3->hs 在 ssl3_state_st 中的偏移量
-#define SSL_HS_OFFSET 0x118
+// ssl_session_st->secret
+#define SSL_SESSION_ST_SECRET 0x10
+
+// ssl_session_st->secret_length
+#define SSL_SESSION_ST_SECRET_LENGTH 0xc
+
+// ssl_session_st->cipher
+#define SSL_SESSION_ST_CIPHER 0xd0
+
+// ssl_cipher_st->id
+#define SSL_CIPHER_ST_ID 0x10
+
+// bssl::SSL3_STATE->hs
+#define BSSL__SSL3_STATE_HS 0x118
+
+// bssl::SSL3_STATE->client_random
+#define BSSL__SSL3_STATE_CLIENT_RANDOM 0x30
+
+// bssl::SSL_HANDSHAKE->new_session
+#define BSSL__SSL_HANDSHAKE_NEW_SESSION 0x5f0
+
+// bssl::SSL_HANDSHAKE->early_session
+#define BSSL__SSL_HANDSHAKE_EARLY_SESSION 0x5f8
+
+// bssl::SSL3_STATE->established_session
+#define BSSL__SSL3_STATE_ESTABLISHED_SESSION 0x1d0
+
+// bssl::SSL_HANDSHAKE->max_version
+#define BSSL__SSL_HANDSHAKE_MAX_VERSION 0x1e
 
 // s3->established_session 在 SSL_HANDSHAKE 中的偏移量
 #define SSL_ESTABLISHED_SESSION_OFFSET 456
@@ -30,68 +57,35 @@
 #define SSL_S3_CLIENT_RANDOM_OFFSET 48
 
 
-////////// TLS 1.2 or older /////////
 
-// session->cipher 在 SSL_SESSION 中的偏移量
-#define SSL_SESSION_ST_CIPHER 496
+/////////////////////////////////////////// DON'T REMOVE THIS CODE BLOCK. //////////////////////////////////////////
 
-// session->cipher_id 在 SSL_SESSION 中的偏移量
-#define SSL_SESSION_ST_CIPHER_ID 0x1f8
+// SSL_MAX_MD_SIZE is size of the largest hash function used in TLS, SHA-384.
+#define SSL_MAX_MD_SIZE 48
 
-// cipher->id 在 ssl_cipher_st 中的偏移量
-#define SSL_CIPHER_ST_ID 0x18
-
-/*
-  size_t hash_len_ = 0;
-  uint8_t secret_[SSL_MAX_MD_SIZE] = {0};
-  uint8_t early_traffic_secret_[SSL_MAX_MD_SIZE] = {0};
-  uint8_t client_handshake_secret_[SSL_MAX_MD_SIZE] = {0};
-  uint8_t server_handshake_secret_[SSL_MAX_MD_SIZE] = {0};
-  uint8_t client_traffic_secret_0_[SSL_MAX_MD_SIZE] = {0};
-  uint8_t server_traffic_secret_0_[SSL_MAX_MD_SIZE] = {0};
-  uint8_t expected_client_finished_[SSL_MAX_MD_SIZE] = {0};
-  */
-// bssl::SSL_HANDSHAKE_max_version = 30
-
-///////////////////////////  NEW   ///////////////////////////
-
+//  memory layout, see README.md for more detail.
 // ssl_st->s3->hs
 // bssl::SSL_HANDSHAKE->secret_
-#define SSL_HANDSHAKE_SECRET_ 40
+#define SSL_HANDSHAKE_SECRET_ BSSL__SSL_HANDSHAKE_MAX_VERSION+8+SSL_MAX_MD_SIZE*0
 
 // bssl::SSL_HANDSHAKE->early_traffic_secret_
-#define SSL_HANDSHAKE_EARLY_TRAFFIC_SECRET_ 88
+#define SSL_HANDSHAKE_EARLY_TRAFFIC_SECRET_ BSSL__SSL_HANDSHAKE_MAX_VERSION+8+SSL_MAX_MD_SIZE*1
 
 // bssl::SSL_HANDSHAKE->client_handshake_secret_
-#define SSL_HANDSHAKE_CLIENT_HANDSHAKE_SECRET_ 136
+#define SSL_HANDSHAKE_CLIENT_HANDSHAKE_SECRET_ BSSL__SSL_HANDSHAKE_MAX_VERSION+8+SSL_MAX_MD_SIZE*2
 
 // bssl::SSL_HANDSHAKE->server_handshake_secret_
-#define SSL_HANDSHAKE_SERVER_HANDSHAKE_SECRET_ 184
+#define SSL_HANDSHAKE_SERVER_HANDSHAKE_SECRET_ BSSL__SSL_HANDSHAKE_MAX_VERSION+8+SSL_MAX_MD_SIZE*3
 
 // bssl::SSL_HANDSHAKE->client_traffic_secret_0_
-#define SSL_HANDSHAKE_CLIENT_TRAFFIC_SECRET_0_ 232
+#define SSL_HANDSHAKE_CLIENT_TRAFFIC_SECRET_0_ BSSL__SSL_HANDSHAKE_MAX_VERSION+8+SSL_MAX_MD_SIZE*4
 
 // bssl::SSL_HANDSHAKE->server_traffic_secret_0_
-#define SSL_HANDSHAKE_SERVER_TRAFFIC_SECRET_0_ 280
+#define SSL_HANDSHAKE_SERVER_TRAFFIC_SECRET_0_ BSSL__SSL_HANDSHAKE_MAX_VERSION+8+SSL_MAX_MD_SIZE*5
 
 // bssl::SSL_HANDSHAKE->expected_client_finished_
-#define SSL_HANDSHAKE_EXPECTED_CLIENT_FINISHED_ 328
+#define SSL_HANDSHAKE_EXPECTED_CLIENT_FINISHED_ BSSL__SSL_HANDSHAKE_MAX_VERSION+8+SSL_MAX_MD_SIZE*6
 ///////////////////////////  END   ///////////////////////////
-
-// ssl->handshake_secret 在 ssl_st 中的偏移量
-#define SSL_ST_HANDSHAKE_SECRET 0x17c  // 380
-
-// ssl->handshake_traffic_hash 在 ssl_st 中的偏移量
-#define SSL_ST_HANDSHAKE_TRAFFIC_HASH 0x2fc  // 764
-
-// ssl_st->client_app_traffic_secret
-//#define SSL_ST_CLIENT_APP_TRAFFIC_SECRET 0x33c  // 828
-
-// ssl_st->server_app_traffic_secret
-//#define SSL_ST_SERVER_APP_TRAFFIC_SECRET 0x37c  // 892
-
-// ssl->exporter_master_secret 在 ssl_st 中的偏移量
-//#define SSL_ST_EXPORTER_MASTER_SECRET 0x3bc  // 956
 
 #endif
 

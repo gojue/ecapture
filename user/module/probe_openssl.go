@@ -586,6 +586,10 @@ func (this *MOpenSSLProbe) saveMasterSecret(secretEvent *event.MasterSecretEvent
 	}
 }
 
+func (this *MOpenSSLProbe) saveMasterSecretBoringSSL(secretEvent *event.MasterSecretBoringSSLEvent) {
+
+}
+
 func (this *MOpenSSLProbe) Dispatcher(eventStruct event.IEventStruct) {
 	// detect eventStruct type
 	switch eventStruct.(type) {
@@ -593,6 +597,8 @@ func (this *MOpenSSLProbe) Dispatcher(eventStruct event.IEventStruct) {
 		this.AddConn(eventStruct.(*event.ConnDataEvent).Pid, eventStruct.(*event.ConnDataEvent).Fd, eventStruct.(*event.ConnDataEvent).Addr)
 	case *event.MasterSecretEvent:
 		this.saveMasterSecret(eventStruct.(*event.MasterSecretEvent))
+	case *event.MasterSecretBoringSSLEvent:
+		this.saveMasterSecretBoringSSL(eventStruct.(*event.MasterSecretBoringSSLEvent))
 	case *event.TcSkbEvent:
 		this.dumpTcSkb(eventStruct.(*event.TcSkbEvent))
 	}
