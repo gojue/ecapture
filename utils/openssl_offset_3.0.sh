@@ -31,6 +31,7 @@ function run() {
   sslVerMap["6"]="0"
   sslVerMap["7"]="0"
 
+  # shellcheck disable=SC2068
   for ver in ${!sslVerMap[@]}; do
     tag="openssl-3.0.${ver}"
     val=${sslVerMap[$ver]}
@@ -55,7 +56,7 @@ function run() {
     make build_generated
 
 
-    clang -I include/ -I . offset.c -o offset $flag
+    clang -I include/ -I . offset.c -o offset
 
     echo -e "#ifndef ECAPTURE_${header_define}" >${header_file}
     echo -e "#define ECAPTURE_${header_define}\n" >>${header_file}

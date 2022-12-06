@@ -122,13 +122,13 @@ func (this *MasterSecretEvent) PayloadLen() int {
 }
 
 // for BoringSSL  TLS 1.3
-type MasterSecretBoringSSLEvent struct {
+type MasterSecretBSSLEvent struct {
 	event_type EventType
 	Version    int32 `json:"version"` // TLS Version
 
 	// TLS 1.2 or older
 	ClientRandom [SSL3_RANDOM_SIZE]byte      `json:"clientRandom"` // Client Random
-	Secret       [MASTER_SECRET_MAX_LEN]byte `json:"secret"`    // secret Key
+	Secret       [MASTER_SECRET_MAX_LEN]byte `json:"secret"`       // secret Key
 
 	// TLS 1.3
 	CipherId              uint32                `json:"cipherId"`              // Cipher ID
@@ -141,7 +141,7 @@ type MasterSecretBoringSSLEvent struct {
 	payload               string
 }
 
-func (this *MasterSecretBoringSSLEvent) Decode(payload []byte) (err error) {
+func (this *MasterSecretBSSLEvent) Decode(payload []byte) (err error) {
 	buf := bytes.NewBuffer(payload)
 	if err = binary.Read(buf, binary.LittleEndian, &this.Version); err != nil {
 		return
@@ -177,7 +177,7 @@ func (this *MasterSecretBoringSSLEvent) Decode(payload []byte) (err error) {
 	return nil
 }
 
-func (this *MasterSecretBoringSSLEvent) StringHex() string {
+func (this *MasterSecretBSSLEvent) StringHex() string {
 	v := TlsVersion{
 		Version: this.Version,
 	}
@@ -185,7 +185,7 @@ func (this *MasterSecretBoringSSLEvent) StringHex() string {
 	return s
 }
 
-func (this *MasterSecretBoringSSLEvent) String() string {
+func (this *MasterSecretBSSLEvent) String() string {
 	v := TlsVersion{
 		Version: this.Version,
 	}
@@ -193,24 +193,24 @@ func (this *MasterSecretBoringSSLEvent) String() string {
 	return s
 }
 
-func (this *MasterSecretBoringSSLEvent) Clone() IEventStruct {
+func (this *MasterSecretBSSLEvent) Clone() IEventStruct {
 	event := new(MasterSecretEvent)
 	event.event_type = EventTypeModuleData
 	return event
 }
 
-func (this *MasterSecretBoringSSLEvent) EventType() EventType {
+func (this *MasterSecretBSSLEvent) EventType() EventType {
 	return this.event_type
 }
 
-func (this *MasterSecretBoringSSLEvent) GetUUID() string {
+func (this *MasterSecretBSSLEvent) GetUUID() string {
 	return fmt.Sprintf("%02X", this.ClientRandom)
 }
 
-func (this *MasterSecretBoringSSLEvent) Payload() []byte {
+func (this *MasterSecretBSSLEvent) Payload() []byte {
 	return []byte(this.payload)
 }
 
-func (this *MasterSecretBoringSSLEvent) PayloadLen() int {
+func (this *MasterSecretBSSLEvent) PayloadLen() int {
 	return len(this.payload)
 }
