@@ -15,14 +15,14 @@
 #include "ecapture.h"
 
 // https://wiki.openssl.org/index.php/TLS1.3
-// 仅openssl 1.1.1 后才支持 TLS 1.3 协议
+// 仅openssl/boringssl 1.1.1 后才支持 TLS 1.3 协议
 
-// openssl 1.1.1.X 版本相关的常量
+// boringssl 1.1.1 版本相关的常量
 #define SSL3_RANDOM_SIZE 32
 #define MASTER_SECRET_MAX_LEN 48
 #define EVP_MAX_MD_SIZE 64
 
-struct mastersecret_t {
+struct mastersecret_bssl_t {
     // TLS 1.2 or older
     s32 version;
     u8 client_random[SSL3_RANDOM_SIZE];
@@ -67,22 +67,22 @@ struct {
 struct {
     __uint(type, BPF_MAP_TYPE_LRU_HASH);
     __type(key, u64);
-    __type(value, struct mastersecret_t);
+    __type(value, struct mastersecret_bssl_t);
     __uint(max_entries, 2048);
 } bpf_context SEC(".maps");
 
 struct {
     __uint(type, BPF_MAP_TYPE_ARRAY);
     __type(key, u32);
-    __type(value, struct mastersecret_t);
+    __type(value, struct mastersecret_bssl_t);
     __uint(max_entries, 1);
 } bpf_context_gen SEC(".maps");
 
 /////////////////////////COMMON FUNCTIONS ////////////////////////////////
 //这个函数用来规避512字节栈空间限制，通过在堆上创建内存的方式，避开限制
-static __always_inline struct mastersecret_t *make_event() {
+static __always_inline struct mastersecret_bssl_t *make_event() {
     u32 key_gen = 0;
-    struct mastersecret_t *bpf_ctx =
+    struct mastersecret_bssl_t *bpf_ctx =
         bpf_map_lookup_elem(&bpf_context_gen, &key_gen);
     if (!bpf_ctx) return 0;
     u64 id = bpf_get_current_pid_tgid();
@@ -94,15 +94,7 @@ static __always_inline struct mastersecret_t *make_event() {
 // SSL_SESSION *SSL_get_session(const SSL *ssl)
 static __always_inline u64 get_session_addr(void *ssl_st_ptr, u64 s3_address) {
     u64 tmp_address;
-    //  zero: 优先获取  s3->established_session
-    u64 *ssl_established_session_ptr =
-        (u64 *)(s3_address + SSL_ESTABLISHED_SESSION_OFFSET);
-    int ret = bpf_probe_read_user(&tmp_address, sizeof(tmp_address),
-                                  ssl_established_session_ptr);
-    if (ret == 0 && tmp_address != 0) {
-        return tmp_address;
-    }
-
+    int ret;
     // get hs pointer
     u64 *ssl_hs_st_ptr = (u64 *)(s3_address + BSSL__SSL3_STATE_HS);
     ret = bpf_probe_read_user(&tmp_address, sizeof(tmp_address), ssl_hs_st_ptr);
@@ -112,28 +104,16 @@ static __always_inline u64 get_session_addr(void *ssl_st_ptr, u64 s3_address) {
     }
     debug_bpf_printk("ssl_hs_st_ptr :%llx\n", ssl_hs_st_ptr);
 
-    // first: ssl_st->s3->hs->early_session
-    u64 *ssl_early_session_st_ptr =
-        (u64 *)(ssl_hs_st_ptr + SSL_HS_EARLY_SESSION_OFFSET);
-    ret = bpf_probe_read_user(&tmp_address, sizeof(tmp_address),
-                              ssl_early_session_st_ptr);
-    if (ret == 0 && tmp_address != 0) {
-        debug_bpf_printk(
-            "ssl_st->s3->hs->early_session is not null, address :%llx",
-            tmp_address);
-        return tmp_address;
-    }
-
     // second: ssl_st->s3->hs->new_session
     u64 *ssl_new_session_st_ptr =
-        (u64 *)(ssl_hs_st_ptr + SSL_HS_NEW_SESSION_OFFSET);
+        (u64 *)(ssl_hs_st_ptr + BSSL__SSL_HANDSHAKE_NEW_SESSION);
     ret = bpf_probe_read_user(&tmp_address, sizeof(tmp_address),
                               ssl_new_session_st_ptr);
     // if ret !=0 or tmp_address == 0 then we try to get the session from
     // ssl_st
     if (ret == 0 && tmp_address != 0) {
         debug_bpf_printk(
-            "ssl_st->s3->hs->new_session is not null, address :%llx",
+            "ssl_st->s3->hs->new_session is not null, address :%llx\n",
             tmp_address);
         return tmp_address;
     }
@@ -149,7 +129,7 @@ static __always_inline u64 get_session_addr(void *ssl_st_ptr, u64 s3_address) {
             ssl_st_ptr, ssl_new_session_st_ptr, ret);
         return 0;
     }
-    debug_bpf_printk("ssl_st:%llx, ssl_st->session is not null, address :%llx",
+    debug_bpf_printk("ssl_st:%llx, ssl_st->session is not null, address :%llx\n",
                      ssl_st_ptr, tmp_address);
     return tmp_address;
 }
@@ -173,8 +153,8 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
 #endif
     debug_bpf_printk("openssl uprobe/SSL_write masterKey PID :%d\n", pid);
 
-    // mastersecret_t sent to userspace
-    struct mastersecret_t *mastersecret = make_event();
+    // mastersecret_bssl_t sent to userspace
+    struct mastersecret_bssl_t *mastersecret = make_event();
     // Get a ssl_st pointer
     void *ssl_st_ptr = (void *)PT_REGS_PARM1(ctx);
     if (!mastersecret) {
@@ -206,6 +186,8 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
         return 0;
     }
     s3_address = address;
+    debug_bpf_printk("s3_address :%llx\n",s3_address);
+
     struct ssl3_state_st ssl3_stat;
     ret = bpf_probe_read_user(&ssl3_stat, sizeof(ssl3_stat), (void *)address);
     if (ret) {
@@ -225,89 +207,24 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
         return 0;
     }
 
-    // Get ssl_session_st pointer
-    u64 *ssl_session_st_ptr;
-    u64 ssl_session_st_addr;
-    ssl_session_st_addr = get_session_addr(ssl_st_ptr, s3_address);
-    if (ssl_session_st_addr == 0) {
-        debug_bpf_printk("ssl_session_st_addr is null\n");
-        return 0;
-    }
-    debug_bpf_printk("ssl_session_st_addr addr :%d",ssl_session_st_addr);
- // get s3->hs address first
-    u64 ssl_hs_st_addr;
-    u64 *ssl_hs_st_ptr = (u64 *)(s3_address + BSSL__SSL3_STATE_HS);
-    ret = bpf_probe_read_user(&ssl_hs_st_addr, sizeof(ssl_hs_st_addr), ssl_hs_st_ptr);
-    if (ret) {
-        debug_bpf_printk("bpf_probe_read ssl_hs_st_ptr failed, ret :%d\n", ret);
-        return 0;
-    }
-
-    // TODO
-    debug_bpf_printk("s3_address:%d, ssl_hs_st_ptr :%llx, ssl_hs_st_addr:%llx\n", s3_address, ssl_hs_st_ptr, ssl_hs_st_addr);
-
-    void *hs_ptr_tls13 = (void *)(ssl_hs_st_addr + SSL_HANDSHAKE_CLIENT_HANDSHAKE_SECRET_);
-    ret = bpf_probe_read_user(&mastersecret->client_handshake_secret_,
-                              sizeof(mastersecret->client_handshake_secret_),
-                              (void *)hs_ptr_tls13);
-    if (ret) {
-        debug_bpf_printk(
-            "bpf_probe_read SSL_HANDSHAKE_CLIENT_HANDSHAKE_SECRET_ failed, ret :%d\n", ret);
-        return 0;
-    }
-
-      ///////////////////////// get TLS cipher info ////////////////////
-        // Get SSL_SESSION->cipher pointer
-        u64 *ssl_cipher_st_ptr =
-            (u64 *)(ssl_session_st_addr + SSL_SESSION_ST_CIPHER);
-
-        // get cipher_suite_st pointer
-        debug_bpf_printk("cipher_suite_st pointer: %x\n", ssl_cipher_st_ptr);
-        ret = bpf_probe_read_user(&address, sizeof(address), ssl_cipher_st_ptr);
-        if (ret || address == 0) {
-            debug_bpf_printk(
-                "bpf_probe_read ssl_cipher_st_ptr failed, ret :%d, address:%x\n",
-                ret, address);
-            // return 0;
-            void *cipher_id_ptr =
-                (void *)(address + SSL_CIPHER_ST_ID);
-            ret =
-                bpf_probe_read_user(&mastersecret->cipher_id,
-                                    sizeof(mastersecret->cipher_id), cipher_id_ptr);
-            if (ret) {
-                debug_bpf_printk(
-                    "bpf_probe_read SSL_CIPHER_ST_ID failed from "
-                    "ssl_cipher_st->id, ret :%d\n",
-                    ret);
-                return 0;
-            }
-        } else {
-            debug_bpf_printk("cipher_suite_st value: %x\n", address);
-            void *cipher_id_ptr = (void *)(address + SSL_CIPHER_ST_ID);
-            ret =
-                bpf_probe_read_user(&mastersecret->cipher_id,
-                                    sizeof(mastersecret->cipher_id), cipher_id_ptr);
-            if (ret) {
-                debug_bpf_printk(
-                    "bpf_probe_read SSL_CIPHER_ST_ID failed from "
-                    "ssl_cipher_st->id, ret :%d\n",
-                    ret);
-                return 0;
-            }
-        }
-
-        debug_bpf_printk("cipher_id: %d\n", mastersecret->cipher_id);
-
-
     ///////////////////////// get TLS 1.2 master secret ////////////////////
     if (mastersecret->version != TLS1_3_VERSION) {
-        void *ms_ptr =
-            (void *)(ssl_hs_st_addr + SSL_HANDSHAKE_SECRET_);
+        // Get ssl_session_st pointer
+        u64 *ssl_session_st_ptr;
+        u64 ssl_session_st_addr;
+        ssl_session_st_addr = get_session_addr(ssl_st_ptr, s3_address);
+        if (ssl_session_st_addr == 0) {
+            debug_bpf_printk("ssl_session_st_addr is null\n");
+            return 0;
+        }
+        debug_bpf_printk("s3_address:%llx, ssl_session_st_addr addr :%llx\n", s3_address, ssl_session_st_addr);
+        u64 *ms_ptr =
+            (u64 *)(ssl_session_st_addr + SSL_SESSION_ST_SECRET);
         ret = bpf_probe_read_user(&mastersecret->secret_,
                                   sizeof(mastersecret->secret_), ms_ptr);
         if (ret) {
             debug_bpf_printk(
-                "bpf_probe_read MASTER_KEY_OFFSET failed, ms_ptr:%llx, ret "
+                "bpf_probe_read SSL_SESSION_ST_SECRET failed, ms_ptr:%llx, ret "
                 ":%d\n",
                 ms_ptr, ret);
             return 0;
@@ -318,10 +235,29 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
                          mastersecret->secret_[2]);
 
         bpf_perf_event_output(ctx, &mastersecret_events, BPF_F_CURRENT_CPU,
-                              mastersecret, sizeof(struct mastersecret_t));
+                              mastersecret, sizeof(struct mastersecret_bssl_t));
         return 0;
     }
 
+
+// get s3->hs address first
+    u64 ssl_hs_st_addr;
+    u64 *ssl_hs_st_ptr = (u64 *)(s3_address + BSSL__SSL3_STATE_HS);
+    ret = bpf_probe_read_user(&ssl_hs_st_addr, sizeof(ssl_hs_st_addr), ssl_hs_st_ptr);
+    if (ret) {
+        debug_bpf_printk("bpf_probe_read ssl_hs_st_ptr failed, ret :%d\n", ret);
+        return 0;
+    }
+
+    void *hs_ptr_tls13 = (void *)(ssl_hs_st_addr + SSL_HANDSHAKE_CLIENT_HANDSHAKE_SECRET_);
+    ret = bpf_probe_read_user(&mastersecret->client_handshake_secret_,
+                              sizeof(mastersecret->client_handshake_secret_),
+                              (void *)hs_ptr_tls13);
+    if (ret) {
+        debug_bpf_printk(
+            "bpf_probe_read SSL_HANDSHAKE_CLIENT_HANDSHAKE_SECRET_ failed, ret :%d\n", ret);
+        return 0;
+    }
 
     //////////////////// TLS 1.3 master secret ////////////////////////
 
@@ -372,6 +308,6 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
         "*****master_secret*****: %x %x %x\n", mastersecret->secret_[0],
         mastersecret->secret_[1], mastersecret->secret_[2]);
     bpf_perf_event_output(ctx, &mastersecret_events, BPF_F_CURRENT_CPU,
-                          mastersecret, sizeof(struct mastersecret_t));
+                          mastersecret, sizeof(struct mastersecret_bssl_t));
     return 0;
 }

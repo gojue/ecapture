@@ -48,6 +48,7 @@ function run() {
 
 #  exit 0
 #  for ver in {a..r}; do
+  # shellcheck disable=SC2068
   for ver in ${!sslVerMap[@]}; do
     tag="OpenSSL_1_1_1${ver}"
     val=${sslVerMap[$ver]}
