@@ -11,10 +11,11 @@ if [[ ! -f "go.mod" ]]; then
 fi
 
 # skip cloning if the header file of the max supported version is already generated
-if [[ ! -f "${OUTPUT_DIR}/boringssl_1_1_1_kern.c" ]]; then
+if [[ ! -d "${BORINGSSL_DIR}/.git" ]]; then
   # skip cloning if the openssl directory already exists
   if [[ ! -d "${BORINGSSL_DIR}" ]]; then
-    git clone https://github.com/google/boringssl.git ${BORINGSSL_DIR}
+#    git clone https://github.com/google/boringssl.git ${BORINGSSL_DIR}
+    git clone https://android.googlesource.com/platform/external/boringssl ${BORINGSSL_DIR}
   fi
 fi
 
@@ -22,9 +23,14 @@ function run() {
   git fetch --tags
   cp -f ${PROJECT_ROOT_DIR}/utils/boringssl-offset.c ${BORINGSSL_DIR}/offset.c
   declare -A sslVerMap=()
+  # get all commit about ssl/internel.h  who commit date > Apr 25 23:00:0 2021  (android 12 release)
+  # see https://android.googlesource.com/platform/external/boringssl/+/refs/heads/android12-release .
+  # range commit id from 160e1757ccacbde7488b145070eca94f2c370de2
+  # this repo is different from https://boringssl.googlesource.com/boringssl
   sslVerMap["0"]="0"
 
   # shellcheck disable=SC2068
+  # shellcheck disable=SC2034
   for ver in ${!sslVerMap[@]}; do
 #    tag="openssl-3.0.${ver}"
 #    val=${sslVerMap[$ver]}
@@ -39,9 +45,7 @@ function run() {
 #    git checkout ${tag}
     echo "Generating ${header_file}"
 
-    cmake .
-
-    g++ -I include/ -I . offset.c -o offset
+    g++ -I include/ -I ./src/ offset.c -o offset
 
     echo -e "#ifndef ECAPTURE_${header_define}" >${header_file}
     echo -e "#define ECAPTURE_${header_define}\n" >>${header_file}
