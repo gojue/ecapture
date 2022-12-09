@@ -2,6 +2,8 @@
 set -e
 
 PROJECT_ROOT_DIR=$(pwd)
+BORINGSSL_REPO=https://android.googlesource.com/platform/external/boringssl
+#BORINGSSL_REPO=https://github.com/google/boringssl.git
 BORINGSSL_DIR="${PROJECT_ROOT_DIR}/deps/boringssl"
 OUTPUT_DIR="${PROJECT_ROOT_DIR}/kern"
 
@@ -15,7 +17,7 @@ if [[ ! -d "${BORINGSSL_DIR}/.git" ]]; then
   # skip cloning if the openssl directory already exists
   if [[ ! -d "${BORINGSSL_DIR}" ]]; then
 #    git clone https://github.com/google/boringssl.git ${BORINGSSL_DIR}
-    git clone https://android.googlesource.com/platform/external/boringssl ${BORINGSSL_DIR}
+    git clone ${BORINGSSL_REPO} ${BORINGSSL_DIR}
   fi
 fi
 
@@ -45,14 +47,14 @@ function run() {
 #    git checkout ${tag}
     echo "Generating ${header_file}"
 
-    g++ -I include/ -I ./src/ offset.c -o offset
+    g++ -I include/ -I . -I ./src/ offset.c -o offset
 
     echo -e "#ifndef ECAPTURE_${header_define}" >${header_file}
     echo -e "#define ECAPTURE_${header_define}\n" >>${header_file}
     ./offset >>${header_file}
     echo -e "#include \"boringssl_const.h\"" >>${header_file}
-    echo -e "#include \"openssl.h\"" >>${header_file}
     echo -e "#include \"boringssl_masterkey.h\"" >>${header_file}
+    echo -e "#include \"openssl.h\"" >>${header_file}
     echo -e "\n#endif\n" >>${header_file}
 
     # clean up

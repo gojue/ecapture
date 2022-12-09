@@ -34,3 +34,8 @@ const (
 const (
 	BASH_ERRNO_DEFAULT int = 128
 )
+
+const (
+	MasterKeyHookFuncOpenSSL   = "SSL_write"
+	MasterKeyHookFuncBoringSSL = "SSL_do_handshake"
+)

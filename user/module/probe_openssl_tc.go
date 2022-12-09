@@ -93,6 +93,7 @@ func (this *MOpenSSLProbe) setupManagersTC() error {
 
 	this.logger.Printf("%s\tHOOK type:%d, binrayPath:%s\n", this.Name(), this.conf.(*config.OpensslConfig).ElfType, binaryPath)
 	this.logger.Printf("%s\tIfname:%s, Ifindex:%d,  Port:%d, Pcapng filepath:%s\n", this.Name(), this.ifName, this.ifIdex, this.conf.(*config.OpensslConfig).Port, this.pcapngFilename)
+	this.logger.Printf("%s\tlHook masterKey function:%s\n", this.Name(), this.masterHookFunc)
 
 	// create pcapng writer
 	netIfs, err := net.Interfaces()
@@ -134,10 +135,9 @@ func (this *MOpenSSLProbe) setupManagersTC() error {
 			{
 				Section:          "uprobe/SSL_write_key",
 				EbpfFuncName:     "probe_ssl_master_key",
-				AttachToFuncName: PROBE_OPENSSL_MASTERKEY_FUNC, // SSL_do_handshake or SSL_write
-				//AttachToFuncName: "SSL_do_handshake", // SSL_do_handshake or SSL_write
-				BinaryPath: binaryPath,
-				UID:        "uprobe_ssl_master_key",
+				AttachToFuncName: this.masterHookFunc, // SSL_do_handshake or SSL_write
+				BinaryPath:       binaryPath,
+				UID:              "uprobe_ssl_master_key",
 			},
 		},
 
