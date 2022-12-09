@@ -63,7 +63,7 @@ struct {
 } bpf_context_gen SEC(".maps");
 
 /////////////////////////COMMON FUNCTIONS ////////////////////////////////
-//这个函数用来规避512字节栈空间限制，通过在堆上创建内存的方式，避开限制
+// 这个函数用来规避512字节栈空间限制，通过在堆上创建内存的方式，避开限制
 static __always_inline struct mastersecret_t *make_event() {
     u32 key_gen = 0;
     struct mastersecret_t *bpf_ctx =
@@ -240,7 +240,8 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
         return 0;
     }
 
-    void *cats_ptr_tls13 = (void *)(ssl_st_ptr + SSL_ST_CLIENT_APP_TRAFFIC_SECRET);
+    void *cats_ptr_tls13 =
+        (void *)(ssl_st_ptr + SSL_ST_CLIENT_APP_TRAFFIC_SECRET);
     ret = bpf_probe_read_user(&mastersecret->client_app_traffic_secret,
                               sizeof(mastersecret->client_app_traffic_secret),
                               (void *)cats_ptr_tls13);
@@ -251,7 +252,8 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
         return 0;
     }
 
-    void *sats_ptr_tls13 = (void *)(ssl_st_ptr + SSL_ST_SERVER_APP_TRAFFIC_SECRET);
+    void *sats_ptr_tls13 =
+        (void *)(ssl_st_ptr + SSL_ST_SERVER_APP_TRAFFIC_SECRET);
     ret = bpf_probe_read_user(&mastersecret->server_app_traffic_secret,
                               sizeof(mastersecret->server_app_traffic_secret),
                               (void *)sats_ptr_tls13);
@@ -272,9 +274,9 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
             ret);
         return 0;
     }
-    debug_bpf_printk(
-        "*****master_secret*****: %x %x %x\n", mastersecret->master_key[0],
-        mastersecret->master_key[1], mastersecret->master_key[2]);
+    debug_bpf_printk("*****master_secret*****: %x %x %x\n",
+                     mastersecret->master_key[0], mastersecret->master_key[1],
+                     mastersecret->master_key[2]);
     bpf_perf_event_output(ctx, &mastersecret_events, BPF_F_CURRENT_CPU,
                           mastersecret, sizeof(struct mastersecret_t));
     return 0;

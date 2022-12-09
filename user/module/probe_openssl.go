@@ -83,6 +83,7 @@ type MOpenSSLProbe struct {
 	sslVersionBpfMap map[string]string // bpf map key: ssl version, value: bpf map key
 	sslBpfFile       string            // ssl bpf file
 	isBoringSSL      bool              //
+	masterHookFunc   string            // SSL_do_handshake on boringSSL,  SSL_write on openssl
 }
 
 // 对象初始化
@@ -142,6 +143,9 @@ func (this *MOpenSSLProbe) getSslBpfFile(soPath, sslVersion string) error {
 	defer func() {
 		if strings.Contains(this.sslBpfFile, "boringssl") {
 			this.isBoringSSL = true
+			this.masterHookFunc = MasterKeyHookFuncBoringSSL
+		} else {
+			this.masterHookFunc = MasterKeyHookFuncOpenSSL
 		}
 	}()
 
@@ -303,6 +307,7 @@ func (this *MOpenSSLProbe) setupManagersUprobe() error {
 
 	this.logger.Printf("%s\tHOOK type:%d, binrayPath:%s\n", this.Name(), this.conf.(*config.OpensslConfig).ElfType, binaryPath)
 	this.logger.Printf("%s\tlibPthread so Path:%s\n", this.Name(), libPthread)
+	this.logger.Printf("%s\tlHook masterKey function:%s\n", this.Name(), this.masterHookFunc)
 
 	this.bpfManager = &manager.Manager{
 		Probes: []*manager.Probe{
@@ -376,7 +381,7 @@ func (this *MOpenSSLProbe) setupManagersUprobe() error {
 			{
 				Section:          "uprobe/SSL_write_key",
 				EbpfFuncName:     "probe_ssl_master_key",
-				AttachToFuncName: "SSL_write",
+				AttachToFuncName: this.masterHookFunc,
 				BinaryPath:       binaryPath,
 				UID:              "uprobe_ssl_master_key",
 			},
