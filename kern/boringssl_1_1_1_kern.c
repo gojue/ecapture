@@ -43,8 +43,8 @@
 #define BSSL__SSL_HANDSHAKE_MAX_VERSION 0x1e
 
 #include "boringssl_const.h"
-#include "openssl.h"
 #include "boringssl_masterkey.h"
+#include "openssl.h"
 
 #endif
 
