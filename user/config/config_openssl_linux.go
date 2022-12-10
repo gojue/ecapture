@@ -18,9 +18,7 @@
 package config
 
 import (
-	"debug/elf"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -54,73 +52,9 @@ func (this *OpensslConfig) checkOpenssl() error {
 	return nil
 }
 
-func (this *OpensslConfig) checkConnect() error {
-	var sharedObjects = []string{
-		"libpthread.so.0", // ubuntu 21.04 server
-		"libc.so.6",       // ubuntu 21.10 server
-		"libc.so",         // Android
-	}
-
-	var funcName = ""
-	var found bool
-	for _, so := range sharedObjects {
-		pthreadSoPath, e := getDynPathByElf(this.Curlpath, so)
-		if e != nil {
-			_, e = os.Stat(X86_BINARY_PREFIX)
-			prefix := X86_BINARY_PREFIX
-			if e != nil {
-				prefix = OTHERS_BINARY_PREFIX
-			}
-			this.Pthread = filepath.Join(prefix, so)
-			_, e = os.Stat(this.Pthread)
-			if e != nil {
-				// search all of sharedObjects
-				//return e
-				continue
-			}
-		} else {
-			this.Pthread = pthreadSoPath
-		}
-
-		_elf, e := elf.Open(this.Pthread)
-		if e != nil {
-			//return e
-			continue
-		}
-
-		dynamicSymbols, err := _elf.DynamicSymbols()
-		if err != nil {
-			//return err
-			continue
-		}
-
-		//
-		for _, sym := range dynamicSymbols {
-			if sym.Name != "connect" {
-				continue
-			}
-			//fmt.Printf("\tsize:%d,  name:%s,  offset:%d\n", sym.Size, sym.Name, 0)
-			funcName = sym.Name
-			found = true
-			break
-		}
-
-		// if found
-		if found && funcName != "" {
-			break
-		}
-	}
-
-	//如果没找到，则报错。
-	if !found || funcName == "" {
-		return errors.New(fmt.Sprintf("cant found 'connect' function to hook in files::%v", sharedObjects))
-	}
-	return nil
-}
-
 func (this *OpensslConfig) Check() error {
 	this.IsAndroid = false
-	var checkedOpenssl, checkedConnect bool
+	var checkedOpenssl bool
 	// 如果readline 配置，且存在，则直接返回。
 	if this.Openssl != "" || len(strings.TrimSpace(this.Openssl)) > 0 {
 		_, e := os.Stat(this.Openssl)
@@ -142,19 +76,11 @@ func (this *OpensslConfig) Check() error {
 		this.Curlpath = "/usr/bin/curl"
 	}
 
-	if this.Pthread != "" || len(strings.TrimSpace(this.Pthread)) > 0 {
-		_, e := os.Stat(this.Pthread)
-		if e != nil {
-			return e
-		}
-		checkedConnect = true
-	}
-
 	if this.Ifname == "" || len(strings.TrimSpace(this.Ifname)) == 0 {
 		this.Ifname = DEFAULT_IFNAME
 	}
 
-	if checkedConnect && checkedOpenssl {
+	if checkedOpenssl {
 		return nil
 	}
 
@@ -169,8 +95,5 @@ func (this *OpensslConfig) Check() error {
 		}
 	}
 
-	if !checkedConnect {
-		return this.checkConnect()
-	}
 	return nil
 }
