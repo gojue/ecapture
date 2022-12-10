@@ -1,4 +1,4 @@
-![](./images/ecapture-logo-400x400.png)
+![](./images/ecapture-logo-400x400.jpg)
 
 [English](./README.md) | 中文介绍
 
@@ -9,9 +9,10 @@
 
 ### eCapture(旁观者): 基于eBPF技术实现TLS加密的明文捕获，无需CA证书。
 
-> **Note**
+> **Note:**
 >
-> 支持 Linux系统内核4.18以上版本，支持Android系统内核5.4以上版本。
+> 支持Linux系统内核x86_64 4.18以上版本，aarch64 5.2以上版本；
+> 支持Android系统内核x86_64 4.18以上版本，aarch64 5.4以上版本；
 >
 > 不支持Windows、macOS系统。
 
