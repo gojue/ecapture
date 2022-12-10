@@ -194,7 +194,7 @@ func (this *MasterSecretBSSLEvent) String() string {
 }
 
 func (this *MasterSecretBSSLEvent) Clone() IEventStruct {
-	event := new(MasterSecretEvent)
+	event := new(MasterSecretBSSLEvent)
 	event.event_type = EventTypeModuleData
 	return event
 }
