@@ -195,7 +195,15 @@ func (this *MOpenSSLProbe) initDecodeFunTC() error {
 		return errors.New("cant found map:mastersecret_events")
 	}
 	this.eventMaps = append(this.eventMaps, MasterkeyEventsMap)
-	masterkeyEvent := &event.MasterSecretEvent{}
+
+	var masterkeyEvent event.IEventStruct
+
+	if this.isBoringSSL {
+		masterkeyEvent = &event.MasterSecretBSSLEvent{}
+	} else {
+		masterkeyEvent = &event.MasterSecretEvent{}
+	}
+	
 	//masterkeyEvent.SetModule(this)
 	this.eventFuncMaps[MasterkeyEventsMap] = masterkeyEvent
 	return nil

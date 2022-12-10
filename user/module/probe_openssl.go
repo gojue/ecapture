@@ -302,7 +302,7 @@ func (this *MOpenSSLProbe) setupManagersUprobe() error {
 	}
 
 	this.logger.Printf("%s\tHOOK type:%d, binrayPath:%s\n", this.Name(), this.conf.(*config.OpensslConfig).ElfType, binaryPath)
-	this.logger.Printf("%s\tlHook masterKey function:%s\n", this.Name(), this.masterHookFunc)
+	this.logger.Printf("%s\tHook masterKey function:%s\n", this.Name(), this.masterHookFunc)
 
 	this.bpfManager = &manager.Manager{
 		Probes: []*manager.Probe{
@@ -616,6 +616,8 @@ func (this *MOpenSSLProbe) saveMasterSecretBSSL(secretEvent *event.MasterSecretB
 	case event.TLS1_2_VERSION:
 		b = bytes.NewBufferString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelTLS12, secretEvent.ClientRandom, secretEvent.Secret))
 	case event.TLS1_3_VERSION:
+		fallthrough
+	default:
 		var length int
 		length = 32
 
@@ -626,8 +628,7 @@ func (this *MOpenSSLProbe) saveMasterSecretBSSL(secretEvent *event.MasterSecretB
 		b.WriteString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelServerTraffic, secretEvent.ClientRandom, secretEvent.ServerTrafficSecret0[:length]))
 		b.WriteString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelExporterSecret, secretEvent.ClientRandom, secretEvent.ExporterSecret[:length]))
 
-	default:
-		b = bytes.NewBufferString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelTLS12, secretEvent.ClientRandom, secretEvent.Secret))
+		//b = bytes.NewBufferString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelTLS12, secretEvent.ClientRandom, secretEvent.Secret))
 	}
 	v := event.TlsVersion{Version: secretEvent.Version}
 	l, e := this.keylogger.WriteString(b.String())
