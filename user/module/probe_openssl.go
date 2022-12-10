@@ -275,7 +275,7 @@ func (this *MOpenSSLProbe) constantEditor() []manager.ConstantEditor {
 }
 
 func (this *MOpenSSLProbe) setupManagersUprobe() error {
-	var binaryPath, libPthread, sslVersion string
+	var binaryPath, sslVersion string
 	sslVersion = this.conf.(*config.OpensslConfig).SslVersion
 	sslVersion = strings.ToLower(sslVersion)
 	switch this.conf.(*config.OpensslConfig).ElfType {
@@ -296,17 +296,12 @@ func (this *MOpenSSLProbe) setupManagersUprobe() error {
 		}
 	}
 
-	libPthread = this.conf.(*config.OpensslConfig).Pthread
-	if libPthread == "" {
-		libPthread = "/lib/x86_64-linux-gnu/libpthread.so.0"
-	}
 	_, err := os.Stat(binaryPath)
 	if err != nil {
 		return err
 	}
 
 	this.logger.Printf("%s\tHOOK type:%d, binrayPath:%s\n", this.Name(), this.conf.(*config.OpensslConfig).ElfType, binaryPath)
-	this.logger.Printf("%s\tlibPthread so Path:%s\n", this.Name(), libPthread)
 	this.logger.Printf("%s\tlHook masterKey function:%s\n", this.Name(), this.masterHookFunc)
 
 	this.bpfManager = &manager.Manager{
