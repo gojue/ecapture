@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
-# /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/ehids/ecapture/master/builder/gen_android_nocore.sh)"
-# /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/ehids/ecapture/build-shell/builder/inint_env.sh)"
+# /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/gojue/ecapture/master/builder/gen_android_nocore.sh)"
 
 # 环境检测
 release_num=$(lsb_release -r --short)
@@ -11,6 +10,7 @@ if [ $? -ne 0 ]; then
 fi
 
 CLANG_NUM=12
+# shellcheck disable=SC2209
 MAKE_ECAPTURE=make
 if [ ${release_num} == "20.04" ]; then
   CLANG_NUM=9
@@ -68,6 +68,6 @@ export PATH=/usr/local/go/bin:$PATH
 export GOPROXY=https://goproxy.cn
 
 # clone 源码
-git clone https://github.com/ehids/ecapture.git
+git clone https://github.com/gojue/ecapture.git
 cd ./ecapture || exit
 ${MAKE_ECAPTURE}

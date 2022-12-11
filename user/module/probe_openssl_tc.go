@@ -255,7 +255,7 @@ func (this *MOpenSSLProbe) createPcapng(netIfs []net.Interface) error {
 	// write interface description
 	ngIface := pcapgo.NgInterface{
 		Name:       this.conf.(*config.OpensslConfig).Ifname,
-		Comment:    "eCapture (旁观者): github.com/ehids/ecapture",
+		Comment:    "eCapture (旁观者): github.com/gojue/ecapture",
 		Filter:     "",
 		LinkType:   layers.LinkTypeEthernet,
 		SnapLength: uint32(math.MaxUint16),
@@ -270,7 +270,7 @@ func (this *MOpenSSLProbe) createPcapng(netIfs []net.Interface) error {
 	for _, iface := range netIfs {
 		ngIface = pcapgo.NgInterface{
 			Name:       iface.Name,
-			Comment:    "eCapture (旁观者): github.com/ehids/ecapture",
+			Comment:    "eCapture (旁观者): github.com/gojue/ecapture",
 			Filter:     "",
 			LinkType:   layers.LinkTypeEthernet,
 			SnapLength: uint32(math.MaxUint16),

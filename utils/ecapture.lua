@@ -1,6 +1,6 @@
 -- eCapture enhances the capture data viewable in the Wireshark, will show more information about process information.
 -- HomePage : https://ecapture.cc
--- Repo : https://github.com/ehids/ecapture
+-- Repo : https://github.com/gojue/ecapture
 -- Author : CFC4N <cfc4n.cs@gmail.com>
 -- License : GPL v3
 -- Version : 0.1.0

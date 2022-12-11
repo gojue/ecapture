@@ -27,7 +27,7 @@
 //CO:RE is disabled
 #include <linux/kconfig.h>
 
-// see https://github.com/ehids/ecapture/issues/256 for more detail.
+// see https://github.com/gojue/ecapture/issues/256 for more detail.
 /*
 * This will bring in asm_volatile_goto and asm_inline macro definitions
 * if enabled by compiler and config options.

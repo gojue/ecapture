@@ -2,10 +2,10 @@
 
 [English](./README.md) | 中文介绍
 
-[![GitHub stars](https://img.shields.io/github/stars/ehids/ecapture.svg?label=Stars&logo=github)](https://github.com/ehids/ecapture)
-[![GitHub forks](https://img.shields.io/github/forks/ehids/ecapture?label=Forks&logo=github)](https://github.com/ehids/ecapture)
-[![CI](https://github.com/ehids/ecapture/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/ehids/ecapture/actions/workflows/code-analysis.yml)
-[![Github Version](https://img.shields.io/github/v/release/ehids/ecapture?display_name=tag&include_prereleases&sort=semver)](https://github.com/ehids/ecapture/releases)
+[![GitHub stars](https://img.shields.io/github/stars/gojue/ecapture.svg?label=Stars&logo=github)](https://github.com/gojue/ecapture)
+[![GitHub forks](https://img.shields.io/github/forks/gojue/ecapture?label=Forks&logo=github)](https://github.com/gojue/ecapture)
+[![CI](https://github.com/gojue/ecapture/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/gojue/ecapture/actions/workflows/code-analysis.yml)
+[![Github Version](https://img.shields.io/github/v/release/gojue/ecapture?display_name=tag&include_prereleases&sort=semver)](https://github.com/gojue/ecapture/releases)
 
 ### eCapture(旁观者): 基于eBPF技术实现TLS加密的明文捕获，无需CA证书。
 
@@ -53,7 +53,7 @@ eBPF `Uprobe`/`Traffic Control`实现的各种用户空间/内核空间的数据
 
 ## 直接运行
 
-下载 [release](https://github.com/ehids/ecapture/releases) 的二进制包，可直接使用。
+下载 [release](https://github.com/gojue/ecapture/releases) 的二进制包，可直接使用。
 
 系统配置要求
 
@@ -198,7 +198,7 @@ do
   sudo rm -f /usr/bin/$tool
   sudo ln -s /usr/bin/$tool-9 /usr/bin/$tool
 done
-git clone git@github.com:ehids/ecapture.git
+git clone git@github.com:gojue/ecapture.git
 cd ecapture
 make
 bin/ecapture
@@ -208,7 +208,7 @@ bin/ecapture
 2022/04/17起，eCapture支持了未开启BTF的系统编译，编译指令为：`make nocore`。
 
 ```shell
-git clone git@github.com:ehids/ecapture.git
+git clone git@github.com:gojue/ecapture.git
 cd ecapture
 make nocore
 bin/ecapture
@@ -219,4 +219,4 @@ bin/ecapture
 
 # 参考资料
 [BPF Portability and CO-RE](https://facebookmicrosites.github.io/bpf/blog/2020/02/19/bpf-portability-and-co-re.html)
-[ebpfmanager v0.2.2](https://github.com/ehids/ebpfmanager)
+[ebpfmanager v0.2.2](https://github.com/gojue/ebpfmanager)

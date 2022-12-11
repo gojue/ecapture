@@ -47,7 +47,7 @@ such as HTTPS and TLS without installing a CA certificate.
 It can also capture bash commands, which is suitable for 
 security auditing scenarios, such as database auditing of mysqld, etc (disabled on Android).
 
-Repository: https://github.com/ehids/ecapture
+Repository: https://github.com/gojue/ecapture
 HomePage: https://ecapture.cc
 
 Usage:
