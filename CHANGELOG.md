@@ -1,5 +1,14 @@
 <hr>
 
+# v0.4.10 (2022-12-11)
+
+## What's Changed
+
+
+**Full Changelog**: https://github.com/ehids/ecapture/compare/v0.4.9...v0.4.10
+
+<hr>
+
 # v0.4.9 (2022-11-19)
 
 ## What's Changed

@@ -14,6 +14,9 @@ TAR_DIR=ecapture-android-${UNAME_M}_nocore-${SNAPSHOT_VERSION}
 # bash build/gen_android_nocore.sh 1.0.0
 # ecapture-v0.4.8-android-x86_64.tar.gz
 OUT_ARCHIVE=${OUTPUT_DIR}/ecapture-${SNAPSHOT_VERSION}-android-${UNAME_M}-nocore.tar.gz
+
+# add gobin into $PATH
+export PATH=/usr/local/go/bin:$PATH
 mkdir -p ${TAR_DIR}
 cp LICENSE ${TAR_DIR}/LICENSE
 cp CHANGELOG.md ${TAR_DIR}/CHANGELOG.md
