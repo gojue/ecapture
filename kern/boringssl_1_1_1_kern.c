@@ -30,14 +30,20 @@
 // bssl::SSL3_STATE->client_random
 #define BSSL__SSL3_STATE_CLIENT_RANDOM 0x30
 
+// bssl::SSL3_STATE->established_session
+#define BSSL__SSL3_STATE_ESTABLISHED_SESSION 0x1c8
+
 // bssl::SSL_HANDSHAKE->new_session
 #define BSSL__SSL_HANDSHAKE_NEW_SESSION 0x5d8
 
 // bssl::SSL_HANDSHAKE->early_session
 #define BSSL__SSL_HANDSHAKE_EARLY_SESSION 0x5e0
 
-// bssl::SSL3_STATE->established_session
-#define BSSL__SSL3_STATE_ESTABLISHED_SESSION 0x1c8
+// bssl::SSL_HANDSHAKE->state
+#define BSSL__SSL_HANDSHAKE_STATE 0x14
+
+// bssl::SSL_HANDSHAKE->tls13_state
+#define BSSL__SSL_HANDSHAKE_TLS13_STATE 0x18
 
 // bssl::SSL_HANDSHAKE->max_version
 #define BSSL__SSL_HANDSHAKE_MAX_VERSION 0x1e

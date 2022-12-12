@@ -22,6 +22,18 @@
 #define MASTER_SECRET_MAX_LEN 48
 #define EVP_MAX_MD_SIZE 64
 
+// tls13_state is the internal state for the TLS 1.3 handshake.
+// values depend on enum client_hs_state_t
+
+// client_hs_state_t state_done  14
+#define TLS_CLIENT_STATE_DONE 14
+
+// tls13_server_hs_state_t state13_done  16
+#define TLS_1_3_SERVER_STATE_DONE 16
+
+// tls12_server_hs_state_t state12_done
+#define TLS_1_2_SERVER_STATE_DONE 21
+
 struct mastersecret_bssl_t {
     // TLS 1.2 or older
     s32 version;
@@ -199,6 +211,14 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
     mastersecret->version = version & 0xFFFF;  //  uint16_t version;
     debug_bpf_printk("TLS version :%d\n", mastersecret->version);
 
+    // TODO 判断 当前TLS链接是客户端还是服务端
+    // SSL_ST_SERVER 偏移量取 ssl_st->serve
+    bool is_server;
+    u8 state_done;
+    if (!is_server) {
+        state_done = TLS_CLIENT_STATE_DONE;
+    }
+
     // Get ssl3_state_st pointer
     ret = bpf_probe_read_user(&address, sizeof(address), ssl_s3_st_ptr);
     if (ret) {
@@ -228,10 +248,29 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
         return 0;
     }
 
+     // get s3->hs address first
+    u64 ssl_hs_st_addr;
+    u64 *ssl_hs_st_ptr = (u64 *)(s3_address + BSSL__SSL3_STATE_HS);
+    ret = bpf_probe_read_user(&ssl_hs_st_addr, sizeof(ssl_hs_st_addr),
+                              ssl_hs_st_ptr);
+    if (ret) {
+        debug_bpf_printk("bpf_probe_read ssl_hs_st_ptr failed, ret :%d\n", ret);
+        return 0;
+    }
+
     ///////////////////////// get TLS 1.2 master secret ////////////////////
     if (mastersecret->version != TLS1_3_VERSION) {
+        // TODO 判断 当前tls链接状态
+        if (is_server) {
+            state_done = TLS_1_2_SERVER_STATE_DONE;
+        }
+        // ssl_hs_st_addr 地址 + BSSL__SSL_HANDSHAKE_STATE
+        // 是否为 state_done
+        if (false) {
+            // 如果 二者不相等，说明未完成建立，返回
+        }
+
         // Get ssl_session_st pointer
-//        u64 *ssl_session_st_ptr;
         u64 ssl_session_st_addr;
         ssl_session_st_addr = get_session_addr(ssl_st_ptr, s3_address);
         if (ssl_session_st_addr == 0) {
@@ -273,16 +312,15 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
         return 0;
     }
 
-    // get s3->hs address first
-    u64 ssl_hs_st_addr;
-    u64 *ssl_hs_st_ptr = (u64 *)(s3_address + BSSL__SSL3_STATE_HS);
-    ret = bpf_probe_read_user(&ssl_hs_st_addr, sizeof(ssl_hs_st_addr),
-                              ssl_hs_st_ptr);
-    if (ret) {
-        debug_bpf_printk("bpf_probe_read ssl_hs_st_ptr failed, ret :%d\n", ret);
-        return 0;
+    if (is_server) {
+        state_done = TLS_1_3_SERVER_STATE_DONE;
     }
 
+    // TODO 判断当前TLS 1.3 链接的状态
+    // hs->tls13_state == state_done
+    if (false) {
+        // 如果 二者不相等，说明未完成建立，返回
+    }
     void *hs_ptr_tls13 =
         (void *)(ssl_hs_st_addr + SSL_HANDSHAKE_CLIENT_HANDSHAKE_SECRET_);
     ret = bpf_probe_read_user(&mastersecret->client_handshake_secret_,
