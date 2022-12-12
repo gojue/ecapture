@@ -47,7 +47,7 @@ function run() {
 #    git checkout ${tag}
     echo "Generating ${header_file}"
 
-    g++ -I include/ -I . -I ./src/ offset.c -o offset
+    g++ -Wno-write-strings -Wno-invalid-offsetof -I include/ -I . -I ./src/ offset.c -o offset
 
     echo -e "#ifndef ECAPTURE_${header_define}" >${header_file}
     echo -e "#define ECAPTURE_${header_define}\n" >>${header_file}
