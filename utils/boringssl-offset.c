@@ -19,41 +19,22 @@
 #include <openssl/base.h>
 #include <openssl/crypto.h>
 
-/*
-  // via boringssl source code  src/ssl/internal.h : line 1585
 
-  // max_version is the maximum accepted protocol version, taking account both
-  // |SSL_OP_NO_*| and |SSL_CTX_set_max_proto_version| APIs.
-  uint16_t max_version = 0;
-
- private:
-  size_t hash_len_ = 0;
-  uint8_t secret_[SSL_MAX_MD_SIZE] = {0};
-  uint8_t early_traffic_secret_[SSL_MAX_MD_SIZE] = {0};
-  uint8_t client_handshake_secret_[SSL_MAX_MD_SIZE] = {0};
-  uint8_t server_handshake_secret_[SSL_MAX_MD_SIZE] = {0};
-  uint8_t client_traffic_secret_0_[SSL_MAX_MD_SIZE] = {0};
-  uint8_t server_traffic_secret_0_[SSL_MAX_MD_SIZE] = {0};
-  uint8_t expected_client_finished_[SSL_MAX_MD_SIZE] = {0};
-  */
-// boringssl中的 TLS 1.3 密钥是 private属性，无法直接offset计算。
-// 所以，计算private前面的属性地址，再手动相加。
-// private 前面的属性是max_version ，offset是30
-// private 第一个属性是size_t hash_len_，内存对齐后，offset就是32
-// secret的offset即 32 + sizeof(size_t) ，即 40 。其他的累加 SSL_MAX_MD_SIZE长度即可。
 #define SSL_STRUCT_OFFSETS                      \
     X(ssl_st, version)                          \
     X(ssl_st, session)                          \
     X(ssl_st, s3)                               \
     X(ssl_session_st, secret)                   \
     X(ssl_session_st, secret_length)            \
-    X(ssl_session_st, cipher)            \
-    X(ssl_cipher_st, id)            \
+    X(ssl_session_st, cipher)                   \
+    X(ssl_cipher_st, id)                        \
     X(bssl::SSL3_STATE, hs)                     \
     X(bssl::SSL3_STATE, client_random)          \
+    X(bssl::SSL3_STATE, established_session)    \
     X(bssl::SSL_HANDSHAKE, new_session)         \
     X(bssl::SSL_HANDSHAKE, early_session)       \
-    X(bssl::SSL3_STATE, established_session)    \
+    X(bssl::SSL_HANDSHAKE, state)               \
+    X(bssl::SSL_HANDSHAKE, tls13_state)         \
     X(bssl::SSL_HANDSHAKE, max_version)
 
 void toUpper(char *s) {
@@ -78,7 +59,7 @@ void format(char *struct_name, char *field_name, size_t offset) {
 }
 
 int main() {
-    printf("/* OPENSSL_VERSION_TEXT: %s, OPENSSL_VERSION_NUMBER: %ld */\n\n",
+    printf("/* OPENSSL_VERSION_TEXT: %s, OPENSSL_VERSION_NUMBER: %d */\n\n",
            OPENSSL_VERSION_TEXT, OPENSSL_VERSION_NUMBER);
 
 #define X(struct_name, field_name)      \
