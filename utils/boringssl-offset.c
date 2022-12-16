@@ -33,8 +33,10 @@
     X(bssl::SSL3_STATE, established_session)    \
     X(bssl::SSL_HANDSHAKE, new_session)         \
     X(bssl::SSL_HANDSHAKE, early_session)       \
+    X(bssl::SSL_HANDSHAKE, hints)               \
+    X(bssl::SSL_HANDSHAKE, client_version)               \
     X(bssl::SSL_HANDSHAKE, state)               \
-    X(bssl::SSL_HANDSHAKE, tls13_state)         \
+    X(bssl::SSL_HANDSHAKE, tls13_state)               \
     X(bssl::SSL_HANDSHAKE, max_version)
 
 void toUpper(char *s) {
