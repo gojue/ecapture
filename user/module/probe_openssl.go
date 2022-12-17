@@ -83,7 +83,7 @@ type MOpenSSLProbe struct {
 	sslVersionBpfMap map[string]string // bpf map key: ssl version, value: bpf map key
 	sslBpfFile       string            // ssl bpf file
 	isBoringSSL      bool              //
-	masterHookFunc   string            // SSL_do_handshake on boringSSL,  SSL_write on openssl
+	masterHookFunc   string            // SSL_in_init on boringSSL,  SSL_write on openssl
 }
 
 // 对象初始化
@@ -619,8 +619,9 @@ func (this *MOpenSSLProbe) saveMasterSecretBSSL(secretEvent *event.MasterSecretB
 		fallthrough
 	default:
 		var length int
+		//length = int(secretEvent.HashLen)
 		length = 32
-
+		this.logger.Printf("secretEvent.HashLen:%d, CipherId:%d",secretEvent.HashLen, secretEvent.HashLen)
 		b = bytes.NewBufferString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelClientHandshake, secretEvent.ClientRandom, secretEvent.ClientHandshakeSecret[:length]))
 		b.WriteString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelClientEarlyTafficSecret, secretEvent.ClientRandom, secretEvent.EarlyTrafficSecret[:length]))
 		b.WriteString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelClientTraffic, secretEvent.ClientRandom, secretEvent.ClientTrafficSecret0[:length]))

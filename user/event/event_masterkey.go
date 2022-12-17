@@ -131,7 +131,7 @@ type MasterSecretBSSLEvent struct {
 	Secret       [MASTER_SECRET_MAX_LEN]byte `json:"secret"`       // secret Key
 
 	// TLS 1.3
-	CipherId              uint32                `json:"cipherId"`              // Cipher ID
+	HashLen               uint32                `json:"hashLen"`              // hashLen
 	EarlyTrafficSecret    [EVP_MAX_MD_SIZE]byte `json:"earlyTrafficSecret"`    // CLIENT_EARLY_TRAFFIC_SECRET
 	ClientHandshakeSecret [EVP_MAX_MD_SIZE]byte `json:"clientHandshakeSecret"` // CLIENT_HANDSHAKE_TRAFFIC_SECRET
 	ServerHandshakeSecret [EVP_MAX_MD_SIZE]byte `json:"serverHandshakeSecret"` // SERVER_HANDSHAKE_TRAFFIC_SECRET
@@ -152,7 +152,7 @@ func (this *MasterSecretBSSLEvent) Decode(payload []byte) (err error) {
 	if err = binary.Read(buf, binary.LittleEndian, &this.Secret); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.CipherId); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &this.HashLen); err != nil {
 		return
 	}
 	if err = binary.Read(buf, binary.LittleEndian, &this.EarlyTrafficSecret); err != nil {

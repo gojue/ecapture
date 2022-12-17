@@ -39,6 +39,12 @@
 // bssl::SSL_HANDSHAKE->early_session
 #define BSSL__SSL_HANDSHAKE_EARLY_SESSION 0x5e0
 
+// bssl::SSL_HANDSHAKE->hints
+#define BSSL__SSL_HANDSHAKE_HINTS 0x610
+
+// bssl::SSL_HANDSHAKE->client_version
+#define BSSL__SSL_HANDSHAKE_CLIENT_VERSION 0x61c
+
 // bssl::SSL_HANDSHAKE->state
 #define BSSL__SSL_HANDSHAKE_STATE 0x14
 

@@ -41,11 +41,11 @@
 
 //   uint16_t max_version = 0;
 // sizeof(uint16_t) = 2
-#define SSL_HASH_LEN_ roundup(BSSL__SSL_HANDSHAKE_MAX_VERSION+2,8)
+#define SSL_HANDSHAKE_HASH_LEN_ roundup(BSSL__SSL_HANDSHAKE_MAX_VERSION+2,8)
 
 // ssl_st->s3->hs
 // bssl::SSL_HANDSHAKE->secret_
-#define SSL_HANDSHAKE_SECRET_ SSL_HASH_LEN_+8
+#define SSL_HANDSHAKE_SECRET_ SSL_HANDSHAKE_HASH_LEN_+8
 
 // bssl::SSL_HANDSHAKE->early_traffic_secret_
 #define SSL_HANDSHAKE_EARLY_TRAFFIC_SECRET_ SSL_HANDSHAKE_SECRET_+SSL_MAX_MD_SIZE*1
