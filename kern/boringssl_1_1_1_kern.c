@@ -1,7 +1,8 @@
 #ifndef ECAPTURE_BORINGSSL_1_1_1_KERN_H
 #define ECAPTURE_BORINGSSL_1_1_1_KERN_H
 
-/* OPENSSL_VERSION_TEXT: OpenSSL 1.1.1 (compatible; BoringSSL), OPENSSL_VERSION_NUMBER: 269488255 */
+/* OPENSSL_VERSION_TEXT: OpenSSL 1.1.1 (compatible; BoringSSL) */
+/* OPENSSL_VERSION_NUMBER: 269488255 */
 
 // ssl_st->version
 #define SSL_ST_VERSION 0x10
@@ -59,4 +60,3 @@
 #include "openssl.h"
 
 #endif
-

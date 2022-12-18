@@ -1,7 +1,8 @@
 #ifndef ECAPTURE_OPENSSL_3_0_0_KERN_H
 #define ECAPTURE_OPENSSL_3_0_0_KERN_H
 
-/* OPENSSL_VERSION_TEXT: OpenSSL 3.0.7 1 Nov 2022, OPENSSL_VERSION_NUMBER: 805306480 */
+/* OPENSSL_VERSION_TEXT: OpenSSL 3.0.7 1 Nov 2022 */
+/* OPENSSL_VERSION_NUMBER: 805306480 */
 
 // ssl_st->version
 #define SSL_ST_VERSION 0x0
@@ -46,4 +47,3 @@
 #include "openssl_masterkey_3.0.h"
 
 #endif
-

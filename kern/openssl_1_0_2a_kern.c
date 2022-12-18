@@ -1,7 +1,8 @@
 #ifndef ECAPTURE_OPENSSL_1_0_2_A_KERN_H
 #define ECAPTURE_OPENSSL_1_0_2_A_KERN_H
 
-/* OPENSSL_VERSION_TEXT: OpenSSL 1.0.2u  20 Dec 2019, OPENSSL_VERSION_NUMBER: 268443999 */
+/* OPENSSL_VERSION_TEXT: OpenSSL 1.0.2u  20 Dec 2019 */
+/* OPENSSL_VERSION_NUMBER: 268443999 */
 
 // ssl_st->version
 #define SSL_ST_VERSION 0x0
@@ -38,4 +39,3 @@
 #include "openssl_masterkey.h"
 
 #endif
-
