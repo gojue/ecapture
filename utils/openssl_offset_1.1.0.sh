@@ -42,6 +42,7 @@ function run() {
 
 #  exit 0
 #  for ver in {a..r}; do
+  # shellcheck disable=SC2068
   for ver in ${!sslVerMap[@]}; do
     tag="OpenSSL_1_1_0${ver}"
     val=${sslVerMap[$ver]}
@@ -59,7 +60,7 @@ function run() {
     ./config
     make include/openssl/opensslconf.h
 
-    clang -I include/ -I . offset.c -o offset $flag
+    clang -I include/ -I . offset.c -o offset
 
     echo -e "#ifndef ECAPTURE_${header_define}" >${header_file}
     echo -e "#define ECAPTURE_${header_define}\n" >>${header_file}
@@ -72,7 +73,7 @@ function run() {
     echo -e "#define SSL_ST_EXPORTER_MASTER_SECRET 0\n" >>${header_file}
     echo -e "#include \"openssl.h\"" >>${header_file}
     echo -e "#include \"openssl_masterkey.h\"" >>${header_file}
-    echo -e "\n#endif\n" >>${header_file}
+    echo -e "\n#endif" >>${header_file}
 
     # clean up
     make clean

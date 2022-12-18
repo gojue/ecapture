@@ -80,7 +80,7 @@ function run() {
     echo -e "#define SSL_ST_EXPORTER_MASTER_SECRET 0\n" >>${header_file}
     echo -e "#include \"openssl.h\"" >>${header_file}
     echo -e "#include \"openssl_masterkey.h\"" >>${header_file}
-    echo -e "\n#endif\n" >>${header_file}
+    echo -e "\n#endif" >>${header_file}
 
     # clean up
     make clean
