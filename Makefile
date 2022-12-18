@@ -376,3 +376,4 @@ format:
 	@clang-format -i -style=$(STYLE) kern/openssl_masterkey_3.0.h
 	@clang-format -i -style=$(STYLE) kern/boringssl_masterkey.h
 	@clang-format -i -style=$(STYLE) kern/openssl_tc.h
+	@clang-format -i -style=$(STYLE) utils/*.c
