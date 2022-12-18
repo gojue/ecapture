@@ -65,7 +65,7 @@ function run() {
     echo -e "#include \"boringssl_const.h\"" >>${header_file}
     echo -e "#include \"boringssl_masterkey.h\"" >>${header_file}
     echo -e "#include \"openssl.h\"" >>${header_file}
-    echo -e "\n#endif\n" >>${header_file}
+    echo -e "\n#endif" >>${header_file}
 
   done
 

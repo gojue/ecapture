@@ -73,14 +73,14 @@ function run() {
     else
       unset flags
     fi
-    clang ${flags} -I include/ -I . offset.c -o offset $flag
+    clang ${flags} -I include/ -I . offset.c -o offset
 
     echo -e "#ifndef ECAPTURE_${header_define}" >${header_file}
     echo -e "#define ECAPTURE_${header_define}\n" >>${header_file}
     ./offset >>${header_file}
     echo -e "#include \"openssl.h\"" >>${header_file}
     echo -e "#include \"openssl_masterkey.h\"" >>${header_file}
-    echo -e "\n#endif\n" >>${header_file}
+    echo -e "\n#endif" >>${header_file}
 
     # clean up
     make clean

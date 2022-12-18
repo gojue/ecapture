@@ -63,7 +63,7 @@ function run() {
     ./offset >>${header_file}
     echo -e "#include \"openssl.h\"" >>${header_file}
     echo -e "#include \"openssl_masterkey_3.0.h\"" >>${header_file}
-    echo -e "\n#endif\n" >>${header_file}
+    echo -e "\n#endif" >>${header_file}
 
     # clean up
     make clean
