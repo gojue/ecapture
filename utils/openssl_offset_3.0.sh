@@ -51,6 +51,7 @@ function run() {
     ./config
 
 #    make reconfigure reconf
+    make clean
     make include/openssl/opensslconf.h
     make include/openssl/configuration.h
     make build_generated
