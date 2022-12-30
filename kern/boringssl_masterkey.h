@@ -114,17 +114,17 @@ static __always_inline struct mastersecret_bssl_t *make_event() {
 // in boringssl, the master secret is stored in src/ssl/ssl_session.cc
 // SSL_SESSION *SSL_get_session(const SSL *ssl)
 // ssl_handshake_session
-static __always_inline u64 get_session_addr(void *ssl_st_ptr, u64 s3_address) {
+static __always_inline u64 get_session_addr(void *ssl_st_ptr, u64 s3_address, u64 *ssl_hs_st_ptr) {
     u64 tmp_address;
     int ret;
 
     // get hs pointer
-    u64 *ssl_hs_st_ptr = (u64 *)(s3_address + BSSL__SSL3_STATE_HS);
-    ret = bpf_probe_read_user(&tmp_address, sizeof(tmp_address), ssl_hs_st_ptr);
-    if (ret) {
-        debug_bpf_printk("bpf_probe_read ssl_hs_st_ptr failed, ret :%d\n", ret);
-        return 0;
-    }
+//    u64 *ssl_hs_st_ptr = (u64 *)(s3_address + BSSL__SSL3_STATE_HS);
+//    ret = bpf_probe_read_user(&tmp_address, sizeof(tmp_address), ssl_hs_st_ptr);
+//    if (ret) {
+//        debug_bpf_printk("bpf_probe_read ssl_hs_st_ptr failed, ret :%d\n", ret);
+//        return 0;
+//    }
 
     // second: ssl_st->s3->hs->new_session
     u64 *ssl_new_session_st_ptr =
@@ -253,7 +253,8 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
         (u64 *)(ssl_hs_st_addr + BSSL__SSL_HANDSHAKE_CLIENT_VERSION);
     ret = bpf_probe_read_user(&client_version, sizeof(client_version),
                               ssl_hs_cv_ptr);
-    if (ret || client_version == 0) {
+//    if (ret || client_version == 0) {
+    if (ret) {
         debug_bpf_printk(
             "bpf_probe_read ssl_hs_st_ptr failed, ret :%d, client_version:%d\n",
             ret, hash_len);
@@ -269,13 +270,11 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
             "bpf_probe_read ssl_hs_state_ptr struct failed, ret :%d\n", ret);
         return 0;
     }
-    debug_bpf_printk("state:%d, tls13_state:%d\n", ssl3_hs_state.state,
+    debug_bpf_printk("client_version:%d, state:%d, tls13_state:%d\n", client_version, ssl3_hs_state.state,
                      ssl3_hs_state.tls13_state);
     ///////////// debug info  /////////
     //    debug_bpf_printk("openssl uprobe/SSL_write masterKey PID :%d\n", pid);
-    //    debug_bpf_printk("TLS version :%d\n", mastersecret->version);
-    //    debug_bpf_printk("Client hello version :%d\n",client_version);
-    //    debug_bpf_printk("hs->hash_len :%d\n", mastersecret->hash_len);
+        debug_bpf_printk("TLS version :%d, hash_len:%d, \n", mastersecret->version, hash_len);
     //    debug_bpf_printk("client_random: %x %x %x\n",
     //    ssl3_stat.client_random[0],
     //                         ssl3_stat.client_random[1],
@@ -302,7 +301,7 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
     if (mastersecret->version != TLS1_3_VERSION) {
         // Get ssl_session_st pointer
         u64 ssl_session_st_addr;
-        ssl_session_st_addr = get_session_addr(ssl_st_ptr, s3_address);
+        ssl_session_st_addr = get_session_addr(ssl_st_ptr, s3_address, ssl_hs_st_ptr);
         if (ssl_session_st_addr == 0) {
             debug_bpf_printk("ssl_session_st_addr is null\n");
             return 0;
