@@ -234,6 +234,9 @@ func (this *MOpenSSLProbe) savePcapng() error {
 		}
 	}
 	this.logger.Printf("%s\t save %d packets into pcapng file.\n", this.Name(), i)
+	if i == 0 {
+		this.logger.Printf("nothing captured, please check your network interface, see \"ecapture tls -h\" for more information.")
+	}
 	return this.pcapWriter.Flush()
 }
 
