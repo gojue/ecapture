@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/gojue/ecapture/master/builder/gen_android_nocore.sh)"
+# /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/gojue/ecapture/master/builder/init_env.sh)"
 
 # 环境检测
 release_num=$(lsb_release -r --short)
