@@ -608,20 +608,25 @@ func (this *MOpenSSLProbe) saveMasterSecretBSSL(secretEvent *event.MasterSecretB
 		// 已存在该随机数的masterSecret，不需要重复写入
 		return
 	}
-	this.masterKeys[k] = true
 
 	// save to file
 	var b *bytes.Buffer
 	switch secretEvent.Version {
 	case event.TLS1_2_VERSION:
 		b = bytes.NewBufferString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelTLS12, secretEvent.ClientRandom, secretEvent.Secret))
+		this.masterKeys[k] = true
 	case event.TLS1_3_VERSION:
 		fallthrough
 	default:
 		var length int
-		//length = int(secretEvent.HashLen)
-		length = 32
-		this.logger.Printf("secretEvent.HashLen:%d, CipherId:%d",secretEvent.HashLen, secretEvent.HashLen)
+		length = int(secretEvent.HashLen)
+		// 判断 密钥是否为空
+		if this.verifyBSSLEvent(secretEvent) == false {
+			//this.logger.Printf("secretEvent is null.")
+			return
+		}
+		this.masterKeys[k] = true
+		this.logger.Printf("secretEvent.HashLen:%d, CipherId:%d", secretEvent.HashLen, secretEvent.HashLen)
 		b = bytes.NewBufferString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelClientHandshake, secretEvent.ClientRandom, secretEvent.ClientHandshakeSecret[:length]))
 		b.WriteString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelClientEarlyTafficSecret, secretEvent.ClientRandom, secretEvent.EarlyTrafficSecret[:length]))
 		b.WriteString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelClientTraffic, secretEvent.ClientRandom, secretEvent.ClientTrafficSecret0[:length]))
@@ -651,7 +656,47 @@ func (this *MOpenSSLProbe) saveMasterSecretBSSL(secretEvent *event.MasterSecretB
 		this.logger.Printf("%s: save CLIENT_RANDOM %02x to file success, %d bytes", v.String(), secretEvent.ClientRandom, l)
 	}
 }
+func (this *MOpenSSLProbe) verifyBSSLEvent(e *event.MasterSecretBSSLEvent) bool {
+	var isNUllCount = 0
 
+	var hashLen = int(e.HashLen)
+	for i := 0; i < hashLen; i++ {
+		if e.ClientHandshakeSecret[i] != 0 {
+			isNUllCount += 1
+			break
+		}
+	}
+
+	for i := 0; i < hashLen; i++ {
+		if e.ClientTrafficSecret0[i] != 0 {
+			isNUllCount += 1
+			break
+		}
+	}
+
+	for i := 0; i < hashLen; i++ {
+		if e.ServerHandshakeSecret[i] != 0 {
+			isNUllCount += 1
+			break
+		}
+	}
+
+	for i := 0; i < hashLen; i++ {
+		if e.ServerTrafficSecret0[i] != 0 {
+			isNUllCount += 1
+			break
+		}
+	}
+
+	for i := 0; i < hashLen; i++ {
+		if e.ExporterSecret[i] != 0 {
+			isNUllCount += 1
+			break
+		}
+	}
+
+	return isNUllCount == 5
+}
 func (this *MOpenSSLProbe) Dispatcher(eventStruct event.IEventStruct) {
 	// detect eventStruct type
 	switch eventStruct.(type) {

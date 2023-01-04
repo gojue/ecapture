@@ -36,12 +36,12 @@ const (
 )
 
 const (
-	MasterKeyHookFuncOpenSSL   = "SSL_write"
+	MasterKeyHookFuncOpenSSL = "SSL_write"
 
 	/*
 		在boringSSL类库里，SSL_write函数调用了 SSL_do_handshake ，
 		SSL_do_handshake 函数执行时，当前SSL链接握手可能还未完成，且
-	 */
+	*/
 	// 2022-12-16 改为 SSL_in_init
-	MasterKeyHookFuncBoringSSL = "SSL_do_handshake"
+	MasterKeyHookFuncBoringSSL = "SSL_in_init"
 )
