@@ -23,12 +23,13 @@
     X(ssl_st, version)                       \
     X(ssl_st, session)                       \
     X(ssl_st, s3)                            \
-    X(ssl_session_st, secret)                \
     X(ssl_session_st, secret_length)         \
+    X(ssl_session_st, secret)                \
     X(ssl_session_st, cipher)                \
     X(ssl_cipher_st, id)                     \
     X(bssl::SSL3_STATE, hs)                  \
     X(bssl::SSL3_STATE, client_random)       \
+    X(bssl::SSL3_STATE, exporter_secret)     \
     X(bssl::SSL3_STATE, established_session) \
     X(bssl::SSL_HANDSHAKE, new_session)      \
     X(bssl::SSL_HANDSHAKE, early_session)    \
