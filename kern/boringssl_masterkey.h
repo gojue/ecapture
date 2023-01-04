@@ -118,14 +118,6 @@ static __always_inline u64 get_session_addr(void *ssl_st_ptr, u64 s3_address, u6
     u64 tmp_address;
     int ret;
 
-    // get hs pointer
-//    u64 *ssl_hs_st_ptr = (u64 *)(s3_address + BSSL__SSL3_STATE_HS);
-//    ret = bpf_probe_read_user(&tmp_address, sizeof(tmp_address), ssl_hs_st_ptr);
-//    if (ret) {
-//        debug_bpf_printk("bpf_probe_read ssl_hs_st_ptr failed, ret :%d\n", ret);
-//        return 0;
-//    }
-
     // second: ssl_st->s3->hs->new_session
     u64 *ssl_new_session_st_ptr =
         (u64 *)(ssl_hs_st_ptr + BSSL__SSL_HANDSHAKE_NEW_SESSION);
@@ -151,9 +143,6 @@ static __always_inline u64 get_session_addr(void *ssl_st_ptr, u64 s3_address, u6
             ssl_st_ptr, ssl_new_session_st_ptr, ret);
         return 0;
     }
-    //    debug_bpf_printk(
-    //        "ssl_st:%llx, ssl_st->session is not null, address :%llx\n",
-    //        ssl_st_ptr, tmp_address);
     return tmp_address;
 }
 
@@ -232,12 +221,12 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
     ret = bpf_probe_read_user(&ssl_hs_st_addr, sizeof(ssl_hs_st_addr),
                               ssl_hs_st_ptr);
     if (ret || ssl_hs_st_addr == 0) {
-        debug_bpf_printk("bpf_probe_read ssl_hs_st_ptr failed, ret :%d\n", ret);
+//        debug_bpf_printk("bpf_probe_read ssl_hs_st_ptr failed, ret :%d\n", ret);
         return 0;
     }
 
     //////////////////// get hash len //////////////////
-    u16 hash_len;
+    u8 hash_len;
     u64 *ssl_hs_hashlen_ptr = (u64 *)(ssl_hs_st_addr + SSL_HANDSHAKE_HASH_LEN_);
     ret = bpf_probe_read_user(&hash_len, sizeof(hash_len), ssl_hs_hashlen_ptr);
     if (ret) {
@@ -270,19 +259,20 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
             "bpf_probe_read ssl_hs_state_ptr struct failed, ret :%d\n", ret);
         return 0;
     }
+
+    // ssl_client_hs_state_t::ssl3_hs_state=5
+    // tls13_server_hs_state_t::state13_read_second_client_flight
+//    if (ssl3_hs_state.state == 5 && ssl3_hs_state.tls13_state < 8) {
+//        return 0;
+//    }
+    ///////////// debug info  /////////
+
     debug_bpf_printk("client_version:%d, state:%d, tls13_state:%d\n", client_version, ssl3_hs_state.state,
                      ssl3_hs_state.tls13_state);
-    ///////////// debug info  /////////
     //    debug_bpf_printk("openssl uprobe/SSL_write masterKey PID :%d\n", pid);
         debug_bpf_printk("TLS version :%d, hash_len:%d, \n", mastersecret->version, hash_len);
-    //    debug_bpf_printk("client_random: %x %x %x\n",
-    //    ssl3_stat.client_random[0],
-    //                         ssl3_stat.client_random[1],
-    //                         ssl3_stat.client_random[2]);
-    ///////////// get TLS handshake->handshake_finalized /////////
     // 判断当前tls链接状态
     // handshake->handshake_finalized = hs_st_addr + BSSL__SSL_HANDSHAKE_HINTS +
-    // 8
     s32 all_bool;
     u64 *hs_ptr_ab = (u64 *)(ssl_hs_st_addr + BSSL__SSL_HANDSHAKE_HINTS + 8);
     ret = bpf_probe_read_user(&all_bool, sizeof(all_bool), hs_ptr_ab);
@@ -322,6 +312,7 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
                 ms_len_ptr, ret);
             return 0;
         }
+        mastersecret->hash_len = secret_length;
         debug_bpf_printk(" secret_length:%d\n", secret_length);
 
         u64 *ms_ptr = (u64 *)(ssl_session_st_addr + SSL_SESSION_ST_SECRET);
@@ -359,7 +350,7 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
     //////////////////// TLS 1.3 master secret ////////////////////////
 
     void *hth_ptr_tls13 =
-        (void *)(ssl_hs_st_addr + SSL_HANDSHAKE_SERVER_TRAFFIC_SECRET_0_);
+        (void *)(ssl_hs_st_addr + SSL_HANDSHAKE_SERVER_HANDSHAKE_SECRET_);
     ret = bpf_probe_read_user(&mastersecret->server_handshake_secret_,
                               sizeof(mastersecret->server_handshake_secret_),
                               (void *)hth_ptr_tls13);
@@ -398,7 +389,7 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
     }
 
     void *ems_ptr_tls13 =
-        (void *)(ssl_hs_st_addr + SSL_HANDSHAKE_EXPECTED_CLIENT_FINISHED_);
+        (void *)(s3_address + BSSL__SSL3_STATE_EXPORTER_SECRET);
     ret = bpf_probe_read_user(&mastersecret->exporter_secret,
                               sizeof(mastersecret->exporter_secret),
                               (void *)ems_ptr_tls13);
