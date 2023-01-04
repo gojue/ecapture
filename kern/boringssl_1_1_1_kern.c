@@ -31,6 +31,9 @@
 // bssl::SSL3_STATE->client_random
 #define BSSL__SSL3_STATE_CLIENT_RANDOM 0x30
 
+// bssl::SSL3_STATE->exporter_secret
+#define BSSL__SSL3_STATE_EXPORTER_SECRET 0x178
+
 // bssl::SSL3_STATE->established_session
 #define BSSL__SSL3_STATE_ESTABLISHED_SESSION 0x1c8
 
