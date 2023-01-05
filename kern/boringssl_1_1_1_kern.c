@@ -13,11 +13,11 @@
 // ssl_st->s3
 #define SSL_ST_S3 0x30
 
-// ssl_session_st->secret
-#define SSL_SESSION_ST_SECRET 0x10
-
 // ssl_session_st->secret_length
 #define SSL_SESSION_ST_SECRET_LENGTH 0xc
+
+// ssl_session_st->secret
+#define SSL_SESSION_ST_SECRET 0x10
 
 // ssl_session_st->cipher
 #define SSL_SESSION_ST_CIPHER 0xd0
