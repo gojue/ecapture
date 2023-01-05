@@ -111,10 +111,9 @@ static __always_inline struct mastersecret_bssl_t *make_event() {
     return bpf_map_lookup_elem(&bpf_context, &id);
 }
 
-// in boringssl, the master secret is stored in src/ssl/ssl_session.cc
-// SSL_SESSION *SSL_get_session(const SSL *ssl)
-// ssl_handshake_session
-static __always_inline u64 get_session_addr(void *ssl_st_ptr, u64 s3_address, u64 *ssl_hs_st_ptr) {
+// in boringssl, the master secret is stored in src/ssl/handshake.cc  581
+// const SSL_SESSION *ssl_handshake_session(const SSL_HANDSHAKE *hs) {
+static __always_inline u64 get_session_addr(void *ssl_st_ptr, u64 s3_address, u64 ssl_hs_st_ptr) {
     u64 tmp_address;
     int ret;
 
@@ -283,17 +282,22 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
             ret, ssl_hs_st_addr);
         return 0;
     }
-    debug_bpf_printk("SSL_HANDSHAKE_ALLBOOL:%d, ssl_hs_st_ptr:%lx\n", all_bool,
+    debug_bpf_printk("SSL_HANDSHAKE_ALLBOOL:%d, ssl_hs_st_addr:%lx\n", all_bool,
                      ssl_hs_st_addr);
-    // 是否为 state_done
 
     ///////////////////////// get TLS 1.2 master secret ////////////////////
     if (mastersecret->version != TLS1_3_VERSION) {
+        // state12_finish_server_handshake
+        // state12_done
+        if (ssl3_hs_state.state  < 20) {
+            // not finished yet.
+            return 0;
+        }
         // Get ssl_session_st pointer
         u64 ssl_session_st_addr;
-        ssl_session_st_addr = get_session_addr(ssl_st_ptr, s3_address, ssl_hs_st_ptr);
+        ssl_session_st_addr = get_session_addr(ssl_st_ptr, s3_address, ssl_hs_st_addr);
         if (ssl_session_st_addr == 0) {
-            debug_bpf_printk("ssl_session_st_addr is null\n");
+//            debug_bpf_printk("ssl_session_st_addr is null\n");
             return 0;
         }
         debug_bpf_printk("s3_address:%llx, ssl_session_st_addr addr :%llx\n",
