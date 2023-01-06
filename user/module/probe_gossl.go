@@ -32,6 +32,7 @@ type GoSSLProbe struct {
 
 func (this *GoSSLProbe) Init(ctx context.Context, l *log.Logger, cfg config.IConfig) error {
 	this.Module.Init(ctx, l, cfg)
+	this.conf = cfg
 	this.Module.SetChild(this)
 
 	this.path = cfg.(*config.GoSSLConfig).Path
