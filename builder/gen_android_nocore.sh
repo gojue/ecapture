@@ -1,22 +1,19 @@
 #!/usr/bin/env bash
+# bash build/gen_android_nocore.sh 1.0.0
 SHELL_GH=gh
 
-sudo su
-cd ~ || exit
-
-# 发布Android nocore版本自用脚本。 ubnutu 22.04 ARM
+# 发布Android nocore版本自用脚本。 ubnutu 20.04 ARM
 UNAME_M=`uname -m`
 OUTPUT_DIR="./bin"
 SNAPSHOT_VERSION=v${1}
+export PATH=/usr/local/go/bin:$PATH
 ANDROID=1 make nocore
 TAR_DIR=ecapture-android-${UNAME_M}_nocore-${SNAPSHOT_VERSION}
 
-# bash build/gen_android_nocore.sh 1.0.0
 # ecapture-v0.4.8-android-x86_64.tar.gz
 OUT_ARCHIVE=${OUTPUT_DIR}/ecapture-${SNAPSHOT_VERSION}-android-${UNAME_M}-nocore.tar.gz
 
 # add gobin into $PATH
-export PATH=/usr/local/go/bin:$PATH
 mkdir -p ${TAR_DIR}
 cp LICENSE ${TAR_DIR}/LICENSE
 cp CHANGELOG.md ${TAR_DIR}/CHANGELOG.md

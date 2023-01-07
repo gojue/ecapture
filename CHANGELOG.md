@@ -3,6 +3,9 @@
 # v0.4.11 (2023-01-07)
 
 ## What's Changed
+* builder: fix typos (#285) by @cfc4n in https://github.com/gojue/ecapture/pull/286
+* Tls 13 masterkey is taken wrong (fixes #283) by @cfc4n in https://github.com/gojue/ecapture/pull/284
+* fix(gossl): invalid memory address or nil pointer by @luckymrwang in https://github.com/gojue/ecapture/pull/288
 
 
 **Full Changelog**: https://github.com/gojue/ecapture/compare/v0.4.10...v0.4.11
