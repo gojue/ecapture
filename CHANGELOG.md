@@ -1,11 +1,23 @@
 <hr>
 
-# v0.4.10 (2022-12-11)
+# v0.4.11 (2023-01-07)
 
 ## What's Changed
 
 
-**Full Changelog**: https://github.com/ehids/ecapture/compare/v0.4.9...v0.4.10
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v0.4.10...v0.4.11
+
+<hr>
+
+# v0.4.10 (2022-12-11)
+
+## What's Changed
+* builder: add curl shell to install develop environment. by @cfc4n in https://github.com/gojue/ecapture/pull/272
+* docs : update minimal kernel version as 4.18 (#274) by @cfc4n in https://github.com/gojue/ecapture/pull/275
+* kern: capture https plaintext failed with boringssl TLS 1.3 on android #271 by @cfc4n in https://github.com/gojue/ecapture/pull/279
+
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v0.4.9...v0.4.10
 
 <hr>
 
