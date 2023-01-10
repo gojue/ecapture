@@ -14,9 +14,9 @@
 
 > **Note**
 >
-> Support Linux Kernel 4.18 or newer,Support Android Kernel 5.4 or newer.
->
-> Do not support Windows and macOS system.
+> Supports Linux kernel versions x86_64 4.18 and above, aarch64 5.2 and above.
+> Supports Android (Linux) kernel versions x86_64 4.18 and above, **aarch64 5.4** and above.
+> Does not support Windows and macOS system.
 ----
 
 #  How eCapture works
