@@ -13,7 +13,7 @@ jobs:
     steps:
       - uses: actions/setup-go@v3
         with:
-          go-version: '1.17.4'
+          go-version: '1.18.10'
       - name: Install Compilers
         run: |
           sudo apt-get update
@@ -68,7 +68,7 @@ jobs:
     steps:
       - uses: actions/setup-go@v3
         with:
-          go-version: '1.17.4'
+          go-version: '1.18.10'
       - name: Install Compilers
         run: |
           sudo apt-get update

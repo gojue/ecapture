@@ -1,6 +1,6 @@
 module ecapture
 
-go 1.17
+go 1.18
 
 require (
 	github.com/cilium/ebpf v0.9.0

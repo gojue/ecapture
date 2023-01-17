@@ -181,7 +181,7 @@ hook了`/bin/bash`的`readline`函数。
 > Android版本编译方法见 [eCapture旁观者：Android HTTPS明文抓包](https://mp.weixin.qq.com/s/KWm5d0uuzOzReRtr9PmuWQ)
 
 ## 工具链版本
-* golang 1.17
+* golang 1.18
 * clang 9.0
 * cmake 3.18.4
 * clang backend: llvm 9.0

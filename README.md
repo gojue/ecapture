@@ -165,7 +165,7 @@ hook `/bin/bash` symbol name `readline`.
 Linux Kernel: >= 4.18.
 
 ## Tools 
-* golang 1.17
+* golang 1.18
 * clang 9.0
 * cmake 3.18.4
 * clang backend: llvm 9.0
