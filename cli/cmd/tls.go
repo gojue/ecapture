@@ -38,7 +38,7 @@ var goc = config.NewGoSSLConfig()
 var opensslCmd = &cobra.Command{
 	Use:     "tls",
 	Aliases: []string{"openssl", "gnutls", "nss"},
-	Short:   "use to capture tls/ssl text content without CA cert. (Support Linux 4.18/Android 5.4)",
+	Short:   "use to capture tls/ssl text content without CA cert. (Support Linux(Android)  X86_64 4.18/aarch64 5.5 or newer).",
 	Long: `use eBPF uprobe/TC to capture process event data and network data.also support pcap-NG format.
 ecapture tls
 ecapture tls --hex --pid=3423

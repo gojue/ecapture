@@ -14,8 +14,7 @@
 
 > **Note**
 >
-> Supports Linux kernel versions x86_64 4.18 and above, aarch64 5.2 and above.
-> Supports Android (Linux) kernel versions x86_64 4.18 and above, **aarch64 5.4** and above.
+> Supports Linux/Android kernel versions x86_64 4.18 and above, **aarch64 5.5** and above.
 > Does not support Windows and macOS system.
 ----
 

@@ -6,6 +6,7 @@ import (
 	"ecapture/pkg/util/kernel"
 	_ "github.com/shuLhan/go-bindata" // add for bindata in Makefile
 	"log"
+	"runtime"
 )
 
 const (
@@ -24,8 +25,17 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if kv < kernel.VersionCode(4, 18, 0) {
-		log.Fatalf("Linux Kernel version %v is not supported. Need > 4.18 .", kv)
+	switch runtime.GOARCH {
+	case "amd64":
+		if kv < kernel.VersionCode(4, 18, 0) {
+			log.Fatalf("Linux/Android Kernel (x86_64) version %v is not supported. Need > 4.18 .", kv)
+		}
+	case "arm64":
+		if kv < kernel.VersionCode(5, 5, 0) {
+			log.Fatalf("Linux/Android Kernel (aarch64) version %v is not supported. Need > 5.5 .", kv)
+		}
+	default:
+		log.Fatalf("unsupported CPU arch:%v. ", runtime.GOARCH)
 	}
 
 	// 检测是否是容器
