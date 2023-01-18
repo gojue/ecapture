@@ -8,21 +8,30 @@ import (
 )
 
 type inner struct {
-	TimestampNS uint64     `json:"timestamp"`
-	Pid         uint32     `json:"pid"`
-	Tid         uint32     `json:"tid"`
-	Len         int32      `json:"Len"`
-	Comm        [16]byte   `json:"Comm"`
-	Data        [4096]byte `json:"data"`
+	TimestampNS uint64   `json:"timestamp"`
+	Pid         uint32   `json:"pid"`
+	Tid         uint32   `json:"tid"`
+	Len         int32    `json:"Len"`
+	Comm        [16]byte `json:"Comm"`
 }
 
 type GoSSLEvent struct {
 	inner
+	Data []byte `json:"data"`
 }
 
 func (e *GoSSLEvent) Decode(payload []byte) error {
 	r := bytes.NewBuffer(payload)
-	return binary.Read(r, binary.LittleEndian, &e.inner)
+	err := binary.Read(r, binary.LittleEndian, &e.inner)
+	if e != nil {
+		return err
+	}
+	if e.Len > 0 {
+		e.Data = make([]byte, e.Len)
+		err = binary.Read(r, binary.LittleEndian, &e.Data)
+	}
+
+	return err
 }
 
 func (e *GoSSLEvent) String() string {
