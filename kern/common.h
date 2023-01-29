@@ -49,10 +49,11 @@
 #ifndef KERNEL_LESS_5_2
 // alawyse, we used it in openssl_tc.h
 const volatile u64 target_port = 443;
-// Optional Target PID
+
+// Optional Target PID and UID
 const volatile u64 target_pid = 0;
 const volatile u64 target_uid = 0;
-const volatile int target_errno = BASH_ERRNO_DEFAULT;
+const volatile u64 target_errno = BASH_ERRNO_DEFAULT;
 #else
 #endif
 
