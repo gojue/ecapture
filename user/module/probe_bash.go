@@ -37,7 +37,7 @@ type MBashProbe struct {
 	eventMaps         []*ebpf.Map
 }
 
-//对象初始化
+// 对象初始化
 func (this *MBashProbe) Init(ctx context.Context, logger *log.Logger, conf config.IConfig) error {
 	this.Module.Init(ctx, logger, conf)
 	this.conf = conf
@@ -93,7 +93,7 @@ func (this *MBashProbe) Close() error {
 	return this.Module.Close()
 }
 
-//  通过elf的常量替换方式传递数据
+// 通过elf的常量替换方式传递数据
 func (this *MBashProbe) constantEditor() []manager.ConstantEditor {
 	var editor = []manager.ConstantEditor{
 		{
@@ -108,7 +108,7 @@ func (this *MBashProbe) constantEditor() []manager.ConstantEditor {
 		},
 		{
 			Name:  "target_errno",
-			Value: uint32(this.Module.conf.(*config.BashConfig).ErrNo),
+			Value: uint64(this.Module.conf.(*config.BashConfig).ErrNo),
 		},
 	}
 
