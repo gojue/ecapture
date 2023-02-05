@@ -20,7 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/cilium/ebpf"
-	manager "github.com/ehids/ebpfmanager"
+	manager "github.com/gojue/ebpfmanager"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcapgo"

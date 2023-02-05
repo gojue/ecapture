@@ -23,7 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/cilium/ebpf"
-	manager "github.com/ehids/ebpfmanager"
+	manager "github.com/gojue/ebpfmanager"
 	"golang.org/x/sys/unix"
 	"log"
 	"math"
