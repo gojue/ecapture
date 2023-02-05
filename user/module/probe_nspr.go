@@ -23,7 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/cilium/ebpf"
-	manager "github.com/ehids/ebpfmanager"
+	manager "github.com/gojue/ebpfmanager"
 	"golang.org/x/sys/unix"
 	"log"
 	"math"
@@ -38,7 +38,7 @@ type MNsprProbe struct {
 	eventMaps         []*ebpf.Map
 }
 
-//对象初始化
+// 对象初始化
 func (this *MNsprProbe) Init(ctx context.Context, logger *log.Logger, conf config.IConfig) error {
 	this.Module.Init(ctx, logger, conf)
 	this.conf = conf
@@ -97,7 +97,7 @@ func (this *MNsprProbe) Close() error {
 	return this.Module.Close()
 }
 
-//  通过elf的常量替换方式传递数据
+// 通过elf的常量替换方式传递数据
 func (this *MNsprProbe) constantEditor() []manager.ConstantEditor {
 	var editor = []manager.ConstantEditor{
 		{

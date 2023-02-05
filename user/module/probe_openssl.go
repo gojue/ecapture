@@ -25,7 +25,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/cilium/ebpf"
-	manager "github.com/ehids/ebpfmanager"
+	manager "github.com/gojue/ebpfmanager"
 	"github.com/google/gopacket/pcapgo"
 	"golang.org/x/sys/unix"
 	"log"

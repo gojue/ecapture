@@ -26,7 +26,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/cilium/ebpf"
-	manager "github.com/ehids/ebpfmanager"
+	manager "github.com/gojue/ebpfmanager"
 	"golang.org/x/sys/unix"
 	"log"
 	"math"
@@ -41,7 +41,7 @@ type MMysqldProbe struct {
 	eventMaps         []*ebpf.Map
 }
 
-//对象初始化
+// 对象初始化
 func (this *MMysqldProbe) Init(ctx context.Context, logger *log.Logger, conf config.IConfig) error {
 	this.Module.Init(ctx, logger, conf)
 	this.conf = conf
