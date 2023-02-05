@@ -173,17 +173,17 @@ hook了`/bin/bash`的`readline`函数。
 
 针对个别程序使用的openssl类库是静态编译，也可以自行修改源码实现。若函数名不在符号表里，也可以自行反编译找到函数的offset偏移地址，填写到`UprobeOffset`属性上，进行编译。
 笔者环境`ubuntu 21.04`， Linux Kernel 4.18以上通用。
-**推荐使用`UBUNTU 21.04`版本的Linux测试。**
+**推荐使用`UBUNTU 20.04` 及以上版本的Linux测试。**
 
 > **Note**
 > 
 > Android版本编译方法见 [eCapture旁观者：Android HTTPS明文抓包](https://mp.weixin.qq.com/s/KWm5d0uuzOzReRtr9PmuWQ)
 
 ## 工具链版本
-* golang 1.18
-* clang 9.0
-* cmake 3.18.4
-* clang backend: llvm 9.0
+* golang 1.18 以上
+* clang 9.0 以上
+* cmake 3.18.4 以上
+* clang backend: llvm 9.0 以上
 * kernel config:CONFIG_DEBUG_INFO_BTF=y (可选，2022-04-17增加)
 
 
