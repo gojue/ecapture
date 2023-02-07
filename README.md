@@ -63,7 +63,7 @@ directly.
 ### plaintext result
 
 `./ecapture tls` will capture all plaintext context ,output to console, and capture `Master Secret` of `openssl TLS`
-save to `ecapture_master.log`. You can also use `tcpdump` to capture raw packet,and use `Wireshark` to read them
+save to `ecapture_masterkey.log`. You can also use `tcpdump` to capture raw packet,and use `Wireshark` to read them
 with `Master Secret` settings.
 
 >
