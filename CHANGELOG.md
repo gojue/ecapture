@@ -3,7 +3,12 @@
 # v0.4.12 (2023-02-10)
 
 ## What's Changed
-
+* pkg: get GoVersion by `buildinfo` package from ELF (by golang compiled)  (#262) by @cfc4n in https://github.com/gojue/ecapture/pull/295
+* docs: fixes supported kernel version on arm64(aarch64).  (#296) by @cfc4n in https://github.com/gojue/ecapture/pull/298
+* user: fixes slice bounds out of range bug (#297) by @cfc4n in https://github.com/gojue/ecapture/pull/299
+* kern: fixes constant value of type uint64. (#301) by @cfc4n in https://github.com/gojue/ecapture/pull/302
+* package: update gojue/ebpfmanager to v0.4.1  by @cfc4n in https://github.com/gojue/ecapture/pull/305
+* docs: update README.md by @onism68 in https://github.com/gojue/ecapture/pull/306
 
 
 **Full Changelog**: https://github.com/gojue/ecapture/compare/v0.4.11...v0.4.12
