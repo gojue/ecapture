@@ -112,7 +112,7 @@ func (this *MPostgresProbe) setupManagers() error {
 
 	probes := []*manager.Probe{
 		{
-			Section:          "uprobe/exec_simple_qurey",
+			Section:          "uprobe/exec_simple_query",
 			EbpfFuncName:     "postgres_query",
 			AttachToFuncName: attachFunc,
 			BinaryPath:       binaryPath,
