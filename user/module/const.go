@@ -45,3 +45,7 @@ const (
 	// 2022-12-16 改为 SSL_in_init
 	MasterKeyHookFuncBoringSSL = "SSL_in_init"
 )
+
+// buffer size times of ebpf perf map
+// buffer size = BufferSizeOfEbpfMap * os.pagesize
+const BufferSizeOfEbpfMap = 1024
