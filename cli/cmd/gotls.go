@@ -45,7 +45,7 @@ ecapture gotls -w save_android.pcapng -i wlan0 --port 443 --gobin=/home/cfc4n/go
 }
 
 func init() {
-	gotlsCmd.PersistentFlags().StringVar(&goc.Path, "elfpath", "e", "ELF path to binary built with Go toolchain.")
+	gotlsCmd.PersistentFlags().StringVarP(&goc.Path, "elfpath", "e", "", "ELF path to binary built with Go toolchain.")
 	gotlsCmd.PersistentFlags().StringVarP(&goc.Write, "write", "w", "", "write the  raw packets to file as pcapng format.")
 	gotlsCmd.PersistentFlags().StringVarP(&goc.Ifname, "ifname", "i", "", "(TC Classifier) Interface name on which the probe will be attached.")
 	gotlsCmd.PersistentFlags().Uint16Var(&goc.Port, "port", 443, "port number to capture, default:443.")
