@@ -10,18 +10,18 @@ var (
 	ErrorGoBINNotSET = errors.New("GO binary not set")
 )
 
-// GoSSLConfig represents configuration for Go SSL probe
-type GoSSLConfig struct {
+// GoTLSConfig represents configuration for Go SSL probe
+type GoTLSConfig struct {
 	eConfig
 	Path string
 }
 
-// NewGoSSLConfig creates a new config for Go SSL
-func NewGoSSLConfig() *GoSSLConfig {
-	return &GoSSLConfig{}
+// NewGoTLSConfig creates a new config for Go SSL
+func NewGoTLSConfig() *GoTLSConfig {
+	return &GoTLSConfig{}
 }
 
-func (c *GoSSLConfig) Check() error {
+func (c *GoTLSConfig) Check() error {
 	if c.Path == "" {
 		return ErrorGoBINNotSET
 	}

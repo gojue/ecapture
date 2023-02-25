@@ -15,12 +15,12 @@ type inner struct {
 	Comm        [16]byte `json:"Comm"`
 }
 
-type GoSSLEvent struct {
+type GoTLSEvent struct {
 	inner
 	Data []byte `json:"data"`
 }
 
-func (e *GoSSLEvent) Decode(payload []byte) error {
+func (e *GoTLSEvent) Decode(payload []byte) error {
 	r := bytes.NewBuffer(payload)
 	err := binary.Read(r, binary.LittleEndian, &e.inner)
 	if e != nil {
@@ -34,12 +34,12 @@ func (e *GoSSLEvent) Decode(payload []byte) error {
 	return err
 }
 
-func (e *GoSSLEvent) String() string {
+func (e *GoTLSEvent) String() string {
 	s := fmt.Sprintf("PID: %d, Comm: %s, TID: %d, Payload: %s\n", e.Pid, string(e.Comm[:]), e.Tid, string(e.Data[:e.Len]))
 	return s
 }
 
-func (e *GoSSLEvent) StringHex() string {
+func (e *GoTLSEvent) StringHex() string {
 	perfix := COLORGREEN
 	b := dumpByteSlice(e.Data[:e.Len], perfix)
 	b.WriteString(COLORRESET)
@@ -47,22 +47,22 @@ func (e *GoSSLEvent) StringHex() string {
 	return s
 }
 
-func (e *GoSSLEvent) Clone() IEventStruct {
-	return &GoSSLEvent{}
+func (e *GoTLSEvent) Clone() IEventStruct {
+	return &GoTLSEvent{}
 }
 
-func (e *GoSSLEvent) EventType() EventType {
+func (e *GoTLSEvent) EventType() EventType {
 	return EventTypeOutput
 }
 
-func (this *GoSSLEvent) GetUUID() string {
+func (this *GoTLSEvent) GetUUID() string {
 	return fmt.Sprintf("%d_%d_%s", this.Pid, this.Tid, this.Comm)
 }
 
-func (this *GoSSLEvent) Payload() []byte {
+func (this *GoTLSEvent) Payload() []byte {
 	return this.Data[:this.Len]
 }
 
-func (this *GoSSLEvent) PayloadLen() int {
+func (this *GoTLSEvent) PayloadLen() int {
 	return int(this.Len)
 }

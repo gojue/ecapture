@@ -17,12 +17,12 @@ import (
 )
 
 func init() {
-	mod := &GoSSLProbe{}
+	mod := &GoTLSProbe{}
 	Register(mod)
 }
 
-// GoSSLProbe represents a probe for Go SSL
-type GoSSLProbe struct {
+// GoTLSProbe represents a probe for Go SSL
+type GoTLSProbe struct {
 	Module
 
 	mngr          *manager.Manager
@@ -30,12 +30,12 @@ type GoSSLProbe struct {
 	isRegisterABI bool
 }
 
-func (this *GoSSLProbe) Init(ctx context.Context, l *log.Logger, cfg config.IConfig) error {
+func (this *GoTLSProbe) Init(ctx context.Context, l *log.Logger, cfg config.IConfig) error {
 	this.Module.Init(ctx, l, cfg)
 	this.conf = cfg
 	this.Module.SetChild(this)
 
-	this.path = cfg.(*config.GoSSLConfig).Path
+	this.path = cfg.(*config.GoTLSConfig).Path
 	ver, err := proc.ExtraceGoVersion(this.path)
 	if err != nil {
 		return err
@@ -47,11 +47,11 @@ func (this *GoSSLProbe) Init(ctx context.Context, l *log.Logger, cfg config.ICon
 	return nil
 }
 
-func (this *GoSSLProbe) Name() string {
-	return MODULE_NAME_GOSSL
+func (this *GoTLSProbe) Name() string {
+	return MODULE_NAME_GOTLS
 }
 
-func (this *GoSSLProbe) Start() error {
+func (this *GoTLSProbe) Start() error {
 	var (
 		sec string
 		fn  string
@@ -81,7 +81,7 @@ func (this *GoSSLProbe) Start() error {
 		},
 	}
 
-	var bpfFileName = this.geteBPFName("user/bytecode/gossl_kern.o")
+	var bpfFileName = this.geteBPFName("user/bytecode/gotls_kern.o")
 	this.logger.Printf("%s\tBPF bytecode filename:%s\n", this.Name(), bpfFileName)
 	byteBuf, err := assets.Asset(bpfFileName)
 	if err != nil {
@@ -101,7 +101,7 @@ func (this *GoSSLProbe) Start() error {
 	return this.mngr.Start()
 }
 
-func (this *GoSSLProbe) Events() []*ebpf.Map {
+func (this *GoTLSProbe) Events() []*ebpf.Map {
 	var maps []*ebpf.Map
 
 	m, ok, err := this.mngr.GetMap("events")
@@ -113,10 +113,10 @@ func (this *GoSSLProbe) Events() []*ebpf.Map {
 	return maps
 }
 
-func (this *GoSSLProbe) DecodeFun(m *ebpf.Map) (event.IEventStruct, bool) {
-	return &event.GoSSLEvent{}, true
+func (this *GoTLSProbe) DecodeFun(m *ebpf.Map) (event.IEventStruct, bool) {
+	return &event.GoTLSEvent{}, true
 }
 
-func (this *GoSSLProbe) Close() error {
+func (this *GoTLSProbe) Close() error {
 	return this.Module.Close()
 }
