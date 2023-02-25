@@ -13,7 +13,10 @@ var (
 // GoTLSConfig represents configuration for Go SSL probe
 type GoTLSConfig struct {
 	eConfig
-	Path string
+	Path   string `json:"path"`   // path to binary built with Go toolchain.
+	Write  string `json:"write"`  // Write  the  raw  packets  to file rather than parsing and printing them out.
+	Ifname string `json:"ifName"` // (TC Classifier) Interface name on which the probe will be attached.
+	Port   uint16 `json:"port"`   // capture port
 }
 
 // NewGoTLSConfig creates a new config for Go SSL
