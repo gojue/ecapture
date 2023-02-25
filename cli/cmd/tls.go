@@ -32,7 +32,7 @@ import (
 var oc = config.NewOpensslConfig()
 var gc = config.NewGnutlsConfig()
 var nc = config.NewNsprConfig()
-var goc = config.NewGoSSLConfig()
+var goc = config.NewGoTLSConfig()
 
 // opensslCmd represents the openssl command
 var opensslCmd = &cobra.Command{
@@ -97,7 +97,7 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 	if config.ELF_ARCH_ISANDROID {
 		modNames = []string{module.MODULE_NAME_OPENSSL}
 	} else {
-		modNames = []string{module.MODULE_NAME_OPENSSL, module.MODULE_NAME_GNUTLS, module.MODULE_NAME_NSPR, module.MODULE_NAME_GOSSL}
+		modNames = []string{module.MODULE_NAME_OPENSSL, module.MODULE_NAME_GNUTLS, module.MODULE_NAME_NSPR, module.MODULE_NAME_GOTLS}
 	}
 
 	var runMods uint8
@@ -119,7 +119,7 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 			conf = gc
 		case module.MODULE_NAME_NSPR:
 			conf = nc
-		case module.MODULE_NAME_GOSSL:
+		case module.MODULE_NAME_GOTLS:
 			conf = goc
 		default:
 		}
