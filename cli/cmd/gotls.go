@@ -37,9 +37,9 @@ var gotlsCmd = &cobra.Command{
 	Short:   "capture golang tls/https text content without CA cert for ELF compile by Golang toolchain",
 	Long: `use eBPF uprobe/TC to capture process event data and network data. also support pcap-NG format.
 ecapture gotls
-ecapture gotls --gobin=/home/cfc4n/go-https_client --hex --pid=3423
-ecapture gotls --gobin=/home/cfc4n/go-https_client -l save.log --pid=3423
-ecapture gotls -w save_android.pcapng -i wlan0 --port 443 --gobin=/home/cfc4n/go-https_client
+ecapture gotls --gobin=/home/cfc4n/go_https_client --hex --pid=3423
+ecapture gotls --gobin=/home/cfc4n/go_https_client -l save.log --pid=3423
+ecapture gotls -w save_android.pcapng -i wlan0 --port 443 --gobin=/home/cfc4n/go_https_client
 `,
 	Run: goTLSCommandFunc,
 }
@@ -56,7 +56,6 @@ func init() {
 func goTLSCommandFunc(command *cobra.Command, args []string) {
 	stopper := make(chan os.Signal, 1)
 	signal.Notify(stopper, os.Interrupt, syscall.SIGTERM)
-	ctx, cancelFun := context.WithCancel(context.TODO())
 
 	logger := log.New(os.Stdout, "tls_", log.LstdFlags)
 
@@ -108,31 +107,27 @@ func goTLSCommandFunc(command *cobra.Command, args []string) {
 		}
 
 		logger.Printf("%s\tmodule initialization failed. [skip it]. error:%+v", mod.Name(), err)
-		cancelFun()
 		return
 	}
 
 	logger.Printf("%s\tmodule initialization", mod.Name())
 
 	//初始化
-	err = mod.Init(ctx, logger, conf)
+	err = mod.Init(context.TODO(), logger, conf)
 	if err != nil {
 		logger.Printf("%s\tmodule initialization failed, [skip it]. error:%+v", mod.Name(), err)
-		cancelFun()
 		return
 	}
 
 	err = mod.Run()
 	if err != nil {
 		logger.Printf("%s\tmodule run failed, [skip it]. error:%+v", mod.Name(), err)
-		cancelFun()
 		return
 	}
 
 	logger.Printf("%s\tmodule started successfully.", mod.Name())
 
 	<-stopper
-	cancelFun()
 
 	// clean up
 	err = mod.Close()
