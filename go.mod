@@ -10,7 +10,7 @@ require (
 	github.com/spf13/cobra v1.4.0
 	github.com/spf13/pflag v1.0.5
 	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa
-	golang.org/x/sys v0.2.0
+	golang.org/x/sys v0.5.0
 )
 
 require (
@@ -26,7 +26,7 @@ require (
 	github.com/stretchr/testify v1.7.0 // indirect
 	github.com/vishvananda/netlink v1.1.0 // indirect
 	github.com/vishvananda/netns v0.0.0-20210104183010-2eb08e3e575f // indirect
-	golang.org/x/net v0.0.0-20211112202133-69e39bad7dc2 // indirect
+	golang.org/x/net v0.7.0 // indirect
 )
 
 replace github.com/google/gopacket v1.1.19 => github.com/cfc4n/gopacket v1.1.20
