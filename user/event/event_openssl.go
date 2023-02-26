@@ -24,22 +24,22 @@ import (
 type AttachType int64
 
 const (
-	PROBE_ENTRY AttachType = iota
-	PROBE_RET
+	ProbeEntry AttachType = iota
+	ProbeRet
 )
 
-const MAX_DATA_SIZE = 1024 * 4
-const SA_DATA_LEN = 14
+const MaxDataSize = 1024 * 4
+const SaDataLen = 14
 
 const (
-	SSL2_VERSION    = 0x0002
-	SSL3_VERSION    = 0x0300
-	TLS1_VERSION    = 0x0301
-	TLS1_1_VERSION  = 0x0302
-	TLS1_2_VERSION  = 0x0303
-	TLS1_3_VERSION  = 0x0304
-	DTLS1_VERSION   = 0xFEFF
-	DTLS1_2_VERSION = 0xFEFD
+	Ssl2Version   = 0x0002
+	Ssl3Version   = 0x0300
+	Tls1Version   = 0x0301
+	Tls11Version  = 0x0302
+	Tls12Version  = 0x0303
+	Tls13Version  = 0x0304
+	Dtls1Version  = 0xFEFF
+	Dtls12Version = 0xFEFD
 )
 
 type TlsVersion struct {
@@ -48,21 +48,21 @@ type TlsVersion struct {
 
 func (t TlsVersion) String() string {
 	switch t.Version {
-	case SSL2_VERSION:
+	case Ssl2Version:
 		return "SSL2_VERSION"
-	case SSL3_VERSION:
+	case Ssl3Version:
 		return "SSL3_VERSION"
-	case TLS1_VERSION:
+	case Tls1Version:
 		return "TLS1_VERSION"
-	case TLS1_1_VERSION:
+	case Tls11Version:
 		return "TLS1_1_VERSION"
-	case TLS1_2_VERSION:
+	case Tls12Version:
 		return "TLS1_2_VERSION"
-	case TLS1_3_VERSION:
+	case Tls13Version:
 		return "TLS1_3_VERSION"
-	case DTLS1_VERSION:
+	case Dtls1Version:
 		return "DTLS1_VERSION"
-	case DTLS1_2_VERSION:
+	case Dtls12Version:
 		return "DTLS1_2_VERSION"
 	}
 	return fmt.Sprintf("TLS_VERSION_UNKNOW_%d", t.Version)
@@ -70,15 +70,15 @@ func (t TlsVersion) String() string {
 
 type SSLDataEvent struct {
 	event_type EventType
-	DataType   int64               `json:"dataType"`
-	Timestamp  uint64              `json:"timestamp"`
-	Pid        uint32              `json:"pid"`
-	Tid        uint32              `json:"tid"`
-	Data       [MAX_DATA_SIZE]byte `json:"data"`
-	DataLen    int32               `json:"dataLen"`
-	Comm       [16]byte            `json:"Comm"`
-	Fd         uint32              `json:"fd"`
-	Version    int32               `json:"version"`
+	DataType   int64             `json:"dataType"`
+	Timestamp  uint64            `json:"timestamp"`
+	Pid        uint32            `json:"pid"`
+	Tid        uint32            `json:"tid"`
+	Data       [MaxDataSize]byte `json:"data"`
+	DataLen    int32             `json:"dataLen"`
+	Comm       [16]byte          `json:"Comm"`
+	Fd         uint32            `json:"fd"`
+	Version    int32             `json:"version"`
 }
 
 func (this *SSLDataEvent) Decode(payload []byte) (err error) {
@@ -131,10 +131,10 @@ func (this *SSLDataEvent) StringHex() string {
 	addr := "[TODO]"
 	var perfix, connInfo string
 	switch AttachType(this.DataType) {
-	case PROBE_ENTRY:
+	case ProbeEntry:
 		connInfo = fmt.Sprintf("%sRecived %d%s bytes from %s%s%s", COLORGREEN, this.DataLen, COLORRESET, COLORYELLOW, addr, COLORRESET)
 		perfix = COLORGREEN
-	case PROBE_RET:
+	case ProbeRet:
 		connInfo = fmt.Sprintf("%sSend %d%s bytes to %s%s%s", COLORPURPLE, this.DataLen, COLORRESET, COLORYELLOW, addr, COLORRESET)
 		perfix = fmt.Sprintf("%s\t", COLORPURPLE)
 	default:
@@ -154,10 +154,10 @@ func (this *SSLDataEvent) String() string {
 	addr := "[TODO]"
 	var perfix, connInfo string
 	switch AttachType(this.DataType) {
-	case PROBE_ENTRY:
+	case ProbeEntry:
 		connInfo = fmt.Sprintf("%sRecived %d%s bytes from %s%s%s", COLORGREEN, this.DataLen, COLORRESET, COLORYELLOW, addr, COLORRESET)
 		perfix = COLORGREEN
-	case PROBE_RET:
+	case ProbeRet:
 		connInfo = fmt.Sprintf("%sSend %d%s bytes to %s%s%s", COLORPURPLE, this.DataLen, COLORRESET, COLORYELLOW, addr, COLORRESET)
 		perfix = COLORPURPLE
 	default:
@@ -189,13 +189,13 @@ uint64_t timestamp_ns;
 */
 type ConnDataEvent struct {
 	event_type  EventType
-	TimestampNs uint64            `json:"timestampNs"`
-	Pid         uint32            `json:"pid"`
-	Tid         uint32            `json:"tid"`
-	Fd          uint32            `json:"fd"`
-	SaData      [SA_DATA_LEN]byte `json:"saData"`
-	Comm        [16]byte          `json:"Comm"`
-	Addr        string            `json:"addr"`
+	TimestampNs uint64          `json:"timestampNs"`
+	Pid         uint32          `json:"pid"`
+	Tid         uint32          `json:"tid"`
+	Fd          uint32          `json:"fd"`
+	SaData      [SaDataLen]byte `json:"saData"`
+	Comm        [16]byte        `json:"Comm"`
+	Addr        string          `json:"addr"`
 }
 
 func (this *ConnDataEvent) Decode(payload []byte) (err error) {

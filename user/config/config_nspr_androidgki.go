@@ -22,7 +22,7 @@ import (
 	"strings"
 )
 
-const DEFAULT_NSPR_NSS_PATH = "/apex/com.android.conscrypt/lib64/libnspr4.so"
+const DefaultNsprNssPath = "/apex/com.android.conscrypt/lib64/libnspr4.so"
 
 func (this *NsprConfig) Check() error {
 
@@ -32,12 +32,12 @@ func (this *NsprConfig) Check() error {
 		if e != nil {
 			return e
 		}
-		this.ElfType = ELF_TYPE_SO
+		this.ElfType = ElfTypeSo
 		return nil
 	}
 
-	this.Nsprpath = DEFAULT_NSPR_NSS_PATH
-	this.ElfType = ELF_TYPE_SO
+	this.Nsprpath = DefaultNsprNssPath
+	this.ElfType = ElfTypeSo
 
 	return nil
 }

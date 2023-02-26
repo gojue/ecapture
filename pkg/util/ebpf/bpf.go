@@ -73,7 +73,7 @@ func charsToString(ca [65]byte) string {
 // for vmlinux ELFs.
 
 func checkKernelBTF() (bool, error) {
-	_, err := os.Stat(SYS_KERNEL_BTF_VMLINUX)
+	_, err := os.Stat(SysKernelBtfVmlinux)
 
 	// if exist ,return true
 	if err == nil {
@@ -114,7 +114,7 @@ func IsEnableBTF() (bool, error) {
 		return false, e
 	}
 
-	bc, found := KernelConfig[CONFIG_DEBUG_INFO_BTF]
+	bc, found := KernelConfig[ConfigDebugInfoBtf]
 	if !found {
 		// 没有这个配置项
 		return false, nil

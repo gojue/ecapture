@@ -27,24 +27,24 @@ import (
 	"strings"
 )
 
-type MYSQLD_TYPE uint8
+type MysqldType uint8
 
 const (
-	MYSQLD_TYPE_UNKNOW MYSQLD_TYPE = iota
-	MYSQLD_TYPE_56
-	MYSQLD_TYPE_57
-	MYSQLD_TYPE_80
+	MysqldTypeUnknow MysqldType = iota
+	MysqldType56
+	MysqldType57
+	MysqldType80
 )
 
 // 最终使用mysqld参数
 type MysqldConfig struct {
 	eConfig
-	Mysqldpath  string      `json:"mysqldPath"` //curl的文件路径
-	FuncName    string      `json:"funcName"`
-	Offset      uint64      `json:"offset"`
-	ElfType     uint8       //
-	Version     MYSQLD_TYPE //
-	VersionInfo string      // info
+	Mysqldpath  string     `json:"mysqldPath"` //curl的文件路径
+	FuncName    string     `json:"funcName"`
+	Offset      uint64     `json:"offset"`
+	ElfType     uint8      //
+	Version     MysqldType //
+	VersionInfo string     // info
 }
 
 func NewMysqldConfig() *MysqldConfig {
@@ -63,7 +63,7 @@ func (this *MysqldConfig) Check() error {
 	if e != nil {
 		return e
 	}
-	this.ElfType = ELF_TYPE_BIN
+	this.ElfType = ElfTypeBin
 
 	//如果配置 funcname ，则使用用户指定的函数名
 	if this.FuncName != "" || len(strings.TrimSpace(this.FuncName)) > 0 {
@@ -106,7 +106,7 @@ func (this *MysqldConfig) Check() error {
 		return errors.New(fmt.Sprintf("cant match mysql query function to hook with mysqld file::%s", this.Mysqldpath))
 	}
 
-	this.Version = MYSQLD_TYPE_56
+	this.Version = MysqldType56
 	this.VersionInfo = "mysqld-5.6"
 
 	// 判断mysqld 版本
@@ -115,7 +115,7 @@ func (this *MysqldConfig) Check() error {
 		roSection := _elf.Section(".rodata")
 		var buf []byte
 		buf, e = roSection.Data()
-		var ver MYSQLD_TYPE
+		var ver MysqldType
 		var verInfo string
 		if e == nil {
 			ver, verInfo = getMysqlVer(buf)
@@ -129,12 +129,12 @@ func (this *MysqldConfig) Check() error {
 	return nil
 }
 
-func getMysqlVer(buf []byte) (MYSQLD_TYPE, string) {
+func getMysqlVer(buf []byte) (MysqldType, string) {
 
 	var slice [][]byte
 
 	if slice = bytes.Split(buf, []byte("\x00")); slice == nil {
-		return MYSQLD_TYPE_UNKNOW, ""
+		return MysqldTypeUnknow, ""
 	}
 
 	length := len(slice)
@@ -155,11 +155,11 @@ func getMysqlVer(buf []byte) (MYSQLD_TYPE, string) {
 		mysqldVer := string(slice[i])
 		if strings.Contains(mysqldVer, "mysqld-8.") {
 			//fmt.Println(fmt.Sprintf("offset:%d, body:%s", offset, slice[i]))
-			return MYSQLD_TYPE_80, mysqldVer
+			return MysqldType80, mysqldVer
 		} else if strings.Contains(mysqldVer, "mysqld-5.7") {
-			return MYSQLD_TYPE_57, mysqldVer
+			return MysqldType57, mysqldVer
 		}
 		offset += len(slice[i]) + 1
 	}
-	return MYSQLD_TYPE_UNKNOW, ""
+	return MysqldTypeUnknow, ""
 }

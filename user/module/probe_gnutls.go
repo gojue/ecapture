@@ -118,9 +118,9 @@ func (this *MGnutlsProbe) constantEditor() []manager.ConstantEditor {
 func (this *MGnutlsProbe) setupManagers() error {
 	var binaryPath string
 	switch this.conf.(*config.GnutlsConfig).ElfType {
-	case config.ELF_TYPE_BIN:
+	case config.ElfTypeBin:
 		binaryPath = this.conf.(*config.GnutlsConfig).Curlpath
-	case config.ELF_TYPE_SO:
+	case config.ElfTypeSo:
 		binaryPath = this.conf.(*config.GnutlsConfig).Gnutls
 	default:
 		//如果没找到
@@ -217,7 +217,7 @@ func (this *MGnutlsProbe) Events() []*ebpf.Map {
 
 func init() {
 	mod := &MGnutlsProbe{}
-	mod.name = MODULE_NAME_GNUTLS
-	mod.mType = PROBE_TYPE_UPROBE
+	mod.name = ModuleNameGnutls
+	mod.mType = ProbeTypeUprobe
 	Register(mod)
 }

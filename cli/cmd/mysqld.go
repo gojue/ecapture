@@ -54,7 +54,7 @@ func mysqldCommandFunc(command *cobra.Command, args []string) {
 	signal.Notify(stopper, os.Interrupt, syscall.SIGTERM)
 	ctx, cancelFun := context.WithCancel(context.TODO())
 
-	mod := module.GetModuleByName(module.MODULE_NAME_MYSQLD)
+	mod := module.GetModuleByName(module.ModuleNameMysqld)
 
 	logger := log.New(os.Stdout, "mysqld_", log.LstdFlags)
 	logger.Printf("ECAPTURE :: version :%s", GitVersion)

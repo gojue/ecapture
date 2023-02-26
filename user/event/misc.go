@@ -21,8 +21,8 @@ import (
 
 // 格式化输出相关
 
-const CHUNK_SIZE = 16
-const CHUNK_SIZE_HALF = CHUNK_SIZE / 2
+const ChunkSize = 16
+const ChunkSizeHalf = ChunkSize / 2
 
 const (
 	COLORRESET  = "\033[0m"
@@ -36,22 +36,22 @@ const (
 )
 
 func dumpByteSlice(b []byte, perfix string) *bytes.Buffer {
-	var a [CHUNK_SIZE]byte
+	var a [ChunkSize]byte
 	bb := new(bytes.Buffer)
-	n := (len(b) + (CHUNK_SIZE - 1)) &^ (CHUNK_SIZE - 1)
+	n := (len(b) + (ChunkSize - 1)) &^ (ChunkSize - 1)
 
 	for i := 0; i < n; i++ {
 
 		// 序号列
-		if i%CHUNK_SIZE == 0 {
+		if i%ChunkSize == 0 {
 			bb.WriteString(perfix)
 			bb.WriteString(fmt.Sprintf("%04d", i))
 		}
 
 		// 长度的一半，则输出4个空格
-		if i%CHUNK_SIZE_HALF == 0 {
+		if i%ChunkSizeHalf == 0 {
 			bb.WriteString("    ")
-		} else if i%(CHUNK_SIZE_HALF/2) == 0 {
+		} else if i%(ChunkSizeHalf/2) == 0 {
 			bb.WriteString("  ")
 		}
 
@@ -63,15 +63,15 @@ func dumpByteSlice(b []byte, perfix string) *bytes.Buffer {
 
 		// 非ASCII 改为 .
 		if i >= len(b) {
-			a[i%CHUNK_SIZE] = ' '
+			a[i%ChunkSize] = ' '
 		} else if b[i] < 32 || b[i] > 126 {
-			a[i%CHUNK_SIZE] = '.'
+			a[i%ChunkSize] = '.'
 		} else {
-			a[i%CHUNK_SIZE] = b[i]
+			a[i%ChunkSize] = b[i]
 		}
 
 		// 如果到达size长度，则换行
-		if i%CHUNK_SIZE == (CHUNK_SIZE - 1) {
+		if i%ChunkSize == (ChunkSize - 1) {
 			bb.WriteString(fmt.Sprintf("    %s\n", string(a[:])))
 		}
 	}

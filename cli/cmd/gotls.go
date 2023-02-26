@@ -78,9 +78,9 @@ func goTLSCommandFunc(command *cobra.Command, args []string) {
 	version, err = kernel.HostVersion()
 	logger.Printf("ECAPTURE :: Kernel Info : %s", version.String())
 
-	mod := module.GetModuleByName(module.MODULE_NAME_GOTLS)
+	mod := module.GetModuleByName(module.ModuleNameGotls)
 	if mod == nil {
-		logger.Printf("ECAPTURE :: \tcant found module: %s", module.MODULE_NAME_GOTLS)
+		logger.Printf("ECAPTURE :: \tcant found module: %s", module.ModuleNameGotls)
 		return
 	}
 

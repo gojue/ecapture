@@ -24,27 +24,27 @@ import (
 type AttachType int64
 
 const (
-	PROBE_ENTRY AttachType = iota
-	PROBE_RET
+	ProbeEntry AttachType = iota
+	ProbeRet
 )
 
 // 格式化输出相关
 
-const CHUNK_SIZE = 16
-const CHUNK_SIZE_HALF = CHUNK_SIZE / 2
+const ChunkSize = 16
+const ChunkSizeHalf = ChunkSize / 2
 
-const MAX_DATA_SIZE = 1024 * 4
-const SA_DATA_LEN = 14
+const MaxDataSize = 1024 * 4
+const SaDataLen = 14
 
 const (
-	SSL2_VERSION    = 0x0002
-	SSL3_VERSION    = 0x0300
-	TLS1_VERSION    = 0x0301
-	TLS1_1_VERSION  = 0x0302
-	TLS1_2_VERSION  = 0x0303
-	TLS1_3_VERSION  = 0x0304
-	DTLS1_VERSION   = 0xFEFF
-	DTLS1_2_VERSION = 0xFEFD
+	Ssl2Version   = 0x0002
+	Ssl3Version   = 0x0300
+	Tls1Version   = 0x0301
+	Tls11Version  = 0x0302
+	Tls12Version  = 0x0303
+	Tls13Version  = 0x0304
+	Dtls1Version  = 0xFEFF
+	Dtls12Version = 0xFEFD
 )
 
 type tls_version struct {
@@ -53,21 +53,21 @@ type tls_version struct {
 
 func (t tls_version) String() string {
 	switch t.version {
-	case SSL2_VERSION:
+	case Ssl2Version:
 		return "SSL2_VERSION"
-	case SSL3_VERSION:
+	case Ssl3Version:
 		return "SSL3_VERSION"
-	case TLS1_VERSION:
+	case Tls1Version:
 		return "TLS1_VERSION"
-	case TLS1_1_VERSION:
+	case Tls11Version:
 		return "TLS1_1_VERSION"
-	case TLS1_2_VERSION:
+	case Tls12Version:
 		return "TLS1_2_VERSION"
-	case TLS1_3_VERSION:
+	case Tls13Version:
 		return "TLS1_3_VERSION"
-	case DTLS1_VERSION:
+	case Dtls1Version:
 		return "DTLS1_VERSION"
-	case DTLS1_2_VERSION:
+	case Dtls12Version:
 		return "DTLS1_2_VERSION"
 	}
 	return fmt.Sprintf("TLS_VERSION_UNKNOW_%d", t.version)
@@ -79,7 +79,7 @@ type BaseEvent struct {
 	Timestamp  uint64
 	Pid        uint32
 	Tid        uint32
-	Data       [MAX_DATA_SIZE]byte
+	Data       [MaxDataSize]byte
 	Data_len   int32
 	Comm       [16]byte
 	Fd         uint32
@@ -135,9 +135,9 @@ func (this *BaseEvent) StringHex() string {
 
 	var perfix, connInfo string
 	switch AttachType(this.DataType) {
-	case PROBE_ENTRY:
+	case ProbeEntry:
 		connInfo = fmt.Sprintf("Recived %d bytes", this.Data_len)
-	case PROBE_RET:
+	case ProbeRet:
 		connInfo = fmt.Sprintf("Send %d bytes", this.Data_len)
 	default:
 		perfix = fmt.Sprintf("UNKNOW_%d", this.DataType)
@@ -154,9 +154,9 @@ func (this *BaseEvent) String() string {
 
 	var connInfo string
 	switch AttachType(this.DataType) {
-	case PROBE_ENTRY:
+	case ProbeEntry:
 		connInfo = fmt.Sprintf("Recived %dbytes", this.Data_len)
-	case PROBE_RET:
+	case ProbeRet:
 		connInfo = fmt.Sprintf("Send %d bytes", this.Data_len)
 	default:
 		connInfo = fmt.Sprintf("UNKNOW_%d", this.DataType)
@@ -188,22 +188,22 @@ func CToGoString(c []byte) string {
 }
 
 func dumpByteSlice(b []byte, perfix string) *bytes.Buffer {
-	var a [CHUNK_SIZE]byte
+	var a [ChunkSize]byte
 	bb := new(bytes.Buffer)
-	n := (len(b) + (CHUNK_SIZE - 1)) &^ (CHUNK_SIZE - 1)
+	n := (len(b) + (ChunkSize - 1)) &^ (ChunkSize - 1)
 
 	for i := 0; i < n; i++ {
 
 		// 序号列
-		if i%CHUNK_SIZE == 0 {
+		if i%ChunkSize == 0 {
 			bb.WriteString(perfix)
 			bb.WriteString(fmt.Sprintf("%04d", i))
 		}
 
 		// 长度的一半，则输出4个空格
-		if i%CHUNK_SIZE_HALF == 0 {
+		if i%ChunkSizeHalf == 0 {
 			bb.WriteString("    ")
-		} else if i%(CHUNK_SIZE_HALF/2) == 0 {
+		} else if i%(ChunkSizeHalf/2) == 0 {
 			bb.WriteString("  ")
 		}
 
@@ -215,15 +215,15 @@ func dumpByteSlice(b []byte, perfix string) *bytes.Buffer {
 
 		// 非ASCII 改为 .
 		if i >= len(b) {
-			a[i%CHUNK_SIZE] = ' '
+			a[i%ChunkSize] = ' '
 		} else if b[i] < 32 || b[i] > 126 {
-			a[i%CHUNK_SIZE] = '.'
+			a[i%ChunkSize] = '.'
 		} else {
-			a[i%CHUNK_SIZE] = b[i]
+			a[i%ChunkSize] = b[i]
 		}
 
 		// 如果到达size长度，则换行
-		if i%CHUNK_SIZE == (CHUNK_SIZE - 1) {
+		if i%ChunkSize == (ChunkSize - 1) {
 			bb.WriteString(fmt.Sprintf("    %s\n", string(a[:])))
 		}
 	}

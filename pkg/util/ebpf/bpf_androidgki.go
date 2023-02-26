@@ -25,9 +25,9 @@ import (
 )
 
 const (
-	BOOT_CONFIG_PATH       = "/proc/config.gz"
-	CONFIG_DEBUG_INFO_BTF  = "CONFIG_DEBUG_INFO_BTF"
-	SYS_KERNEL_BTF_VMLINUX = "/sys/kernel/btf/vmlinux"
+	BootConfigPath      = "/proc/config.gz"
+	ConfigDebugInfoBtf  = "CONFIG_DEBUG_INFO_BTF"
+	SysKernelBtfVmlinux = "/sys/kernel/btf/vmlinux"
 )
 
 var (
@@ -40,7 +40,7 @@ var (
 )
 
 func GetSystemConfig() (map[string]string, error) {
-	return getAndroidConfig(BOOT_CONFIG_PATH)
+	return getAndroidConfig(BootConfigPath)
 }
 
 func getAndroidConfig(filename string) (map[string]string, error) {

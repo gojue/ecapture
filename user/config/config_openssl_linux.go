@@ -25,29 +25,29 @@ import (
 )
 
 const (
-	DEFAULT_IFNAME = "eth0"
+	DefaultIfname = "eth0"
 )
 
 func (this *OpensslConfig) checkOpenssl() error {
 	soPath, e := getDynPathByElf(this.Curlpath, "libssl.so")
 	if e != nil {
 		//this.logger.Printf("get bash:%s dynamic library error:%v.\n", bash, e)
-		_, e = os.Stat(X86_BINARY_PREFIX)
-		prefix := X86_BINARY_PREFIX
+		_, e = os.Stat(X86BinaryPrefix)
+		prefix := X86BinaryPrefix
 		if e != nil {
-			prefix = OTHERS_BINARY_PREFIX
+			prefix = OthersBinaryPrefix
 		}
 
 		//	ubuntu 21.04	libssl.so.1.1   default
 		this.Openssl = filepath.Join(prefix, "libssl.so.1.1")
-		this.ElfType = ELF_TYPE_SO
+		this.ElfType = ElfTypeSo
 		_, e = os.Stat(this.Openssl)
 		if e != nil {
 			return e
 		}
 	} else {
 		this.Openssl = soPath
-		this.ElfType = ELF_TYPE_SO
+		this.ElfType = ElfTypeSo
 	}
 	return nil
 }
@@ -61,7 +61,7 @@ func (this *OpensslConfig) Check() error {
 		if e != nil {
 			return e
 		}
-		this.ElfType = ELF_TYPE_SO
+		this.ElfType = ElfTypeSo
 		checkedOpenssl = true
 	}
 
@@ -77,7 +77,7 @@ func (this *OpensslConfig) Check() error {
 	}
 
 	if this.Ifname == "" || len(strings.TrimSpace(this.Ifname)) == 0 {
-		this.Ifname = DEFAULT_IFNAME
+		this.Ifname = DefaultIfname
 	}
 
 	if checkedOpenssl {

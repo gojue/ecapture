@@ -26,19 +26,19 @@ import (
 )
 
 /*
-   u64 pid;
-   u64 timestamp;
-   char Query[MAX_DATA_SIZE];
-   char Comm[TASK_COMM_LEN];
+u64 pid;
+u64 timestamp;
+char Query[MAX_DATA_SIZE];
+char Comm[TASK_COMM_LEN];
 */
-const POSTGRES_MAX_DATA_SIZE = 256
+const PostgresMaxDataSize = 256
 
 type PostgresEvent struct {
 	event_type EventType
-	Pid        uint64                        `json:"pid"`
-	Timestamp  uint64                        `json:"timestamp"`
-	Query      [POSTGRES_MAX_DATA_SIZE]uint8 `json:"Query"`
-	Comm       [16]uint8                     `json:"Comm"`
+	Pid        uint64                     `json:"pid"`
+	Timestamp  uint64                     `json:"timestamp"`
+	Query      [PostgresMaxDataSize]uint8 `json:"Query"`
+	Comm       [16]uint8                  `json:"Comm"`
 }
 
 func (this *PostgresEvent) Decode(payload []byte) (err error) {

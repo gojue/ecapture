@@ -130,9 +130,9 @@ func (this *MBashProbe) constantEditor() []manager.ConstantEditor {
 func (this *MBashProbe) setupManagers() {
 	var binaryPath string
 	switch this.conf.(*config.BashConfig).ElfType {
-	case config.ELF_TYPE_BIN:
+	case config.ElfTypeBin:
 		binaryPath = this.conf.(*config.BashConfig).Bashpath
-	case config.ELF_TYPE_SO:
+	case config.ElfTypeSo:
 		binaryPath = this.conf.(*config.BashConfig).Readline
 	default:
 		binaryPath = "/bin/bash"
@@ -215,7 +215,7 @@ func (this *MBashProbe) Events() []*ebpf.Map {
 
 func init() {
 	mod := &MBashProbe{}
-	mod.name = MODULE_NAME_BASH
-	mod.mType = PROBE_TYPE_UPROBE
+	mod.name = ModuleNameBash
+	mod.mType = ProbeTypeUprobe
 	Register(mod)
 }

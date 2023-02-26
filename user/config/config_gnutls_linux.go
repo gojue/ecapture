@@ -33,7 +33,7 @@ func (this *GnutlsConfig) Check() error {
 		if e != nil {
 			return e
 		}
-		this.ElfType = ELF_TYPE_SO
+		this.ElfType = ElfTypeSo
 		return nil
 	}
 
@@ -55,13 +55,13 @@ func (this *GnutlsConfig) Check() error {
 	soPath, e := getDynPathByElf(this.Curlpath, "libgnutls.so")
 	if e != nil {
 		//this.logger.Printf("get bash:%s dynamic library error:%v.\n", bash, e)
-		_, e = os.Stat(X86_BINARY_PREFIX)
-		prefix := X86_BINARY_PREFIX
+		_, e = os.Stat(X86BinaryPrefix)
+		prefix := X86BinaryPrefix
 		if e != nil {
-			prefix = OTHERS_BINARY_PREFIX
+			prefix = OthersBinaryPrefix
 		}
 		this.Gnutls = filepath.Join(prefix, "libgnutls.so.30")
-		this.ElfType = ELF_TYPE_SO
+		this.ElfType = ElfTypeSo
 		_, e = os.Stat(this.Gnutls)
 		if e != nil {
 			return e
@@ -70,7 +70,7 @@ func (this *GnutlsConfig) Check() error {
 	}
 
 	this.Gnutls = soPath
-	this.ElfType = ELF_TYPE_SO
+	this.ElfType = ElfTypeSo
 
 	return nil
 }

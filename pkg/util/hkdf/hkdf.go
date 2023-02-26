@@ -57,9 +57,9 @@ const (
 // crypto/tls/cipher_suites.go line 678
 // TLS 1.3 cipher suites.
 const (
-	TLS_AES_128_GCM_SHA256       uint16 = 0x1301
-	TLS_AES_256_GCM_SHA384       uint16 = 0x1302
-	TLS_CHACHA20_POLY1305_SHA256 uint16 = 0x1303
+	TlsAes128GcmSha256        uint16 = 0x1301
+	TlsAes256GcmSha384        uint16 = 0x1302
+	TlsChacha20Poly1305Sha256 uint16 = 0x1303
 )
 
 // ExpandLabel implements HKDF-Expand-Label from RFC 8446, Section 7.1.

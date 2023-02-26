@@ -74,9 +74,9 @@ func (this *MOpenSSLProbe) setupManagersTC() error {
 	sslVersion = this.conf.(*config.OpensslConfig).SslVersion
 	sslVersion = strings.ToLower(sslVersion)
 	switch this.conf.(*config.OpensslConfig).ElfType {
-	case config.ELF_TYPE_BIN:
+	case config.ElfTypeBin:
 		binaryPath = this.conf.(*config.OpensslConfig).Curlpath
-	case config.ELF_TYPE_SO:
+	case config.ElfTypeSo:
 		binaryPath = this.conf.(*config.OpensslConfig).Openssl
 		err := this.getSslBpfFile(binaryPath, sslVersion)
 		if err != nil {

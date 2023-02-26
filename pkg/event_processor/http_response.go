@@ -26,7 +26,7 @@ import (
 
 type HTTPResponse struct {
 	response   *http.Response
-	packerType PACKET_TYPE
+	packerType PacketType
 	isDone     bool
 	isInit     bool
 	reader     *bytes.Buffer
@@ -42,12 +42,12 @@ func (this *HTTPResponse) Name() string {
 	return "HTTPResponse"
 }
 
-func (this *HTTPResponse) PacketType() PACKET_TYPE {
+func (this *HTTPResponse) PacketType() PacketType {
 	return this.packerType
 }
 
-func (this *HTTPResponse) ParserType() PARSER_TYPE {
-	return PARSER_TYPE_HTTP_RESPONSE
+func (this *HTTPResponse) ParserType() ParserType {
+	return ParserTypeHttpResponse
 }
 
 func (this *HTTPResponse) Write(b []byte) (int, error) {
@@ -115,11 +115,11 @@ func (this *HTTPResponse) Display() []byte {
 
 		// gzip uncompressed success
 		this.response.Body = reader
-		this.packerType = PACKET_TYPE_GZIP
+		this.packerType = PacketTypeGzip
 		defer reader.Close()
 	default:
 		//reader = this.response.Body
-		this.packerType = PACKET_TYPE_NULL
+		this.packerType = PacketTypeNull
 		//TODO for debug
 		//return []byte("")
 	}

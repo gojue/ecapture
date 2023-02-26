@@ -48,7 +48,7 @@ func (this *GoTLSProbe) Init(ctx context.Context, l *log.Logger, cfg config.ICon
 }
 
 func (this *GoTLSProbe) Name() string {
-	return MODULE_NAME_GOTLS
+	return ModuleNameGotls
 }
 
 func (this *GoTLSProbe) Start() error {

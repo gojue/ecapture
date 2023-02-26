@@ -24,7 +24,7 @@ import (
 
 type HTTPRequest struct {
 	request    *http.Request
-	packerType PACKET_TYPE
+	packerType PacketType
 	isDone     bool
 	isInit     bool
 	reader     *bytes.Buffer
@@ -40,12 +40,12 @@ func (this *HTTPRequest) Name() string {
 	return "HTTPRequest"
 }
 
-func (this *HTTPRequest) PacketType() PACKET_TYPE {
+func (this *HTTPRequest) PacketType() PacketType {
 	return this.packerType
 }
 
-func (this *HTTPRequest) ParserType() PARSER_TYPE {
-	return PARSER_TYPE_HTTP_REQUEST
+func (this *HTTPRequest) ParserType() ParserType {
+	return ParserTypeHttpRequest
 }
 
 func (this *HTTPRequest) Write(b []byte) (int, error) {

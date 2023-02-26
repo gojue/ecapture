@@ -42,7 +42,7 @@ func (this *BashConfig) Check() error {
 		if e != nil {
 			return e
 		}
-		this.ElfType = ELF_TYPE_SO
+		this.ElfType = ElfTypeSo
 		return nil
 	}
 
@@ -52,7 +52,7 @@ func (this *BashConfig) Check() error {
 		if e != nil {
 			return e
 		}
-		this.ElfType = ELF_TYPE_BIN
+		this.ElfType = ElfTypeBin
 		return nil
 	}
 
@@ -63,10 +63,10 @@ func (this *BashConfig) Check() error {
 		if e != nil {
 			//this.logger.Printf("get bash:%s dynamic library error:%v.\n", bash, e)
 			this.Bashpath = bash
-			this.ElfType = ELF_TYPE_BIN
+			this.ElfType = ElfTypeBin
 		} else {
 			this.Bashpath = soPath
-			this.ElfType = ELF_TYPE_SO
+			this.ElfType = ElfTypeSo
 		}
 
 	} else {

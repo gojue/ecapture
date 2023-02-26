@@ -117,9 +117,9 @@ func (this *MNsprProbe) constantEditor() []manager.ConstantEditor {
 func (this *MNsprProbe) setupManagers() error {
 	var binaryPath string
 	switch this.conf.(*config.NsprConfig).ElfType {
-	case config.ELF_TYPE_BIN:
+	case config.ElfTypeBin:
 		binaryPath = this.conf.(*config.NsprConfig).Firefoxpath
-	case config.ELF_TYPE_SO:
+	case config.ElfTypeSo:
 		binaryPath = this.conf.(*config.NsprConfig).Nsprpath
 	default:
 		//如果没找到
@@ -251,7 +251,7 @@ func (this *MNsprProbe) Events() []*ebpf.Map {
 
 func init() {
 	mod := &MNsprProbe{}
-	mod.name = MODULE_NAME_NSPR
-	mod.mType = PROBE_TYPE_UPROBE
+	mod.name = ModuleNameNspr
+	mod.mType = ProbeTypeUprobe
 	Register(mod)
 }
