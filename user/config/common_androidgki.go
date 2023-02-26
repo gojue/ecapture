@@ -26,7 +26,7 @@ var (
 	}
 )
 
-const ELF_ARCH_ISANDROID = true
+const ElfArchIsandroid = true
 
 func GetDynLibDirs() []string {
 	return default_so_paths

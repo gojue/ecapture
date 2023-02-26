@@ -60,7 +60,7 @@ type IModule interface {
 	Dispatcher(event.IEventStruct)
 }
 
-const KERNEL_LESS_5_2_PREFIX = "_less52.o"
+const KernelLess52Prefix = "_less52.o"
 
 type Module struct {
 	opts   *ebpf.CollectionOptions
@@ -97,7 +97,7 @@ func (this *Module) Init(ctx context.Context, logger *log.Logger, conf config.IC
 
 func (this *Module) geteBPFName(filename string) string {
 	if this.isKernelLess5_2 {
-		return strings.Replace(filename, ".o", KERNEL_LESS_5_2_PREFIX, 1)
+		return strings.Replace(filename, ".o", KernelLess52Prefix, 1)
 	}
 	return filename
 }

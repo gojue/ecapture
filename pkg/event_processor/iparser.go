@@ -20,37 +20,37 @@ import (
 	"fmt"
 )
 
-type PROCESS_STATUS uint8
-type PACKET_TYPE uint8
-type PARSER_TYPE uint8
+type ProcessStatus uint8
+type PacketType uint8
+type ParserType uint8
 
 const (
-	PROCESS_STATE_INIT PROCESS_STATUS = iota
-	PROCESS_STATE_PROCESSING
-	PROCESS_STATE_DONE
+	ProcessStateInit ProcessStatus = iota
+	ProcessStateProcessing
+	ProcessStateDone
 )
 
 const (
-	PACKET_TYPE_NULL PACKET_TYPE = iota
-	PACKET_TYPE_UNKNOW
-	PACKET_TYPE_GZIP
-	PACKET_TYPE_WEB_SOCKET
+	PacketTypeNull PacketType = iota
+	PacketTypeUnknow
+	PacketTypeGzip
+	PacketTypeWebSocket
 )
 
 const (
-	PARSER_TYPE_NULL PARSER_TYPE = iota
-	PARSER_TYPE_HTTP_REQUEST
-	PARSER_TYPE_HTTP2_REQUEST
-	PARSER_TYPE_HTTP_RESPONSE
-	PARSER_TYPE_HTTP2_RESPONSE
-	PARSER_TYPE_WEB_SOCKET
+	ParserTypeNull ParserType = iota
+	ParserTypeHttpRequest
+	ParserTypeHttp2Request
+	ParserTypeHttpResponse
+	ParserTypeHttp2Response
+	ParserTypeWebSocket
 )
 
 type IParser interface {
 	detect(b []byte) error
 	Write(b []byte) (int, error)
-	ParserType() PARSER_TYPE
-	PacketType() PACKET_TYPE
+	ParserType() ParserType
+	PacketType() PacketType
 	//Body() []byte
 	Name() string
 	IsDone() bool
@@ -89,15 +89,15 @@ func NewParser(payload []byte) IParser {
 			err := parser.detect(payload)
 			if err == nil {
 				switch parser.ParserType() {
-				case PARSER_TYPE_HTTP_REQUEST:
+				case ParserTypeHttpRequest:
 					newParser = new(HTTPRequest)
-				case PARSER_TYPE_HTTP_RESPONSE:
+				case ParserTypeHttpResponse:
 					newParser = new(HTTPResponse)
-				case PARSER_TYPE_HTTP2_REQUEST:
+				case ParserTypeHttp2Request:
 					// TODO support HTTP2 request
 					// via golang.org/x/net/http2
 					//hpack.NewEncoder(buf)
-				case PARSER_TYPE_HTTP2_RESPONSE:
+				case ParserTypeHttp2Response:
 					// TODO  support HTTP2 response
 				}
 				break
@@ -119,12 +119,12 @@ type DefaultParser struct {
 	isdone bool
 }
 
-func (this *DefaultParser) ParserType() PARSER_TYPE {
-	return PARSER_TYPE_NULL
+func (this *DefaultParser) ParserType() ParserType {
+	return ParserTypeNull
 }
 
-func (this *DefaultParser) PacketType() PACKET_TYPE {
-	return PACKET_TYPE_NULL
+func (this *DefaultParser) PacketType() PacketType {
+	return PacketTypeNull
 }
 
 func (this *DefaultParser) Write(b []byte) (int, error) {

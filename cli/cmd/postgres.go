@@ -31,7 +31,7 @@ import (
 
 var postgresConfig = config.NewPostgresConfig()
 
-//postgres Cmd represents the postgres command
+// postgres Cmd represents the postgres command
 var postgresCmd = &cobra.Command{
 	Use:   "postgres",
 	Short: "capture sql queries from postgres 10+.",
@@ -50,7 +50,7 @@ func postgresCommandFunc(command *cobra.Command, args []string) {
 	signal.Notify(stopper, os.Interrupt, syscall.SIGTERM)
 	ctx, cancelFun := context.WithCancel(context.TODO())
 
-	mod := module.GetModuleByName(module.MODULE_NAME_POSTGRES)
+	mod := module.GetModuleByName(module.ModuleNamePostgres)
 
 	logger := log.New(os.Stdout, "postgress_", log.LstdFlags)
 	logger.Printf("ECAPTURE :: version :%s", GitVersion)

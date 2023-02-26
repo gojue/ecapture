@@ -33,7 +33,7 @@ func (this *NsprConfig) Check() error {
 		if e != nil {
 			return e
 		}
-		this.ElfType = ELF_TYPE_SO
+		this.ElfType = ElfTypeSo
 		return nil
 	}
 
@@ -55,15 +55,15 @@ func (this *NsprConfig) Check() error {
 	soPath, e := getDynPathByElf(this.Firefoxpath, "libnspr4.so")
 	if e != nil {
 		//this.logger.Printf("get bash:%s dynamic library error:%v.\n", bash, e)
-		_, e = os.Stat(X86_BINARY_PREFIX)
-		prefix := X86_BINARY_PREFIX
+		_, e = os.Stat(X86BinaryPrefix)
+		prefix := X86BinaryPrefix
 		if e != nil {
-			prefix = OTHERS_BINARY_PREFIX
+			prefix = OthersBinaryPrefix
 		}
 		this.Nsprpath = filepath.Join(prefix, "libnspr4.so")
 		//this.Gnutls = "/usr/lib/firefox/libnss3.so"
 		//"/usr/lib/firefox/libnspr4.so"
-		this.ElfType = ELF_TYPE_SO
+		this.ElfType = ElfTypeSo
 		_, e = os.Stat(this.Nsprpath)
 		if e != nil {
 			return e
@@ -72,7 +72,7 @@ func (this *NsprConfig) Check() error {
 	}
 
 	this.Nsprpath = soPath
-	this.ElfType = ELF_TYPE_SO
+	this.ElfType = ElfTypeSo
 
 	return nil
 }

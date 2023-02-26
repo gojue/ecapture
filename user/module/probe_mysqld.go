@@ -103,7 +103,7 @@ func (this *MMysqldProbe) Close() error {
 func (this *MMysqldProbe) setupManagers() error {
 	var binaryPath string
 	switch this.conf.(*config.MysqldConfig).ElfType {
-	case config.ELF_TYPE_BIN:
+	case config.ElfTypeBin:
 		binaryPath = this.conf.(*config.MysqldConfig).Mysqldpath
 	default:
 		//如果没找到
@@ -125,7 +125,7 @@ func (this *MMysqldProbe) setupManagers() error {
 	// offset 0x710410
 	var probes []*manager.Probe
 	switch version {
-	case config.MYSQLD_TYPE_57:
+	case config.MysqldType57:
 		probes = []*manager.Probe{
 			{
 				Section:          "uprobe/dispatch_command_57",
@@ -142,7 +142,7 @@ func (this *MMysqldProbe) setupManagers() error {
 				BinaryPath:       binaryPath,
 			},
 		}
-	case config.MYSQLD_TYPE_80:
+	case config.MysqldType80:
 		probes = []*manager.Probe{
 			{
 				Section:          "uprobe/dispatch_command_57", //TODO CHANGE to mysqld80 @CFC4N
@@ -232,7 +232,7 @@ func (this *MMysqldProbe) Events() []*ebpf.Map {
 
 func init() {
 	mod := &MMysqldProbe{}
-	mod.name = MODULE_NAME_MYSQLD
-	mod.mType = PROBE_TYPE_UPROBE
+	mod.name = ModuleNameMysqld
+	mod.mType = ProbeTypeUprobe
 	Register(mod)
 }

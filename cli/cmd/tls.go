@@ -92,10 +92,10 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 	logger.Printf("ECAPTURE :: Kernel Info : %s", version.String())
 
 	modNames := []string{}
-	if config.ELF_ARCH_ISANDROID {
-		modNames = []string{module.MODULE_NAME_OPENSSL}
+	if config.ElfArchIsandroid {
+		modNames = []string{module.ModuleNameOpenssl}
 	} else {
-		modNames = []string{module.MODULE_NAME_OPENSSL, module.MODULE_NAME_GNUTLS, module.MODULE_NAME_NSPR, module.MODULE_NAME_GOTLS}
+		modNames = []string{module.ModuleNameOpenssl, module.ModuleNameGnutls, module.ModuleNameNspr, module.ModuleNameGotls}
 	}
 
 	var runMods uint8
@@ -111,11 +111,11 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 
 		var conf config.IConfig
 		switch mod.Name() {
-		case module.MODULE_NAME_OPENSSL:
+		case module.ModuleNameOpenssl:
 			conf = oc
-		case module.MODULE_NAME_GNUTLS:
+		case module.ModuleNameGnutls:
 			conf = gc
-		case module.MODULE_NAME_NSPR:
+		case module.ModuleNameNspr:
 			conf = nc
 		default:
 		}

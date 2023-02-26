@@ -22,8 +22,8 @@ import (
 )
 
 const (
-	MAX_INCOMING_CHAN_LEN = 1024
-	MAX_PARSER_QUEUE_LEN  = 1024
+	MaxIncomingChanLen = 1024
+	MaxParserQueueLen  = 1024
 )
 
 type EventProcessor struct {
@@ -45,8 +45,8 @@ func (this *EventProcessor) GetLogger() *log.Logger {
 }
 
 func (this *EventProcessor) init() {
-	this.incoming = make(chan event.IEventStruct, MAX_INCOMING_CHAN_LEN)
-	this.workerQueue = make(map[string]IWorker, MAX_PARSER_QUEUE_LEN)
+	this.incoming = make(chan event.IEventStruct, MaxIncomingChanLen)
+	this.workerQueue = make(map[string]IWorker, MaxParserQueueLen)
 }
 
 // Write event 处理器读取事件

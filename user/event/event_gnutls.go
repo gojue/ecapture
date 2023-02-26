@@ -22,13 +22,13 @@ import (
 
 type GnutlsDataEvent struct {
 	event_type EventType
-	DataType   int64               `json:"dataType"`
-	Timestamp  uint64              `json:"timestamp"`
-	Pid        uint32              `json:"pid"`
-	Tid        uint32              `json:"tid"`
-	Data       [MAX_DATA_SIZE]byte `json:"data"`
-	Data_len   int32               `json:"data_len"`
-	Comm       [16]byte            `json:"Comm"`
+	DataType   int64             `json:"dataType"`
+	Timestamp  uint64            `json:"timestamp"`
+	Pid        uint32            `json:"pid"`
+	Tid        uint32            `json:"tid"`
+	Data       [MaxDataSize]byte `json:"data"`
+	Data_len   int32             `json:"data_len"`
+	Comm       [16]byte          `json:"Comm"`
 }
 
 func (this *GnutlsDataEvent) Decode(payload []byte) (err error) {
@@ -60,10 +60,10 @@ func (this *GnutlsDataEvent) Decode(payload []byte) (err error) {
 func (this *GnutlsDataEvent) StringHex() string {
 	var perfix, packetType string
 	switch AttachType(this.DataType) {
-	case PROBE_ENTRY:
+	case ProbeEntry:
 		packetType = fmt.Sprintf("%sRecived%s", COLORGREEN, COLORRESET)
 		perfix = COLORGREEN
-	case PROBE_RET:
+	case ProbeRet:
 		packetType = fmt.Sprintf("%sSend%s", COLORPURPLE, COLORRESET)
 		perfix = fmt.Sprintf("%s\t", COLORPURPLE)
 	default:
@@ -79,10 +79,10 @@ func (this *GnutlsDataEvent) StringHex() string {
 func (this *GnutlsDataEvent) String() string {
 	var perfix, packetType string
 	switch AttachType(this.DataType) {
-	case PROBE_ENTRY:
+	case ProbeEntry:
 		packetType = fmt.Sprintf("%sRecived%s", COLORGREEN, COLORRESET)
 		perfix = COLORGREEN
-	case PROBE_RET:
+	case ProbeRet:
 		packetType = fmt.Sprintf("%sSend%s", COLORPURPLE, COLORRESET)
 		perfix = COLORPURPLE
 	default:

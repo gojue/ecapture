@@ -23,9 +23,9 @@ import (
 // openssl_mastersecret_events
 
 const (
-	SSL3_RANDOM_SIZE      = 32
-	MASTER_SECRET_MAX_LEN = 48
-	EVP_MAX_MD_SIZE       = 64
+	Ssl3RandomSize     = 32
+	MasterSecretMaxLen = 48
+	EvpMaxMdSize       = 64
 )
 
 /*
@@ -37,16 +37,16 @@ type MasterSecretEvent struct {
 	Version    int32 `json:"version"` // TLS Version
 
 	// TLS 1.2 or older
-	ClientRandom [SSL3_RANDOM_SIZE]byte      `json:"clientRandom"` // Client Random
-	MasterKey    [MASTER_SECRET_MAX_LEN]byte `json:"masterKey"`    // Master Key
+	ClientRandom [Ssl3RandomSize]byte     `json:"clientRandom"` // Client Random
+	MasterKey    [MasterSecretMaxLen]byte `json:"masterKey"`    // Master Key
 
 	// TLS 1.3
-	CipherId               uint32                `json:"cipherId"`               // Cipher ID
-	HandshakeSecret        [EVP_MAX_MD_SIZE]byte `json:"handshakeSecret"`        // Handshake Secret
-	HandshakeTrafficHash   [EVP_MAX_MD_SIZE]byte `json:"handshakeTrafficHash"`   // Handshake Traffic Hash
-	ClientAppTrafficSecret [EVP_MAX_MD_SIZE]byte `json:"clientAppTrafficSecret"` // Client App Traffic Secret
-	ServerAppTrafficSecret [EVP_MAX_MD_SIZE]byte `json:"serverAppTrafficSecret"` // Server App Traffic Secret
-	ExporterMasterSecret   [EVP_MAX_MD_SIZE]byte `json:"exporterMasterSecret"`   // Exporter Master Secret
+	CipherId               uint32             `json:"cipherId"`               // Cipher ID
+	HandshakeSecret        [EvpMaxMdSize]byte `json:"handshakeSecret"`        // Handshake Secret
+	HandshakeTrafficHash   [EvpMaxMdSize]byte `json:"handshakeTrafficHash"`   // Handshake Traffic Hash
+	ClientAppTrafficSecret [EvpMaxMdSize]byte `json:"clientAppTrafficSecret"` // Client App Traffic Secret
+	ServerAppTrafficSecret [EvpMaxMdSize]byte `json:"serverAppTrafficSecret"` // Server App Traffic Secret
+	ExporterMasterSecret   [EvpMaxMdSize]byte `json:"exporterMasterSecret"`   // Exporter Master Secret
 	payload                string
 }
 
@@ -127,17 +127,17 @@ type MasterSecretBSSLEvent struct {
 	Version    int32 `json:"version"` // TLS Version
 
 	// TLS 1.2 or older
-	ClientRandom [SSL3_RANDOM_SIZE]byte      `json:"clientRandom"` // Client Random
-	Secret       [MASTER_SECRET_MAX_LEN]byte `json:"secret"`       // secret Key
+	ClientRandom [Ssl3RandomSize]byte     `json:"clientRandom"` // Client Random
+	Secret       [MasterSecretMaxLen]byte `json:"secret"`       // secret Key
 
 	// TLS 1.3
-	HashLen               uint32                `json:"hashLen"`              // hashLen
-	EarlyTrafficSecret    [EVP_MAX_MD_SIZE]byte `json:"earlyTrafficSecret"`    // CLIENT_EARLY_TRAFFIC_SECRET
-	ClientHandshakeSecret [EVP_MAX_MD_SIZE]byte `json:"clientHandshakeSecret"` // CLIENT_HANDSHAKE_TRAFFIC_SECRET
-	ServerHandshakeSecret [EVP_MAX_MD_SIZE]byte `json:"serverHandshakeSecret"` // SERVER_HANDSHAKE_TRAFFIC_SECRET
-	ClientTrafficSecret0  [EVP_MAX_MD_SIZE]byte `json:"clientTrafficSecret0"`  // SSL_HANDSHAKE_CLIENT_TRAFFIC_SECRET_0_
-	ServerTrafficSecret0  [EVP_MAX_MD_SIZE]byte `json:"serverTrafficSecret0"`  // SERVER_TRAFFIC_SECRET_0
-	ExporterSecret        [EVP_MAX_MD_SIZE]byte `json:"exporterSecret"`        // EXPORTER_SECRET
+	HashLen               uint32             `json:"hashLen"`               // hashLen
+	EarlyTrafficSecret    [EvpMaxMdSize]byte `json:"earlyTrafficSecret"`    // CLIENT_EARLY_TRAFFIC_SECRET
+	ClientHandshakeSecret [EvpMaxMdSize]byte `json:"clientHandshakeSecret"` // CLIENT_HANDSHAKE_TRAFFIC_SECRET
+	ServerHandshakeSecret [EvpMaxMdSize]byte `json:"serverHandshakeSecret"` // SERVER_HANDSHAKE_TRAFFIC_SECRET
+	ClientTrafficSecret0  [EvpMaxMdSize]byte `json:"clientTrafficSecret0"`  // SSL_HANDSHAKE_CLIENT_TRAFFIC_SECRET_0_
+	ServerTrafficSecret0  [EvpMaxMdSize]byte `json:"serverTrafficSecret0"`  // SERVER_TRAFFIC_SECRET_0
+	ExporterSecret        [EvpMaxMdSize]byte `json:"exporterSecret"`        // EXPORTER_SECRET
 	payload               string
 }
 

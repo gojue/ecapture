@@ -20,18 +20,18 @@ package config
 import "log"
 
 const (
-	LD_LOAD_PATH       = "/etc/ld.so.conf"
-	ELF_ARCH_ISANDROID = false
+	LdLoadPath       = "/etc/ld.so.conf"
+	ElfArchIsandroid = false
 )
 
 /*
-   1, the RPATH binary header (set at build-time) of the library causing the lookup (if any)
-   2, the RPATH binary header (set at build-time) of the executable
-   3, the LD_LIBRARY_PATH environment variable (set at run-time)
-   4, the RUNPATH binary header (set at build-time) of the executable
-   5, /etc/ld.so.cache
-   6, base library directories (/lib and /usr/lib)
-   ref: http://blog.tremily.us/posts/rpath/
+1, the RPATH binary header (set at build-time) of the library causing the lookup (if any)
+2, the RPATH binary header (set at build-time) of the executable
+3, the LD_LIBRARY_PATH environment variable (set at run-time)
+4, the RUNPATH binary header (set at build-time) of the executable
+5, /etc/ld.so.cache
+6, base library directories (/lib and /usr/lib)
+ref: http://blog.tremily.us/posts/rpath/
 */
 var (
 	default_so_paths = []string{
@@ -43,7 +43,7 @@ var (
 )
 
 func GetDynLibDirs() []string {
-	dirs, err := ParseDynLibConf(LD_LOAD_PATH)
+	dirs, err := ParseDynLibConf(LdLoadPath)
 	if err != nil {
 		log.Println(err.Error())
 		return default_so_paths

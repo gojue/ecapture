@@ -21,17 +21,16 @@ import (
 )
 
 const (
-	SKB_MAX_DATA_SIZE = 2048
-	TASK_COMM_LEN     = 16
+	TaskCommLen = 16
 )
 
 type TcSkbEvent struct {
 	event_type EventType
-	Ts         uint64              `json:"ts"`
-	Pid        uint32              `json:"pid"`
-	Comm       [TASK_COMM_LEN]byte `json:"Comm"`
-	Len        uint32              `json:"len"`
-	Ifindex    uint32              `json:"ifindex"`
+	Ts         uint64            `json:"ts"`
+	Pid        uint32            `json:"pid"`
+	Comm       [TaskCommLen]byte `json:"Comm"`
+	Len        uint32            `json:"len"`
+	Ifindex    uint32            `json:"ifindex"`
 	payload    []byte
 }
 

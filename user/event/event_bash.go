@@ -29,15 +29,15 @@ import (
  char Comm[TASK_COMM_LEN];
 */
 
-const MAX_DATA_SIZE_BASH = 256
+const MaxDataSizeBash = 256
 
 type BashEvent struct {
 	event_type EventType
-	Pid        uint32                    `json:"pid"`
-	Uid        uint32                    `json:"uid"`
-	Line       [MAX_DATA_SIZE_BASH]uint8 `json:"line"`
-	Retval     uint32                    `json:"Retval"`
-	Comm       [16]byte                  `json:"Comm"`
+	Pid        uint32                 `json:"pid"`
+	Uid        uint32                 `json:"uid"`
+	Line       [MaxDataSizeBash]uint8 `json:"line"`
+	Retval     uint32                 `json:"Retval"`
+	Comm       [16]byte               `json:"Comm"`
 }
 
 func (this *BashEvent) Decode(payload []byte) (err error) {

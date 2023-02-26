@@ -26,10 +26,10 @@ import (
 )
 
 const (
-	SYS_KERNEL_BTF_VMLINUX     = "/sys/kernel/btf/vmlinux"
-	CONFIG_DEBUG_INFO_BTF      = "CONFIG_DEBUG_INFO_BTF"
-	PROC_CONTAINER_CGROUP_PATH = "/proc/1/cgroup"
-	PROC_CONTAINER_SCHED_PATH  = "/proc/1/sched"
+	SysKernelBtfVmlinux     = "/sys/kernel/btf/vmlinux"
+	ConfigDebugInfoBtf      = "CONFIG_DEBUG_INFO_BTF"
+	ProcContainerCgroupPath = "/proc/1/cgroup"
+	ProcContainerSchedPath  = "/proc/1/sched"
 )
 
 var (
@@ -163,7 +163,7 @@ func isCOntainerCgroup() (bool, error) {
 	var f *os.File
 	var err error
 	var i int
-	f, err = os.Open(PROC_CONTAINER_CGROUP_PATH)
+	f, err = os.Open(ProcContainerCgroupPath)
 	if err != nil {
 		return false, err
 	}
@@ -194,7 +194,7 @@ func isCOntainerSched() (bool, error) {
 	var f *os.File
 	var err error
 	var i int
-	f, err = os.Open(PROC_CONTAINER_SCHED_PATH)
+	f, err = os.Open(ProcContainerSchedPath)
 	if err != nil {
 		return false, err
 	}

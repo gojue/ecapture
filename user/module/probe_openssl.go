@@ -279,9 +279,9 @@ func (this *MOpenSSLProbe) setupManagersUprobe() error {
 	sslVersion = this.conf.(*config.OpensslConfig).SslVersion
 	sslVersion = strings.ToLower(sslVersion)
 	switch this.conf.(*config.OpensslConfig).ElfType {
-	case config.ELF_TYPE_BIN:
+	case config.ElfTypeBin:
 		binaryPath = this.conf.(*config.OpensslConfig).Curlpath
-	case config.ELF_TYPE_SO:
+	case config.ElfTypeSo:
 		binaryPath = this.conf.(*config.OpensslConfig).Openssl
 		err := this.getSslBpfFile(binaryPath, sslVersion)
 		if err != nil {
@@ -541,16 +541,16 @@ func (this *MOpenSSLProbe) saveMasterSecret(secretEvent *event.MasterSecretEvent
 	// save to file
 	var b *bytes.Buffer
 	switch secretEvent.Version {
-	case event.TLS1_2_VERSION:
+	case event.Tls12Version:
 		b = bytes.NewBufferString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelTLS12, secretEvent.ClientRandom, secretEvent.MasterKey))
-	case event.TLS1_3_VERSION:
+	case event.Tls13Version:
 		var length int
 		var transcript crypto.Hash
 		switch uint16(secretEvent.CipherId & 0x0000FFFF) {
-		case hkdf.TLS_AES_128_GCM_SHA256, hkdf.TLS_CHACHA20_POLY1305_SHA256:
+		case hkdf.TlsAes128GcmSha256, hkdf.TlsChacha20Poly1305Sha256:
 			length = 32
 			transcript = crypto.SHA256
-		case hkdf.TLS_AES_256_GCM_SHA384:
+		case hkdf.TlsAes256GcmSha384:
 			length = 48
 			transcript = crypto.SHA384
 		default:
@@ -612,14 +612,14 @@ func (this *MOpenSSLProbe) saveMasterSecretBSSL(secretEvent *event.MasterSecretB
 	// save to file
 	var b *bytes.Buffer
 	switch secretEvent.Version {
-	case event.TLS1_2_VERSION:
+	case event.Tls12Version:
 		if this.bSSLEvent12NullSecrets(secretEvent) {
 			return
 		}
 		var length = int(secretEvent.HashLen)
 		b = bytes.NewBufferString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelTLS12, secretEvent.ClientRandom, secretEvent.Secret[:length]))
 		this.masterKeys[k] = true
-	case event.TLS1_3_VERSION:
+	case event.Tls13Version:
 		fallthrough
 	default:
 		var length int
@@ -722,7 +722,7 @@ func (this *MOpenSSLProbe) Dispatcher(eventStruct event.IEventStruct) {
 
 func init() {
 	mod := &MOpenSSLProbe{}
-	mod.name = MODULE_NAME_OPENSSL
-	mod.mType = PROBE_TYPE_UPROBE
+	mod.name = ModuleNameOpenssl
+	mod.mType = ProbeTypeUprobe
 	Register(mod)
 }

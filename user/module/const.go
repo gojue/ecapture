@@ -15,24 +15,25 @@
 package module
 
 const (
-	PROBE_TYPE_UPROBE = "uprobe"
-	PROBE_TYPE_KPROBE = "kprobe"
-	PROBE_TYPE_TP     = "tracepoint"
-	PROBE_TYPE_XDP    = "XDP"
+	ProbeTypeUprobe = "uprobe"
+	ProbeTypeKprobe = "kprobe"
+	ProbeTypeTC     = "TC"
+	ProbeTypeTP     = "tracepoint"
+	ProbeTypeXDP    = "XDP"
 )
 
 const (
-	MODULE_NAME_BASH     = "EBPFProbeBash"
-	MODULE_NAME_MYSQLD   = "EBPFProbeMysqld"
-	MODULE_NAME_POSTGRES = "EBPFProbePostgres"
-	MODULE_NAME_OPENSSL  = "EBPFProbeOPENSSL"
-	MODULE_NAME_GNUTLS   = "EBPFProbeGNUTLS"
-	MODULE_NAME_NSPR     = "EBPFProbeNSPR"
-	MODULE_NAME_GOTLS    = "EBPFProbeGoTLS"
+	ModuleNameBash     = "EBPFProbeBash"
+	ModuleNameMysqld   = "EBPFProbeMysqld"
+	ModuleNamePostgres = "EBPFProbePostgres"
+	ModuleNameOpenssl  = "EBPFProbeOPENSSL"
+	ModuleNameGnutls   = "EBPFProbeGNUTLS"
+	ModuleNameNspr     = "EBPFProbeNSPR"
+	ModuleNameGotls    = "EBPFProbeGoTLS"
 )
 
 const (
-	BASH_ERRNO_DEFAULT int = 128
+	BashErrnoDefault int = 128
 )
 
 const (

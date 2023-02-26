@@ -173,7 +173,7 @@ func (this *MPostgresProbe) Events() []*ebpf.Map {
 
 func init() {
 	mod := &MPostgresProbe{}
-	mod.name = MODULE_NAME_POSTGRES
-	mod.mType = PROBE_TYPE_UPROBE
+	mod.name = ModuleNamePostgres
+	mod.mType = ProbeTypeUprobe
 	Register(mod)
 }

@@ -26,22 +26,22 @@ import (
 )
 
 /*
-   u64 pid;
-   u64 timestamp;
-   char Query[MAX_DATA_SIZE];
-   u64 Alllen;
-   u64 Len;
-   char Comm[TASK_COMM_LEN];
+u64 pid;
+u64 timestamp;
+char Query[MAX_DATA_SIZE];
+u64 Alllen;
+u64 Len;
+char Comm[TASK_COMM_LEN];
 */
-const MYSQLD_MAX_DATA_SIZE = 256
+const MysqldMaxDataSize = 256
 
 const (
 	//dispatch_command_return
-	DISPATCH_COMMAND_V57_FAILED       = -2
-	DISPATCH_COMMAND_NOT_CAPTURED     = -1
-	DISPATCH_COMMAND_SUCCESS          = 0
-	DISPATCH_COMMAND_CLOSE_CONNECTION = 1
-	DISPATCH_COMMAND_WOULDBLOCK       = 2
+	DispatchCommandV57Failed       = -2
+	DispatchCommandNotCaptured     = -1
+	DispatchCommandSuccess         = 0
+	DispatchCommandCloseConnection = 1
+	DispatchCommandWouldblock      = 2
 )
 
 type dispatch_command_return int8
@@ -49,15 +49,15 @@ type dispatch_command_return int8
 func (this dispatch_command_return) String() string {
 	var retStr string
 	switch this {
-	case DISPATCH_COMMAND_CLOSE_CONNECTION:
+	case DispatchCommandCloseConnection:
 		retStr = "DISPATCH_COMMAND_CLOSE_CONNECTION"
-	case DISPATCH_COMMAND_SUCCESS:
+	case DispatchCommandSuccess:
 		retStr = "DISPATCH_COMMAND_SUCCESS"
-	case DISPATCH_COMMAND_WOULDBLOCK:
+	case DispatchCommandWouldblock:
 		retStr = "DISPATCH_COMMAND_WOULDBLOCK"
-	case DISPATCH_COMMAND_NOT_CAPTURED:
+	case DispatchCommandNotCaptured:
 		retStr = "DISPATCH_COMMAND_NOT_CAPTURED"
-	case DISPATCH_COMMAND_V57_FAILED:
+	case DispatchCommandV57Failed:
 		retStr = "DISPATCH_COMMAND_V57_FAILED"
 	}
 	return retStr
@@ -65,13 +65,13 @@ func (this dispatch_command_return) String() string {
 
 type MysqldEvent struct {
 	event_type EventType
-	Pid        uint64                      `json:"pid"`
-	Timestamp  uint64                      `json:"timestamp"`
-	Query      [MYSQLD_MAX_DATA_SIZE]uint8 `json:"Query"`
-	Alllen     uint64                      `json:"Alllen"`
-	Len        uint64                      `json:"Len"`
-	Comm       [16]uint8                   `json:"Comm"`
-	Retval     dispatch_command_return     `json:"retval"`
+	Pid        uint64                   `json:"pid"`
+	Timestamp  uint64                   `json:"timestamp"`
+	Query      [MysqldMaxDataSize]uint8 `json:"Query"`
+	Alllen     uint64                   `json:"Alllen"`
+	Len        uint64                   `json:"Len"`
+	Comm       [16]uint8                `json:"Comm"`
+	Retval     dispatch_command_return  `json:"retval"`
 }
 
 func (this *MysqldEvent) Decode(payload []byte) (err error) {

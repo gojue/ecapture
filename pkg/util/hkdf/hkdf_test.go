@@ -29,10 +29,10 @@ func TestHkdf(t *testing.T) {
 	var cipherId uint32 = 50336513
 	// test with different cipherID
 	switch uint16(cipherId & 0x0000FFFF) {
-	case TLS_AES_128_GCM_SHA256, TLS_CHACHA20_POLY1305_SHA256:
+	case TlsAes128GcmSha256, TlsChacha20Poly1305Sha256:
 		length = 32
 		transcript = crypto.SHA256
-	case TLS_AES_256_GCM_SHA384:
+	case TlsAes256GcmSha384:
 		length = 48
 		transcript = crypto.SHA384
 	default:

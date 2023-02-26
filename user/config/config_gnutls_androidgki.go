@@ -22,7 +22,7 @@ import (
 	"strings"
 )
 
-const DEFAULT_GNUTLS_PATH = "/apex/com.android.conscrypt/lib64/libgnutls"
+const DefaultGnutlsPath = "/apex/com.android.conscrypt/lib64/libgnutls"
 
 func (this *GnutlsConfig) Check() error {
 
@@ -32,12 +32,12 @@ func (this *GnutlsConfig) Check() error {
 		if e != nil {
 			return e
 		}
-		this.ElfType = ELF_TYPE_SO
+		this.ElfType = ElfTypeSo
 		return nil
 	}
 
-	this.Gnutls = DEFAULT_GNUTLS_PATH
-	this.ElfType = ELF_TYPE_SO
+	this.Gnutls = DefaultGnutlsPath
+	this.ElfType = ElfTypeSo
 
 	return nil
 }

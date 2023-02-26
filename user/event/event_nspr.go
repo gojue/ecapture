@@ -23,13 +23,13 @@ import (
 
 type NsprDataEvent struct {
 	event_type EventType
-	DataType   int64               `json:"dataType"`
-	Timestamp  uint64              `json:"timestamp"`
-	Pid        uint32              `json:"pid"`
-	Tid        uint32              `json:"tid"`
-	Data       [MAX_DATA_SIZE]byte `json:"data"`
-	DataLen    int32               `json:"dataLen"`
-	Comm       [16]byte            `json:"Comm"`
+	DataType   int64             `json:"dataType"`
+	Timestamp  uint64            `json:"timestamp"`
+	Pid        uint32            `json:"pid"`
+	Tid        uint32            `json:"tid"`
+	Data       [MaxDataSize]byte `json:"data"`
+	DataLen    int32             `json:"dataLen"`
+	Comm       [16]byte          `json:"Comm"`
 }
 
 func (this *NsprDataEvent) Decode(payload []byte) (err error) {
@@ -61,10 +61,10 @@ func (this *NsprDataEvent) Decode(payload []byte) (err error) {
 func (this *NsprDataEvent) StringHex() string {
 	var perfix, packetType string
 	switch AttachType(this.DataType) {
-	case PROBE_ENTRY:
+	case ProbeEntry:
 		packetType = fmt.Sprintf("%sRecived%s", COLORGREEN, COLORRESET)
 		perfix = COLORGREEN
-	case PROBE_RET:
+	case ProbeRet:
 		packetType = fmt.Sprintf("%sSend%s", COLORPURPLE, COLORRESET)
 		perfix = fmt.Sprintf("%s\t", COLORPURPLE)
 	default:
@@ -91,10 +91,10 @@ func (this *NsprDataEvent) StringHex() string {
 func (this *NsprDataEvent) String() string {
 	var perfix, packetType string
 	switch AttachType(this.DataType) {
-	case PROBE_ENTRY:
+	case ProbeEntry:
 		packetType = fmt.Sprintf("%sRecived%s", COLORGREEN, COLORRESET)
 		perfix = COLORGREEN
-	case PROBE_RET:
+	case ProbeRet:
 		packetType = fmt.Sprintf("%sSend%s", COLORPURPLE, COLORRESET)
 		perfix = COLORPURPLE
 	default:
