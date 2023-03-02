@@ -1,6 +1,6 @@
 ![](./images/ecapture-logo-400x400.jpg)
 
-[English](./README.md) | 中文介绍
+[English](./README.md) | 中文介绍 | [日本語](./README_JA.md)
 
 [![GitHub stars](https://img.shields.io/github/stars/gojue/ecapture.svg?label=Stars&logo=github)](https://github.com/gojue/ecapture)
 [![GitHub forks](https://img.shields.io/github/forks/gojue/ecapture?label=Forks&logo=github)](https://github.com/gojue/ecapture)

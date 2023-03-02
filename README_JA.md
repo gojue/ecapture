@@ -3,72 +3,72 @@
 [![All Contributors](https://img.shields.io/badge/all_contributors-13-orange.svg?style=flat-square)](#contributors-)
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 
-[中文介绍](./README_CN.md) | English | [日本語](./README_JA.md)
+[中文介绍](./README_CN.md) | [English](./README.md) | 日本語
 
 [![GitHub stars](https://img.shields.io/github/stars/gojue/ecapture.svg?label=Stars&logo=github)](https://github.com/gojue/ecapture)
 [![GitHub forks](https://img.shields.io/github/forks/gojue/ecapture?label=Forks&logo=github)](https://github.com/gojue/ecapture)
 [![CI](https://github.com/gojue/ecapture/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/gojue/ecapture/actions/workflows/code-analysis.yml)
 [![Github Version](https://img.shields.io/github/v/release/gojue/ecapture?display_name=tag&include_prereleases&sort=semver)](https://github.com/gojue/ecapture/releases)
 
-### eCapture(旁观者):  capture SSL/TLS text content without CA cert Using eBPF.
+### eCapture(旁观者):  CA証明書なしで SSL/TLS のテキストコンテンツをキャプチャする eBPF を使用。
 
-> **Note**
+> **注**
 >
-> Supports Linux/Android kernel versions x86_64 4.18 and above, **aarch64 5.5** and above.
-> Does not support Windows and macOS system.
+> Linux/Android カーネルバージョン x86_64 4.18 以上、**aarch64 5.5** 以上に対応しています。
+> Windows、macOS には対応していません。
 ----
 
-#  How eCapture works
+#  eCapture の仕組み
 
 ![](./images/how-ecapture-works.png)
 
-* SSL/TLS text context capture, support openssl\libressl\boringssl\gnutls\nspr(nss) libraries.
-* bash audit, capture bash command for Host Security Audit.
-* mysql query SQL audit, support mysqld 5.6\5.7\8.0, and mariadDB.
+* SSL/TLS テキスト コンテキスト キャプチャ、openssl\libressl\boringssl\gnutls\nspr(nss) ライブラリのサポート。
+* bash audit, ホストセキュリティ監査用のbashコマンドをキャプチャ。
+* mysql クエリ SQL 監査、サポート mysqld 5.6\5.7\8.0、および mariadDB。
 
-# eCapture Architecture
+# eCapture アーキテクチャ
 ![](./images/ecapture-architecture.png)
 
-# eCapture User Manual
+# eCapture ユーザーマニュアル
 
 [![eCapture User Manual](./images/ecapture-user-manual.png)](https://www.youtube.com/watch?v=CoDIjEQCvvA "eCapture User Manual")
 
-# Getting started
+# はじめに
 
-## use ELF binary file
+## ELF バイナリファイルを使用する
 
-Download ELF zip file [release](https://github.com/gojue/ecapture/releases) , unzip and use by
-command `./ecapture --help`.
+ELF zip ファイル[リリース](https://github.com/gojue/ecapture/releases)をダウンロードし、解凍して
+コマンド `./ecapture --help` で使用します。
 
 * Linux kernel version >= 4.18 is required.
 * Enable BTF [BPF Type Format (BTF)](https://www.kernel.org/doc/html/latest/bpf/btf.html)  (Optional, 2022-04-17)
 
-## Command line options
+## コマンドラインオプション
 
-> **Note**
+> **注**
 >
-> Need ROOT permission.
+> ROOT 権限が必要です。
 >
-eCapture search `/etc/ld.so.conf` file default, to search load directories of  `SO` file, and search `openssl` shard
-libraries location. or you can use `--libssl`
-flag to set shard library path.
+eCapture はデフォルトで `/etc/ld.so.conf` ファイルを検索し、
+`SO` ファイルのロードディレクトリを検索し、
+`openssl` シャードライブラリの場所を検索します。
 
-If target program is compile statically, you can set program path as `--libssl` flag value directly。
+ターゲットプログラムが静的にコンパイルされる場合、プログラムパスを `--libssl` フラグの値として直接設定することができます。
 
-### Pcapng result
+### Pcapng 結果
 
-`./ecapture tls -i eth0 -w pcapng -p 443` capture plaintext packets save as pcapng file, use `Wireshark` read it
-directly.
+`./ecapture tls -i eth0 -w pcapng -p 443` 平文パケットをキャプチャして pcapng ファイルとして保存し、 `Wireshark`
+ でそれを直接読みます。
 
-### plaintext result
+### 平文結果
 
-`./ecapture tls` will capture all plaintext context ,output to console, and capture `Master Secret` of `openssl TLS`
-save to `ecapture_masterkey.log`. You can also use `tcpdump` to capture raw packet,and use `Wireshark` to read them
-with `Master Secret` settings.
+`./ecapture tls` はすべてのプレーンテキストのコンテキストをキャプチャしてコンソールに出力し、`openssl TLS` の `Master Secret` をキャプチャして 
+`ecapture_masterkey.log` に保存することができます。また、`tcpdump` を使って生のパケットをキャプチャし、
+`Wireshark` を使って `Master Secret` 設定でそれらを読み込むことができます。
 
 >
 
-### check your server BTF config：
+### サーバーの BTF 設定を確認：
 
 ```shell
 cfc4n@vm-server:~$# uname -r
@@ -77,22 +77,22 @@ cfc4n@vm-server:~$# cat /boot/config-`uname -r` | grep CONFIG_DEBUG_INFO_BTF
 CONFIG_DEBUG_INFO_BTF=y
 ```
 
-### tls command
+### tls コマンド
 
-capture tls text context.
-Step 1:
+TLS テキストコンテキストをキャプチャします。
+ステップ 1:
 ```shell
 ./ecapture tls --hex
 ```
 
-Step 2:
+ステップ 2:
 ```shell
 curl https://github.com
 ```
 
-### libressl&boringssl
+### libressl & boringssl
 ```shell
-# for installed libressl, libssl.so.52 is the dynamic ssl lib
+# インストールされた libressl に対して、libssl.so.52 は動的な ssl lib です
 vm@vm-server:~$ ldd /usr/local/bin/openssl
 	linux-vdso.so.1 (0x00007ffc82985000)
 	libssl.so.52 => /usr/local/lib/libssl.so.52 (0x00007f1730f9f000)
@@ -100,29 +100,29 @@ vm@vm-server:~$ ldd /usr/local/bin/openssl
 	libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007f1730b62000)
 	/lib64/ld-linux-x86-64.so.2 (0x00007f17310b2000)
 
-# use the libssl to config the libssl.so path
+# libssl を使って libssl.so のパスを設定
 vm@vm-server:~$ sudo ./ecapture tls --libssl="/usr/local/lib/libssl.so.52" --hex
 
-# in another terminal, use the command, then type some string, watch the output of ecapture
+# 別の端末で実行し、何らかの文字列を入力し、ecapture の出力を確認
 vm@vm-server:~$ /usr/local/bin/openssl s_client -connect github.com:443
 
-# for installed boringssl, usage is the same
+# インストールされた boringssl の場合、使い方は同じです
 /path/to/bin/bssl s_client -connect github.com:443
 ```
 
-### bash command
-capture bash command.
+### bash コマンド
+bash コマンドをキャプチャする。
 ```shell
 ps -ef | grep foo
 ```
 
-# What's eBPF
+# eBPF とは
 [eBPF](https://ebpf.io)
 
 ## uprobe HOOK
 
 ### openssl\libressl\boringssl hook
-eCapture hook`SSL_write` \ `SSL_read` function of shared library `/lib/x86_64-linux-gnu/libssl.so.1.1`. get text context, and send message to user space by [eBPF maps](https://www.kernel.org/doc/html/latest/bpf/maps.html).
+eCapture hook `SSL_write` は、共有ライブラリ `/lib/x86_64-linux-gnu/libssl.so.1.1` の `SSL_read` 関数です。テキストコンテキストを取得し、 [eBPF maps](https://www.kernel.org/doc/html/latest/bpf/maps.html) によってユーザースペースにメッセージを送信しました。
 ```go
 Probes: []*manager.Probe{
     {
@@ -157,20 +157,20 @@ Probes: []*manager.Probe{
 },
 ```
 ### bash readline.so hook
-hook `/bin/bash` symbol name `readline`.
+hook `/bin/bash` シンボル名 `readline` です。
 
-# How to compile
+# コンパイル方法
 
-Linux Kernel: >= 4.18.
+Linux カーネル: >= 4.18.
 
-## Tools 
-* golang 1.18 or newer
-* clang 9.0 or newer
-* cmake 3.18.4 or newer
-* clang backend: llvm 9.0 or newer
-* kernel config:CONFIG_DEBUG_INFO_BTF=y (Optional, 2022-04-17)
+## ツール
+* golang 1.18 またはそれ以降
+* clang 9.0 またはそれ以降
+* cmake 3.18.4 またはそれ以降
+* clang バックエンド: llvm 9.0 またはそれ以降
+* カーネル config:CONFIG_DEBUG_INFO_BTF=y (Optional, 2022-04-17)
 
-## command
+## コマンド
 ```shell
 sudo apt-get update
 sudo apt-get install --yes build-essential pkgconf libelf-dev llvm-9 clang-9 linux-tools-common linux-tools-generic
@@ -185,18 +185,18 @@ make
 bin/ecapture --help
 ```
 
-## compile without BTF
-eCapture support BTF disabled with command `make nocore` to compile on 2022/04/17.
+## BTF なしでコンパイル
+eCapture サポート BTF をコマンド `make nocore` で無効にし、2022/04/17 にコンパイルできるようにしました。
 ```shell
 make nocore
 bin/ecapture --help
 ```
 
 
-# Contributing
-See [CONTRIBUTING](./CONTRIBUTING.md) for details on submitting patches and the contribution workflow.
+# コントリビュート
+パッチの投稿やコントリビューションのワークフローの詳細は [CONTRIBUTING](./CONTRIBUTING.md) を参照してください。
 
-## Contributors
+## コントリビューター
 
 <!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
 <!-- prettier-ignore-start -->
