@@ -20,38 +20,38 @@ type GoTLSEvent struct {
 	Data []byte `json:"data"`
 }
 
-func (e *GoTLSEvent) Decode(payload []byte) error {
+func (this *GoTLSEvent) Decode(payload []byte) error {
 	r := bytes.NewBuffer(payload)
-	err := binary.Read(r, binary.LittleEndian, &e.inner)
-	if e != nil {
+	err := binary.Read(r, binary.LittleEndian, &this.inner)
+	if err != nil {
 		return err
 	}
-	if e.Len > 0 {
-		e.Data = make([]byte, e.Len)
-		err = binary.Read(r, binary.LittleEndian, &e.Data)
+	if this.Len > 0 {
+		this.Data = make([]byte, this.Len)
+		err = binary.Read(r, binary.LittleEndian, &this.Data)
 	}
 
 	return err
 }
 
-func (e *GoTLSEvent) String() string {
-	s := fmt.Sprintf("PID: %d, Comm: %s, TID: %d, Payload: %s\n", e.Pid, string(e.Comm[:]), e.Tid, string(e.Data[:e.Len]))
+func (this *GoTLSEvent) String() string {
+	s := fmt.Sprintf("PID: %d, Comm: %s, TID: %d, Payload: %s\n", this.Pid, string(this.Comm[:]), this.Tid, string(this.Data[:this.Len]))
 	return s
 }
 
-func (e *GoTLSEvent) StringHex() string {
+func (this *GoTLSEvent) StringHex() string {
 	perfix := COLORGREEN
-	b := dumpByteSlice(e.Data[:e.Len], perfix)
+	b := dumpByteSlice(this.Data[:this.Len], perfix)
 	b.WriteString(COLORRESET)
-	s := fmt.Sprintf("PID: %d, Comm: %s, TID: %d, Payload: %s\n", e.Pid, string(e.Comm[:]), e.Tid, b.String())
+	s := fmt.Sprintf("PID: %d, Comm: %s, TID: %d, Payload: %s\n", this.Pid, string(this.Comm[:]), this.Tid, b.String())
 	return s
 }
 
-func (e *GoTLSEvent) Clone() IEventStruct {
+func (this *GoTLSEvent) Clone() IEventStruct {
 	return &GoTLSEvent{}
 }
 
-func (e *GoTLSEvent) EventType() EventType {
+func (this *GoTLSEvent) EventType() EventType {
 	return EventTypeOutput
 }
 
