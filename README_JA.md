@@ -22,7 +22,7 @@
 
 ![](./images/how-ecapture-works.png)
 
-* SSL/TLS テキスト コンテキスト キャプチャ、openssl\libressl\boringssl\gnutls\nspr(nss) ライブラリのサポート。
+* SSL/TLS テキスト コンテキスト キャプチャ、openssl\libssl\boringssl\gnutls\nspr(nss) ライブラリのサポート。
 * bash audit, ホストセキュリティ監査用のbashコマンドをキャプチャ。
 * mysql クエリ SQL 監査、サポート mysqld 5.6\5.7\8.0、および mariadDB。
 
@@ -90,9 +90,9 @@ TLS テキストコンテキストをキャプチャします。
 curl https://github.com
 ```
 
-### libressl & boringssl
+### libssl & boringssl
 ```shell
-# インストールされた libressl に対して、libssl.so.52 は動的な ssl lib です
+# インストールされた libssl に対して、libssl.so.52 は動的な ssl lib です
 vm@vm-server:~$ ldd /usr/local/bin/openssl
 	linux-vdso.so.1 (0x00007ffc82985000)
 	libssl.so.52 => /usr/local/lib/libssl.so.52 (0x00007f1730f9f000)
@@ -121,7 +121,7 @@ ps -ef | grep foo
 
 ## uprobe HOOK
 
-### openssl\libressl\boringssl hook
+### openssl\libssl\boringssl hook
 eCapture hook `SSL_write` は、共有ライブラリ `/lib/x86_64-linux-gnu/libssl.so.1.1` の `SSL_read` 関数です。テキストコンテキストを取得し、 [eBPF maps](https://www.kernel.org/doc/html/latest/bpf/maps.html) によってユーザースペースにメッセージを送信しました。
 ```go
 Probes: []*manager.Probe{
