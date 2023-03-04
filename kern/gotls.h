@@ -113,8 +113,7 @@ void* go_get_argument_by_stack(struct pt_regs *ctx, int index) {
     return ptr;
 }
 
-void* go_get_argument(struct pt_regs *ctx, int index) {
-    bool is_registers_abi = true;
+void* go_get_argument(struct pt_regs *ctx,bool is_registers_abi, int index) {
     if (is_registers_abi) {
         return go_get_argument_by_reg(ctx, index);
     }
