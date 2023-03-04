@@ -41,7 +41,7 @@ func (this *GoTLSProbe) Init(ctx context.Context, l *log.Logger, cfg config.ICon
 		return err
 	}
 
-	if ver.After(1, 15) {
+	if ver.After(1, 17) {
 		this.isRegisterABI = true
 	}
 	return nil
@@ -52,12 +52,23 @@ func (this *GoTLSProbe) Name() string {
 }
 
 func (this *GoTLSProbe) Start() error {
+	var (
+		sec string
+		fn  string
+	)
 
+	if this.isRegisterABI {
+		sec = "uprobe/gotls_text_register"
+		fn = "gotls_text_register"
+	} else {
+		sec = "uprobe/gotls_text_stack"
+		fn = "gotls_text_stack"
+	}
 	this.mngr = &manager.Manager{
 		Probes: []*manager.Probe{
 			{
-				Section:          "uprobe/gotls_text",
-				EbpfFuncName:     "gotls_text",
+				Section:          sec,
+				EbpfFuncName:     fn,
 				AttachToFuncName: "crypto/tls.(*Conn).writeRecordLocked",
 				BinaryPath:       this.path,
 			},

@@ -52,17 +52,13 @@ static struct go_tls_event *get_gotls_event() {
     return event;
 }
 
-// capture golang tls plaintext
-// type recordType uint8
-// writeRecordLocked(typ recordType, data []byte)
-SEC("uprobe/gotls_text")
-int gotls_text(struct pt_regs *ctx) {
+int gotls_text(struct pt_regs *ctx, bool is_registers_abi) {
     struct go_tls_event *event;
     s32 record_type, len;
     const char *str;
-    record_type = (s32)go_get_argument(ctx, 2);
-    str = (void *)go_get_argument(ctx, 3);
-    len = (s32)go_get_argument(ctx, 4);
+    record_type = (s32)go_get_argument(ctx, is_registers_abi, 2);
+    str = (void *)go_get_argument(ctx, is_registers_abi, 3);
+    len = (s32)go_get_argument(ctx, is_registers_abi, 4);
 
     debug_bpf_printk("gotls_text record_type:%d\n", record_type);
     if (record_type != recordTypeApplicationData) {
@@ -86,3 +82,15 @@ int gotls_text(struct pt_regs *ctx) {
                           sizeof(*event));
     return 0;
 }
+
+// capture golang tls plaintext
+// type recordType uint8
+// writeRecordLocked(typ recordType, data []byte)
+SEC("uprobe/gotls_text_register")
+int gotls_text_register(struct pt_regs *ctx) { return gotls_text(ctx, true); }
+
+// capture golang tls plaintext
+// type recordType uint8
+// writeRecordLocked(typ recordType, data []byte)
+SEC("uprobe/gotls_text_stack")
+int gotls_text_stack(struct pt_regs *ctx) { return gotls_text(ctx, false); }
