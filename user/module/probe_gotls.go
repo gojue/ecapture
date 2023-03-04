@@ -52,27 +52,22 @@ func (this *GoTLSProbe) Name() string {
 }
 
 func (this *GoTLSProbe) Start() error {
-	var (
-		sec string
-		fn  string
-	)
-
-	if this.isRegisterABI {
-		sec = "uprobe/abi_register"
-		fn = "probe_register"
-	} else {
-		sec = "uprobe/abi_stack"
-		fn = "probe_stack"
-	}
 
 	this.mngr = &manager.Manager{
 		Probes: []*manager.Probe{
 			{
-				Section:          sec,
-				EbpfFuncName:     fn,
+				Section:          "uprobe/gotls_text",
+				EbpfFuncName:     "gotls_text",
 				AttachToFuncName: "crypto/tls.(*Conn).writeRecordLocked",
 				BinaryPath:       this.path,
 			},
+
+			//{
+			//	Section:          "uprobe/gotls_masterkey",
+			//	EbpfFuncName:     "gotls_masterkey",
+			//	AttachToFuncName: "crypto/tls.(*Conn).writeRecordLocked",
+			//	BinaryPath:       this.path,
+			//},
 		},
 		Maps: []*manager.Map{
 			{
@@ -80,6 +75,13 @@ func (this *GoTLSProbe) Start() error {
 			},
 		},
 	}
+
+	// crypto/tls.(*Config).writeKeyLog
+	// crypto/tls/common.go
+	/*
+		func (c *Config) writeKeyLog(label string, clientRandom, secret []byte) error {
+		}
+	*/
 
 	var bpfFileName = this.geteBPFName("user/bytecode/gotls_kern.o")
 	this.logger.Printf("%s\tBPF bytecode filename:%s\n", this.Name(), bpfFileName)

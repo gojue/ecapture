@@ -1,7 +1,22 @@
+// Copyright 2022 CFC4N <cfc4n.cs@gmail.com>. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 /* Copyright © 2022 Hengqi Chen */
 #include "ecapture.h"
+#include "gotls.h"
 
-struct go_ssl_event {
+struct go_tls_event {
     __u64 ts_ns;
     __u32 pid;
     __u32 tid;
@@ -17,47 +32,13 @@ struct {
 struct {
     __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
     __type(key, __u32);
-    __type(value, struct go_ssl_event);
+    __type(value, struct go_tls_event);
     __uint(max_entries, 1);
 } heap SEC(".maps");
 
-#ifndef NOCORE
-
-#if defined(__TARGET_ARCH_x86)
-#define GO_REG1(x) BPF_CORE_READ((x), ax)
-#define GO_REG2(x) BPF_CORE_READ((x), bx)
-#define GO_REG3(x) BPF_CORE_READ((x), cx)
-#define GO_REG4(x) BPF_CORE_READ((x), di)
-#define GO_SP(x) BPF_CORE_READ((x), sp)
-#elif defined(__TARGET_ARCH_arm64)
-#define GO_REG1(x) PT_REGS_PARM1_CORE(x)
-#define GO_REG2(x) PT_REGS_PARM2_CORE(x)
-#define GO_REG3(x) PT_REGS_PARM3_CORE(x)
-#define GO_REG4(x) PT_REGS_PARM4_CORE(x)
-#define GO_SP(x) PT_REGS_SP_CORE(x)
-#endif
-
-#else
-
-#if defined(__x86_64__)
-#define GO_REG1(x) ((x)->ax)
-#define GO_REG2(x) ((x)->bx)
-#define GO_REG3(x) ((x)->cx)
-#define GO_REG4(x) ((x)->di)
-#define GO_SP(x) ((x)->sp)
-#elif defined(__aarch64__)
-#define GO_REG1(x) PT_REGS_PARM1(x)
-#define GO_REG2(x) PT_REGS_PARM2(x)
-#define GO_REG3(x) PT_REGS_PARM3(x)
-#define GO_REG4(x) PT_REGS_PARM4(x)
-#define GO_SP(x) PT_REGS_SP(x)
-#endif
-
-#endif
-
-static struct go_ssl_event *get_event() {
+static struct go_tls_event *get_gotls_event() {
     static const int zero = 0;
-    struct go_ssl_event *event;
+    struct go_tls_event *event;
     __u64 id;
 
     event = bpf_map_lookup_elem(&heap, &zero);
@@ -71,46 +52,35 @@ static struct go_ssl_event *get_event() {
     return event;
 }
 
-SEC("uprobe/abi_stack")
-int BPF_KPROBE(probe_stack) {
-    struct go_ssl_event *event;
-    __u64 *sp = (void *)GO_SP(ctx), addr;
-    int len, record_type;
+// capture golang tls plaintext
+// type recordType uint8
+// writeRecordLocked(typ recordType, data []byte)
+SEC("uprobe/gotls_text")
+int gotls_text(struct pt_regs *ctx) {
+    struct go_tls_event *event;
+    s32 record_type, len;
     const char *str;
+    record_type = (s32)go_get_argument(ctx, 2);
+    str = (void *)go_get_argument(ctx, 3);
+    len = (s32)go_get_argument(ctx, 4);
 
-    bpf_probe_read_user(&record_type, sizeof(record_type), sp + 2);
-    if (record_type != 23) return 0;
+    debug_bpf_printk("gotls_text record_type:%d\n", record_type);
+    if (record_type != recordTypeApplicationData) {
+        return 0;
+    }
 
-    bpf_probe_read_user(&addr, sizeof(addr), sp + 3);
-    bpf_probe_read_user(&len, sizeof(len), sp + 4);
+    event = get_gotls_event();
+    if (!event) {
+        return 0;
+    }
 
-    event = get_event();
-    if (!event) return 0;
-
-    str = (void *)addr;
-    bpf_probe_read_user_str(event->data, sizeof(event->data), str);
-    event->data_len = len;
-    bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, event,
-                          sizeof(*event));
-    return 0;
-}
-
-SEC("uprobe/abi_register")
-int BPF_KPROBE(probe_register) {
-    struct go_ssl_event *event;
-    int len, record_type;
-    const char *str;
-
-    record_type = GO_REG2(ctx);
-    str = (void *)GO_REG3(ctx);
-    len = GO_REG4(ctx);
-
-    if (record_type != 23) return 0;
-
-    event = get_event();
-    if (!event) return 0;
-
-    bpf_probe_read_user_str(event->data, sizeof(event->data), str);
+    int ret = bpf_probe_read_user_str(event->data, sizeof(event->data), str);
+    if (ret < 0) {
+        debug_bpf_printk(
+            "gotls_text bpf_probe_read_user_str failed, ret:%d, str:%d\n", ret,
+            str);
+        return 0;
+    }
     event->data_len = len;
     bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, event,
                           sizeof(*event));
