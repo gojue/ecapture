@@ -22,6 +22,8 @@
 // // TLS record types in golang tls package
 #define recordTypeApplicationData  23
 
+
+// golang register-based ABI via https://tip.golang.org/src/cmd/compile/abi-internal
 #ifndef NOCORE
 
 #if defined(__TARGET_ARCH_x86)
@@ -111,7 +113,8 @@ void* go_get_argument_by_stack(struct pt_regs *ctx, int index) {
     return ptr;
 }
 
-void* go_get_argument(struct pt_regs *ctx, bool is_registers_abi, int index) {
+void* go_get_argument(struct pt_regs *ctx, int index) {
+    bool is_registers_abi = true;
     if (is_registers_abi) {
         return go_get_argument_by_reg(ctx, index);
     }

@@ -41,6 +41,7 @@ func (this *GoTLSProbe) Init(ctx context.Context, l *log.Logger, cfg config.ICon
 		return err
 	}
 
+	// supported at 1.17 via https://github.com/golang/go/issues/40724
 	if ver.After(1, 17) {
 		this.isRegisterABI = true
 	}
