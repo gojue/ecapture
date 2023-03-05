@@ -17,10 +17,10 @@
 #include "gotls.h"
 
 struct go_tls_event {
-    __u64 ts_ns;
-    __u32 pid;
-    __u32 tid;
-    int data_len;
+    u64 ts_ns;
+    u32 pid;
+    u32 tid;
+    s32 data_len;
     char comm[TASK_COMM_LEN];
     char data[MAX_DATA_SIZE_OPENSSL];
 };
@@ -30,54 +30,63 @@ struct {
 } events SEC(".maps");
 
 struct {
-    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-    __type(key, __u32);
+    __uint(type, BPF_MAP_TYPE_LRU_HASH);
+    __type(key, u64);
+    __type(value, struct go_tls_event);
+    __uint(max_entries, 2048);
+} gte_context SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_ARRAY);
+    __type(key, u32);
     __type(value, struct go_tls_event);
     __uint(max_entries, 1);
-} heap SEC(".maps");
+} gte_context_gen SEC(".maps");
 
 static __always_inline struct go_tls_event *get_gotls_event() {
-    static const int zero = 0;
-    struct go_tls_event *event;
-    __u64 id;
+    u32 zero = 0;
+    struct go_tls_event *event = bpf_map_lookup_elem(&gte_context_gen, &zero);
+    if (!event) return 0;
 
-    event = bpf_map_lookup_elem(&heap, &zero);
-    if (!event) return NULL;
-
-    id = bpf_get_current_pid_tgid();
+    u64 id = bpf_get_current_pid_tgid();
     event->ts_ns = bpf_ktime_get_ns();
     event->pid = id >> 32;
     event->tid = (__u32)id;
     bpf_get_current_comm(event->comm, sizeof(event->comm));
-    return event;
+    bpf_map_update_elem(&gte_context, &id, event, BPF_ANY);
+    return bpf_map_lookup_elem(&gte_context, &id);
 }
 
+//SEC("uprobe/gotls_text")
 int gotls_text(struct pt_regs *ctx, bool is_register_abi) {
-    struct go_tls_event *event;
     s32 record_type, len;
     const char *str;
-    record_type = (s32)go_get_argument(ctx, is_register_abi, 2);
+    void * record_type_ptr;
+    void * len_ptr;
+    record_type_ptr = (void *)go_get_argument(ctx, is_register_abi, 2);
+    bpf_probe_read_kernel(&record_type, sizeof(record_type), (void *)&record_type_ptr);
     str = (void *)go_get_argument(ctx, is_register_abi, 3);
-    len = (s32)go_get_argument(ctx, is_register_abi, 4);
+    len_ptr = (void *)go_get_argument(ctx, is_register_abi, 4);
+    bpf_probe_read_kernel(&len, sizeof(len), (void *)&len_ptr);
 
     debug_bpf_printk("gotls_text record_type:%d\n", record_type);
     if (record_type != recordTypeApplicationData) {
         return 0;
     }
 
-    event = get_gotls_event();
+    struct go_tls_event *event = get_gotls_event();
     if (!event) {
         return 0;
     }
 
-    int ret = bpf_probe_read_user(event->data, sizeof(event->data), (void*)str);
+    event->data_len = len;
+    int ret = bpf_probe_read_user(&event->data, sizeof(event->data), (void*)str);
     if (ret < 0) {
         debug_bpf_printk(
             "gotls_text bpf_probe_read_user_str failed, ret:%d, str:%d\n", ret,
             str);
         return 0;
     }
-    event->data_len = len;
     bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, event,
                           sizeof(struct go_tls_event));
     return 0;
