@@ -17,7 +17,7 @@
 
 // true: 1.5 or older
 // false: newer
-//volatile const bool is_registers_abi;
+//volatile const bool is_register_abi;
 
 // // TLS record types in golang tls package
 #define recordTypeApplicationData  23
@@ -113,8 +113,8 @@ void* go_get_argument_by_stack(struct pt_regs *ctx, int index) {
     return ptr;
 }
 
-void* go_get_argument(struct pt_regs *ctx,bool is_registers_abi, int index) {
-    if (is_registers_abi) {
+void* go_get_argument(struct pt_regs *ctx,bool is_register_abi, int index) {
+    if (is_register_abi) {
         return go_get_argument_by_reg(ctx, index);
     }
     return go_get_argument_by_stack(ctx, index);
