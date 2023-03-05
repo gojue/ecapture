@@ -65,6 +65,7 @@ func (this *GoTLSProbe) Start() error {
 		sec = "uprobe/gotls_text_stack"
 		fn = "gotls_text_stack"
 	}
+	this.logger.Printf("%s\teBPF Function Name:%s, isRegisterABI:%t\n", this.Name(), fn, this.isRegisterABI)
 	this.mngr = &manager.Manager{
 		Probes: []*manager.Probe{
 			{

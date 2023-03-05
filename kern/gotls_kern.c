@@ -36,7 +36,7 @@ struct {
     __uint(max_entries, 1);
 } heap SEC(".maps");
 
-static struct go_tls_event *get_gotls_event() {
+static __always_inline struct go_tls_event *get_gotls_event() {
     static const int zero = 0;
     struct go_tls_event *event;
     __u64 id;
@@ -52,13 +52,13 @@ static struct go_tls_event *get_gotls_event() {
     return event;
 }
 
-int gotls_text(struct pt_regs *ctx, bool is_registers_abi) {
+int gotls_text(struct pt_regs *ctx, bool is_register_abi) {
     struct go_tls_event *event;
     s32 record_type, len;
     const char *str;
-    record_type = (s32)go_get_argument(ctx, is_registers_abi, 2);
-    str = (void *)go_get_argument(ctx, is_registers_abi, 3);
-    len = (s32)go_get_argument(ctx, is_registers_abi, 4);
+    record_type = (s32)go_get_argument(ctx, is_register_abi, 2);
+    str = (void *)go_get_argument(ctx, is_register_abi, 3);
+    len = (s32)go_get_argument(ctx, is_register_abi, 4);
 
     debug_bpf_printk("gotls_text record_type:%d\n", record_type);
     if (record_type != recordTypeApplicationData) {
@@ -70,7 +70,7 @@ int gotls_text(struct pt_regs *ctx, bool is_registers_abi) {
         return 0;
     }
 
-    int ret = bpf_probe_read_user_str(event->data, sizeof(event->data), str);
+    int ret = bpf_probe_read_user(event->data, sizeof(event->data), (void*)str);
     if (ret < 0) {
         debug_bpf_printk(
             "gotls_text bpf_probe_read_user_str failed, ret:%d, str:%d\n", ret,
@@ -79,7 +79,7 @@ int gotls_text(struct pt_regs *ctx, bool is_registers_abi) {
     }
     event->data_len = len;
     bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, event,
-                          sizeof(*event));
+                          sizeof(struct go_tls_event));
     return 0;
 }
 
@@ -87,10 +87,14 @@ int gotls_text(struct pt_regs *ctx, bool is_registers_abi) {
 // type recordType uint8
 // writeRecordLocked(typ recordType, data []byte)
 SEC("uprobe/gotls_text_register")
-int gotls_text_register(struct pt_regs *ctx) { return gotls_text(ctx, true); }
+int gotls_text_register(struct pt_regs *ctx) {
+    return gotls_text(ctx, true);
+}
 
 // capture golang tls plaintext
 // type recordType uint8
 // writeRecordLocked(typ recordType, data []byte)
 SEC("uprobe/gotls_text_stack")
-int gotls_text_stack(struct pt_regs *ctx) { return gotls_text(ctx, false); }
+int gotls_text_stack(struct pt_regs *ctx) {
+    return gotls_text(ctx, false);
+}
