@@ -21,12 +21,21 @@ func init() {
 	Register(mod)
 }
 
+const (
+	goTlsHookFunc      = "crypto/tls.(*Conn).writeRecordLocked"
+	goTlsMasterKeyFunc = "crypto/tls.(*Config).writeKeyLog"
+)
+
 // GoTLSProbe represents a probe for Go SSL
 type GoTLSProbe struct {
 	Module
-	mngr          *manager.Manager
-	path          string
-	isRegisterABI bool
+	MTCProbe
+	bpfManager        *manager.Manager
+	bpfManagerOptions manager.Options
+	eventFuncMaps     map[*ebpf.Map]event.IEventStruct
+	eventMaps         []*ebpf.Map
+	path              string
+	isRegisterABI     bool
 }
 
 func (this *GoTLSProbe) Init(ctx context.Context, l *log.Logger, cfg config.IConfig) error {
@@ -34,6 +43,8 @@ func (this *GoTLSProbe) Init(ctx context.Context, l *log.Logger, cfg config.ICon
 	this.conf = cfg
 	this.Module.SetChild(this)
 
+	this.eventMaps = make([]*ebpf.Map, 0, 2)
+	this.eventFuncMaps = make(map[*ebpf.Map]event.IEventStruct)
 	this.path = cfg.(*config.GoTLSConfig).Path
 	ver, err := proc.ExtraceGoVersion(this.path)
 	if err != nil {
@@ -65,12 +76,12 @@ func (this *GoTLSProbe) Start() error {
 		fn = "gotls_text_stack"
 	}
 	this.logger.Printf("%s\teBPF Function Name:%s, isRegisterABI:%t\n", this.Name(), fn, this.isRegisterABI)
-	this.mngr = &manager.Manager{
+	this.bpfManager = &manager.Manager{
 		Probes: []*manager.Probe{
 			{
 				Section:          sec,
 				EbpfFuncName:     fn,
-				AttachToFuncName: "crypto/tls.(*Conn).writeRecordLocked",
+				AttachToFuncName: goTlsHookFunc,
 				BinaryPath:       this.path,
 			},
 
@@ -108,17 +119,50 @@ func (this *GoTLSProbe) Start() error {
 			Max: math.MaxUint64,
 		},
 	}
-	if err := this.mngr.InitWithOptions(bytes.NewReader(byteBuf), opts); err != nil {
+	if err := this.bpfManager.InitWithOptions(bytes.NewReader(byteBuf), opts); err != nil {
 		return err
 	}
 
-	return this.mngr.Start()
+	return this.bpfManager.Start()
+}
+
+// 通过elf的常量替换方式传递数据
+func (this *GoTLSProbe) constantEditor() []manager.ConstantEditor {
+	var editor = []manager.ConstantEditor{
+		{
+			Name:  "target_pid",
+			Value: uint64(this.conf.GetPid()),
+			//FailOnMissing: true,
+		},
+		{
+			Name:  "target_uid",
+			Value: uint64(this.conf.GetUid()),
+		},
+		{
+			Name:  "target_port",
+			Value: uint64(this.conf.(*config.OpensslConfig).Port),
+		},
+	}
+
+	if this.conf.GetPid() <= 0 {
+		this.logger.Printf("%s\ttarget all process. \n", this.Name())
+	} else {
+		this.logger.Printf("%s\ttarget PID:%d \n", this.Name(), this.conf.GetPid())
+	}
+
+	if this.conf.GetUid() <= 0 {
+		this.logger.Printf("%s\ttarget all users. \n", this.Name())
+	} else {
+		this.logger.Printf("%s\ttarget UID:%d \n", this.Name(), this.conf.GetUid())
+	}
+
+	return editor
 }
 
 func (this *GoTLSProbe) Events() []*ebpf.Map {
 	var maps []*ebpf.Map
 
-	m, ok, err := this.mngr.GetMap("events")
+	m, ok, err := this.bpfManager.GetMap("events")
 	if err != nil || !ok {
 		return maps
 	}

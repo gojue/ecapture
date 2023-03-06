@@ -26,7 +26,6 @@ import (
 	"fmt"
 	"github.com/cilium/ebpf"
 	manager "github.com/gojue/ebpfmanager"
-	"github.com/google/gopacket/pcapgo"
 	"golang.org/x/sys/unix"
 	"log"
 	"math"
@@ -58,27 +57,19 @@ const (
 
 type MOpenSSLProbe struct {
 	Module
+	MTCProbe
 	bpfManager        *manager.Manager
 	bpfManagerOptions manager.Options
 	eventFuncMaps     map[*ebpf.Map]event.IEventStruct
 	eventMaps         []*ebpf.Map
 
 	// pid[fd:Addr]
-	pidConns map[uint32]map[uint32]string
+	//pidConns map[uint32]map[uint32]string
 
 	keyloggerFilename string
 	keylogger         *os.File
 	masterKeys        map[string]bool
 	eBPFProgramType   EBPFPROGRAMTYPE
-	pcapngFilename    string
-	ifIdex            int
-	ifName            string
-	pcapWriter        *pcapgo.NgWriter
-	startTime         uint64
-	bootTime          uint64
-	tcPackets         []*TcPacket
-	masterKeyBuffer   *bytes.Buffer
-	tcPacketLocker    *sync.Mutex
 
 	sslVersionBpfMap map[string]string // bpf map key: ssl version, value: bpf map key
 	sslBpfFile       string            // ssl bpf file
@@ -93,7 +84,7 @@ func (this *MOpenSSLProbe) Init(ctx context.Context, logger *log.Logger, conf co
 	this.Module.SetChild(this)
 	this.eventMaps = make([]*ebpf.Map, 0, 2)
 	this.eventFuncMaps = make(map[*ebpf.Map]event.IEventStruct)
-	this.pidConns = make(map[uint32]map[uint32]string)
+	//this.pidConns = make(map[uint32]map[uint32]string)
 	this.masterKeys = make(map[string]bool)
 	this.sslVersionBpfMap = make(map[string]string)
 
@@ -227,14 +218,18 @@ func (this *MOpenSSLProbe) start() error {
 func (this *MOpenSSLProbe) Close() error {
 	if this.eBPFProgramType == EbpfprogramtypeOpensslTc {
 		this.logger.Printf("%s\tsaving pcapng file %s\n", this.Name(), this.pcapngFilename)
-		err := this.savePcapng()
+		i, err := this.savePcapng()
 		if err != nil {
-			return err
+			this.logger.Printf("%s\tsave pcanNP failed, error:%v. \n", this.Name(), err)
+		}
+		if i == 0 {
+			this.logger.Printf("nothing captured, please check your network interface, see \"ecapture tls -h\" for more information.")
+		} else {
+			this.logger.Printf("%s\t save %d packets into pcapng file.\n", this.Name(), i)
 		}
 	}
 
 	this.logger.Printf("%s\tclose. \n", this.Name())
-
 	if err := this.bpfManager.Stop(manager.CleanAll); err != nil {
 		return fmt.Errorf("couldn't stop manager %v .", err)
 	}
@@ -474,59 +469,6 @@ func (this *MOpenSSLProbe) Events() []*ebpf.Map {
 	return this.eventMaps
 }
 
-func (this *MOpenSSLProbe) AddConn(pid, fd uint32, addr string) {
-	// save to map
-	var m map[uint32]string
-	var f bool
-	m, f = this.pidConns[pid]
-	if !f {
-		m = make(map[uint32]string)
-	}
-	m[fd] = addr
-	this.pidConns[pid] = m
-	return
-}
-
-// process exit :fd is 0 , delete all pid map
-// fd exit :pid > 0, fd > 0, delete fd value
-// TODO add fd * pid exit event hook
-func (this *MOpenSSLProbe) DelConn(pid, fd uint32) {
-	// delete from map
-	if pid == 0 {
-		return
-	}
-
-	if fd == 0 {
-		delete(this.pidConns, pid)
-	}
-
-	var m map[uint32]string
-	var f bool
-	m, f = this.pidConns[pid]
-	if !f {
-		return
-	}
-	delete(m, fd)
-	this.pidConns[pid] = m
-	return
-}
-
-func (this *MOpenSSLProbe) GetConn(pid, fd uint32) string {
-	addr := ""
-	var m map[uint32]string
-	var f bool
-	m, f = this.pidConns[pid]
-	if !f {
-		return ConnNotFound
-	}
-
-	addr, f = m[fd]
-	if !f {
-		return ConnNotFound
-	}
-	return addr
-}
-
 func (this *MOpenSSLProbe) saveMasterSecret(secretEvent *event.MasterSecretEvent) {
 
 	var k = fmt.Sprintf("%02x", secretEvent.ClientRandom)
@@ -709,13 +651,16 @@ func (this *MOpenSSLProbe) Dispatcher(eventStruct event.IEventStruct) {
 	// detect eventStruct type
 	switch eventStruct.(type) {
 	case *event.ConnDataEvent:
-		this.AddConn(eventStruct.(*event.ConnDataEvent).Pid, eventStruct.(*event.ConnDataEvent).Fd, eventStruct.(*event.ConnDataEvent).Addr)
+		//this.AddConn(eventStruct.(*event.ConnDataEvent).Pid, eventStruct.(*event.ConnDataEvent).Fd, eventStruct.(*event.ConnDataEvent).Addr)
 	case *event.MasterSecretEvent:
 		this.saveMasterSecret(eventStruct.(*event.MasterSecretEvent))
 	case *event.MasterSecretBSSLEvent:
 		this.saveMasterSecretBSSL(eventStruct.(*event.MasterSecretBSSLEvent))
 	case *event.TcSkbEvent:
-		this.dumpTcSkb(eventStruct.(*event.TcSkbEvent))
+		err := this.dumpTcSkb(eventStruct.(*event.TcSkbEvent))
+		if err != nil {
+			this.logger.Printf("%s\t save packet error %s .\n", this.Name(), err.Error())
+		}
 	}
 	//this.logger.Println(eventStruct)
 }
