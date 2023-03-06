@@ -40,14 +40,14 @@
 #define SA_DATA_LEN 14
 #define BASH_ERRNO_DEFAULT 128
 
-///////// for TC & XDP ebpf programs in openssl_tc.h
+///////// for TC & XDP ebpf programs in tc.h
 #define TC_ACT_OK 0
 #define ETH_P_IP 0x0800 /* Internet Protocol packet        */
 #define SKB_MAX_DATA_SIZE 2048
 
 // .rodata section bug via : https://github.com/gojue/ecapture/issues/39
 #ifndef KERNEL_LESS_5_2
-// alawyse, we used it in openssl_tc.h
+// alawyse, we used it in tc.h
 const volatile u64 target_port = 443;
 
 // Optional Target PID and UID

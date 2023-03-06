@@ -13,7 +13,7 @@
 // limitations under the License.
 
 #include "ecapture.h"
-#include "openssl_tc.h"
+#include "tc.h"
 
 enum ssl_data_event_type { kSSLRead, kSSLWrite };
 const u32 invalidFD = 0;
