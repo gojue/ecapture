@@ -24,19 +24,12 @@ import (
 	"golang.org/x/sys/unix"
 	"math"
 	"net"
-	"strings"
 )
 
-type NetEventMetadata struct {
-	TimeStamp   uint64   `json:"timeStamp"`
-	HostTid     uint32   `json:"hostTid"`
-	ProcessName [16]byte `json:"processName"`
-}
+func (this *GoTLSProbe) setupManagersTC() error {
+	var ifname string
 
-func (this *MOpenSSLProbe) setupManagersTC() error {
-	var ifname, binaryPath, sslVersion string
-
-	ifname = this.conf.(*config.OpensslConfig).Ifname
+	ifname = this.conf.(*config.GoTLSConfig).Ifname
 	this.ifName = ifname
 	interf, err := net.InterfaceByName(this.ifName)
 	if err != nil {
@@ -51,29 +44,9 @@ func (this *MOpenSSLProbe) setupManagersTC() error {
 	}
 	this.ifIdex = interf.Index
 
-	sslVersion = this.conf.(*config.OpensslConfig).SslVersion
-	sslVersion = strings.ToLower(sslVersion)
-	switch this.conf.(*config.OpensslConfig).ElfType {
-	case config.ElfTypeBin:
-		binaryPath = this.conf.(*config.OpensslConfig).Curlpath
-	case config.ElfTypeSo:
-		binaryPath = this.conf.(*config.OpensslConfig).Openssl
-		err := this.getSslBpfFile(binaryPath, sslVersion)
-		if err != nil {
-			return err
-		}
-	default:
-		//如果没找到
-		binaryPath = "/lib/x86_64-linux-gnu/libssl.so.1.1"
-		err := this.getSslBpfFile(binaryPath, sslVersion)
-		if err != nil {
-			return err
-		}
-	}
-
-	this.logger.Printf("%s\tHOOK type:%d, binrayPath:%s\n", this.Name(), this.conf.(*config.OpensslConfig).ElfType, binaryPath)
-	this.logger.Printf("%s\tIfname:%s, Ifindex:%d,  Port:%d, Pcapng filepath:%s\n", this.Name(), this.ifName, this.ifIdex, this.conf.(*config.OpensslConfig).Port, this.pcapngFilename)
-	this.logger.Printf("%s\tHook masterKey function:%s\n", this.Name(), this.masterHookFunc)
+	this.logger.Printf("%s\tHOOK type:golang elf, binrayPath:%s\n", this.Name(), this.path)
+	this.logger.Printf("%s\tIfname:%s, Ifindex:%d,  Port:%d, Pcapng filepath:%s\n", this.Name(), this.ifName, this.ifIdex, this.conf.(*config.GoTLSConfig).Port, this.pcapngFilename)
+	this.logger.Printf("%s\tHook masterKey function:%s\n", this.Name(), goTlsMasterKeyFunc)
 
 	// create pcapng writer
 	netIfs, err := net.Interfaces()
@@ -88,15 +61,6 @@ func (this *MOpenSSLProbe) setupManagersTC() error {
 
 	this.bpfManager = &manager.Manager{
 		Probes: []*manager.Probe{
-			// customize deleteed TC filter
-			// tc filter del dev eth0 ingress
-			// tc filter del dev eth0 egress
-			// loopback devices are special, some tc probes should be skipped
-			// TODO: detect loopback devices via aquasecrity/tracee/pkg/ebpf/probes/probe.go line 322
-			// isNetIfaceLo := netIface.Flags&net.FlagLoopback == net.FlagLoopback
-			//	if isNetIfaceLo && p.skipLoopback {
-			//		return nil
-			//	}
 			{
 				Section:          "classifier/egress",
 				EbpfFuncName:     "egress_cls_func",
@@ -111,13 +75,14 @@ func (this *MOpenSSLProbe) setupManagersTC() error {
 			},
 			// --------------------------------------------------
 
-			// openssl masterkey
+			// gotls master secrets
 			{
-				Section:          "uprobe/SSL_write_key",
-				EbpfFuncName:     "probe_ssl_master_key",
-				AttachToFuncName: this.masterHookFunc, // SSL_do_handshake or SSL_write
-				BinaryPath:       binaryPath,
-				UID:              "uprobe_ssl_master_key",
+				// TODO
+				Section:          "uprobe/gotls_writekeylog",
+				EbpfFuncName:     "probe_gotls_writekeylog",
+				AttachToFuncName: goTlsMasterKeyFunc,
+				BinaryPath:       this.path,
+				UID:              "uprobe_gotls_master_key",
 			},
 		},
 
@@ -153,7 +118,7 @@ func (this *MOpenSSLProbe) setupManagersTC() error {
 	return nil
 }
 
-func (this *MOpenSSLProbe) initDecodeFunTC() error {
+func (this *GoTLSProbe) initDecodeFunTC() error {
 	//SkbEventsMap 与解码函数映射
 	SkbEventsMap, found, err := this.bpfManager.GetMap("skb_events")
 	if err != nil {
@@ -167,6 +132,7 @@ func (this *MOpenSSLProbe) initDecodeFunTC() error {
 	//sslEvent.SetModule(this)
 	this.eventFuncMaps[SkbEventsMap] = sslEvent
 
+	// TODO write a master secrets map at ebpf code
 	MasterkeyEventsMap, found, err := this.bpfManager.GetMap("mastersecret_events")
 	if err != nil {
 		return err
@@ -178,11 +144,8 @@ func (this *MOpenSSLProbe) initDecodeFunTC() error {
 
 	var masterkeyEvent event.IEventStruct
 
-	if this.isBoringSSL {
-		masterkeyEvent = &event.MasterSecretBSSLEvent{}
-	} else {
-		masterkeyEvent = &event.MasterSecretEvent{}
-	}
+	// TODO goTLS Event struct
+	masterkeyEvent = &event.MasterSecretEvent{}
 
 	//masterkeyEvent.SetModule(this)
 	this.eventFuncMaps[MasterkeyEventsMap] = masterkeyEvent

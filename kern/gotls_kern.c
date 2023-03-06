@@ -15,6 +15,7 @@
 /* Copyright © 2022 Hengqi Chen */
 #include "ecapture.h"
 #include "gotls.h"
+#include "tc.h"
 
 struct go_tls_event {
     u64 ts_ns;
