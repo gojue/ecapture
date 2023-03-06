@@ -57,8 +57,7 @@ static __always_inline struct go_tls_event *get_gotls_event() {
     return bpf_map_lookup_elem(&gte_context, &id);
 }
 
-//SEC("uprobe/gotls_text")
-int gotls_text(struct pt_regs *ctx, bool is_register_abi) {
+static __always_inline int gotls_text(struct pt_regs *ctx, bool is_register_abi) {
     s32 record_type, len;
     const char *str;
     void * record_type_ptr;
@@ -92,7 +91,7 @@ int gotls_text(struct pt_regs *ctx, bool is_register_abi) {
     return 0;
 }
 
-// capture golang tls plaintext
+// capture golang tls plaintext, supported golang stack-based ABI (go version >= 1.17)
 // type recordType uint8
 // writeRecordLocked(typ recordType, data []byte)
 SEC("uprobe/gotls_text_register")
@@ -100,7 +99,7 @@ int gotls_text_register(struct pt_regs *ctx) {
     return gotls_text(ctx, true);
 }
 
-// capture golang tls plaintext
+// capture golang tls plaintext, supported golang stack-based ABI (go version < 1.17)
 // type recordType uint8
 // writeRecordLocked(typ recordType, data []byte)
 SEC("uprobe/gotls_text_stack")

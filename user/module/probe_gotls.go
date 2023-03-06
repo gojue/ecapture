@@ -24,7 +24,6 @@ func init() {
 // GoTLSProbe represents a probe for Go SSL
 type GoTLSProbe struct {
 	Module
-
 	mngr          *manager.Manager
 	path          string
 	isRegisterABI bool
