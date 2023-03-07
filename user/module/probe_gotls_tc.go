@@ -46,7 +46,7 @@ func (this *GoTLSProbe) setupManagersTC() error {
 
 	this.logger.Printf("%s\tHOOK type:golang elf, binrayPath:%s\n", this.Name(), this.path)
 	this.logger.Printf("%s\tIfname:%s, Ifindex:%d,  Port:%d, Pcapng filepath:%s\n", this.Name(), this.ifName, this.ifIdex, this.conf.(*config.GoTLSConfig).Port, this.pcapngFilename)
-	this.logger.Printf("%s\tHook masterKey function:%s\n", this.Name(), goTlsMasterKeyFunc)
+	this.logger.Printf("%s\tHook masterKey function:%s\n", this.Name(), goTlsMasterSecretFunc)
 
 	// create pcapng writer
 	netIfs, err := net.Interfaces()
@@ -57,6 +57,19 @@ func (this *GoTLSProbe) setupManagersTC() error {
 	err = this.createPcapng(netIfs)
 	if err != nil {
 		return err
+	}
+
+	var (
+		sec string
+		fn  string
+	)
+
+	if this.isRegisterABI {
+		sec = "uprobe/gotls_masterkey_register"
+		fn = "gotls_masterkey_register"
+	} else {
+		sec = "uprobe/gotls_masterkey_stack"
+		fn = "gotls_masterkey_stack"
 	}
 
 	this.bpfManager = &manager.Manager{
@@ -77,18 +90,17 @@ func (this *GoTLSProbe) setupManagersTC() error {
 
 			// gotls master secrets
 			{
-				// TODO
-				Section:          "uprobe/gotls_writekeylog",
-				EbpfFuncName:     "probe_gotls_writekeylog",
-				AttachToFuncName: goTlsMasterKeyFunc,
+				Section:          sec,
+				EbpfFuncName:     fn,
+				AttachToFuncName: goTlsMasterSecretFunc,
 				BinaryPath:       this.path,
-				UID:              "uprobe_gotls_master_key",
+				UID:              "uprobe_gotls_master_secret",
 			},
 		},
 
 		Maps: []*manager.Map{
 			{
-				Name: "mastersecret_events",
+				Name: "mastersecret_go_events",
 			},
 			{
 				Name: "skb_events",
@@ -132,8 +144,8 @@ func (this *GoTLSProbe) initDecodeFunTC() error {
 	//sslEvent.SetModule(this)
 	this.eventFuncMaps[SkbEventsMap] = sslEvent
 
-	// TODO write a master secrets map at ebpf code
-	MasterkeyEventsMap, found, err := this.bpfManager.GetMap("mastersecret_events")
+	// master secrets map at ebpf code
+	MasterkeyEventsMap, found, err := this.bpfManager.GetMap("mastersecret_go_events")
 	if err != nil {
 		return err
 	}
@@ -144,10 +156,13 @@ func (this *GoTLSProbe) initDecodeFunTC() error {
 
 	var masterkeyEvent event.IEventStruct
 
-	// TODO goTLS Event struct
-	masterkeyEvent = &event.MasterSecretEvent{}
+	// goTLS Event struct
+	masterkeyEvent = &event.MasterSecretGotlsEvent{}
 
-	//masterkeyEvent.SetModule(this)
 	this.eventFuncMaps[MasterkeyEventsMap] = masterkeyEvent
 	return nil
+}
+
+func (this *GoTLSProbe) Events() []*ebpf.Map {
+	return this.eventMaps
 }
