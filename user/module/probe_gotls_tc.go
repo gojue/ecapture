@@ -65,11 +65,11 @@ func (this *GoTLSProbe) setupManagersTC() error {
 	)
 
 	if this.isRegisterABI {
-		sec = "uprobe/gotls_masterkey_register"
-		fn = "gotls_masterkey_register"
+		sec = "uprobe/gotls_mastersecret_register"
+		fn = "gotls_mastersecret_register"
 	} else {
-		sec = "uprobe/gotls_masterkey_stack"
-		fn = "gotls_masterkey_stack"
+		sec = "uprobe/gotls_mastersecret_stack"
+		fn = "gotls_mastersecret_stack"
 	}
 
 	this.bpfManager = &manager.Manager{
