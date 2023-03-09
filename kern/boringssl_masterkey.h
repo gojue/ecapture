@@ -113,7 +113,8 @@ static __always_inline struct mastersecret_bssl_t *make_event() {
 
 // in boringssl, the master secret is stored in src/ssl/handshake.cc  581
 // const SSL_SESSION *ssl_handshake_session(const SSL_HANDSHAKE *hs) {
-static __always_inline u64 get_session_addr(void *ssl_st_ptr, u64 s3_address, u64 ssl_hs_st_ptr) {
+static __always_inline u64 get_session_addr(void *ssl_st_ptr, u64 s3_address,
+                                            u64 ssl_hs_st_ptr) {
     u64 tmp_address;
     int ret;
 
@@ -220,7 +221,8 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
     ret = bpf_probe_read_user(&ssl_hs_st_addr, sizeof(ssl_hs_st_addr),
                               ssl_hs_st_ptr);
     if (ret || ssl_hs_st_addr == 0) {
-//        debug_bpf_printk("bpf_probe_read ssl_hs_st_ptr failed, ret :%d\n", ret);
+        //        debug_bpf_printk("bpf_probe_read ssl_hs_st_ptr failed, ret
+        //        :%d\n", ret);
         return 0;
     }
 
@@ -241,7 +243,7 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
         (u64 *)(ssl_hs_st_addr + BSSL__SSL_HANDSHAKE_CLIENT_VERSION);
     ret = bpf_probe_read_user(&client_version, sizeof(client_version),
                               ssl_hs_cv_ptr);
-//    if (ret || client_version == 0) {
+    //    if (ret || client_version == 0) {
     if (ret) {
         debug_bpf_printk(
             "bpf_probe_read ssl_hs_st_ptr failed, ret :%d, client_version:%d\n",
@@ -261,15 +263,17 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
 
     // ssl_client_hs_state_t::ssl3_hs_state=5
     // tls13_server_hs_state_t::state13_read_second_client_flight
-//    if (ssl3_hs_state.state == 5 && ssl3_hs_state.tls13_state < 8) {
-//        return 0;
-//    }
+    //    if (ssl3_hs_state.state == 5 && ssl3_hs_state.tls13_state < 8) {
+    //        return 0;
+    //    }
     ///////////// debug info  /////////
 
-    debug_bpf_printk("client_version:%d, state:%d, tls13_state:%d\n", client_version, ssl3_hs_state.state,
+    debug_bpf_printk("client_version:%d, state:%d, tls13_state:%d\n",
+                     client_version, ssl3_hs_state.state,
                      ssl3_hs_state.tls13_state);
     //    debug_bpf_printk("openssl uprobe/SSL_write masterKey PID :%d\n", pid);
-        debug_bpf_printk("TLS version :%d, hash_len:%d, \n", mastersecret->version, hash_len);
+    debug_bpf_printk("TLS version :%d, hash_len:%d, \n", mastersecret->version,
+                     hash_len);
     // 判断当前tls链接状态
     // handshake->handshake_finalized = hs_st_addr + BSSL__SSL_HANDSHAKE_HINTS +
     s32 all_bool;
@@ -289,15 +293,16 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
     if (mastersecret->version != TLS1_3_VERSION) {
         // state12_finish_server_handshake
         // state12_done
-        if (ssl3_hs_state.state  < 20) {
+        if (ssl3_hs_state.state < 20) {
             // not finished yet.
             return 0;
         }
         // Get ssl_session_st pointer
         u64 ssl_session_st_addr;
-        ssl_session_st_addr = get_session_addr(ssl_st_ptr, s3_address, ssl_hs_st_addr);
+        ssl_session_st_addr =
+            get_session_addr(ssl_st_ptr, s3_address, ssl_hs_st_addr);
         if (ssl_session_st_addr == 0) {
-//            debug_bpf_printk("ssl_session_st_addr is null\n");
+            //            debug_bpf_printk("ssl_session_st_addr is null\n");
             return 0;
         }
         debug_bpf_printk("s3_address:%llx, ssl_session_st_addr addr :%llx\n",
