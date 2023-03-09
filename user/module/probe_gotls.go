@@ -170,13 +170,13 @@ func (this *GoTLSProbe) setupManagersUprobe() error {
 	if this.isRegisterABI {
 		sec = "uprobe/gotls_text_register"
 		fn = "gotls_text_register"
-		ms_sec = "uprobe/gotls_masterkey_register"
-		ms_fn = "gotls_masterkey_register"
+		ms_sec = "uprobe/gotls_mastersecret_register"
+		ms_fn = "gotls_mastersecret_register"
 	} else {
 		sec = "uprobe/gotls_text_stack"
 		fn = "gotls_text_stack"
-		ms_sec = "uprobe/gotls_masterkey_stack"
-		ms_fn = "gotls_masterkey_stack"
+		ms_sec = "uprobe/gotls_mastersecret_stack"
+		ms_fn = "gotls_mastersecret_stack"
 	}
 	this.logger.Printf("%s\teBPF Function Name:%s, isRegisterABI:%t\n", this.Name(), fn, this.isRegisterABI)
 	this.bpfManager = &manager.Manager{
@@ -306,11 +306,34 @@ func (this *GoTLSProbe) DecodeFun(m *ebpf.Map) (event.IEventStruct, bool) {
 }
 
 func (this *GoTLSProbe) Close() error {
+
+	if this.eBPFProgramType == EbpfprogramtypeOpensslTc {
+		this.logger.Printf("%s\tsaving pcapng file %s\n", this.Name(), this.pcapngFilename)
+		i, err := this.savePcapng()
+		if err != nil {
+			this.logger.Printf("%s\tsave pcanNP failed, error:%v. \n", this.Name(), err)
+		}
+		if i == 0 {
+			this.logger.Printf("nothing captured, please check your network interface, see \"ecapture tls -h\" for more information.")
+		} else {
+			this.logger.Printf("%s\t save %d packets into pcapng file.\n", this.Name(), i)
+		}
+	}
+
+	this.logger.Printf("%s\tclose. \n", this.Name())
+	if err := this.bpfManager.Stop(manager.CleanAll); err != nil {
+		return fmt.Errorf("couldn't stop manager %v .", err)
+	}
 	return this.Module.Close()
 }
 
 func (this *GoTLSProbe) saveMasterSecret(secretEvent *event.MasterSecretGotlsEvent) {
-	var k = fmt.Sprintf("%s-%02x", secretEvent.Lable, secretEvent.ClientRandom)
+	var label, clientRandom, secret string
+	label = string(secretEvent.Label[0:secretEvent.LabelLen])
+	clientRandom = string(secretEvent.ClientRandom[0:secretEvent.ClientRandomLen])
+	secret = string(secretEvent.MasterSecret[0:secretEvent.MasterSecretLen])
+
+	var k = fmt.Sprintf("%s-%02x", label, clientRandom)
 
 	_, f := this.masterSecrets[k]
 	if f {
@@ -320,26 +343,20 @@ func (this *GoTLSProbe) saveMasterSecret(secretEvent *event.MasterSecretGotlsEve
 
 	// TODO 保存多个lable 整组里？？？
 	// save to file
-	//var b *bytes.Buffer
-	//l, e := this.keylogger.WriteString(b.String())
-	//if e != nil {
-	//	this.logger.Fatalf("%s: save masterSecrets to file error:%s", secretEvent.String(), e.Error())
-	//	return
-	//}
+	var b string
+	b = fmt.Sprintf("%s %02x %02x\n", label, clientRandom, secret)
+	l, e := this.keylogger.WriteString(b)
+	if e != nil {
+		this.logger.Fatalf("%s: save masterSecrets to file error:%s", secretEvent.String(), e.Error())
+		return
+	}
+	this.logger.Printf("%s: save CLIENT_RANDOM %02x to file success, %d bytes", label, clientRandom, l)
+	e = this.savePcapngSslKeyLog([]byte(b))
+	if e != nil {
+		this.logger.Fatalf("%s: save masterSecrets to pcapng error:%s", secretEvent.String(), e.Error())
+		return
+	}
 
-	//
-	this.logger.Printf("%s: save masterSecrets %02x to file success, %d bytes", secretEvent.String(), secretEvent.ClientRandom, len(secretEvent.String()))
-	/*
-		switch this.eBPFProgramType {
-		case EbpfprogramtypeOpensslTc:
-			e = this.savePcapngSslKeyLog(b.Bytes())
-			if e != nil {
-				this.logger.Fatalf("%s: save masterSecrets to pcapng error:%s", secretEvent.String(), e.Error())
-				return
-			}
-		default:
-		}
-	*/
 }
 
 func (this *GoTLSProbe) Dispatcher(eventStruct event.IEventStruct) {
