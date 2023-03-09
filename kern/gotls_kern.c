@@ -35,7 +35,7 @@ struct go_tls_event {
 struct mastersecret_gotls_t {
     u8 label[MASTER_SECRET_KEY_LEN];
     u8 labellen;
-    u8 client_random[GOTLS_RANDOM_SIZE];
+    u8 client_random[EVP_MAX_MD_SIZE];
     u8 client_random_len;
     u8 secret_[EVP_MAX_MD_SIZE];
     u8 secret_len;
@@ -161,14 +161,14 @@ static __always_inline int gotls_mastersecret(struct pt_regs *ctx,
     bpf_probe_read_kernel(&secret_len, sizeof(lab_len),
                           (void *)&secret_len_ptr);
 
-    debug_bpf_printk(
-        "gotls_mastersecret read params length failed, lab_len:%d, cr_len:%d, "
-        "secret_len:%d\n",
-        lab_len, cr_len, secret_len);
-
     if (lab_len <= 0 || cr_len <= 0 || secret_len <= 0) {
         return 0;
     }
+
+    debug_bpf_printk(
+        "gotls_mastersecret read params length success, lab_len:%d, cr_len:%d, "
+        "secret_len:%d\n",
+        lab_len, cr_len, secret_len);
 
     struct mastersecret_gotls_t mastersecret_gotls = {};
     mastersecret_gotls.labellen = lab_len;
