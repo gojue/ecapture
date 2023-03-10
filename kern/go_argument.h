@@ -19,10 +19,6 @@
 // false: newer
 //volatile const bool is_register_abi;
 
-// // TLS record types in golang tls package
-#define recordTypeApplicationData  23
-
-
 // golang register-based ABI via https://tip.golang.org/src/cmd/compile/abi-internal
 #ifndef NOCORE
 

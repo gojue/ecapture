@@ -23,6 +23,9 @@
 #define MASTER_SECRET_KEY_LEN 32
 #define EVP_MAX_MD_SIZE 64
 
+// // TLS record types in golang tls package
+#define recordTypeApplicationData  23
+
 struct go_tls_event {
     u64 ts_ns;
     u32 pid;
