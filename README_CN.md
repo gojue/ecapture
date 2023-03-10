@@ -30,6 +30,7 @@ eCapture的中文名字为**旁观者**，即「**当局者迷，旁观者清**�
 eBPF `Uprobe`/`Traffic Control`实现的各种用户空间/内核空间的数据捕获，无需改动原程序。
 
 * SSL/HTTPS数据导出功能，针对HTTPS的数据包抓取，不需要导入CA证书。
+* 支持go tls类库的明文捕获，即使用golang语言编写的https/tls程序的加密通讯。
 * bash的命令捕获，HIDS的bash命令监控解决方案。
 * mysql query等数据库的数据库审计解决方案。
 
@@ -64,6 +65,8 @@ eBPF `Uprobe`/`Traffic Control`实现的各种用户空间/内核空间的数据
 > **Note**
 >
 > 需要ROOT权限执行。
+
+执行`./ecapture -h`查看详细帮助文档。
 
 eCapture默认查找`/etc/ld.so.conf`文件，查找SO文件的加载目录，并查找`openssl`等动态链接路位置。你也可以通过`--libssl`
 参数指定动态链接库路径。
@@ -128,46 +131,6 @@ ps -ef | grep foo
 ## eBPF技术
 参考[ebpf](https://ebpf.io)官网的介绍
 
-## uprobe HOOK
-
-### openssl hook
-本项目hook了`/lib/x86_64-linux-gnu/libssl.so.1.1`的`SSL_write`、`SSL_read`函数的返回值，拿到明文信息，通过ebpf map传递给用户进程。
-```go
-Probes: []*manager.Probe{
-    {
-        Section:          "uprobe/SSL_write",
-        EbpfFuncName:     "probe_entry_SSL_write",
-        AttachToFuncName: "SSL_write",
-        //UprobeOffset:     0x386B0,
-        BinaryPath: "/lib/x86_64-linux-gnu/libssl.so.1.1",
-    },
-    {
-        Section:          "uretprobe/SSL_write",
-        EbpfFuncName:     "probe_ret_SSL_write",
-        AttachToFuncName: "SSL_write",
-        //UprobeOffset:     0x386B0,
-        BinaryPath: "/lib/x86_64-linux-gnu/libssl.so.1.1",
-    },
-    {
-        Section:          "uprobe/SSL_read",
-        EbpfFuncName:     "probe_entry_SSL_read",
-        AttachToFuncName: "SSL_read",
-        //UprobeOffset:     0x38380,
-        BinaryPath: "/lib/x86_64-linux-gnu/libssl.so.1.1",
-    },
-    {
-        Section:          "uretprobe/SSL_read",
-        EbpfFuncName:     "probe_ret_SSL_read",
-        AttachToFuncName: "SSL_read",
-        //UprobeOffset:     0x38380,
-        BinaryPath: "/lib/x86_64-linux-gnu/libssl.so.1.1",
-    },
-    /**/
-},
-```
-### bash的readline hook
-hook了`/bin/bash`的`readline`函数。
-
 # 编译方法
 
 针对个别程序使用的openssl类库是静态编译，也可以自行修改源码实现。若函数名不在符号表里，也可以自行反编译找到函数的offset偏移地址，填写到`UprobeOffset`属性上，进行编译。
@@ -186,24 +149,35 @@ hook了`/bin/bash`的`readline`函数。
 * kernel config:CONFIG_DEBUG_INFO_BTF=y (可选，2022-04-17增加)
 
 
-## 编译
+## 编译环境
 
+### ubuntu
+如果你使用的是ubuntu 20.04以及更新版本，可以使用一条命令即可完成编译环境的初始化。
 ```shell
-sudo apt-get update
-sudo apt-get install --yes build-essential pkgconf libelf-dev llvm-9 clang-9 linux-tools-common linux-tools-generic
-for tool in "clang" "llc" "llvm-strip"
-do
-  sudo rm -f /usr/bin/$tool
-  sudo ln -s /usr/bin/$tool-9 /usr/bin/$tool
-done
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/gojue/ecapture/master/builder/init_env.sh)"
+```
+### 其他Linux
+编译环境除了上面`工具链版本`列出的软件外，还需要以下软件，请自行安装。
+* linux-tools-common
+* linux-tools-generic
+* pkgconf
+* libelf-dev
+
+**克隆仓库代码，并进行编译**
+```shell
 git clone git@github.com:gojue/ecapture.git
 cd ecapture
 make
 bin/ecapture
 ```
 
+如果你在中国，可以在`make`编译之前，设定GOPROXY来加速eCapture依赖的go package的安装。
+```shell
+export GOPROXY=https://goproxy.cn
+```
+
 ## 未开启BTF的编译
-2022/04/17起，eCapture支持了未开启BTF的系统编译，编译指令为：`make nocore`。
+2022/04/17起，eCapture支持了未开启BTF的系统编译，编译指令为：`make nocore`，即在不支持BTF的Linux上也可以正常工作。
 
 ```shell
 git clone git@github.com:gojue/ecapture.git

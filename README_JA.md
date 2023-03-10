@@ -23,6 +23,7 @@
 ![](./images/how-ecapture-works.png)
 
 * SSL/TLS テキスト コンテキスト キャプチャ、openssl\libssl\boringssl\gnutls\nspr(nss) ライブラリのサポート。
+* Go TLSライブラリをサポートする平文キャプチャ、つまりGolang言語で書かれたHTTPS/TLSプログラムの暗号化通信を使用します。
 * bash audit, ホストセキュリティ監査用のbashコマンドをキャプチャ。
 * mysql クエリ SQL 監査、サポート mysqld 5.6\5.7\8.0、および mariadDB。
 
@@ -119,46 +120,6 @@ ps -ef | grep foo
 # eBPF とは
 [eBPF](https://ebpf.io)
 
-## uprobe HOOK
-
-### openssl\libssl\boringssl hook
-eCapture hook `SSL_write` は、共有ライブラリ `/lib/x86_64-linux-gnu/libssl.so.1.1` の `SSL_read` 関数です。テキストコンテキストを取得し、 [eBPF maps](https://www.kernel.org/doc/html/latest/bpf/maps.html) によってユーザースペースにメッセージを送信しました。
-```go
-Probes: []*manager.Probe{
-    {
-        Section:          "uprobe/SSL_write",
-        EbpfFuncName:     "probe_entry_SSL_write",
-        AttachToFuncName: "SSL_write",
-        //UprobeOffset:     0x386B0,
-        BinaryPath: "/lib/x86_64-linux-gnu/libssl.so.1.1",
-    },
-    {
-        Section:          "uretprobe/SSL_write",
-        EbpfFuncName:     "probe_ret_SSL_write",
-        AttachToFuncName: "SSL_write",
-        //UprobeOffset:     0x386B0,
-        BinaryPath: "/lib/x86_64-linux-gnu/libssl.so.1.1",
-    },
-    {
-        Section:          "uprobe/SSL_read",
-        EbpfFuncName:     "probe_entry_SSL_read",
-        AttachToFuncName: "SSL_read",
-        //UprobeOffset:     0x38380,
-        BinaryPath: "/lib/x86_64-linux-gnu/libssl.so.1.1",
-    },
-    {
-        Section:          "uretprobe/SSL_read",
-        EbpfFuncName:     "probe_ret_SSL_read",
-        AttachToFuncName: "SSL_read",
-        //UprobeOffset:     0x38380,
-        BinaryPath: "/lib/x86_64-linux-gnu/libssl.so.1.1",
-    },
-    /**/
-},
-```
-### bash readline.so hook
-hook `/bin/bash` シンボル名 `readline` です。
-
 # コンパイル方法
 
 Linux カーネル: >= 4.18.
@@ -171,22 +132,29 @@ Linux カーネル: >= 4.18.
 * カーネル config:CONFIG_DEBUG_INFO_BTF=y (Optional, 2022-04-17)
 
 ## コマンド
+### ubuntu
+もしUbuntu 20.04以降を使用している場合、1つのコマンドでコンパイル環境の初期化が完了します。
+
 ```shell
-sudo apt-get update
-sudo apt-get install --yes build-essential pkgconf libelf-dev llvm-9 clang-9 linux-tools-common linux-tools-generic
-for tool in "clang" "llc" "llvm-strip"
-do
-  sudo rm -f /usr/bin/$tool
-  sudo ln -s /usr/bin/$tool-9 /usr/bin/$tool
-done
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/gojue/ecapture/master/builder/init_env.sh)"
+```
+### other Linux
+上記の`ツールチェーンバージョン`に列挙されたソフトウェア以外に、以下のソフトウェアも必要です。自己でインストールしてください。
+* linux-tools-common
+* linux-tools-generic
+* pkgconf
+* libelf-dev
+
+**リポジトリのコードをクローンし、コンパイルしてください**
+```shell
 git clone git@github.com:gojue/ecapture.git
 cd ecapture
 make
-bin/ecapture --help
+bin/ecapture
 ```
 
 ## BTF なしでコンパイル
-eCapture サポート BTF をコマンド `make nocore` で無効にし、2022/04/17 にコンパイルできるようにしました。
+eCapture サポート BTF をコマンド `make nocore` で無効にし、2022/04/17 にコンパイルできるようにしました。LinuxのBTFをサポートしていなくても正常に動作することができます。
 ```shell
 make nocore
 bin/ecapture --help

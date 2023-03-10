@@ -22,7 +22,8 @@
 
 ![](./images/how-ecapture-works.png)
 
-* SSL/TLS text context capture, support openssl\libressl\boringssl\gnutls\nspr(nss) libraries.
+* SSL/TLS plaintext capture, support openssl\libressl\boringssl\gnutls\nspr(nss) libraries.
+* GoTLS plaintext support go tls library, which refers to encrypted communication in https/tls programs written in the golang language.
 * bash audit, capture bash command for Host Security Audit.
 * mysql query SQL audit, support mysqld 5.6\5.7\8.0, and mariadDB.
 
@@ -119,48 +120,7 @@ ps -ef | grep foo
 # What's eBPF
 [eBPF](https://ebpf.io)
 
-## uprobe HOOK
-
-### openssl\libressl\boringssl hook
-eCapture hook`SSL_write` \ `SSL_read` function of shared library `/lib/x86_64-linux-gnu/libssl.so.1.1`. get text context, and send message to user space by [eBPF maps](https://www.kernel.org/doc/html/latest/bpf/maps.html).
-```go
-Probes: []*manager.Probe{
-    {
-        Section:          "uprobe/SSL_write",
-        EbpfFuncName:     "probe_entry_SSL_write",
-        AttachToFuncName: "SSL_write",
-        //UprobeOffset:     0x386B0,
-        BinaryPath: "/lib/x86_64-linux-gnu/libssl.so.1.1",
-    },
-    {
-        Section:          "uretprobe/SSL_write",
-        EbpfFuncName:     "probe_ret_SSL_write",
-        AttachToFuncName: "SSL_write",
-        //UprobeOffset:     0x386B0,
-        BinaryPath: "/lib/x86_64-linux-gnu/libssl.so.1.1",
-    },
-    {
-        Section:          "uprobe/SSL_read",
-        EbpfFuncName:     "probe_entry_SSL_read",
-        AttachToFuncName: "SSL_read",
-        //UprobeOffset:     0x38380,
-        BinaryPath: "/lib/x86_64-linux-gnu/libssl.so.1.1",
-    },
-    {
-        Section:          "uretprobe/SSL_read",
-        EbpfFuncName:     "probe_ret_SSL_read",
-        AttachToFuncName: "SSL_read",
-        //UprobeOffset:     0x38380,
-        BinaryPath: "/lib/x86_64-linux-gnu/libssl.so.1.1",
-    },
-    /**/
-},
-```
-### bash readline.so hook
-hook `/bin/bash` symbol name `readline`.
-
 # How to compile
-
 Linux Kernel: >= 4.18.
 
 ## Tools 
@@ -171,22 +131,27 @@ Linux Kernel: >= 4.18.
 * kernel config:CONFIG_DEBUG_INFO_BTF=y (Optional, 2022-04-17)
 
 ## command
+### ubuntu
+If you are using Ubuntu 20.04 or later versions, you can use a single command to complete the initialization of the compilation environment.
 ```shell
-sudo apt-get update
-sudo apt-get install --yes build-essential pkgconf libelf-dev llvm-9 clang-9 linux-tools-common linux-tools-generic
-for tool in "clang" "llc" "llvm-strip"
-do
-  sudo rm -f /usr/bin/$tool
-  sudo ln -s /usr/bin/$tool-9 /usr/bin/$tool
-done
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/gojue/ecapture/master/builder/init_env.sh)"
+```
+### other Linux
+In addition to the software listed in the 'Toolchain Version' section above, the following software is also required for the compilation environment. Please install it yourself.
+* linux-tools-common
+* linux-tools-generic
+* pkgconf
+* libelf-dev
+
+**Clone the repository code and compile it**
+```shell
 git clone git@github.com:gojue/ecapture.git
 cd ecapture
 make
-bin/ecapture --help
+bin/ecapture
 ```
-
 ## compile without BTF
-eCapture support BTF disabled with command `make nocore` to compile on 2022/04/17.
+eCapture support BTF disabled with command `make nocore` to compile at 2022/04/17. It can work normally even on Linux systems that do not support BTF.
 ```shell
 make nocore
 bin/ecapture --help
