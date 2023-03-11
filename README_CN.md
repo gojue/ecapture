@@ -185,10 +185,5 @@ cd ecapture
 make nocore
 bin/ecapture
 ```
-
-
-
-
-# 参考资料
-[BPF Portability and CO-RE](https://facebookmicrosites.github.io/bpf/blog/2020/02/19/bpf-portability-and-co-re.html)
-[ebpfmanager v0.2.2](https://github.com/gojue/ebpfmanager)
+# 贡献
+参考 [CONTRIBUTING](./CONTRIBUTING.md)的介绍，提交issue、PR等，非常感谢。

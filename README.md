@@ -1,7 +1,4 @@
 ![](./images/ecapture-logo-400x400.png)
-<!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
-[![All Contributors](https://img.shields.io/badge/all_contributors-13-orange.svg?style=flat-square)](#contributors-)
-<!-- ALL-CONTRIBUTORS-BADGE:END -->
 
 [中文介绍](./README_CN.md) | English | [日本語](./README_JA.md)
 
@@ -160,42 +157,3 @@ bin/ecapture --help
 
 # Contributing
 See [CONTRIBUTING](./CONTRIBUTING.md) for details on submitting patches and the contribution workflow.
-
-## Contributors
-
-<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
-<!-- prettier-ignore-start -->
-<!-- markdownlint-disable -->
-<table>
-  <tbody>
-    <tr>
-      <td align="center"><a href="https://www.cnxct.com"><img src="https://avatars.githubusercontent.com/u/709947?v=4?s=100" width="100px;" alt=""/><br /><sub><b>CFC4N</b></sub></a><br /><a href="#infra-cfc4n" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a> <a href="https://github.com/gojue/ecapture/commits?author=cfc4n" title="Tests">⚠️</a> <a href="https://github.com/gojue/ecapture/commits?author=cfc4n" title="Code">💻</a></td>
-      <td align="center"><a href="https://chenhengqi.com"><img src="https://avatars.githubusercontent.com/u/4277743?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Hengqi Chen</b></sub></a><br /><a href="#infra-chenhengqi" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a> <a href="https://github.com/gojue/ecapture/commits?author=chenhengqi" title="Tests">⚠️</a> <a href="https://github.com/gojue/ecapture/commits?author=chenhengqi" title="Code">💻</a></td>
-      <td align="center"><a href="https://chriskalix.github.io/"><img src="https://avatars.githubusercontent.com/u/46471110?v=4?s=100" width="100px;" alt=""/><br /><sub><b>chriskali</b></sub></a><br /><a href="https://github.com/gojue/ecapture/commits?author=chriskaliX" title="Code">💻</a></td>
-      <td align="center"><a href="https://github.com/huzai9527"><img src="https://avatars.githubusercontent.com/u/33509974?v=4?s=100" width="100px;" alt=""/><br /><sub><b>huzai9527</b></sub></a><br /><a href="https://github.com/gojue/ecapture/commits?author=huzai9527" title="Code">💻</a></td>
-      <td align="center"><a href="https://youtube.com/c/LinuxMonkinCloud"><img src="https://avatars.githubusercontent.com/u/3729694?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Vincent Li</b></sub></a><br /><a href="https://github.com/gojue/ecapture/commits?author=vincentmli" title="Code">💻</a></td>
-      <td align="center"><a href="http://yihong.run"><img src="https://avatars.githubusercontent.com/u/15976103?v=4?s=100" width="100px;" alt=""/><br /><sub><b>yihong</b></sub></a><br /><a href="https://github.com/gojue/ecapture/commits?author=yihong0618" title="Code">💻</a></td>
-      <td align="center"><a href="https://blaise.wang/"><img src="https://avatars.githubusercontent.com/u/9657268?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Blaise Wang</b></sub></a><br /><a href="https://github.com/gojue/ecapture/commits?author=blaisewang" title="Code">💻</a></td>
-    </tr>
-    <tr>
-      <td align="center"><a href="https://4ft35t.github.io/"><img src="https://avatars.githubusercontent.com/u/2051049?v=4?s=100" width="100px;" alt=""/><br /><sub><b>4ft35t</b></sub></a><br /><a href="https://github.com/gojue/ecapture/commits?author=4ft35t" title="Code">💻</a></td>
-      <td align="center"><a href="https://weishu.me"><img src="https://avatars.githubusercontent.com/u/4233744?v=4?s=100" width="100px;" alt=""/><br /><sub><b>weishu</b></sub></a><br /><a href="https://github.com/gojue/ecapture/commits?author=tiann" title="Code">💻</a></td>
-      <td align="center"><a href="http://www.dashen.tech"><img src="https://avatars.githubusercontent.com/u/15921519?v=4?s=100" width="100px;" alt=""/><br /><sub><b>cui fliter</b></sub></a><br /><a href="https://github.com/gojue/ecapture/commits?author=cuishuang" title="Code">💻</a></td>
-      <td align="center"><a href="https://nfsec.pl"><img src="https://avatars.githubusercontent.com/u/15172919?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Patryk Krawaczyński</b></sub></a><br /><a href="https://github.com/gojue/ecapture/commits?author=nfsec" title="Code">💻</a></td>
-      <td align="center"><a href="https://github.com/yindex"><img src="https://avatars.githubusercontent.com/u/38709569?v=4?s=100" width="100px;" alt=""/><br /><sub><b>yindex</b></sub></a><br /><a href="https://github.com/gojue/ecapture/commits?author=yindex" title="Code">💻</a></td>
-      <td align="center"><a href="https://github.com/xujiajiadexiaokeai"><img src="https://avatars.githubusercontent.com/u/30225423?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Wenhao Jiang</b></sub></a><br /><a href="https://github.com/gojue/ecapture/commits?author=xujiajiadexiaokeai" title="Code">💻</a></td>
-    </tr>
-  </tbody>
-</table>
-
-<!-- markdownlint-restore -->
-<!-- prettier-ignore-end -->
-
-<!-- ALL-CONTRIBUTORS-LIST:END -->
-<!-- prettier-ignore-start -->
-<!-- markdownlint-disable -->
-
-<!-- markdownlint-restore -->
-<!-- prettier-ignore-end -->
-
-<!-- ALL-CONTRIBUTORS-LIST:END -->
