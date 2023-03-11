@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# bash build/gen_android_nocore.sh 1.0.0
+# bash builder/gen_android_nocore.sh 1.0.0
 SHELL_GH=gh
 
 # 发布Android nocore版本自用脚本。 ubnutu 20.04 ARM

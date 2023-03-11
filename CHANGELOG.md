@@ -3,7 +3,16 @@
 # v0.5.0 (2023-03-10)
 
 ## What's Changed
-
+* fix: typo in the section name by @spacewander in https://github.com/gojue/ecapture/pull/311
+* user : increase buffer size of ebpf map. (improve #291 , #314) by @cfc4n in https://github.com/gojue/ecapture/pull/315
+* build(deps): bump golang.org/x/net from 0.0.0-20211112202133-69e39bad7dc2 to 0.7.0 by @dependabot in https://github.com/gojue/ecapture/pull/320
+* refactor : rename Golang TLS module name to gotls from gossl . by @cfc4n in https://github.com/gojue/ecapture/pull/319
+* refactor: Use camel case instead of snake case. by @cfc4n in https://github.com/gojue/ecapture/pull/321
+* kern: fix typo in bpf_tracing.h by @eltociear in https://github.com/gojue/ecapture/pull/323
+* Add JA readme by @eltociear in https://github.com/gojue/ecapture/pull/324
+* Gotls crash : incorrect variable used. (fixes:#322)  by @cfc4n in https://github.com/gojue/ecapture/pull/325
+* kern: refactor golang ABI by register and stack. by @cfc4n in https://github.com/gojue/ecapture/pull/326
+* feat: add Gotls master secrets module. by @cfc4n in https://github.com/gojue/ecapture/pull/329
 
 **Full Changelog**: https://github.com/gojue/ecapture/compare/v0.4.12...v0.5.0
 
