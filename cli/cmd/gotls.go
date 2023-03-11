@@ -34,11 +34,11 @@ var goc = config.NewGoTLSConfig()
 var gotlsCmd = &cobra.Command{
 	Use:     "gotls",
 	Aliases: []string{"tlsgo"},
-	Short:   "capture golang tls/https text content without CA cert for ELF compile by Golang toolchain",
+	Short:   "capturing plaintext communication of TLS/HTTPS encrypted programs written in Golang.",
 	Long: `use eBPF uprobe/TC to capture process event data and network data. also support pcap-NG format.
 ecapture gotls
-ecapture gotls --gobin=/home/cfc4n/go_https_client --hex --pid=3423
-ecapture gotls --gobin=/home/cfc4n/go_https_client -l save.log --pid=3423
+ecapture gotls --elfpath=/home/cfc4n/go_https_client --hex --pid=3423
+ecapture gotls --elfpath=/home/cfc4n/go_https_client -l save.log --pid=3423
 ecapture gotls -w save_android.pcapng -i wlan0 --port 443 --gobin=/home/cfc4n/go_https_client
 `,
 	Run: goTLSCommandFunc,
