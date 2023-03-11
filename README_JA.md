@@ -1,7 +1,4 @@
 ![](./images/ecapture-logo-400x400.png)
-<!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
-[![All Contributors](https://img.shields.io/badge/all_contributors-13-orange.svg?style=flat-square)](#contributors-)
-<!-- ALL-CONTRIBUTORS-BADGE:END -->
 
 [中文介绍](./README_CN.md) | [English](./README.md) | 日本語
 
