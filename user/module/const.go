@@ -50,3 +50,7 @@ const (
 // buffer size times of ebpf perf map
 // buffer size = BufferSizeOfEbpfMap * os.pagesize
 const BufferSizeOfEbpfMap = 1024
+
+const (
+	MasterSecretKeyLogName = "ecapture_masterkey.log"
+)

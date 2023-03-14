@@ -32,6 +32,10 @@ const (
 	goTlsMasterSecretFunc = "crypto/tls.(*Config).writeKeyLog"
 )
 
+var (
+	NotGoCompiledBin = errors.New("It is not a program compiled in the Go language.")
+)
+
 // GoTLSProbe represents a probe for Go SSL
 type GoTLSProbe struct {
 	Module
@@ -61,7 +65,7 @@ func (this *GoTLSProbe) Init(ctx context.Context, l *log.Logger, cfg config.ICon
 	this.path = cfg.(*config.GoTLSConfig).Path
 	ver, err := proc.ExtraceGoVersion(this.path)
 	if err != nil {
-		return err
+		return fmt.Errorf("%s, error:%v", NotGoCompiledBin, err)
 	}
 
 	// supported at 1.17 via https://github.com/golang/go/issues/40724
@@ -69,7 +73,7 @@ func (this *GoTLSProbe) Init(ctx context.Context, l *log.Logger, cfg config.ICon
 		this.isRegisterABI = true
 	}
 
-	this.keyloggerFilename = "ecapture_masterkey.log"
+	this.keyloggerFilename = MasterSecretKeyLogName
 	file, err := os.OpenFile(this.keyloggerFilename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
 	if err != nil {
 		return err

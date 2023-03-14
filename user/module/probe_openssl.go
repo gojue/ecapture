@@ -89,7 +89,7 @@ func (this *MOpenSSLProbe) Init(ctx context.Context, logger *log.Logger, conf co
 	this.sslVersionBpfMap = make(map[string]string)
 
 	//fd := os.Getpid()
-	this.keyloggerFilename = "ecapture_masterkey.log"
+	this.keyloggerFilename = MasterSecretKeyLogName
 	file, err := os.OpenFile(this.keyloggerFilename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
 	if err != nil {
 		return err
@@ -328,36 +328,7 @@ func (this *MOpenSSLProbe) setupManagersUprobe() error {
 			},
 
 			// --------------------------------------------------
-			// for SSL_write_ex \ SSL_read_ex
 			/*
-				{
-					Section:          "uprobe/SSL_write",
-					EbpfFuncName:     "probe_entry_SSL_write",
-					AttachToFuncName: "SSL_write_ex",
-					BinaryPath:       binaryPath,
-					UID:              "uprobe_SSL_write_ex",
-				},
-				{
-					Section:          "uretprobe/SSL_write",
-					EbpfFuncName:     "probe_ret_SSL_write",
-					AttachToFuncName: "SSL_write_ex",
-					BinaryPath:       binaryPath,
-					UID:              "uretprobe_SSL_write_ex",
-				},
-				{
-					Section:          "uprobe/SSL_read",
-					EbpfFuncName:     "probe_entry_SSL_read",
-					AttachToFuncName: "SSL_read_ex",
-					BinaryPath:       binaryPath,
-					UID:              "uprobe_SSL_read_ex",
-				},
-				{
-					Section:          "uretprobe/SSL_read",
-					EbpfFuncName:     "probe_ret_SSL_read",
-					AttachToFuncName: "SSL_read_ex",
-					BinaryPath:       binaryPath,
-					UID:              "uretprobe_SSL_read_ex",
-				},
 				{
 					Section:          "uprobe/connect",
 					EbpfFuncName:     "probe_connect",
