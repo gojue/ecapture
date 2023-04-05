@@ -23,6 +23,7 @@ MySQL query SQL audit, support mysqld 5.6/5.7/8.0, and mariadDB.
 %prep
 %setup -c
 %build
+cd ../
 make
 
 %install
