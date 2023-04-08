@@ -74,7 +74,7 @@ jobs:
           run: |
             uname -a
             date
-            export PATH=$PATH:/usr/local/bin
+            export PATH=/usr/local/go/bin:$PATH:/usr/local/bin
             echo $PATH
             for tool in "clang" "llc" "llvm-strip"
             do
