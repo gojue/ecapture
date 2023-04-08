@@ -29,6 +29,9 @@ CMD_GREP ?= grep
 CMD_CAT ?= cat
 CMD_MD5 ?= md5sum
 CMD_BPFTOOL ?= bpftool
+CMD_TAR ?= tar
+CMD_RPM_SETUP_TREE ?= rpmdev-setuptree
+CMD_RPMBUILD ?= rpmbuild
 KERNEL_LESS_5_2_PREFIX ?= _less52.o
 STYLE    ?= "{BasedOnStyle: Google, IndentWidth: 4}"
 
@@ -239,6 +242,21 @@ env:
 	@echo "ANDROID                  $(ANDROID)"
 	@echo "AUTOGENCMD               $(AUTOGENCMD)"
 	@echo ---------------------------------------
+	@echo "rpmdev-setuptree         $(CMD_RPM_SETUP_TREE)"
+	@echo "tar                      $(CMD_TAR)"
+	@echo "rpmbuild                 $(CMD_RPMBUILD)"
+	@echo ---------------------------------------
+
+ECAPTURE_NAME = $(shell $(CMD_GREP) "Name:" builder/rpmBuild.spec | $(CMD_AWK) '{print $$2}')
+RPM_SOURCE0 = $(ECAPTURE_NAME)-$(ECAPTURE_VERSION).tar.gz
+
+.PHONY:rpm
+rpm:
+	@$(CMD_RPM_SETUP_TREE)
+	$(CMD_SED) -i '0,/^Version:.*$$/s//Version:    $(VERSION)/' builder/rpmBuild.spec
+	$(CMD_SED) -i '0,/^Release:.*$$/s//Release:    $(RELEASE)/' builder/rpmBuild.spec
+	$(CMD_TAR) zcvf ~/rpmbuild/SOURCES/$(RPM_SOURCE0) ./
+	$(CMD_RPMBUILD) -ba builder/rpmBuild.spec
 
 #
 # usage
@@ -247,19 +265,22 @@ env:
 .PHONY: help
 help:
 	@echo "# environment"
-	@echo "    $$ make env		# show makefile environment/variables"
+	@echo "    $$ make env					# show makefile environment/variables"
 	@echo ""
 	@echo "# build"
-	@echo "    $$ make all		# build ecapture"
+	@echo "    $$ make all					# build ecapture"
+	@echo ""
+	@echo "# build rpm"
+	@echo "    $$ make rpm VERSION=0.0.0 RELEASE=1		# build ecapture rpm"
 	@echo ""
 	@echo "# clean"
-	@echo "    $$ make clean		# wipe ./bin/ ./user/bytecode/ ./assets/"
+	@echo "    $$ make clean				# wipe ./bin/ ./user/bytecode/ ./assets/"
 	@echo ""
 	@echo "# test"
-	@echo "    $$ make test		# run all go"
+	@echo "    $$ make test					# run all go"
 	@echo ""
 	@echo "# flags"
-	@echo "    $$ CORE=0 make ...		# build NOCORE ebpf"
+	@echo "    $$ CORE=0 make ...				# build NOCORE ebpf"
 
 .PHONY: clean assets build ebpf
 
