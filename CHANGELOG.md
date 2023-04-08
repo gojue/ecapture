@@ -1,5 +1,11 @@
 <hr>
 
+# v0.5.1 (2023-04-08)
+
+## What's Changed
+
+<hr>
+
 # v0.5.0 (2023-03-10)
 
 ## What's Changed
