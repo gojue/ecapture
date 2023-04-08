@@ -7,116 +7,6 @@ on:
     branches: [ master ]
 
 jobs:
-  build-on-ubuntu2004:
-    runs-on: ubuntu-20.04
-    name: build on ubuntu-20.04 x86_64
-    steps:
-      - uses: actions/setup-go@v3
-        with:
-          go-version: '1.18.10'
-      - name: Install Compilers
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes build-essential pkgconf libelf-dev llvm-9 clang-9 linux-tools-common linux-tools-generic
-          for tool in "clang" "llc" "llvm-strip"
-          do
-            sudo rm -f /usr/bin/$tool
-            sudo ln -s /usr/bin/$tool-9 /usr/bin/$tool
-          done
-        shell: bash
-      - uses: actions/checkout@v3
-      - name: Build
-        run: |
-          make clean
-          make env
-          make nocore -j4
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v3
-        with:
-          # Optional: version of golangci-lint to use in form of v1.2 or v1.2.3 or `latest` to use the latest version
-          #          version: v3.2.0
-
-          # Optional: working directory, useful for monorepos
-          # working-directory: somedir
-
-          # Optional: golangci-lint command line arguments.
-          args: --disable-all -E errcheck
-
-          # Optional: show only new issues if it's a pull request. The default value is `false`.
-          # only-new-issues: true
-
-          # Optional: if set to true then the all caching functionality will be complete disabled,
-          #           takes precedence over all other caching options.
-          # skip-cache: true
-
-          # Optional: if set to true then the action don't cache or restore ~/go/pkg.
-          # skip-pkg-cache: true
-
-          # Optional: if set to true then the action don't cache or restore ~/.cache/go-build.
-          # skip-build-cache: true
-      - name: Build NOCORE
-        run: |
-          make clean
-          make env
-          make nocore
-      - name: Test
-        run: go test -v ./...
-
-  build-on-ubuntu2204:
-    runs-on: ubuntu-22.04
-    name: build on ubuntu-22.04 x86_64
-    steps:
-      - uses: actions/setup-go@v3
-        with:
-          go-version: '1.18.10'
-      - name: Install Compilers
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes build-essential pkgconf libelf-dev llvm-14 clang-14 linux-tools-common linux-tools-generic
-          for tool in "clang" "llc" "llvm-strip"
-          do
-            sudo rm -f /usr/bin/$tool
-            sudo ln -s /usr/bin/$tool-14 /usr/bin/$tool
-          done
-        shell: bash
-      - uses: actions/checkout@v3
-      - name: Build
-        run: |
-          make clean
-          make env
-          make -j8
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v3
-        with:
-          # Optional: version of golangci-lint to use in form of v1.2 or v1.2.3 or `latest` to use the latest version
-          #          version: v3.2.0
-
-          # Optional: working directory, useful for monorepos
-          # working-directory: somedir
-
-          # Optional: golangci-lint command line arguments.
-          args: --disable-all -E errcheck
-
-          # Optional: show only new issues if it's a pull request. The default value is `false`.
-          # only-new-issues: true
-
-          # Optional: if set to true then the all caching functionality will be complete disabled,
-          #           takes precedence over all other caching options.
-          # skip-cache: true
-
-          # Optional: if set to true then the action don't cache or restore ~/go/pkg.
-          # skip-pkg-cache: true
-
-          # Optional: if set to true then the action don't cache or restore ~/.cache/go-build.
-          # skip-build-cache: true
-      - name: Build NOCORE
-        run: |
-          make clean
-          make env
-          make nocore
-      - name: Test
-        run: go test -v ./...
-
   build-on-ubuntu2004-arm64:
     runs-on: ubuntu-22.04
     name: build on ubuntu-22.04 arm64
@@ -258,3 +148,13 @@ jobs:
         # ${PWD}/artifacts on the host.
         run: |
           ls -al "${PWD}/artifacts"
+      - name: Upload android_core-aarch64 release
+        uses: actions/upload-artifact@v3
+        with:
+          name: "ecapture--android_core-aarch64.tar.gz"
+          path: "${PWD}/artifacts/ecapture--android_core-aarch64.tar.gz"
+      - name: Upload linux-aarch64 release
+        uses: actions/upload-artifact@v3
+        with:
+          name: "ecapture--linux-aarch64.tar.gz"
+          path: "${PWD}/artifacts/ecapture--linux-aarch64.tar.gz"
