@@ -5,53 +5,6 @@ on:
       - "v*"
 
 jobs:
-
-  build:
-    runs-on: ubuntu-20.04
-    steps:
-    - uses: actions/checkout@v2
-      with:
-        fetch-depth: 0
-    - name: Get the version
-      id: get_tags
-      run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
-      shell: bash
-    - name: Set up Go
-      uses: actions/setup-go@v2
-      with:
-        go-version: '1.18.10'
-    - name: Install Compilers
-      run: |
-        sudo apt-get update
-        sudo apt-get install --yes build-essential pkgconf libelf-dev llvm-9 clang-9 linux-tools-common linux-tools-generic
-        for tool in "clang" "llc" "llvm-strip"
-        do
-          sudo rm -f /usr/bin/$tool
-          sudo ln -s /usr/bin/$tool-9 /usr/bin/$tool
-        done
-      shell: bash
-    - name: authenticate
-      run: |
-        gh auth login --with-token <<<'${{ secrets.GITHUB_TOKEN }}'
-    - name: Build Changelog
-      id: github_release
-      uses: mikepenz/release-changelog-builder-action@v1
-      with:
-        configuration: "configuration.json"
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    - name: Write File
-      uses: DamianReeves/write-file-action@v1.0
-      with:
-        path: ./bin/release_notes.txt
-        contents: |
-          ${{ steps.github_release.outputs.changelog }}
-        write-mode: append
-    - name: Release
-      run: |
-        make env
-        make -f builder/Makefile.release release SNAPSHOT_VERSION=${{ steps.get_tags.outputs.VERSION }}
-
   build-on-ubuntu2004-arm64:
     runs-on: ubuntu-22.04
     name: build on ubuntu-22.04 arm64
