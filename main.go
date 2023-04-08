@@ -31,8 +31,8 @@ func main() {
 			log.Fatalf("Linux/Android Kernel (x86_64) version %v is not supported. Need > 4.18 .", kv)
 		}
 	case "arm64":
-		if kv < kernel.VersionCode(5, 5, 0) {
-			log.Fatalf("Linux/Android Kernel (aarch64) version %v is not supported. Need > 5.5 .", kv)
+		if kv < kernel.VersionCode(4, 18, 0) {
+			log.Fatalf("Linux/Android Kernel (aarch64) version %v is not supported. Need > 4.18 .", kv)
 		}
 	default:
 		log.Fatalf("unsupported CPU arch:%v. ", runtime.GOARCH)
