@@ -152,9 +152,9 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: "ecapture--android_core-aarch64.tar.gz"
-          path: "${PWD}/artifacts/ecapture--android_core-aarch64.tar.gz"
+          path: "./artifacts/ecapture--android_core-aarch64.tar.gz"
       - name: Upload linux-aarch64 release
         uses: actions/upload-artifact@v3
         with:
           name: "ecapture--linux-aarch64.tar.gz"
-          path: "${PWD}/artifacts/ecapture--linux-aarch64.tar.gz"
+          path: "./artifacts/ecapture--linux-aarch64.tar.gz"
