@@ -8,14 +8,14 @@ on:
 
 jobs:
   build-on-ubuntu2004-arm64:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-20.04
     name: build on ubuntu-22.04 arm64
     # Run steps on a matrix of 3 arch/distro combinations
     strategy:
       matrix:
         include:
           - arch: aarch64
-            distro: ubuntu22.04
+            distro: ubuntu20.04
     steps:
       - uses: actions/checkout@v3
         with:
@@ -67,7 +67,7 @@ jobs:
           install: |
             uname -a
             apt-get update
-            apt-get install --yes wget git golang build-essential pkgconf libelf-dev llvm-12 clang-12  linux-tools-generic linux-tools-common
+            apt-get install --yes wget git golang build-essential pkgconf libelf-dev llvm-9 clang-9  linux-tools-generic linux-tools-common
           # Produce a binary artifact and place it in the mounted volume
           run: |
             uname -a
@@ -77,7 +77,7 @@ jobs:
             for tool in "clang" "llc" "llvm-strip"
             do
             rm -f /usr/bin/$tool
-            ln -s /usr/bin/$tool-12 /usr/bin/$tool
+            ln -s /usr/bin/$tool-9 /usr/bin/$tool
             done
             clang --version
             which bpftool
