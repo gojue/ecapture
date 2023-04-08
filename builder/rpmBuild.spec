@@ -1,6 +1,6 @@
 Name:       ecapture
-Version:    0.5.0
-Release:    1%{?dist}
+Version:
+Release:
 Summary:    capture SSL/TLS text content without CA cert using eBPF
 License:    AGPL-3.0
 URL:        https://ecapture.cc
@@ -11,7 +11,6 @@ Source0:    %{name}-%{version}.tar.gz
 
 BuildRequires: make
 BuildRequires: clang
-BuildRequires: golang
 
 %description
 SSL/TLS plaintext capture,
