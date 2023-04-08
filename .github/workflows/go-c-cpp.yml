@@ -87,7 +87,7 @@ jobs:
             cat /proc/1/sched
             git config --global --add safe.directory /source_code
             cd /source_code
-            echo "-------------------start: Create ecapture.tar.gz of Android kernel CO:RE -------------------"
+            echo "-------------------start: Create ecapture.tar.gz of Android kernel NO-CO:RE -------------------"
             make env
             make clean
             ANDROID=1 make nocore
@@ -99,7 +99,7 @@ jobs:
             SNAPSHOT_VERSION=${{ steps.get_tags.outputs.VERSION }}
             echo "#${SNAPSHOT_VERSION}#"
             if [ -z "${SNAPSHOT_VERSION}" ]; then
-              SNAPSHOT_VERSION="v0.0.0"
+              SNAPSHOT_VERSION="v20230408"
             fi
             TAR_DIR=ecapture-${SNAPSHOT_VERSION}-android_gki-${UNAME_M}
             RELEASE_NOTES=${OUTPUT_DIR}/release_notes.txt
@@ -113,33 +113,7 @@ jobs:
             cp ${OUTPUT_DIR}/release_notes.txt ${TAR_DIR}/release_notes.txt
             tar  -czf ${OUT_ARCHIVE} ${TAR_DIR}
             cp ${OUT_ARCHIVE} "/artifacts/"
-            echo "-------------------start: Create ecapture.tar.gz of Android kernel CO:RE -------------------"
-            make env
-            make clean
-            ANDROID=1 make -j2
-            echo "-------------------ecapture --help-------------------"
-            echo "bin/ecapture -v"
-            echo "-------------------create tar.gz file-------------------"
-            UNAME_M=`uname -m`
-            OUTPUT_DIR="./bin"
-            SNAPSHOT_VERSION=${{ steps.get_tags.outputs.VERSION }}
-            echo "#${SNAPSHOT_VERSION}#"
-            if [ -z "${SNAPSHOT_VERSION}" ]; then
-              SNAPSHOT_VERSION="v0.0.0"
-            fi
-            TAR_DIR=ecapture-${SNAPSHOT_VERSION}-android_gki-${UNAME_M}
-            RELEASE_NOTES=${OUTPUT_DIR}/release_notes.txt
-            OUT_ARCHIVE=${OUTPUT_DIR}/${artifact_name}-android_core-${{ matrix.arch }}.tar.gz
-            mkdir -p ${TAR_DIR}
-            cp LICENSE ${TAR_DIR}/LICENSE
-            cp CHANGELOG.md ${TAR_DIR}/CHANGELOG.md
-            cp README.md ${TAR_DIR}/README.md
-            cp README_CN.md ${TAR_DIR}/README_CN.md
-            cp ${OUTPUT_DIR}/ecapture ${TAR_DIR}/ecapture
-            cp ${OUTPUT_DIR}/release_notes.txt ${TAR_DIR}/release_notes.txt
-            tar  -czf ${OUT_ARCHIVE} ${TAR_DIR}
-            cp ${OUT_ARCHIVE} "/artifacts/"
-            echo "-------------------end: Create ecapture.tar.gz of Android kernel CO:RE -------------------"
+            echo "-------------------end: Create ecapture.tar.gz of Android kernel NO-CO:RE -------------------"
             echo "Produced artifact at /artifacts/${artifact_name}"
 
       - name: Show the artifact
@@ -147,12 +121,7 @@ jobs:
         # ${PWD}/artifacts on the host.
         run: |
           ls -al "${PWD}/artifacts"
-      - name: Upload android_core-aarch64 release
-        uses: actions/upload-artifact@v3
-        with:
-          name: "ecapture--android_core-aarch64.tar.gz"
-          path: "./artifacts/ecapture--android_core-aarch64.tar.gz"
-      - name: Upload linux-aarch64 release
+      - name: Upload android_nocore-aarch64 release
         uses: actions/upload-artifact@v3
         with:
           name: "ecapture--android_nocore-aarch64.tar.gz"
