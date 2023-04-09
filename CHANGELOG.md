@@ -1,8 +1,13 @@
 <hr>
 
 # v0.5.1 (2023-04-08)
-
 ## What's Changed
+* user: add ifname's default value of gotls module. by @cfc4n in https://github.com/gojue/ecapture/pull/332
+* kern: fix wrong uid by @lazybetrayer in https://github.com/gojue/ecapture/pull/334
+* support rpm build by @xjas in https://github.com/gojue/ecapture/pull/341
+* pkg : add proc(go version) unit testing by @cfc4n in https://github.com/gojue/ecapture/pull/342
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v0.5.0...v0.5.1
 
 <hr>
 
