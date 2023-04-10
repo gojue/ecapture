@@ -6,7 +6,12 @@ License:    AGPL-3.0
 URL:        https://ecapture.cc
 Source0:    %{name}-%{version}.tar.gz
 
-BuildRequires: make,clang
+%global _missing_build_ids_terminate_build 0
+%define debug_package %{nil}
+
+BuildRequires: make
+BuildRequires: clang
+BuildRequires: golang
 
 %description
 SSL/TLS plaintext capture,
@@ -22,8 +27,8 @@ MySQL query SQL audit, support mysqld 5.6/5.7/8.0, and mariadDB.
 
 %prep
 %setup -c
+
 %build
-cd ../
 make
 
 %install
@@ -35,7 +40,8 @@ install -m 755 bin/ecapture %{buildroot}/usr/local/bin/ecapture
 /usr/local/bin/ecapture
 
 %changelog
-* Sun Apr  2 2023 ecapture - 0.5.0
-- Support for capturing plaintext communication of TLS/HTTPS encrypted programs written in Golang.
-- Refactored the way parameters are obtained from Golang ABI (supports two types of ABI on registers-based and stack-based).
-%autochangelog
+* Sun Apr 2 2023 BellaZhang <bella@cclinux.org> - 0.5.0-1
+- Support for capturing plaintext communication of TLS/HTTPS encrypted 
+  programs written in Golang.
+- Refactored the way parameters are obtained from Golang 
+  ABI (supports two types of ABI on registers-based and stack-based).
