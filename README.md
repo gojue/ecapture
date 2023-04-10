@@ -128,6 +128,26 @@ Linux Kernel: >= 4.18.
 * kernel config:CONFIG_DEBUG_INFO_BTF=y (Optional, 2022-04-17)
 
 ## command
+
+### Circle Linux 
+If you are using CircleLinux 8 or latest versions, you can use a dnf or yum to install it or compile it.
+
+- dnf or yum
+```
+dnf install -y ecapture
+```
+
+- Build it mannul
+```
+dnf install clang golang make
+
+make
+
+./bin/ecapture --help
+
+```
+
+
 ### ubuntu
 If you are using Ubuntu 20.04 or later versions, you can use a single command to complete the initialization of the compilation environment.
 ```shell
