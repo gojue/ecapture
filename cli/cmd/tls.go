@@ -95,7 +95,7 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 	if config.ElfArchIsandroid {
 		modNames = []string{module.ModuleNameOpenssl}
 	} else {
-		modNames = []string{module.ModuleNameOpenssl, module.ModuleNameGnutls, module.ModuleNameNspr, module.ModuleNameGotls}
+		modNames = []string{module.ModuleNameOpenssl, module.ModuleNameGnutls, module.ModuleNameNspr}
 	}
 
 	var runMods uint8
@@ -118,6 +118,8 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 		case module.ModuleNameNspr:
 			conf = nc
 		default:
+			logger.Printf("ECAPTURE :: \t unknow module :%s", mod.Name())
+			continue
 		}
 
 		if conf == nil {
