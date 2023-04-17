@@ -149,6 +149,7 @@ func (this *eventWorker) Run() {
 
 func (this *eventWorker) Close() {
 	// 即将关闭， 必须输出结果
+	this.ticker.Stop()
 	this.Display()
 	this.tickerCount = 0
 	this.processor.delWorkerByUUID(this)
