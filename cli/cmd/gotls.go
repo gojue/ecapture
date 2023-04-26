@@ -34,12 +34,12 @@ var goc = config.NewGoTLSConfig()
 var gotlsCmd = &cobra.Command{
 	Use:     "gotls",
 	Aliases: []string{"tlsgo"},
-	Short:   "capturing plaintext communication of TLS/HTTPS encrypted programs written in Golang.",
-	Long: `use eBPF uprobe/TC to capture process event data and network data. also support pcap-NG format.
+	Short:   "Capturing plaintext communication from Golang programs encrypted with TLS/HTTPS.",
+	Long: `Utilize eBPF uprobe/TC to capture both process event and network data, with added support for pcap-NG format.
 ecapture gotls
 ecapture gotls --elfpath=/home/cfc4n/go_https_client --hex --pid=3423
 ecapture gotls --elfpath=/home/cfc4n/go_https_client -l save.log --pid=3423
-ecapture gotls -w save_android.pcapng -i wlan0 --port 443 --gobin=/home/cfc4n/go_https_client
+ecapture gotls -w save_android.pcapng -i wlan0 --port 443 --elfpath=/home/cfc4n/go_https_client
 `,
 	Run: goTLSCommandFunc,
 }
@@ -100,8 +100,8 @@ func goTLSCommandFunc(command *cobra.Command, args []string) {
 	err = conf.Check()
 
 	if err != nil {
-		// ErrorGoBINNotSET is a special error, we should not print it.
-		if errors.Is(err, config.ErrorGoBINNotSET) {
+		// ErrorGoBINNotFound is a special error, we should not print it.
+		if errors.Is(err, config.ErrorGoBINNotFound) {
 			logger.Printf("%s\tmodule [disabled].", mod.Name())
 			return
 		}
