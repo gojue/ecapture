@@ -20,7 +20,7 @@ import (
 )
 
 var (
-	ErrorGoBINNotSET = errors.New("GO binary not set")
+	ErrorGoBINNotFound = errors.New("GO binary not found")
 )
 
 // GoTLSConfig represents configuration for Go SSL probe
@@ -39,7 +39,7 @@ func NewGoTLSConfig() *GoTLSConfig {
 
 func (c *GoTLSConfig) Check() error {
 	if c.Path == "" {
-		return ErrorGoBINNotSET
+		return ErrorGoBINNotFound
 	}
 
 	if c.Ifname == "" || len(c.Ifname) == 0 {

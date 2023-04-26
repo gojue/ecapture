@@ -19,7 +19,6 @@ import (
 	"ecapture/pkg/util/kernel"
 	"ecapture/user/config"
 	"ecapture/user/module"
-	"errors"
 	"log"
 	"os"
 	"os/signal"
@@ -136,12 +135,6 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 		err = conf.Check()
 
 		if err != nil {
-			// ErrorGoBINNotSET is a special error, we should not print it.
-			if errors.Is(err, config.ErrorGoBINNotSET) {
-				logger.Printf("%s\tmodule [disabled].", mod.Name())
-				continue
-			}
-
 			logger.Printf("%s\tmodule initialization failed. [skip it]. error:%+v", mod.Name(), err)
 			continue
 		}
