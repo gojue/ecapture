@@ -14,7 +14,7 @@ jobs:
         fetch-depth: 0
     - name: Get the version
       id: get_tags
-      run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
+      run: echo "name=VERSION::${GITHUB_REF/refs\/tags\//}" >> $GITHUB_OUTPUT
       shell: bash
     - name: Set up Go
       uses: actions/setup-go@v2
@@ -67,7 +67,7 @@ jobs:
           set-safe-directory: '/source_code'
       - name: Get the version
         id: get_tags
-        run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
+        run: echo "name=VERSION::${GITHUB_REF/refs\/tags\//}" >> $GITHUB_OUTPUT
         shell: bash
       - name: authenticate
         run: |
