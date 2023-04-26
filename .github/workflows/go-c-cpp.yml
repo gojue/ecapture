@@ -136,7 +136,7 @@ jobs:
           echo checkout directory ${GITHUB_WORKSPACE}
           echo PWD directory ${PWD}
       - name: Write File
-        uses: DamianReeves/write-file-action@v1.0
+        uses: DamianReeves/write-file-action@v1.2
         with:
           path: ./bin/release_notes.txt
           contents: |
