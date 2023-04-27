@@ -12,6 +12,7 @@ type inner struct {
 	Pid         uint32   `json:"pid"`
 	Tid         uint32   `json:"tid"`
 	Len         int32    `json:"Len"`
+	EventType   uint8    `json:"eventType"`
 	Comm        [16]byte `json:"Comm"`
 }
 

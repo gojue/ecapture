@@ -22,6 +22,8 @@
 // max length is "CLIENT_HANDSHAKE_TRAFFIC_SECRET"=31
 #define MASTER_SECRET_KEY_LEN 32
 #define EVP_MAX_MD_SIZE 64
+#define GOTLS_EVENT_TYPE_WRITE  0
+#define GOTLS_EVENT_TYPE_READ 1
 
 // // TLS record types in golang tls package
 #define recordTypeApplicationData  23
@@ -31,6 +33,7 @@ struct go_tls_event {
     u32 pid;
     u32 tid;
     s32 data_len;
+    u8  event_type;
     char comm[TASK_COMM_LEN];
     char data[MAX_DATA_SIZE_OPENSSL];
 };
@@ -78,12 +81,13 @@ static __always_inline struct go_tls_event *get_gotls_event() {
     event->ts_ns = bpf_ktime_get_ns();
     event->pid = id >> 32;
     event->tid = (__u32)id;
+    event->event_type = GOTLS_EVENT_TYPE_WRITE;
     bpf_get_current_comm(event->comm, sizeof(event->comm));
     bpf_map_update_elem(&gte_context, &id, event, BPF_ANY);
     return bpf_map_lookup_elem(&gte_context, &id);
 }
 
-static __always_inline int gotls_text(struct pt_regs *ctx,
+static __always_inline int gotls_write(struct pt_regs *ctx,
                                       bool is_register_abi) {
     s32 record_type, len;
     const char *str;
@@ -96,7 +100,7 @@ static __always_inline int gotls_text(struct pt_regs *ctx,
     len_ptr = (void *)go_get_argument(ctx, is_register_abi, 4);
     bpf_probe_read_kernel(&len, sizeof(len), (void *)&len_ptr);
 
-    debug_bpf_printk("gotls_text record_type:%d\n", record_type);
+    debug_bpf_printk("gotls_write record_type:%d\n", record_type);
     if (record_type != recordTypeApplicationData) {
         return 0;
     }
@@ -111,7 +115,7 @@ static __always_inline int gotls_text(struct pt_regs *ctx,
         bpf_probe_read_user(&event->data, sizeof(event->data), (void *)str);
     if (ret < 0) {
         debug_bpf_printk(
-            "gotls_text bpf_probe_read_user_str failed, ret:%d, str:%d\n", ret,
+            "gotls_write bpf_probe_read_user_str failed, ret:%d, str:%d\n", ret,
             str);
         return 0;
     }
@@ -122,13 +126,58 @@ static __always_inline int gotls_text(struct pt_regs *ctx,
 
 // capture golang tls plaintext, supported golang stack-based ABI (go version
 // >= 1.17) type recordType uint8 writeRecordLocked(typ recordType, data []byte)
-SEC("uprobe/gotls_text_register")
-int gotls_text_register(struct pt_regs *ctx) { return gotls_text(ctx, true); }
+SEC("uprobe/gotls_write_register")
+int gotls_write_register(struct pt_regs *ctx) { return gotls_write(ctx, true); }
 
 // capture golang tls plaintext, supported golang stack-based ABI (go version
 // < 1.17) type recordType uint8 writeRecordLocked(typ recordType, data []byte)
-SEC("uprobe/gotls_text_stack")
-int gotls_text_stack(struct pt_regs *ctx) { return gotls_text(ctx, false); }
+SEC("uprobe/gotls_write_stack")
+int gotls_write_stack(struct pt_regs *ctx) { return gotls_write(ctx, false); }
+
+// func (c *Conn) Read(b []byte) (int, error)
+static __always_inline int gotls_read(struct pt_regs *ctx,
+                                      bool is_register_abi) {
+    s32 record_type, len;
+    const char *str;
+    void *record_type_ptr;
+    void *len_ptr;
+    str = (void *)go_get_argument(ctx, is_register_abi, 2);
+    len_ptr = (void *)go_get_argument(ctx, is_register_abi, 3);
+    bpf_probe_read_kernel(&len, sizeof(len), (void *)&len_ptr);
+
+    struct go_tls_event *event = get_gotls_event();
+    if (!event) {
+        return 0;
+    }
+
+    debug_bpf_printk(
+                "gotls_read bpf_probe_read_user_str failed, ret:%d, str:%d\n", ret,
+                str);
+    event->data_len = len;
+    event->event_type = GOTLS_EVENT_TYPE_READ;
+    int ret =
+        bpf_probe_read_user(&event->data, sizeof(event->data), (void *)str);
+    if (ret < 0) {
+        debug_bpf_printk(
+            "gotls_text bpf_probe_read_user_str failed, ret:%d, str:%d\n", ret,
+            str);
+        return 0;
+    }
+    bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, event,
+                          sizeof(struct go_tls_event));
+    return 0;
+}
+
+// capture golang tls plaintext, supported golang stack-based ABI (go version
+// < 1.17) func (c *Conn) Read(b []byte) (int, error)
+
+SEC("uprobe/gotls_read_register")
+int gotls_read_register(struct pt_regs *ctx) { return gotls_read(ctx, true); }
+
+SEC("uprobe/gotls_read_stack")
+int gotls_read_stack(struct pt_regs *ctx) { return gotls_read(ctx, false); }
+
+
 
 /*
  * crypto/tls/common.go
