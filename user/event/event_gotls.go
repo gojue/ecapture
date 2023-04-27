@@ -12,7 +12,7 @@ type inner struct {
 	Pid         uint32   `json:"pid"`
 	Tid         uint32   `json:"tid"`
 	Len         int32    `json:"Len"`
-	EventType   uint8    `json:"eventType"`
+	PayloadType uint8    `json:"payloadType"`
 	Comm        [16]byte `json:"Comm"`
 }
 
@@ -36,7 +36,7 @@ func (this *GoTLSEvent) Decode(payload []byte) error {
 }
 
 func (this *GoTLSEvent) String() string {
-	s := fmt.Sprintf("PID: %d, Comm: %s, TID: %d, Payload: %s\n", this.Pid, string(this.Comm[:]), this.Tid, string(this.Data[:this.Len]))
+	s := fmt.Sprintf("PID: %d, Comm: %s, TID: %d, PayloadType:%d, Payload: %s\n", this.Pid, string(this.Comm[:]), this.Tid, this.inner.PayloadType, string(this.Data[:this.Len]))
 	return s
 }
 
@@ -44,7 +44,7 @@ func (this *GoTLSEvent) StringHex() string {
 	perfix := COLORGREEN
 	b := dumpByteSlice(this.Data[:this.Len], perfix)
 	b.WriteString(COLORRESET)
-	s := fmt.Sprintf("PID: %d, Comm: %s, TID: %d, Payload: %s\n", this.Pid, string(this.Comm[:]), this.Tid, b.String())
+	s := fmt.Sprintf("PID: %d, Comm: %s, TID: %d, PayloadType:%d, Payload: %s\n", this.Pid, string(this.Comm[:]), this.Tid, this.inner.PayloadType, b.String())
 	return s
 }
 
