@@ -11,7 +11,7 @@ import (
 
 func main() {
 
-	b, e := GetHttp("https://github.com")
+	b, e := GetHttp("https://baidu.com")
 	if e == nil {
 		fmt.Printf("response body: %s\n\n", b)
 	} else {

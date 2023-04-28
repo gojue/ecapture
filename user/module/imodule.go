@@ -123,7 +123,7 @@ func (this *Module) Name() string {
 }
 
 func (this *Module) Run() error {
-	this.logger.Printf("%s\tModule.Run()", this.Name())
+	this.logger.Printf("ECAPTURE ::\tModule.Run()")
 	//  start
 	err := this.child.Start()
 	if err != nil {

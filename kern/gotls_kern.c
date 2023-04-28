@@ -137,22 +137,29 @@ int gotls_write_stack(struct pt_regs *ctx) { return gotls_write(ctx, false); }
 // func (c *Conn) Read(b []byte) (int, error)
 static __always_inline int gotls_read(struct pt_regs *ctx,
                                       bool is_register_abi) {
-    s32 record_type, len;
+    s32 record_type, len, ret_len;
     const char *str;
-    void *record_type_ptr;
-    void *len_ptr;
-    str = (void *)go_get_argument(ctx, is_register_abi, 2);
-    len_ptr = (void *)go_get_argument(ctx, is_register_abi, 3);
+    void *len_ptr, *ret_len_ptr;
+
+// golang uretprobe的实现，为选择目标函数中，汇编指令的RET指令地址，即调用子函数的返回后的触发点，此时，此函数参数等地址存放在SP(stack Point)上，故使用stack方式读取
+    str = (void *)go_get_argument_by_stack(ctx, 2);
+    len_ptr = (void *)go_get_argument_by_stack(ctx, 3);
     bpf_probe_read_kernel(&len, sizeof(len), (void *)&len_ptr);
+
+    // Read函数的返回值第一个是int类型，存放在栈里的顺序是5
+    ret_len_ptr = (void *)go_get_argument_by_stack(ctx, 5);
+    bpf_probe_read_kernel(&ret_len, sizeof(ret_len), (void *)&ret_len_ptr);
+    if (len ==0) {
+        return 0;
+    }
 
     struct go_tls_event *event = get_gotls_event();
     if (!event) {
         return 0;
     }
 
-    debug_bpf_printk(
-                "gotls_read bpf_probe_read_user_str failed, ret:%d, str:%d\n", ret,
-                str);
+    debug_bpf_printk("gotls_read event, str addr:%p, len:%d\n", len_ptr, len);
+    debug_bpf_printk("gotls_read event, str ret_len_ptr:%d, ret_len:%d\n", ret_len_ptr, ret_len);
     event->data_len = len;
     event->event_type = GOTLS_EVENT_TYPE_READ;
     int ret =

@@ -195,13 +195,6 @@ func (this *GoTLSProbe) setupManagersUprobe() error {
 				AttachToFuncName: goTlsWriteFunc,
 				BinaryPath:       this.path,
 			},
-			// gotls master secrets
-			// crypto/tls.(*Config).writeKeyLog
-			// crypto/tls/common.go
-			/*
-				func (c *Config) writeKeyLog(label string, clientRandom, secret []byte) error {
-				}
-			*/
 			{
 				Section:          msSec,
 				EbpfFuncName:     msFn,
@@ -221,18 +214,18 @@ func (this *GoTLSProbe) setupManagersUprobe() error {
 	}
 
 	readOffsets := this.conf.(*config.GoTLSConfig).ReadTlsAddrs
+	//this.bpfManager.Probes = []*manager.Probe{}
 	for _, v := range readOffsets {
-		this.logger.Printf("%s\tadd uretprobe function :%s, offset:%x\n", this.Name(), config.GoTlsReadFunc, v)
+		var uid = fmt.Sprintf("%s_%d", readFn, v)
+		this.logger.Printf("%s\tadd uretprobe function :%s, offset:0x%X\n", this.Name(), config.GoTlsReadFunc, v)
 		this.bpfManager.Probes = append(this.bpfManager.Probes, &manager.Probe{
-			Section:      readSec,
-			EbpfFuncName: readFn,
-			//AttachToFuncName: config.GoTlsReadFunc,
-			AttachToFuncName: "crypto/tls.(*Conn).Write",
+			Section:          readSec,
+			EbpfFuncName:     readFn,
+			AttachToFuncName: config.GoTlsReadFunc,
 			BinaryPath:       this.path,
-			//UprobeOffset:     uint64(v),
-			UID: fmt.Sprintf("%s_%x", readFn, v),
+			UprobeOffset:     uint64(v),
+			UID:              uid,
 		})
-		break
 	}
 	this.bpfManagerOptions = manager.Options{
 		DefaultKProbeMaxActive: 512,
