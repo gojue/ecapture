@@ -137,7 +137,7 @@ func (c *GoTLSConfig) findRetOffsets(symbolName string) ([]int, error) {
 	var offsets []int
 	var instHex []byte
 	instHex = elfText[start:end]
-	offsets, err = c.decodeInstruction(instHex, int(symbol.Value))
+	offsets, err = c.decodeInstruction(instHex)
 	if len(offsets) == 0 {
 		return offsets, ErrorNoRetFound
 	}
@@ -145,7 +145,7 @@ func (c *GoTLSConfig) findRetOffsets(symbolName string) ([]int, error) {
 }
 
 // decodeInstruction Decode into assembly instructions and identify the RET instruction to return the offset.
-func (c *GoTLSConfig) decodeInstruction(instHex []byte, baseAddr int) ([]int, error) {
+func (c *GoTLSConfig) decodeInstruction(instHex []byte) ([]int, error) {
 	var offsets []int
 	for i := 0; i < len(instHex); {
 		if c.goElfArch == "amd64" {
@@ -154,7 +154,7 @@ func (c *GoTLSConfig) decodeInstruction(instHex []byte, baseAddr int) ([]int, er
 				return nil, err
 			}
 			if inst.Op == x86asm.RET {
-				offsets = append(offsets, i+baseAddr)
+				offsets = append(offsets, i)
 			}
 			i += inst.Len
 		} else {
@@ -163,7 +163,7 @@ func (c *GoTLSConfig) decodeInstruction(instHex []byte, baseAddr int) ([]int, er
 				return nil, err
 			}
 			if inst.Op == arm64asm.RET {
-				offsets = append(offsets, i+baseAddr)
+				offsets = append(offsets, i)
 			}
 			i += Arm64armInstSize
 		}
