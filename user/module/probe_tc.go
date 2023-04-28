@@ -45,7 +45,7 @@ type MTCProbe struct {
 
 func (this *MTCProbe) dumpTcSkb(tcEvent *event.TcSkbEvent) error {
 	var timeStamp = this.bootTime + tcEvent.Ts
-	return this.writePacket(tcEvent.Len, this.ifIdex, time.Unix(0, int64(timeStamp)), tcEvent.Payload())
+	return this.writePacket(tcEvent.Len, time.Unix(0, int64(timeStamp)), tcEvent.Payload())
 }
 
 // save pcapng file ,merge master key into pcapng file TODO
@@ -127,12 +127,16 @@ func (this *MTCProbe) createPcapng(netIfs []net.Interface) error {
 	return nil
 }
 
-func (this *MTCProbe) writePacket(dataLen uint32, ifaceIdx int, timeStamp time.Time, packetBytes []byte) error {
+func (this *MTCProbe) writePacket(dataLen uint32, timeStamp time.Time, packetBytes []byte) error {
 	info := gopacket.CaptureInfo{
-		Timestamp:      timeStamp,
-		CaptureLength:  int(dataLen),
-		Length:         int(dataLen),
-		InterfaceIndex: ifaceIdx,
+		Timestamp:     timeStamp,
+		CaptureLength: int(dataLen),
+		Length:        int(dataLen),
+
+		// set 0 default, Because the monitored network interface is the first one written into the pcapng header.
+		// 设置为0，因为被监听的网卡是第一个写入pcapng header中的。
+		// via : https://github.com/gojue/ecapture/issues/347
+		InterfaceIndex: 0,
 	}
 
 	packet := &TcPacket{info: info, data: packetBytes}
