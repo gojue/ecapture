@@ -1,5 +1,12 @@
 <hr>
 
+# v0.5.2 (2023-05-01)
+## What's Changed
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v0.5.1...v0.5.2
+
+<hr>
+
 # v0.5.1 (2023-04-08)
 ## What's Changed
 * user: add ifname's default value of gotls module. by @cfc4n in https://github.com/gojue/ecapture/pull/332
