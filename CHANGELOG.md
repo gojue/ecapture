@@ -2,6 +2,14 @@
 
 # v0.5.2 (2023-05-01)
 ## What's Changed
+* add CircleLinux rpm and mannul build support by @bella485 in https://github.com/gojue/ecapture/pull/345
+* gomod: update github.com/mdlayher/netlink to v1.7.1 by @cfc4n in https://github.com/gojue/ecapture/pull/348
+* use makefile to build rpm by @xjas in https://github.com/gojue/ecapture/pull/344
+* fix : DumpResponse error: unexpected EOF  by @cfc4n in https://github.com/gojue/ecapture/pull/349
+* bugfix: Error unknown flag gobin (fixes #354 ) by @cfc4n in https://github.com/gojue/ecapture/pull/355
+* GitHub actions deprecating by @cfc4n in https://github.com/gojue/ecapture/pull/356
+* kern : support gotls request and response by @cfc4n in https://github.com/gojue/ecapture/pull/357
+* user: fixes the network card ID cannot be found when writing to a pcapng file. (#347) by @cfc4n in https://github.com/gojue/ecapture/pull/358
 
 **Full Changelog**: https://github.com/gojue/ecapture/compare/v0.5.1...v0.5.2
 
