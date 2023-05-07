@@ -22,18 +22,18 @@
 // max length is "CLIENT_HANDSHAKE_TRAFFIC_SECRET"=31
 #define MASTER_SECRET_KEY_LEN 32
 #define EVP_MAX_MD_SIZE 64
-#define GOTLS_EVENT_TYPE_WRITE  0
+#define GOTLS_EVENT_TYPE_WRITE 0
 #define GOTLS_EVENT_TYPE_READ 1
 
 // // TLS record types in golang tls package
-#define recordTypeApplicationData  23
+#define recordTypeApplicationData 23
 
 struct go_tls_event {
     u64 ts_ns;
     u32 pid;
     u32 tid;
     s32 data_len;
-    u8  event_type;
+    u8 event_type;
     char comm[TASK_COMM_LEN];
     char data[MAX_DATA_SIZE_OPENSSL];
 };
@@ -88,7 +88,7 @@ static __always_inline struct go_tls_event *get_gotls_event() {
 }
 
 static __always_inline int gotls_write(struct pt_regs *ctx,
-                                      bool is_register_abi) {
+                                       bool is_register_abi) {
     s32 record_type, len;
     const char *str;
     void *record_type_ptr;
@@ -141,7 +141,9 @@ static __always_inline int gotls_read(struct pt_regs *ctx,
     const char *str;
     void *len_ptr, *ret_len_ptr;
 
-// golang uretprobe的实现，为选择目标函数中，汇编指令的RET指令地址，即调用子函数的返回后的触发点，此时，此函数参数等地址存放在SP(stack Point)上，故使用stack方式读取
+    // golang
+    // uretprobe的实现，为选择目标函数中，汇编指令的RET指令地址，即调用子函数的返回后的触发点，此时，此函数参数等地址存放在SP(stack
+    // Point)上，故使用stack方式读取
     str = (void *)go_get_argument_by_stack(ctx, 2);
     len_ptr = (void *)go_get_argument_by_stack(ctx, 3);
     bpf_probe_read_kernel(&len, sizeof(len), (void *)&len_ptr);
@@ -149,7 +151,7 @@ static __always_inline int gotls_read(struct pt_regs *ctx,
     // Read函数的返回值第一个是int类型，存放在栈里的顺序是5
     ret_len_ptr = (void *)go_get_argument_by_stack(ctx, 5);
     bpf_probe_read_kernel(&ret_len, sizeof(ret_len), (void *)&ret_len_ptr);
-    if (len ==0) {
+    if (len == 0) {
         return 0;
     }
 
@@ -159,7 +161,8 @@ static __always_inline int gotls_read(struct pt_regs *ctx,
     }
 
     debug_bpf_printk("gotls_read event, str addr:%p, len:%d\n", len_ptr, len);
-    debug_bpf_printk("gotls_read event, str ret_len_ptr:%d, ret_len:%d\n", ret_len_ptr, ret_len);
+    debug_bpf_printk("gotls_read event, str ret_len_ptr:%d, ret_len:%d\n",
+                     ret_len_ptr, ret_len);
     event->data_len = len;
     event->event_type = GOTLS_EVENT_TYPE_READ;
     int ret =
@@ -183,8 +186,6 @@ int gotls_read_register(struct pt_regs *ctx) { return gotls_read(ctx, true); }
 
 SEC("uprobe/gotls_read_stack")
 int gotls_read_stack(struct pt_regs *ctx) { return gotls_read(ctx, false); }
-
-
 
 /*
  * crypto/tls/common.go

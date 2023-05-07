@@ -44,7 +44,7 @@ func (this *GoTLSEvent) StringHex() string {
 	perfix := COLORGREEN
 	b := dumpByteSlice(this.Data[:this.Len], perfix)
 	b.WriteString(COLORRESET)
-	s := fmt.Sprintf("PID: %d, Comm: %s, TID: %d, PayloadType:%d, Payload: %s\n", this.Pid, string(this.Comm[:]), this.Tid, this.inner.PayloadType, b.String())
+	s := fmt.Sprintf("PID: %d, Comm: %s, TID: %d, PayloadType:%d, Payload: \n%s\n", this.Pid, string(this.Comm[:]), this.Tid, this.inner.PayloadType, b.String())
 	return s
 }
 
