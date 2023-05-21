@@ -1,5 +1,13 @@
 <hr>
 
+# v0.5.3 (2023-05-21)
+## What's Changed
+* user: fixes slice out of range by @cfc4n in https://github.com/gojue/ecapture/pull/366
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v0.5.2...v0.5.3
+
+<hr>
+
 # v0.5.2 (2023-05-01)
 ## What's Changed
 * add CircleLinux rpm and mannul build support by @bella485 in https://github.com/gojue/ecapture/pull/345
