@@ -39,9 +39,6 @@ jobs:
           arch: ${{ matrix.arch }}
           distro: ${{ matrix.distro }}
 
-          # Not required, but speeds up builds
-          githubToken: ${{ github.token }}
-
           # Create an artifacts directory
           setup: |
             mkdir -p "${PWD}/artifacts"
