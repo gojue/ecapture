@@ -151,24 +151,6 @@ ps -ef | grep foo
 
 ## 编译环境
 
-### Circle Linux 
-如果您使用 CircleLinux 8 及以上版本，这里提供两种安装方式：
-
-- rpm包安装方式,可以在CircleLinux官方源安装
-```
-dnf install -y ecapture
-```
-
-- 源码编译安装
-```
-dnf install clang golang make
-
-make
-
-./bin/ecapture --help 
-
-```
-
 ### ubuntu
 如果你使用的是ubuntu 20.04以及更新版本，可以使用一条命令即可完成编译环境的初始化。
 ```shell

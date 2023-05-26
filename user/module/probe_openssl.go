@@ -530,6 +530,10 @@ func (this *MOpenSSLProbe) saveMasterSecretBSSL(secretEvent *event.MasterSecretB
 			return
 		}
 		var length = int(secretEvent.HashLen)
+		if length > event.MasterSecretMaxLen {
+			length = event.MasterSecretMaxLen
+			this.logger.Println("master secret length is too long, truncate to 48 bytes, but it may cause keylog file error")
+		}
 		b = bytes.NewBufferString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelTLS12, secretEvent.ClientRandom, secretEvent.Secret[:length]))
 		this.masterKeys[k] = true
 	case event.Tls13Version:
