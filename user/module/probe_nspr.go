@@ -39,50 +39,50 @@ type MNsprProbe struct {
 }
 
 // 对象初始化
-func (this *MNsprProbe) Init(ctx context.Context, logger *log.Logger, conf config.IConfig) error {
-	this.Module.Init(ctx, logger, conf)
-	this.conf = conf
-	this.Module.SetChild(this)
-	this.eventMaps = make([]*ebpf.Map, 0, 2)
-	this.eventFuncMaps = make(map[*ebpf.Map]event.IEventStruct)
+func (n *MNsprProbe) Init(ctx context.Context, logger *log.Logger, conf config.IConfig) error {
+	n.Module.Init(ctx, logger, conf)
+	n.conf = conf
+	n.Module.SetChild(n)
+	n.eventMaps = make([]*ebpf.Map, 0, 2)
+	n.eventFuncMaps = make(map[*ebpf.Map]event.IEventStruct)
 	return nil
 }
 
-func (this *MNsprProbe) Start() error {
-	if err := this.start(); err != nil {
+func (n *MNsprProbe) Start() error {
+	if err := n.start(); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (this *MNsprProbe) start() error {
+func (n *MNsprProbe) start() error {
 
 	// fetch ebpf assets
-	var bpfFileName = this.geteBPFName("user/bytecode/nspr_kern.o")
-	this.logger.Printf("%s\tBPF bytecode filename:%s\n", this.Name(), bpfFileName)
+	var bpfFileName = n.geteBPFName("user/bytecode/nspr_kern.o")
+	n.logger.Printf("%s\tBPF bytecode filename:%s\n", n.Name(), bpfFileName)
 	byteBuf, err := assets.Asset(bpfFileName)
 	if err != nil {
 		return fmt.Errorf("couldn't find asset %v .", err)
 	}
 
 	// setup the managers
-	err = this.setupManagers()
+	err = n.setupManagers()
 	if err != nil {
 		return fmt.Errorf("tls module couldn't find binPath %v ", err)
 	}
 
 	// initialize the bootstrap manager
-	if err = this.bpfManager.InitWithOptions(bytes.NewReader(byteBuf), this.bpfManagerOptions); err != nil {
+	if err = n.bpfManager.InitWithOptions(bytes.NewReader(byteBuf), n.bpfManagerOptions); err != nil {
 		return fmt.Errorf("couldn't init manager %v ", err)
 	}
 
 	// start the bootstrap manager
-	if err := this.bpfManager.Start(); err != nil {
+	if err := n.bpfManager.Start(); err != nil {
 		return fmt.Errorf("couldn't start bootstrap manager %v ", err)
 	}
 
 	// 加载map信息，map对应events decode表。
-	err = this.initDecodeFun()
+	err = n.initDecodeFun()
 	if err != nil {
 		return err
 	}
@@ -90,37 +90,37 @@ func (this *MNsprProbe) start() error {
 	return nil
 }
 
-func (this *MNsprProbe) Close() error {
-	if err := this.bpfManager.Stop(manager.CleanAll); err != nil {
+func (n *MNsprProbe) Close() error {
+	if err := n.bpfManager.Stop(manager.CleanAll); err != nil {
 		return fmt.Errorf("couldn't stop manager %v ", err)
 	}
-	return this.Module.Close()
+	return n.Module.Close()
 }
 
 // 通过elf的常量替换方式传递数据
-func (this *MNsprProbe) constantEditor() []manager.ConstantEditor {
+func (n *MNsprProbe) constantEditor() []manager.ConstantEditor {
 	var editor = []manager.ConstantEditor{
 		{
 			Name:  "target_pid",
-			Value: uint64(this.conf.GetPid()),
+			Value: uint64(n.conf.GetPid()),
 		},
 	}
 
-	if this.conf.GetPid() <= 0 {
-		this.logger.Printf("%s\ttarget all process. \n", this.Name())
+	if n.conf.GetPid() <= 0 {
+		n.logger.Printf("%s\ttarget all process. \n", n.Name())
 	} else {
-		this.logger.Printf("%s\ttarget PID:%d \n", this.Name(), this.conf.GetPid())
+		n.logger.Printf("%s\ttarget PID:%d \n", n.Name(), n.conf.GetPid())
 	}
 	return editor
 }
 
-func (this *MNsprProbe) setupManagers() error {
+func (n *MNsprProbe) setupManagers() error {
 	var binaryPath string
-	switch this.conf.(*config.NsprConfig).ElfType {
+	switch n.conf.(*config.NsprConfig).ElfType {
 	case config.ElfTypeBin:
-		binaryPath = this.conf.(*config.NsprConfig).Firefoxpath
+		binaryPath = n.conf.(*config.NsprConfig).Firefoxpath
 	case config.ElfTypeSo:
-		binaryPath = this.conf.(*config.NsprConfig).Nsprpath
+		binaryPath = n.conf.(*config.NsprConfig).Nsprpath
 	default:
 		//如果没找到
 		binaryPath = "/lib/x86_64-linux-gnu/libnspr4.so"
@@ -131,9 +131,9 @@ func (this *MNsprProbe) setupManagers() error {
 		return err
 	}
 
-	this.logger.Printf("%s\tHOOK type:%d, binrayPath:%s\n", this.Name(), this.conf.(*config.NsprConfig).ElfType, binaryPath)
+	n.logger.Printf("%s\tHOOK type:%d, binrayPath:%s\n", n.Name(), n.conf.(*config.NsprConfig).ElfType, binaryPath)
 
-	this.bpfManager = &manager.Manager{
+	n.bpfManager = &manager.Manager{
 		Probes: []*manager.Probe{
 			{
 				Section:          "uprobe/PR_Write",
@@ -203,7 +203,7 @@ func (this *MNsprProbe) setupManagers() error {
 		},
 	}
 
-	this.bpfManagerOptions = manager.Options{
+	n.bpfManagerOptions = manager.Options{
 		DefaultKProbeMaxActive: 512,
 
 		VerifierOptions: ebpf.CollectionOptions{
@@ -218,35 +218,35 @@ func (this *MNsprProbe) setupManagers() error {
 		},
 	}
 
-	if this.conf.EnableGlobalVar() {
+	if n.conf.EnableGlobalVar() {
 		// 填充 RewriteContants 对应map
-		this.bpfManagerOptions.ConstantEditors = this.constantEditor()
+		n.bpfManagerOptions.ConstantEditors = n.constantEditor()
 	}
 	return nil
 }
 
-func (this *MNsprProbe) DecodeFun(em *ebpf.Map) (event.IEventStruct, bool) {
-	fun, found := this.eventFuncMaps[em]
+func (n *MNsprProbe) DecodeFun(em *ebpf.Map) (event.IEventStruct, bool) {
+	fun, found := n.eventFuncMaps[em]
 	return fun, found
 }
 
-func (this *MNsprProbe) initDecodeFun() error {
+func (n *MNsprProbe) initDecodeFun() error {
 	// NsprEventsMap 与解码函数映射
-	NsprEventsMap, found, err := this.bpfManager.GetMap("nspr_events")
+	NsprEventsMap, found, err := n.bpfManager.GetMap("nspr_events")
 	if err != nil {
 		return err
 	}
 	if !found {
 		return errors.New("cant found map:nspr_events")
 	}
-	this.eventMaps = append(this.eventMaps, NsprEventsMap)
-	this.eventFuncMaps[NsprEventsMap] = &event.NsprDataEvent{}
+	n.eventMaps = append(n.eventMaps, NsprEventsMap)
+	n.eventFuncMaps[NsprEventsMap] = &event.NsprDataEvent{}
 
 	return nil
 }
 
-func (this *MNsprProbe) Events() []*ebpf.Map {
-	return this.eventMaps
+func (n *MNsprProbe) Events() []*ebpf.Map {
+	return n.eventMaps
 }
 
 func init() {

@@ -24,20 +24,20 @@ import (
 
 const DefaultGnutlsPath = "/apex/com.android.conscrypt/lib64/libgnutls"
 
-func (this *GnutlsConfig) Check() error {
+func (gc *GnutlsConfig) Check() error {
 
 	// 如果readline 配置，且存在，则直接返回。
-	if this.Gnutls != "" || len(strings.TrimSpace(this.Gnutls)) > 0 {
-		_, e := os.Stat(this.Gnutls)
+	if gc.Gnutls != "" || len(strings.TrimSpace(gc.Gnutls)) > 0 {
+		_, e := os.Stat(gc.Gnutls)
 		if e != nil {
 			return e
 		}
-		this.ElfType = ElfTypeSo
+		gc.ElfType = ElfTypeSo
 		return nil
 	}
 
-	this.Gnutls = DefaultGnutlsPath
-	this.ElfType = ElfTypeSo
+	gc.Gnutls = DefaultGnutlsPath
+	gc.ElfType = ElfTypeSo
 
 	return nil
 }

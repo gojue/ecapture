@@ -53,44 +53,44 @@ type GoTLSProbe struct {
 	isRegisterABI     bool
 }
 
-func (this *GoTLSProbe) Init(ctx context.Context, l *log.Logger, cfg config.IConfig) error {
-	this.Module.Init(ctx, l, cfg)
-	this.conf = cfg
-	this.Module.SetChild(this)
+func (g *GoTLSProbe) Init(ctx context.Context, l *log.Logger, cfg config.IConfig) error {
+	g.Module.Init(ctx, l, cfg)
+	g.conf = cfg
+	g.Module.SetChild(g)
 
-	this.eventMaps = make([]*ebpf.Map, 0, 2)
-	this.eventFuncMaps = make(map[*ebpf.Map]event.IEventStruct)
+	g.eventMaps = make([]*ebpf.Map, 0, 2)
+	g.eventFuncMaps = make(map[*ebpf.Map]event.IEventStruct)
 
-	this.masterSecrets = make(map[string]bool)
-	this.path = cfg.(*config.GoTLSConfig).Path
-	ver, err := proc.ExtraceGoVersion(this.path)
+	g.masterSecrets = make(map[string]bool)
+	g.path = cfg.(*config.GoTLSConfig).Path
+	ver, err := proc.ExtraceGoVersion(g.path)
 	if err != nil {
 		return fmt.Errorf("%s, error:%v", NotGoCompiledBin, err)
 	}
 
 	// supported at 1.17 via https://github.com/golang/go/issues/40724
 	if ver.After(1, 17) {
-		this.isRegisterABI = true
+		g.isRegisterABI = true
 	}
 
-	this.keyloggerFilename = MasterSecretKeyLogName
-	file, err := os.OpenFile(this.keyloggerFilename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+	g.keyloggerFilename = MasterSecretKeyLogName
+	file, err := os.OpenFile(g.keyloggerFilename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
 	if err != nil {
 		return err
 	}
-	this.keylogger = file
+	g.keylogger = file
 
-	var writeFile = this.conf.(*config.GoTLSConfig).Write
+	var writeFile = g.conf.(*config.GoTLSConfig).Write
 	if len(writeFile) > 0 {
-		this.eBPFProgramType = EbpfprogramtypeOpensslTc
+		g.eBPFProgramType = EbpfprogramtypeOpensslTc
 		fileInfo, err := filepath.Abs(writeFile)
 		if err != nil {
 			return err
 		}
-		this.pcapngFilename = fileInfo
+		g.pcapngFilename = fileInfo
 	} else {
-		this.eBPFProgramType = EbpfprogramtypeOpensslUprobe
-		this.logger.Printf("%s\tmaster key keylogger: %s\n", this.Name(), this.keyloggerFilename)
+		g.eBPFProgramType = EbpfprogramtypeOpensslUprobe
+		g.logger.Printf("%s\tmaster key keylogger: %s\n", g.Name(), g.keyloggerFilename)
 	}
 
 	var ts unix.Timespec
@@ -101,63 +101,63 @@ func (this *GoTLSProbe) Init(ctx context.Context, l *log.Logger, cfg config.ICon
 	startTime := ts.Nano()
 	bootTime := time.Now().UnixNano() - startTime
 
-	this.startTime = uint64(startTime)
-	this.bootTime = uint64(bootTime)
+	g.startTime = uint64(startTime)
+	g.bootTime = uint64(bootTime)
 
-	this.tcPackets = make([]*TcPacket, 0, 1024)
-	this.tcPacketLocker = &sync.Mutex{}
-	this.masterKeyBuffer = bytes.NewBuffer([]byte{})
+	g.tcPackets = make([]*TcPacket, 0, 1024)
+	g.tcPacketLocker = &sync.Mutex{}
+	g.masterKeyBuffer = bytes.NewBuffer([]byte{})
 	return nil
 }
 
-func (this *GoTLSProbe) Name() string {
+func (g *GoTLSProbe) Name() string {
 	return ModuleNameGotls
 }
 
-func (this *GoTLSProbe) Start() error {
-	return this.start()
+func (g *GoTLSProbe) Start() error {
+	return g.start()
 }
 
-func (this *GoTLSProbe) start() error {
+func (g *GoTLSProbe) start() error {
 	var err error
-	switch this.eBPFProgramType {
+	switch g.eBPFProgramType {
 	case EbpfprogramtypeOpensslTc:
-		this.logger.Printf("%s\tTC MODEL\n", this.Name())
-		err = this.setupManagersTC()
+		g.logger.Printf("%s\tTC MODEL\n", g.Name())
+		err = g.setupManagersTC()
 	case EbpfprogramtypeOpensslUprobe:
-		this.logger.Printf("%s\tUPROBE MODEL\n", this.Name())
-		err = this.setupManagersUprobe()
+		g.logger.Printf("%s\tUPROBE MODEL\n", g.Name())
+		err = g.setupManagersUprobe()
 	default:
-		this.logger.Printf("%s\tUPROBE MODEL\n", this.Name())
-		err = this.setupManagersUprobe()
+		g.logger.Printf("%s\tUPROBE MODEL\n", g.Name())
+		err = g.setupManagersUprobe()
 	}
 	if err != nil {
 		return err
 	}
 
-	var bpfFileName = this.geteBPFName("user/bytecode/gotls_kern.o")
-	this.logger.Printf("%s\tBPF bytecode filename:%s\n", this.Name(), bpfFileName)
+	var bpfFileName = g.geteBPFName("user/bytecode/gotls_kern.o")
+	g.logger.Printf("%s\tBPF bytecode filename:%s\n", g.Name(), bpfFileName)
 	byteBuf, err := assets.Asset(bpfFileName)
 	if err != nil {
 		return err
 	}
 
-	if err = this.bpfManager.InitWithOptions(bytes.NewReader(byteBuf), this.bpfManagerOptions); err != nil {
+	if err = g.bpfManager.InitWithOptions(bytes.NewReader(byteBuf), g.bpfManagerOptions); err != nil {
 		return fmt.Errorf("couldn't init manager %v", err)
 	}
 	// start the bootstrap manager
-	if err = this.bpfManager.Start(); err != nil {
+	if err = g.bpfManager.Start(); err != nil {
 		return fmt.Errorf("couldn't start bootstrap manager %v .", err)
 	}
 
 	// 加载map信息，map对应events decode表。
-	switch this.eBPFProgramType {
+	switch g.eBPFProgramType {
 	case EbpfprogramtypeOpensslTc:
-		err = this.initDecodeFunTC()
+		err = g.initDecodeFunTC()
 	case EbpfprogramtypeOpensslUprobe:
-		err = this.initDecodeFun()
+		err = g.initDecodeFun()
 	default:
-		err = this.initDecodeFun()
+		err = g.initDecodeFun()
 	}
 	if err != nil {
 		return err
@@ -165,13 +165,13 @@ func (this *GoTLSProbe) start() error {
 	return nil
 }
 
-func (this *GoTLSProbe) setupManagersUprobe() error {
+func (g *GoTLSProbe) setupManagersUprobe() error {
 	var (
 		sec, msSec, readSec string
 		fn, msFn, readFn    string
 	)
 
-	if this.isRegisterABI {
+	if g.isRegisterABI {
 		sec = "uprobe/gotls_write_register"
 		fn = "gotls_write_register"
 		readSec = "uprobe/gotls_read_register"
@@ -186,20 +186,20 @@ func (this *GoTLSProbe) setupManagersUprobe() error {
 		msSec = "uprobe/gotls_mastersecret_stack"
 		msFn = "gotls_mastersecret_stack"
 	}
-	this.logger.Printf("%s\teBPF Function Name:%s, isRegisterABI:%t\n", this.Name(), fn, this.isRegisterABI)
-	this.bpfManager = &manager.Manager{
+	g.logger.Printf("%s\teBPF Function Name:%s, isRegisterABI:%t\n", g.Name(), fn, g.isRegisterABI)
+	g.bpfManager = &manager.Manager{
 		Probes: []*manager.Probe{
 			{
 				Section:          sec,
 				EbpfFuncName:     fn,
 				AttachToFuncName: goTlsWriteFunc,
-				BinaryPath:       this.path,
+				BinaryPath:       g.path,
 			},
 			{
 				Section:          msSec,
 				EbpfFuncName:     msFn,
 				AttachToFuncName: goTlsMasterSecretFunc,
-				BinaryPath:       this.path,
+				BinaryPath:       g.path,
 				UID:              "uprobe_gotls_master_secret",
 			},
 		},
@@ -213,21 +213,21 @@ func (this *GoTLSProbe) setupManagersUprobe() error {
 		},
 	}
 
-	readOffsets := this.conf.(*config.GoTLSConfig).ReadTlsAddrs
-	//this.bpfManager.Probes = []*manager.Probe{}
+	readOffsets := g.conf.(*config.GoTLSConfig).ReadTlsAddrs
+	//g.bpfManager.Probes = []*manager.Probe{}
 	for _, v := range readOffsets {
 		var uid = fmt.Sprintf("%s_%d", readFn, v)
-		this.logger.Printf("%s\tadd uretprobe function :%s, offset:0x%X\n", this.Name(), config.GoTlsReadFunc, v)
-		this.bpfManager.Probes = append(this.bpfManager.Probes, &manager.Probe{
+		g.logger.Printf("%s\tadd uretprobe function :%s, offset:0x%X\n", g.Name(), config.GoTlsReadFunc, v)
+		g.bpfManager.Probes = append(g.bpfManager.Probes, &manager.Probe{
 			Section:          readSec,
 			EbpfFuncName:     readFn,
 			AttachToFuncName: config.GoTlsReadFunc,
-			BinaryPath:       this.path,
+			BinaryPath:       g.path,
 			UprobeOffset:     uint64(v),
 			UID:              uid,
 		})
 	}
-	this.bpfManagerOptions = manager.Options{
+	g.bpfManagerOptions = manager.Options{
 		DefaultKProbeMaxActive: 512,
 
 		VerifierOptions: ebpf.CollectionOptions{
@@ -242,49 +242,49 @@ func (this *GoTLSProbe) setupManagersUprobe() error {
 		},
 	}
 
-	if this.conf.EnableGlobalVar() {
+	if g.conf.EnableGlobalVar() {
 		// 填充 RewriteContants 对应map
-		this.bpfManagerOptions.ConstantEditors = this.constantEditor()
+		g.bpfManagerOptions.ConstantEditors = g.constantEditor()
 	}
 	return nil
 }
 
 // 通过elf的常量替换方式传递数据
-func (this *GoTLSProbe) constantEditor() []manager.ConstantEditor {
+func (g *GoTLSProbe) constantEditor() []manager.ConstantEditor {
 	var editor = []manager.ConstantEditor{
 		{
 			Name:  "target_pid",
-			Value: uint64(this.conf.GetPid()),
+			Value: uint64(g.conf.GetPid()),
 			//FailOnMissing: true,
 		},
 		{
 			Name:  "target_uid",
-			Value: uint64(this.conf.GetUid()),
+			Value: uint64(g.conf.GetUid()),
 		},
 		{
 			Name:  "target_port",
-			Value: uint64(this.conf.(*config.GoTLSConfig).Port),
+			Value: uint64(g.conf.(*config.GoTLSConfig).Port),
 		},
 	}
 
-	if this.conf.GetPid() <= 0 {
-		this.logger.Printf("%s\ttarget all process. \n", this.Name())
+	if g.conf.GetPid() <= 0 {
+		g.logger.Printf("%s\ttarget all process. \n", g.Name())
 	} else {
-		this.logger.Printf("%s\ttarget PID:%d \n", this.Name(), this.conf.GetPid())
+		g.logger.Printf("%s\ttarget PID:%d \n", g.Name(), g.conf.GetPid())
 	}
 
-	if this.conf.GetUid() <= 0 {
-		this.logger.Printf("%s\ttarget all users. \n", this.Name())
+	if g.conf.GetUid() <= 0 {
+		g.logger.Printf("%s\ttarget all users. \n", g.Name())
 	} else {
-		this.logger.Printf("%s\ttarget UID:%d \n", this.Name(), this.conf.GetUid())
+		g.logger.Printf("%s\ttarget UID:%d \n", g.Name(), g.conf.GetUid())
 	}
 
 	return editor
 }
 
-func (this *GoTLSProbe) initDecodeFun() error {
+func (g *GoTLSProbe) initDecodeFun() error {
 
-	m, found, err := this.bpfManager.GetMap("events")
+	m, found, err := g.bpfManager.GetMap("events")
 	if err != nil {
 		return err
 	}
@@ -292,57 +292,57 @@ func (this *GoTLSProbe) initDecodeFun() error {
 		return errors.New("cant found map:tls_events")
 	}
 
-	this.eventMaps = append(this.eventMaps, m)
+	g.eventMaps = append(g.eventMaps, m)
 	gotlsEvent := &event.GoTLSEvent{}
-	//sslEvent.SetModule(this)
-	this.eventFuncMaps[m] = gotlsEvent
+	//sslEvent.SetModule(g)
+	g.eventFuncMaps[m] = gotlsEvent
 	// master secrets map at ebpf code
-	MasterkeyEventsMap, found, err := this.bpfManager.GetMap("mastersecret_go_events")
+	MasterkeyEventsMap, found, err := g.bpfManager.GetMap("mastersecret_go_events")
 	if err != nil {
 		return err
 	}
 	if !found {
 		return errors.New("cant found map:mastersecret_events")
 	}
-	this.eventMaps = append(this.eventMaps, MasterkeyEventsMap)
+	g.eventMaps = append(g.eventMaps, MasterkeyEventsMap)
 
 	var masterkeyEvent event.IEventStruct
 
 	// goTLS Event struct
 	masterkeyEvent = &event.MasterSecretGotlsEvent{}
 
-	this.eventFuncMaps[MasterkeyEventsMap] = masterkeyEvent
+	g.eventFuncMaps[MasterkeyEventsMap] = masterkeyEvent
 	return nil
 }
 
-func (this *GoTLSProbe) DecodeFun(m *ebpf.Map) (event.IEventStruct, bool) {
-	fun, found := this.eventFuncMaps[m]
+func (g *GoTLSProbe) DecodeFun(m *ebpf.Map) (event.IEventStruct, bool) {
+	fun, found := g.eventFuncMaps[m]
 	return fun, found
 }
 
-func (this *GoTLSProbe) Close() error {
+func (g *GoTLSProbe) Close() error {
 
-	if this.eBPFProgramType == EbpfprogramtypeOpensslTc {
-		this.logger.Printf("%s\tsaving pcapng file %s\n", this.Name(), this.pcapngFilename)
-		i, err := this.savePcapng()
+	if g.eBPFProgramType == EbpfprogramtypeOpensslTc {
+		g.logger.Printf("%s\tsaving pcapng file %s\n", g.Name(), g.pcapngFilename)
+		i, err := g.savePcapng()
 		if err != nil {
-			this.logger.Printf("%s\tsave pcanNP failed, error:%v. \n", this.Name(), err)
+			g.logger.Printf("%s\tsave pcanNP failed, error:%v. \n", g.Name(), err)
 		}
 		if i == 0 {
-			this.logger.Printf("nothing captured, please check your network interface, see \"ecapture tls -h\" for more information.")
+			g.logger.Printf("nothing captured, please check your network interface, see \"ecapture tls -h\" for more information.")
 		} else {
-			this.logger.Printf("%s\t save %d packets into pcapng file.\n", this.Name(), i)
+			g.logger.Printf("%s\t save %d packets into pcapng file.\n", g.Name(), i)
 		}
 	}
 
-	this.logger.Printf("%s\tclose. \n", this.Name())
-	if err := this.bpfManager.Stop(manager.CleanAll); err != nil {
+	g.logger.Printf("%s\tclose. \n", g.Name())
+	if err := g.bpfManager.Stop(manager.CleanAll); err != nil {
 		return fmt.Errorf("couldn't stop manager %v .", err)
 	}
-	return this.Module.Close()
+	return g.Module.Close()
 }
 
-func (this *GoTLSProbe) saveMasterSecret(secretEvent *event.MasterSecretGotlsEvent) {
+func (g *GoTLSProbe) saveMasterSecret(secretEvent *event.MasterSecretGotlsEvent) {
 	var label, clientRandom, secret string
 	label = string(secretEvent.Label[0:secretEvent.LabelLen])
 	clientRandom = string(secretEvent.ClientRandom[0:secretEvent.ClientRandomLen])
@@ -350,7 +350,7 @@ func (this *GoTLSProbe) saveMasterSecret(secretEvent *event.MasterSecretGotlsEve
 
 	var k = fmt.Sprintf("%s-%02x", label, clientRandom)
 
-	_, f := this.masterSecrets[k]
+	_, f := g.masterSecrets[k]
 	if f {
 		// 已存在该随机数的masterSecret，不需要重复写入
 		return
@@ -360,30 +360,30 @@ func (this *GoTLSProbe) saveMasterSecret(secretEvent *event.MasterSecretGotlsEve
 	// save to file
 	var b string
 	b = fmt.Sprintf("%s %02x %02x\n", label, clientRandom, secret)
-	l, e := this.keylogger.WriteString(b)
+	l, e := g.keylogger.WriteString(b)
 	if e != nil {
-		this.logger.Fatalf("%s: save masterSecrets to file error:%s", secretEvent.String(), e.Error())
+		g.logger.Fatalf("%s: save masterSecrets to file error:%s", secretEvent.String(), e.Error())
 		return
 	}
-	this.logger.Printf("%s: save CLIENT_RANDOM %02x to file success, %d bytes", label, clientRandom, l)
-	e = this.savePcapngSslKeyLog([]byte(b))
+	g.logger.Printf("%s: save CLIENT_RANDOM %02x to file success, %d bytes", label, clientRandom, l)
+	e = g.savePcapngSslKeyLog([]byte(b))
 	if e != nil {
-		this.logger.Fatalf("%s: save masterSecrets to pcapng error:%s", secretEvent.String(), e.Error())
+		g.logger.Fatalf("%s: save masterSecrets to pcapng error:%s", secretEvent.String(), e.Error())
 		return
 	}
 
 }
 
-func (this *GoTLSProbe) Dispatcher(eventStruct event.IEventStruct) {
+func (g *GoTLSProbe) Dispatcher(eventStruct event.IEventStruct) {
 	// detect eventStruct type
 	switch eventStruct.(type) {
 	case *event.MasterSecretGotlsEvent:
-		this.saveMasterSecret(eventStruct.(*event.MasterSecretGotlsEvent))
+		g.saveMasterSecret(eventStruct.(*event.MasterSecretGotlsEvent))
 	case *event.TcSkbEvent:
-		err := this.dumpTcSkb(eventStruct.(*event.TcSkbEvent))
+		err := g.dumpTcSkb(eventStruct.(*event.TcSkbEvent))
 		if err != nil {
-			this.logger.Printf("%s\t save packet error %s .\n", this.Name(), err.Error())
+			g.logger.Printf("%s\t save packet error %s .\n", g.Name(), err.Error())
 		}
 	}
-	//this.logger.Println(eventStruct)
+	//g.logger.Println(eventStruct)
 }

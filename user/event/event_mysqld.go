@@ -46,9 +46,9 @@ const (
 
 type dispatch_command_return int8
 
-func (this dispatch_command_return) String() string {
+func (d dispatch_command_return) String() string {
 	var retStr string
-	switch this {
+	switch d {
 	case DispatchCommandCloseConnection:
 		retStr = "DISPATCH_COMMAND_CLOSE_CONNECTION"
 	case DispatchCommandSuccess:
@@ -64,70 +64,70 @@ func (this dispatch_command_return) String() string {
 }
 
 type MysqldEvent struct {
-	event_type EventType
-	Pid        uint64                   `json:"pid"`
-	Timestamp  uint64                   `json:"timestamp"`
-	Query      [MysqldMaxDataSize]uint8 `json:"Query"`
-	Alllen     uint64                   `json:"Alllen"`
-	Len        uint64                   `json:"Len"`
-	Comm       [16]uint8                `json:"Comm"`
-	Retval     dispatch_command_return  `json:"retval"`
+	eventType EventType
+	Pid       uint64                   `json:"pid"`
+	Timestamp uint64                   `json:"timestamp"`
+	Query     [MysqldMaxDataSize]uint8 `json:"Query"`
+	Alllen    uint64                   `json:"Alllen"`
+	Len       uint64                   `json:"Len"`
+	Comm      [16]uint8                `json:"Comm"`
+	Retval    dispatch_command_return  `json:"retval"`
 }
 
-func (this *MysqldEvent) Decode(payload []byte) (err error) {
+func (me *MysqldEvent) Decode(payload []byte) (err error) {
 	buf := bytes.NewBuffer(payload)
-	if err = binary.Read(buf, binary.LittleEndian, &this.Pid); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &me.Pid); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.Timestamp); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &me.Timestamp); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.Query); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &me.Query); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.Alllen); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &me.Alllen); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.Len); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &me.Len); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.Comm); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &me.Comm); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.Retval); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &me.Retval); err != nil {
 		return
 	}
 	return nil
 }
 
-func (this *MysqldEvent) String() string {
-	s := fmt.Sprintf(fmt.Sprintf(" PID:%d, Comm:%s, Time:%d,  length:(%d/%d),  return:%s, Line:%s", this.Pid, this.Comm, this.Timestamp, this.Len, this.Alllen, this.Retval, unix.ByteSliceToString((this.Query[:]))))
+func (me *MysqldEvent) String() string {
+	s := fmt.Sprintf(fmt.Sprintf(" PID:%d, Comm:%s, Time:%d,  length:(%d/%d),  return:%s, Line:%s", me.Pid, me.Comm, me.Timestamp, me.Len, me.Alllen, me.Retval, unix.ByteSliceToString((me.Query[:]))))
 	return s
 }
 
-func (this *MysqldEvent) StringHex() string {
-	s := fmt.Sprintf(fmt.Sprintf(" PID:%d, Comm:%s, Time:%d,  length:(%d/%d),  return:%s, Line:%s", this.Pid, this.Comm, this.Timestamp, this.Len, this.Alllen, this.Retval, unix.ByteSliceToString((this.Query[:]))))
+func (me *MysqldEvent) StringHex() string {
+	s := fmt.Sprintf(fmt.Sprintf(" PID:%d, Comm:%s, Time:%d,  length:(%d/%d),  return:%s, Line:%s", me.Pid, me.Comm, me.Timestamp, me.Len, me.Alllen, me.Retval, unix.ByteSliceToString((me.Query[:]))))
 	return s
 }
 
-func (this *MysqldEvent) Clone() IEventStruct {
+func (me *MysqldEvent) Clone() IEventStruct {
 	event := new(MysqldEvent)
-	event.event_type = EventTypeOutput
+	event.eventType = EventTypeOutput
 	return event
 }
 
-func (this *MysqldEvent) EventType() EventType {
-	return this.event_type
+func (me *MysqldEvent) EventType() EventType {
+	return me.eventType
 }
 
-func (this *MysqldEvent) GetUUID() string {
-	return fmt.Sprintf("%d_%s", this.Pid, this.Comm)
+func (me *MysqldEvent) GetUUID() string {
+	return fmt.Sprintf("%d_%s", me.Pid, me.Comm)
 }
 
-func (this *MysqldEvent) Payload() []byte {
-	return this.Query[:this.Len]
+func (me *MysqldEvent) Payload() []byte {
+	return me.Query[:me.Len]
 }
 
-func (this *MysqldEvent) PayloadLen() int {
-	return int(this.Len)
+func (me *MysqldEvent) PayloadLen() int {
+	return int(me.Len)
 }

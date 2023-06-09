@@ -51,22 +51,22 @@ func NewGoTLSConfig() *GoTLSConfig {
 	return &GoTLSConfig{}
 }
 
-func (c *GoTLSConfig) Check() error {
-	if c.Path == "" {
+func (gc *GoTLSConfig) Check() error {
+	if gc.Path == "" {
 		return ErrorGoBINNotFound
 	}
 
-	if c.Ifname == "" || len(c.Ifname) == 0 {
-		c.Ifname = DefaultIfname
+	if gc.Ifname == "" || len(gc.Ifname) == 0 {
+		gc.Ifname = DefaultIfname
 	}
 
-	_, err := os.Stat(c.Path)
+	_, err := os.Stat(gc.Path)
 	if err != nil {
 		return err
 	}
 
 	var goElf *elf.File
-	goElf, err = elf.Open(c.Path)
+	goElf, err = elf.Open(gc.Path)
 	if err != nil {
 		return err
 	}
@@ -91,9 +91,9 @@ func (c *GoTLSConfig) Check() error {
 	default:
 		err = fmt.Errorf("unsupport CPU arch :%s", goElfArch)
 	}
-	c.goElfArch = goElfArch
-	c.goElf = goElf
-	c.ReadTlsAddrs, err = c.findRetOffsets(GoTlsReadFunc)
+	gc.goElfArch = goElfArch
+	gc.goElf = goElf
+	gc.ReadTlsAddrs, err = gc.findRetOffsets(GoTlsReadFunc)
 	return err
 }
 
@@ -101,10 +101,10 @@ func (c *GoTLSConfig) Check() error {
 // the instruction set associated with the specified symbol in an ELF program.
 // It is used for mounting uretprobe programs for Golang programs,
 // which are actually mounted via uprobe on these addresses.
-func (c *GoTLSConfig) findRetOffsets(symbolName string) ([]int, error) {
+func (gc *GoTLSConfig) findRetOffsets(symbolName string) ([]int, error) {
 	var err error
 	var goSymbs []elf.Symbol
-	goSymbs, err = c.goElf.Symbols()
+	goSymbs, err = gc.goElf.Symbols()
 	if err != nil {
 		return nil, err
 	}
@@ -123,7 +123,7 @@ func (c *GoTLSConfig) findRetOffsets(symbolName string) ([]int, error) {
 		return nil, ErrorSymbolNotFound
 	}
 
-	section := c.goElf.Sections[symbol.Section]
+	section := gc.goElf.Sections[symbol.Section]
 
 	var elfText []byte
 	elfText, err = section.Data()
@@ -137,7 +137,7 @@ func (c *GoTLSConfig) findRetOffsets(symbolName string) ([]int, error) {
 	var offsets []int
 	var instHex []byte
 	instHex = elfText[start:end]
-	offsets, err = c.decodeInstruction(instHex)
+	offsets, err = gc.decodeInstruction(instHex)
 	if len(offsets) == 0 {
 		return offsets, ErrorNoRetFound
 	}
@@ -145,10 +145,10 @@ func (c *GoTLSConfig) findRetOffsets(symbolName string) ([]int, error) {
 }
 
 // decodeInstruction Decode into assembly instructions and identify the RET instruction to return the offset.
-func (c *GoTLSConfig) decodeInstruction(instHex []byte) ([]int, error) {
+func (gc *GoTLSConfig) decodeInstruction(instHex []byte) ([]int, error) {
 	var offsets []int
 	for i := 0; i < len(instHex); {
-		if c.goElfArch == "amd64" {
+		if gc.goElfArch == "amd64" {
 			inst, err := x86asm.Decode(instHex[i:], 64)
 			if err != nil {
 				return nil, err

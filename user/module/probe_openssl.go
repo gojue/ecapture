@@ -78,34 +78,34 @@ type MOpenSSLProbe struct {
 }
 
 // 对象初始化
-func (this *MOpenSSLProbe) Init(ctx context.Context, logger *log.Logger, conf config.IConfig) error {
-	this.Module.Init(ctx, logger, conf)
-	this.conf = conf
-	this.Module.SetChild(this)
-	this.eventMaps = make([]*ebpf.Map, 0, 2)
-	this.eventFuncMaps = make(map[*ebpf.Map]event.IEventStruct)
-	//this.pidConns = make(map[uint32]map[uint32]string)
-	this.masterKeys = make(map[string]bool)
-	this.sslVersionBpfMap = make(map[string]string)
+func (m *MOpenSSLProbe) Init(ctx context.Context, logger *log.Logger, conf config.IConfig) error {
+	m.Module.Init(ctx, logger, conf)
+	m.conf = conf
+	m.Module.SetChild(m)
+	m.eventMaps = make([]*ebpf.Map, 0, 2)
+	m.eventFuncMaps = make(map[*ebpf.Map]event.IEventStruct)
+	//m.pidConns = make(map[uint32]map[uint32]string)
+	m.masterKeys = make(map[string]bool)
+	m.sslVersionBpfMap = make(map[string]string)
 
 	//fd := os.Getpid()
-	this.keyloggerFilename = MasterSecretKeyLogName
-	file, err := os.OpenFile(this.keyloggerFilename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+	m.keyloggerFilename = MasterSecretKeyLogName
+	file, err := os.OpenFile(m.keyloggerFilename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
 	if err != nil {
 		return err
 	}
-	this.keylogger = file
-	var writeFile = this.conf.(*config.OpensslConfig).Write
+	m.keylogger = file
+	var writeFile = m.conf.(*config.OpensslConfig).Write
 	if len(writeFile) > 0 {
-		this.eBPFProgramType = EbpfprogramtypeOpensslTc
+		m.eBPFProgramType = EbpfprogramtypeOpensslTc
 		fileInfo, err := filepath.Abs(writeFile)
 		if err != nil {
 			return err
 		}
-		this.pcapngFilename = fileInfo
+		m.pcapngFilename = fileInfo
 	} else {
-		this.eBPFProgramType = EbpfprogramtypeOpensslUprobe
-		this.logger.Printf("%s\tmaster key keylogger: %s\n", this.Name(), this.keyloggerFilename)
+		m.eBPFProgramType = EbpfprogramtypeOpensslUprobe
+		m.logger.Printf("%s\tmaster key keylogger: %s\n", m.Name(), m.keyloggerFilename)
 	}
 
 	var ts unix.Timespec
@@ -114,66 +114,66 @@ func (this *MOpenSSLProbe) Init(ctx context.Context, logger *log.Logger, conf co
 		return err
 	}
 	startTime := ts.Nano()
-	// Calculate the boot time using the monotonic time (since this is the clock we're using as a timestamp)
-	// Note: this is NOT the real boot time, as the monotonic clock doesn't take into account system sleeps.
+	// Calculate the boot time using the monotonic time (since m is the clock we're using as a timestamp)
+	// Note: m is NOT the real boot time, as the monotonic clock doesn't take into account system sleeps.
 	bootTime := time.Now().UnixNano() - startTime
 
-	this.startTime = uint64(startTime)
-	this.bootTime = uint64(bootTime)
+	m.startTime = uint64(startTime)
+	m.bootTime = uint64(bootTime)
 
-	this.tcPackets = make([]*TcPacket, 0, 1024)
-	this.tcPacketLocker = &sync.Mutex{}
-	this.masterKeyBuffer = bytes.NewBuffer([]byte{})
+	m.tcPackets = make([]*TcPacket, 0, 1024)
+	m.tcPacketLocker = &sync.Mutex{}
+	m.masterKeyBuffer = bytes.NewBuffer([]byte{})
 
-	this.initOpensslOffset()
+	m.initOpensslOffset()
 	return nil
 }
 
 // getSslBpfFile 根据sslVersion参数，获取对应的bpf文件
-func (this *MOpenSSLProbe) getSslBpfFile(soPath, sslVersion string) error {
+func (m *MOpenSSLProbe) getSslBpfFile(soPath, sslVersion string) error {
 	defer func() {
-		if strings.Contains(this.sslBpfFile, "boringssl") {
-			this.isBoringSSL = true
-			this.masterHookFunc = MasterKeyHookFuncBoringSSL
+		if strings.Contains(m.sslBpfFile, "boringssl") {
+			m.isBoringSSL = true
+			m.masterHookFunc = MasterKeyHookFuncBoringSSL
 		} else {
-			this.masterHookFunc = MasterKeyHookFuncOpenSSL
+			m.masterHookFunc = MasterKeyHookFuncOpenSSL
 		}
 	}()
 
 	if sslVersion != "" {
-		this.logger.Printf("%s\tOpenSSL/BoringSSL version: %s\n", this.Name(), sslVersion)
-		bpfFile, found := this.sslVersionBpfMap[sslVersion]
+		m.logger.Printf("%s\tOpenSSL/BoringSSL version: %s\n", m.Name(), sslVersion)
+		bpfFile, found := m.sslVersionBpfMap[sslVersion]
 		if found {
-			this.sslBpfFile = bpfFile
+			m.sslBpfFile = bpfFile
 			return nil
 		} else {
-			this.logger.Printf("%s\tCan't found OpenSSL/BoringSSL bpf bytecode file. auto detected.\n", this.Name())
+			m.logger.Printf("%s\tCan't found OpenSSL/BoringSSL bpf bytecode file. auto detected.\n", m.Name())
 		}
 	}
 
 	// 未找到对应的bpf文件，尝试从so文件中获取
-	err := this.detectOpenssl(soPath)
+	err := m.detectOpenssl(soPath)
 	return err
 }
 
-func (this *MOpenSSLProbe) Start() error {
-	return this.start()
+func (m *MOpenSSLProbe) Start() error {
+	return m.start()
 }
 
-func (this *MOpenSSLProbe) start() error {
+func (m *MOpenSSLProbe) start() error {
 
 	var err error
 	// setup the managers
-	switch this.eBPFProgramType {
+	switch m.eBPFProgramType {
 	case EbpfprogramtypeOpensslTc:
-		this.logger.Printf("%s\tTC MODEL\n", this.Name())
-		err = this.setupManagersTC()
+		m.logger.Printf("%s\tTC MODEL\n", m.Name())
+		err = m.setupManagersTC()
 	case EbpfprogramtypeOpensslUprobe:
-		this.logger.Printf("%s\tUPROBE MODEL\n", this.Name())
-		err = this.setupManagersUprobe()
+		m.logger.Printf("%s\tUPROBE MODEL\n", m.Name())
+		err = m.setupManagersUprobe()
 	default:
-		this.logger.Printf("%s\tUPROBE MODEL\n", this.Name())
-		err = this.setupManagersUprobe()
+		m.logger.Printf("%s\tUPROBE MODEL\n", m.Name())
+		err = m.setupManagersUprobe()
 	}
 	if err != nil {
 		return err
@@ -181,32 +181,32 @@ func (this *MOpenSSLProbe) start() error {
 
 	// fetch ebpf assets
 	// user/bytecode/openssl_kern.o
-	var bpfFileName = this.geteBPFName(filepath.Join("user/bytecode", this.sslBpfFile))
-	this.logger.Printf("%s\tBPF bytecode filename:%s\n", this.Name(), bpfFileName)
+	var bpfFileName = m.geteBPFName(filepath.Join("user/bytecode", m.sslBpfFile))
+	m.logger.Printf("%s\tBPF bytecode filename:%s\n", m.Name(), bpfFileName)
 	byteBuf, err := assets.Asset(bpfFileName)
 
 	if err != nil {
-		return fmt.Errorf("%s\tcouldn't find asset %v .", this.Name(), err)
+		return fmt.Errorf("%s\tcouldn't find asset %v .", m.Name(), err)
 	}
 
 	// initialize the bootstrap manager
-	if err = this.bpfManager.InitWithOptions(bytes.NewReader(byteBuf), this.bpfManagerOptions); err != nil {
+	if err = m.bpfManager.InitWithOptions(bytes.NewReader(byteBuf), m.bpfManagerOptions); err != nil {
 		return fmt.Errorf("couldn't init manager %v", err)
 	}
 
 	// start the bootstrap manager
-	if err = this.bpfManager.Start(); err != nil {
+	if err = m.bpfManager.Start(); err != nil {
 		return fmt.Errorf("couldn't start bootstrap manager %v .", err)
 	}
 
 	// 加载map信息，map对应events decode表。
-	switch this.eBPFProgramType {
+	switch m.eBPFProgramType {
 	case EbpfprogramtypeOpensslTc:
-		err = this.initDecodeFunTC()
+		err = m.initDecodeFunTC()
 	case EbpfprogramtypeOpensslUprobe:
-		err = this.initDecodeFun()
+		err = m.initDecodeFun()
 	default:
-		err = this.initDecodeFun()
+		err = m.initDecodeFun()
 	}
 	if err != nil {
 		return err
@@ -215,77 +215,77 @@ func (this *MOpenSSLProbe) start() error {
 	return nil
 }
 
-func (this *MOpenSSLProbe) Close() error {
-	if this.eBPFProgramType == EbpfprogramtypeOpensslTc {
-		this.logger.Printf("%s\tsaving pcapng file %s\n", this.Name(), this.pcapngFilename)
-		i, err := this.savePcapng()
+func (m *MOpenSSLProbe) Close() error {
+	if m.eBPFProgramType == EbpfprogramtypeOpensslTc {
+		m.logger.Printf("%s\tsaving pcapng file %s\n", m.Name(), m.pcapngFilename)
+		i, err := m.savePcapng()
 		if err != nil {
-			this.logger.Printf("%s\tsave pcanNP failed, error:%v. \n", this.Name(), err)
+			m.logger.Printf("%s\tsave pcanNP failed, error:%v. \n", m.Name(), err)
 		}
 		if i == 0 {
-			this.logger.Printf("nothing captured, please check your network interface, see \"ecapture tls -h\" for more information.")
+			m.logger.Printf("nothing captured, please check your network interface, see \"ecapture tls -h\" for more information.")
 		} else {
-			this.logger.Printf("%s\t save %d packets into pcapng file.\n", this.Name(), i)
+			m.logger.Printf("%s\t save %d packets into pcapng file.\n", m.Name(), i)
 		}
 	}
 
-	this.logger.Printf("%s\tclose. \n", this.Name())
-	if err := this.bpfManager.Stop(manager.CleanAll); err != nil {
+	m.logger.Printf("%s\tclose. \n", m.Name())
+	if err := m.bpfManager.Stop(manager.CleanAll); err != nil {
 		return fmt.Errorf("couldn't stop manager %v .", err)
 	}
-	return this.Module.Close()
+	return m.Module.Close()
 }
 
 // 通过elf的常量替换方式传递数据
-func (this *MOpenSSLProbe) constantEditor() []manager.ConstantEditor {
+func (m *MOpenSSLProbe) constantEditor() []manager.ConstantEditor {
 	var editor = []manager.ConstantEditor{
 		{
 			Name:  "target_pid",
-			Value: uint64(this.conf.GetPid()),
+			Value: uint64(m.conf.GetPid()),
 			//FailOnMissing: true,
 		},
 		{
 			Name:  "target_uid",
-			Value: uint64(this.conf.GetUid()),
+			Value: uint64(m.conf.GetUid()),
 		},
 		{
 			Name:  "target_port",
-			Value: uint64(this.conf.(*config.OpensslConfig).Port),
+			Value: uint64(m.conf.(*config.OpensslConfig).Port),
 		},
 	}
 
-	if this.conf.GetPid() <= 0 {
-		this.logger.Printf("%s\ttarget all process. \n", this.Name())
+	if m.conf.GetPid() <= 0 {
+		m.logger.Printf("%s\ttarget all process. \n", m.Name())
 	} else {
-		this.logger.Printf("%s\ttarget PID:%d \n", this.Name(), this.conf.GetPid())
+		m.logger.Printf("%s\ttarget PID:%d \n", m.Name(), m.conf.GetPid())
 	}
 
-	if this.conf.GetUid() <= 0 {
-		this.logger.Printf("%s\ttarget all users. \n", this.Name())
+	if m.conf.GetUid() <= 0 {
+		m.logger.Printf("%s\ttarget all users. \n", m.Name())
 	} else {
-		this.logger.Printf("%s\ttarget UID:%d \n", this.Name(), this.conf.GetUid())
+		m.logger.Printf("%s\ttarget UID:%d \n", m.Name(), m.conf.GetUid())
 	}
 
 	return editor
 }
 
-func (this *MOpenSSLProbe) setupManagersUprobe() error {
+func (m *MOpenSSLProbe) setupManagersUprobe() error {
 	var binaryPath, sslVersion string
-	sslVersion = this.conf.(*config.OpensslConfig).SslVersion
+	sslVersion = m.conf.(*config.OpensslConfig).SslVersion
 	sslVersion = strings.ToLower(sslVersion)
-	switch this.conf.(*config.OpensslConfig).ElfType {
+	switch m.conf.(*config.OpensslConfig).ElfType {
 	case config.ElfTypeBin:
-		binaryPath = this.conf.(*config.OpensslConfig).Curlpath
+		binaryPath = m.conf.(*config.OpensslConfig).Curlpath
 	case config.ElfTypeSo:
-		binaryPath = this.conf.(*config.OpensslConfig).Openssl
-		err := this.getSslBpfFile(binaryPath, sslVersion)
+		binaryPath = m.conf.(*config.OpensslConfig).Openssl
+		err := m.getSslBpfFile(binaryPath, sslVersion)
 		if err != nil {
 			return err
 		}
 	default:
 		//如果没找到
 		binaryPath = "/lib/x86_64-linux-gnu/libssl.so.1.1"
-		err := this.getSslBpfFile(binaryPath, sslVersion)
+		err := m.getSslBpfFile(binaryPath, sslVersion)
 		if err != nil {
 			return err
 		}
@@ -296,10 +296,10 @@ func (this *MOpenSSLProbe) setupManagersUprobe() error {
 		return err
 	}
 
-	this.logger.Printf("%s\tHOOK type:%d, binrayPath:%s\n", this.Name(), this.conf.(*config.OpensslConfig).ElfType, binaryPath)
-	this.logger.Printf("%s\tHook masterKey function:%s\n", this.Name(), this.masterHookFunc)
+	m.logger.Printf("%s\tHOOK type:%d, binrayPath:%s\n", m.Name(), m.conf.(*config.OpensslConfig).ElfType, binaryPath)
+	m.logger.Printf("%s\tHook masterKey function:%s\n", m.Name(), m.masterHookFunc)
 
-	this.bpfManager = &manager.Manager{
+	m.bpfManager = &manager.Manager{
 		Probes: []*manager.Probe{
 
 			{
@@ -342,7 +342,7 @@ func (this *MOpenSSLProbe) setupManagersUprobe() error {
 			{
 				Section:          "uprobe/SSL_write_key",
 				EbpfFuncName:     "probe_ssl_master_key",
-				AttachToFuncName: this.masterHookFunc,
+				AttachToFuncName: m.masterHookFunc,
 				BinaryPath:       binaryPath,
 				UID:              "uprobe_ssl_master_key",
 			},
@@ -361,7 +361,7 @@ func (this *MOpenSSLProbe) setupManagersUprobe() error {
 		},
 	}
 
-	this.bpfManagerOptions = manager.Options{
+	m.bpfManagerOptions = manager.Options{
 		DefaultKProbeMaxActive: 512,
 
 		VerifierOptions: ebpf.CollectionOptions{
@@ -376,80 +376,80 @@ func (this *MOpenSSLProbe) setupManagersUprobe() error {
 		},
 	}
 
-	if this.conf.EnableGlobalVar() {
+	if m.conf.EnableGlobalVar() {
 		// 填充 RewriteContants 对应map
-		this.bpfManagerOptions.ConstantEditors = this.constantEditor()
+		m.bpfManagerOptions.ConstantEditors = m.constantEditor()
 	}
 	return nil
 }
 
-func (this *MOpenSSLProbe) DecodeFun(em *ebpf.Map) (event.IEventStruct, bool) {
-	fun, found := this.eventFuncMaps[em]
+func (m *MOpenSSLProbe) DecodeFun(em *ebpf.Map) (event.IEventStruct, bool) {
+	fun, found := m.eventFuncMaps[em]
 	return fun, found
 }
 
-func (this *MOpenSSLProbe) initDecodeFun() error {
+func (m *MOpenSSLProbe) initDecodeFun() error {
 	//SSLDumpEventsMap 与解码函数映射
-	SSLDumpEventsMap, found, err := this.bpfManager.GetMap("tls_events")
+	SSLDumpEventsMap, found, err := m.bpfManager.GetMap("tls_events")
 	if err != nil {
 		return err
 	}
 	if !found {
 		return errors.New("cant found map:tls_events")
 	}
-	this.eventMaps = append(this.eventMaps, SSLDumpEventsMap)
+	m.eventMaps = append(m.eventMaps, SSLDumpEventsMap)
 	sslEvent := &event.SSLDataEvent{}
-	//sslEvent.SetModule(this)
-	this.eventFuncMaps[SSLDumpEventsMap] = sslEvent
+	//sslEvent.SetModule(m)
+	m.eventFuncMaps[SSLDumpEventsMap] = sslEvent
 
-	ConnEventsMap, found, err := this.bpfManager.GetMap("connect_events")
+	ConnEventsMap, found, err := m.bpfManager.GetMap("connect_events")
 	if err != nil {
 		return err
 	}
 	if !found {
 		return errors.New("cant found map:connect_events")
 	}
-	this.eventMaps = append(this.eventMaps, ConnEventsMap)
+	m.eventMaps = append(m.eventMaps, ConnEventsMap)
 	connEvent := &event.ConnDataEvent{}
-	//connEvent.SetModule(this)
-	this.eventFuncMaps[ConnEventsMap] = connEvent
+	//connEvent.SetModule(m)
+	m.eventFuncMaps[ConnEventsMap] = connEvent
 
-	MasterkeyEventsMap, found, err := this.bpfManager.GetMap("mastersecret_events")
+	MasterkeyEventsMap, found, err := m.bpfManager.GetMap("mastersecret_events")
 	if err != nil {
 		return err
 	}
 	if !found {
 		return errors.New("cant found map:mastersecret_events")
 	}
-	this.eventMaps = append(this.eventMaps, MasterkeyEventsMap)
+	m.eventMaps = append(m.eventMaps, MasterkeyEventsMap)
 
 	var masterkeyEvent event.IEventStruct
 
-	if this.isBoringSSL {
+	if m.isBoringSSL {
 		masterkeyEvent = &event.MasterSecretBSSLEvent{}
 	} else {
 		masterkeyEvent = &event.MasterSecretEvent{}
 	}
-	//masterkeyEvent.SetModule(this)
-	this.eventFuncMaps[MasterkeyEventsMap] = masterkeyEvent
+	//masterkeyEvent.SetModule(m)
+	m.eventFuncMaps[MasterkeyEventsMap] = masterkeyEvent
 
 	return nil
 }
 
-func (this *MOpenSSLProbe) Events() []*ebpf.Map {
-	return this.eventMaps
+func (m *MOpenSSLProbe) Events() []*ebpf.Map {
+	return m.eventMaps
 }
 
-func (this *MOpenSSLProbe) saveMasterSecret(secretEvent *event.MasterSecretEvent) {
+func (m *MOpenSSLProbe) saveMasterSecret(secretEvent *event.MasterSecretEvent) {
 
 	var k = fmt.Sprintf("%02x", secretEvent.ClientRandom)
 
-	_, f := this.masterKeys[k]
+	_, f := m.masterKeys[k]
 	if f {
 		// 已存在该随机数的masterSecret，不需要重复写入
 		return
 	}
-	this.masterKeys[k] = true
+	m.masterKeys[k] = true
 
 	// save to file
 	var b *bytes.Buffer
@@ -467,7 +467,7 @@ func (this *MOpenSSLProbe) saveMasterSecret(secretEvent *event.MasterSecretEvent
 			length = 48
 			transcript = crypto.SHA384
 		default:
-			this.logger.Printf("non-TLSv1.3 cipher suite found, CipherId: %d", secretEvent.CipherId)
+			m.logger.Printf("non-TLSv1.3 cipher suite found, CipherId: %d", secretEvent.CipherId)
 			return
 		}
 
@@ -494,29 +494,29 @@ func (this *MOpenSSLProbe) saveMasterSecret(secretEvent *event.MasterSecretEvent
 		b = bytes.NewBufferString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelTLS12, secretEvent.ClientRandom, secretEvent.MasterKey))
 	}
 	v := event.TlsVersion{Version: secretEvent.Version}
-	l, e := this.keylogger.WriteString(b.String())
+	l, e := m.keylogger.WriteString(b.String())
 	if e != nil {
-		this.logger.Fatalf("%s: save CLIENT_RANDOM to file error:%s", v.String(), e.Error())
+		m.logger.Fatalf("%s: save CLIENT_RANDOM to file error:%s", v.String(), e.Error())
 		return
 	}
 
 	//
-	switch this.eBPFProgramType {
+	switch m.eBPFProgramType {
 	case EbpfprogramtypeOpensslTc:
-		e = this.savePcapngSslKeyLog(b.Bytes())
+		e = m.savePcapngSslKeyLog(b.Bytes())
 		if e != nil {
-			this.logger.Fatalf("%s: save CLIENT_RANDOM to pcapng error:%s", v.String(), e.Error())
+			m.logger.Fatalf("%s: save CLIENT_RANDOM to pcapng error:%s", v.String(), e.Error())
 			return
 		}
 	default:
 	}
-	this.logger.Printf("%s: save CLIENT_RANDOM %02x to file success, %d bytes", v.String(), secretEvent.ClientRandom, l)
+	m.logger.Printf("%s: save CLIENT_RANDOM %02x to file success, %d bytes", v.String(), secretEvent.ClientRandom, l)
 }
 
-func (this *MOpenSSLProbe) saveMasterSecretBSSL(secretEvent *event.MasterSecretBSSLEvent) {
+func (m *MOpenSSLProbe) saveMasterSecretBSSL(secretEvent *event.MasterSecretBSSLEvent) {
 	var k = fmt.Sprintf("%02x", secretEvent.ClientRandom)
 
-	_, f := this.masterKeys[k]
+	_, f := m.masterKeys[k]
 	if f {
 		// 已存在该随机数的masterSecret，不需要重复写入
 		return
@@ -526,27 +526,27 @@ func (this *MOpenSSLProbe) saveMasterSecretBSSL(secretEvent *event.MasterSecretB
 	var b *bytes.Buffer
 	switch secretEvent.Version {
 	case event.Tls12Version:
-		if this.bSSLEvent12NullSecrets(secretEvent) {
+		if m.bSSLEvent12NullSecrets(secretEvent) {
 			return
 		}
 		var length = int(secretEvent.HashLen)
 		if length > event.MasterSecretMaxLen {
 			length = event.MasterSecretMaxLen
-			this.logger.Println("master secret length is too long, truncate to 48 bytes, but it may cause keylog file error")
+			m.logger.Println("master secret length is too long, truncate to 48 bytes, but it may cause keylog file error")
 		}
 		b = bytes.NewBufferString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelTLS12, secretEvent.ClientRandom, secretEvent.Secret[:length]))
-		this.masterKeys[k] = true
+		m.masterKeys[k] = true
 	case event.Tls13Version:
 		fallthrough
 	default:
 		var length int
 		length = int(secretEvent.HashLen)
 		// 判断 密钥是否为空
-		if this.bSSLEvent13NullSecrets(secretEvent) {
+		if m.bSSLEvent13NullSecrets(secretEvent) {
 			return
 		}
-		this.masterKeys[k] = true
-		//this.logger.Printf("secretEvent.HashLen:%d, CipherId:%d", secretEvent.HashLen, secretEvent.HashLen)
+		m.masterKeys[k] = true
+		//m.logger.Printf("secretEvent.HashLen:%d, CipherId:%d", secretEvent.HashLen, secretEvent.HashLen)
 		b = bytes.NewBufferString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelClientHandshake, secretEvent.ClientRandom, secretEvent.ClientHandshakeSecret[:length]))
 		//b.WriteString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelClientEarlyTafficSecret, secretEvent.ClientRandom, secretEvent.EarlyTrafficSecret[:length]))
 		b.WriteString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelClientTraffic, secretEvent.ClientRandom, secretEvent.ClientTrafficSecret0[:length]))
@@ -556,27 +556,27 @@ func (this *MOpenSSLProbe) saveMasterSecretBSSL(secretEvent *event.MasterSecretB
 	}
 
 	v := event.TlsVersion{Version: secretEvent.Version}
-	l, e := this.keylogger.WriteString(b.String())
+	l, e := m.keylogger.WriteString(b.String())
 	if e != nil {
-		this.logger.Fatalf("%s: save CLIENT_RANDOM to file error:%s", v.String(), e.Error())
+		m.logger.Fatalf("%s: save CLIENT_RANDOM to file error:%s", v.String(), e.Error())
 		return
 	}
 
 	//
-	switch this.eBPFProgramType {
+	switch m.eBPFProgramType {
 	case EbpfprogramtypeOpensslTc:
-		this.logger.Printf("%s: save CLIENT_RANDOM %02x to file success, %d bytes", v.String(), secretEvent.ClientRandom, l)
-		e = this.savePcapngSslKeyLog(b.Bytes())
+		m.logger.Printf("%s: save CLIENT_RANDOM %02x to file success, %d bytes", v.String(), secretEvent.ClientRandom, l)
+		e = m.savePcapngSslKeyLog(b.Bytes())
 		if e != nil {
-			this.logger.Fatalf("%s: save CLIENT_RANDOM to pcapng error:%s", v.String(), e.Error())
+			m.logger.Fatalf("%s: save CLIENT_RANDOM to pcapng error:%s", v.String(), e.Error())
 			return
 		}
 	default:
-		this.logger.Printf("%s: save CLIENT_RANDOM %02x to file success, %d bytes", v.String(), secretEvent.ClientRandom, l)
+		m.logger.Printf("%s: save CLIENT_RANDOM %02x to file success, %d bytes", v.String(), secretEvent.ClientRandom, l)
 	}
 }
 
-func (this *MOpenSSLProbe) bSSLEvent12NullSecrets(e *event.MasterSecretBSSLEvent) bool {
+func (m *MOpenSSLProbe) bSSLEvent12NullSecrets(e *event.MasterSecretBSSLEvent) bool {
 	var isNull = true
 	var hashLen = int(e.HashLen)
 	for i := 0; i < hashLen; i++ {
@@ -588,7 +588,7 @@ func (this *MOpenSSLProbe) bSSLEvent12NullSecrets(e *event.MasterSecretBSSLEvent
 	return isNull
 }
 
-func (this *MOpenSSLProbe) bSSLEvent13NullSecrets(e *event.MasterSecretBSSLEvent) bool {
+func (m *MOpenSSLProbe) bSSLEvent13NullSecrets(e *event.MasterSecretBSSLEvent) bool {
 	var isNUllCount = 5
 
 	var hashLen = int(e.HashLen)
@@ -622,22 +622,22 @@ func (this *MOpenSSLProbe) bSSLEvent13NullSecrets(e *event.MasterSecretBSSLEvent
 	return isNUllCount != 0
 }
 
-func (this *MOpenSSLProbe) Dispatcher(eventStruct event.IEventStruct) {
+func (m *MOpenSSLProbe) Dispatcher(eventStruct event.IEventStruct) {
 	// detect eventStruct type
 	switch eventStruct.(type) {
 	case *event.ConnDataEvent:
-		//this.AddConn(eventStruct.(*event.ConnDataEvent).Pid, eventStruct.(*event.ConnDataEvent).Fd, eventStruct.(*event.ConnDataEvent).Addr)
+		//m.AddConn(eventStruct.(*event.ConnDataEvent).Pid, eventStruct.(*event.ConnDataEvent).Fd, eventStruct.(*event.ConnDataEvent).Addr)
 	case *event.MasterSecretEvent:
-		this.saveMasterSecret(eventStruct.(*event.MasterSecretEvent))
+		m.saveMasterSecret(eventStruct.(*event.MasterSecretEvent))
 	case *event.MasterSecretBSSLEvent:
-		this.saveMasterSecretBSSL(eventStruct.(*event.MasterSecretBSSLEvent))
+		m.saveMasterSecretBSSL(eventStruct.(*event.MasterSecretBSSLEvent))
 	case *event.TcSkbEvent:
-		err := this.dumpTcSkb(eventStruct.(*event.TcSkbEvent))
+		err := m.dumpTcSkb(eventStruct.(*event.TcSkbEvent))
 		if err != nil {
-			this.logger.Printf("%s\t save packet error %s .\n", this.Name(), err.Error())
+			m.logger.Printf("%s\t save packet error %s .\n", m.Name(), err.Error())
 		}
 	}
-	//this.logger.Println(eventStruct)
+	//m.logger.Println(eventStruct)
 }
 
 func init() {

@@ -39,47 +39,47 @@ type eConfig struct {
 	NoSearch bool
 }
 
-func (this *eConfig) GetPid() uint64 {
-	return this.Pid
+func (c *eConfig) GetPid() uint64 {
+	return c.Pid
 }
 
-func (this *eConfig) GetUid() uint64 {
-	return this.Uid
+func (c *eConfig) GetUid() uint64 {
+	return c.Uid
 }
 
-func (this *eConfig) GetDebug() bool {
-	return this.Debug
+func (c *eConfig) GetDebug() bool {
+	return c.Debug
 }
 
-func (this *eConfig) GetHex() bool {
-	return this.IsHex
+func (c *eConfig) GetHex() bool {
+	return c.IsHex
 }
 
-func (this *eConfig) GetNoSearch() bool {
-	return this.NoSearch
+func (c *eConfig) GetNoSearch() bool {
+	return c.NoSearch
 }
 
-func (this *eConfig) SetPid(pid uint64) {
-	this.Pid = pid
+func (c *eConfig) SetPid(pid uint64) {
+	c.Pid = pid
 }
 
-func (this *eConfig) SetUid(uid uint64) {
-	this.Uid = uid
+func (c *eConfig) SetUid(uid uint64) {
+	c.Uid = uid
 }
 
-func (this *eConfig) SetDebug(b bool) {
-	this.Debug = b
+func (c *eConfig) SetDebug(b bool) {
+	c.Debug = b
 }
 
-func (this *eConfig) SetHex(isHex bool) {
-	this.IsHex = isHex
+func (c *eConfig) SetHex(isHex bool) {
+	c.IsHex = isHex
 }
 
-func (this *eConfig) SetNoSearch(noSearch bool) {
-	this.NoSearch = noSearch
+func (c *eConfig) SetNoSearch(noSearch bool) {
+	c.NoSearch = noSearch
 }
 
-func (this *eConfig) EnableGlobalVar() bool {
+func (c *eConfig) EnableGlobalVar() bool {
 	kv, err := kernel.HostVersion()
 	if err != nil {
 		//log.Fatal(err)

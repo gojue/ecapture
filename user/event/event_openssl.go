@@ -69,113 +69,113 @@ func (t TlsVersion) String() string {
 }
 
 type SSLDataEvent struct {
-	event_type EventType
-	DataType   int64             `json:"dataType"`
-	Timestamp  uint64            `json:"timestamp"`
-	Pid        uint32            `json:"pid"`
-	Tid        uint32            `json:"tid"`
-	Data       [MaxDataSize]byte `json:"data"`
-	DataLen    int32             `json:"dataLen"`
-	Comm       [16]byte          `json:"Comm"`
-	Fd         uint32            `json:"fd"`
-	Version    int32             `json:"version"`
+	eventType EventType
+	DataType  int64             `json:"dataType"`
+	Timestamp uint64            `json:"timestamp"`
+	Pid       uint32            `json:"pid"`
+	Tid       uint32            `json:"tid"`
+	Data      [MaxDataSize]byte `json:"data"`
+	DataLen   int32             `json:"dataLen"`
+	Comm      [16]byte          `json:"Comm"`
+	Fd        uint32            `json:"fd"`
+	Version   int32             `json:"version"`
 }
 
-func (this *SSLDataEvent) Decode(payload []byte) (err error) {
+func (se *SSLDataEvent) Decode(payload []byte) (err error) {
 	buf := bytes.NewBuffer(payload)
-	if err = binary.Read(buf, binary.LittleEndian, &this.DataType); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &se.DataType); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.Timestamp); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &se.Timestamp); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.Pid); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &se.Pid); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.Tid); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &se.Tid); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.Data); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &se.Data); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.DataLen); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &se.DataLen); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.Comm); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &se.Comm); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.Fd); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &se.Fd); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.Version); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &se.Version); err != nil {
 		return
 	}
 
 	return nil
 }
 
-func (this *SSLDataEvent) GetUUID() string {
-	return fmt.Sprintf("%d_%d_%s_%d_%d", this.Pid, this.Tid, CToGoString(this.Comm[:]), this.Fd, this.DataType)
+func (se *SSLDataEvent) GetUUID() string {
+	return fmt.Sprintf("%d_%d_%s_%d_%d", se.Pid, se.Tid, CToGoString(se.Comm[:]), se.Fd, se.DataType)
 }
 
-func (this *SSLDataEvent) Payload() []byte {
-	return this.Data[:this.DataLen]
+func (se *SSLDataEvent) Payload() []byte {
+	return se.Data[:se.DataLen]
 }
 
-func (this *SSLDataEvent) PayloadLen() int {
-	return int(this.DataLen)
+func (se *SSLDataEvent) PayloadLen() int {
+	return int(se.DataLen)
 }
 
-func (this *SSLDataEvent) StringHex() string {
-	//addr := this.module.(*module.MOpenSSLProbe).GetConn(this.Pid, this.Fd)
+func (se *SSLDataEvent) StringHex() string {
+	//addr := se.module.(*module.MOpenSSLProbe).GetConn(se.Pid, se.Fd)
 	addr := "[TODO]"
 	var perfix, connInfo string
-	switch AttachType(this.DataType) {
+	switch AttachType(se.DataType) {
 	case ProbeEntry:
-		connInfo = fmt.Sprintf("%sRecived %d%s bytes from %s%s%s", COLORGREEN, this.DataLen, COLORRESET, COLORYELLOW, addr, COLORRESET)
+		connInfo = fmt.Sprintf("%sRecived %d%s bytes from %s%s%s", COLORGREEN, se.DataLen, COLORRESET, COLORYELLOW, addr, COLORRESET)
 		perfix = COLORGREEN
 	case ProbeRet:
-		connInfo = fmt.Sprintf("%sSend %d%s bytes to %s%s%s", COLORPURPLE, this.DataLen, COLORRESET, COLORYELLOW, addr, COLORRESET)
+		connInfo = fmt.Sprintf("%sSend %d%s bytes to %s%s%s", COLORPURPLE, se.DataLen, COLORRESET, COLORYELLOW, addr, COLORRESET)
 		perfix = fmt.Sprintf("%s\t", COLORPURPLE)
 	default:
-		perfix = fmt.Sprintf("UNKNOW_%d", this.DataType)
+		perfix = fmt.Sprintf("UNKNOW_%d", se.DataType)
 	}
 
-	b := dumpByteSlice(this.Data[:this.DataLen], perfix)
+	b := dumpByteSlice(se.Data[:se.DataLen], perfix)
 	b.WriteString(COLORRESET)
 
-	v := TlsVersion{Version: this.Version}
-	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, %s, Version:%s, Payload:\n%s", this.Pid, CToGoString(this.Comm[:]), this.Tid, connInfo, v.String(), b.String())
+	v := TlsVersion{Version: se.Version}
+	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, %s, Version:%s, Payload:\n%s", se.Pid, CToGoString(se.Comm[:]), se.Tid, connInfo, v.String(), b.String())
 	return s
 }
 
-func (this *SSLDataEvent) String() string {
-	//addr := this.module.(*module.MOpenSSLProbe).GetConn(this.Pid, this.Fd)
+func (se *SSLDataEvent) String() string {
+	//addr := se.module.(*module.MOpenSSLProbe).GetConn(se.Pid, se.Fd)
 	addr := "[TODO]"
 	var perfix, connInfo string
-	switch AttachType(this.DataType) {
+	switch AttachType(se.DataType) {
 	case ProbeEntry:
-		connInfo = fmt.Sprintf("%sRecived %d%s bytes from %s%s%s", COLORGREEN, this.DataLen, COLORRESET, COLORYELLOW, addr, COLORRESET)
+		connInfo = fmt.Sprintf("%sRecived %d%s bytes from %s%s%s", COLORGREEN, se.DataLen, COLORRESET, COLORYELLOW, addr, COLORRESET)
 		perfix = COLORGREEN
 	case ProbeRet:
-		connInfo = fmt.Sprintf("%sSend %d%s bytes to %s%s%s", COLORPURPLE, this.DataLen, COLORRESET, COLORYELLOW, addr, COLORRESET)
+		connInfo = fmt.Sprintf("%sSend %d%s bytes to %s%s%s", COLORPURPLE, se.DataLen, COLORRESET, COLORYELLOW, addr, COLORRESET)
 		perfix = COLORPURPLE
 	default:
-		connInfo = fmt.Sprintf("%sUNKNOW_%d%s", COLORRED, this.DataType, COLORRESET)
+		connInfo = fmt.Sprintf("%sUNKNOW_%d%s", COLORRED, se.DataType, COLORRESET)
 	}
-	v := TlsVersion{Version: this.Version}
-	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, Version:%s, %s, Payload:\n%s%s%s", this.Pid, bytes.TrimSpace(this.Comm[:]), this.Tid, v.String(), connInfo, perfix, string(this.Data[:this.DataLen]), COLORRESET)
+	v := TlsVersion{Version: se.Version}
+	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, Version:%s, %s, Payload:\n%s%s%s", se.Pid, bytes.TrimSpace(se.Comm[:]), se.Tid, v.String(), connInfo, perfix, string(se.Data[:se.DataLen]), COLORRESET)
 	return s
 }
 
-func (this *SSLDataEvent) Clone() IEventStruct {
+func (se *SSLDataEvent) Clone() IEventStruct {
 	event := new(SSLDataEvent)
-	event.event_type = EventTypeEventProcessor
+	event.eventType = EventTypeEventProcessor
 	return event
 }
 
-func (this *SSLDataEvent) EventType() EventType {
-	return this.event_type
+func (se *SSLDataEvent) EventType() EventType {
+	return se.eventType
 }
 
 //  connect_events map
@@ -188,7 +188,7 @@ uint64_t timestamp_ns;
   char Comm[TASK_COMM_LEN];
 */
 type ConnDataEvent struct {
-	event_type  EventType
+	eventType   EventType
 	TimestampNs uint64          `json:"timestampNs"`
 	Pid         uint32          `json:"pid"`
 	Tid         uint32          `json:"tid"`
@@ -198,60 +198,60 @@ type ConnDataEvent struct {
 	Addr        string          `json:"addr"`
 }
 
-func (this *ConnDataEvent) Decode(payload []byte) (err error) {
+func (ce *ConnDataEvent) Decode(payload []byte) (err error) {
 	buf := bytes.NewBuffer(payload)
-	if err = binary.Read(buf, binary.LittleEndian, &this.TimestampNs); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &ce.TimestampNs); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.Pid); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &ce.Pid); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.Tid); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &ce.Tid); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.Fd); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &ce.Fd); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.SaData); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &ce.SaData); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.Comm); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &ce.Comm); err != nil {
 		return
 	}
-	port := binary.BigEndian.Uint16(this.SaData[0:2])
-	ip := net.IPv4(this.SaData[2], this.SaData[3], this.SaData[4], this.SaData[5])
-	this.Addr = fmt.Sprintf("%s:%d", ip, port)
+	port := binary.BigEndian.Uint16(ce.SaData[0:2])
+	ip := net.IPv4(ce.SaData[2], ce.SaData[3], ce.SaData[4], ce.SaData[5])
+	ce.Addr = fmt.Sprintf("%s:%d", ip, port)
 	return nil
 }
 
-func (this *ConnDataEvent) StringHex() string {
-	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, FD:%d, Addr: %s", this.Pid, bytes.TrimSpace(this.Comm[:]), this.Tid, this.Fd, this.Addr)
+func (ce *ConnDataEvent) StringHex() string {
+	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, FD:%d, Addr: %s", ce.Pid, bytes.TrimSpace(ce.Comm[:]), ce.Tid, ce.Fd, ce.Addr)
 	return s
 }
 
-func (this *ConnDataEvent) String() string {
-	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, FD:%d, Addr: %s", this.Pid, bytes.TrimSpace(this.Comm[:]), this.Tid, this.Fd, this.Addr)
+func (ce *ConnDataEvent) String() string {
+	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, FD:%d, Addr: %s", ce.Pid, bytes.TrimSpace(ce.Comm[:]), ce.Tid, ce.Fd, ce.Addr)
 	return s
 }
 
-func (this *ConnDataEvent) Clone() IEventStruct {
+func (ce *ConnDataEvent) Clone() IEventStruct {
 	event := new(ConnDataEvent)
-	event.event_type = EventTypeModuleData
+	event.eventType = EventTypeModuleData
 	return event
 }
 
-func (this *ConnDataEvent) EventType() EventType {
-	return this.event_type
+func (ce *ConnDataEvent) EventType() EventType {
+	return ce.eventType
 }
 
-func (this *ConnDataEvent) GetUUID() string {
-	return fmt.Sprintf("%d_%d_%s_%d", this.Pid, this.Tid, bytes.TrimSpace(this.Comm[:]), this.Fd)
+func (ce *ConnDataEvent) GetUUID() string {
+	return fmt.Sprintf("%d_%d_%s_%d", ce.Pid, ce.Tid, bytes.TrimSpace(ce.Comm[:]), ce.Fd)
 }
 
-func (this *ConnDataEvent) Payload() []byte {
-	return []byte(this.Addr)
+func (ce *ConnDataEvent) Payload() []byte {
+	return []byte(ce.Addr)
 }
 
-func (this *ConnDataEvent) PayloadLen() int {
-	return len(this.Addr)
+func (ce *ConnDataEvent) PayloadLen() int {
+	return len(ce.Addr)
 }

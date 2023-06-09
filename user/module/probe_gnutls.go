@@ -39,50 +39,50 @@ type MGnutlsProbe struct {
 }
 
 // 对象初始化
-func (this *MGnutlsProbe) Init(ctx context.Context, logger *log.Logger, conf config.IConfig) error {
-	this.Module.Init(ctx, logger, conf)
-	this.conf = conf
-	this.Module.SetChild(this)
-	this.eventMaps = make([]*ebpf.Map, 0, 2)
-	this.eventFuncMaps = make(map[*ebpf.Map]event.IEventStruct)
+func (g *MGnutlsProbe) Init(ctx context.Context, logger *log.Logger, conf config.IConfig) error {
+	g.Module.Init(ctx, logger, conf)
+	g.conf = conf
+	g.Module.SetChild(g)
+	g.eventMaps = make([]*ebpf.Map, 0, 2)
+	g.eventFuncMaps = make(map[*ebpf.Map]event.IEventStruct)
 	return nil
 }
 
-func (this *MGnutlsProbe) Start() error {
-	if err := this.start(); err != nil {
+func (g *MGnutlsProbe) Start() error {
+	if err := g.start(); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (this *MGnutlsProbe) start() error {
+func (g *MGnutlsProbe) start() error {
 
 	// fetch ebpf assets
-	var bpfFileName = this.geteBPFName("user/bytecode/gnutls_kern.o")
-	this.logger.Printf("%s\tBPF bytecode filename:%s\n", this.Name(), bpfFileName)
+	var bpfFileName = g.geteBPFName("user/bytecode/gnutls_kern.o")
+	g.logger.Printf("%s\tBPF bytecode filename:%s\n", g.Name(), bpfFileName)
 	byteBuf, err := assets.Asset(bpfFileName)
 	if err != nil {
 		return fmt.Errorf("couldn't find asset %v", err)
 	}
 
 	// setup the managers
-	err = this.setupManagers()
+	err = g.setupManagers()
 	if err != nil {
 		return fmt.Errorf("tls(gnutls) module couldn't find binPath %v", err)
 	}
 
 	// initialize the bootstrap manager
-	if err = this.bpfManager.InitWithOptions(bytes.NewReader(byteBuf), this.bpfManagerOptions); err != nil {
+	if err = g.bpfManager.InitWithOptions(bytes.NewReader(byteBuf), g.bpfManagerOptions); err != nil {
 		return fmt.Errorf("couldn't init manager %v", err)
 	}
 
 	// start the bootstrap manager
-	if err = this.bpfManager.Start(); err != nil {
+	if err = g.bpfManager.Start(); err != nil {
 		return fmt.Errorf("couldn't start bootstrap manager %v", err)
 	}
 
 	// 加载map信息，map对应events decode表。
-	err = this.initDecodeFun()
+	err = g.initDecodeFun()
 	if err != nil {
 		return err
 	}
@@ -90,38 +90,38 @@ func (this *MGnutlsProbe) start() error {
 	return nil
 }
 
-func (this *MGnutlsProbe) Close() error {
-	if err := this.bpfManager.Stop(manager.CleanAll); err != nil {
+func (g *MGnutlsProbe) Close() error {
+	if err := g.bpfManager.Stop(manager.CleanAll); err != nil {
 		return fmt.Errorf("couldn't stop manager %v", err)
 	}
-	return this.Module.Close()
+	return g.Module.Close()
 }
 
 // 通过elf的常量替换方式传递数据
-func (this *MGnutlsProbe) constantEditor() []manager.ConstantEditor {
+func (g *MGnutlsProbe) constantEditor() []manager.ConstantEditor {
 	var editor = []manager.ConstantEditor{
 		{
 			Name:  "target_pid",
-			Value: uint64(this.conf.GetPid()),
+			Value: uint64(g.conf.GetPid()),
 			//FailOnMissing: true,
 		},
 	}
 
-	if this.conf.GetPid() <= 0 {
-		this.logger.Printf("%s\ttarget all process. \n", this.Name())
+	if g.conf.GetPid() <= 0 {
+		g.logger.Printf("%s\ttarget all process. \n", g.Name())
 	} else {
-		this.logger.Printf("%s\ttarget PID:%d \n", this.Name(), this.conf.GetPid())
+		g.logger.Printf("%s\ttarget PID:%d \n", g.Name(), g.conf.GetPid())
 	}
 	return editor
 }
 
-func (this *MGnutlsProbe) setupManagers() error {
+func (g *MGnutlsProbe) setupManagers() error {
 	var binaryPath string
-	switch this.conf.(*config.GnutlsConfig).ElfType {
+	switch g.conf.(*config.GnutlsConfig).ElfType {
 	case config.ElfTypeBin:
-		binaryPath = this.conf.(*config.GnutlsConfig).Curlpath
+		binaryPath = g.conf.(*config.GnutlsConfig).Curlpath
 	case config.ElfTypeSo:
-		binaryPath = this.conf.(*config.GnutlsConfig).Gnutls
+		binaryPath = g.conf.(*config.GnutlsConfig).Gnutls
 	default:
 		//如果没找到
 		binaryPath = "/lib/x86_64-linux-gnu/libgnutls.so.30"
@@ -132,9 +132,9 @@ func (this *MGnutlsProbe) setupManagers() error {
 		return err
 	}
 
-	this.logger.Printf("%s\tHOOK type:%d, binrayPath:%s\n", this.Name(), this.conf.(*config.GnutlsConfig).ElfType, binaryPath)
+	g.logger.Printf("%s\tHOOK type:%d, binrayPath:%s\n", g.Name(), g.conf.(*config.GnutlsConfig).ElfType, binaryPath)
 
-	this.bpfManager = &manager.Manager{
+	g.bpfManager = &manager.Manager{
 		Probes: []*manager.Probe{
 			{
 				Section:          "uprobe/gnutls_record_send",
@@ -169,7 +169,7 @@ func (this *MGnutlsProbe) setupManagers() error {
 		},
 	}
 
-	this.bpfManagerOptions = manager.Options{
+	g.bpfManagerOptions = manager.Options{
 		DefaultKProbeMaxActive: 512,
 
 		VerifierOptions: ebpf.CollectionOptions{
@@ -184,35 +184,35 @@ func (this *MGnutlsProbe) setupManagers() error {
 		},
 	}
 
-	if this.conf.EnableGlobalVar() {
+	if g.conf.EnableGlobalVar() {
 		// 填充 RewriteContants 对应map
-		this.bpfManagerOptions.ConstantEditors = this.constantEditor()
+		g.bpfManagerOptions.ConstantEditors = g.constantEditor()
 	}
 	return nil
 }
 
-func (this *MGnutlsProbe) DecodeFun(em *ebpf.Map) (event.IEventStruct, bool) {
-	fun, found := this.eventFuncMaps[em]
+func (g *MGnutlsProbe) DecodeFun(em *ebpf.Map) (event.IEventStruct, bool) {
+	fun, found := g.eventFuncMaps[em]
 	return fun, found
 }
 
-func (this *MGnutlsProbe) initDecodeFun() error {
+func (g *MGnutlsProbe) initDecodeFun() error {
 	//GnutlsEventsMap 与解码函数映射
-	GnutlsEventsMap, found, err := this.bpfManager.GetMap("gnutls_events")
+	GnutlsEventsMap, found, err := g.bpfManager.GetMap("gnutls_events")
 	if err != nil {
 		return err
 	}
 	if !found {
 		return errors.New("cant found map:gnutls_events")
 	}
-	this.eventMaps = append(this.eventMaps, GnutlsEventsMap)
-	this.eventFuncMaps[GnutlsEventsMap] = &event.GnutlsDataEvent{}
+	g.eventMaps = append(g.eventMaps, GnutlsEventsMap)
+	g.eventFuncMaps[GnutlsEventsMap] = &event.GnutlsDataEvent{}
 
 	return nil
 }
 
-func (this *MGnutlsProbe) Events() []*ebpf.Map {
-	return this.eventMaps
+func (g *MGnutlsProbe) Events() []*ebpf.Map {
+	return g.eventMaps
 }
 
 func init() {

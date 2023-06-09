@@ -34,58 +34,58 @@ char Comm[TASK_COMM_LEN];
 const PostgresMaxDataSize = 256
 
 type PostgresEvent struct {
-	event_type EventType
-	Pid        uint64                     `json:"pid"`
-	Timestamp  uint64                     `json:"timestamp"`
-	Query      [PostgresMaxDataSize]uint8 `json:"Query"`
-	Comm       [16]uint8                  `json:"Comm"`
+	eventType EventType
+	Pid       uint64                     `json:"pid"`
+	Timestamp uint64                     `json:"timestamp"`
+	Query     [PostgresMaxDataSize]uint8 `json:"Query"`
+	Comm      [16]uint8                  `json:"Comm"`
 }
 
-func (this *PostgresEvent) Decode(payload []byte) (err error) {
+func (pe *PostgresEvent) Decode(payload []byte) (err error) {
 	buf := bytes.NewBuffer(payload)
-	if err = binary.Read(buf, binary.LittleEndian, &this.Pid); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &pe.Pid); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.Timestamp); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &pe.Timestamp); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.Query); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &pe.Query); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.Comm); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &pe.Comm); err != nil {
 		return
 	}
 	return nil
 }
 
-func (this *PostgresEvent) String() string {
-	s := fmt.Sprintf(fmt.Sprintf(" PID: %d, Comm: %s, Time: %d, Query: %s", this.Pid, this.Comm, this.Timestamp, unix.ByteSliceToString((this.Query[:]))))
+func (pe *PostgresEvent) String() string {
+	s := fmt.Sprintf(fmt.Sprintf(" PID: %d, Comm: %s, Time: %d, Query: %s", pe.Pid, pe.Comm, pe.Timestamp, unix.ByteSliceToString((pe.Query[:]))))
 	return s
 }
 
-func (this *PostgresEvent) StringHex() string {
-	s := fmt.Sprintf(fmt.Sprintf(" PID: %d, Comm: %s, Time: %d, Query: %s", this.Pid, this.Comm, this.Timestamp, unix.ByteSliceToString((this.Query[:]))))
+func (pe *PostgresEvent) StringHex() string {
+	s := fmt.Sprintf(fmt.Sprintf(" PID: %d, Comm: %s, Time: %d, Query: %s", pe.Pid, pe.Comm, pe.Timestamp, unix.ByteSliceToString((pe.Query[:]))))
 	return s
 }
 
-func (this *PostgresEvent) Clone() IEventStruct {
+func (pe *PostgresEvent) Clone() IEventStruct {
 	event := new(PostgresEvent)
-	event.event_type = EventTypeOutput
+	event.eventType = EventTypeOutput
 	return event
 }
 
-func (this *PostgresEvent) EventType() EventType {
-	return this.event_type
+func (pe *PostgresEvent) EventType() EventType {
+	return pe.eventType
 }
 
-func (this *PostgresEvent) GetUUID() string {
-	return fmt.Sprintf("%d_%s", this.Pid, this.Comm)
+func (pe *PostgresEvent) GetUUID() string {
+	return fmt.Sprintf("%d_%s", pe.Pid, pe.Comm)
 }
 
-func (this *PostgresEvent) Payload() []byte {
-	return this.Query[:]
+func (pe *PostgresEvent) Payload() []byte {
+	return pe.Query[:]
 }
 
-func (this *PostgresEvent) PayloadLen() int {
-	return len(this.Query)
+func (pe *PostgresEvent) PayloadLen() int {
+	return len(pe.Query)
 }
