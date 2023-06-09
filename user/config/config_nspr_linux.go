@@ -25,54 +25,54 @@ import (
 	"errors"
 )
 
-func (this *NsprConfig) Check() error {
+func (nc *NsprConfig) Check() error {
 
 	// 如果readline 配置，且存在，则直接返回。
-	if this.Nsprpath != "" || len(strings.TrimSpace(this.Nsprpath)) > 0 {
-		_, e := os.Stat(this.Nsprpath)
+	if nc.Nsprpath != "" || len(strings.TrimSpace(nc.Nsprpath)) > 0 {
+		_, e := os.Stat(nc.Nsprpath)
 		if e != nil {
 			return e
 		}
-		this.ElfType = ElfTypeSo
+		nc.ElfType = ElfTypeSo
 		return nil
 	}
 
-	if this.NoSearch {
+	if nc.NoSearch {
 		return errors.New("NoSearch requires specifying lib path")
 	}
 
 	//如果配置 Curlpath的地址，判断文件是否存在，不存在则直接返回
-	if this.Firefoxpath != "" || len(strings.TrimSpace(this.Firefoxpath)) > 0 {
-		_, e := os.Stat(this.Firefoxpath)
+	if nc.Firefoxpath != "" || len(strings.TrimSpace(nc.Firefoxpath)) > 0 {
+		_, e := os.Stat(nc.Firefoxpath)
 		if e != nil {
 			return e
 		}
 	} else {
 		//如果没配置，则直接指定。
-		this.Firefoxpath = "/usr/lib/firefox/firefox"
+		nc.Firefoxpath = "/usr/lib/firefox/firefox"
 	}
 
-	soPath, e := getDynPathByElf(this.Firefoxpath, "libnspr4.so")
+	soPath, e := getDynPathByElf(nc.Firefoxpath, "libnspr4.so")
 	if e != nil {
-		//this.logger.Printf("get bash:%s dynamic library error:%v.\n", bash, e)
+		//nc.logger.Printf("get bash:%s dynamic library error:%v.\n", bash, e)
 		_, e = os.Stat(X86BinaryPrefix)
 		prefix := X86BinaryPrefix
 		if e != nil {
 			prefix = OthersBinaryPrefix
 		}
-		this.Nsprpath = filepath.Join(prefix, "libnspr4.so")
-		//this.Gnutls = "/usr/lib/firefox/libnss3.so"
+		nc.Nsprpath = filepath.Join(prefix, "libnspr4.so")
+		//nc.Gnutls = "/usr/lib/firefox/libnss3.so"
 		//"/usr/lib/firefox/libnspr4.so"
-		this.ElfType = ElfTypeSo
-		_, e = os.Stat(this.Nsprpath)
+		nc.ElfType = ElfTypeSo
+		_, e = os.Stat(nc.Nsprpath)
 		if e != nil {
 			return e
 		}
 		return nil
 	}
 
-	this.Nsprpath = soPath
-	this.ElfType = ElfTypeSo
+	nc.Nsprpath = soPath
+	nc.ElfType = ElfTypeSo
 
 	return nil
 }

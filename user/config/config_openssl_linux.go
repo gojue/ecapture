@@ -28,10 +28,10 @@ const (
 	DefaultIfname = "eth0"
 )
 
-func (this *OpensslConfig) checkOpenssl() error {
-	soPath, e := getDynPathByElf(this.Curlpath, "libssl.so")
+func (oc *OpensslConfig) checkOpenssl() error {
+	soPath, e := getDynPathByElf(oc.Curlpath, "libssl.so")
 	if e != nil {
-		//this.logger.Printf("get bash:%s dynamic library error:%v.\n", bash, e)
+		//oc.logger.Printf("get bash:%s dynamic library error:%v.\n", bash, e)
 		_, e = os.Stat(X86BinaryPrefix)
 		prefix := X86BinaryPrefix
 		if e != nil {
@@ -39,57 +39,57 @@ func (this *OpensslConfig) checkOpenssl() error {
 		}
 
 		//	ubuntu 21.04	libssl.so.1.1   default
-		this.Openssl = filepath.Join(prefix, "libssl.so.1.1")
-		this.ElfType = ElfTypeSo
-		_, e = os.Stat(this.Openssl)
+		oc.Openssl = filepath.Join(prefix, "libssl.so.1.1")
+		oc.ElfType = ElfTypeSo
+		_, e = os.Stat(oc.Openssl)
 		if e != nil {
 			return e
 		}
 	} else {
-		this.Openssl = soPath
-		this.ElfType = ElfTypeSo
+		oc.Openssl = soPath
+		oc.ElfType = ElfTypeSo
 	}
 	return nil
 }
 
-func (this *OpensslConfig) Check() error {
-	this.IsAndroid = false
+func (oc *OpensslConfig) Check() error {
+	oc.IsAndroid = false
 	var checkedOpenssl bool
 	// 如果readline 配置，且存在，则直接返回。
-	if this.Openssl != "" || len(strings.TrimSpace(this.Openssl)) > 0 {
-		_, e := os.Stat(this.Openssl)
+	if oc.Openssl != "" || len(strings.TrimSpace(oc.Openssl)) > 0 {
+		_, e := os.Stat(oc.Openssl)
 		if e != nil {
 			return e
 		}
-		this.ElfType = ElfTypeSo
+		oc.ElfType = ElfTypeSo
 		checkedOpenssl = true
 	}
 
 	//如果配置 Curlpath的地址，判断文件是否存在，不存在则直接返回
-	if this.Curlpath != "" || len(strings.TrimSpace(this.Curlpath)) > 0 {
-		_, e := os.Stat(this.Curlpath)
+	if oc.Curlpath != "" || len(strings.TrimSpace(oc.Curlpath)) > 0 {
+		_, e := os.Stat(oc.Curlpath)
 		if e != nil {
 			return e
 		}
 	} else {
 		//如果没配置，则直接指定。
-		this.Curlpath = "/usr/bin/curl"
+		oc.Curlpath = "/usr/bin/curl"
 	}
 
-	if this.Ifname == "" || len(strings.TrimSpace(this.Ifname)) == 0 {
-		this.Ifname = DefaultIfname
+	if oc.Ifname == "" || len(strings.TrimSpace(oc.Ifname)) == 0 {
+		oc.Ifname = DefaultIfname
 	}
 
 	if checkedOpenssl {
 		return nil
 	}
 
-	if this.NoSearch {
+	if oc.NoSearch {
 		return errors.New("NoSearch requires specifying lib path")
 	}
 
 	if !checkedOpenssl {
-		e := this.checkOpenssl()
+		e := oc.checkOpenssl()
 		if e != nil {
 			return e
 		}

@@ -26,12 +26,12 @@ import (
 	"net"
 )
 
-func (this *GoTLSProbe) setupManagersTC() error {
+func (g *GoTLSProbe) setupManagersTC() error {
 	var ifname string
 
-	ifname = this.conf.(*config.GoTLSConfig).Ifname
-	this.ifName = ifname
-	interf, err := net.InterfaceByName(this.ifName)
+	ifname = g.conf.(*config.GoTLSConfig).Ifname
+	g.ifName = ifname
+	interf, err := net.InterfaceByName(g.ifName)
 	if err != nil {
 		return err
 	}
@@ -40,13 +40,13 @@ func (this *GoTLSProbe) setupManagersTC() error {
 	isNetIfaceLo := interf.Flags&net.FlagLoopback == net.FlagLoopback
 	skipLoopback := true // TODO: detect loopback devices via aquasecrity/tracee/pkg/ebpf/probes/probe.go line 322
 	if isNetIfaceLo && skipLoopback {
-		return fmt.Errorf("%s\t%s is a loopback interface, skip it", this.Name(), this.ifName)
+		return fmt.Errorf("%s\t%s is a loopback interface, skip it", g.Name(), g.ifName)
 	}
-	this.ifIdex = interf.Index
+	g.ifIdex = interf.Index
 
-	this.logger.Printf("%s\tHOOK type:golang elf, binrayPath:%s\n", this.Name(), this.path)
-	this.logger.Printf("%s\tIfname:%s, Ifindex:%d,  Port:%d, Pcapng filepath:%s\n", this.Name(), this.ifName, this.ifIdex, this.conf.(*config.GoTLSConfig).Port, this.pcapngFilename)
-	this.logger.Printf("%s\tHook masterKey function:%s\n", this.Name(), goTlsMasterSecretFunc)
+	g.logger.Printf("%s\tHOOK type:golang elf, binrayPath:%s\n", g.Name(), g.path)
+	g.logger.Printf("%s\tIfname:%s, Ifindex:%d,  Port:%d, Pcapng filepath:%s\n", g.Name(), g.ifName, g.ifIdex, g.conf.(*config.GoTLSConfig).Port, g.pcapngFilename)
+	g.logger.Printf("%s\tHook masterKey function:%s\n", g.Name(), goTlsMasterSecretFunc)
 
 	// create pcapng writer
 	netIfs, err := net.Interfaces()
@@ -54,7 +54,7 @@ func (this *GoTLSProbe) setupManagersTC() error {
 		return err
 	}
 
-	err = this.createPcapng(netIfs)
+	err = g.createPcapng(netIfs)
 	if err != nil {
 		return err
 	}
@@ -64,7 +64,7 @@ func (this *GoTLSProbe) setupManagersTC() error {
 		fn  string
 	)
 
-	if this.isRegisterABI {
+	if g.isRegisterABI {
 		sec = "uprobe/gotls_mastersecret_register"
 		fn = "gotls_mastersecret_register"
 	} else {
@@ -72,18 +72,18 @@ func (this *GoTLSProbe) setupManagersTC() error {
 		fn = "gotls_mastersecret_stack"
 	}
 
-	this.bpfManager = &manager.Manager{
+	g.bpfManager = &manager.Manager{
 		Probes: []*manager.Probe{
 			{
 				Section:          "classifier/egress",
 				EbpfFuncName:     "egress_cls_func",
-				Ifname:           this.ifName,
+				Ifname:           g.ifName,
 				NetworkDirection: manager.Egress,
 			},
 			{
 				Section:          "classifier/ingress",
 				EbpfFuncName:     "ingress_cls_func",
-				Ifname:           this.ifName,
+				Ifname:           g.ifName,
 				NetworkDirection: manager.Ingress,
 			},
 			// --------------------------------------------------
@@ -93,7 +93,7 @@ func (this *GoTLSProbe) setupManagersTC() error {
 				Section:          sec,
 				EbpfFuncName:     fn,
 				AttachToFuncName: goTlsMasterSecretFunc,
-				BinaryPath:       this.path,
+				BinaryPath:       g.path,
 				UID:              "uprobe_gotls_master_secret",
 			},
 		},
@@ -108,7 +108,7 @@ func (this *GoTLSProbe) setupManagersTC() error {
 		},
 	}
 
-	this.bpfManagerOptions = manager.Options{
+	g.bpfManagerOptions = manager.Options{
 		DefaultKProbeMaxActive: 512,
 
 		VerifierOptions: ebpf.CollectionOptions{
@@ -123,46 +123,46 @@ func (this *GoTLSProbe) setupManagersTC() error {
 		},
 	}
 
-	if this.conf.EnableGlobalVar() {
+	if g.conf.EnableGlobalVar() {
 		// 填充 RewriteContants 对应map
-		this.bpfManagerOptions.ConstantEditors = this.constantEditor()
+		g.bpfManagerOptions.ConstantEditors = g.constantEditor()
 	}
 	return nil
 }
 
-func (this *GoTLSProbe) initDecodeFunTC() error {
+func (g *GoTLSProbe) initDecodeFunTC() error {
 	//SkbEventsMap 与解码函数映射
-	SkbEventsMap, found, err := this.bpfManager.GetMap("skb_events")
+	SkbEventsMap, found, err := g.bpfManager.GetMap("skb_events")
 	if err != nil {
 		return err
 	}
 	if !found {
 		return errors.New("cant found map:skb_events")
 	}
-	this.eventMaps = append(this.eventMaps, SkbEventsMap)
+	g.eventMaps = append(g.eventMaps, SkbEventsMap)
 	sslEvent := &event.TcSkbEvent{}
-	//sslEvent.SetModule(this)
-	this.eventFuncMaps[SkbEventsMap] = sslEvent
+	//sslEvent.SetModule(g)
+	g.eventFuncMaps[SkbEventsMap] = sslEvent
 
 	// master secrets map at ebpf code
-	MasterkeyEventsMap, found, err := this.bpfManager.GetMap("mastersecret_go_events")
+	MasterkeyEventsMap, found, err := g.bpfManager.GetMap("mastersecret_go_events")
 	if err != nil {
 		return err
 	}
 	if !found {
 		return errors.New("cant found map:mastersecret_events")
 	}
-	this.eventMaps = append(this.eventMaps, MasterkeyEventsMap)
+	g.eventMaps = append(g.eventMaps, MasterkeyEventsMap)
 
 	var masterkeyEvent event.IEventStruct
 
 	// goTLS Event struct
 	masterkeyEvent = &event.MasterSecretGotlsEvent{}
 
-	this.eventFuncMaps[MasterkeyEventsMap] = masterkeyEvent
+	g.eventFuncMaps[MasterkeyEventsMap] = masterkeyEvent
 	return nil
 }
 
-func (this *GoTLSProbe) Events() []*ebpf.Map {
-	return this.eventMaps
+func (g *GoTLSProbe) Events() []*ebpf.Map {
+	return g.eventMaps
 }

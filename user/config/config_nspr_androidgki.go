@@ -24,20 +24,20 @@ import (
 
 const DefaultNsprNssPath = "/apex/com.android.conscrypt/lib64/libnspr4.so"
 
-func (this *NsprConfig) Check() error {
+func (nc *NsprConfig) Check() error {
 
 	// 如果readline 配置，且存在，则直接返回。
-	if this.Nsprpath != "" || len(strings.TrimSpace(this.Nsprpath)) > 0 {
-		_, e := os.Stat(this.Nsprpath)
+	if nc.Nsprpath != "" || len(strings.TrimSpace(nc.Nsprpath)) > 0 {
+		_, e := os.Stat(nc.Nsprpath)
 		if e != nil {
 			return e
 		}
-		this.ElfType = ElfTypeSo
+		nc.ElfType = ElfTypeSo
 		return nil
 	}
 
-	this.Nsprpath = DefaultNsprNssPath
-	this.ElfType = ElfTypeSo
+	nc.Nsprpath = DefaultNsprNssPath
+	nc.ElfType = ElfTypeSo
 
 	return nil
 }
