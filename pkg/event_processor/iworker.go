@@ -118,7 +118,7 @@ func (ew *eventWorker) parserEvents() []byte {
 	ew.parser = parser
 	n, e := ew.parser.Write(ew.payload.Bytes())
 	if e != nil {
-		ew.processor.GetLogger().Printf("ew.parser write payload %n bytes, error:%v", n, e)
+		ew.processor.GetLogger().Printf("ew.parser write payload %d bytes, error:%v", n, e)
 	}
 	ew.status = ProcessStateDone
 	return ew.parser.Display()
