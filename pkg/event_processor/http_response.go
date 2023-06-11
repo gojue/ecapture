@@ -39,118 +39,117 @@ type HTTPResponse struct {
 	bufReader    *bufio.Reader
 }
 
-func (this *HTTPResponse) Init() {
-	this.reader = bytes.NewBuffer(nil)
-	this.bufReader = bufio.NewReader(this.reader)
-	this.receivedLen = 0
-	this.headerLength = 0
+func (hr *HTTPResponse) Init() {
+	hr.reader = bytes.NewBuffer(nil)
+	hr.bufReader = bufio.NewReader(hr.reader)
+	hr.receivedLen = 0
+	hr.headerLength = 0
 }
 
-func (this *HTTPResponse) Name() string {
+func (hr *HTTPResponse) Name() string {
 	return "HTTPResponse"
 }
 
-func (this *HTTPResponse) PacketType() PacketType {
-	return this.packerType
+func (hr *HTTPResponse) PacketType() PacketType {
+	return hr.packerType
 }
 
-func (this *HTTPResponse) ParserType() ParserType {
+func (hr *HTTPResponse) ParserType() ParserType {
 	return ParserTypeHttpResponse
 }
 
-func (this *HTTPResponse) Write(b []byte) (int, error) {
+func (hr *HTTPResponse) Write(b []byte) (int, error) {
 	var l int
 	var e error
 	var req *http.Response
 	// 如果未初始化
-	if !this.isInit {
-		l, e = this.reader.Write(b)
+	if !hr.isInit {
+		l, e = hr.reader.Write(b)
 		if e != nil {
 			return l, e
 		}
-		req, e = http.ReadResponse(this.bufReader, nil)
+		req, e = http.ReadResponse(hr.bufReader, nil)
 
 		if e != nil {
 			return 0, e
 		}
 
-		this.response = req
-		this.isInit = true
+		hr.response = req
+		hr.isInit = true
 	} else {
 		// 如果已初始化
-		l, e = this.reader.Write(b)
+		l, e = hr.reader.Write(b)
 		if e != nil {
 			return 0, e
 		}
 	}
-	this.receivedLen += int64(l)
+	hr.receivedLen += int64(l)
 
 	// 检测是否接收完整个包
-	//if this.response.ContentLength >= this.receivedLen {
+	//if hr.response.ContentLength >= hr.receivedLen {
 	if false {
-		this.isDone = true
+		hr.isDone = true
 	}
 
 	return l, nil
 }
 
-func (this *HTTPResponse) detect(payload []byte) error {
+func (hr *HTTPResponse) detect(payload []byte) error {
 	rd := bytes.NewReader(payload)
 	buf := bufio.NewReader(rd)
 	res, err := http.ReadResponse(buf, nil)
 	if err != nil {
 		return err
 	}
-	this.response = res
+	hr.response = res
 	return nil
 }
 
-func (this *HTTPResponse) IsDone() bool {
-	return this.isDone
+func (hr *HTTPResponse) IsDone() bool {
+	return hr.isDone
 }
 
-func (this *HTTPResponse) Reset() {
-	this.isDone = false
-	this.isInit = false
-	this.reader.Reset()
-	this.bufReader.Reset(this.reader)
+func (hr *HTTPResponse) Reset() {
+	hr.isDone = false
+	hr.isInit = false
+	hr.reader.Reset()
+	hr.bufReader.Reset(hr.reader)
 }
 
-func (this *HTTPResponse) Display() []byte {
+func (hr *HTTPResponse) Display() []byte {
 	var reader io.ReadCloser
 	var err error
-	switch this.response.Header.Get("Content-Encoding") {
+	switch hr.response.Header.Get("Content-Encoding") {
 	case "gzip":
-		reader, err = gzip.NewReader(this.response.Body)
+		reader, err = gzip.NewReader(hr.response.Body)
 		if err != nil {
 			log.Println(err)
 			break
 		}
 
 		// gzip uncompressed success
-		this.response.Body = reader
-		this.packerType = PacketTypeGzip
+		hr.response.Body = reader
+		hr.packerType = PacketTypeGzip
 		defer reader.Close()
 	default:
-		//reader = this.response.Body
-		this.packerType = PacketTypeNull
-		//log.Println("not gzip content")
+		//reader = hr.response.Body
+		hr.packerType = PacketTypeNull
 		//TODO for debug
 		//return []byte("")
 	}
 	headerMap := bytes.NewBufferString("")
-	for k, v := range this.response.Header {
+	for k, v := range hr.response.Header {
 		headerMap.WriteString(fmt.Sprintf("\t%s\t=>\t%s\n", k, v))
 	}
-	log.Printf("HTTPS Headers \n\t%s", headerMap.String())
+	//log.Printf("HTTPS Headers \n\t%s", headerMap.String())
 
 	var b []byte
 	var e error
 
-	if this.response.ContentLength == 0 {
-		b, e = httputil.DumpResponse(this.response, false)
+	if hr.response.ContentLength == 0 {
+		b, e = httputil.DumpResponse(hr.response, false)
 	} else {
-		b, e = httputil.DumpResponse(this.response, true)
+		b, e = httputil.DumpResponse(hr.response, true)
 	}
 	if e != nil {
 		log.Println("DumpResponse error:", e)
