@@ -152,8 +152,8 @@ func (hr *HTTPResponse) Display() []byte {
 		b, e = httputil.DumpResponse(hr.response, true)
 	}
 	if e != nil {
-		log.Println("DumpResponse error:", e)
-		return []byte("")
+		log.Println("[http response] DumpResponse error:", e)
+		return hr.reader.Bytes()
 	}
 	return b
 }

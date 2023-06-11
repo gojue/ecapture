@@ -69,7 +69,6 @@ func (hr *HTTPRequest) Write(b []byte) (int, error) {
 	if e != nil {
 		return 0, e
 	}
-
 	// TODO 检测是否接收完整个包
 	if false {
 		hr.isDone = true
@@ -108,7 +107,7 @@ func (hr *HTTPRequest) Display() []byte {
 	b, e := httputil.DumpRequest(hr.request, true)
 	if e != nil {
 		log.Println("DumpRequest error:", e)
-		return nil
+		return hr.reader.Bytes()
 	}
 	return b
 }
