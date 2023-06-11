@@ -84,7 +84,7 @@ func (ew *eventWorker) Display() {
 
 	//  输出包内容
 	b := ew.parserEvents()
-
+	defer ew.parser.Reset()
 	if len(b) <= 0 {
 		return
 	}
@@ -97,9 +97,9 @@ func (ew *eventWorker) Display() {
 	// 重置状态
 	ew.processor.GetLogger().Printf("UUID:%s, Name:%s, Type:%d, Length:%d", ew.UUID, ew.parser.Name(), ew.parser.ParserType(), len(b))
 	ew.processor.GetLogger().Println("\n" + string(b))
-	ew.parser.Reset()
+	//ew.parser.Reset()
 	// 设定状态、重置包类型
-
+	ew.status = ProcessStateInit
 	ew.packetType = PacketTypeNull
 }
 
@@ -121,7 +121,6 @@ func (ew *eventWorker) parserEvents() []byte {
 		ew.processor.GetLogger().Printf("ew.parser write payload %n bytes, error:%v", n, e)
 	}
 	ew.status = ProcessStateDone
-	ew.parser.Reset()
 	return ew.parser.Display()
 }
 
