@@ -137,7 +137,7 @@ func getLinuxConfig(filename string) (map[string]string, error) {
 
 // IsContainer returns true if the process is running in a container.
 func IsContainer() (bool, error) {
-	b, e := isCOntainerCgroup()
+	b, e := isContainerCgroup()
 	if e != nil {
 		return false, e
 	}
@@ -156,10 +156,10 @@ func IsContainer() (bool, error) {
 	return b, nil
 }
 
-// isCOntainerCgroup returns true if the process is running in a container.
+// isContainerCgroup returns true if the process is running in a container.
 // https://www.baeldung.com/linux/is-process-running-inside-container
 
-func isCOntainerCgroup() (bool, error) {
+func isContainerCgroup() (bool, error) {
 	var f *os.File
 	var err error
 	var i int
