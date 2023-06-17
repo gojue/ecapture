@@ -128,6 +128,9 @@ func (t *MTCProbe) createPcapng(netIfs []net.Interface) error {
 }
 
 func (t *MTCProbe) writePacket(dataLen uint32, timeStamp time.Time, packetBytes []byte) error {
+
+	// TODO add packetMeta info (e.g: process. pid, commom, etc.)
+	
 	info := gopacket.CaptureInfo{
 		Timestamp:     timeStamp,
 		CaptureLength: int(dataLen),
