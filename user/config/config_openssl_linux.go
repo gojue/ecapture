@@ -95,5 +95,10 @@ func (oc *OpensslConfig) Check() error {
 		}
 	}
 
+	s, e := checkCgroupPath(oc.CGroupPath)
+	if e != nil {
+		return e
+	}
+	oc.CGroupPath = s
 	return nil
 }
