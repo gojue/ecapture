@@ -13,7 +13,7 @@
 // limitations under the License.
 
 #define TC_PACKET_MIN_SIZE 36
-
+#define SOCKET_ALLOW 1
 struct skb_data_event_t {
     uint64_t ts;
     u32 pid;
@@ -23,13 +23,17 @@ struct skb_data_event_t {
 };
 
 typedef struct net_id {
-    struct in6_addr address;
-    u16 port;
     u16 protocol;
+    u32 src_port;
+    u32 src_ip4;
+    u32 dst_port;
+    u32 dst_ip4;
+//    u32 src_ip6[4];
+//    u32 dst_ip6[4];
 } net_id_t;
 
 typedef struct net_ctx {
-    u32 host_tid;
+    u32 pid;
     char comm[TASK_COMM_LEN];
 } net_ctx_t;
 
@@ -46,13 +50,21 @@ struct {
     __uint(max_entries, 1);
 } skb_data_buffer_heap SEC(".maps");
 
-/*
+
 struct {
     __uint(type, BPF_MAP_TYPE_LRU_HASH);
     __type(key, struct net_id_t);
     __type(value, struct net_ctx_t);
     __uint(max_entries, 10240);
 } network_map SEC(".maps");
+
+/*
+struct {
+    __uint(type, BPF_MAP_TYPE_LRU_HASH);
+    __type(key, u16);   // key即为TCP连接的 本地port
+    __type(value, u32); // pid
+    __uint(max_entries, 10240);
+} pid_port SEC(".maps");
 */
 
 ////////////////////// General helper functions //////////////////////
@@ -130,12 +142,32 @@ int capture_packets(struct __sk_buff *skb, bool is_ingress) {
         return TC_ACT_OK;
     }
 #endif
-    //    debug_bpf_printk("capture_packets port : %d, dest port :%d\n",
-    //    bpf_ntohs(tcp->source), bpf_ntohs(tcp->dest));
+    debug_bpf_printk("capture_packets port : %d, dest port :%d\n",
+    bpf_ntohs(tcp->source), bpf_ntohs(tcp->dest));
+
     // get the skb data event
-    net_id_t connect_id = {0};
+    net_id_t conn_id = {0};
+    conn_id.protocol = iph->protocol;
+    conn_id.src_ip4 = iph->saddr;
+    conn_id.dst_ip4 = iph->daddr;
+    conn_id.src_port = tcp->source;
+    conn_id.dst_port = tcp->dest;
+
+    net_ctx_t *net_ctx = bpf_map_lookup_elem(&network_map, &conn_id);
+    if (net_ctx == NULL) {
+        conn_id.src_ip4 = iph->daddr;
+        conn_id.dst_ip4 = iph->saddr;
+        conn_id.src_port = tcp->dest;
+        conn_id.dst_port = tcp->source;
+        net_ctx = bpf_map_lookup_elem(&network_map, &conn_id);
+    }
+
     // new packet event
     struct skb_data_event_t event = {0};
+    if (net_ctx != NULL) {
+        event.pid = net_ctx->pid;
+        bpf_probe_read(&event.comm, sizeof(event.comm), net_ctx->comm);
+    }
     event.ts = bpf_ktime_get_ns();
     event.len = skb->len;
     event.ifindex = skb->ifindex;
@@ -169,3 +201,54 @@ SEC("classifier/ingress")
 int ingress_cls_func(struct __sk_buff *skb) {
     return capture_packets(skb, true);
 };
+
+static __always_inline int dected_port(struct bpf_sock_addr *ctx) {
+    u32 pid = bpf_get_current_pid_tgid() >> 32;
+// 仅对指定PID的进程发起的connect事件进行捕获
+#ifndef KERNEL_LESS_5_2
+    if (target_pid != 0 && target_pid != pid) {
+        return SOCKET_ALLOW;
+    }
+#endif
+    u32 port = ctx->user_port;
+    if (port == 0) {
+        return SOCKET_ALLOW;
+    }
+    if (ctx->family != AF_INET ) {
+        debug_bpf_printk("[eCapture] unsupported family %d\n",  ctx->family);
+        return SOCKET_ALLOW;
+    }
+
+    // 从 ctx->sk中获取五元组
+    net_id_t conn_id = {0};
+    conn_id.dst_ip4 = ctx->sk->dst_ip4;
+    conn_id.src_ip4 = ctx->sk->src_ip4;
+    conn_id.protocol = ctx->sk->protocol;
+    conn_id.src_port = ctx->sk->src_port;
+    conn_id.dst_port = ctx->sk->dst_port;
+
+    net_ctx_t net_ctx;
+    net_ctx.pid = pid;
+    bpf_get_current_comm(&net_ctx.comm, sizeof(net_ctx.comm));
+    debug_bpf_printk("[eCapture] wrote network_map map: user_port %d ==> pid:%d\n",  port, pid);
+    bpf_map_update_elem(&network_map, &conn_id, &net_ctx, BPF_ANY);
+    return SOCKET_ALLOW;
+}
+
+
+// tracee used kprobe/security_socket_bind.
+SEC("cgroup/connect4")
+int cg_connect4(struct bpf_sock_addr *ctx) {
+    if (ctx->user_family != AF_INET || ctx->family != AF_INET) {
+        return SOCKET_ALLOW;
+    }
+    return dected_port(ctx);
+}
+
+SEC("cgroup/connect6")
+int cg_connect6(struct bpf_sock_addr *ctx) {
+    if (ctx->user_family != AF_INET6 || ctx->family != AF_INET6) {
+        return SOCKET_ALLOW;
+    }
+    return dected_port(ctx);
+}
