@@ -110,7 +110,7 @@ func (t *MTCProbe) createPcapng(netIfs []net.Interface) error {
 			SnapLength: uint32(math.MaxUint16),
 		}
 
-		_, err := pcapWriter.AddInterface(ngIface)
+		_, err = pcapWriter.AddInterface(ngIface)
 		if err != nil {
 			return err
 		}

@@ -51,6 +51,7 @@ ecapture tls -w save_android.pcapng -i wlan0 --libssl=/apex/com.android.conscryp
 func init() {
 	opensslCmd.PersistentFlags().StringVar(&oc.Curlpath, "curl", "", "curl or wget file path, use to dectet openssl.so path, default:/usr/bin/curl. (Deprecated)")
 	opensslCmd.PersistentFlags().StringVar(&oc.Openssl, "libssl", "", "libssl.so file path, will automatically find it from curl default.")
+	opensslCmd.PersistentFlags().StringVar(&oc.CGroupPath, "cgroup_path", "/sys/fs/cgroup", "cgroup path, default: /sys/fs/cgroup.")
 	opensslCmd.PersistentFlags().StringVar(&gc.Gnutls, "gnutls", "", "libgnutls.so file path, will automatically find it from curl default.")
 	opensslCmd.PersistentFlags().StringVar(&gc.Curlpath, "wget", "", "wget file path, default: /usr/bin/wget. (Deprecated)")
 	opensslCmd.PersistentFlags().StringVar(&nc.Firefoxpath, "firefox", "", "firefox file path, default: /usr/lib/firefox/firefox. (Deprecated)")

@@ -119,6 +119,13 @@ func (m *MOpenSSLProbe) setupManagersTC() error {
 				BinaryPath:       binaryPath,
 				UID:              "uprobe_ssl_master_key",
 			},
+
+			//
+			{
+				EbpfFuncName: "cg_connect4",
+				Section:      "cgroup/connect4",
+				CGroupPath:   m.cgroupPath,
+			},
 		},
 
 		Maps: []*manager.Map{
