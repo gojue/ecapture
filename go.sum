@@ -17,6 +17,8 @@ github.com/gojue/ebpfmanager v0.4.1 h1:6Civdj0n8veUyuqZrsJxp6mRTQPQP50GrZgBu3XX4
 github.com/gojue/ebpfmanager v0.4.1/go.mod h1:IbOQcGaeEvSPY6NtTtkG6xRQ93tNpGcbivMS0hODdA0=
 github.com/gojue/ebpfmanager v0.4.2 h1:t1xYfocc0fn5d2j5UYhoSp94NaBhsZyuaiK40InecDw=
 github.com/gojue/ebpfmanager v0.4.2/go.mod h1:IbOQcGaeEvSPY6NtTtkG6xRQ93tNpGcbivMS0hODdA0=
+github.com/gojue/ebpfmanager v0.4.3 h1:uiGLdmf77j2T4PAoVj4rQSbKhBpTCPwHj4tV0HDS+uA=
+github.com/gojue/ebpfmanager v0.4.3/go.mod h1:IbOQcGaeEvSPY6NtTtkG6xRQ93tNpGcbivMS0hODdA0=
 github.com/google/go-cmp v0.2.0/go.mod h1:oXzfMopK8JAjlY9xF4vHSVASa0yLyX7SntLO5aqRK0M=
 github.com/google/go-cmp v0.3.1/go.mod h1:8QqcDgzrUqlUb/G2PQTWiueGozuR1884gddMywk6iLU=
 github.com/google/go-cmp v0.4.0/go.mod h1:v8dTdLbMG2kIc/vJvl+f65V22dbkXbowE6jgT/gNBxE=

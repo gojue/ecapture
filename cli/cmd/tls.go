@@ -90,9 +90,8 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 	var version kernel.Version
 	version, err = kernel.HostVersion()
 	logger.Printf("ECAPTURE :: Kernel Info : %s", version.String())
-
 	modNames := []string{}
-	if config.ElfArchIsandroid {
+	if config.ElfArchIsandroid || oc.Write != "" {
 		modNames = []string{module.ModuleNameOpenssl}
 	} else {
 		modNames = []string{module.ModuleNameOpenssl, module.ModuleNameGnutls, module.ModuleNameNspr}

@@ -122,6 +122,11 @@ func (m *MOpenSSLProbe) setupManagersTC() error {
 
 			//
 			{
+				EbpfFuncName: "ecapture_cgroup_sock",
+				Section:      "cgroup/sock_create",
+				CGroupPath:   m.cgroupPath,
+			},
+			{
 				EbpfFuncName: "cg_connect4",
 				Section:      "cgroup/connect4",
 				CGroupPath:   m.cgroupPath,
