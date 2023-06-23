@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/cilium/ebpf v0.10.0
-	github.com/gojue/ebpfmanager v0.4.2
+	github.com/gojue/ebpfmanager v0.4.3
 	github.com/google/gopacket v1.1.19
 	github.com/shuLhan/go-bindata v4.0.0+incompatible
 	github.com/spf13/cobra v1.4.0
