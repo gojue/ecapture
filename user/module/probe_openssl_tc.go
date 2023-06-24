@@ -119,13 +119,7 @@ func (m *MOpenSSLProbe) setupManagersTC() error {
 				BinaryPath:       binaryPath,
 				UID:              "uprobe_ssl_master_key",
 			},
-
 			//
-			{
-				EbpfFuncName: "ecapture_cgroup_sock",
-				Section:      "cgroup/sock_create",
-				CGroupPath:   m.cgroupPath,
-			},
 			{
 				EbpfFuncName: "cg_connect4",
 				Section:      "cgroup/connect4",

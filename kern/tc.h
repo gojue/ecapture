@@ -26,8 +26,8 @@ struct net_id_t {
     u32 protocol;
     u32 src_port;
     u32 src_ip4;
-    u32 dst_port;
-    u32 dst_ip4;
+//    u32 dst_port;
+//    u32 dst_ip4;
 //    u32 src_ip6[4];
 //    u32 dst_ip6[4];
 };
@@ -148,17 +148,13 @@ int capture_packets(struct __sk_buff *skb, bool is_ingress) {
     struct net_id_t conn_id = {0};
     conn_id.protocol = iph->protocol;
     conn_id.src_ip4 = iph->saddr;
-    conn_id.dst_ip4 = iph->daddr;
     conn_id.src_port = tcp->source;
-    conn_id.dst_port = tcp->dest;
 
     struct net_ctx_t *net_ctx = bpf_map_lookup_elem(&network_map, &conn_id);
     if (net_ctx == NULL) {
         // exchange src and dst
         conn_id.src_ip4 = iph->daddr;
-        conn_id.dst_ip4 = iph->saddr;
         conn_id.src_port = tcp->dest;
-        conn_id.dst_port = tcp->source;
         net_ctx = bpf_map_lookup_elem(&network_map, &conn_id);
     }
 */
@@ -202,6 +198,18 @@ int ingress_cls_func(struct __sk_buff *skb) {
     return capture_packets(skb, true);
 };
 
+/*
+struct bpf_sock_addr {
+	__u32 user_family;
+	__u32 user_ip4;
+	__u32 user_ip6[4];
+	__u32 user_port;
+	__u32 family;
+	__u32 type;
+	__u32 protocol;
+	__u32 msg_src_ip4;
+	__u32 msg_src_ip6[4];
+	*/
 static __always_inline int get_process(struct bpf_sock_addr *ctx) {
     u32 pid = bpf_get_current_pid_tgid() >> 32;
 // 仅对指定PID的进程发起的connect事件进行捕获
@@ -224,17 +232,16 @@ static __always_inline int get_process(struct bpf_sock_addr *ctx) {
 
     // 从 ctx->sk中获取五元组
     struct net_id_t conn_id = {0};
-    conn_id.dst_ip4 = ctx->sk->dst_ip4;
-    conn_id.src_ip4 = ctx->sk->src_ip4;
+//    conn_id.src_ip4 = bpf_ntohs(ctx->msg_src_ip4);
+    bpf_probe_read(&conn_id.src_ip4, sizeof(conn_id.src_ip4), &ctx->msg_src_ip4);
     conn_id.protocol = ctx->sk->protocol;
-    conn_id.src_port = ctx->sk->src_port;
-    conn_id.dst_port = ctx->sk->dst_port;
+    conn_id.src_port = bpf_ntohs(ctx->sk->src_port);
 
     struct net_ctx_t net_ctx;
     net_ctx.pid = pid;
     bpf_get_current_comm(&net_ctx.comm, sizeof(net_ctx.comm));
-    debug_bpf_printk("[eCapture] conn_id src_port:%d , dst_port::%d, protocol:%d\n",  conn_id.src_port, conn_id.dst_port, conn_id.protocol);
-    debug_bpf_printk("[eCapture] wrote network_map map: user_port %d ==> pid:%d, comm:%s\n",  port, pid, net_ctx.comm);
+    debug_bpf_printk("[!!!!!] conn_id user_ip4:%d, msg_src_ip4:%d, protocol:%d\n",  bpf_ntohl(ctx->user_ip4), bpf_ntohl(conn_id.src_ip4), conn_id.protocol);
+    debug_bpf_printk("[!!!!!] wrote network_map map: user_port %d ==> pid:%d, comm:%s\n",  port, pid, net_ctx.comm);
     bpf_map_update_elem(&network_map, &conn_id, &net_ctx, BPF_ANY);
     return SOCKET_ALLOW;
 }
@@ -252,63 +259,9 @@ int cg_connect4(struct bpf_sock_addr *ctx) {
 /*
 SEC("cgroup/connect6")
 int cg_connect6(struct bpf_sock_addr *ctx) {
-    if (ctx->user_family != AF_INET6 || ctx->family != AF_INET6) {
+    if (ctx->user_family != AF_INET || ctx->family != AF_INET) {
         return SOCKET_ALLOW;
     }
     return get_process(ctx);
 }
 */
-
-
-/*
-struct bpf_sock {
-	__u32 bound_dev_if;
-	__u32 family;
-	__u32 type;
-	__u32 protocol;
-	__u32 mark;
-	__u32 priority;
-	__u32 src_ip4;
-	__u32 src_ip6[4];
-	__u32 src_port;
-	__u32 dst_port;
-	__u32 dst_ip4;
-	__u32 dst_ip6[4];
-	__u32 state;
-	__s32 rx_queue_mapping;
-};
-*/
-
-SEC("cgroup/sock_create")
-int ecapture_cgroup_sock(struct bpf_sock *sk)
-{
-	u32 pid = bpf_get_current_pid_tgid() >> 32;
-	bpf_printk("cgroup sock pid:%d\n", pid);
-	u32 port = bpf_ntohs(sk->dst_port);
-    if (port == 0) {
-        return SOCKET_ALLOW;
-    }
-    if (sk->family != AF_INET ) {
-        debug_bpf_printk("[eCapture] unsupported family %d\n",  sk->family);
-        return SOCKET_ALLOW;
-    }
-/*
-    // 从 skops中获取五元组
-    struct net_id_t conn_id = {0};
-    conn_id.dst_ip4 = sk->dst_ip4;
-    conn_id.src_ip4 = sk->src_ip4;
-    conn_id.protocol = sk->protocol;
-    conn_id.src_port = sk->src_port;
-    conn_id.dst_port = sk->dst_port;
-
-    struct net_ctx_t net_ctx;
-    net_ctx.pid = pid;
-    bpf_get_current_comm(&net_ctx.comm, sizeof(net_ctx.comm));
-    */
-
-//    debug_bpf_printk("[cgroup sock] conn_id src_port:%d , dst_port::%d, protocol:%d\n",  conn_id.src_port, conn_id.dst_port, conn_id.protocol);
-//    debug_bpf_printk("[cgroup sock] wrote network_map map: user_port %d ==> pid:%d, comm:%s\n",  port, pid, net_ctx.comm);
-//    bpf_map_update_elem(&network_map, &conn_id, &net_ctx, BPF_ANY);
-    debug_bpf_printk("[cgroup sock] PID:%d, sk dst_port->src_port : %d -> %d\n",  pid, sk->dst_port, sk->src_port);
-	return SOCKET_ALLOW;
-}
