@@ -119,7 +119,6 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
     // Get SSL->version pointer
     int version;
     u64 address;
-    u64 s3_address;
     int ret =
         bpf_probe_read_user(&version, sizeof(version), (void *)ssl_version_ptr);
     if (ret) {
@@ -136,7 +135,6 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
             "bpf_probe_read ssl_s3_st_ptr pointer failed, ret :%d\n", ret);
         return 0;
     }
-    s3_address = address;
     struct ssl3_state_st ssl3_stat;
     ret = bpf_probe_read_user(&ssl3_stat, sizeof(ssl3_stat), (void *)address);
     if (ret) {
