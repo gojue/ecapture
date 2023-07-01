@@ -22,6 +22,7 @@ import (
 
 const (
 	TaskCommLen = 16
+	CmdlineLen  = 256
 )
 
 type TcSkbEvent struct {
@@ -29,6 +30,7 @@ type TcSkbEvent struct {
 	Ts        uint64            `json:"ts"`
 	Pid       uint32            `json:"pid"`
 	Comm      [TaskCommLen]byte `json:"Comm"`
+	Cmdline   [CmdlineLen]byte  `json:"Cmdline"`
 	Len       uint32            `json:"len"`
 	Ifindex   uint32            `json:"ifindex"`
 	payload   []byte
@@ -45,6 +47,11 @@ func (te *TcSkbEvent) Decode(payload []byte) (err error) {
 	if err = binary.Read(buf, binary.LittleEndian, &te.Comm); err != nil {
 		return
 	}
+	//if err = binary.Read(buf, binary.LittleEndian, &te.Cmdline); err != nil {
+	//	return
+	//}
+	//TODO
+	te.Cmdline[0] = 91 //ascii 91
 	if err = binary.Read(buf, binary.LittleEndian, &te.Len); err != nil {
 		return
 	}

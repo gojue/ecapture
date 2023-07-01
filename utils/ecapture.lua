@@ -15,7 +15,7 @@ local fields = {}
 fields.magic   = ProtoField.uint32("ecapture.magic", "Magic", base.HEX)
 fields.pid     = ProtoField.int32("ecapture.pid", "PID", base.DEC)
 fields.Comm = ProtoField.string("ecapture.Comm", "Comm", base.ASCII)
-fields.Cmdline = ProtoField.string("ecapture.Cmdline", "Cmdline", base.ASCII)
+-- fields.Cmdline = ProtoField.string("ecapture.Cmdline", "Cmdline", base.ASCII)
 
 ecapture.fields = fields
 
@@ -32,13 +32,21 @@ function ecapture.dissector(buffer, pinfo, tree)
   local iplen = buffer(16 ,2):uint()
   local framelen = buffer:len()
   local trailerlength = framelen - ethernet_header_size - iplen
+  -- check padding type
 
   -- -4: skip the FCS
   local trailer = buffer(iplen+ethernet_header_size ,trailerlength )
 
+  if trailerlength < 9 then
+    return
+  end
+
   -- simple sanity check with the magic number
   local magic = trailer(0, 4):uint()
   if(magic ~= ECAPTURE_MAGIC) then
+--     print("trailerlength:"..trailerlength)
+--     print("magic:%x", magic)
+--     print("trailer:%x", trailer)
     return
   end
 
@@ -48,10 +56,10 @@ function ecapture.dissector(buffer, pinfo, tree)
   subtree:add(fields.pid, pid)
   local commLen =  trailer(8, 1):uint()
   subtree:add(fields.Comm, trailer(9,commLen))
-  local cmdlineLen = trailer(9+commLen, 2):uint()
+--   local cmdlineLen = trailer(9+commLen, 2):uint()
   -- subtree:add(fields.cmdlineLen, trailer(9+commLen,cmdlineLen))
-  local cmdline = trailer(11+commLen, cmdlineLen):string()
-  subtree:add(fields.Cmdline, cmdline)
+--   local cmdline = trailer(11+commLen, cmdlineLen):string()
+--   subtree:add(fields.Cmdline, cmdline)
 end
 
 register_postdissector(ecapture)

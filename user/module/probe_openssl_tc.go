@@ -121,9 +121,9 @@ func (m *MOpenSSLProbe) setupManagersTC() error {
 			},
 			//
 			{
-				EbpfFuncName: "cg_connect4",
-				Section:      "cgroup/connect4",
-				CGroupPath:   m.cgroupPath,
+				EbpfFuncName:     "tcp_sendmsg",
+				Section:          "kprobe/tcp_sendmsg",
+				AttachToFuncName: "tcp_sendmsg",
 			},
 		},
 
