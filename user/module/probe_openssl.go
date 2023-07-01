@@ -635,7 +635,6 @@ func (m *MOpenSSLProbe) Dispatcher(eventStruct event.IEventStruct) {
 	case *event.MasterSecretBSSLEvent:
 		m.saveMasterSecretBSSL(eventStruct.(*event.MasterSecretBSSLEvent))
 	case *event.TcSkbEvent:
-		m.logger.Printf("pid:%d, comm:%s\n", eventStruct.(*event.TcSkbEvent).Pid, eventStruct.(*event.TcSkbEvent).Comm)
 		err := m.dumpTcSkb(eventStruct.(*event.TcSkbEvent))
 		if err != nil {
 			m.logger.Printf("%s\t save packet error %s .\n", m.Name(), err.Error())
