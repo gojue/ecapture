@@ -1,5 +1,12 @@
 <hr>
 
+# v0.6.0 (2023-07-02)
+## What's Changed
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v0.5.3...v0.6.0
+
+<hr>
+
 # v0.5.3 (2023-05-21)
 ## What's Changed
 * user: fixes slice out of range by @cfc4n in https://github.com/gojue/ecapture/pull/366
