@@ -275,4 +275,4 @@ int tcp_sendmsg(struct pt_regs *ctx){
     debug_bpf_printk("tcp_sendmsg pid : %d, comm :%s\n", net_ctx.pid, net_ctx.comm);
     bpf_map_update_elem(&network_map, &conn_id, &net_ctx, BPF_ANY);
     return 0;
-}
+};
