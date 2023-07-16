@@ -44,6 +44,7 @@ function run() {
   sslVerMap["q"]="j"
   sslVerMap["r"]="j"
   sslVerMap["s"]="j"
+  sslVerMap["u"]="j"
 
 
 #  exit 0
