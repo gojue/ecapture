@@ -35,8 +35,8 @@ const (
 const (
 	MaxSupportedOpenSSL102Version = 'u'
 	MaxSupportedOpenSSL110Version = 'l'
-	MaxSupportedOpenSSL111Version = 's'
-	MaxSupportedOpenSSL30Version  = '7'
+	MaxSupportedOpenSSL111Version = 'u'
+	MaxSupportedOpenSSL30Version  = '9'
 )
 
 // initOpensslOffset initial BpfMap
