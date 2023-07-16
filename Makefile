@@ -64,9 +64,11 @@ EXTRA_CFLAGS_NOCORE ?= -emit-llvm -O2 -S\
 	-D__BPF_TRACING__ \
 	-D__KERNEL__ \
 	-DNOCORE \
+	-DKBUILD_MODNAME=\"eCapture\" \
 	$(DEBUG_PRINT) \
 	-Wall \
 	-Wno-unused-variable \
+	-Wnounused-but-set-variable \
 	-Wno-frame-address \
 	-Wno-unused-value \
 	-Wno-unknown-warning-option \
