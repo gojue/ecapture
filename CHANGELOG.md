@@ -3,6 +3,7 @@
 # v0.6.1 (2023-07-16)
 ## What's Changed
 * fix #378 , error: use of undeclared identifier 'KBUILD_MODNAME'  by @cfc4n in https://github.com/gojue/ecapture/pull/379
+* feat:add openssl 1.1.1u and 3.0.9   by @cfc4n in https://github.com/gojue/ecapture/pull/380
 
 **Full Changelog**: https://github.com/gojue/ecapture/compare/v0.6.0...v0.6.1
 
