@@ -50,7 +50,7 @@ struct net_ctx_t {
 ////////////////////// ebpf maps //////////////////////
 struct {
     __uint(type, BPF_MAP_TYPE_PERF_EVENT_ARRAY);
-    __uint(max_entries, 1024);
+    __uint(max_entries, 10240);
 } skb_events SEC(".maps");
 
 struct {
