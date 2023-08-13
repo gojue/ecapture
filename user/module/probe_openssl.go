@@ -382,6 +382,8 @@ func (m *MOpenSSLProbe) setupManagersUprobe() error {
 	if m.conf.EnableGlobalVar() {
 		// 填充 RewriteContants 对应map
 		m.bpfManagerOptions.ConstantEditors = m.constantEditor()
+	} else {
+		m.logger.Print("%s\tYour kernel version is less than 5.2, the following parameters will be ignored:[target_pid, target_uid, target_port]\n", m.Name())
 	}
 	return nil
 }
