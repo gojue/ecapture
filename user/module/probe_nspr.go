@@ -117,8 +117,8 @@ func (n *MNsprProbe) constantEditor() []manager.ConstantEditor {
 func (n *MNsprProbe) setupManagers() error {
 	var binaryPath string
 	switch n.conf.(*config.NsprConfig).ElfType {
-	case config.ElfTypeBin:
-		binaryPath = n.conf.(*config.NsprConfig).Firefoxpath
+	//case config.ElfTypeBin:
+	//	binaryPath = n.conf.(*config.NsprConfig).Firefoxpath
 	case config.ElfTypeSo:
 		binaryPath = n.conf.(*config.NsprConfig).Nsprpath
 	default:
