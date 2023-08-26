@@ -22,21 +22,18 @@ type IConfig interface {
 	GetUid() uint64
 	GetHex() bool
 	GetDebug() bool
-	GetNoSearch() bool
 	SetPid(uint64)
 	SetUid(uint64)
 	SetHex(bool)
 	SetDebug(bool)
-	SetNoSearch(bool)
 	EnableGlobalVar() bool //
 }
 
 type eConfig struct {
-	Pid      uint64
-	Uid      uint64
-	IsHex    bool
-	Debug    bool
-	NoSearch bool
+	Pid   uint64
+	Uid   uint64
+	IsHex bool
+	Debug bool
 }
 
 func (c *eConfig) GetPid() uint64 {
@@ -55,10 +52,6 @@ func (c *eConfig) GetHex() bool {
 	return c.IsHex
 }
 
-func (c *eConfig) GetNoSearch() bool {
-	return c.NoSearch
-}
-
 func (c *eConfig) SetPid(pid uint64) {
 	c.Pid = pid
 }
@@ -73,10 +66,6 @@ func (c *eConfig) SetDebug(b bool) {
 
 func (c *eConfig) SetHex(isHex bool) {
 	c.IsHex = isHex
-}
-
-func (c *eConfig) SetNoSearch(noSearch bool) {
-	c.NoSearch = noSearch
 }
 
 func (c *eConfig) EnableGlobalVar() bool {

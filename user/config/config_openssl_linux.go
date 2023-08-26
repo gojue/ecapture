@@ -18,36 +18,30 @@
 package config
 
 import (
-	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 )
 
 const (
-	DefaultIfname = "eth0"
+	DefaultIfname      = "eth0"
+	DefaultOpensslPath = "/apex/com.android.conscrypt/lib64/libssl.so"
 )
 
 func (oc *OpensslConfig) checkOpenssl() error {
-	soPath, e := getDynPathByElf(oc.Curlpath, "libssl.so")
+	var e error
+	_, e = os.Stat(X86BinaryPrefix)
+	prefix := X86BinaryPrefix
 	if e != nil {
-		//oc.logger.Printf("get bash:%s dynamic library error:%v.\n", bash, e)
-		_, e = os.Stat(X86BinaryPrefix)
-		prefix := X86BinaryPrefix
-		if e != nil {
-			prefix = OthersBinaryPrefix
-		}
+		prefix = OthersBinaryPrefix
+	}
 
-		//	ubuntu 21.04	libssl.so.1.1   default
-		oc.Openssl = filepath.Join(prefix, "libssl.so.1.1")
-		oc.ElfType = ElfTypeSo
-		_, e = os.Stat(oc.Openssl)
-		if e != nil {
-			return e
-		}
-	} else {
-		oc.Openssl = soPath
-		oc.ElfType = ElfTypeSo
+	//	ubuntu 21.04	libssl.so.1.1   default
+	oc.Openssl = filepath.Join(prefix, "libssl.so.1.1")
+	oc.ElfType = ElfTypeSo
+	_, e = os.Stat(oc.Openssl)
+	if e != nil {
+		return e
 	}
 	return nil
 }
@@ -64,30 +58,26 @@ func (oc *OpensslConfig) Check() error {
 		oc.ElfType = ElfTypeSo
 		checkedOpenssl = true
 	}
-
-	//如果配置 Curlpath的地址，判断文件是否存在，不存在则直接返回
-	if oc.Curlpath != "" || len(strings.TrimSpace(oc.Curlpath)) > 0 {
-		_, e := os.Stat(oc.Curlpath)
-		if e != nil {
-			return e
+	/*
+		//如果配置 Curlpath的地址，判断文件是否存在，不存在则直接返回
+		if oc.Curlpath != "" || len(strings.TrimSpace(oc.Curlpath)) > 0 {
+			_, e := os.Stat(oc.Curlpath)
+			if e != nil {
+				return e
+			}
+		} else {
+			//如果没配置，则直接指定。
+			oc.Curlpath = "/usr/bin/curl"
 		}
-	} else {
-		//如果没配置，则直接指定。
-		oc.Curlpath = "/usr/bin/curl"
-	}
 
-	if oc.Ifname == "" || len(strings.TrimSpace(oc.Ifname)) == 0 {
-		oc.Ifname = DefaultIfname
-	}
+		if oc.Ifname == "" || len(strings.TrimSpace(oc.Ifname)) == 0 {
+			oc.Ifname = DefaultIfname
+		}
 
-	if checkedOpenssl {
-		return nil
-	}
-
-	if oc.NoSearch {
-		return errors.New("NoSearch requires specifying lib path")
-	}
-
+		if checkedOpenssl {
+			return nil
+		}
+	*/
 	if !checkedOpenssl {
 		e := oc.checkOpenssl()
 		if e != nil {

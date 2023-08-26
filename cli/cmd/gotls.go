@@ -95,7 +95,7 @@ func goTLSCommandFunc(command *cobra.Command, args []string) {
 	conf.SetUid(gConf.Uid)
 	conf.SetDebug(gConf.Debug)
 	conf.SetHex(gConf.IsHex)
-	conf.SetNoSearch(gConf.NoSearch)
+	//conf.SetNoSearch(gConf.NoSearch)
 
 	err = conf.Check()
 
