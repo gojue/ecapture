@@ -156,5 +156,9 @@ bin/ecapture --help
 ```
 
 
+## Stargazers over time
+
+[![Stargazers over time](https://starchart.cc/gojue/ecapture.svg)](https://starchart.cc/gojue/ecapture)
+
 # Contributing
 See [CONTRIBUTING](./CONTRIBUTING.md) for details on submitting patches and the contribution workflow.

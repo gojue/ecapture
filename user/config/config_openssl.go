@@ -34,7 +34,7 @@ const cgroupPathCentos = "/mnt/ecapture_cgroupv2" // centos
 // 最终使用openssl参数
 type OpensslConfig struct {
 	eConfig
-	Curlpath   string `json:"curlPath"` //curl的文件路径
+	//Curlpath   string `json:"curlPath"` //curl的文件路径
 	Openssl    string `json:"openssl"`
 	Pthread    string `json:"pThread"`    // /lib/x86_64-linux-gnu/libpthread.so.0
 	Write      string `json:"write"`      // Write  the  raw  packets  to file rather than parsing and printing them out.

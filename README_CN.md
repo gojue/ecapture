@@ -185,5 +185,11 @@ cd ecapture
 make nocore
 bin/ecapture
 ```
+
+## Stargazers over time
+
+[![Stargazers over time](https://starchart.cc/gojue/ecapture.svg)](https://starchart.cc/gojue/ecapture)
+
+
 # 贡献
 参考 [CONTRIBUTING](./CONTRIBUTING.md)的介绍，提交issue、PR等，非常感谢。

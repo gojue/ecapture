@@ -118,8 +118,8 @@ func (g *MGnutlsProbe) constantEditor() []manager.ConstantEditor {
 func (g *MGnutlsProbe) setupManagers() error {
 	var binaryPath string
 	switch g.conf.(*config.GnutlsConfig).ElfType {
-	case config.ElfTypeBin:
-		binaryPath = g.conf.(*config.GnutlsConfig).Curlpath
+	//case config.ElfTypeBin:
+	//	binaryPath = g.conf.(*config.GnutlsConfig).Curlpath
 	case config.ElfTypeSo:
 		binaryPath = g.conf.(*config.GnutlsConfig).Gnutls
 	default:

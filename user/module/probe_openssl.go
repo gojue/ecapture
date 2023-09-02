@@ -277,8 +277,8 @@ func (m *MOpenSSLProbe) setupManagersUprobe() error {
 	sslVersion = m.conf.(*config.OpensslConfig).SslVersion
 	sslVersion = strings.ToLower(sslVersion)
 	switch m.conf.(*config.OpensslConfig).ElfType {
-	case config.ElfTypeBin:
-		binaryPath = m.conf.(*config.OpensslConfig).Curlpath
+	//case config.ElfTypeBin:
+	//	binaryPath = m.conf.(*config.OpensslConfig).Curlpath
 	case config.ElfTypeSo:
 		binaryPath = m.conf.(*config.OpensslConfig).Openssl
 		err := m.getSslBpfFile(binaryPath, sslVersion)
