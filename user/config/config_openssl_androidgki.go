@@ -43,8 +43,8 @@ func (oc *OpensslConfig) Check() error {
 		oc.Openssl = DefaultOpensslPath
 	}
 
-	if oc.Pthread != "" || len(strings.TrimSpace(this.Pthread)) > 0 {
-		_, e := os.Stat(this.Pthread)
+	if oc.Pthread != "" || len(strings.TrimSpace(oc.Pthread)) > 0 {
+		_, e := os.Stat(oc.Pthread)
 		if e != nil {
 			return e
 		}
