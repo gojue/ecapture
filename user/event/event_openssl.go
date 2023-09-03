@@ -79,6 +79,7 @@ type SSLDataEvent struct {
 	Comm      [16]byte          `json:"Comm"`
 	Fd        uint32            `json:"fd"`
 	Version   int32             `json:"version"`
+	Addr      string
 }
 
 func (se *SSLDataEvent) Decode(payload []byte) (err error) {
@@ -170,7 +171,7 @@ func (se *SSLDataEvent) String() string {
 
 func (se *SSLDataEvent) Clone() IEventStruct {
 	event := new(SSLDataEvent)
-	event.eventType = EventTypeEventProcessor
+	event.eventType = EventTypeModuleData //EventTypeEventProcessor
 	return event
 }
 

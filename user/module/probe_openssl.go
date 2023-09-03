@@ -38,6 +38,7 @@ import (
 
 const (
 	ConnNotFound = "[ADDR_NOT_FOUND]"
+	DefaultAddr  = "0.0.0.0"
 )
 
 type Tls13MasterSecret struct {
@@ -692,8 +693,21 @@ func (m *MOpenSSLProbe) Dispatcher(eventStruct event.IEventStruct) {
 		if err != nil {
 			m.logger.Printf("%s\t save packet error %s .\n", m.Name(), err.Error())
 		}
+	case *event.SSLDataEvent:
+		m.dumpSslData(eventStruct.(*event.SSLDataEvent))
 	}
 	//m.logger.Println(eventStruct)
+}
+
+func (m *MOpenSSLProbe) dumpSslData(eventStruct *event.SSLDataEvent) error {
+	var addr = m.GetConn(eventStruct.Pid, eventStruct.Fd)
+	if addr == ConnNotFound {
+		eventStruct.Addr = DefaultAddr
+	} else {
+		eventStruct.Addr = addr
+	}
+	m.processor.Write(eventStruct)
+	return nil
 }
 
 func init() {
