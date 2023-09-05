@@ -699,7 +699,7 @@ func (m *MOpenSSLProbe) Dispatcher(eventStruct event.IEventStruct) {
 	//m.logger.Println(eventStruct)
 }
 
-func (m *MOpenSSLProbe) dumpSslData(eventStruct *event.SSLDataEvent) error {
+func (m *MOpenSSLProbe) dumpSslData(eventStruct *event.SSLDataEvent) {
 	var addr = m.GetConn(eventStruct.Pid, eventStruct.Fd)
 	if addr == ConnNotFound {
 		eventStruct.Addr = DefaultAddr
@@ -707,7 +707,6 @@ func (m *MOpenSSLProbe) dumpSslData(eventStruct *event.SSLDataEvent) error {
 		eventStruct.Addr = addr
 	}
 	m.processor.Write(eventStruct)
-	return nil
 }
 
 func init() {
