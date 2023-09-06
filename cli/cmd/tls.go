@@ -78,14 +78,8 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 	if err != nil {
 		logger.Fatal(err)
 	}
-	if gConf.loggerFile != "" {
-		f, e := os.Create(gConf.loggerFile)
-		if e != nil {
-			logger.Fatal(e)
-			return
-		}
-		logger.SetOutput(f)
-	}
+	logger.SetOutput(gConf.writer)
+
 	logger.Printf("ECAPTURE :: %s Version : %s", cliName, GitVersion)
 	logger.Printf("ECAPTURE :: Pid Info : %d", os.Getpid())
 	var version kernel.Version

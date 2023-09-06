@@ -66,6 +66,7 @@ func mysqldCommandFunc(command *cobra.Command, args []string) {
 		logger.Fatal(e)
 		os.Exit(1)
 	}
+	logger.SetOutput(gConf.writer)
 	mysqldConfig.Pid = gConf.Pid
 	mysqldConfig.Debug = gConf.Debug
 	mysqldConfig.IsHex = gConf.IsHex

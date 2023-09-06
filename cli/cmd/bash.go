@@ -71,6 +71,7 @@ func bashCommandFunc(command *cobra.Command, args []string) {
 		logger.Fatal(e)
 		os.Exit(1)
 	}
+	logger.SetOutput(gConf.writer)
 	bc.Pid = gConf.Pid
 	bc.Uid = gConf.Uid
 	bc.Debug = gConf.Debug
