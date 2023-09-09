@@ -34,25 +34,25 @@ func NewBashConfig() *BashConfig {
 	return config
 }
 
-func (this *BashConfig) Check() error {
+func (bc *BashConfig) Check() error {
 
 	// 如果readline 配置，且存在，则直接返回。
-	if this.Readline != "" || len(strings.TrimSpace(this.Readline)) > 0 {
-		_, e := os.Stat(this.Readline)
+	if bc.Readline != "" || len(strings.TrimSpace(bc.Readline)) > 0 {
+		_, e := os.Stat(bc.Readline)
 		if e != nil {
 			return e
 		}
-		this.ElfType = ElfTypeSo
+		bc.ElfType = ElfTypeSo
 		return nil
 	}
 
 	//如果配置 bash的地址，且存在，则直接返回
-	if this.Bashpath != "" || len(strings.TrimSpace(this.Bashpath)) > 0 {
-		_, e := os.Stat(this.Bashpath)
+	if bc.Bashpath != "" || len(strings.TrimSpace(bc.Bashpath)) > 0 {
+		_, e := os.Stat(bc.Bashpath)
 		if e != nil {
 			return e
 		}
-		this.ElfType = ElfTypeBin
+		bc.ElfType = ElfTypeBin
 		return nil
 	}
 
@@ -61,12 +61,12 @@ func (this *BashConfig) Check() error {
 	if b {
 		soPath, e := getDynPathByElf(bash, "libreadline.so")
 		if e != nil {
-			//this.logger.Printf("get bash:%s dynamic library error:%v.\n", bash, e)
-			this.Bashpath = bash
-			this.ElfType = ElfTypeBin
+			//bc.logger.Printf("get bash:%s dynamic library error:%v.\n", bash, e)
+			bc.Bashpath = bash
+			bc.ElfType = ElfTypeBin
 		} else {
-			this.Bashpath = soPath
-			this.ElfType = ElfTypeSo
+			bc.Bashpath = soPath
+			bc.ElfType = ElfTypeSo
 		}
 
 	} else {

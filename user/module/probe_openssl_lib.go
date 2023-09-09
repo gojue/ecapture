@@ -35,13 +35,13 @@ const (
 const (
 	MaxSupportedOpenSSL102Version = 'u'
 	MaxSupportedOpenSSL110Version = 'l'
-	MaxSupportedOpenSSL111Version = 's'
-	MaxSupportedOpenSSL30Version  = '7'
+	MaxSupportedOpenSSL111Version = 'u'
+	MaxSupportedOpenSSL30Version  = '9'
 )
 
 // initOpensslOffset initial BpfMap
-func (this *MOpenSSLProbe) initOpensslOffset() {
-	this.sslVersionBpfMap = map[string]string{
+func (m *MOpenSSLProbe) initOpensslOffset() {
+	m.sslVersionBpfMap = map[string]string{
 		// openssl 1.0.2*
 		LinuxDefauleFilename_1_0_2: "openssl_1_0_2a_kern.o",
 
@@ -61,40 +61,40 @@ func (this *MOpenSSLProbe) initOpensslOffset() {
 
 	// in openssl source files, there are 4 offset groups for all 1.1.1* version.
 	// group a : 1.1.1a
-	this.sslVersionBpfMap["openssl 1.1.1a"] = "openssl_1_1_1a_kern.o"
+	m.sslVersionBpfMap["openssl 1.1.1a"] = "openssl_1_1_1a_kern.o"
 
 	// group b : 1.1.1b-1.1.1c
-	this.sslVersionBpfMap["openssl 1.1.1b"] = "openssl_1_1_1b_kern.o"
-	this.sslVersionBpfMap["openssl 1.1.1c"] = "openssl_1_1_1b_kern.o"
+	m.sslVersionBpfMap["openssl 1.1.1b"] = "openssl_1_1_1b_kern.o"
+	m.sslVersionBpfMap["openssl 1.1.1c"] = "openssl_1_1_1b_kern.o"
 
 	// group c : 1.1.1d-1.1.1i
 	for ch := 'd'; ch <= 'i'; ch++ {
-		this.sslVersionBpfMap["openssl 1.1.1"+string(ch)] = "openssl_1_1_1d_kern.o"
+		m.sslVersionBpfMap["openssl 1.1.1"+string(ch)] = "openssl_1_1_1d_kern.o"
 	}
 
 	// group e : 1.1.1j-1.1.1s
 	for ch := 'j'; ch <= MaxSupportedOpenSSL111Version; ch++ {
-		this.sslVersionBpfMap["openssl 1.1.1"+string(ch)] = "openssl_1_1_1j_kern.o"
+		m.sslVersionBpfMap["openssl 1.1.1"+string(ch)] = "openssl_1_1_1j_kern.o"
 	}
 
 	// openssl 3.0.0 - 3.0.7
 	for ch := '0'; ch <= MaxSupportedOpenSSL30Version; ch++ {
-		this.sslVersionBpfMap["openssl 3.0."+string(ch)] = "openssl_3_0_0_kern.o"
+		m.sslVersionBpfMap["openssl 3.0."+string(ch)] = "openssl_3_0_0_kern.o"
 	}
 
 	// openssl 1.1.0a - 1.1.0l
 	for ch := 'a'; ch <= MaxSupportedOpenSSL110Version; ch++ {
-		this.sslVersionBpfMap["openssl 1.1.0"+string(ch)] = "openssl_1_1_1a_kern.o"
+		m.sslVersionBpfMap["openssl 1.1.0"+string(ch)] = "openssl_1_1_1a_kern.o"
 	}
 
 	// openssl 1.0.2a - 1.0.2u
 	for ch := 'a'; ch <= MaxSupportedOpenSSL102Version; ch++ {
-		this.sslVersionBpfMap["openssl 1.0.2"+string(ch)] = "openssl_1_0_2a_kern.o"
+		m.sslVersionBpfMap["openssl 1.0.2"+string(ch)] = "openssl_1_0_2a_kern.o"
 	}
 
 }
 
-func (this *MOpenSSLProbe) detectOpenssl(soPath string) error {
+func (m *MOpenSSLProbe) detectOpenssl(soPath string) error {
 	f, err := os.OpenFile(soPath, os.O_RDONLY, os.ModePerm)
 	if err != nil {
 		return fmt.Errorf("can not open %s, with error:%v", soPath, err)
@@ -182,29 +182,29 @@ func (this *MOpenSSLProbe) detectOpenssl(soPath string) error {
 	var found bool
 	if versionKey != "" {
 		versionKeyLower := strings.ToLower(versionKey)
-		this.logger.Printf("%s\torigin version:%s, as key:%s", this.Name(), versionKey, versionKeyLower)
+		m.logger.Printf("%s\torigin version:%s, as key:%s", m.Name(), versionKey, versionKeyLower)
 		// find the sslVersion bpfFile from sslVersionBpfMap
-		bpfFile, found = this.sslVersionBpfMap[versionKeyLower]
+		bpfFile, found = m.sslVersionBpfMap[versionKeyLower]
 		if found {
-			this.sslBpfFile = bpfFile
+			m.sslBpfFile = bpfFile
 			return nil
 		}
 	}
 
-	isAndroid := this.conf.(*config.OpensslConfig).IsAndroid
+	isAndroid := m.conf.(*config.OpensslConfig).IsAndroid
 	// if not found, use default
 	if isAndroid {
-		bpfFile, _ = this.sslVersionBpfMap[AndroidDefauleFilename]
-		this.logger.Printf("%s\tOpenSSL/BoringSSL version not found, used default version :%s\n", this.Name(), AndroidDefauleFilename)
+		bpfFile, _ = m.sslVersionBpfMap[AndroidDefauleFilename]
+		m.logger.Printf("%s\tOpenSSL/BoringSSL version not found, used default version :%s\n", m.Name(), AndroidDefauleFilename)
 	} else {
 		if strings.Contains(soPath, "libssl.so.3") {
-			bpfFile, _ = this.sslVersionBpfMap[LinuxDefauleFilename_3_0]
-			this.logger.Printf("%s\tOpenSSL/BoringSSL version not found from shared library file, used default version:%s\n", this.Name(), LinuxDefauleFilename_3_0)
+			bpfFile, _ = m.sslVersionBpfMap[LinuxDefauleFilename_3_0]
+			m.logger.Printf("%s\tOpenSSL/BoringSSL version not found from shared library file, used default version:%s\n", m.Name(), LinuxDefauleFilename_3_0)
 		} else {
-			bpfFile, _ = this.sslVersionBpfMap[LinuxDefauleFilename_1_1_1]
-			this.logger.Printf("%s\tOpenSSL/BoringSSL version not found from shared library file, used default version:%s\n", this.Name(), LinuxDefauleFilename_1_1_1)
+			bpfFile, _ = m.sslVersionBpfMap[LinuxDefauleFilename_1_1_1]
+			m.logger.Printf("%s\tOpenSSL/BoringSSL version not found from shared library file, used default version:%s\n", m.Name(), LinuxDefauleFilename_1_1_1)
 		}
 	}
-	this.sslBpfFile = bpfFile
+	m.sslBpfFile = bpfFile
 	return nil
 }

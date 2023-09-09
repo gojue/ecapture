@@ -22,74 +22,81 @@ import (
 
 const (
 	TaskCommLen = 16
+	CmdlineLen  = 256
 )
 
 type TcSkbEvent struct {
-	event_type EventType
-	Ts         uint64            `json:"ts"`
-	Pid        uint32            `json:"pid"`
-	Comm       [TaskCommLen]byte `json:"Comm"`
-	Len        uint32            `json:"len"`
-	Ifindex    uint32            `json:"ifindex"`
-	payload    []byte
+	eventType EventType
+	Ts        uint64            `json:"ts"`
+	Pid       uint32            `json:"pid"`
+	Comm      [TaskCommLen]byte `json:"Comm"`
+	Cmdline   [CmdlineLen]byte  `json:"Cmdline"`
+	Len       uint32            `json:"len"`
+	Ifindex   uint32            `json:"ifindex"`
+	payload   []byte
 }
 
-func (this *TcSkbEvent) Decode(payload []byte) (err error) {
+func (te *TcSkbEvent) Decode(payload []byte) (err error) {
 	buf := bytes.NewBuffer(payload)
-	if err = binary.Read(buf, binary.LittleEndian, &this.Ts); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &te.Ts); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.Pid); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &te.Pid); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.Comm); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &te.Comm); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.Len); err != nil {
+	//if err = binary.Read(buf, binary.LittleEndian, &te.Cmdline); err != nil {
+	//	return
+	//}
+	//TODO
+	te.Cmdline[0] = 91 //ascii 91
+	if err = binary.Read(buf, binary.LittleEndian, &te.Len); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.Ifindex); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &te.Ifindex); err != nil {
 		return
 	}
-	tmpData := make([]byte, this.Len)
+	tmpData := make([]byte, te.Len)
 	if err = binary.Read(buf, binary.LittleEndian, &tmpData); err != nil {
 		return
 	}
-	this.payload = tmpData
+	te.payload = tmpData
 	return nil
 }
 
-func (this *TcSkbEvent) StringHex() string {
-	b := dumpByteSlice(this.payload, COLORGREEN)
+func (te *TcSkbEvent) StringHex() string {
+	b := dumpByteSlice(te.payload, COLORGREEN)
 	b.WriteString(COLORRESET)
-	s := fmt.Sprintf("Pid:%d, Comm:%s, Length:%d, Ifindex:%d, Payload:%s", this.Pid, this.Comm, this.Len, this.Ifindex, b.String())
+	s := fmt.Sprintf("Pid:%d, Comm:%s, Length:%d, Ifindex:%d, Payload:%s", te.Pid, te.Comm, te.Len, te.Ifindex, b.String())
 	return s
 }
 
-func (this *TcSkbEvent) String() string {
+func (te *TcSkbEvent) String() string {
 
-	s := fmt.Sprintf("Pid:%d, Comm:%s, Length:%d, Ifindex:%d, Payload:[internal data]", this.Pid, this.Comm, this.Len, this.Ifindex)
+	s := fmt.Sprintf("Pid:%d, Comm:%s, Length:%d, Ifindex:%d, Payload:[internal data]", te.Pid, te.Comm, te.Len, te.Ifindex)
 	return s
 }
 
-func (this *TcSkbEvent) Clone() IEventStruct {
+func (te *TcSkbEvent) Clone() IEventStruct {
 	event := new(TcSkbEvent)
-	event.event_type = EventTypeModuleData
+	event.eventType = EventTypeModuleData
 	return event
 }
 
-func (this *TcSkbEvent) EventType() EventType {
-	return this.event_type
+func (te *TcSkbEvent) EventType() EventType {
+	return te.eventType
 }
 
-func (this *TcSkbEvent) GetUUID() string {
-	return fmt.Sprintf("%d-%d-%s", this.Pid, this.Ifindex, this.Comm)
+func (te *TcSkbEvent) GetUUID() string {
+	return fmt.Sprintf("%d-%d-%s", te.Pid, te.Ifindex, te.Comm)
 }
 
-func (this *TcSkbEvent) Payload() []byte {
-	return this.payload
+func (te *TcSkbEvent) Payload() []byte {
+	return te.payload
 }
 
-func (this *TcSkbEvent) PayloadLen() int {
-	return int(this.Len)
+func (te *TcSkbEvent) PayloadLen() int {
+	return int(te.Len)
 }

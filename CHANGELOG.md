@@ -1,5 +1,30 @@
 <hr>
 
+# v0.6.1 (2023-07-16)
+## What's Changed
+* fix #378 , error: use of undeclared identifier 'KBUILD_MODNAME'  by @cfc4n in https://github.com/gojue/ecapture/pull/379
+* feat:add openssl 1.1.1u and 3.0.9   by @cfc4n in https://github.com/gojue/ecapture/pull/380
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v0.6.0...v0.6.1
+
+<hr>
+
+# v0.6.0 (2023-07-02)
+## 🚀 Breaking Changes
+Associating process information with network packets. usage: `cp utils/ecapture.lua ~/.wireshark/plugins` .
+![](images/ecapture-pid.png)
+![](images/ecapture-wireshark-lua-plugin.png)
+
+## What's Changed
+* code refactoring by @cfc4n in https://github.com/gojue/ecapture/pull/371
+* Tls response unexpected eof by @cfc4n in https://github.com/gojue/ecapture/pull/372
+* modify func isCOntainerCgroup to isContainerCgroup, and where referenced by @chusyclub in https://github.com/gojue/ecapture/pull/374
+* feat: Associate corresponding process information with each network packet. by @cfc4n in https://github.com/gojue/ecapture/pull/376
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v0.5.3...v0.6.0
+
+<hr>
+
 # v0.5.3 (2023-05-21)
 ## What's Changed
 * user: fixes slice out of range by @cfc4n in https://github.com/gojue/ecapture/pull/366

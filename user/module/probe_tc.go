@@ -2,7 +2,9 @@ package module
 
 import (
 	"bytes"
+	"ecapture/pkg/util/ethernet"
 	"ecapture/user/event"
+	"encoding/binary"
 	"fmt"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
@@ -10,6 +12,7 @@ import (
 	"math"
 	"net"
 	"os"
+	"strings"
 	"sync"
 	"time"
 )
@@ -23,6 +26,41 @@ type TcPacket struct {
 type NetCaptureData struct {
 	PacketLength     uint32 `json:"pktLen"`
 	ConfigIfaceIndex uint32 `json:"ifIndex"`
+}
+
+const EcaptureMagic = 0xCC0C4CFC
+
+type packetMetaData struct {
+	Magic  uint32 `struc:"uint32"`
+	Pid    uint32 `struc:"uint32"`
+	CmdLen uint8  `struc:"uint8,sizeof=Cmd"`
+	Cmd    string
+}
+
+func (p *packetMetaData) Pack() ([]byte, error) {
+	buf := new(bytes.Buffer)
+
+	// 使用 binary.BigEndian 将字段按大端字节序写入缓冲区
+	err := binary.Write(buf, binary.BigEndian, p.Magic)
+	if err != nil {
+		return nil, err
+	}
+
+	err = binary.Write(buf, binary.BigEndian, p.Pid)
+	if err != nil {
+		return nil, err
+	}
+
+	err = binary.Write(buf, binary.BigEndian, p.CmdLen)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = buf.WriteString(p.Cmd)
+	if err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
 func (NetCaptureData) GetSizeBytes() uint32 {
@@ -43,21 +81,74 @@ type MTCProbe struct {
 	tcPacketLocker  *sync.Mutex
 }
 
-func (this *MTCProbe) dumpTcSkb(tcEvent *event.TcSkbEvent) error {
-	var timeStamp = this.bootTime + tcEvent.Ts
-	return this.writePacket(tcEvent.Len, time.Unix(0, int64(timeStamp)), tcEvent.Payload())
+func (t *MTCProbe) dumpTcSkb(tcEvent *event.TcSkbEvent) error {
+	var timeStamp = t.bootTime + tcEvent.Ts
+	var payload []byte
+	payload = tcEvent.Payload()
+	if tcEvent.Pid > 0 {
+		err, p := t.writePid(tcEvent)
+		if err == nil {
+			payload = p
+			//fmt.Printf("pid:%d, comm:%s, cmdline:%s\n", tcEvent.Pid, tcEvent.Comm, tcEvent.Cmdline)
+		}
+	}
+	return t.writePacket(uint32(len(payload)), time.Unix(0, int64(timeStamp)), payload)
+}
+
+func (t *MTCProbe) writePid(tcEvent *event.TcSkbEvent) (error, []byte) {
+	ethPacket := gopacket.NewPacket(
+		tcEvent.Payload(),
+		layers.LayerTypeEthernet,
+		gopacket.Default,
+	)
+
+	oldEthLayer := ethPacket.Layers()[0].(*layers.Ethernet)
+
+	// subtract oldethelayer from the begining of ethpacket
+	restOfLayers := ethPacket.Layers()[1:]
+	remainder := []byte{}
+	for _, layer := range restOfLayers {
+		// we can correlate metadata only in TCP or UDP for now
+		remainder = append(remainder, layer.LayerContents()...)
+	}
+	metadata := packetMetaData{}
+	metadata.Magic = EcaptureMagic
+	metadata.Pid = tcEvent.Pid
+	var cmd = strings.TrimSpace(fmt.Sprintf("%s", tcEvent.Comm))
+	metadata.CmdLen = uint8(len(cmd))
+	metadata.Cmd = cmd
+
+	var pt []byte
+	var err error
+	pt, err = metadata.Pack()
+	if err != nil {
+		return err, []byte{}
+	}
+	newEtherLayer := &ethernet.EthernetWithTrailer{
+		SrcMAC:       oldEthLayer.SrcMAC,
+		DstMAC:       oldEthLayer.DstMAC,
+		EthernetType: oldEthLayer.EthernetType,
+		Trailer:      pt,
+	}
+
+	buffer := gopacket.NewSerializeBuffer()
+	err = gopacket.SerializeLayers(buffer, gopacket.SerializeOptions{false, false}, newEtherLayer, gopacket.Payload(remainder))
+	if err != nil {
+		return err, []byte{}
+	}
+	return nil, buffer.Bytes()
 }
 
 // save pcapng file ,merge master key into pcapng file TODO
-func (this *MTCProbe) savePcapng() (i int, err error) {
-	err = this.pcapWriter.WriteDecryptionSecretsBlock(pcapgo.DSB_SECRETS_TYPE_TLS, this.masterKeyBuffer.Bytes())
+func (t *MTCProbe) savePcapng() (i int, err error) {
+	err = t.pcapWriter.WriteDecryptionSecretsBlock(pcapgo.DSB_SECRETS_TYPE_TLS, t.masterKeyBuffer.Bytes())
 	if err != nil {
 		return
 	}
-	this.tcPacketLocker.Lock()
-	defer this.tcPacketLocker.Unlock()
-	for _, packet := range this.tcPackets {
-		err = this.pcapWriter.WritePacket(packet.info, packet.data)
+	t.tcPacketLocker.Lock()
+	defer t.tcPacketLocker.Unlock()
+	for _, packet := range t.tcPackets {
+		err = t.pcapWriter.WritePacket(packet.info, packet.data)
 		i++
 		if err != nil {
 			return
@@ -67,12 +158,12 @@ func (this *MTCProbe) savePcapng() (i int, err error) {
 	if i == 0 {
 		return
 	}
-	err = this.pcapWriter.Flush()
+	err = t.pcapWriter.Flush()
 	return
 }
 
-func (this *MTCProbe) createPcapng(netIfs []net.Interface) error {
-	pcapFile, err := os.OpenFile(this.pcapngFilename, os.O_TRUNC|os.O_WRONLY|os.O_CREATE, 0644)
+func (t *MTCProbe) createPcapng(netIfs []net.Interface) error {
+	pcapFile, err := os.OpenFile(t.pcapngFilename, os.O_TRUNC|os.O_WRONLY|os.O_CREATE, 0644)
 	if err != nil {
 		return fmt.Errorf("error creating pcap file: %v", err)
 	}
@@ -80,15 +171,15 @@ func (this *MTCProbe) createPcapng(netIfs []net.Interface) error {
 	// TODO : write Application "ecapture.lua" to decode PID/Comm info.
 	pcapOption := pcapgo.NgWriterOptions{
 		SectionInfo: pcapgo.NgSectionInfo{
-			Hardware:    "eCapture Hardware",
-			OS:          "",
+			Hardware:    "eCapture (旁观者) Hardware",
+			OS:          "Linux/Android",
 			Application: "ecapture.lua",
 			Comment:     "see https://ecapture.cc for more information. CFC4N <cfc4n.cs@gmail.com>",
 		},
 	}
 	// write interface description
 	ngIface := pcapgo.NgInterface{
-		Name:       this.ifName,
+		Name:       t.ifName,
 		Comment:    "eCapture (旁观者): github.com/gojue/ecapture",
 		Filter:     "",
 		LinkType:   layers.LinkTypeEthernet,
@@ -110,7 +201,7 @@ func (this *MTCProbe) createPcapng(netIfs []net.Interface) error {
 			SnapLength: uint32(math.MaxUint16),
 		}
 
-		_, err := pcapWriter.AddInterface(ngIface)
+		_, err = pcapWriter.AddInterface(ngIface)
 		if err != nil {
 			return err
 		}
@@ -123,11 +214,14 @@ func (this *MTCProbe) createPcapng(netIfs []net.Interface) error {
 	}
 
 	// TODO 保存数据包所属进程ID信息，以LRU Cache方式存储。
-	this.pcapWriter = pcapWriter
+	t.pcapWriter = pcapWriter
 	return nil
 }
 
-func (this *MTCProbe) writePacket(dataLen uint32, timeStamp time.Time, packetBytes []byte) error {
+func (t *MTCProbe) writePacket(dataLen uint32, timeStamp time.Time, packetBytes []byte) error {
+
+	// TODO add packetMeta info (e.g: process. pid, commom, etc.)
+	
 	info := gopacket.CaptureInfo{
 		Timestamp:     timeStamp,
 		CaptureLength: int(dataLen),
@@ -141,11 +235,11 @@ func (this *MTCProbe) writePacket(dataLen uint32, timeStamp time.Time, packetByt
 
 	packet := &TcPacket{info: info, data: packetBytes}
 
-	this.tcPackets = append(this.tcPackets, packet)
+	t.tcPackets = append(t.tcPackets, packet)
 	return nil
 }
 
-func (this *MTCProbe) savePcapngSslKeyLog(sslKeyLog []byte) (err error) {
-	_, e := this.masterKeyBuffer.Write(sslKeyLog)
+func (t *MTCProbe) savePcapngSslKeyLog(sslKeyLog []byte) (err error) {
+	_, e := t.masterKeyBuffer.Write(sslKeyLog)
 	return e
 }

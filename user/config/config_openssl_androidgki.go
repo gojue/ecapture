@@ -29,22 +29,22 @@ const (
 	DefaultIfname = "wlan0"
 )
 
-func (this *OpensslConfig) Check() error {
-	this.IsAndroid = true
+func (oc *OpensslConfig) Check() error {
+	oc.IsAndroid = true
 	// 如果readline 配置，且存在，则直接返回。
-	if this.Openssl != "" || len(strings.TrimSpace(this.Openssl)) > 0 {
-		_, e := os.Stat(this.Openssl)
+	if oc.Openssl != "" || len(strings.TrimSpace(oc.Openssl)) > 0 {
+		_, e := os.Stat(oc.Openssl)
 		if e != nil {
 			return e
 		}
-		this.ElfType = ElfTypeSo
+		oc.ElfType = ElfTypeSo
 	} else {
-		this.ElfType = ElfTypeSo
-		this.Openssl = DefaultOpensslPath
+		oc.ElfType = ElfTypeSo
+		oc.Openssl = DefaultOpensslPath
 	}
 
-	if this.Ifname == "" || len(strings.TrimSpace(this.Ifname)) == 0 {
-		this.Ifname = DefaultIfname
+	if oc.Ifname == "" || len(strings.TrimSpace(oc.Ifname)) == 0 {
+		oc.Ifname = DefaultIfname
 	}
 	return nil
 }

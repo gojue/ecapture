@@ -52,32 +52,32 @@ func NewMysqldConfig() *MysqldConfig {
 	return config
 }
 
-func (this *MysqldConfig) Check() error {
+func (mc *MysqldConfig) Check() error {
 
 	// 如果readline 配置，且存在，则直接返回。
-	if this.Mysqldpath == "" || len(strings.TrimSpace(this.Mysqldpath)) <= 0 {
+	if mc.Mysqldpath == "" || len(strings.TrimSpace(mc.Mysqldpath)) <= 0 {
 		return errors.New("Mysqld path cant be null.")
 	}
 
-	_, e := os.Stat(this.Mysqldpath)
+	_, e := os.Stat(mc.Mysqldpath)
 	if e != nil {
 		return e
 	}
-	this.ElfType = ElfTypeBin
+	mc.ElfType = ElfTypeBin
 
 	//如果配置 funcname ，则使用用户指定的函数名
-	if this.FuncName != "" || len(strings.TrimSpace(this.FuncName)) > 0 {
+	if mc.FuncName != "" || len(strings.TrimSpace(mc.FuncName)) > 0 {
 		return nil
 	}
 
 	//如果配置 Offset ，则使用用户指定的Offset
-	if this.Offset > 0 {
-		this.FuncName = "[_IGNORE_]"
+	if mc.Offset > 0 {
+		mc.FuncName = "[_IGNORE_]"
 		return nil
 	}
 
 	//r, _ := regexp.Compile("^(?:# *)?(CONFIG_\\w*)(?:=| )(y|n|m|is not set|\\d+|0x.+|\".*\")$")
-	_elf, e := elf.Open(this.Mysqldpath)
+	_elf, e := elf.Open(mc.Mysqldpath)
 	if e != nil {
 		return e
 	}
@@ -103,11 +103,11 @@ func (this *MysqldConfig) Check() error {
 
 	//如果没找到，则报错。
 	if funcName == "" {
-		return errors.New(fmt.Sprintf("cant match mysql query function to hook with mysqld file::%s", this.Mysqldpath))
+		return errors.New(fmt.Sprintf("cant match mysql query function to hook with mysqld file::%s", mc.Mysqldpath))
 	}
 
-	this.Version = MysqldType56
-	this.VersionInfo = "mysqld-5.6"
+	mc.Version = MysqldType56
+	mc.VersionInfo = "mysqld-5.6"
 
 	// 判断mysqld 版本
 	found := strings.Contains(funcName, "COM_DATA")
@@ -120,11 +120,11 @@ func (this *MysqldConfig) Check() error {
 		if e == nil {
 			ver, verInfo = getMysqlVer(buf)
 		}
-		this.Version = ver
-		this.VersionInfo = verInfo
+		mc.Version = ver
+		mc.VersionInfo = verInfo
 	}
 
-	this.FuncName = funcName
+	mc.FuncName = funcName
 
 	return nil
 }

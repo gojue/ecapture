@@ -33,12 +33,12 @@ type NetEventMetadata struct {
 	ProcessName [16]byte `json:"processName"`
 }
 
-func (this *MOpenSSLProbe) setupManagersTC() error {
+func (m *MOpenSSLProbe) setupManagersTC() error {
 	var ifname, binaryPath, sslVersion string
 
-	ifname = this.conf.(*config.OpensslConfig).Ifname
-	this.ifName = ifname
-	interf, err := net.InterfaceByName(this.ifName)
+	ifname = m.conf.(*config.OpensslConfig).Ifname
+	m.ifName = ifname
+	interf, err := net.InterfaceByName(m.ifName)
 	if err != nil {
 		return err
 	}
@@ -47,33 +47,33 @@ func (this *MOpenSSLProbe) setupManagersTC() error {
 	isNetIfaceLo := interf.Flags&net.FlagLoopback == net.FlagLoopback
 	skipLoopback := true // TODO: detect loopback devices via aquasecrity/tracee/pkg/ebpf/probes/probe.go line 322
 	if isNetIfaceLo && skipLoopback {
-		return fmt.Errorf("%s\t%s is a loopback interface, skip it", this.Name(), this.ifName)
+		return fmt.Errorf("%s\t%s is a loopback interface, skip it", m.Name(), m.ifName)
 	}
-	this.ifIdex = interf.Index
+	m.ifIdex = interf.Index
 
-	sslVersion = this.conf.(*config.OpensslConfig).SslVersion
+	sslVersion = m.conf.(*config.OpensslConfig).SslVersion
 	sslVersion = strings.ToLower(sslVersion)
-	switch this.conf.(*config.OpensslConfig).ElfType {
-	case config.ElfTypeBin:
-		binaryPath = this.conf.(*config.OpensslConfig).Curlpath
+	switch m.conf.(*config.OpensslConfig).ElfType {
+	//case config.ElfTypeBin:
+	//	binaryPath = m.conf.(*config.OpensslConfig).Curlpath
 	case config.ElfTypeSo:
-		binaryPath = this.conf.(*config.OpensslConfig).Openssl
-		err := this.getSslBpfFile(binaryPath, sslVersion)
+		binaryPath = m.conf.(*config.OpensslConfig).Openssl
+		err := m.getSslBpfFile(binaryPath, sslVersion)
 		if err != nil {
 			return err
 		}
 	default:
 		//如果没找到
 		binaryPath = "/lib/x86_64-linux-gnu/libssl.so.1.1"
-		err := this.getSslBpfFile(binaryPath, sslVersion)
+		err := m.getSslBpfFile(binaryPath, sslVersion)
 		if err != nil {
 			return err
 		}
 	}
 
-	this.logger.Printf("%s\tHOOK type:%d, binrayPath:%s\n", this.Name(), this.conf.(*config.OpensslConfig).ElfType, binaryPath)
-	this.logger.Printf("%s\tIfname:%s, Ifindex:%d,  Port:%d, Pcapng filepath:%s\n", this.Name(), this.ifName, this.ifIdex, this.conf.(*config.OpensslConfig).Port, this.pcapngFilename)
-	this.logger.Printf("%s\tHook masterKey function:%s\n", this.Name(), this.masterHookFunc)
+	m.logger.Printf("%s\tHOOK type:%d, binrayPath:%s\n", m.Name(), m.conf.(*config.OpensslConfig).ElfType, binaryPath)
+	m.logger.Printf("%s\tIfname:%s, Ifindex:%d,  Port:%d, Pcapng filepath:%s\n", m.Name(), m.ifName, m.ifIdex, m.conf.(*config.OpensslConfig).Port, m.pcapngFilename)
+	m.logger.Printf("%s\tHook masterKey function:%s\n", m.Name(), m.masterHookFunc)
 
 	// create pcapng writer
 	netIfs, err := net.Interfaces()
@@ -81,12 +81,12 @@ func (this *MOpenSSLProbe) setupManagersTC() error {
 		return err
 	}
 
-	err = this.createPcapng(netIfs)
+	err = m.createPcapng(netIfs)
 	if err != nil {
 		return err
 	}
 
-	this.bpfManager = &manager.Manager{
+	m.bpfManager = &manager.Manager{
 		Probes: []*manager.Probe{
 			// customize deleteed TC filter
 			// tc filter del dev eth0 ingress
@@ -100,13 +100,13 @@ func (this *MOpenSSLProbe) setupManagersTC() error {
 			{
 				Section:          "classifier/egress",
 				EbpfFuncName:     "egress_cls_func",
-				Ifname:           this.ifName,
+				Ifname:           m.ifName,
 				NetworkDirection: manager.Egress,
 			},
 			{
 				Section:          "classifier/ingress",
 				EbpfFuncName:     "ingress_cls_func",
-				Ifname:           this.ifName,
+				Ifname:           m.ifName,
 				NetworkDirection: manager.Ingress,
 			},
 			// --------------------------------------------------
@@ -115,9 +115,15 @@ func (this *MOpenSSLProbe) setupManagersTC() error {
 			{
 				Section:          "uprobe/SSL_write_key",
 				EbpfFuncName:     "probe_ssl_master_key",
-				AttachToFuncName: this.masterHookFunc, // SSL_do_handshake or SSL_write
+				AttachToFuncName: m.masterHookFunc, // SSL_do_handshake or SSL_write
 				BinaryPath:       binaryPath,
 				UID:              "uprobe_ssl_master_key",
+			},
+			//
+			{
+				EbpfFuncName:     "tcp_sendmsg",
+				Section:          "kprobe/tcp_sendmsg",
+				AttachToFuncName: "tcp_sendmsg",
 			},
 		},
 
@@ -131,7 +137,7 @@ func (this *MOpenSSLProbe) setupManagersTC() error {
 		},
 	}
 
-	this.bpfManagerOptions = manager.Options{
+	m.bpfManagerOptions = manager.Options{
 		DefaultKProbeMaxActive: 512,
 
 		VerifierOptions: ebpf.CollectionOptions{
@@ -146,45 +152,45 @@ func (this *MOpenSSLProbe) setupManagersTC() error {
 		},
 	}
 
-	if this.conf.EnableGlobalVar() {
+	if m.conf.EnableGlobalVar() {
 		// 填充 RewriteContants 对应map
-		this.bpfManagerOptions.ConstantEditors = this.constantEditor()
+		m.bpfManagerOptions.ConstantEditors = m.constantEditor()
 	}
 	return nil
 }
 
-func (this *MOpenSSLProbe) initDecodeFunTC() error {
+func (m *MOpenSSLProbe) initDecodeFunTC() error {
 	//SkbEventsMap 与解码函数映射
-	SkbEventsMap, found, err := this.bpfManager.GetMap("skb_events")
+	SkbEventsMap, found, err := m.bpfManager.GetMap("skb_events")
 	if err != nil {
 		return err
 	}
 	if !found {
 		return errors.New("cant found map:skb_events")
 	}
-	this.eventMaps = append(this.eventMaps, SkbEventsMap)
+	m.eventMaps = append(m.eventMaps, SkbEventsMap)
 	sslEvent := &event.TcSkbEvent{}
-	//sslEvent.SetModule(this)
-	this.eventFuncMaps[SkbEventsMap] = sslEvent
+	//sslEvent.SetModule(m)
+	m.eventFuncMaps[SkbEventsMap] = sslEvent
 
-	MasterkeyEventsMap, found, err := this.bpfManager.GetMap("mastersecret_events")
+	MasterkeyEventsMap, found, err := m.bpfManager.GetMap("mastersecret_events")
 	if err != nil {
 		return err
 	}
 	if !found {
 		return errors.New("cant found map:mastersecret_events")
 	}
-	this.eventMaps = append(this.eventMaps, MasterkeyEventsMap)
+	m.eventMaps = append(m.eventMaps, MasterkeyEventsMap)
 
 	var masterkeyEvent event.IEventStruct
 
-	if this.isBoringSSL {
+	if m.isBoringSSL {
 		masterkeyEvent = &event.MasterSecretBSSLEvent{}
 	} else {
 		masterkeyEvent = &event.MasterSecretEvent{}
 	}
 
-	//masterkeyEvent.SetModule(this)
-	this.eventFuncMaps[MasterkeyEventsMap] = masterkeyEvent
+	//masterkeyEvent.SetModule(m)
+	m.eventFuncMaps[MasterkeyEventsMap] = masterkeyEvent
 	return nil
 }

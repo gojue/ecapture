@@ -18,82 +18,77 @@
 package config
 
 import (
-	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 )
 
 const (
-	DefaultIfname = "eth0"
+	DefaultIfname      = "eth0"
+	DefaultOpensslPath = "/apex/com.android.conscrypt/lib64/libssl.so"
 )
 
-func (this *OpensslConfig) checkOpenssl() error {
-	soPath, e := getDynPathByElf(this.Curlpath, "libssl.so")
+func (oc *OpensslConfig) checkOpenssl() error {
+	var e error
+	_, e = os.Stat(X86BinaryPrefix)
+	prefix := X86BinaryPrefix
 	if e != nil {
-		//this.logger.Printf("get bash:%s dynamic library error:%v.\n", bash, e)
-		_, e = os.Stat(X86BinaryPrefix)
-		prefix := X86BinaryPrefix
-		if e != nil {
-			prefix = OthersBinaryPrefix
-		}
+		prefix = OthersBinaryPrefix
+	}
 
-		//	ubuntu 21.04	libssl.so.1.1   default
-		this.Openssl = filepath.Join(prefix, "libssl.so.1.1")
-		this.ElfType = ElfTypeSo
-		_, e = os.Stat(this.Openssl)
-		if e != nil {
-			return e
-		}
-	} else {
-		this.Openssl = soPath
-		this.ElfType = ElfTypeSo
+	//	ubuntu 21.04	libssl.so.1.1   default
+	oc.Openssl = filepath.Join(prefix, "libssl.so.1.1")
+	oc.ElfType = ElfTypeSo
+	_, e = os.Stat(oc.Openssl)
+	if e != nil {
+		return e
 	}
 	return nil
 }
 
-func (this *OpensslConfig) Check() error {
-	this.IsAndroid = false
+func (oc *OpensslConfig) Check() error {
+	oc.IsAndroid = false
 	var checkedOpenssl bool
 	// 如果readline 配置，且存在，则直接返回。
-	if this.Openssl != "" || len(strings.TrimSpace(this.Openssl)) > 0 {
-		_, e := os.Stat(this.Openssl)
+	if oc.Openssl != "" || len(strings.TrimSpace(oc.Openssl)) > 0 {
+		_, e := os.Stat(oc.Openssl)
 		if e != nil {
 			return e
 		}
-		this.ElfType = ElfTypeSo
+		oc.ElfType = ElfTypeSo
 		checkedOpenssl = true
 	}
-
-	//如果配置 Curlpath的地址，判断文件是否存在，不存在则直接返回
-	if this.Curlpath != "" || len(strings.TrimSpace(this.Curlpath)) > 0 {
-		_, e := os.Stat(this.Curlpath)
-		if e != nil {
-			return e
+	/*
+		//如果配置 Curlpath的地址，判断文件是否存在，不存在则直接返回
+		if oc.Curlpath != "" || len(strings.TrimSpace(oc.Curlpath)) > 0 {
+			_, e := os.Stat(oc.Curlpath)
+			if e != nil {
+				return e
+			}
+		} else {
+			//如果没配置，则直接指定。
+			oc.Curlpath = "/usr/bin/curl"
 		}
-	} else {
-		//如果没配置，则直接指定。
-		this.Curlpath = "/usr/bin/curl"
-	}
 
-	if this.Ifname == "" || len(strings.TrimSpace(this.Ifname)) == 0 {
-		this.Ifname = DefaultIfname
-	}
+		if oc.Ifname == "" || len(strings.TrimSpace(oc.Ifname)) == 0 {
+			oc.Ifname = DefaultIfname
+		}
 
-	if checkedOpenssl {
-		return nil
-	}
-
-	if this.NoSearch {
-		return errors.New("NoSearch requires specifying lib path")
-	}
-
+		if checkedOpenssl {
+			return nil
+		}
+	*/
 	if !checkedOpenssl {
-		e := this.checkOpenssl()
+		e := oc.checkOpenssl()
 		if e != nil {
 			return e
 		}
 	}
 
+	s, e := checkCgroupPath(oc.CGroupPath)
+	if e != nil {
+		return e
+	}
+	oc.CGroupPath = s
 	return nil
 }

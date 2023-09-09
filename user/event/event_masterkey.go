@@ -33,8 +33,8 @@ const (
 	    u8 master_key[MASTER_SECRET_MAX_LEN];
 */
 type MasterSecretEvent struct {
-	event_type EventType
-	Version    int32 `json:"version"` // TLS Version
+	eventType EventType
+	Version   int32 `json:"version"` // TLS Version
 
 	// TLS 1.2 or older
 	ClientRandom [Ssl3RandomSize]byte     `json:"clientRandom"` // Client Random
@@ -50,75 +50,75 @@ type MasterSecretEvent struct {
 	payload                string
 }
 
-func (this *MasterSecretEvent) Decode(payload []byte) (err error) {
+func (me *MasterSecretEvent) Decode(payload []byte) (err error) {
 	buf := bytes.NewBuffer(payload)
-	if err = binary.Read(buf, binary.LittleEndian, &this.Version); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &me.Version); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.ClientRandom); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &me.ClientRandom); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.MasterKey); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &me.MasterKey); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.CipherId); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &me.CipherId); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.HandshakeSecret); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &me.HandshakeSecret); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.HandshakeTrafficHash); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &me.HandshakeTrafficHash); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.ClientAppTrafficSecret); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &me.ClientAppTrafficSecret); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.ServerAppTrafficSecret); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &me.ServerAppTrafficSecret); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.ExporterMasterSecret); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &me.ExporterMasterSecret); err != nil {
 		return
 	}
-	this.payload = fmt.Sprintf("CLIENT_RANDOM %02x %02x", this.ClientRandom, this.MasterKey)
+	me.payload = fmt.Sprintf("CLIENT_RANDOM %02x %02x", me.ClientRandom, me.MasterKey)
 	return nil
 }
 
-func (this *MasterSecretEvent) StringHex() string {
+func (me *MasterSecretEvent) StringHex() string {
 	v := TlsVersion{
-		Version: this.Version,
+		Version: me.Version,
 	}
-	s := fmt.Sprintf("TLS Version:%s, ClientRandom:%02x", v.String(), this.ClientRandom)
+	s := fmt.Sprintf("TLS Version:%s, ClientRandom:%02x", v.String(), me.ClientRandom)
 	return s
 }
 
-func (this *MasterSecretEvent) String() string {
+func (me *MasterSecretEvent) String() string {
 	v := TlsVersion{
-		Version: this.Version,
+		Version: me.Version,
 	}
-	s := fmt.Sprintf("TLS Version:%s, ClientRandom:%02x", v.String(), this.ClientRandom)
+	s := fmt.Sprintf("TLS Version:%s, ClientRandom:%02x", v.String(), me.ClientRandom)
 	return s
 }
 
-func (this *MasterSecretEvent) Clone() IEventStruct {
+func (me *MasterSecretEvent) Clone() IEventStruct {
 	event := new(MasterSecretEvent)
-	event.event_type = EventTypeModuleData
+	event.eventType = EventTypeModuleData
 	return event
 }
 
-func (this *MasterSecretEvent) EventType() EventType {
-	return this.event_type
+func (me *MasterSecretEvent) EventType() EventType {
+	return me.eventType
 }
 
-func (this *MasterSecretEvent) GetUUID() string {
-	return fmt.Sprintf("%02X", this.ClientRandom)
+func (me *MasterSecretEvent) GetUUID() string {
+	return fmt.Sprintf("%02X", me.ClientRandom)
 }
 
-func (this *MasterSecretEvent) Payload() []byte {
-	return []byte(this.payload)
+func (me *MasterSecretEvent) Payload() []byte {
+	return []byte(me.payload)
 }
 
-func (this *MasterSecretEvent) PayloadLen() int {
-	return len(this.payload)
+func (me *MasterSecretEvent) PayloadLen() int {
+	return len(me.payload)
 }
 
 // for BoringSSL  TLS 1.3

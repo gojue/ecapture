@@ -98,7 +98,7 @@ func TestBpfConfig(t *testing.T) {
 }
 
 func TestIsContainerCgroup(t *testing.T) {
-	isContainer, err := isCOntainerCgroup()
+	isContainer, err := isContainerCgroup()
 	if err != nil {
 		t.Fatalf("TestIsContainerCgroup :: IsContainer error:%s", err.Error())
 	}

@@ -31,84 +31,83 @@ type HTTPRequest struct {
 	bufReader  *bufio.Reader
 }
 
-func (this *HTTPRequest) Init() {
-	this.reader = bytes.NewBuffer(nil)
-	this.bufReader = bufio.NewReader(this.reader)
+func (hr *HTTPRequest) Init() {
+	hr.reader = bytes.NewBuffer(nil)
+	hr.bufReader = bufio.NewReader(hr.reader)
 }
 
-func (this *HTTPRequest) Name() string {
+func (hr *HTTPRequest) Name() string {
 	return "HTTPRequest"
 }
 
-func (this *HTTPRequest) PacketType() PacketType {
-	return this.packerType
+func (hr *HTTPRequest) PacketType() PacketType {
+	return hr.packerType
 }
 
-func (this *HTTPRequest) ParserType() ParserType {
+func (hr *HTTPRequest) ParserType() ParserType {
 	return ParserTypeHttpRequest
 }
 
-func (this *HTTPRequest) Write(b []byte) (int, error) {
+func (hr *HTTPRequest) Write(b []byte) (int, error) {
 	// 如果未初始化
-	if !this.isInit {
-		n, e := this.reader.Write(b)
+	if !hr.isInit {
+		n, e := hr.reader.Write(b)
 		if e != nil {
 			return n, e
 		}
-		req, err := http.ReadRequest(this.bufReader)
+		req, err := http.ReadRequest(hr.bufReader)
 		if err != nil {
 			return 0, err
 		}
-		this.request = req
-		this.isInit = true
+		hr.request = req
+		hr.isInit = true
 		return n, nil
 	}
 
 	// 如果已初始化
-	l, e := this.reader.Write(b)
+	l, e := hr.reader.Write(b)
 	if e != nil {
 		return 0, e
 	}
-
 	// TODO 检测是否接收完整个包
 	if false {
-		this.isDone = true
+		hr.isDone = true
 	}
 
 	return l, nil
 }
 
-func (this *HTTPRequest) detect(payload []byte) error {
-	//this.Init()
+func (hr *HTTPRequest) detect(payload []byte) error {
+	//hr.Init()
 	rd := bytes.NewReader(payload)
 	buf := bufio.NewReader(rd)
 	req, err := http.ReadRequest(buf)
 	if err != nil {
 		return err
 	}
-	this.request = req
+	hr.request = req
 	return nil
 }
 
-func (this *HTTPRequest) IsDone() bool {
-	return this.isDone
+func (hr *HTTPRequest) IsDone() bool {
+	return hr.isDone
 }
 
-func (this *HTTPRequest) Reset() {
-	this.isDone = false
-	this.isInit = false
-	this.reader.Reset()
-	this.bufReader.Reset(this.reader)
+func (hr *HTTPRequest) Reset() {
+	hr.isDone = false
+	hr.isInit = false
+	hr.reader.Reset()
+	hr.bufReader.Reset(hr.reader)
 }
 
-func (this *HTTPRequest) Display() []byte {
-	if this.request.Proto == "HTTP/2.0" {
-		return this.reader.Bytes()
+func (hr *HTTPRequest) Display() []byte {
+	if hr.request.Proto == "HTTP/2.0" {
+		return hr.reader.Bytes()
 	}
-	b, e := httputil.DumpRequest(this.request, true)
+	b, e := httputil.DumpRequest(hr.request, true)
 	if e != nil {
 		log.Println("DumpRequest error:", e)
-		return nil
+		return hr.reader.Bytes()
 	}
 	return b
 }
