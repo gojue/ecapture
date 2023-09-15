@@ -306,7 +306,7 @@ func (m *MOpenSSLProbe) setupManagersUprobe() error {
 	}
 
 	m.logger.Printf("%s\tHOOK type:%d, binrayPath:%s\n", m.Name(), m.conf.(*config.OpensslConfig).ElfType, binaryPath)
-	m.logger.Printf("%s\tlibPthread:%s\n", m.Name(), m.conf.(*config.OpensslConfig).Pthread, libPthread)
+	m.logger.Printf("%s\tlibPthread:%s\n", m.Name(), libPthread)
 	m.logger.Printf("%s\tHook masterKey function:%s\n", m.Name(), m.masterHookFunc)
 
 	m.bpfManager = &manager.Manager{
