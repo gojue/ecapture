@@ -153,6 +153,9 @@ func (se *SSLDataEvent) StringHex() string {
 func (se *SSLDataEvent) String() string {
 	//addr := se.module.(*module.MOpenSSLProbe).GetConn(se.Pid, se.Fd)
 	addr := "[TODO]"
+	if se.Addr != "" {
+		addr = se.Addr
+	}
 	var perfix, connInfo string
 	switch AttachType(se.DataType) {
 	case ProbeEntry:
