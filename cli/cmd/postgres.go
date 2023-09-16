@@ -62,6 +62,7 @@ func postgresCommandFunc(command *cobra.Command, args []string) {
 		logger.Fatal(e)
 		os.Exit(1)
 	}
+	logger.SetOutput(gConf.writer)
 	postgresConfig.Pid = gConf.Pid
 	postgresConfig.Debug = gConf.Debug
 	postgresConfig.IsHex = gConf.IsHex

@@ -79,6 +79,7 @@ type SSLDataEvent struct {
 	Comm      [16]byte          `json:"Comm"`
 	Fd        uint32            `json:"fd"`
 	Version   int32             `json:"version"`
+	Addr      string
 }
 
 func (se *SSLDataEvent) Decode(payload []byte) (err error) {
@@ -152,6 +153,9 @@ func (se *SSLDataEvent) StringHex() string {
 func (se *SSLDataEvent) String() string {
 	//addr := se.module.(*module.MOpenSSLProbe).GetConn(se.Pid, se.Fd)
 	addr := "[TODO]"
+	if se.Addr != "" {
+		addr = se.Addr
+	}
 	var perfix, connInfo string
 	switch AttachType(se.DataType) {
 	case ProbeEntry:
@@ -170,7 +174,7 @@ func (se *SSLDataEvent) String() string {
 
 func (se *SSLDataEvent) Clone() IEventStruct {
 	event := new(SSLDataEvent)
-	event.eventType = EventTypeEventProcessor
+	event.eventType = EventTypeModuleData //EventTypeEventProcessor
 	return event
 }
 

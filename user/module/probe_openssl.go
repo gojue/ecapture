@@ -38,6 +38,7 @@ import (
 
 const (
 	ConnNotFound = "[ADDR_NOT_FOUND]"
+	DefaultAddr  = "0.0.0.0"
 )
 
 type Tls13MasterSecret struct {
@@ -64,7 +65,7 @@ type MOpenSSLProbe struct {
 	eventMaps         []*ebpf.Map
 
 	// pid[fd:Addr]
-	//pidConns map[uint32]map[uint32]string
+	pidConns map[uint32]map[uint32]string
 
 	keyloggerFilename string
 	keylogger         *os.File
@@ -85,7 +86,7 @@ func (m *MOpenSSLProbe) Init(ctx context.Context, logger *log.Logger, conf confi
 	m.Module.SetChild(m)
 	m.eventMaps = make([]*ebpf.Map, 0, 2)
 	m.eventFuncMaps = make(map[*ebpf.Map]event.IEventStruct)
-	//m.pidConns = make(map[uint32]map[uint32]string)
+	m.pidConns = make(map[uint32]map[uint32]string)
 	m.masterKeys = make(map[string]bool)
 	m.sslVersionBpfMap = make(map[string]string)
 
@@ -273,7 +274,7 @@ func (m *MOpenSSLProbe) constantEditor() []manager.ConstantEditor {
 }
 
 func (m *MOpenSSLProbe) setupManagersUprobe() error {
-	var binaryPath, sslVersion string
+	var libPthread, binaryPath, sslVersion string
 	sslVersion = m.conf.(*config.OpensslConfig).SslVersion
 	sslVersion = strings.ToLower(sslVersion)
 	switch m.conf.(*config.OpensslConfig).ElfType {
@@ -294,12 +295,18 @@ func (m *MOpenSSLProbe) setupManagersUprobe() error {
 		}
 	}
 
+	libPthread = m.conf.(*config.OpensslConfig).Pthread
+	if libPthread == "" {
+		libPthread = "/lib/x86_64-linux-gnu/libpthread.so.0"
+	}
+
 	_, err := os.Stat(binaryPath)
 	if err != nil {
 		return err
 	}
 
 	m.logger.Printf("%s\tHOOK type:%d, binrayPath:%s\n", m.Name(), m.conf.(*config.OpensslConfig).ElfType, binaryPath)
+	m.logger.Printf("%s\tlibPthread:%s\n", m.Name(), libPthread)
 	m.logger.Printf("%s\tHook masterKey function:%s\n", m.Name(), m.masterHookFunc)
 
 	m.bpfManager = &manager.Manager{
@@ -331,14 +338,13 @@ func (m *MOpenSSLProbe) setupManagersUprobe() error {
 			},
 
 			// --------------------------------------------------
-			/*
-				{
-					Section:          "uprobe/connect",
-					EbpfFuncName:     "probe_connect",
-					AttachToFuncName: "connect",
-					BinaryPath:       libPthread,
-				},
-			*/
+			{
+				Section:          "uprobe/connect",
+				EbpfFuncName:     "probe_connect",
+				AttachToFuncName: "connect",
+				BinaryPath:       libPthread,
+			},
+
 			// --------------------------------------------------
 
 			// openssl masterkey
@@ -404,7 +410,6 @@ func (m *MOpenSSLProbe) initDecodeFun() error {
 	}
 	m.eventMaps = append(m.eventMaps, SSLDumpEventsMap)
 	sslEvent := &event.SSLDataEvent{}
-	//sslEvent.SetModule(m)
 	m.eventFuncMaps[SSLDumpEventsMap] = sslEvent
 
 	ConnEventsMap, found, err := m.bpfManager.GetMap("connect_events")
@@ -416,7 +421,6 @@ func (m *MOpenSSLProbe) initDecodeFun() error {
 	}
 	m.eventMaps = append(m.eventMaps, ConnEventsMap)
 	connEvent := &event.ConnDataEvent{}
-	//connEvent.SetModule(m)
 	m.eventFuncMaps[ConnEventsMap] = connEvent
 
 	MasterkeyEventsMap, found, err := m.bpfManager.GetMap("mastersecret_events")
@@ -443,6 +447,55 @@ func (m *MOpenSSLProbe) initDecodeFun() error {
 
 func (m *MOpenSSLProbe) Events() []*ebpf.Map {
 	return m.eventMaps
+}
+
+func (m *MOpenSSLProbe) AddConn(pid, fd uint32, addr string) {
+	// save
+	var connMap map[uint32]string
+	var f bool
+	connMap, f = m.pidConns[pid]
+	if !f {
+		connMap = make(map[uint32]string)
+	}
+	connMap[fd] = addr
+	m.pidConns[pid] = connMap
+	return
+}
+
+// process exit :fd is 0 , delete all pid map
+// fd exit :pid > 0, fd > 0, delete fd value
+// TODO add fd * pid exit event hook
+func (m *MOpenSSLProbe) DelConn(pid, fd uint32) {
+	// delete from map
+	if pid == 0 {
+		return
+	}
+	if fd == 0 {
+		delete(m.pidConns, pid)
+	}
+	var connMap map[uint32]string
+	var f bool
+	connMap, f = m.pidConns[pid]
+	if !f {
+		return
+	}
+	delete(connMap, fd)
+	m.pidConns[pid] = connMap
+	return
+}
+func (m *MOpenSSLProbe) GetConn(pid, fd uint32) string {
+	addr := ""
+	var connMap map[uint32]string
+	var f bool
+	connMap, f = m.pidConns[pid]
+	if !f {
+		return ConnNotFound
+	}
+	addr, f = connMap[fd]
+	if !f {
+		return ConnNotFound
+	}
+	return addr
 }
 
 func (m *MOpenSSLProbe) saveMasterSecret(secretEvent *event.MasterSecretEvent) {
@@ -631,7 +684,7 @@ func (m *MOpenSSLProbe) Dispatcher(eventStruct event.IEventStruct) {
 	// detect eventStruct type
 	switch eventStruct.(type) {
 	case *event.ConnDataEvent:
-		//m.AddConn(eventStruct.(*event.ConnDataEvent).Pid, eventStruct.(*event.ConnDataEvent).Fd, eventStruct.(*event.ConnDataEvent).Addr)
+		m.AddConn(eventStruct.(*event.ConnDataEvent).Pid, eventStruct.(*event.ConnDataEvent).Fd, eventStruct.(*event.ConnDataEvent).Addr)
 	case *event.MasterSecretEvent:
 		m.saveMasterSecret(eventStruct.(*event.MasterSecretEvent))
 	case *event.MasterSecretBSSLEvent:
@@ -641,8 +694,21 @@ func (m *MOpenSSLProbe) Dispatcher(eventStruct event.IEventStruct) {
 		if err != nil {
 			m.logger.Printf("%s\t save packet error %s .\n", m.Name(), err.Error())
 		}
+	case *event.SSLDataEvent:
+		m.dumpSslData(eventStruct.(*event.SSLDataEvent))
 	}
 	//m.logger.Println(eventStruct)
+}
+
+func (m *MOpenSSLProbe) dumpSslData(eventStruct *event.SSLDataEvent) {
+	var addr = m.GetConn(eventStruct.Pid, eventStruct.Fd)
+	if addr == ConnNotFound {
+		eventStruct.Addr = DefaultAddr
+	} else {
+		eventStruct.Addr = addr
+	}
+	//m.processor.Write(eventStruct)
+	m.logger.Println(eventStruct)
 }
 
 func init() {

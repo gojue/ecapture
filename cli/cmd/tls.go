@@ -56,6 +56,7 @@ func init() {
 	//opensslCmd.PersistentFlags().StringVar(&gc.Curlpath, "wget", "", "wget file path, default: /usr/bin/wget. (Deprecated)")
 	//opensslCmd.PersistentFlags().StringVar(&nc.Firefoxpath, "firefox", "", "firefox file path, default: /usr/lib/firefox/firefox. (Deprecated)")
 	opensslCmd.PersistentFlags().StringVar(&nc.Nsprpath, "nspr", "", "libnspr44.so file path, will automatically find it from curl default.")
+	opensslCmd.PersistentFlags().StringVar(&oc.Pthread, "pthread", "", "libpthread.so file path, use to hook connect to capture socket FD.will automatically find it from curl.")
 	opensslCmd.PersistentFlags().StringVarP(&oc.Write, "write", "w", "", "write the  raw packets to file as pcapng format.")
 	opensslCmd.PersistentFlags().StringVarP(&oc.Ifname, "ifname", "i", "", "(TC Classifier) Interface name on which the probe will be attached.")
 	opensslCmd.PersistentFlags().Uint16Var(&oc.Port, "port", 443, "port number to capture, default:443.")
@@ -77,14 +78,8 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 	if err != nil {
 		logger.Fatal(err)
 	}
-	if gConf.loggerFile != "" {
-		f, e := os.Create(gConf.loggerFile)
-		if e != nil {
-			logger.Fatal(e)
-			return
-		}
-		logger.SetOutput(f)
-	}
+	logger.SetOutput(gConf.writer)
+
 	logger.Printf("ECAPTURE :: %s Version : %s", cliName, GitVersion)
 	logger.Printf("ECAPTURE :: Pid Info : %d", os.Getpid())
 	var version kernel.Version

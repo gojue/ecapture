@@ -16,6 +16,16 @@ package cmd
 
 import (
 	"github.com/spf13/cobra"
+	"io"
+	"net"
+	"os"
+	"strings"
+)
+
+const (
+	loggerTypeStdout = 0
+	loggerTypeFile   = 1
+	loggerTypeTcp    = 2
 )
 
 // GlobalFlags are flags that defined globally
@@ -26,7 +36,10 @@ type GlobalFlags struct {
 	Pid        uint64 // PID
 	Uid        uint64 // UID
 	NoSearch   bool   // No lib search
-	loggerFile string // save file
+	LoggerAddr string // save file
+	addrType   uint8  // 0:stdout, 1:file, 2:tcp
+	address    string
+	writer     io.Writer
 }
 
 func getGlobalConf(command *cobra.Command) (conf GlobalFlags, err error) {
@@ -55,9 +68,30 @@ func getGlobalConf(command *cobra.Command) (conf GlobalFlags, err error) {
 		return
 	}
 
-	conf.loggerFile, err = command.Flags().GetString("log-file")
+	conf.LoggerAddr, err = command.Flags().GetString("log-addr")
 	if err != nil {
 		return
+	}
+	conf.addrType = loggerTypeStdout
+	conf.writer = os.Stdout
+	if conf.LoggerAddr != "" {
+		if strings.Contains(conf.LoggerAddr, "tcp://") {
+			conf.address = strings.Replace(conf.LoggerAddr, "tcp://", "", 1)
+			conf.addrType = loggerTypeTcp
+			conn, e := net.Dial("tcp", conf.address)
+			if e != nil {
+				return GlobalFlags{}, e
+			}
+			conf.writer = conn
+		} else {
+			conf.address = conf.LoggerAddr
+			conf.addrType = loggerTypeFile
+			f, e := os.Create(conf.address)
+			if e != nil {
+				return GlobalFlags{}, e
+			}
+			conf.writer = f
+		}
 	}
 	return
 }
