@@ -60,7 +60,7 @@ function run() {
     ./config
     make include/openssl/opensslconf.h
 
-    clang -I include/ -I . offset.c -o offset
+    clang -I include/ -I crypto/include/ -I . offset.c -o offset
 
     echo -e "#ifndef ECAPTURE_${header_define}" >${header_file}
     echo -e "#define ECAPTURE_${header_define}\n" >>${header_file}

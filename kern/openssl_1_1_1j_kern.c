@@ -1,8 +1,8 @@
 #ifndef ECAPTURE_OPENSSL_1_1_1_J_KERN_H
 #define ECAPTURE_OPENSSL_1_1_1_J_KERN_H
 
-/* OPENSSL_VERSION_TEXT: OpenSSL 1.1.1s  1 Nov 2022 */
-/* OPENSSL_VERSION_NUMBER: 269488447 */
+/* OPENSSL_VERSION_TEXT: OpenSSL 1.1.1u  30 May 2023 */
+/* OPENSSL_VERSION_NUMBER: 269488479 */
 
 // ssl_st->version
 #define SSL_ST_VERSION 0x0
@@ -42,6 +42,9 @@
 
 // ssl_st->exporter_master_secret
 #define SSL_ST_EXPORTER_MASTER_SECRET 0x3bc
+
+// bio_st->num
+#define BIO_ST_NUM 0x30
 
 #include "openssl.h"
 #include "openssl_masterkey.h"
