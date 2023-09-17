@@ -43,6 +43,9 @@
 // ssl_st->exporter_master_secret
 #define SSL_ST_EXPORTER_MASTER_SECRET 0x3b4
 
+// bio_st->num
+#define BIO_ST_NUM 0x30
+
 #include "openssl.h"
 #include "openssl_masterkey.h"
 

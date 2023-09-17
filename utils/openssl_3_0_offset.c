@@ -1,5 +1,5 @@
 // clang -I include/ -I . offset.c -o offset
-
+#include <crypto/bio/bio_local.h>
 #include <openssl/crypto.h>
 #include <ssl/ssl_local.h>
 #include <stddef.h>
@@ -18,7 +18,8 @@
     X(ssl_st, handshake_traffic_hash)    \
     X(ssl_st, client_app_traffic_secret) \
     X(ssl_st, server_app_traffic_secret) \
-    X(ssl_st, exporter_master_secret)
+    X(ssl_st, exporter_master_secret)    \
+    X(bio_st, num)
 
 void toUpper(char *s) {
     int i = 0;
