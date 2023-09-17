@@ -8,6 +8,8 @@
     X(ssl_st, version)              \
     X(ssl_st, session)              \
     X(ssl_st, s3)                   \
+    X(ssl_st, rbio)                 \
+    X(ssl_st, wbio)                 \
     X(ssl_session_st, master_key)   \
     X(ssl3_state_st, client_random) \
     X(ssl_session_st, cipher)       \
