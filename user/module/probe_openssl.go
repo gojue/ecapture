@@ -704,7 +704,7 @@ func (m *MOpenSSLProbe) Dispatcher(eventStruct event.IEventStruct) {
 
 func (m *MOpenSSLProbe) dumpSslData(eventStruct *event.SSLDataEvent) {
 	if eventStruct.Fd <= 0 {
-		m.logger.Printf("\tnotic: SSLDataEvent's fd is 0.  pid:%d, addr:%s\n", eventStruct.Pid, eventStruct.Fd, eventStruct.Addr)
+		m.logger.Printf("\tnotice: SSLDataEvent's fd is 0.  pid:%d, fd:%d, addr:%s\n", eventStruct.Pid, eventStruct.Fd, eventStruct.Addr)
 	}
 	var addr = m.GetConn(eventStruct.Pid, eventStruct.Fd)
 	m.logger.Printf("\tSSLDataEvent pid:%d, fd:%d, addr:%s\n", eventStruct.Pid, eventStruct.Fd, addr)
