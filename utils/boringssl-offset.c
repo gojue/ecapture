@@ -13,6 +13,7 @@
 // limitations under the License.
 
 //  g++ -I include/ -I src/ ./src/offset.c -o off
+#include <ctype.h>
 #include <openssl/base.h>
 #include <openssl/crypto.h>
 #include <ssl/internal.h>
@@ -22,10 +23,13 @@
 #define SSL_STRUCT_OFFSETS                   \
     X(ssl_st, version)                       \
     X(ssl_st, session)                       \
+    X(ssl_st, rbio)                          \
+    X(ssl_st, wbio)                          \
     X(ssl_st, s3)                            \
     X(ssl_session_st, secret_length)         \
     X(ssl_session_st, secret)                \
     X(ssl_session_st, cipher)                \
+    X(bio_st, num)                           \
     X(ssl_cipher_st, id)                     \
     X(bssl::SSL3_STATE, hs)                  \
     X(bssl::SSL3_STATE, client_random)       \

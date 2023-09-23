@@ -459,6 +459,7 @@ func (m *MOpenSSLProbe) AddConn(pid, fd uint32, addr string) {
 	}
 	connMap[fd] = addr
 	m.pidConns[pid] = connMap
+	m.logger.Printf("%s\tAddConn pid:%d, fd:%d, addr:%s, mapinfo:%v\n", m.Name(), pid, fd, addr, m.pidConns)
 	return
 }
 
@@ -487,6 +488,7 @@ func (m *MOpenSSLProbe) GetConn(pid, fd uint32) string {
 	addr := ""
 	var connMap map[uint32]string
 	var f bool
+	m.logger.Printf("%s\tGetConn pid:%d, fd:%d, mapinfo:%v\n", m.Name(), pid, fd, m.pidConns)
 	connMap, f = m.pidConns[pid]
 	if !f {
 		return ConnNotFound
@@ -701,7 +703,11 @@ func (m *MOpenSSLProbe) Dispatcher(eventStruct event.IEventStruct) {
 }
 
 func (m *MOpenSSLProbe) dumpSslData(eventStruct *event.SSLDataEvent) {
+	if eventStruct.Fd <= 0 {
+		m.logger.Printf("\tnotic: SSLDataEvent's fd is 0.  pid:%d, addr:%s\n", eventStruct.Pid, eventStruct.Fd, eventStruct.Addr)
+	}
 	var addr = m.GetConn(eventStruct.Pid, eventStruct.Fd)
+	m.logger.Printf("\tSSLDataEvent pid:%d, fd:%d, addr:%s\n", eventStruct.Pid, eventStruct.Fd, addr)
 	if addr == ConnNotFound {
 		eventStruct.Addr = DefaultAddr
 	} else {
