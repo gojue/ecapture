@@ -302,6 +302,8 @@ func (m *Module) Dispatcher(e event.IEventStruct) {
 	case event.EventTypeModuleData:
 		// Save to cache
 		m.child.Dispatcher(e)
+	default:
+		m.logger.Printf("%s\tunknown event type:%d", m.child.Name(), e.EventType())
 	}
 }
 

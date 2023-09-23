@@ -10,6 +10,12 @@
 // ssl_st->session
 #define SSL_ST_SESSION 0x58
 
+// ssl_st->rbio
+#define SSL_ST_RBIO 0x18
+
+// ssl_st->wbio
+#define SSL_ST_WBIO 0x20
+
 // ssl_st->s3
 #define SSL_ST_S3 0x30
 
@@ -24,6 +30,9 @@
 
 // ssl_cipher_st->id
 #define SSL_CIPHER_ST_ID 0x10
+
+// bio_st->num
+#define BIO_ST_NUM 0x18
 
 // bssl::SSL3_STATE->hs
 #define BSSL__SSL3_STATE_HS 0x110

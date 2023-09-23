@@ -191,21 +191,51 @@ int probe_entry_SSL_write(struct pt_regs* ctx) {
 
     void* ssl = (void*)PT_REGS_PARM1(ctx);
     // https://github.com/openssl/openssl/blob/OpenSSL_1_1_1-stable/crypto/bio/bio_local.h
-    struct ssl_st ssl_info;
-    bpf_probe_read_user(&ssl_info, sizeof(ssl_info), ssl);
 
-    struct BIO bio_w;
-    bpf_probe_read_user(&bio_w, sizeof(bio_w), ssl_info.wbio);
+    u64 *ssl_ver_ptr, *ssl_wbio_ptr, *ssl_wbio_num_ptr;
+    u64 ssl_version, ssl_wbio_addr, ssl_wbio_num_addr;
+    int ret;
+
+    ssl_ver_ptr = (u64 *)(ssl + SSL_ST_VERSION);
+    ret = bpf_probe_read_user(&ssl_version, sizeof(ssl_version),
+                              ssl_ver_ptr);
+    if (ret) {
+        debug_bpf_printk(
+            "(OPENSSL) bpf_probe_read ssl_ver_ptr failed, ret :%d\n",
+            ret);
+        return 0;
+    }
+
+    ssl_wbio_ptr = (u64 *)(ssl + SSL_ST_WBIO);
+    ret = bpf_probe_read_user(&ssl_wbio_addr, sizeof(ssl_wbio_addr),
+                              ssl_wbio_ptr);
+    if (ret) {
+        debug_bpf_printk(
+            "(OPENSSL) bpf_probe_read ssl_wbio_addr failed, ret :%d\n",
+            ret);
+        return 0;
+    }
 
     // get fd ssl->wbio->num
-    u32 fd = bio_w.num;
+    ssl_wbio_num_ptr = (u64 *)(ssl_wbio_ptr + BIO_ST_NUM);
+    ret = bpf_probe_read_user(&ssl_wbio_num_addr, sizeof(ssl_wbio_num_addr),
+                              ssl_wbio_num_ptr);
+    if (ret) {
+        debug_bpf_printk(
+            "(OPENSSL) bpf_probe_read ssl_wbio_num_ptr failed, ret :%d\n",
+            ret);
+        return 0;
+    }
+
+    // get fd ssl->wbio->num
+    u32 fd = (u32)ssl_wbio_num_addr;
     debug_bpf_printk("openssl uprobe SSL_write FD:%d\n", fd);
 
     const char* buf = (const char*)PT_REGS_PARM2(ctx);
     struct active_ssl_buf active_ssl_buf_t;
     __builtin_memset(&active_ssl_buf_t, 0, sizeof(active_ssl_buf_t));
     active_ssl_buf_t.fd = fd;
-    active_ssl_buf_t.version = ssl_info.version;
+    active_ssl_buf_t.version = ssl_version;
     active_ssl_buf_t.buf = buf;
     bpf_map_update_elem(&active_ssl_write_args_map, &current_pid_tgid,
                         &active_ssl_buf_t, BPF_ANY);
@@ -265,21 +295,50 @@ int probe_entry_SSL_read(struct pt_regs* ctx) {
 
     void* ssl = (void*)PT_REGS_PARM1(ctx);
     // https://github.com/openssl/openssl/blob/OpenSSL_1_1_1-stable/crypto/bio/bio_local.h
-    struct ssl_st ssl_info;
-    bpf_probe_read_user(&ssl_info, sizeof(ssl_info), ssl);
+    // Get ssl_rbio pointer
+    u64 *ssl_ver_ptr, *ssl_rbio_ptr, *ssl_rbio_num_ptr;
+    u64 ssl_version, ssl_rbio_addr, ssl_rbio_num_addr;
+    int ret;
 
-    struct BIO bio_r;
-    bpf_probe_read_user(&bio_r, sizeof(bio_r), ssl_info.rbio);
+    ssl_ver_ptr = (u64 *)(ssl + SSL_ST_VERSION);
+    ret = bpf_probe_read_user(&ssl_version, sizeof(ssl_version),
+                              ssl_ver_ptr);
+    if (ret) {
+        debug_bpf_printk(
+            "(OPENSSL) bpf_probe_read ssl_ver_ptr failed, ret :%d\n",
+            ret);
+        return 0;
+    }
+
+    ssl_rbio_ptr = (u64 *)(ssl + SSL_ST_RBIO);
+    ret = bpf_probe_read_user(&ssl_rbio_addr, sizeof(ssl_rbio_addr),
+                              ssl_rbio_ptr);
+    if (ret) {
+        debug_bpf_printk(
+            "(OPENSSL) bpf_probe_read ssl_rbio_ptr failed, ret :%d\n",
+            ret);
+        return 0;
+    }
 
     // get fd ssl->rbio->num
-    u32 fd = bio_r.num;
+    ssl_rbio_num_ptr = (u64 *)(ssl_rbio_addr + BIO_ST_NUM);
+    ret = bpf_probe_read_user(&ssl_rbio_num_addr, sizeof(ssl_rbio_num_addr),
+                              ssl_rbio_num_ptr);
+    if (ret) {
+        debug_bpf_printk(
+            "(OPENSSL) bpf_probe_read ssl_rbio_num_ptr failed, ret :%d\n",
+            ret);
+        return 0;
+    }
+
+    u32 fd = (u32)ssl_rbio_num_addr;
     debug_bpf_printk("openssl uprobe PID:%d, SSL_read FD:%d\n", pid, fd);
 
     const char* buf = (const char*)PT_REGS_PARM2(ctx);
     struct active_ssl_buf active_ssl_buf_t;
     __builtin_memset(&active_ssl_buf_t, 0, sizeof(active_ssl_buf_t));
     active_ssl_buf_t.fd = fd;
-    active_ssl_buf_t.version = ssl_info.version;
+    active_ssl_buf_t.version = ssl_version;
     active_ssl_buf_t.buf = buf;
     bpf_map_update_elem(&active_ssl_read_args_map, &current_pid_tgid,
                         &active_ssl_buf_t, BPF_ANY);
