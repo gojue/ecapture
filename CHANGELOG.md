@@ -1,5 +1,12 @@
 <hr>
 
+# v0.6.2 (2023-09-24)
+## What's Changed
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v0.6.1...v0.6.2
+
+<hr>
+
 # v0.6.1 (2023-07-16)
 ## What's Changed
 * fix #378 , error: use of undeclared identifier 'KBUILD_MODNAME'  by @cfc4n in https://github.com/gojue/ecapture/pull/379
