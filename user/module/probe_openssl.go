@@ -450,6 +450,10 @@ func (m *MOpenSSLProbe) Events() []*ebpf.Map {
 }
 
 func (m *MOpenSSLProbe) AddConn(pid, fd uint32, addr string) {
+	if fd <= 0 {
+		m.logger.Printf("%s\tAddConn failed. pid:%d, fd:%d, addr:%s\n", m.Name(), pid, fd, addr)
+		return
+	}
 	// save
 	var connMap map[uint32]string
 	var f bool
@@ -459,7 +463,7 @@ func (m *MOpenSSLProbe) AddConn(pid, fd uint32, addr string) {
 	}
 	connMap[fd] = addr
 	m.pidConns[pid] = connMap
-	m.logger.Printf("%s\tAddConn pid:%d, fd:%d, addr:%s, mapinfo:%v\n", m.Name(), pid, fd, addr, m.pidConns)
+	//m.logger.Printf("%s\tAddConn pid:%d, fd:%d, addr:%s, mapinfo:%v\n", m.Name(), pid, fd, addr, m.pidConns)
 	return
 }
 
@@ -485,10 +489,13 @@ func (m *MOpenSSLProbe) DelConn(pid, fd uint32) {
 	return
 }
 func (m *MOpenSSLProbe) GetConn(pid, fd uint32) string {
+	if fd <= 0 {
+		return ConnNotFound
+	}
 	addr := ""
 	var connMap map[uint32]string
 	var f bool
-	m.logger.Printf("%s\tGetConn pid:%d, fd:%d, mapinfo:%v\n", m.Name(), pid, fd, m.pidConns)
+	//m.logger.Printf("%s\tGetConn pid:%d, fd:%d, mapinfo:%v\n", m.Name(), pid, fd, m.pidConns)
 	connMap, f = m.pidConns[pid]
 	if !f {
 		return ConnNotFound
@@ -707,7 +714,7 @@ func (m *MOpenSSLProbe) dumpSslData(eventStruct *event.SSLDataEvent) {
 		m.logger.Printf("\tnotice: SSLDataEvent's fd is 0.  pid:%d, fd:%d, addr:%s\n", eventStruct.Pid, eventStruct.Fd, eventStruct.Addr)
 	}
 	var addr = m.GetConn(eventStruct.Pid, eventStruct.Fd)
-	m.logger.Printf("\tSSLDataEvent pid:%d, fd:%d, addr:%s\n", eventStruct.Pid, eventStruct.Fd, addr)
+	//m.logger.Printf("\tSSLDataEvent pid:%d, fd:%d, addr:%s\n", eventStruct.Pid, eventStruct.Fd, addr)
 	if addr == ConnNotFound {
 		eventStruct.Addr = DefaultAddr
 	} else {

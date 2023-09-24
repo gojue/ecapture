@@ -229,7 +229,7 @@ int probe_entry_SSL_write(struct pt_regs* ctx) {
 
     // get fd ssl->wbio->num
     u32 fd = (u32)ssl_wbio_num_addr;
-    debug_bpf_printk("openssl uprobe SSL_write FD:%d\n", fd);
+    debug_bpf_printk("openssl uprobe SSL_write FD:%d, version:%d\n", fd, ssl_version);
 
     const char* buf = (const char*)PT_REGS_PARM2(ctx);
     struct active_ssl_buf active_ssl_buf_t;
