@@ -47,10 +47,6 @@ const (
 	MasterKeyHookFuncBoringSSL = "SSL_in_init"
 )
 
-// buffer size times of ebpf perf map
-// buffer size = BufferSizeOfEbpfMap * os.pagesize
-const BufferSizeOfEbpfMap = 1024 * 10
-
 const (
 	MasterSecretKeyLogName = "ecapture_masterkey.log"
 )
