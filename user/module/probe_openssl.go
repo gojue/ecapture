@@ -608,6 +608,10 @@ func (m *MOpenSSLProbe) saveMasterSecretBSSL(secretEvent *event.MasterSecretBSSL
 	default:
 		var length int
 		length = int(secretEvent.HashLen)
+		if length > event.EvpMaxMdSize {
+			m.logger.Println("master secret length is too long, truncate to 64 bytes, but it may cause keylog file error")
+			length = event.EvpMaxMdSize
+		}
 		// 判断 密钥是否为空
 		if m.bSSLEvent13NullSecrets(secretEvent) {
 			return
@@ -647,6 +651,9 @@ func (m *MOpenSSLProbe) bSSLEvent12NullSecrets(e *event.MasterSecretBSSLEvent) b
 	var isNull = true
 	var hashLen = int(e.HashLen)
 	for i := 0; i < hashLen; i++ {
+		if hashLen >= len(e.Secret) {
+			break
+		}
 		if e.Secret[i] != 0 {
 			isNull = false
 			break
