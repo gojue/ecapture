@@ -1,7 +1,19 @@
 <hr>
 
+# v0.6.3 (2023-09-27)
+## What's Changed
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v0.6.2...v0.6.3
+
+
+<hr>
+
 # v0.6.2 (2023-09-24)
 ## What's Changed
+* openssl module: add some prompts when the kernel is less than 5.2  by @cfc4n in https://github.com/gojue/ecapture/pull/387
+* refactor: removal of deprecated flag support. by @cfc4n in https://github.com/gojue/ecapture/pull/388
+* Revert ip address by @cfc4n in https://github.com/gojue/ecapture/pull/391
+* fix : OpenSSL's file descriptor is always 0 by @cfc4n in https://github.com/gojue/ecapture/pull/393
 
 **Full Changelog**: https://github.com/gojue/ecapture/compare/v0.6.1...v0.6.2
 
