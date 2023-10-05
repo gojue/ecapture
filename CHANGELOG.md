@@ -2,9 +2,9 @@
 
 # v0.6.3 (2023-09-27)
 ## What's Changed
+* fix : out of silice range. by @cfc4n in https://github.com/gojue/ecapture/pull/398
 
 **Full Changelog**: https://github.com/gojue/ecapture/compare/v0.6.2...v0.6.3
-
 
 <hr>
 
