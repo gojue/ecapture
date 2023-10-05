@@ -58,10 +58,6 @@ struct active_ssl_buf {
     const char* buf;
 };
 
-/***********************************************************
- * Internal structs and definitions
- ***********************************************************/
-
 // Key is thread ID (from bpf_get_current_pid_tgid).
 // Value is a pointer to the data buffer argument to SSL_write/SSL_read.
 struct {
@@ -86,6 +82,19 @@ struct {
     __type(value, struct ssl_data_event_t);
     __uint(max_entries, 1);
 } data_buffer_heap SEC(".maps");
+
+// store ssl fd array for SSL_set_fd function hook.
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __type(key, u64);
+    __type(value, u64);
+    __uint(max_entries, 10240);
+} ssl_st_fd SEC(".maps");
+
+
+/***********************************************************
+ * Internal structs and definitions
+ ***********************************************************/
 
 // OPENSSL struct to offset , via kern/README.md
 typedef long (*unused_fn)();
@@ -229,6 +238,14 @@ int probe_entry_SSL_write(struct pt_regs* ctx) {
 
     // get fd ssl->wbio->num
     u32 fd = (u32)ssl_wbio_num_addr;
+    if (fd == 0) {
+        u64 ssl_addr = (u64)ssl;
+        u64 *fd_ptr = bpf_map_lookup_elem(&ssl_st_fd, &ssl_addr);
+        if (fd_ptr) {
+            fd = (u64)*fd_ptr;
+        } else {
+        }
+    }
     debug_bpf_printk("openssl uprobe SSL_write FD:%d, version:%d\n", fd, ssl_version);
 
     const char* buf = (const char*)PT_REGS_PARM2(ctx);
@@ -332,6 +349,14 @@ int probe_entry_SSL_read(struct pt_regs* ctx) {
     }
 
     u32 fd = (u32)ssl_rbio_num_addr;
+    if (fd == 0) {
+        u64 ssl_addr = (u64)ssl;
+        u64 *fd_ptr = bpf_map_lookup_elem(&ssl_st_fd, &ssl_addr);
+        if (fd_ptr) {
+            fd = (u64)*fd_ptr;
+        } else {
+        }
+    }
     debug_bpf_printk("openssl uprobe PID:%d, SSL_read FD:%d\n", pid, fd);
 
     const char* buf = (const char*)PT_REGS_PARM2(ctx);
@@ -421,5 +446,24 @@ int probe_connect(struct pt_regs* ctx) {
 
     bpf_perf_event_output(ctx, &connect_events, BPF_F_CURRENT_CPU, &conn,
                           sizeof(struct connect_event_t));
+    return 0;
+}
+
+
+
+// int SSL_set_fd(SSL *s, int fd)
+// int SSL_set_rfd(SSL *s, int fd)
+// int SSL_set_wfd(SSL *s, int fd)
+SEC("uprobe/SSL_set_fd")
+int probe_SSL_set_fd(struct pt_regs* ctx) {
+    u64 current_pid_tgid = bpf_get_current_pid_tgid();
+    u32 pid = current_pid_tgid >> 32;
+    u64 current_uid_gid = bpf_get_current_uid_gid();
+    u32 uid = current_uid_gid;
+
+    u64 ssl_addr = (u64)PT_REGS_PARM1(ctx);
+    u64 fd = (u64)PT_REGS_PARM2(ctx);
+    bpf_map_update_elem(&ssl_st_fd, &ssl_addr, &fd, BPF_ANY);
+    debug_bpf_printk("SSL_set_fd hook!!, ssl_addr:%d, fd:%d\n", ssl_addr, fd);
     return 0;
 }
