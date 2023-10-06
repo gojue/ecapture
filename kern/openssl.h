@@ -35,10 +35,6 @@ struct ssl_data_event_t {
     s32 version;
 };
 
-struct {
-    __uint(type, BPF_MAP_TYPE_PERF_EVENT_ARRAY);
-} tls_events SEC(".maps");
-
 struct connect_event_t {
     u64 timestamp_ns;
     u32 pid;
@@ -47,10 +43,6 @@ struct connect_event_t {
     char sa_data[SA_DATA_LEN];
     char comm[TASK_COMM_LEN];
 };
-
-struct {
-    __uint(type, BPF_MAP_TYPE_PERF_EVENT_ARRAY);
-} connect_events SEC(".maps");
 
 struct active_ssl_buf {
     /*
@@ -66,6 +58,23 @@ struct active_ssl_buf {
 /***********************************************************
  * BPF MAPS
  ***********************************************************/
+
+
+struct {
+    __uint(type, BPF_MAP_TYPE_PERF_EVENT_ARRAY);
+    __uint(key_size, sizeof(u32));
+    __uint(value_size, sizeof(u32));
+    __uint(max_entries, 1024);
+} tls_events SEC(".maps");
+
+
+struct {
+    __uint(type, BPF_MAP_TYPE_PERF_EVENT_ARRAY);
+    __uint(key_size, sizeof(u32));
+    __uint(value_size, sizeof(u32));
+    __uint(max_entries, 1024);
+} connect_events SEC(".maps");
+
 
 // Key is thread ID (from bpf_get_current_pid_tgid).
 // Value is a pointer to the data buffer argument to SSL_write/SSL_read.
