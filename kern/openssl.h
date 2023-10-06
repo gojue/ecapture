@@ -15,6 +15,11 @@
 #include "ecapture.h"
 #include "tc.h"
 
+
+/***********************************************************
+ * Internal structs and definitions
+ ***********************************************************/
+
 enum ssl_data_event_type { kSSLRead, kSSLWrite };
 const u32 invalidFD = 0;
 
@@ -58,6 +63,10 @@ struct active_ssl_buf {
     const char* buf;
 };
 
+/***********************************************************
+ * BPF MAPS
+ ***********************************************************/
+
 // Key is thread ID (from bpf_get_current_pid_tgid).
 // Value is a pointer to the data buffer argument to SSL_write/SSL_read.
 struct {
@@ -91,34 +100,6 @@ struct {
     __uint(max_entries, 10240);
 } ssl_st_fd SEC(".maps");
 
-
-/***********************************************************
- * Internal structs and definitions
- ***********************************************************/
-
-// OPENSSL struct to offset , via kern/README.md
-typedef long (*unused_fn)();
-
-struct unused {};
-
-struct BIO {
-    const struct unused* method;
-    unused_fn callback;
-    unused_fn callback_ex;
-    char* cb_arg; /* first argument for the callback */
-    int init;
-    int shutdown;
-    int flags; /* extra storage */
-    int retry_reason;
-    int num;
-};
-
-struct ssl_st {
-    s32 version;
-    struct unused* method;
-    struct BIO* rbio;  // used by SSL_read
-    struct BIO* wbio;  // used by SSL_write
-};
 
 /***********************************************************
  * General helper functions
