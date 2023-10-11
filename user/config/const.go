@@ -19,7 +19,8 @@ const (
 	ElfTypeSo  uint8 = 2
 )
 
-const (
-	X86BinaryPrefix    = "/lib/x86_64-linux-gnu"
-	OthersBinaryPrefix = "/usr/lib"
-)
+//
+//const (
+//	X86BinaryPrefix    = "/lib/x86_64-linux-gnu"
+//	OthersBinaryPrefix = "/usr/lib"
+//)

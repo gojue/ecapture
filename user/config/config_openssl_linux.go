@@ -28,18 +28,51 @@ import (
 
 const (
 	DefaultIfname = "eth0"
+	// /lib/x86_64-linux-gnu/libssl.so.3
+	//libsslSoFile = "libssl.so.1.1"
+)
+
+var (
+	soLoadPaths = []string{
+		"/lib/x86_64-linux-gnu",
+		"/usr/lib64",
+		"/usr/lib",
+		"/lib",
+	}
+
+	libsslSharedObjects = []string{
+		"libssl.so.3",   // ubuntu server 22.04
+		"libssl.so.1.1", // ubuntu server 21.04
+	}
+	connectSharedObjects = []string{
+		"libpthread.so.0", // ubuntu 21.04 server
+		"libc.so.6",       // ubuntu 21.10 server
+		"libc.so",         // Android
+	}
 )
 
 func (oc *OpensslConfig) checkOpenssl() error {
 	var e error
-	_, e = os.Stat(X86BinaryPrefix)
-	prefix := X86BinaryPrefix
-	if e != nil {
-		prefix = OthersBinaryPrefix
+	var sslPath string
+	for _, soPath := range soLoadPaths {
+		_, e = os.Stat(soPath)
+		if e != nil {
+			continue
+		}
+		//	ubuntu 21.04	libssl.so.1.1   default
+		for _, soFile := range libsslSharedObjects {
+			sslPath = filepath.Join(soPath, soFile)
+			_, e = os.Stat(sslPath)
+			if e != nil {
+				continue
+			}
+			oc.Openssl = sslPath
+			break
+		}
 	}
-
-	//	ubuntu 21.04	libssl.so.1.1   default
-	oc.Openssl = filepath.Join(prefix, "libssl.so.1.1")
+	if oc.Openssl == "" {
+		return errors.New("cant found openssl so load path")
+	}
 	oc.ElfType = ElfTypeSo
 	_, e = os.Stat(oc.Openssl)
 	if e != nil {
@@ -49,25 +82,28 @@ func (oc *OpensslConfig) checkOpenssl() error {
 }
 
 func (oc *OpensslConfig) checkConnect() error {
-	var sharedObjects = []string{
-		"libpthread.so.0", // ubuntu 21.04 server
-		"libc.so.6",       // ubuntu 21.10 server
-		"libc.so",         // Android
-	}
 
 	var funcName = ""
 	var found bool
 	var e error
-	for _, so := range sharedObjects {
-		_, e = os.Stat(X86BinaryPrefix)
-		prefix := X86BinaryPrefix
-		if e != nil {
-			prefix = OthersBinaryPrefix
+	for _, so := range connectSharedObjects {
+		var prefix string
+		for _, soPath := range soLoadPaths {
+
+			_, e = os.Stat(soPath)
+			if e != nil {
+				continue
+			}
+			prefix = soPath
+			break
+		}
+		if prefix == "" {
+			continue
 		}
 		oc.Pthread = filepath.Join(prefix, so)
 		_, e = os.Stat(oc.Pthread)
 		if e != nil {
-			// search all of sharedObjects
+			// search all of connectSharedObjects
 			//return e
 			continue
 		}
@@ -103,7 +139,7 @@ func (oc *OpensslConfig) checkConnect() error {
 
 	//如果没找到，则报错。
 	if !found || funcName == "" {
-		return errors.New(fmt.Sprintf("cant found 'connect' function to hook in files::%v", sharedObjects))
+		return errors.New(fmt.Sprintf("cant found 'connect' function to hook in files::%v", connectSharedObjects))
 	}
 	return nil
 }
