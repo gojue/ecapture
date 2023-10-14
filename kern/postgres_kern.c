@@ -23,6 +23,9 @@ struct data_t {
 
 struct {
     __uint(type, BPF_MAP_TYPE_PERF_EVENT_ARRAY);
+    __uint(key_size, sizeof(u32));
+    __uint(value_size, sizeof(u32));
+    __uint(max_entries, 1024);
 } events SEC(".maps");
 
 // https://github.com/postgres/postgres/blob/7b7ed046cb2ad9f6efac90380757d5977f0f563f/src/backend/tcop/postgres.c#L987-L992
