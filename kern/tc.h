@@ -223,13 +223,13 @@ static __always_inline int capture_packets(struct __sk_buff *skb, bool is_ingres
 }
 
 // egress_cls_func is called for packets that are going out of the network
-SEC("classifier/egress")
+SEC("classifier")
 int egress_cls_func(struct __sk_buff *skb) {
     return capture_packets(skb, false);
 };
 
 // ingress_cls_func is called for packets that are coming into the network
-SEC("classifier/ingress")
+SEC("classifier")
 int ingress_cls_func(struct __sk_buff *skb) {
     return capture_packets(skb, true);
 };
