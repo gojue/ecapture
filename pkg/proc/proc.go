@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	goVersionPrefix = "Go cmd/compile "
+	goVersionPrefix = "Go cmd/compile"
 )
 
 // ErrVersionNotFound is returned when we can't find Go version info from a binary
