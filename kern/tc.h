@@ -163,9 +163,14 @@ static __always_inline int capture_packets(struct __sk_buff *skb, bool is_ingres
     struct tcphdr *tcp = (struct tcphdr *)(data_start + l4_hdr_off);
 
 #ifndef KERNEL_LESS_5_2
-    if (tcp->source != bpf_htons(target_port) &&
-        tcp->dest != bpf_htons(target_port)) {
-        return TC_ACT_OK;
+    if (target_port > 0 ) {
+        // supports only target_port when target_port is not 0
+        if (tcp->source != bpf_htons(target_port) &&
+            tcp->dest != bpf_htons(target_port)) {
+            return TC_ACT_OK;
+        }
+    } else {
+        // supports all ports when target_port is 0
     }
 #endif
 
