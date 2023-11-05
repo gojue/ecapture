@@ -1,24 +1,13 @@
 #!/usr/bin/env bash
 set -e
 
-
-echo $NON_ANDROID
-
-PROJECT_ROOT_DIR=$(pwd)
-BORINGSSL_REPO=https://android.googlesource.com/platform/external/boringssl
-BORINGSSL_DIR="${PROJECT_ROOT_DIR}/deps/boringssl"
-
-NON_ANDROID=0
-if [[ $1 == 1 ]] ; then
-  BORINGSSL_REPO=https://github.com/google/boringssl.git
-  BORINGSSL_DIR="${PROJECT_ROOT_DIR}/deps/boringssl_non_android"
-  NON_ANDROID=1
-fi
-
+# for non android boringssl , git repo : https://github.com/google/boringssl
+BORINGSSL_REPO=https://github.com/google/boringssl.git
+BORINGSSL_DIR="${PROJECT_ROOT_DIR}/deps/boringssl_non_android"
 OUTPUT_DIR="${PROJECT_ROOT_DIR}/kern"
 
 if [[ ! -f "go.mod" ]]; then
-  echo "Run the script from the project root directory"
+  echo "non-Android lib, Run the script from the project root directory"
   exit 1
 fi
 
@@ -26,7 +15,6 @@ fi
 if [[ ! -d "${BORINGSSL_DIR}/.git" ]]; then
   # skip cloning if the openssl directory already exists
   if [[ ! -d "${BORINGSSL_DIR}" ]]; then
-#    git clone https://github.com/google/boringssl.git ${BORINGSSL_DIR}
     git clone ${BORINGSSL_REPO} ${BORINGSSL_DIR}
   fi
 fi
@@ -35,26 +23,24 @@ function run() {
   git fetch --tags
   cp -f ${PROJECT_ROOT_DIR}/utils/boringssl-offset.c ${BORINGSSL_DIR}/offset.c
   declare -A sslVerMap=()
-  # get all commit about ssl/internel.h  who commit date > Apr 25 23:00:0 2021  (android 12 release)
-  # see https://android.googlesource.com/platform/external/boringssl/+/refs/heads/android12-release .
-  # range commit id from 160e1757ccacbde7488b145070eca94f2c370de2
-  # this repo is different from https://boringssl.googlesource.com/boringssl
-  sslVerMap["0"]="0"
+  sslVerMap["0"]="12" # android12-release
+  sslVerMap["1"]="13" # android13-release
+  sslVerMap["2"]="14" # android14-release
 
   # shellcheck disable=SC2068
   # shellcheck disable=SC2034
   for ver in ${!sslVerMap[@]}; do
-#    tag="openssl-3.0.${ver}"
-#    val=${sslVerMap[$ver]}
-    header_file="${OUTPUT_DIR}/boringssl_1_1_1_kern.c"
-    header_define="BORINGSSL_1_1_1_KERN_H"
+    tag="android${ver}-release"
+    val=${sslVerMap[$ver]}
+
+    header_file="${OUTPUT_DIR}/boringssl_na_kern.c"
+    header_define="BORINGSSL_NA_KERN_H"
 
     if [[ -f ${header_file} ]]; then
       echo "Skip ${header_file}"
       continue
     fi
-
-#    git checkout ${tag}
+    git checkout ${tag}
     echo "Generating ${header_file}"
 
     g++ -Wno-write-strings -Wno-invalid-offsetof -I include/ -I . -I ./src/ offset.c -o offset
