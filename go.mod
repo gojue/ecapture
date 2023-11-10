@@ -1,17 +1,17 @@
 module ecapture
 
-go 1.18
+go 1.21
 
 require (
-	github.com/cilium/ebpf v0.10.0
-	github.com/gojue/ebpfmanager v0.4.3
+	github.com/cilium/ebpf v0.12.3
+	github.com/gojue/ebpfmanager v0.4.4
 	github.com/google/gopacket v1.1.19
 	github.com/shuLhan/go-bindata v4.0.0+incompatible
 	github.com/spf13/cobra v1.4.0
 	github.com/spf13/pflag v1.0.5
 	golang.org/x/arch v0.3.0
 	golang.org/x/crypto v0.14.0
-	golang.org/x/sys v0.13.0
+	golang.org/x/sys v0.14.1-0.20231108175955-e4099bfacb8c
 )
 
 require (
@@ -27,6 +27,7 @@ require (
 	github.com/stretchr/testify v1.7.0 // indirect
 	github.com/vishvananda/netlink v1.1.0 // indirect
 	github.com/vishvananda/netns v0.0.0-20210104183010-2eb08e3e575f // indirect
+	golang.org/x/exp v0.0.0-20230224173230-c95f2b4c22f2 // indirect
 	golang.org/x/net v0.17.0 // indirect
 	golang.org/x/sync v0.1.0 // indirect
 )

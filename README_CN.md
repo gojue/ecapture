@@ -142,7 +142,7 @@ ps -ef | grep foo
 > Android版本编译方法见 [eCapture旁观者：Android HTTPS明文抓包](https://mp.weixin.qq.com/s/KWm5d0uuzOzReRtr9PmuWQ)
 
 ## 工具链版本
-* golang 1.18 以上
+* golang 1.21 以上
 * clang 9.0 以上
 * cmake 3.18.4 以上
 * clang backend: llvm 9.0 以上

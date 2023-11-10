@@ -106,12 +106,12 @@ GO_VERSION_MAJ = $(shell echo $(GO_VERSION) | $(CMD_CUT) -d'.' -f1)
 GO_VERSION_MIN = $(shell echo $(GO_VERSION) | $(CMD_CUT) -d'.' -f2)
 
 
-# golang 版本检测  1.18 以上
+# golang 版本检测  1.21 以上
 .checkver_$(CMD_GO): \
 	| .check_$(CMD_GO)
 	@if [ ${GO_VERSION_MAJ} -eq 1 ]; then
-		if [ ${GO_VERSION_MIN} -lt 18 ]; then
-			echo -n "you MUST use golang 1.18 or newer, "
+		if [ ${GO_VERSION_MIN} -lt 21 ]; then
+			echo -n "you MUST use golang 1.21 or newer, "
 			echo "your current golang version is ${GO_VERSION}"
 			exit 1
 		fi
