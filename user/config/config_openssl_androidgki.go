@@ -18,18 +18,21 @@
 package config
 
 import (
+	"bufio"
 	"os"
 	"strings"
 )
 
 const (
 	DefaultOpensslPath = "/apex/com.android.conscrypt/lib64/libssl.so"
-	DEFAULT_LIBC_PATH  = "/apex/com.android.runtime/lib64/bionic/libc.so"
-
-	DefaultIfname = "wlan0"
+	DefaultLibcPath    = "/apex/com.android.runtime/lib64/bionic/libc.so"
+	BuildPropPath      = "/system/build.prop"
+	ReleasePrefix      = "ro.build.version.release="
+	DefaultIfname      = "wlan0"
 )
 
 func (oc *OpensslConfig) Check() error {
+	oc.AndroidVer = "12"
 	oc.IsAndroid = true
 	// 如果readline 配置，且存在，则直接返回。
 	if oc.Openssl != "" || len(strings.TrimSpace(oc.Openssl)) > 0 {
@@ -49,11 +52,27 @@ func (oc *OpensslConfig) Check() error {
 			return e
 		}
 	} else {
-		oc.Pthread = DEFAULT_LIBC_PATH
+		oc.Pthread = DefaultLibcPath
 	}
 
 	if oc.Ifname == "" || len(strings.TrimSpace(oc.Ifname)) == 0 {
 		oc.Ifname = DefaultIfname
+	}
+
+	f, err := os.Open(BuildPropPath)
+	if err != nil {
+		return nil
+	}
+	defer f.Close()
+
+	//  detect android version (use Android version?), and set AndroidVer
+	sc := bufio.NewScanner(f)
+	for sc.Scan() {
+		line := sc.Text()
+		if strings.HasPrefix(line, ReleasePrefix) {
+			oc.AndroidVer = strings.TrimSpace(strings.TrimPrefix(line, ReleasePrefix))
+			break
+		}
 	}
 	return nil
 }
