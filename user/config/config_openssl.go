@@ -44,6 +44,7 @@ type OpensslConfig struct {
 	CGroupPath string `json:"CGroupPath"` // cgroup path, used for filter process
 	ElfType    uint8  //
 	IsAndroid  bool   //	is Android OS ?
+	AndroidVer string // Android OS version
 }
 
 func NewOpensslConfig() *OpensslConfig {

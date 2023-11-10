@@ -194,15 +194,22 @@ func (m *MOpenSSLProbe) detectOpenssl(soPath string) error {
 	}
 
 	isAndroid := m.conf.(*config.OpensslConfig).IsAndroid
+	androidVer := m.conf.(*config.OpensslConfig).AndroidVer
 	// if not found, use default
 	if isAndroid {
 		// sometimes,boringssl version always was "boringssl 1.1.1" on android. but offsets are different.
 		// see kern/boringssl_a_13_kern.c and kern/boringssl_a_14_kern.c
 		// Perhaps we can utilize the Android Version to choose a specific version of boringssl.
-		// TODO : detect android version (use Android version?), and use the corresponding bpfFile
-
-		bpfFile, _ = m.sslVersionBpfMap[AndroidDefauleFilename]
-		m.logger.Printf("%s\tOpenSSL/BoringSSL version not found, used default version :%s\n", m.Name(), AndroidDefauleFilename)
+		// use the corresponding bpfFile
+		bpfFildAndroid := fmt.Sprintf("boringssl_a_%s", androidVer)
+		bpfFile, found = m.sslVersionBpfMap[bpfFildAndroid]
+		if found {
+			m.sslBpfFile = bpfFile
+			m.logger.Printf("%s\tOpenSSL/BoringSSL version found, ro.build.version.release=%s\n", m.Name(), androidVer)
+		} else {
+			bpfFile, _ = m.sslVersionBpfMap[AndroidDefauleFilename]
+			m.logger.Printf("%s\tOpenSSL/BoringSSL version not found, used default version :%s\n", m.Name(), AndroidDefauleFilename)
+		}
 	} else {
 		if strings.Contains(soPath, "libssl.so.3") {
 			bpfFile, _ = m.sslVersionBpfMap[LinuxDefauleFilename_3_0]
