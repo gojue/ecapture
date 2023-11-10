@@ -121,7 +121,7 @@ ps -ef | grep foo
 Linux Kernel: >= 4.18.
 
 ## Tools 
-* golang 1.18 or newer
+* golang 1.21 or newer
 * clang 9.0 or newer
 * cmake 3.18.4 or newer
 * clang backend: llvm 9.0 or newer

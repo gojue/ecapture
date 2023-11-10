@@ -122,7 +122,7 @@ ps -ef | grep foo
 Linux カーネル: >= 4.18.
 
 ## ツール
-* golang 1.18 またはそれ以降
+* golang 1.21 またはそれ以降
 * clang 9.0 またはそれ以降
 * cmake 3.18.4 またはそれ以降
 * clang バックエンド: llvm 9.0 またはそれ以降

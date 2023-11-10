@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	BtfNotSupport = "You can compile a no BTF version by youeself with command `make nocore`,Please read Makefile for more info."
+	BtfNotSupport = "You can compile the BTF-free version by using the command `make nocore`, please read the Makefile for more information."
 )
 
 var (
@@ -28,14 +28,14 @@ func main() {
 	switch runtime.GOARCH {
 	case "amd64":
 		if kv < kernel.VersionCode(4, 18, 0) {
-			log.Fatalf("Linux/Android Kernel (x86_64) version %v is not supported. Need > 4.18 .", kv)
+			log.Fatalf("The Linux/Android Kernel version %v (x86_64) is not supported. Requires a version greater than 4.18.", kv)
 		}
 	case "arm64":
 		if kv < kernel.VersionCode(5, 5, 0) {
-			log.Fatalf("Linux/Android Kernel (aarch64) version %v is not supported. Need > 5.5 .", kv)
+			log.Fatalf("The Linux/Android Kernel version %v (aarch64) is not supported. Requires a version greater than 5.5.", kv)
 		}
 	default:
-		log.Fatalf("unsupported CPU arch:%v. ", runtime.GOARCH)
+		log.Fatalf("Unsupported CPU arch:%v. ", runtime.GOARCH)
 	}
 
 	// 检测是否是容器
@@ -45,15 +45,15 @@ func main() {
 	}
 
 	if isContainer {
-		log.Printf("Your environment is a container. We will not detect the BTF config.")
+		log.Printf("Your environment is like a container. We won't be able to detect the BTF configuration.")
 	} else {
 		enable, e := ebpf.IsEnableBPF()
 		if e != nil {
-			log.Fatalf("Kernel config read failed, error:%v", e)
+			log.Fatalf("Failed to read kernel configuration., error:%v", e)
 		}
 
 		if !enable {
-			log.Fatalf("Kernel not support, error:%v", e)
+			log.Fatalf("Unsupported kernel, error:%v", e)
 		}
 
 		// changed by go build '-ldflags X'
@@ -61,10 +61,10 @@ func main() {
 			// BTF支持情况检测
 			enable, e := ebpf.IsEnableBTF()
 			if e != nil {
-				log.Fatalf("Can't found BTF config with error:%v.\n"+BtfNotSupport, e)
+				log.Fatalf("Unable to find BTF configuration due to an error:%v.\n"+BtfNotSupport, e)
 			}
 			if !enable {
-				log.Fatal("BTF not support, please check it. shell: cat /boot/config-`uname -r` | grep CONFIG_DEBUG_INFO_BTF \n " +
+				log.Fatal("BTF is not supported, please check it. shell: cat /boot/config-`uname -r` | grep CONFIG_DEBUG_INFO_BTF \n " +
 					BtfNotSupport)
 			}
 		}
