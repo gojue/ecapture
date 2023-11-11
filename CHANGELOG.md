@@ -1,7 +1,18 @@
 <hr>
 
+# v0.6.5 (2023-11-11)
+## What's Changed
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v0.6.4...v0.6.5
+
+<hr>
+
 # v0.6.4 (2023-10-15)
 ## What's Changed
+* bugfix: Hook the ssl_set_fd function to get FD. by @cfc4n in https://github.com/gojue/ecapture/pull/399
+* build(deps): bump golang.org/x/net from 0.7.0 to 0.17.0 by @dependabot in https://github.com/gojue/ecapture/pull/402
+* refactor : Shared Object (so) path load logic by @cfc4n in https://github.com/gojue/ecapture/pull/401
+* improve: add missing eBPF maps parameters. by @cfc4n in https://github.com/gojue/ecapture/pull/405
 
 **Full Changelog**: https://github.com/gojue/ecapture/compare/v0.6.3...v0.6.4
 
