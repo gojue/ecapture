@@ -55,6 +55,10 @@ func (ne *NsprDataEvent) Decode(payload []byte) (err error) {
 	if err = binary.Read(buf, binary.LittleEndian, &ne.Comm); err != nil {
 		return
 	}
+	decodedKtime, err := DecodeKtime(int64(ne.Timestamp), true)
+	if err == nil {
+		ne.Timestamp = uint64(decodedKtime.Unix())
+	}
 	return nil
 }
 
