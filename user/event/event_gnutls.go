@@ -54,6 +54,12 @@ func (ge *GnutlsDataEvent) Decode(payload []byte) (err error) {
 	if err = binary.Read(buf, binary.LittleEndian, &ge.Comm); err != nil {
 		return
 	}
+
+	decodedKtime, err := DecodeKtime(int64(ge.Timestamp), true)
+	if err == nil {
+		ge.Timestamp = uint64(decodedKtime.Unix())
+	}
+
 	return nil
 }
 

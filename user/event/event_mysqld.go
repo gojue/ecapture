@@ -97,6 +97,12 @@ func (me *MysqldEvent) Decode(payload []byte) (err error) {
 	if err = binary.Read(buf, binary.LittleEndian, &me.Retval); err != nil {
 		return
 	}
+
+	decodedKtime, err := DecodeKtime(int64(me.Timestamp), true)
+	if err == nil {
+		me.Timestamp = uint64(decodedKtime.Unix())
+	}
+
 	return nil
 }
 

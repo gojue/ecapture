@@ -55,6 +55,10 @@ func (pe *PostgresEvent) Decode(payload []byte) (err error) {
 	if err = binary.Read(buf, binary.LittleEndian, &pe.Comm); err != nil {
 		return
 	}
+	decodedKtime, err := DecodeKtime(int64(pe.Timestamp), true)
+	if err == nil {
+		pe.Timestamp = uint64(decodedKtime.Unix())
+	}
 	return nil
 }
 

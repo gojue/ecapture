@@ -112,6 +112,10 @@ func (se *SSLDataEvent) Decode(payload []byte) (err error) {
 		return
 	}
 
+	decodedKtime, err := DecodeKtime(int64(se.Timestamp), true)
+	if err == nil {
+		se.Timestamp = uint64(decodedKtime.Unix())
+	}
 	return nil
 }
 

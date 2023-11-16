@@ -17,6 +17,9 @@ package event
 import (
 	"bytes"
 	"fmt"
+	"time"
+
+	"golang.org/x/sys/unix"
 )
 
 // 格式化输出相关
@@ -87,4 +90,20 @@ func CToGoString(c []byte) string {
 		n = i
 	}
 	return string(c[:n+1])
+}
+
+func DecodeKtime(ktime int64, monotonic bool) (time.Time, error) {
+	var clk int32
+	if monotonic {
+		clk = int32(unix.CLOCK_MONOTONIC)
+	} else {
+		clk = int32(unix.CLOCK_BOOTTIME)
+	}
+	currentTime := unix.Timespec{}
+	if err := unix.ClockGettime(clk, &currentTime); err != nil {
+		return time.Time{}, err
+	}
+	diff := ktime - currentTime.Nano()
+	t := time.Now().Add(time.Duration(diff))
+	return t, nil
 }
