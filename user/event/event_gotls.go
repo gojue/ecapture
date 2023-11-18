@@ -31,6 +31,10 @@ func (ge *GoTLSEvent) Decode(payload []byte) error {
 		ge.Data = make([]byte, ge.Len)
 		err = binary.Read(r, binary.LittleEndian, &ge.Data)
 	}
+	decodedKtime, err := DecodeKtime(int64(ge.TimestampNS), true)
+	if err == nil {
+		ge.TimestampNS = uint64(decodedKtime.Unix())
+	}
 
 	return err
 }
