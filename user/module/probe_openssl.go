@@ -306,7 +306,6 @@ func (m *MOpenSSLProbe) setupManagersUprobe() error {
 	}
 
 	m.logger.Printf("%s\tHOOK type:%d, binrayPath:%s\n", m.Name(), m.conf.(*config.OpensslConfig).ElfType, binaryPath)
-	m.logger.Printf("%s\tlibPthread:%s\n", m.Name(), libPthread)
 	m.logger.Printf("%s\tHook masterKey function:%s\n", m.Name(), m.masterHookFunc)
 
 	m.bpfManager = &manager.Manager{
@@ -338,12 +337,12 @@ func (m *MOpenSSLProbe) setupManagersUprobe() error {
 			},
 
 			// --------------------------------------------------
-			{
-				Section:          "uprobe/connect",
-				EbpfFuncName:     "probe_connect",
-				AttachToFuncName: "connect",
-				BinaryPath:       libPthread,
-			},
+			//{
+			//	Section:          "uprobe/connect",
+			//	EbpfFuncName:     "probe_connect",
+			//	AttachToFuncName: "connect",
+			//	BinaryPath:       libPthread,
+			//},
 
 			// --------------------------------------------------
 
@@ -391,6 +390,19 @@ func (m *MOpenSSLProbe) setupManagersUprobe() error {
 				Name: "mastersecret_events",
 			},
 		},
+	}
+
+	// detect libpthread.so path
+	_, err = os.Stat(libPthread)
+	if err == nil {
+		m.logger.Printf("%s\tlibPthread:%s\n", m.Name(), libPthread)
+		m.bpfManager.Probes = append(m.bpfManager.Probes, &manager.Probe{
+			Section:          "uprobe/connect",
+			EbpfFuncName:     "probe_connect",
+			AttachToFuncName: "connect",
+			BinaryPath:       libPthread,
+			UID:              "uprobe_connect",
+		})
 	}
 
 	m.bpfManagerOptions = manager.Options{
