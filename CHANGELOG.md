@@ -1,10 +1,24 @@
 <hr>
 
-# v0.6.5 (2023-11-11)
+# v0.6.6 (2023-11-19)
 ## What's Changed
 
-**Full Changelog**: https://github.com/gojue/ecapture/compare/v0.6.4...v0.6.5
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v0.6.5...v0.6.6
 
+<hr>
+
+# v0.6.5 (2023-11-11)
+
+## What's Changed
+* supports all ports when target_port is set to 0. by @cfc4n in https://github.com/gojue/ecapture/pull/409
+* support for the boringssl library on Android 12\13\14. by @cfc4n in https://github.com/gojue/ecapture/pull/410
+* update golang version to 1.21 from 1.18 by @cfc4n in https://github.com/gojue/ecapture/pull/412
+* 支持所有端口的网络数据捕获(target_port为0时)  by @cfc4n in https://github.com/gojue/ecapture/pull/409
+* 在Android 12\13\14上，支持borlingssl类库的明文捕获  by @cfc4n in https://github.com/gojue/ecapture/pull/410
+* 更新Golang类库到1.21，cilium/ebpf类库到0.12.3  by @cfc4n in https://github.com/gojue/ecapture/pull/412
+
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v0.6.4...v0.6.5
 <hr>
 
 # v0.6.4 (2023-10-15)
