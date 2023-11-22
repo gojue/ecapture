@@ -18,10 +18,11 @@ import (
 	"debug/elf"
 	"errors"
 	"fmt"
-	"golang.org/x/arch/arm64/arm64asm"
-	"golang.org/x/arch/x86/x86asm"
 	"os"
 	"runtime"
+
+	"golang.org/x/arch/arm64/arm64asm"
+	"golang.org/x/arch/x86/x86asm"
 )
 
 // Arm64armInstSize via :  arm64/arm64asm/decode.go:Decode() size = 4
@@ -103,15 +104,25 @@ func (gc *GoTLSConfig) Check() error {
 // which are actually mounted via uprobe on these addresses.
 func (gc *GoTLSConfig) findRetOffsets(symbolName string) ([]int, error) {
 	var err error
-	var goSymbs []elf.Symbol
-	goSymbs, err = gc.goElf.Symbols()
-	if err != nil {
-		return nil, err
+	var allSymbs []elf.Symbol
+
+	goSymbs, _ := gc.goElf.Symbols()
+	if len(goSymbs) > 0 {
+		allSymbs = append(allSymbs, goSymbs...)
+	}
+
+	goDynamicSymbs, _ := gc.goElf.DynamicSymbols()
+	if len(goDynamicSymbs) > 0 {
+		allSymbs = append(allSymbs, goDynamicSymbs...)
+	}
+
+	if len(allSymbs) == 0 {
+		return nil, fmt.Errorf("no symbols found")
 	}
 
 	var found bool
 	var symbol elf.Symbol
-	for _, s := range goSymbs {
+	for _, s := range allSymbs {
 		if s.Name == symbolName {
 			symbol = s
 			found = true
