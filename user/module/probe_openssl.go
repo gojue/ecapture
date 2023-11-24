@@ -298,7 +298,7 @@ func (m *MOpenSSLProbe) setupManagersUprobe() error {
 	libPthread = m.conf.(*config.OpensslConfig).Pthread
 	if libPthread == "" {
 		//libPthread = "/lib/x86_64-linux-gnu/libpthread.so.0"
-		m.logger.Printf("%s\tlibPthread path not found, IP info lost.\n", m.Name(), libPthread)
+		m.logger.Printf("%s\tlibPthread path not found, IP info lost.\n", m.Name())
 	}
 
 	_, err := os.Stat(binaryPath)
