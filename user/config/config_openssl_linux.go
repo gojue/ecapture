@@ -139,6 +139,7 @@ func (oc *OpensslConfig) checkConnect() error {
 
 	//如果没找到，则报错。
 	if !found || funcName == "" {
+		oc.Pthread = ""
 		return errors.New(fmt.Sprintf("cant found 'connect' function to hook in files::%v", connectSharedObjects))
 	}
 	return nil
@@ -173,7 +174,8 @@ func (oc *OpensslConfig) Check() error {
 	}
 
 	if !checkedConnect {
-		return oc.checkConnect()
+		// Optional check
+		_ = oc.checkConnect()
 	}
 	s, e := checkCgroupPath(oc.CGroupPath)
 	if e != nil {
