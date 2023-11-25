@@ -393,17 +393,19 @@ func (m *MOpenSSLProbe) setupManagersUprobe() error {
 		},
 	}
 
-	// detect libpthread.so path
-	_, err = os.Stat(libPthread)
-	if err == nil {
-		m.logger.Printf("%s\tlibPthread:%s\n", m.Name(), libPthread)
-		m.bpfManager.Probes = append(m.bpfManager.Probes, &manager.Probe{
-			Section:          "uprobe/connect",
-			EbpfFuncName:     "probe_connect",
-			AttachToFuncName: "connect",
-			BinaryPath:       libPthread,
-			UID:              "uprobe_connect",
-		})
+	if libPthread != "" {
+		// detect libpthread.so path
+		_, err = os.Stat(libPthread)
+		if err == nil {
+			m.logger.Printf("%s\tlibPthread:%s\n", m.Name(), libPthread)
+			m.bpfManager.Probes = append(m.bpfManager.Probes, &manager.Probe{
+				Section:          "uprobe/connect",
+				EbpfFuncName:     "probe_connect",
+				AttachToFuncName: "connect",
+				BinaryPath:       libPthread,
+				UID:              "uprobe_connect",
+			})
+		}
 	}
 
 	m.bpfManagerOptions = manager.Options{
