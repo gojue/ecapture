@@ -1,5 +1,14 @@
 package main
 
+/*
+#include <stdio.h>
+#include <stdlib.h>
+
+void test() {
+	printf("hello CGO!\n");
+}
+*/
+import "C"
 import (
 	"crypto/tls"
 	"fmt"
@@ -10,7 +19,7 @@ import (
 )
 
 func main() {
-
+	C.test()
 	b, e := GetHttp("https://baidu.com")
 	if e == nil {
 		fmt.Printf("response body: %s\n\n", b)
