@@ -46,7 +46,7 @@ var rootCmd = &cobra.Command{
 such as HTTPS and TLS without installing a CA certificate.
 It can also capture bash commands, which is suitable for 
 security auditing scenarios, such as database auditing of mysqld, etc (disabled on Android).
-
+Support Linux(Android)  X86_64 4.18/aarch64 5.5 or newer.
 Repository: https://github.com/gojue/ecapture
 HomePage: https://ecapture.cc
 
