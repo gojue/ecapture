@@ -38,7 +38,7 @@ var gnutlsCmd = &cobra.Command{
 	Use:     "gnutls",
 	Aliases: []string{"gnu"},
 	Short:   "capture gnutls text content without CA cert for gnutls libraries.",
-	Long: `use eBPF uprobe/TC to capture process event data and network data.also support pcap-NG format.
+	Long: `use eBPF uprobe/TC to capture process event data.
 ecapture gnutls
 ecapture gnutls --hex --pid=3423
 ecapture gnutls -l save.log --pid=3423

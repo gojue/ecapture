@@ -1,3 +1,6 @@
+//go:build !androidgki
+// +build !androidgki
+
 // Copyright 2022 CFC4N <cfc4n.cs@gmail.com>. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -28,39 +31,30 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var oc = config.NewOpensslConfig()
+var nc = config.NewNsprConfig()
 
-// opensslCmd represents the openssl command
-var opensslCmd = &cobra.Command{
-	Use:     "tls",
-	Aliases: []string{"openssl"},
-	Short:   "use to capture tls/ssl text content without CA cert. (Support openssl 1.0.x/1.1.x/3.0.x or newer).",
-	Long: `use eBPF uprobe/TC to capture process event data and network data.also support pcap-NG format.
-ecapture tls
-ecapture tls --hex --pid=3423
-ecapture tls -l save.log --pid=3423
-ecapture tls --libssl=/lib/x86_64-linux-gnu/libssl.so.1.1
-ecapture tls -w save_3_0_5.pcapng --ssl_version="openssl 3.0.5" --libssl=/lib/x86_64-linux-gnu/libssl.so.3 
-ecapture tls -w save_android.pcapng -i wlan0 --libssl=/apex/com.android.conscrypt/lib64/libssl.so --ssl_version="boringssl 1.1.1" --port 443
+// gnutlsCmd represents the openssl command
+var nssCmd = &cobra.Command{
+	Use:     "nss",
+	Aliases: []string{"nspr"},
+	Short:   "capture nss/nspr encrypted text content without CA cert for nss/nspr libraries.",
+	Long: `use eBPF uprobe/TC to capture process event data.
+ecapture nss
+ecapture nss --hex --pid=3423
+ecapture nss -l save.log --pid=3423
+ecapture nss --nspr=/lib/x86_64-linux-gnu/libnspr44.so
 `,
-	Run: openSSLCommandFunc,
+	Run: nssCommandFunc,
 }
 
 func init() {
-	//opensslCmd.PersistentFlags().StringVar(&oc.Curlpath, "curl", "", "curl or wget file path, use to dectet openssl.so path, default:/usr/bin/curl. (Deprecated)")
-	opensslCmd.PersistentFlags().StringVar(&oc.Openssl, "libssl", "", "libssl.so file path, will automatically find it from curl default.")
-	opensslCmd.PersistentFlags().StringVar(&oc.CGroupPath, "cgroup_path", "/sys/fs/cgroup", "cgroup path, default: /sys/fs/cgroup.")
-	opensslCmd.PersistentFlags().StringVar(&oc.Pthread, "pthread", "", "libpthread.so file path, use to hook connect to capture socket FD.will automatically find it from curl.")
-	opensslCmd.PersistentFlags().StringVarP(&oc.Write, "write", "w", "", "write the  raw packets to file as pcapng format.")
-	opensslCmd.PersistentFlags().StringVarP(&oc.Ifname, "ifname", "i", "", "(TC Classifier) Interface name on which the probe will be attached.")
-	opensslCmd.PersistentFlags().Uint16Var(&oc.Port, "port", 443, "port number to capture, default:443; capture all ports:0")
-	opensslCmd.PersistentFlags().StringVar(&oc.SslVersion, "ssl_version", "", "openssl/boringssl version， e.g: --ssl_version=\"openssl 1.1.1g\" or  --ssl_version=\"boringssl 1.1.1\"")
-
-	rootCmd.AddCommand(opensslCmd)
+	//nssCmd.PersistentFlags().StringVar(&nc.Firefoxpath, "firefox", "", "firefox file path, default: /usr/lib/firefox/firefox. (Deprecated)")
+	nssCmd.PersistentFlags().StringVar(&nc.Nsprpath, "nspr", "", "libnspr44.so file path, will automatically find it from curl default.")
+	rootCmd.AddCommand(nssCmd)
 }
 
-// openSSLCommandFunc executes the "bash" command.
-func openSSLCommandFunc(command *cobra.Command, args []string) {
+// nssCommandFunc executes the "bash" command.
+func nssCommandFunc(command *cobra.Command, args []string) {
 	stopper := make(chan os.Signal, 1)
 	signal.Notify(stopper, os.Interrupt, syscall.SIGTERM)
 	ctx, cancelFun := context.WithCancel(context.TODO())
@@ -79,8 +73,7 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 	var version kernel.Version
 	version, err = kernel.HostVersion()
 	logger.Printf("ECAPTURE :: Kernel Info : %s", version.String())
-	modNames := []string{}
-	modNames = []string{module.ModuleNameOpenssl}
+	modNames := []string{module.ModuleNameNspr}
 
 	var runMods uint8
 	var runModules = make(map[string]module.IModule)
@@ -94,8 +87,7 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 		}
 
 		var conf config.IConfig
-		conf = oc
-
+		conf = gc
 		if conf == nil {
 			logger.Printf("ECAPTURE :: \tcant found module %s config info.", mod.Name())
 			break
@@ -122,10 +114,6 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 			continue
 		}
 
-		// 加载ebpf，挂载到hook点上，开始监听
-		//go func(module user.IModule) {
-		//
-		//}(mod)
 		err = mod.Run()
 		if err != nil {
 			logger.Printf("%s\tmodule run failed, [skip it]. error:%+v", mod.Name(), err)
