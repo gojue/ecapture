@@ -34,9 +34,6 @@ eBPF `Uprobe`/`Traffic Control`实现的各种用户空间/内核空间的数据
 * bash的命令捕获，HIDS的bash命令监控解决方案。
 * mysql query等数据库的数据库审计解决方案。
 
-# eCapture 系统架构
-![](./images/ecapture-architecture.png)
-
 # 演示
 
 ## eCapture 使用方法
@@ -73,14 +70,47 @@ eCapture默认查找`/etc/ld.so.conf`文件，查找SO文件的加载目录，�
 
 如果目标程序使用静态编译方式，则可以直接将`--libssl`参数设定为该程序的路径。
 
-### Pcapng输出格式
+## 模块介绍
+eCapture 有8个模块，分别支持openssl/gnutls/nspr/boringssl/gotls等类库的TLS/SSL加密类库的明文捕获、Bash、Mysql、PostGres软件审计。
+* bash		capture bash command 
+* gnutls	capture gnutls text content without CA cert for gnutls libraries. 
+* gotls		Capturing plaintext communication from Golang programs encrypted with TLS/HTTPS. 
+* mysqld	capture sql queries from mysqld 5.6/5.7/8.0 . 
+* nss		capture nss/nspr encrypted text content without CA cert for nss/nspr libraries. 
+* postgres	capture sql queries from postgres 10+. 
+* tls		use to capture tls/ssl text content without CA cert. (Support openssl 1.0.x/1.1.x/3.0.x or newer).
 
-`./ecapture tls -i eth0 -w pcapng -p 443` 将捕获的明文数据包保存为pcapng文件，可以使用`Wireshark`打开查看。
+你可以通过`ecapture -h`来查看这些自命令列表。
 
-### 文本输出格式
+## openssl  模块
+openssl模块支持3中捕获模式
+* pcap/pcapng模式，将捕获的明文数据以pcap-NG格式存储。
+* keylog/key模式，保存TLS的握手密钥到文件中。
+* text模式，直接捕获明文数据，输出到指定文件中，或者打印到命令行。
+### Pcap 模式
+你可以通过`-m pcap`或`-m pcapng`参数来指定，需要配合`--pcapfile`、`-i`参数使用。其中`--pcapfile`参数的默认值为`ecapture_openssl.pcapng`。
+```shell
+./ecapture tls -m pcap -i eth0 --pcapfile=ecapture.pcapng --port=443
+``` 
+将捕获的明文数据包保存为pcapng文件，可以使用`Wireshark`打开查看。
 
-`./ecapture tls` 将会输出所有的明文数据包，并捕获openssl TLS的密钥`Master Secret`文件到当前目录的`ecapture_masterkey.log`中。你也可以同时开启`tcpdump`抓包，再使用`Wireshark`打开，设置`Master Secret`路径，查看明文数据包。
+### keylog 模式
+你可以通过`-m keylog`或`-m key`参数来指定，需要配合`--keylogfile`参数使用，默认为`ecapture_masterkey.log`。
+捕获的openssl TLS的密钥`Master Secret`信息，将保存到`--keylogfile`中。你也可以同时开启`tcpdump`抓包，再使用`Wireshark`打开，设置`Master Secret`路径，查看明文数据包。
+```shell
+./ecapture tls -m keylog -keylogfile=openssl_keylog.log
+```
 
+也可以直接使用`tshark`软件实时解密展示。
+```shell
+tshark -o tls.keylog_file:ecapture_masterkey.log -Y http -T fields -e http.file_data -f "port 443" -i eth0
+```
+### text 模式
+`./ecapture tls -m text ` 将会输出所有的明文数据包。（v0.7.0起，不再捕获SSLKEYLOG信息。）
+
+
+## gotls 模块
+与openssl模块类似。
 ### 验证方法：
 
 ```shell
@@ -120,6 +150,9 @@ vm@vm-server:~$ /usr/local/bin/openssl s_client -connect www.qq.com:443
 ```shell
 ps -ef | grep foo
 ```
+
+# eCapture 系统架构
+![](./images/ecapture-architecture.png)
 
 # 微信公众号
 ![](./images/wechat_gzhh.png)

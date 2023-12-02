@@ -63,12 +63,12 @@ func getGlobalConf(command *cobra.Command) (conf GlobalFlags, err error) {
 		return
 	}
 
-	conf.mapSizeKB, err = command.Flags().GetInt("map-size")
+	conf.mapSizeKB, err = command.Flags().GetInt("mapsize")
 	if err != nil {
 		return
 	}
 
-	conf.LoggerAddr, err = command.Flags().GetString("log-addr")
+	conf.LoggerAddr, err = command.Flags().GetString("logaddr")
 	if err != nil {
 		return
 	}
