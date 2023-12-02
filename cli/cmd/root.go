@@ -90,10 +90,9 @@ func init() {
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	//rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-	rootCmd.PersistentFlags().BoolVarP(&globalFlags.Debug, "debug", "d", false, "enable debug logging")
+	rootCmd.PersistentFlags().BoolVarP(&globalFlags.Debug, "debug", "d", false, "enable debug logging.(coming soon)")
 	rootCmd.PersistentFlags().BoolVar(&globalFlags.IsHex, "hex", false, "print byte strings as hex encoded strings")
-	rootCmd.PersistentFlags().BoolVar(&globalFlags.NoSearch, "nosearch", false, "no lib search")
-	rootCmd.PersistentFlags().IntVar(&globalFlags.mapSizeKB, "map-size", 10240, "eBPF map size per CPU,for events buffer. default:10240. (KB)")
+	rootCmd.PersistentFlags().IntVar(&globalFlags.mapSizeKB, "map-size", 1024*5, "eBPF map size per CPU,for events buffer. default:5120. (KB)")
 	rootCmd.PersistentFlags().Uint64VarP(&globalFlags.Pid, "pid", "p", defaultPid, "if pid is 0 then we target all pids")
 	rootCmd.PersistentFlags().Uint64VarP(&globalFlags.Uid, "uid", "u", defaultUid, "if uid is 0 then we target all users")
 	rootCmd.PersistentFlags().StringVarP(&globalFlags.LoggerAddr, "log-addr", "l", "", "-l /tmp/ecapture.log or -l tcp://127.0.0.1:8080")
