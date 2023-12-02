@@ -1,5 +1,4 @@
 <hr>
-
 # v0.7.0 (2023-12-03)
 ## 🚀 Breaking Changes
 - Split `nss/gnutls/openssl` into three separate submodules. Corresponding to the `./ecapture nss`, `./ecapture gnutls`, `ecapture tls` commands.
