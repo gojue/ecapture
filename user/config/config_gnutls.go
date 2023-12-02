@@ -24,5 +24,6 @@ type GnutlsConfig struct {
 
 func NewGnutlsConfig() *GnutlsConfig {
 	config := &GnutlsConfig{}
+	config.PerCpuMapSize = DefaultMapSizePerCpu
 	return config
 }

@@ -49,7 +49,9 @@ type GoTLSConfig struct {
 
 // NewGoTLSConfig creates a new config for Go SSL
 func NewGoTLSConfig() *GoTLSConfig {
-	return &GoTLSConfig{}
+	gc := &GoTLSConfig{}
+	gc.PerCpuMapSize = DefaultMapSizePerCpu
+	return gc
 }
 
 func (gc *GoTLSConfig) Check() error {

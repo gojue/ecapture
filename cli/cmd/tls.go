@@ -105,7 +105,7 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 		conf.SetUid(gConf.Uid)
 		conf.SetDebug(gConf.Debug)
 		conf.SetHex(gConf.IsHex)
-
+		conf.SetPerCpuMapSize(gConf.mapSizeKB)
 		err = conf.Check()
 
 		if err != nil {

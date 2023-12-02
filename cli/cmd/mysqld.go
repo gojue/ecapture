@@ -70,6 +70,7 @@ func mysqldCommandFunc(command *cobra.Command, args []string) {
 	mysqldConfig.Pid = gConf.Pid
 	mysqldConfig.Debug = gConf.Debug
 	mysqldConfig.IsHex = gConf.IsHex
+	mysqldConfig.SetPerCpuMapSize(gConf.mapSizeKB)
 
 	log.Printf("ECAPTURE :: pid info :%d", os.Getpid())
 	//bc.Pid = globalFlags.Pid
