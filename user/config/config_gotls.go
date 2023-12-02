@@ -38,10 +38,12 @@ var (
 // GoTLSConfig represents configuration for Go SSL probe
 type GoTLSConfig struct {
 	eConfig
-	Path         string    `json:"path"`   // golang application path to binary built with Go toolchain.
-	Write        string    `json:"write"`  // Write  the  raw  packets  to file rather than parsing and printing them out.
-	Ifname       string    `json:"ifName"` // (TC Classifier) Interface name on which the probe will be attached.
-	Port         uint16    `json:"port"`   // capture port
+	Path         string    `json:"path"`       // golang application path to binary built with Go toolchain.
+	PcapFile     string    `json:"pcapFile"`   // pcapFile  the  raw  packets  to file rather than parsing and printing them out.
+	KeylogFile   string    `json:"keylogFile"` // keylogFile  The file stores SSL/TLS keys, and eCapture captures these keys during encrypted traffic communication and saves them to the file.
+	Model        string    `json:"model"`      // model  such as : text, pcapng/pcap, key/keylog.
+	Ifname       string    `json:"ifName"`     // (TC Classifier) Interface name on which the probe will be attached.
+	Port         uint16    `json:"port"`       // capture port
 	goElfArch    string    //
 	goElf        *elf.File //
 	ReadTlsAddrs []int
@@ -55,15 +57,16 @@ func NewGoTLSConfig() *GoTLSConfig {
 }
 
 func (gc *GoTLSConfig) Check() error {
+	var err error
 	if gc.Path == "" {
 		return ErrorGoBINNotFound
 	}
 
-	if gc.Ifname == "" || len(gc.Ifname) == 0 {
-		gc.Ifname = DefaultIfname
+	_, err = gc.checkModel()
+	if err != nil {
+		return err
 	}
-
-	_, err := os.Stat(gc.Path)
+	_, err = os.Stat(gc.Path)
 	if err != nil {
 		return err
 	}
@@ -182,4 +185,22 @@ func (gc *GoTLSConfig) decodeInstruction(instHex []byte) ([]int, error) {
 		}
 	}
 	return offsets, nil
+}
+
+func (gc *GoTLSConfig) checkModel() (string, error) {
+	var m string
+	var e error
+	switch gc.Model {
+	case TlsCaptureModelKeylog, TlsCaptureModelKey:
+		m = TlsCaptureModelKey
+	case TlsCaptureModelPcap, TlsCaptureModelPcapng:
+		m = TlsCaptureModelPcap
+		if gc.Ifname == "" {
+			return "", errors.New("'pcap' model used, please used -i flag to set ifname value.")
+		}
+		fmt.Println(gc.Ifname)
+	default:
+		m = TlsCaptureModelText
+	}
+	return m, e
 }
