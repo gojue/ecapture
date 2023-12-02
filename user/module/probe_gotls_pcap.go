@@ -26,7 +26,7 @@ import (
 	"net"
 )
 
-func (g *GoTLSProbe) setupManagersTC() error {
+func (g *GoTLSProbe) setupManagersPcap() error {
 	var ifname string
 
 	ifname = g.conf.(*config.GoTLSConfig).Ifname
@@ -130,7 +130,7 @@ func (g *GoTLSProbe) setupManagersTC() error {
 	return nil
 }
 
-func (g *GoTLSProbe) initDecodeFunTC() error {
+func (g *GoTLSProbe) initDecodeFunPcap() error {
 	//SkbEventsMap 与解码函数映射
 	SkbEventsMap, found, err := g.bpfManager.GetMap("skb_events")
 	if err != nil {
@@ -161,8 +161,4 @@ func (g *GoTLSProbe) initDecodeFunTC() error {
 
 	g.eventFuncMaps[MasterkeyEventsMap] = masterkeyEvent
 	return nil
-}
-
-func (g *GoTLSProbe) Events() []*ebpf.Map {
-	return g.eventMaps
 }

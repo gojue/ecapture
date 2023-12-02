@@ -11,7 +11,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"math"
 	"os"
 	"path/filepath"
 	"sync"
@@ -48,7 +47,7 @@ type GoTLSProbe struct {
 	keyloggerFilename string
 	keylogger         *os.File
 	masterSecrets     map[string]bool
-	eBPFProgramType   EBPFPROGRAMTYPE
+	eBPFProgramType   TlsCaptureModelType
 	path              string
 	isRegisterABI     bool
 }
@@ -73,23 +72,28 @@ func (g *GoTLSProbe) Init(ctx context.Context, l *log.Logger, cfg config.IConfig
 		g.isRegisterABI = true
 	}
 
-	g.keyloggerFilename = MasterSecretKeyLogName
-	file, err := os.OpenFile(g.keyloggerFilename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
-	if err != nil {
-		return err
-	}
-	g.keylogger = file
-
-	var writeFile = g.conf.(*config.GoTLSConfig).Write
-	if len(writeFile) > 0 {
-		g.eBPFProgramType = EbpfprogramtypeOpensslTc
-		fileInfo, err := filepath.Abs(writeFile)
+	var model = g.conf.(*config.GoTLSConfig).Model
+	switch model {
+	case config.TlsCaptureModelKey, config.TlsCaptureModelKeylog:
+		g.eBPFProgramType = TlsCaptureModelTypeKeylog
+		g.keyloggerFilename = g.conf.(*config.GoTLSConfig).KeylogFile
+		file, err := os.OpenFile(g.keyloggerFilename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+		if err != nil {
+			return err
+		}
+		g.keylogger = file
+	case config.TlsCaptureModelPcap, config.TlsCaptureModelPcapng:
+		var pcapFile = g.conf.(*config.GoTLSConfig).PcapFile
+		g.eBPFProgramType = TlsCaptureModelTypePcap
+		fileInfo, err := filepath.Abs(pcapFile)
 		if err != nil {
 			return err
 		}
 		g.pcapngFilename = fileInfo
-	} else {
-		g.eBPFProgramType = EbpfprogramtypeOpensslUprobe
+	case config.TlsCaptureModelText:
+		fallthrough
+	default:
+		g.eBPFProgramType = TlsCaptureModelTypeText
 		g.logger.Printf("%s\tmaster key keylogger: %s\n", g.Name(), g.keyloggerFilename)
 	}
 
@@ -121,15 +125,18 @@ func (g *GoTLSProbe) Start() error {
 func (g *GoTLSProbe) start() error {
 	var err error
 	switch g.eBPFProgramType {
-	case EbpfprogramtypeOpensslTc:
-		g.logger.Printf("%s\tTC MODEL\n", g.Name())
-		err = g.setupManagersTC()
-	case EbpfprogramtypeOpensslUprobe:
-		g.logger.Printf("%s\tUPROBE MODEL\n", g.Name())
-		err = g.setupManagersUprobe()
+	case TlsCaptureModelTypeKeylog:
+		g.logger.Printf("%s\tKeylog MODEL\n", g.Name())
+		err = g.setupManagersKeylog()
+	case TlsCaptureModelTypePcap:
+		g.logger.Printf("%s\tPcap MODEL\n", g.Name())
+		err = g.setupManagersPcap()
+	case TlsCaptureModelTypeText:
+		g.logger.Printf("%s\tText MODEL\n", g.Name())
+		err = g.setupManagersText()
 	default:
-		g.logger.Printf("%s\tUPROBE MODEL\n", g.Name())
-		err = g.setupManagersUprobe()
+		g.logger.Printf("%s\tText MODEL\n", g.Name())
+		err = g.setupManagersText()
 	}
 	if err != nil {
 		return err
@@ -152,99 +159,17 @@ func (g *GoTLSProbe) start() error {
 
 	// 加载map信息，map对应events decode表。
 	switch g.eBPFProgramType {
-	case EbpfprogramtypeOpensslTc:
-		err = g.initDecodeFunTC()
-	case EbpfprogramtypeOpensslUprobe:
-		err = g.initDecodeFun()
+	case TlsCaptureModelTypeKeylog:
+		err = g.initDecodeFunKeylog()
+	case TlsCaptureModelTypePcap:
+		err = g.initDecodeFunPcap()
+	case TlsCaptureModelTypeText:
+		err = g.initDecodeFunText()
 	default:
-		err = g.initDecodeFun()
+		err = g.initDecodeFunText()
 	}
 	if err != nil {
 		return err
-	}
-	return nil
-}
-
-func (g *GoTLSProbe) setupManagersUprobe() error {
-	var (
-		sec, msSec, readSec string
-		fn, msFn, readFn    string
-	)
-
-	if g.isRegisterABI {
-		sec = "uprobe/gotls_write_register"
-		fn = "gotls_write_register"
-		readSec = "uprobe/gotls_read_register"
-		readFn = "gotls_read_register"
-		msSec = "uprobe/gotls_mastersecret_register"
-		msFn = "gotls_mastersecret_register"
-	} else {
-		sec = "uprobe/gotls_write_stack"
-		fn = "gotls_write_stack"
-		readSec = "uprobe/gotls_read_stack"
-		readFn = "gotls_read_stack"
-		msSec = "uprobe/gotls_mastersecret_stack"
-		msFn = "gotls_mastersecret_stack"
-	}
-	g.logger.Printf("%s\teBPF Function Name:%s, isRegisterABI:%t\n", g.Name(), fn, g.isRegisterABI)
-	g.bpfManager = &manager.Manager{
-		Probes: []*manager.Probe{
-			{
-				Section:          sec,
-				EbpfFuncName:     fn,
-				AttachToFuncName: goTlsWriteFunc,
-				BinaryPath:       g.path,
-			},
-			{
-				Section:          msSec,
-				EbpfFuncName:     msFn,
-				AttachToFuncName: goTlsMasterSecretFunc,
-				BinaryPath:       g.path,
-				UID:              "uprobe_gotls_master_secret",
-			},
-		},
-		Maps: []*manager.Map{
-			{
-				Name: "mastersecret_go_events",
-			},
-			{
-				Name: "events",
-			},
-		},
-	}
-
-	readOffsets := g.conf.(*config.GoTLSConfig).ReadTlsAddrs
-	//g.bpfManager.Probes = []*manager.Probe{}
-	for _, v := range readOffsets {
-		var uid = fmt.Sprintf("%s_%d", readFn, v)
-		g.logger.Printf("%s\tadd uretprobe function :%s, offset:0x%X\n", g.Name(), config.GoTlsReadFunc, v)
-		g.bpfManager.Probes = append(g.bpfManager.Probes, &manager.Probe{
-			Section:          readSec,
-			EbpfFuncName:     readFn,
-			AttachToFuncName: config.GoTlsReadFunc,
-			BinaryPath:       g.path,
-			UprobeOffset:     uint64(v),
-			UID:              uid,
-		})
-	}
-	g.bpfManagerOptions = manager.Options{
-		DefaultKProbeMaxActive: 512,
-
-		VerifierOptions: ebpf.CollectionOptions{
-			Programs: ebpf.ProgramOptions{
-				LogSize: 2097152,
-			},
-		},
-
-		RLimit: &unix.Rlimit{
-			Cur: math.MaxUint64,
-			Max: math.MaxUint64,
-		},
-	}
-
-	if g.conf.EnableGlobalVar() {
-		// 填充 RewriteContants 对应map
-		g.bpfManagerOptions.ConstantEditors = g.constantEditor()
 	}
 	return nil
 }
@@ -282,39 +207,6 @@ func (g *GoTLSProbe) constantEditor() []manager.ConstantEditor {
 	return editor
 }
 
-func (g *GoTLSProbe) initDecodeFun() error {
-
-	m, found, err := g.bpfManager.GetMap("events")
-	if err != nil {
-		return err
-	}
-	if !found {
-		return errors.New("cant found map:tls_events")
-	}
-
-	g.eventMaps = append(g.eventMaps, m)
-	gotlsEvent := &event.GoTLSEvent{}
-	//sslEvent.SetModule(g)
-	g.eventFuncMaps[m] = gotlsEvent
-	// master secrets map at ebpf code
-	MasterkeyEventsMap, found, err := g.bpfManager.GetMap("mastersecret_go_events")
-	if err != nil {
-		return err
-	}
-	if !found {
-		return errors.New("cant found map:mastersecret_events")
-	}
-	g.eventMaps = append(g.eventMaps, MasterkeyEventsMap)
-
-	var masterkeyEvent event.IEventStruct
-
-	// goTLS Event struct
-	masterkeyEvent = &event.MasterSecretGotlsEvent{}
-
-	g.eventFuncMaps[MasterkeyEventsMap] = masterkeyEvent
-	return nil
-}
-
 func (g *GoTLSProbe) DecodeFun(m *ebpf.Map) (event.IEventStruct, bool) {
 	fun, found := g.eventFuncMaps[m]
 	return fun, found
@@ -322,7 +214,7 @@ func (g *GoTLSProbe) DecodeFun(m *ebpf.Map) (event.IEventStruct, bool) {
 
 func (g *GoTLSProbe) Close() error {
 
-	if g.eBPFProgramType == EbpfprogramtypeOpensslTc {
+	if g.eBPFProgramType == TlsCaptureModelTypePcap {
 		g.logger.Printf("%s\tsaving pcapng file %s\n", g.Name(), g.pcapngFilename)
 		i, err := g.savePcapng()
 		if err != nil {
@@ -359,19 +251,24 @@ func (g *GoTLSProbe) saveMasterSecret(secretEvent *event.MasterSecretGotlsEvent)
 	// TODO 保存多个lable 整组里？？？
 	// save to file
 	var b string
+	var e error
 	b = fmt.Sprintf("%s %02x %02x\n", label, clientRandom, secret)
-	l, e := g.keylogger.WriteString(b)
-	if e != nil {
-		g.logger.Fatalf("%s: save masterSecrets to file error:%s", secretEvent.String(), e.Error())
-		return
+	switch g.eBPFProgramType {
+	case TlsCaptureModelTypeKeylog:
+		var l int
+		l, e = g.keylogger.WriteString(b)
+		if e != nil {
+			g.logger.Fatalf("%s: save masterSecrets to file error:%s", secretEvent.String(), e.Error())
+			return
+		}
+		g.logger.Printf("%s: save CLIENT_RANDOM %02x to file success, %d bytes", label, clientRandom, l)
+	case TlsCaptureModelTypePcap:
+		e = g.savePcapngSslKeyLog([]byte(b))
+		if e != nil {
+			g.logger.Fatalf("%s: save masterSecrets to pcapng error:%s", secretEvent.String(), e.Error())
+			return
+		}
 	}
-	g.logger.Printf("%s: save CLIENT_RANDOM %02x to file success, %d bytes", label, clientRandom, l)
-	e = g.savePcapngSslKeyLog([]byte(b))
-	if e != nil {
-		g.logger.Fatalf("%s: save masterSecrets to pcapng error:%s", secretEvent.String(), e.Error())
-		return
-	}
-
 }
 
 func (g *GoTLSProbe) Dispatcher(eventStruct event.IEventStruct) {
@@ -385,5 +282,8 @@ func (g *GoTLSProbe) Dispatcher(eventStruct event.IEventStruct) {
 			g.logger.Printf("%s\t save packet error %s .\n", g.Name(), err.Error())
 		}
 	}
-	//g.logger.Println(eventStruct)
+}
+
+func (g *GoTLSProbe) Events() []*ebpf.Map {
+	return g.eventMaps
 }

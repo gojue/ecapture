@@ -38,15 +38,17 @@ var gotlsCmd = &cobra.Command{
 	Long: `Utilize eBPF uprobe/TC to capture both process event and network data, with added support for pcap-NG format.
 ecapture gotls
 ecapture gotls --elfpath=/home/cfc4n/go_https_client --hex --pid=3423
-ecapture gotls --elfpath=/home/cfc4n/go_https_client -l save.log --pid=3423
-ecapture gotls -w save_android.pcapng -i wlan0 --port 443 --elfpath=/home/cfc4n/go_https_client
+ecapture gotls -m keylog -k /tmp/ecap_gotls_key.log --elfpath=/home/cfc4n/go_https_client -l save.log --pid=3423
+ecapture gotls -m pcap -w save_android.pcapng -i wlan0 --port 443 --elfpath=/home/cfc4n/go_https_client
 `,
 	Run: goTLSCommandFunc,
 }
 
 func init() {
 	gotlsCmd.PersistentFlags().StringVarP(&goc.Path, "elfpath", "e", "", "ELF path to binary built with Go toolchain.")
-	gotlsCmd.PersistentFlags().StringVarP(&goc.Write, "write", "w", "", "write the  raw packets to file as pcapng format.")
+	gotlsCmd.PersistentFlags().StringVar(&goc.PcapFile, "pcapfile", "ecapture_gotls.pcapng", "write the  raw packets to file as pcapng format.")
+	gotlsCmd.PersistentFlags().StringVarP(&goc.Model, "model", "m", "text", "capture model, such as : text, pcap/pcapng, key/keylog")
+	gotlsCmd.PersistentFlags().StringVarP(&goc.KeylogFile, "keylogfile", "k", "ecapture_gotls_key.log", "The file stores SSL/TLS keys, and eCapture captures these keys during encrypted traffic communication and saves them to the file.")
 	gotlsCmd.PersistentFlags().StringVarP(&goc.Ifname, "ifname", "i", "", "(TC Classifier) Interface name on which the probe will be attached.")
 	gotlsCmd.PersistentFlags().Uint16Var(&goc.Port, "port", 443, "port number to capture, default:443.")
 	rootCmd.AddCommand(gotlsCmd)
