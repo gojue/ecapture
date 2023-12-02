@@ -182,5 +182,7 @@ func (oc *OpensslConfig) Check() error {
 		return e
 	}
 	oc.CGroupPath = s
+
+	oc.Model = oc.checkModel()
 	return nil
 }
