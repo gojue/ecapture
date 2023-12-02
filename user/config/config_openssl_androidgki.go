@@ -74,5 +74,7 @@ func (oc *OpensslConfig) Check() error {
 			break
 		}
 	}
+
+	oc.Model = oc.checkModel()
 	return nil
 }

@@ -33,7 +33,7 @@ type NetEventMetadata struct {
 	ProcessName [16]byte `json:"processName"`
 }
 
-func (m *MOpenSSLProbe) setupManagersTC() error {
+func (m *MOpenSSLProbe) setupManagersPcap() error {
 	var ifname, binaryPath, sslVersion string
 
 	ifname = m.conf.(*config.OpensslConfig).Ifname
@@ -159,7 +159,7 @@ func (m *MOpenSSLProbe) setupManagersTC() error {
 	return nil
 }
 
-func (m *MOpenSSLProbe) initDecodeFunTC() error {
+func (m *MOpenSSLProbe) initDecodeFunPcap() error {
 	//SkbEventsMap 与解码函数映射
 	SkbEventsMap, found, err := m.bpfManager.GetMap("skb_events")
 	if err != nil {

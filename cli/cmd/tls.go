@@ -40,8 +40,8 @@ ecapture tls
 ecapture tls --hex --pid=3423
 ecapture tls -l save.log --pid=3423
 ecapture tls --libssl=/lib/x86_64-linux-gnu/libssl.so.1.1
-ecapture tls -w save_3_0_5.pcapng --ssl_version="openssl 3.0.5" --libssl=/lib/x86_64-linux-gnu/libssl.so.3 
-ecapture tls -w save_android.pcapng -i wlan0 --libssl=/apex/com.android.conscrypt/lib64/libssl.so --ssl_version="boringssl 1.1.1" --port 443
+ecapture tls -m keylog -w save_3_0_5.pcapng --ssl_version="openssl 3.0.5" --libssl=/lib/x86_64-linux-gnu/libssl.so.3 
+ecapture tls -w pcap save_android.pcapng -i wlan0 --libssl=/apex/com.android.conscrypt/lib64/libssl.so --ssl_version="boringssl 1.1.1" --port 443
 `,
 	Run: openSSLCommandFunc,
 }
@@ -51,7 +51,9 @@ func init() {
 	opensslCmd.PersistentFlags().StringVar(&oc.Openssl, "libssl", "", "libssl.so file path, will automatically find it from curl default.")
 	opensslCmd.PersistentFlags().StringVar(&oc.CGroupPath, "cgroup_path", "/sys/fs/cgroup", "cgroup path, default: /sys/fs/cgroup.")
 	opensslCmd.PersistentFlags().StringVar(&oc.Pthread, "pthread", "", "libpthread.so file path, use to hook connect to capture socket FD.will automatically find it from curl.")
-	opensslCmd.PersistentFlags().StringVarP(&oc.Write, "write", "w", "", "write the  raw packets to file as pcapng format.")
+	opensslCmd.PersistentFlags().StringVarP(&oc.Model, "model", "m", "text", "capture model, such as : text, pcap/pcapng, key/keylog")
+	opensslCmd.PersistentFlags().StringVarP(&oc.KeylogFile, "keylogfile", "k", "ecapture_openssl_key.og", "The file stores SSL/TLS keys, and eCapture captures these keys during encrypted traffic communication and saves them to the file.")
+	opensslCmd.PersistentFlags().StringVar(&oc.PcapFile, "pcapfile", "ecapture_openssl.pcapng", "write the raw packets to file as pcapng format.")
 	opensslCmd.PersistentFlags().StringVarP(&oc.Ifname, "ifname", "i", "", "(TC Classifier) Interface name on which the probe will be attached.")
 	opensslCmd.PersistentFlags().Uint16Var(&oc.Port, "port", 443, "port number to capture, default:443; capture all ports:0")
 	opensslCmd.PersistentFlags().StringVar(&oc.SslVersion, "ssl_version", "", "openssl/boringssl version， e.g: --ssl_version=\"openssl 1.1.1g\" or  --ssl_version=\"boringssl 1.1.1\"")

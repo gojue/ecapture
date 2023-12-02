@@ -22,13 +22,11 @@ import (
 	"ecapture/pkg/util/hkdf"
 	"ecapture/user/config"
 	"ecapture/user/event"
-	"errors"
 	"fmt"
 	"github.com/cilium/ebpf"
 	manager "github.com/gojue/ebpfmanager"
 	"golang.org/x/sys/unix"
 	"log"
-	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -49,11 +47,12 @@ type Tls13MasterSecret struct {
 	ClientTrafficSecret0         []byte
 }
 
-type EBPFPROGRAMTYPE uint8
+type TlsCaptureModelType uint8
 
 const (
-	EbpfprogramtypeOpensslTc EBPFPROGRAMTYPE = iota
-	EbpfprogramtypeOpensslUprobe
+	TlsCaptureModelTypePcap TlsCaptureModelType = iota
+	TlsCaptureModelTypeText
+	TlsCaptureModelTypeKeylog
 )
 
 type MOpenSSLProbe struct {
@@ -70,7 +69,7 @@ type MOpenSSLProbe struct {
 	keyloggerFilename string
 	keylogger         *os.File
 	masterKeys        map[string]bool
-	eBPFProgramType   EBPFPROGRAMTYPE
+	eBPFProgramType   TlsCaptureModelType
 
 	sslVersionBpfMap map[string]string // bpf map key: ssl version, value: bpf map key
 	sslBpfFile       string            // ssl bpf file
@@ -91,22 +90,29 @@ func (m *MOpenSSLProbe) Init(ctx context.Context, logger *log.Logger, conf confi
 	m.sslVersionBpfMap = make(map[string]string)
 
 	//fd := os.Getpid()
-	m.keyloggerFilename = MasterSecretKeyLogName
-	file, err := os.OpenFile(m.keyloggerFilename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
-	if err != nil {
-		return err
-	}
-	m.keylogger = file
-	var writeFile = m.conf.(*config.OpensslConfig).Write
-	if len(writeFile) > 0 {
-		m.eBPFProgramType = EbpfprogramtypeOpensslTc
-		fileInfo, err := filepath.Abs(writeFile)
+	var err error
+	var model = m.conf.(*config.OpensslConfig).Model
+	switch model {
+	case config.TlsCaptureModelKeylog, config.TlsCaptureModelKey:
+		m.keyloggerFilename = m.conf.(*config.OpensslConfig).KeylogFile
+		m.keylogger, err = os.OpenFile(m.keyloggerFilename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+		if err != nil {
+			return err
+		}
+		m.eBPFProgramType = TlsCaptureModelTypeKeylog
+		m.logger.Printf("%s\tmaster key keylogger: %s\n", m.Name(), m.keyloggerFilename)
+	case config.TlsCaptureModelPcap, config.TlsCaptureModelPcapng:
+		var pcapFile = m.conf.(*config.OpensslConfig).PcapFile
+		m.eBPFProgramType = TlsCaptureModelTypePcap
+		fileInfo, err := filepath.Abs(pcapFile)
 		if err != nil {
 			return err
 		}
 		m.pcapngFilename = fileInfo
-	} else {
-		m.eBPFProgramType = EbpfprogramtypeOpensslUprobe
+	case config.TlsCaptureModelText:
+		fallthrough
+	default:
+		m.eBPFProgramType = TlsCaptureModelTypeText
 		m.logger.Printf("%s\tmaster key keylogger: %s\n", m.Name(), m.keyloggerFilename)
 	}
 
@@ -169,15 +175,18 @@ func (m *MOpenSSLProbe) start() error {
 	var err error
 	// setup the managers
 	switch m.eBPFProgramType {
-	case EbpfprogramtypeOpensslTc:
-		m.logger.Printf("%s\tTC MODEL\n", m.Name())
-		err = m.setupManagersTC()
-	case EbpfprogramtypeOpensslUprobe:
-		m.logger.Printf("%s\tUPROBE MODEL\n", m.Name())
-		err = m.setupManagersUprobe()
+	case TlsCaptureModelTypeKeylog:
+		m.logger.Printf("%s\tKeylog MODEL\n", m.Name())
+		err = m.setupManagersKeylog()
+	case TlsCaptureModelTypePcap:
+		m.logger.Printf("%s\tPcapng MODEL\n", m.Name())
+		err = m.setupManagersPcap()
+	case TlsCaptureModelTypeText:
+		m.logger.Printf("%s\tText MODEL\n", m.Name())
+		err = m.setupManagersText()
 	default:
-		m.logger.Printf("%s\tUPROBE MODEL\n", m.Name())
-		err = m.setupManagersUprobe()
+		m.logger.Printf("%s\tText MODEL\n", m.Name())
+		err = m.setupManagersText()
 	}
 	if err != nil {
 		return err
@@ -205,12 +214,14 @@ func (m *MOpenSSLProbe) start() error {
 
 	// 加载map信息，map对应events decode表。
 	switch m.eBPFProgramType {
-	case EbpfprogramtypeOpensslTc:
-		err = m.initDecodeFunTC()
-	case EbpfprogramtypeOpensslUprobe:
-		err = m.initDecodeFun()
+	case TlsCaptureModelTypeKeylog:
+		err = m.initDecodeFunKeylog()
+	case TlsCaptureModelTypePcap:
+		err = m.initDecodeFunPcap()
+	case TlsCaptureModelTypeText:
+		err = m.initDecodeFunText()
 	default:
-		err = m.initDecodeFun()
+		err = m.initDecodeFunText()
 	}
 	if err != nil {
 		return err
@@ -220,7 +231,7 @@ func (m *MOpenSSLProbe) start() error {
 }
 
 func (m *MOpenSSLProbe) Close() error {
-	if m.eBPFProgramType == EbpfprogramtypeOpensslTc {
+	if m.eBPFProgramType == TlsCaptureModelTypePcap {
 		m.logger.Printf("%s\tsaving pcapng file %s\n", m.Name(), m.pcapngFilename)
 		i, err := m.savePcapng()
 		if err != nil {
@@ -273,214 +284,9 @@ func (m *MOpenSSLProbe) constantEditor() []manager.ConstantEditor {
 	return editor
 }
 
-func (m *MOpenSSLProbe) setupManagersUprobe() error {
-	var libPthread, binaryPath, sslVersion string
-	sslVersion = m.conf.(*config.OpensslConfig).SslVersion
-	sslVersion = strings.ToLower(sslVersion)
-	switch m.conf.(*config.OpensslConfig).ElfType {
-	//case config.ElfTypeBin:
-	//	binaryPath = m.conf.(*config.OpensslConfig).Curlpath
-	case config.ElfTypeSo:
-		binaryPath = m.conf.(*config.OpensslConfig).Openssl
-		err := m.getSslBpfFile(binaryPath, sslVersion)
-		if err != nil {
-			return err
-		}
-	default:
-		//如果没找到
-		binaryPath = "/lib/x86_64-linux-gnu/libssl.so.1.1"
-		err := m.getSslBpfFile(binaryPath, sslVersion)
-		if err != nil {
-			return err
-		}
-	}
-
-	libPthread = m.conf.(*config.OpensslConfig).Pthread
-	if libPthread == "" {
-		//libPthread = "/lib/x86_64-linux-gnu/libpthread.so.0"
-		m.logger.Printf("%s\tlibPthread path not found, IP info lost.\n", m.Name())
-	}
-
-	_, err := os.Stat(binaryPath)
-	if err != nil {
-		return err
-	}
-
-	m.logger.Printf("%s\tHOOK type:%d, binrayPath:%s\n", m.Name(), m.conf.(*config.OpensslConfig).ElfType, binaryPath)
-	m.logger.Printf("%s\tHook masterKey function:%s\n", m.Name(), m.masterHookFunc)
-
-	m.bpfManager = &manager.Manager{
-		Probes: []*manager.Probe{
-
-			{
-				Section:          "uprobe/SSL_write",
-				EbpfFuncName:     "probe_entry_SSL_write",
-				AttachToFuncName: "SSL_write",
-				BinaryPath:       binaryPath,
-			},
-			{
-				Section:          "uretprobe/SSL_write",
-				EbpfFuncName:     "probe_ret_SSL_write",
-				AttachToFuncName: "SSL_write",
-				BinaryPath:       binaryPath,
-			},
-			{
-				Section:          "uprobe/SSL_read",
-				EbpfFuncName:     "probe_entry_SSL_read",
-				AttachToFuncName: "SSL_read",
-				BinaryPath:       binaryPath,
-			},
-			{
-				Section:          "uretprobe/SSL_read",
-				EbpfFuncName:     "probe_ret_SSL_read",
-				AttachToFuncName: "SSL_read",
-				BinaryPath:       binaryPath,
-			},
-
-			// --------------------------------------------------
-			//{
-			//	Section:          "uprobe/connect",
-			//	EbpfFuncName:     "probe_connect",
-			//	AttachToFuncName: "connect",
-			//	BinaryPath:       libPthread,
-			//},
-
-			// --------------------------------------------------
-
-			// openssl masterkey
-			{
-				Section:          "uprobe/SSL_write_key",
-				EbpfFuncName:     "probe_ssl_master_key",
-				AttachToFuncName: m.masterHookFunc,
-				BinaryPath:       binaryPath,
-				UID:              "uprobe_ssl_master_key",
-			},
-
-			// ------------------- SSL_set_fd hook-------------------------------------
-			{
-				Section:          "uprobe/SSL_set_fd",
-				EbpfFuncName:     "probe_SSL_set_fd",
-				AttachToFuncName: "SSL_set_fd",
-				BinaryPath:       binaryPath,
-				UID:              "uprobe_ssl_set_fd",
-			},
-			{
-				Section:          "uprobe/SSL_set_rfd",
-				EbpfFuncName:     "probe_SSL_set_fd",
-				AttachToFuncName: "SSL_set_rfd",
-				BinaryPath:       binaryPath,
-				UID:              "uprobe_ssl_set_rfd",
-			},
-			{
-				Section:          "uprobe/SSL_set_wfd",
-				EbpfFuncName:     "probe_SSL_set_fd",
-				AttachToFuncName: "SSL_set_wfd",
-				BinaryPath:       binaryPath,
-				UID:              "uprobe_ssl_set_wfd",
-			},
-		},
-
-		Maps: []*manager.Map{
-			{
-				Name: "tls_events",
-			},
-			{
-				Name: "connect_events",
-			},
-			{
-				Name: "mastersecret_events",
-			},
-		},
-	}
-
-	if libPthread != "" {
-		// detect libpthread.so path
-		_, err = os.Stat(libPthread)
-		if err == nil {
-			m.logger.Printf("%s\tlibPthread:%s\n", m.Name(), libPthread)
-			m.bpfManager.Probes = append(m.bpfManager.Probes, &manager.Probe{
-				Section:          "uprobe/connect",
-				EbpfFuncName:     "probe_connect",
-				AttachToFuncName: "connect",
-				BinaryPath:       libPthread,
-				UID:              "uprobe_connect",
-			})
-		}
-	}
-
-	m.bpfManagerOptions = manager.Options{
-		DefaultKProbeMaxActive: 512,
-
-		VerifierOptions: ebpf.CollectionOptions{
-			Programs: ebpf.ProgramOptions{
-				LogSize: 2097152,
-			},
-		},
-
-		RLimit: &unix.Rlimit{
-			Cur: math.MaxUint64,
-			Max: math.MaxUint64,
-		},
-	}
-
-	if m.conf.EnableGlobalVar() {
-		// 填充 RewriteContants 对应map
-		m.bpfManagerOptions.ConstantEditors = m.constantEditor()
-	} else {
-		m.logger.Printf("%s\tYour kernel version is less than 5.2, the following parameters will be ignored:[target_pid, target_uid, target_port]\n", m.Name())
-	}
-	return nil
-}
-
 func (m *MOpenSSLProbe) DecodeFun(em *ebpf.Map) (event.IEventStruct, bool) {
 	fun, found := m.eventFuncMaps[em]
 	return fun, found
-}
-
-func (m *MOpenSSLProbe) initDecodeFun() error {
-	//SSLDumpEventsMap 与解码函数映射
-	SSLDumpEventsMap, found, err := m.bpfManager.GetMap("tls_events")
-	if err != nil {
-		return err
-	}
-	if !found {
-		return errors.New("cant found map:tls_events")
-	}
-	m.eventMaps = append(m.eventMaps, SSLDumpEventsMap)
-	sslEvent := &event.SSLDataEvent{}
-	m.eventFuncMaps[SSLDumpEventsMap] = sslEvent
-
-	ConnEventsMap, found, err := m.bpfManager.GetMap("connect_events")
-	if err != nil {
-		return err
-	}
-	if !found {
-		return errors.New("cant found map:connect_events")
-	}
-	m.eventMaps = append(m.eventMaps, ConnEventsMap)
-	connEvent := &event.ConnDataEvent{}
-	m.eventFuncMaps[ConnEventsMap] = connEvent
-
-	MasterkeyEventsMap, found, err := m.bpfManager.GetMap("mastersecret_events")
-	if err != nil {
-		return err
-	}
-	if !found {
-		return errors.New("cant found map:mastersecret_events")
-	}
-	m.eventMaps = append(m.eventMaps, MasterkeyEventsMap)
-
-	var masterkeyEvent event.IEventStruct
-
-	if m.isBoringSSL {
-		masterkeyEvent = &event.MasterSecretBSSLEvent{}
-	} else {
-		masterkeyEvent = &event.MasterSecretEvent{}
-	}
-	//masterkeyEvent.SetModule(m)
-	m.eventFuncMaps[MasterkeyEventsMap] = masterkeyEvent
-
-	return nil
 }
 
 func (m *MOpenSSLProbe) Events() []*ebpf.Map {
@@ -599,23 +405,25 @@ func (m *MOpenSSLProbe) saveMasterSecret(secretEvent *event.MasterSecretEvent) {
 		b = bytes.NewBufferString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelTLS12, secretEvent.ClientRandom, secretEvent.MasterKey))
 	}
 	v := event.TlsVersion{Version: secretEvent.Version}
-	l, e := m.keylogger.WriteString(b.String())
-	if e != nil {
-		m.logger.Fatalf("%s: save CLIENT_RANDOM to file error:%s", v.String(), e.Error())
-		return
-	}
 
 	//
 	switch m.eBPFProgramType {
-	case EbpfprogramtypeOpensslTc:
-		e = m.savePcapngSslKeyLog(b.Bytes())
+	case TlsCaptureModelTypePcap:
+		e := m.savePcapngSslKeyLog(b.Bytes())
 		if e != nil {
 			m.logger.Fatalf("%s: save CLIENT_RANDOM to pcapng error:%s", v.String(), e.Error())
 			return
 		}
+		m.logger.Printf("%s: save CLIENT_RANDOM %02x to file success, %d bytes", v.String(), secretEvent.ClientRandom, b.Len())
+	case TlsCaptureModelTypeKeylog:
+		l, e := m.keylogger.WriteString(b.String())
+		if e != nil {
+			m.logger.Fatalf("%s: save CLIENT_RANDOM to file error:%s", v.String(), e.Error())
+			return
+		}
+		m.logger.Printf("%s: save CLIENT_RANDOM %02x to file success, %d bytes", v.String(), secretEvent.ClientRandom, l)
 	default:
 	}
-	m.logger.Printf("%s: save CLIENT_RANDOM %02x to file success, %d bytes", v.String(), secretEvent.ClientRandom, l)
 }
 
 func (m *MOpenSSLProbe) saveMasterSecretBSSL(secretEvent *event.MasterSecretBSSLEvent) {
@@ -665,23 +473,23 @@ func (m *MOpenSSLProbe) saveMasterSecretBSSL(secretEvent *event.MasterSecretBSSL
 	}
 
 	v := event.TlsVersion{Version: secretEvent.Version}
-	l, e := m.keylogger.WriteString(b.String())
-	if e != nil {
-		m.logger.Fatalf("%s: save CLIENT_RANDOM to file error:%s", v.String(), e.Error())
-		return
-	}
-
 	//
 	switch m.eBPFProgramType {
-	case EbpfprogramtypeOpensslTc:
-		m.logger.Printf("%s: save CLIENT_RANDOM %02x to file success, %d bytes", v.String(), secretEvent.ClientRandom, l)
-		e = m.savePcapngSslKeyLog(b.Bytes())
+	case TlsCaptureModelTypePcap:
+		e := m.savePcapngSslKeyLog(b.Bytes())
 		if e != nil {
 			m.logger.Fatalf("%s: save CLIENT_RANDOM to pcapng error:%s", v.String(), e.Error())
 			return
 		}
-	default:
+		m.logger.Printf("%s: save CLIENT_RANDOM %02x to file success, %d bytes", v.String(), secretEvent.ClientRandom, b.Len())
+	case TlsCaptureModelTypeKeylog:
+		l, e := m.keylogger.WriteString(b.String())
+		if e != nil {
+			m.logger.Fatalf("%s: save CLIENT_RANDOM to file error:%s", v.String(), e.Error())
+			return
+		}
 		m.logger.Printf("%s: save CLIENT_RANDOM %02x to file success, %d bytes", v.String(), secretEvent.ClientRandom, l)
+	default:
 	}
 }
 
@@ -765,7 +573,7 @@ func (m *MOpenSSLProbe) dumpSslData(eventStruct *event.SSLDataEvent) {
 	} else {
 		eventStruct.Addr = addr
 	}
-	//m.processor.Write(eventStruct)
+	//m.processor.PcapFile(eventStruct)
 	if m.conf.GetHex() {
 		m.logger.Println(eventStruct.StringHex())
 	} else {
