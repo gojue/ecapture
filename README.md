@@ -24,9 +24,6 @@
 * bash audit, capture bash command for Host Security Audit.
 * mysql query SQL audit, support mysqld 5.6\5.7\8.0, and mariadDB.
 
-# eCapture Architecture
-![](./images/ecapture-architecture.png)
-
 # eCapture User Manual
 
 [![eCapture User Manual](./images/ecapture-user-manual.png)](https://www.youtube.com/watch?v=CoDIjEQCvvA "eCapture User Manual")
@@ -53,18 +50,58 @@ flag to set shard library path.
 
 If target program is compile statically, you can set program path as `--libssl` flag value directly。
 
-### Pcapng result
+## Modules
+The eCapture tool comprises 8 modules that respectively support plaintext capture for TLS/SSL encryption libraries like OpenSSL, GnuTLS, NSPR, BoringSSL, and GoTLS. Additionally, it facilitates software audits for Bash, MySQL, and PostgreSQL applications.
+* bash		capture bash command
+* gnutls	capture gnutls text content without CA cert for gnutls libraries.
+* gotls		Capturing plaintext communication from Golang programs encrypted with TLS/HTTPS.
+* mysqld	capture sql queries from mysqld 5.6/5.7/8.0 .
+* nss		capture nss/nspr encrypted text content without CA cert for nss/nspr libraries.
+* postgres	capture sql queries from postgres 10+.
+* tls		use to capture tls/ssl text content without CA cert. (Support openssl 1.0.x/1.1.x/3.0.x or newer).
+  You can use `ecapture -h` to view the list of subcommands.
 
-`./ecapture tls -i eth0 -w pcapng -p 443` capture plaintext packets save as pcapng file, use `Wireshark` read it
-directly.
+## OpenSSL Module
 
-### plaintext result
+The OpenSSL module supports three capture modes:
 
-`./ecapture tls` will capture all plaintext context ,output to console, and capture `Master Secret` of `openssl TLS`
-save to `ecapture_masterkey.log`. You can also use `tcpdump` to capture raw packet,and use `Wireshark` to read them
-with `Master Secret` settings.
+- `pcap`/`pcapng` mode stores captured plaintext data in pcap-NG format.
+- `keylog`/`key` mode saves the TLS handshake keys to a file.
+- `text` mode directly captures plaintext data, either outputting to a specified file or printing to the command line.
 
->
+### Pcap Mode
+
+You can specify `-m pcap` or `-m pcapng` and use it in conjunction with `--pcapfile` and `-i` parameters. The default value for `--pcapfile` is `ecapture_openssl.pcapng`.
+
+```shell
+./ecapture tls -m pcap -i eth0 --pcapfile=ecapture.pcapng --port=443
+```
+
+This command saves captured plaintext data packets as a pcapng file, which can be viewed using `Wireshark`.
+
+### Keylog Mode
+
+You can specify `-m keylog` or `-m key` and use it in conjunction with the `--keylogfile` parameter, which defaults to `ecapture_masterkey.log`.
+
+The captured OpenSSL TLS `Master Secret` information is saved to `--keylogfile`. You can also enable `tcpdump` packet capture and then use `Wireshark` to open the file and set the `Master Secret` path to view plaintext data packets.
+
+```shell
+./ecapture tls -m keylog -keylogfile=openssl_keylog.log
+```
+
+You can also directly use the `tshark` software for real-time decryption and display:
+
+```shell
+tshark -o tls.keylog_file:ecapture_masterkey.log -Y http -T fields -e http.file_data -f "port 443" -i eth0
+```
+
+### Text Mode
+
+`./ecapture tls -m text` will output all plaintext data packets. (Starting from v0.7.0, it no longer captures SSLKEYLOG information.)
+
+## GoTLS Module
+
+Similar to the OpenSSL module.
 
 ### check your server BTF config：
 
@@ -113,6 +150,9 @@ capture bash command.
 ```shell
 ps -ef | grep foo
 ```
+
+# eCapture Architecture
+![](./images/ecapture-architecture.png)
 
 # What's eBPF
 [eBPF](https://ebpf.io)

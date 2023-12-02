@@ -53,18 +53,47 @@ eCapture はデフォルトで `/etc/ld.so.conf` ファイルを検索し、
 
 ターゲットプログラムが静的にコンパイルされる場合、プログラムパスを `--libssl` フラグの値として直接設定することができます。
 
-### Pcapng 結果
+## 模块介绍
+eCapture 有8个模块，分别支持openssl/gnutls/nspr/boringssl/gotls等类库的TLS/SSL加密类库的明文捕获、Bash、Mysql、PostGres软件审计。
+* bash		capture bash command
+* gnutls	capture gnutls text content without CA cert for gnutls libraries.
+* gotls		Capturing plaintext communication from Golang programs encrypted with TLS/HTTPS.
+* mysqld	capture sql queries from mysqld 5.6/5.7/8.0 .
+* nss		capture nss/nspr encrypted text content without CA cert for nss/nspr libraries.
+* postgres	capture sql queries from postgres 10+.
+* tls		use to capture tls/ssl text content without CA cert. (Support openssl 1.0.x/1.1.x/3.0.x or newer).
 
-`./ecapture tls -i eth0 -w pcapng -p 443` 平文パケットをキャプチャして pcapng ファイルとして保存し、 `Wireshark`
- でそれを直接読みます。
+你可以通过`ecapture -h`来查看这些自命令列表。
 
-### 平文結果
+## openssl  模块
+openssl模块支持3中捕获模式
+* pcap/pcapng模式，将捕获的明文数据以pcap-NG格式存储。
+* keylog/key模式，保存TLS的握手密钥到文件中。
+* text模式，直接捕获明文数据，输出到指定文件中，或者打印到命令行。
+### Pcap 模式
+你可以通过`-m pcap`或`-m pcapng`参数来指定，需要配合`--pcapfile`、`-i`参数使用。其中`--pcapfile`参数的默认值为`ecapture_openssl.pcapng`。
+```shell
+./ecapture tls -m pcap -i eth0 --pcapfile=ecapture.pcapng --port=443
+``` 
+将捕获的明文数据包保存为pcapng文件，可以使用`Wireshark`打开查看。
 
-`./ecapture tls` はすべてのプレーンテキストのコンテキストをキャプチャしてコンソールに出力し、`openssl TLS` の `Master Secret` をキャプチャして 
-`ecapture_masterkey.log` に保存することができます。また、`tcpdump` を使って生のパケットをキャプチャし、
-`Wireshark` を使って `Master Secret` 設定でそれらを読み込むことができます。
+### keylog 模式
+你可以通过`-m keylog`或`-m key`参数来指定，需要配合`--keylogfile`参数使用，默认为`ecapture_masterkey.log`。
+捕获的openssl TLS的密钥`Master Secret`信息，将保存到`--keylogfile`中。你也可以同时开启`tcpdump`抓包，再使用`Wireshark`打开，设置`Master Secret`路径，查看明文数据包。
+```shell
+./ecapture tls -m keylog -keylogfile=openssl_keylog.log
+```
 
->
+也可以直接使用`tshark`软件实时解密展示。
+```shell
+tshark -o tls.keylog_file:ecapture_masterkey.log -Y http -T fields -e http.file_data -f "port 443" -i eth0
+```
+### text 模式
+`./ecapture tls -m text ` 将会输出所有的明文数据包。（v0.7.0起，不再捕获SSLKEYLOG信息。）
+
+
+## gotls 模块
+与openssl模块类似。
 
 ### サーバーの BTF 設定を確認：
 
