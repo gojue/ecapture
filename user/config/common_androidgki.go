@@ -17,6 +17,10 @@
 
 package config
 
+import (
+	"os"
+)
+
 // https://source.android.com/devices/architecture/vndk/linker-namespace
 var (
 	default_so_paths = []string{

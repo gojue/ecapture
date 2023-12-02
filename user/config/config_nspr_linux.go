@@ -36,11 +36,6 @@ func (nc *NsprConfig) Check() error {
 		return nil
 	}
 	/*
-		if nc.NoSearch {
-			return errors.New("NoSearch requires specifying lib path")
-		}
-
-
 		//如果配置 Curlpath的地址，判断文件是否存在，不存在则直接返回
 		if nc.Firefoxpath != "" || len(strings.TrimSpace(nc.Firefoxpath)) > 0 {
 			_, e := os.Stat(nc.Firefoxpath)

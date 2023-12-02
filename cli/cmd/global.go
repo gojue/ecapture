@@ -35,7 +35,6 @@ type GlobalFlags struct {
 	Debug      bool
 	Pid        uint64 // PID
 	Uid        uint64 // UID
-	NoSearch   bool   // No lib search
 	LoggerAddr string // save file
 	mapSizeKB  int    // ebpf map size per CPU
 	addrType   uint8  // 0:stdout, 1:file, 2:tcp
@@ -60,11 +59,6 @@ func getGlobalConf(command *cobra.Command) (conf GlobalFlags, err error) {
 	}
 
 	conf.IsHex, err = command.Flags().GetBool("hex")
-	if err != nil {
-		return
-	}
-
-	conf.NoSearch, err = command.Flags().GetBool("nosearch")
 	if err != nil {
 		return
 	}

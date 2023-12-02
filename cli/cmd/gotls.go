@@ -89,7 +89,6 @@ func goTLSCommandFunc(command *cobra.Command, args []string) {
 	conf.SetDebug(gConf.Debug)
 	conf.SetHex(gConf.IsHex)
 	conf.SetPerCpuMapSize(gConf.mapSizeKB)
-	//conf.SetNoSearch(gConf.NoSearch)
 
 	err = conf.Check()
 
