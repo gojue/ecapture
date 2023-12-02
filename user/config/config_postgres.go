@@ -32,6 +32,7 @@ type PostgresConfig struct {
 
 func NewPostgresConfig() *PostgresConfig {
 	config := &PostgresConfig{}
+	config.PerCpuMapSize = DefaultMapSizePerCpu
 	return config
 }
 

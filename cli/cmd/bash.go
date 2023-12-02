@@ -76,6 +76,7 @@ func bashCommandFunc(command *cobra.Command, args []string) {
 	bc.Uid = gConf.Uid
 	bc.Debug = gConf.Debug
 	bc.IsHex = gConf.IsHex
+	bc.SetPerCpuMapSize(gConf.mapSizeKB)
 
 	logger.Printf("ECAPTURE :: pid info :%d", os.Getpid())
 	//bc.Pid = globalFlags.Pid

@@ -24,6 +24,7 @@ var (
 		"/apex/com.android.conscrypt/lib64",
 		"/apex/com.android.runtime/lib64/bionic",
 	}
+	DefaultMapSizePerCpu = os.Getpagesize() * 512
 )
 
 const ElfArchIsandroid = true

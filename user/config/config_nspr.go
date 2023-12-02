@@ -24,5 +24,6 @@ type NsprConfig struct {
 
 func NewNsprConfig() *NsprConfig {
 	config := &NsprConfig{}
+	config.PerCpuMapSize = DefaultMapSizePerCpu
 	return config
 }

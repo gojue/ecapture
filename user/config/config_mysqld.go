@@ -49,6 +49,7 @@ type MysqldConfig struct {
 
 func NewMysqldConfig() *MysqldConfig {
 	config := &MysqldConfig{}
+	config.PerCpuMapSize = DefaultMapSizePerCpu
 	return config
 }
 

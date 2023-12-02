@@ -37,6 +37,7 @@ type GlobalFlags struct {
 	Uid        uint64 // UID
 	NoSearch   bool   // No lib search
 	LoggerAddr string // save file
+	mapSizeKB  int    // ebpf map size per CPU
 	addrType   uint8  // 0:stdout, 1:file, 2:tcp
 	address    string
 	writer     io.Writer
@@ -64,6 +65,11 @@ func getGlobalConf(command *cobra.Command) (conf GlobalFlags, err error) {
 	}
 
 	conf.NoSearch, err = command.Flags().GetBool("nosearch")
+	if err != nil {
+		return
+	}
+
+	conf.mapSizeKB, err = command.Flags().GetInt("map-size")
 	if err != nil {
 		return
 	}

@@ -26,7 +26,6 @@ import (
 	"github.com/cilium/ebpf/perf"
 	"github.com/cilium/ebpf/ringbuf"
 	"log"
-	"os"
 	"strings"
 )
 
@@ -190,7 +189,7 @@ func (m *Module) readEvents() error {
 }
 
 func (m *Module) perfEventReader(errChan chan error, em *ebpf.Map) {
-	rd, err := perf.NewReader(em, os.Getpagesize()*BufferSizeOfEbpfMap)
+	rd, err := perf.NewReader(em, m.conf.GetPerCpuMapSize())
 	if err != nil {
 		errChan <- fmt.Errorf("creating %s reader dns: %s", em.String(), err)
 		return

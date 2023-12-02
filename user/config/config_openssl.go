@@ -49,6 +49,7 @@ type OpensslConfig struct {
 
 func NewOpensslConfig() *OpensslConfig {
 	config := &OpensslConfig{}
+	config.PerCpuMapSize = DefaultMapSizePerCpu
 	return config
 }
 

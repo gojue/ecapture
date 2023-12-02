@@ -31,6 +31,7 @@ type BashConfig struct {
 
 func NewBashConfig() *BashConfig {
 	config := &BashConfig{}
+	config.PerCpuMapSize = DefaultMapSizePerCpu
 	return config
 }
 
