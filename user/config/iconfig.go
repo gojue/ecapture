@@ -16,6 +16,7 @@ package config
 
 import (
 	"ecapture/pkg/util/kernel"
+	"os"
 )
 
 type IConfig interface {
@@ -32,6 +33,14 @@ type IConfig interface {
 	SetPerCpuMapSize(int)
 	EnableGlobalVar() bool //
 }
+
+const (
+	TlsCaptureModelText   = "text"
+	TlsCaptureModelPcap   = "pcap"
+	TlsCaptureModelPcapng = "pcapng"
+	TlsCaptureModelKey    = "key"
+	TlsCaptureModelKeylog = "keylog"
+)
 
 type eConfig struct {
 	Pid           uint64
@@ -78,7 +87,7 @@ func (c *eConfig) GetPerCpuMapSize() int {
 }
 
 func (c *eConfig) SetPerCpuMapSize(size int) {
-	c.PerCpuMapSize = size
+	c.PerCpuMapSize = size * os.Getpagesize()
 }
 
 func (c *eConfig) EnableGlobalVar() bool {
