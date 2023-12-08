@@ -163,7 +163,10 @@ func (m *MOpenSSLProbe) detectOpenssl(soPath string) error {
 
 		totalReadCount += readCount
 
-		f.Seek(sectionOffset+int64(totalReadCount), 0)
+		_, err = f.Seek(sectionOffset+int64(totalReadCount), 0)
+		if err != nil {
+			break
+		}
 
 		clear(buf)
 
