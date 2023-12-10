@@ -15,7 +15,6 @@
 package module
 
 import (
-	"bytes"
 	"debug/elf"
 	"ecapture/user/config"
 	"fmt"
@@ -30,6 +29,8 @@ const (
 	LinuxDefauleFilename_1_1_1 = "linux_default_1_1_1"
 	LinuxDefauleFilename_3_0   = "linux_default_3_0"
 	AndroidDefauleFilename     = "android_default"
+
+	OpenSslVersionLen = 30 // openssl version string length
 )
 
 const (
@@ -119,48 +120,22 @@ func (m *MOpenSSLProbe) detectOpenssl(soPath string) error {
 		return nil
 	}
 
-	sectionSize := int64(s.Offset)
+	sectionOffset := int64(s.Offset)
+	sectionSize := s.Size
+
+	r.Close()
 
 	_, err = f.Seek(0, 0)
 	if err != nil {
 		return err
 	}
 
-	ret, err := f.Seek(sectionSize, 0)
-	if ret != sectionSize || err != nil {
+	ret, err := f.Seek(sectionOffset, 0)
+	if ret != sectionOffset || err != nil {
 		return err
 	}
 
-	buf := make([]byte, s.Size)
-	if buf == nil {
-		return nil
-	}
-
-	_, err = f.Read(buf)
-	if err != nil {
-		return err
-	}
-
-	// 按照\x00 拆分  buf
-	var slice [][]byte
-	if slice = bytes.Split(buf, []byte("\x00")); slice == nil {
-		return nil
-	}
-
-	dumpStrings := make(map[uint64][]byte, len(slice))
-	length := uint64(len(slice))
-
-	var offset uint64
-
-	for i := uint64(0); i < length; i++ {
-		if len(slice[i]) == 0 {
-			continue
-		}
-
-		dumpStrings[offset] = slice[i]
-
-		offset += (uint64(len(slice[i])) + 1)
-	}
+	versionKey := ""
 
 	// e.g : OpenSSL 1.1.1j  16 Feb 2021
 	rex, err := regexp.Compile(`(OpenSSL\s\d\.\d\.[0-9a-z]+)`)
@@ -168,17 +143,43 @@ func (m *MOpenSSLProbe) detectOpenssl(soPath string) error {
 		return nil
 	}
 
-	versionKey := ""
+	buf := make([]byte, 1024*1024) // 1Mb
+	totalReadCount := 0
+	for totalReadCount < int(sectionSize) {
+		readCount, err := f.Read(buf)
 
-	for _, v := range dumpStrings {
-		if strings.Contains(string(v), "OpenSSL") {
-			match := rex.FindStringSubmatch(string(v))
-			if match != nil {
-				versionKey = match[0]
-				break
-			}
+		if err != nil {
+			m.logger.Printf("%s\t[f.Read] Error:%v\t", m.Name(), err)
+			break
 		}
+
+		if readCount == 0 {
+			break
+		}
+
+		match := rex.Find(buf)
+		if match != nil {
+			versionKey = string(match)
+			break
+		}
+
+		// Substracting OpenSslVersionLen from totalReadCount,
+		// to cover the edge-case in which openssl version string
+		// could be split into two buffers. Substraction will,
+		// makes sure that last 30 bytes of previous buffer are considered.
+		totalReadCount += readCount - OpenSslVersionLen
+
+		_, err = f.Seek(sectionOffset+int64(totalReadCount), 0)
+		if err != nil {
+			break
+		}
+
+		clear(buf)
+
 	}
+
+	f.Close()
+	buf = nil
 
 	var bpfFile string
 	var found bool
