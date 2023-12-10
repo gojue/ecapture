@@ -29,6 +29,8 @@ const (
 	LinuxDefauleFilename_1_1_1 = "linux_default_1_1_1"
 	LinuxDefauleFilename_3_0   = "linux_default_3_0"
 	AndroidDefauleFilename     = "android_default"
+
+	OpenSslVersionLen = 30 // openssl version string length
 )
 
 const (
@@ -161,7 +163,11 @@ func (m *MOpenSSLProbe) detectOpenssl(soPath string) error {
 			break
 		}
 
-		totalReadCount += readCount
+		// Substracting OpenSslVersionLen from totalReadCount,
+		// to cover the edge-case in which openssl version string
+		// could be split into two buffers. Substraction will,
+		// makes sure that last 30 bytes of previous buffer are considered.
+		totalReadCount += readCount - OpenSslVersionLen
 
 		_, err = f.Seek(sectionOffset+int64(totalReadCount), 0)
 		if err != nil {
