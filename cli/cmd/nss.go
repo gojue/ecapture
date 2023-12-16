@@ -87,7 +87,7 @@ func nssCommandFunc(command *cobra.Command, args []string) {
 		}
 
 		var conf config.IConfig
-		conf = gc
+		conf = nc
 		if conf == nil {
 			logger.Printf("ECAPTURE :: \tcant found module %s config info.", mod.Name())
 			break
