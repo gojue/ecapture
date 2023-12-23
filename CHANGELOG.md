@@ -1,4 +1,12 @@
+# v0.7.1 (2023-12-23)
+## What's Changed
+
+## New Contributors
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v0.7.0...v0.7.1
+
 <hr>
+
 # v0.7.0 (2023-12-03)
 ## 🚀 Breaking Changes
 - Split `nss/gnutls/openssl` into three separate submodules. Corresponding to the `./ecapture nss`, `./ecapture gnutls`, `ecapture tls` commands.
