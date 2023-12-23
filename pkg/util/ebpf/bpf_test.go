@@ -110,7 +110,7 @@ func TestIsContainerCgroup(t *testing.T) {
 }
 
 func TestIsContainerSched(t *testing.T) {
-	isContainer, err := isCOntainerSched()
+	isContainer, err := isContainerSched()
 	if err != nil {
 		t.Fatalf("TestIsContainerSched :: IsContainer error:%s", err.Error())
 	}

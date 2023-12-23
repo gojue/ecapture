@@ -43,12 +43,6 @@ var (
 		"/usr/lib/debug/boot/vmlinux-%s.debug",
 		"/usr/lib/debug/lib/modules/%s/vmlinux",
 	}
-
-	configPaths = []string{
-		"/proc/config.gz",
-		"/boot/config",
-		"/boot/config-%s",
-	}
 )
 
 func GetSystemConfig() (map[string]string, error) {

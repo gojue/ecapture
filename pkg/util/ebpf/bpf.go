@@ -33,6 +33,12 @@ var (
 		"CONFIG_UPROBES",
 		"CONFIG_ARCH_SUPPORTS_UPROBES",
 	}
+
+	configPaths = []string{
+		"/proc/config.gz",
+		"/boot/config",
+		"/boot/config-%s",
+	}
 )
 
 type UnameInfo struct {
