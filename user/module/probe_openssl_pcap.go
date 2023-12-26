@@ -86,6 +86,11 @@ func (m *MOpenSSLProbe) setupManagersPcap() error {
 		return err
 	}
 
+	// Serve pcapng writer to flush pcapng file
+	go func() {
+		m.ServePcap()
+	}()
+
 	m.bpfManager = &manager.Manager{
 		Probes: []*manager.Probe{
 			// customize deleteed TC filter
