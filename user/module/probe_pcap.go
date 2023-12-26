@@ -5,6 +5,7 @@ import (
 	"ecapture/pkg/util/ethernet"
 	"ecapture/user/event"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
@@ -16,6 +17,8 @@ import (
 	"sync"
 	"time"
 )
+
+var eOverflow = errors.New("pcapNG channel overflow")
 
 // packets of TC probe
 type TcPacket struct {
@@ -68,8 +71,7 @@ func (NetCaptureData) GetSizeBytes() uint32 {
 }
 
 type MTCProbe struct {
-	//logger          *log.Logger
-	//mName           string
+	Module
 	pcapngFilename  string
 	ifIdex          int
 	ifName          string
@@ -79,6 +81,7 @@ type MTCProbe struct {
 	tcPackets       []*TcPacket
 	masterKeyBuffer *bytes.Buffer
 	tcPacketLocker  *sync.Mutex
+	tcPacketsChan   chan *TcPacket
 }
 
 func (t *MTCProbe) dumpTcSkb(tcEvent *event.TcSkbEvent) error {
@@ -146,7 +149,10 @@ func (t *MTCProbe) savePcapng() (i int, err error) {
 		return
 	}
 	t.tcPacketLocker.Lock()
-	defer t.tcPacketLocker.Unlock()
+	defer func() {
+		t.tcPackets = t.tcPackets[:0]
+		t.tcPacketLocker.Unlock()
+	}()
 	for _, packet := range t.tcPackets {
 		err = t.pcapWriter.WritePacket(packet.info, packet.data)
 		i++
@@ -221,7 +227,7 @@ func (t *MTCProbe) createPcapng(netIfs []net.Interface) error {
 func (t *MTCProbe) writePacket(dataLen uint32, timeStamp time.Time, packetBytes []byte) error {
 
 	// TODO add packetMeta info (e.g: process. pid, commom, etc.)
-	
+
 	info := gopacket.CaptureInfo{
 		Timestamp:     timeStamp,
 		CaptureLength: int(dataLen),
@@ -235,11 +241,63 @@ func (t *MTCProbe) writePacket(dataLen uint32, timeStamp time.Time, packetBytes 
 
 	packet := &TcPacket{info: info, data: packetBytes}
 
-	t.tcPackets = append(t.tcPackets, packet)
-	return nil
+	select {
+	case t.tcPacketsChan <- packet:
+		return nil
+	default:
+		return eOverflow
+	}
 }
 
 func (t *MTCProbe) savePcapngSslKeyLog(sslKeyLog []byte) (err error) {
 	_, e := t.masterKeyBuffer.Write(sslKeyLog)
 	return e
+}
+
+// ServePcap is used to serve pcapng file
+func (t *MTCProbe) ServePcap() {
+	var ti = time.NewTicker(2 * time.Second)
+	t.logger.Printf("%s\tsaving pcapng file %s\n", t.Name(), t.pcapngFilename)
+	var allCount int
+	defer func() {
+		if allCount == 0 {
+			t.logger.Printf("nothing captured, please check your network interface, see \"ecapture tls -h\" for more information.")
+		} else {
+			t.logger.Printf("%s\t save %d packets into pcapng file.\n", t.Name(), allCount)
+		}
+		ti.Stop()
+	}()
+
+	for {
+		select {
+		case <-ti.C:
+			// append tcPackets to tcPackets Array from tcPacketsChan
+			var i int
+			for packet := range t.tcPacketsChan {
+				t.tcPackets = append(t.tcPackets, packet)
+				i++
+			}
+			if i == 0 {
+				continue
+			}
+
+			i, e := t.savePcapng()
+			if e != nil {
+				t.logger.Printf("save pcapng err:%s\n", e.Error())
+			} else {
+				t.logger.Printf("save pcapng success, count:%d\n", i)
+				allCount += i
+			}
+		case <-t.ctx.Done():
+			// TODO: save all data to file
+			i, e := t.savePcapng()
+			if e != nil {
+				t.logger.Printf("save pcapng err:%s\n", e.Error())
+			} else {
+				t.logger.Printf("save pcapng success, count:%d\n", i)
+				allCount += i
+			}
+			return
+		}
+	}
 }

@@ -59,6 +59,11 @@ func (g *GoTLSProbe) setupManagersPcap() error {
 		return err
 	}
 
+	// Serve pcapng writer to flush pcapng file
+	go func() {
+		g.ServePcap()
+	}()
+
 	var (
 		sec string
 		fn  string

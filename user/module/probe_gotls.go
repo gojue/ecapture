@@ -37,7 +37,6 @@ var (
 
 // GoTLSProbe represents a probe for Go SSL
 type GoTLSProbe struct {
-	Module
 	MTCProbe
 	bpfManager        *manager.Manager
 	bpfManagerOptions manager.Options
@@ -213,20 +212,6 @@ func (g *GoTLSProbe) DecodeFun(m *ebpf.Map) (event.IEventStruct, bool) {
 }
 
 func (g *GoTLSProbe) Close() error {
-
-	if g.eBPFProgramType == TlsCaptureModelTypePcap {
-		g.logger.Printf("%s\tsaving pcapng file %s\n", g.Name(), g.pcapngFilename)
-		i, err := g.savePcapng()
-		if err != nil {
-			g.logger.Printf("%s\tsave pcanNP failed, error:%v. \n", g.Name(), err)
-		}
-		if i == 0 {
-			g.logger.Printf("nothing captured, please check your network interface, see \"ecapture tls -h\" for more information.")
-		} else {
-			g.logger.Printf("%s\t save %d packets into pcapng file.\n", g.Name(), i)
-		}
-	}
-
 	g.logger.Printf("%s\tclose. \n", g.Name())
 	if err := g.bpfManager.Stop(manager.CleanAll); err != nil {
 		return fmt.Errorf("couldn't stop manager %v .", err)

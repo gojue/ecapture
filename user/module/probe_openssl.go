@@ -56,7 +56,6 @@ const (
 )
 
 type MOpenSSLProbe struct {
-	Module
 	MTCProbe
 	bpfManager        *manager.Manager
 	bpfManagerOptions manager.Options
@@ -108,6 +107,8 @@ func (m *MOpenSSLProbe) Init(ctx context.Context, logger *log.Logger, conf confi
 		if err != nil {
 			return err
 		}
+		m.tcPacketsChan = make(chan *TcPacket, 2048)
+		m.tcPackets = make([]*TcPacket, 0, 256)
 		m.pcapngFilename = fileInfo
 	case config.TlsCaptureModelText:
 		fallthrough
@@ -129,7 +130,6 @@ func (m *MOpenSSLProbe) Init(ctx context.Context, logger *log.Logger, conf confi
 	m.startTime = uint64(startTime)
 	m.bootTime = uint64(bootTime)
 
-	m.tcPackets = make([]*TcPacket, 0, 1024)
 	m.tcPacketLocker = &sync.Mutex{}
 	m.masterKeyBuffer = bytes.NewBuffer([]byte{})
 
@@ -231,18 +231,6 @@ func (m *MOpenSSLProbe) start() error {
 }
 
 func (m *MOpenSSLProbe) Close() error {
-	if m.eBPFProgramType == TlsCaptureModelTypePcap {
-		m.logger.Printf("%s\tsaving pcapng file %s\n", m.Name(), m.pcapngFilename)
-		i, err := m.savePcapng()
-		if err != nil {
-			m.logger.Printf("%s\tsave pcanNP failed, error:%v. \n", m.Name(), err)
-		}
-		if i == 0 {
-			m.logger.Printf("nothing captured, please check your network interface, see \"ecapture tls -h\" for more information.")
-		} else {
-			m.logger.Printf("%s\t save %d packets into pcapng file.\n", m.Name(), i)
-		}
-	}
 
 	m.logger.Printf("%s\tclose. \n", m.Name())
 	if err := m.bpfManager.Stop(manager.CleanAll); err != nil {
