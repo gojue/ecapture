@@ -52,7 +52,7 @@ jobs:
         make env
         make -f builder/Makefile.release release SNAPSHOT_VERSION=${{ steps.get_tags.outputs.VERSION }}
 
-  build-on-ubuntu2004-arm64:
+  build-on-ubuntu2204-arm64:
     runs-on: ubuntu-22.04
     name: build on ubuntu-22.04 arm64
     # Run steps on a matrix of 3 arch/distro combinations

@@ -134,6 +134,7 @@ TAG := $(shell git describe --abbrev=0 --tags ${TAG_COMMIT} 2>/dev/null || true)
 COMMIT := $(shell git rev-parse --short HEAD)
 DATE := $(shell git log -1 --format=%cd --date=format:"%Y%m%d")
 LAST_GIT_TAG := $(TAG:v%=%)-$(DATE)-$(COMMIT)
+RPM_RELEASE := $(DATE).$(COMMIT)
 #ifneq ($(COMMIT), $(TAG_COMMIT))
 #	LAST_GIT_TAG := $(LAST_GIT_TAG)-prev-$(TAG_COMMIT)
 #endif
@@ -251,13 +252,13 @@ env:
 	@echo ---------------------------------------
 
 ECAPTURE_NAME = $(shell $(CMD_GREP) "Name:" builder/rpmBuild.spec | $(CMD_AWK) '{print $$2}')
-RPM_SOURCE0 = $(ECAPTURE_NAME)-$(ECAPTURE_VERSION).tar.gz
+RPM_SOURCE0 = $(ECAPTURE_NAME)-$(TAG).tar.gz
 
 .PHONY:rpm
 rpm:
 	@$(CMD_RPM_SETUP_TREE)
-	$(CMD_SED) -i '0,/^Version:.*$$/s//Version:    $(VERSION)/' builder/rpmBuild.spec
-	$(CMD_SED) -i '0,/^Release:.*$$/s//Release:    $(RELEASE)/' builder/rpmBuild.spec
+	$(CMD_SED) -i '0,/^Version:.*$$/s//Version:    $(TAG)/' builder/rpmBuild.spec
+	$(CMD_SED) -i '0,/^Release:.*$$/s//Release:    $(RPM_RELEASE)/' builder/rpmBuild.spec
 	$(CMD_TAR) zcvf ~/rpmbuild/SOURCES/$(RPM_SOURCE0) ./
 	$(CMD_RPMBUILD) -ba builder/rpmBuild.spec
 
