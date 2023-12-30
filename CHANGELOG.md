@@ -1,10 +1,15 @@
 # v0.7.1 (2023-12-23)
 ## What's Changed
+* cli: reduce mapsize to 1024 * PAGESIZE. by @cfc4n in https://github.com/gojue/ecapture/pull/440
+* Add optimization in openssl detection logic to consume less memory by @h0x0er in https://github.com/gojue/ecapture/pull/438
+* cli: fix nss module panic by @mannkafai in https://github.com/gojue/ecapture/pull/444
+* build(deps): bump golang.org/x/crypto from 0.14.0 to 0.17.0 by @dependabot in https://github.com/gojue/ecapture/pull/448
+* pkg: support android on docker(redroid). by @cfc4n in https://github.com/gojue/ecapture/pull/453
 
 ## New Contributors
+* @mannkafai made their first contribution in https://github.com/gojue/ecapture/pull/444
 
 **Full Changelog**: https://github.com/gojue/ecapture/compare/v0.7.0...v0.7.1
-
 <hr>
 
 # v0.7.0 (2023-12-03)
