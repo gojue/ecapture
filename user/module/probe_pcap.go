@@ -150,7 +150,6 @@ func (t *MTCProbe) savePcapng() (i int, err error) {
 	}
 	t.tcPacketLocker.Lock()
 	defer func() {
-		t.tcPackets = t.tcPackets[:0]
 		t.tcPacketLocker.Unlock()
 	}()
 	for _, packet := range t.tcPackets {
@@ -257,45 +256,52 @@ func (t *MTCProbe) savePcapngSslKeyLog(sslKeyLog []byte) (err error) {
 // ServePcap is used to serve pcapng file
 func (t *MTCProbe) ServePcap() {
 	var ti = time.NewTicker(2 * time.Second)
-	t.logger.Printf("%s\tsaving pcapng file %s\n", t.Name(), t.pcapngFilename)
+	t.logger.Printf("%s\tsaving pcapng file: %s\n", t.Name(), t.pcapngFilename)
 	var allCount int
 	defer func() {
 		if allCount == 0 {
-			t.logger.Printf("nothing captured, please check your network interface, see \"ecapture tls -h\" for more information.")
+			t.logger.Printf("%s\tnothing captured, please check your network interface, see \"ecapture tls -h\" for more information.", t.Name())
 		} else {
 			t.logger.Printf("%s\t save %d packets into pcapng file.\n", t.Name(), allCount)
 		}
 		ti.Stop()
 	}()
 
+	var i int
 	for {
 		select {
-		case <-ti.C:
-			// append tcPackets to tcPackets Array from tcPacketsChan
-			var i int
-			for packet := range t.tcPacketsChan {
-				t.tcPackets = append(t.tcPackets, packet)
-				i++
-			}
-			if i == 0 {
+		case _ = <-ti.C:
+			if i == 0 || len(t.tcPackets) == 0 {
 				continue
 			}
-
-			i, e := t.savePcapng()
+			n, e := t.savePcapng()
 			if e != nil {
-				t.logger.Printf("save pcapng err:%s\n", e.Error())
+				t.logger.Printf("%s\tsave pcapng err:%s, maybe %d packets lost.\n", t.Name(), e.Error(), i)
 			} else {
-				t.logger.Printf("save pcapng success, count:%d\n", i)
-				allCount += i
+				t.logger.Printf("%s\tsave pcapng success, count:%d\n", t.Name(), n)
+				allCount += n
 			}
-		case <-t.ctx.Done():
-			// TODO: save all data to file
-			i, e := t.savePcapng()
+
+			// reset counter, and reset tcPackets array
+			i = 0
+			t.tcPackets = t.tcPackets[:0]
+		case packet, ok := <-t.tcPacketsChan:
+			// append tcPackets to tcPackets Array from tcPacketsChan
+			if !ok {
+				t.logger.Printf("%s\ttcPacketsChan closed.\n", t.Name())
+			}
+			t.tcPackets = append(t.tcPackets, packet)
+			i++
+		case _ = <-t.ctx.Done():
+			if i == 0 || len(t.tcPackets) == 0 {
+				continue
+			}
+			n, e := t.savePcapng()
 			if e != nil {
-				t.logger.Printf("save pcapng err:%s\n", e.Error())
+				t.logger.Printf("%s\tsave pcapng err:%s, maybe %d packets lost.\n", t.Name(), e.Error(), i)
 			} else {
-				t.logger.Printf("save pcapng success, count:%d\n", i)
-				allCount += i
+				t.logger.Printf("%s\tsave pcapng success, count:%d\n", t.Name(), n)
+				allCount += n
 			}
 			return
 		}

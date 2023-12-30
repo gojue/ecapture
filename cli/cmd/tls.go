@@ -40,8 +40,8 @@ ecapture tls
 ecapture tls --hex --pid=3423
 ecapture tls -l save.log --pid=3423
 ecapture tls --libssl=/lib/x86_64-linux-gnu/libssl.so.1.1
-ecapture tls -m keylog -w save_3_0_5.pcapng --ssl_version="openssl 3.0.5" --libssl=/lib/x86_64-linux-gnu/libssl.so.3 
-ecapture tls -w pcap save_android.pcapng -i wlan0 --libssl=/apex/com.android.conscrypt/lib64/libssl.so --ssl_version="boringssl 1.1.1" --port 443
+ecapture tls -m keylog --pcapfile save_3_0_5.pcapng --ssl_version="openssl 3.0.5" --libssl=/lib/x86_64-linux-gnu/libssl.so.3 
+ecapture tls -m pcap --pcapfile save_android.pcapng -i wlan0 --libssl=/apex/com.android.conscrypt/lib64/libssl.so --ssl_version="boringssl 1.1.1" --port 443
 `,
 	Run: openSSLCommandFunc,
 }
