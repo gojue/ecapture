@@ -220,15 +220,15 @@ func (m *Module) perfEventReader(errChan chan error, em *ebpf.Map) {
 				continue
 			}
 
-			var e event.IEventStruct
-			e, err = m.child.Decode(em, record.RawSample)
+			var event event.IEventStruct
+			event, err = m.child.Decode(em, record.RawSample)
 			if err != nil {
 				m.logger.Printf("%s\tm.child.decode error:%v", m.child.Name(), err)
 				continue
 			}
 
 			// 上报数据
-			m.Dispatcher(e)
+			m.Dispatcher(event)
 		}
 	}()
 }

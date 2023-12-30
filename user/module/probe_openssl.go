@@ -399,17 +399,17 @@ func (m *MOpenSSLProbe) saveMasterSecret(secretEvent *event.MasterSecretEvent) {
 	case TlsCaptureModelTypePcap:
 		e := m.savePcapngSslKeyLog(b.Bytes())
 		if e != nil {
-			m.logger.Fatalf("%s: save CLIENT_RANDOM to pcapng error:%s", v.String(), e.Error())
+			m.logger.Fatalf("%s\t%s: save CLIENT_RANDOM to pcapng error:%s", m.Name(), v.String(), e.Error())
 			return
 		}
-		m.logger.Printf("%s: save CLIENT_RANDOM %02x to file success, %d bytes", v.String(), secretEvent.ClientRandom, b.Len())
+		m.logger.Printf("%s\t%s: save CLIENT_RANDOM %02x to file success, %d bytes", m.Name(), v.String(), secretEvent.ClientRandom, b.Len())
 	case TlsCaptureModelTypeKeylog:
 		l, e := m.keylogger.WriteString(b.String())
 		if e != nil {
-			m.logger.Fatalf("%s: save CLIENT_RANDOM to file error:%s", v.String(), e.Error())
+			m.logger.Fatalf("%s\t%s: save CLIENT_RANDOM to file error:%s", m.Name(), v.String(), e.Error())
 			return
 		}
-		m.logger.Printf("%s: save CLIENT_RANDOM %02x to file success, %d bytes", v.String(), secretEvent.ClientRandom, l)
+		m.logger.Printf("%s\t%s: save CLIENT_RANDOM %02x to file success, %d bytes", m.Name(), v.String(), secretEvent.ClientRandom, l)
 	default:
 	}
 }
@@ -433,7 +433,7 @@ func (m *MOpenSSLProbe) saveMasterSecretBSSL(secretEvent *event.MasterSecretBSSL
 		var length = int(secretEvent.HashLen)
 		if length > event.MasterSecretMaxLen {
 			length = event.MasterSecretMaxLen
-			m.logger.Println("master secret length is too long, truncate to 48 bytes, but it may cause keylog file error")
+			m.logger.Printf("%s\tmaster secret length is too long, truncate to 48 bytes, but it may cause keylog file error\n", m.Name())
 		}
 		b = bytes.NewBufferString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelTLS12, secretEvent.ClientRandom, secretEvent.Secret[:length]))
 		m.masterKeys[k] = true
@@ -443,7 +443,7 @@ func (m *MOpenSSLProbe) saveMasterSecretBSSL(secretEvent *event.MasterSecretBSSL
 		var length int
 		length = int(secretEvent.HashLen)
 		if length > event.EvpMaxMdSize {
-			m.logger.Println("master secret length is too long, truncate to 64 bytes, but it may cause keylog file error")
+			m.logger.Printf("%s\tmaster secret length is too long, truncate to 64 bytes, but it may cause keylog file error\n", m.Name())
 			length = event.EvpMaxMdSize
 		}
 		// 判断 密钥是否为空
@@ -466,17 +466,17 @@ func (m *MOpenSSLProbe) saveMasterSecretBSSL(secretEvent *event.MasterSecretBSSL
 	case TlsCaptureModelTypePcap:
 		e := m.savePcapngSslKeyLog(b.Bytes())
 		if e != nil {
-			m.logger.Fatalf("%s: save CLIENT_RANDOM to pcapng error:%s", v.String(), e.Error())
+			m.logger.Fatalf("%s\t%s: save CLIENT_RANDOM to pcapng error:%s", m.Name(), v.String(), e.Error())
 			return
 		}
-		m.logger.Printf("%s: save CLIENT_RANDOM %02x to file success, %d bytes", v.String(), secretEvent.ClientRandom, b.Len())
+		m.logger.Printf("%s\t%s: save CLIENT_RANDOM %02x to file success, %d bytes", m.Name(), v.String(), secretEvent.ClientRandom, b.Len())
 	case TlsCaptureModelTypeKeylog:
 		l, e := m.keylogger.WriteString(b.String())
 		if e != nil {
-			m.logger.Fatalf("%s: save CLIENT_RANDOM to file error:%s", v.String(), e.Error())
+			m.logger.Fatalf("%s\t%s: save CLIENT_RANDOM to file error:%s", m.Name(), v.String(), e.Error())
 			return
 		}
-		m.logger.Printf("%s: save CLIENT_RANDOM %02x to file success, %d bytes", v.String(), secretEvent.ClientRandom, l)
+		m.logger.Printf("%s\t%s: save CLIENT_RANDOM %02x to file success, %d bytes", m.Name(), v.String(), secretEvent.ClientRandom, l)
 	default:
 	}
 }

@@ -39,7 +39,7 @@ var gotlsCmd = &cobra.Command{
 ecapture gotls
 ecapture gotls --elfpath=/home/cfc4n/go_https_client --hex --pid=3423
 ecapture gotls -m keylog -k /tmp/ecap_gotls_key.log --elfpath=/home/cfc4n/go_https_client -l save.log --pid=3423
-ecapture gotls -m pcap -w save_android.pcapng -i wlan0 --port 443 --elfpath=/home/cfc4n/go_https_client
+ecapture gotls -m pcap --pcapfile=save_android.pcapng -i wlan0 --port 443 --elfpath=/home/cfc4n/go_https_client
 `,
 	Run: goTLSCommandFunc,
 }
