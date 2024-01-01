@@ -29,6 +29,7 @@ CMD_MKDIR ?= mkdir
 CMD_MV ?= mv
 CMD_CP ?= cp
 CMD_DPKG-DEB ?= dpkg-deb
+CMD_SED ?= sed
 
 UNAME_M := $(shell uname -m)
 SNAPSHOT_VERSION ?= $(shell git rev-parse HEAD)
@@ -41,6 +42,38 @@ endif
 ifeq ($(UNAME_M), aarch64)
     ARCH = arm64
 endif
+
+
+#
+# output dir
+#
+
+OUTPUT_DIR = ./bin
+TAR_DIR = ecapture-$(SNAPSHOT_VERSION)-linux-$(UNAME_M)
+TAR_DIR_ANDROID = ecapture-$(SNAPSHOT_VERSION)-android-$(UNAME_M)
+
+# from CLI args.
+RELEASE_NOTES ?= $(OUTPUT_DIR)/release_notes.txt
+
+# DEB 软件包的名称和版本
+PACKAGE_NAME = ecapture
+PACKAGE_DESC = eCapture(旁观者): Capture SSL/TLS text content without a CA certificate using eBPF. This tool is compatible with Linux/Android x86_64/Aarch64.
+PACKAGE_HOMEPAGE = https://ecapture.cc
+PACKAGE_MAINTAINER = CFC4N <cfc4n.cs@gmail.com>
+PACKAGE_VERSION ?= $(shell echo $(SNAPSHOT_VERSION) | $(CMD_SED) 's/v//g' )
+OUT_DEB_FILE = $(OUTPUT_DIR)/$(PACKAGE_NAME)_$(SNAPSHOT_VERSION)_$(ARCH).deb
+
+# 构建目录
+BUILD_DIR = build
+
+#
+# Create a release snapshot
+#
+
+OUT_ARCHIVE := $(OUTPUT_DIR)/$(TAR_DIR).tar.gz
+OUT_ARCHIVE_ANDROID := $(OUTPUT_DIR)/$(TAR_DIR_ANDROID).tar.gz
+OUT_CHECKSUMS := $(OUTPUT_DIR)/checksum-$(SNAPSHOT_VERSION).txt
+
 
 .ONESHELL:
 .check_%:
@@ -69,6 +102,7 @@ env:
 	@echo "CMD_MKDIR             $(CMD_MKDIR)"
 	@echo ---------------------------------------
 	@echo "SNAPSHOT_VERSION      $(SNAPSHOT_VERSION)"
+	@echo "PACKAGE_VERSION      $(PACKAGE_VERSION)"
 	@echo ---------------------------------------
 
 #
@@ -122,39 +156,12 @@ help:
 		exit 1
 	fi
 
-#
-# output dir
-#
-
-OUTPUT_DIR = ./bin
-TAR_DIR = ecapture-$(SNAPSHOT_VERSION)-linux-$(UNAME_M)
-TAR_DIR_ANDROID = ecapture-$(SNAPSHOT_VERSION)-android-$(UNAME_M)
-
-# from CLI args.
-RELEASE_NOTES ?= $(OUTPUT_DIR)/release_notes.txt
-
 $(OUTPUT_DIR):
 #
 	$(CMD_MKDIR) -p $@
 #	$(CMD_TOUCH) $(RELEASE_NOTES)
 
-# DEB 软件包的名称和版本
-PACKAGE_NAME = ecapture
-PACKAGE_DESC = eCapture(旁观者): Capture SSL/TLS text content without a CA certificate using eBPF. This tool is compatible with Linux/Android x86_64/Aarch64.
-PACKAGE_HOMEPAGE = https://ecapture.cc
-PACKAGE_MAINTAINER = CFC4N <cfc4n.cs@gmail.com>
-OUT_DEB_FILE = $(OUTPUT_DIR)/$(PACKAGE_NAME)_$(SNAPSHOT_VERSION)_$(ARCH).deb
 
-# 构建目录
-BUILD_DIR = build
-
-#
-# Create a release snapshot
-#
-
-OUT_ARCHIVE := $(OUTPUT_DIR)/$(TAR_DIR).tar.gz
-OUT_ARCHIVE_ANDROID := $(OUTPUT_DIR)/$(TAR_DIR_ANDROID).tar.gz
-OUT_CHECKSUMS := $(OUTPUT_DIR)/checksum-$(SNAPSHOT_VERSION).txt
 
 .PHONY: snapshot
 snapshot: \
@@ -174,7 +181,6 @@ snapshot: \
 	$(CMD_CP) README.md $(TAR_DIR)/README.md
 	$(CMD_CP) README_CN.md $(TAR_DIR)/README_CN.md
 	$(CMD_CP) $(OUTPUT_DIR)/ecapture $(TAR_DIR)/ecapture
-	$(CMD_CP) $(RELEASE_NOTES) $(OUTPUT_DIR)/release_notes.txt
 	$(CMD_TAR)  -czf $(OUT_ARCHIVE) $(TAR_DIR)
 	cd $(OUTPUT_DIR)
 	$(CMD_CHECKSUM) $(TAR_DIR).tar.gz > ./../$(OUT_CHECKSUMS)
@@ -198,7 +204,6 @@ snapshot_android: \
 	$(CMD_CP) README.md $(TAR_DIR_ANDROID)/README.md
 	$(CMD_CP) README_CN.md $(TAR_DIR_ANDROID)/README_CN.md
 	$(CMD_CP) $(OUTPUT_DIR)/ecapture $(TAR_DIR_ANDROID)/ecapture
-	$(CMD_CP) $(RELEASE_NOTES) $(TAR_DIR_ANDROID)/release_notes.txt
 	$(CMD_TAR)  -czf $(OUT_ARCHIVE_ANDROID) $(TAR_DIR_ANDROID)
 	cd $(OUTPUT_DIR)
 	$(CMD_CHECKSUM) $(TAR_DIR_ANDROID).tar.gz >> ./../$(OUT_CHECKSUMS)
@@ -235,7 +240,7 @@ build_deb:
 	$(CMD_CP) bin/ecapture $(BUILD_DIR)/usr/local/bin/ecapture  # 将二进制文件复制到目标位置
     # 创建控制文件 (DEBIAN/control)
 	echo "Package: $(PACKAGE_NAME)" > $(BUILD_DIR)/DEBIAN/control
-	echo "Version: $(SNAPSHOT_VERSION)" >> $(BUILD_DIR)/DEBIAN/control
+	echo "Version: $(PACKAGE_VERSION)" >> $(BUILD_DIR)/DEBIAN/control
 	echo "BuildDate: $(BUILD_DATE)" >> $(BUILD_DIR)/DEBIAN/control
 	echo "Architecture: $(ARCH)" >> $(BUILD_DIR)/DEBIAN/control
 	echo "Maintainer: $(PACKAGE_MAINTAINER)" >> $(BUILD_DIR)/DEBIAN/control
