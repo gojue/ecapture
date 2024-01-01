@@ -4,7 +4,7 @@
 
 .PHONY: all
 all: help
-release: snapshot snapshot_android publish
+release: snapshot build_deb snapshot_android publish
 
 #
 # make
@@ -28,9 +28,19 @@ CMD_TOUCH ?= touch
 CMD_MKDIR ?= mkdir
 CMD_MV ?= mv
 CMD_CP ?= cp
+CMD_DPKG-DEB ?= dpkg-deb
 
 UNAME_M := $(shell uname -m)
 SNAPSHOT_VERSION ?= $(shell git rev-parse HEAD)
+BUILD_DATE := $(shell date +%Y-%m-%d)
+ARCH := $(UNAME_M)
+ifeq ($(UNAME_M), x86_64)
+    ARCH = amd64
+endif
+
+ifeq ($(UNAME_M), aarch64)
+    ARCH = arm64
+endif
 
 .ONESHELL:
 .check_%:
@@ -128,6 +138,16 @@ $(OUTPUT_DIR):
 	$(CMD_MKDIR) -p $@
 #	$(CMD_TOUCH) $(RELEASE_NOTES)
 
+# DEB 软件包的名称和版本
+PACKAGE_NAME = ecapture
+PACKAGE_DESC = eCapture(旁观者): Capture SSL/TLS text content without a CA certificate using eBPF. This tool is compatible with Linux/Android x86_64/Aarch64.
+PACKAGE_HOMEPAGE = https://ecapture.cc
+PACKAGE_MAINTAINER = CFC4N <cfc4n.cs@gmail.com>
+OUT_DEB_FILE = $(OUTPUT_DIR)/$(PACKAGE_NAME)_$(SNAPSHOT_VERSION)_$(ARCH).deb
+
+# 构建目录
+BUILD_DIR = build
+
 #
 # Create a release snapshot
 #
@@ -146,14 +166,14 @@ snapshot: \
 
 	# build binaries
 	$(MAKE) clean
-	$(MAKE) nocore
+	$(MAKE) nocore RELEASE_TAG=$(SNAPSHOT_VERSION)
 	# create the tar ball and checksum files
 	$(CMD_MKDIR) -p $(TAR_DIR)
 	$(CMD_CP) LICENSE $(TAR_DIR)/LICENSE
 	$(CMD_CP) CHANGELOG.md $(TAR_DIR)/CHANGELOG.md
 	$(CMD_CP) README.md $(TAR_DIR)/README.md
 	$(CMD_CP) README_CN.md $(TAR_DIR)/README_CN.md
-	$(CMD_MV) $(OUTPUT_DIR)/ecapture $(TAR_DIR)/ecapture
+	$(CMD_CP) $(OUTPUT_DIR)/ecapture $(TAR_DIR)/ecapture
 	$(CMD_CP) $(RELEASE_NOTES) $(OUTPUT_DIR)/release_notes.txt
 	$(CMD_TAR)  -czf $(OUT_ARCHIVE) $(TAR_DIR)
 	cd $(OUTPUT_DIR)
@@ -170,14 +190,14 @@ snapshot_android: \
 
 	# build binaries
 	$(MAKE) clean
-	ANDROID=1 $(MAKE) nocore
+	ANDROID=1 $(MAKE) nocore RELEASE_TAG=$(SNAPSHOT_VERSION)
 	# create the tar ball and checksum files
 	$(CMD_MKDIR) -p $(TAR_DIR_ANDROID)
 	$(CMD_CP) LICENSE $(TAR_DIR_ANDROID)/LICENSE
 	$(CMD_CP) CHANGELOG.md $(TAR_DIR_ANDROID)/CHANGELOG.md
 	$(CMD_CP) README.md $(TAR_DIR_ANDROID)/README.md
 	$(CMD_CP) README_CN.md $(TAR_DIR_ANDROID)/README_CN.md
-	$(CMD_MV) $(OUTPUT_DIR)/ecapture $(TAR_DIR_ANDROID)/ecapture
+	$(CMD_CP) $(OUTPUT_DIR)/ecapture $(TAR_DIR_ANDROID)/ecapture
 	$(CMD_CP) $(RELEASE_NOTES) $(TAR_DIR_ANDROID)/release_notes.txt
 	$(CMD_TAR)  -czf $(OUT_ARCHIVE_ANDROID) $(TAR_DIR_ANDROID)
 	cd $(OUTPUT_DIR)
@@ -190,6 +210,7 @@ publish: \
 	$(OUT_ARCHIVE) \
 	$(OUT_ARCHIVE_ANDROID) \
 	$(OUT_CHECKSUMS) \
+	$(OUT_DEB_FILE) \
 	| .check_tree \
 	.check_$(CMD_GITHUB)
 #
@@ -200,3 +221,25 @@ publish: \
 clean:
 #
 	$(MAKE) clean
+
+.PHONY: deb
+deb: snapshot build_deb
+
+# 用于构建DEB包的目标
+build_deb:
+	# 创建软件包目录结构
+	$(CMD_RM) -rf $(BUILD_DIR)
+	$(CMD_MKDIR) -p $(BUILD_DIR)/DEBIAN
+	$(CMD_MKDIR) -p $(BUILD_DIR)/usr/local/bin  # 这里是例子，请根据实际情况更改
+    # 复制程序文件到软件包目录
+	$(CMD_CP) bin/ecapture $(BUILD_DIR)/usr/local/bin/ecapture  # 将二进制文件复制到目标位置
+    # 创建控制文件 (DEBIAN/control)
+	echo "Package: $(PACKAGE_NAME)" > $(BUILD_DIR)/DEBIAN/control
+	echo "Version: $(SNAPSHOT_VERSION)" >> $(BUILD_DIR)/DEBIAN/control
+	echo "BuildDate: $(BUILD_DATE)" >> $(BUILD_DIR)/DEBIAN/control
+	echo "Architecture: $(ARCH)" >> $(BUILD_DIR)/DEBIAN/control
+	echo "Maintainer: $(PACKAGE_MAINTAINER)" >> $(BUILD_DIR)/DEBIAN/control
+	echo "Description: $(PACKAGE_DESC)" >> $(BUILD_DIR)/DEBIAN/control
+	echo "Homepage: $(PACKAGE_HOMEPAGE)" >> $(BUILD_DIR)/DEBIAN/control
+    # 构建DEB包
+	$(CMD_DPKG-DEB) --build $(BUILD_DIR) $(OUT_DEB_FILE)
