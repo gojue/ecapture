@@ -61,7 +61,7 @@ PACKAGE_DESC = eCapture(旁观者): Capture SSL/TLS text content without a CA ce
 PACKAGE_HOMEPAGE = https://ecapture.cc
 PACKAGE_MAINTAINER = CFC4N <cfc4n.cs@gmail.com>
 PACKAGE_VERSION ?= $(shell echo $(SNAPSHOT_VERSION) | $(CMD_SED) 's/v//g' )
-OUT_DEB_FILE = $(OUTPUT_DIR)/$(PACKAGE_NAME)_$(SNAPSHOT_VERSION)_$(ARCH).deb
+OUT_DEB_FILE = $(OUTPUT_DIR)/$(PACKAGE_NAME)_linux_$(SNAPSHOT_VERSION)_$(ARCH).deb
 
 # 构建目录
 BUILD_DIR = build
@@ -71,7 +71,7 @@ BUILD_DIR = build
 #
 
 OUT_ARCHIVE := $(OUTPUT_DIR)/$(TAR_DIR).tar.gz
-OUT_ARCHIVE_ANDROID := $(OUTPUT_DIR)/$(TAR_DIR_ANDROID).tar.gz
+OUT_ARCHIVE_ANDROID := $(OUTPUT_DIR)/$(TAR_DIR_ANDROID)-nocore.tar.gz
 OUT_CHECKSUMS := $(OUTPUT_DIR)/checksum-$(SNAPSHOT_VERSION).txt
 
 

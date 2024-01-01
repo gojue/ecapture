@@ -156,6 +156,7 @@ UNAME_R := $(shell uname -r)
 # Target Arch
 #
 BPFHEADER ?=
+IGNORE_LESS52 ?=
 ifeq ($(UNAME_M),aarch64)
 	 ARCH = arm64
 	 LINUX_ARCH = arm64
@@ -163,6 +164,7 @@ ifeq ($(UNAME_M),aarch64)
 	 BPFHEADER = -I ./kern \
 				 -I ./kern/bpf/arm64
 	 AUTOGENCMD = ls -al kern/bpf/arm64/vmlinux.h
+	 IGNORE_LESS52 = -ignore '.*_less52\.o'
 else
 	# x86_64 default
 	ARCH = x86_64
@@ -256,7 +258,7 @@ RPM_SOURCE0 = $(ECAPTURE_NAME)-$(TAG).tar.gz
 
 .PHONY:rpm
 rpm:
-	@$(CMD_RPM_SETUP_TREE)
+	@$(CMD_RPM_SETUP_TREE) || exit 1
 	$(CMD_SED) -i '0,/^Version:.*$$/s//Version:    $(TAG)/' builder/rpmBuild.spec
 	$(CMD_SED) -i '0,/^Release:.*$$/s//Release:    $(RPM_RELEASE)/' builder/rpmBuild.spec
 	$(CMD_TAR) zcvf ~/rpmbuild/SOURCES/$(RPM_SOURCE0) ./
@@ -369,13 +371,13 @@ $(KERN_OBJECTS_NOCORE): %.nocore: %.c \
 assets: \
 	.checkver_$(CMD_GO) \
 	ebpf
-	$(CMD_GO) run github.com/shuLhan/go-bindata/cmd/go-bindata -pkg assets -o "assets/ebpf_probe.go" $(wildcard ./user/bytecode/*.o)
+	$(CMD_GO) run github.com/shuLhan/go-bindata/cmd/go-bindata $(IGNORE_LESS52) -pkg assets -o "assets/ebpf_probe.go" $(wildcard ./user/bytecode/*.o)
 
 .PHONY: assets_nocore
 assets_nocore: \
 	.checkver_$(CMD_GO) \
 	ebpf_nocore
-	$(CMD_GO) run github.com/shuLhan/go-bindata/cmd/go-bindata -pkg assets -o "assets/ebpf_probe.go" $(wildcard ./user/bytecode/*.o)
+	$(CMD_GO) run github.com/shuLhan/go-bindata/cmd/go-bindata $(IGNORE_LESS52) -pkg assets -o "assets/ebpf_probe.go" $(wildcard ./user/bytecode/*.o)
 
 .PHONY: build
 build: \
