@@ -235,7 +235,7 @@ build_deb:
 	# 创建软件包目录结构
 	$(CMD_RM) -rf $(BUILD_DIR)
 	$(CMD_MKDIR) -p $(BUILD_DIR)/DEBIAN
-	$(CMD_MKDIR) -p $(BUILD_DIR)/usr/local/bin  # 这里是例子，请根据实际情况更改
+	$(CMD_MKDIR) -p $(BUILD_DIR)/usr/local/bin
     # 复制程序文件到软件包目录
 	$(CMD_CP) bin/ecapture $(BUILD_DIR)/usr/local/bin/ecapture  # 将二进制文件复制到目标位置
     # 创建控制文件 (DEBIAN/control)
