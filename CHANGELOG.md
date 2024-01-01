@@ -1,3 +1,11 @@
+# v0.7.2 (2024-01-01)
+## What's Changed
+
+## New Contributors
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v0.7.1...v0.7.2
+<hr>
+
 # v0.7.1 (2023-12-23)
 ## What's Changed
 * cli: reduce mapsize to 1024 * PAGESIZE. by @cfc4n in https://github.com/gojue/ecapture/pull/440
