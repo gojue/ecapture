@@ -184,7 +184,7 @@ jobs:
             SNAPSHOT_VERSION=${{ steps.get_tags.outputs.VERSION }}
             echo "#${SNAPSHOT_VERSION}#"
             if [ -z "${SNAPSHOT_VERSION}" ]; then
-              SNAPSHOT_VERSION="v0.0.0"
+              SNAPSHOT_VERSION="0.0.0"
             fi
             TAR_DIR=ecapture-${SNAPSHOT_VERSION}-android_core-${UNAME_M}
             RELEASE_NOTES=${OUTPUT_DIR}/release_notes.txt
