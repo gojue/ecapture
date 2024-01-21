@@ -288,15 +288,22 @@ func (m *Module) Decode(em *ebpf.Map, b []byte) (event event.IEventStruct, err e
 	return te, nil
 }
 
-// 写入数据，或者上传到远程数据库，写入到其他chan 等。
+// Dispatcher 写入数据，或者上传到远程数据库，写入到其他chan 等。
 func (m *Module) Dispatcher(e event.IEventStruct) {
+
+	// If Hex mode is enabled, data in hex format is directly printed for event processor and output events
+	if m.conf.GetHex() {
+		if e.EventType() == event.EventTypeEventProcessor || e.EventType() == event.EventTypeOutput {
+			m.logger.Println(e.StringHex())
+			return
+		}
+	}
+
+	// If Hex mode is not enabled, or if the event_processor and output events are not enabled,
+	// they will be handled according to multiple branches of the switch
 	switch e.EventType() {
 	case event.EventTypeOutput:
-		if m.conf.GetHex() {
-			m.logger.Println(e.StringHex())
-		} else {
-			m.logger.Println(e.String())
-		}
+		m.logger.Println(e.String())
 	case event.EventTypeEventProcessor:
 		m.processor.Write(e)
 	case event.EventTypeModuleData:
