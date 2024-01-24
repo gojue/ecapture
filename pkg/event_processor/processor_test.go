@@ -3,8 +3,8 @@ package event_processor
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -42,7 +42,7 @@ func TestEventProcessor_Serve(t *testing.T) {
 	go func() {
 		ep.Serve()
 	}()
-	content, err := ioutil.ReadFile(testFile)
+	content, err := os.ReadFile(testFile)
 	if err != nil {
 		//Do something
 		log.Fatalf("open file error: %s, file:%s", err.Error(), testFile)
@@ -59,7 +59,7 @@ func TestEventProcessor_Serve(t *testing.T) {
 			t.Fatalf("json unmarshal error: %s, body:%v", err.Error(), line)
 		}
 		payloadFile := fmt.Sprintf("testdata/%d.bin", eventSSL.Timestamp)
-		b, e := ioutil.ReadFile(payloadFile)
+		b, e := os.ReadFile(payloadFile)
 		if e != nil {
 			t.Fatalf("read payload file error: %s, file:%s", e.Error(), payloadFile)
 		}
