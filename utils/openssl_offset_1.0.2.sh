@@ -11,9 +11,12 @@ if [[ ! -f "go.mod" ]]; then
 fi
 
 # skip cloning if the header file of the max supported version is already generated
+echo "check file exists: ${OPENSSL_DIR}/.git"
 if [[ ! -f "${OPENSSL_DIR}/.git" ]]; then
   # skip cloning if the openssl directory already exists
+  echo "check directory exists: ${OPENSSL_DIR}"
   if [[ ! -d "${OPENSSL_DIR}" ]]; then
+    echo "git clone openssl to ${OPENSSL_DIR}"
     git clone https://github.com/openssl/openssl.git ${OPENSSL_DIR}
   fi
 fi
