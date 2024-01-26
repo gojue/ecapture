@@ -63,7 +63,8 @@ type MOpenSSLProbe struct {
 	eventMaps         []*ebpf.Map
 
 	// pid[fd:Addr]
-	pidConns map[uint32]map[uint32]string
+	pidConns  map[uint32]map[uint32]string
+	pidLocker sync.Locker
 
 	keyloggerFilename string
 	keylogger         *os.File
@@ -85,6 +86,7 @@ func (m *MOpenSSLProbe) Init(ctx context.Context, logger *log.Logger, conf confi
 	m.eventMaps = make([]*ebpf.Map, 0, 2)
 	m.eventFuncMaps = make(map[*ebpf.Map]event.IEventStruct)
 	m.pidConns = make(map[uint32]map[uint32]string)
+	m.pidLocker = new(sync.Mutex)
 	m.masterKeys = make(map[string]bool)
 	m.sslVersionBpfMap = make(map[string]string)
 
@@ -289,6 +291,8 @@ func (m *MOpenSSLProbe) AddConn(pid, fd uint32, addr string) {
 	// save
 	var connMap map[uint32]string
 	var f bool
+	m.pidLocker.Lock()
+	defer m.pidLocker.Unlock()
 	connMap, f = m.pidConns[pid]
 	if !f {
 		connMap = make(map[uint32]string)
@@ -307,6 +311,8 @@ func (m *MOpenSSLProbe) DelConn(pid, fd uint32) {
 	if pid == 0 {
 		return
 	}
+	m.pidLocker.Lock()
+	defer m.pidLocker.Unlock()
 	if fd == 0 {
 		delete(m.pidConns, pid)
 	}
@@ -328,6 +334,8 @@ func (m *MOpenSSLProbe) GetConn(pid, fd uint32) string {
 	var connMap map[uint32]string
 	var f bool
 	//m.logger.Printf("%s\tGetConn pid:%d, fd:%d, mapinfo:%v\n", m.Name(), pid, fd, m.pidConns)
+	m.pidLocker.Lock()
+	defer m.pidLocker.Unlock()
 	connMap, f = m.pidConns[pid]
 	if !f {
 		return ConnNotFound
