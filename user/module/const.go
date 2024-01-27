@@ -70,6 +70,7 @@ var (
 		// 备用HOOK 函数
 		//"SSL_is_init_finished",
 		"SSL_in_before",
+		"SSL_do_handshake",
 	}
 )
 
