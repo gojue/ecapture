@@ -18,17 +18,18 @@
 package config
 
 import (
+	"errors"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
-const DefaultGnutlsPath = "/lib/x86_64-linux-gnu/libgnutls.so.30"
-
 func (gc *GnutlsConfig) Check() error {
 
+	var e error
 	// 如果readline 配置，且存在，则直接返回。
 	if gc.Gnutls != "" || len(strings.TrimSpace(gc.Gnutls)) > 0 {
-		_, e := os.Stat(gc.Gnutls)
+		_, e = os.Stat(gc.Gnutls)
 		if e != nil {
 			return e
 		}
@@ -65,7 +66,26 @@ func (gc *GnutlsConfig) Check() error {
 			return nil
 		}
 	*/
-	gc.Gnutls = DefaultGnutlsPath
+	var soLoadPaths = GetDynLibDirs()
+	var sslPath string
+	for _, soPath := range soLoadPaths {
+		_, e = os.Stat(soPath)
+		if e != nil {
+			continue
+		}
+		//	libgnutls.so.30   default
+		sslPath = filepath.Join(soPath, "libgnutls.so.30")
+		_, e = os.Stat(sslPath)
+		if e != nil {
+			continue
+		}
+		gc.Gnutls = sslPath
+		break
+	}
+	if gc.Gnutls == "" {
+		return errors.New("cant found Gnutls so load path")
+	}
+
 	gc.ElfType = ElfTypeSo
 
 	return nil

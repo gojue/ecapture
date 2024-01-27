@@ -28,18 +28,9 @@ import (
 
 const (
 	DefaultIfname = "eth0"
-	// /lib/x86_64-linux-gnu/libssl.so.3
-	//libsslSoFile = "libssl.so.1.1"
 )
 
 var (
-	soLoadPaths = []string{
-		"/lib/x86_64-linux-gnu",
-		"/usr/lib64",
-		"/usr/lib",
-		"/lib",
-	}
-
 	libsslSharedObjects = []string{
 		"libssl.so.3",   // ubuntu server 22.04
 		"libssl.so.1.1", // ubuntu server 21.04
@@ -54,6 +45,7 @@ var (
 func (oc *OpensslConfig) checkOpenssl() error {
 	var e error
 	var sslPath string
+	var soLoadPaths = GetDynLibDirs()
 	for _, soPath := range soLoadPaths {
 		_, e = os.Stat(soPath)
 		if e != nil {
@@ -88,6 +80,7 @@ func (oc *OpensslConfig) checkConnect() error {
 	var e error
 	for _, so := range connectSharedObjects {
 		var prefix string
+		var soLoadPaths = GetDynLibDirs()
 		for _, soPath := range soLoadPaths {
 
 			_, e = os.Stat(soPath)

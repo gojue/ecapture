@@ -28,6 +28,7 @@ import (
 	"log"
 	"math"
 	"os"
+	"path"
 )
 
 type MGnutlsProbe struct {
@@ -118,15 +119,12 @@ func (g *MGnutlsProbe) constantEditor() []manager.ConstantEditor {
 func (g *MGnutlsProbe) setupManagers() error {
 	var binaryPath string
 	switch g.conf.(*config.GnutlsConfig).ElfType {
-	//case config.ElfTypeBin:
-	//	binaryPath = g.conf.(*config.GnutlsConfig).Curlpath
 	case config.ElfTypeSo:
 		binaryPath = g.conf.(*config.GnutlsConfig).Gnutls
 	default:
-		//如果没找到
-		binaryPath = "/lib/x86_64-linux-gnu/libgnutls.so.30"
+		//如果没找到  "/lib/x86_64-linux-gnu/libgnutls.so.30"
+		binaryPath = path.Join(defaultSoPath, "libgnutls.so.30")
 	}
-
 	_, err := os.Stat(binaryPath)
 	if err != nil {
 		return err
