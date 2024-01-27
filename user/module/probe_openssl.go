@@ -74,7 +74,7 @@ type MOpenSSLProbe struct {
 	sslVersionBpfMap map[string]string // bpf map key: ssl version, value: bpf map key
 	sslBpfFile       string            // ssl bpf file
 	isBoringSSL      bool              //
-	masterHookFunc   string            // SSL_in_init on boringSSL,  SSL_write on openssl
+	masterHookFuncs  []string          // SSL_in_init on boringSSL,  SSL_write on openssl
 	cgroupPath       string
 }
 
@@ -89,6 +89,7 @@ func (m *MOpenSSLProbe) Init(ctx context.Context, logger *log.Logger, conf confi
 	m.pidLocker = new(sync.Mutex)
 	m.masterKeys = make(map[string]bool)
 	m.sslVersionBpfMap = make(map[string]string)
+	m.masterHookFuncs = MasterKeyHookFuncs
 
 	//fd := os.Getpid()
 	var err error
@@ -146,9 +147,9 @@ func (m *MOpenSSLProbe) getSslBpfFile(soPath, sslVersion string) error {
 	defer func() {
 		if strings.Contains(m.sslBpfFile, "boringssl") {
 			m.isBoringSSL = true
-			m.masterHookFunc = MasterKeyHookFuncBoringSSL
+			//m.masterHookFuncs = MasterKeyHookFuncBoringSSL
 		} else {
-			m.masterHookFunc = MasterKeyHookFuncOpenSSL
+			//m.masterHookFuncs = MasterKeyHookFuncOpenSSL
 		}
 	}()
 
@@ -356,13 +357,17 @@ func (m *MOpenSSLProbe) saveMasterSecret(secretEvent *event.MasterSecretEvent) {
 		// 已存在该随机数的masterSecret，不需要重复写入
 		return
 	}
-	m.masterKeys[k] = true
 
 	// save to file
 	var b *bytes.Buffer
 	switch secretEvent.Version {
 	case event.Tls12Version:
+		var length = event.MasterSecretMaxLen
+		if m.oSSLEvent12NullSecrets(length, secretEvent) {
+			return
+		}
 		b = bytes.NewBufferString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelTLS12, secretEvent.ClientRandom, secretEvent.MasterKey))
+		m.masterKeys[k] = true
 	case event.Tls13Version:
 		var length int
 		var transcript crypto.Hash
@@ -374,7 +379,9 @@ func (m *MOpenSSLProbe) saveMasterSecret(secretEvent *event.MasterSecretEvent) {
 			length = 48
 			transcript = crypto.SHA384
 		default:
-			m.logger.Printf("non-TLSv1.3 cipher suite found, CipherId: %d", secretEvent.CipherId)
+			length = 32
+			transcript = crypto.SHA256
+			m.logger.Printf("non-TLSv1.3 cipher suite found, CipherId: %d, clientrandom:%02x", secretEvent.CipherId, secretEvent.ClientRandom)
 			return
 		}
 
@@ -385,14 +392,24 @@ func (m *MOpenSSLProbe) saveMasterSecret(secretEvent *event.MasterSecretEvent) {
 
 		serverHandshakeSecret := hkdf.ExpandLabel(secretEvent.HandshakeSecret[:length],
 			hkdf.ServerHandshakeTrafficLabel, secretEvent.HandshakeTrafficHash[:length], length, transcript)
+
+		var clientHandshakeSecret1, serverHandshakeSecret1 [64]byte
+		copy(clientHandshakeSecret1[:length], clientHandshakeSecret)
+		copy(serverHandshakeSecret1[:length], serverHandshakeSecret)
+		// 判断 密钥是否为空
+		if m.oSSLEvent13NullSecrets(length, secretEvent, clientHandshakeSecret1, serverHandshakeSecret1) {
+			return
+		}
+		m.masterKeys[k] = true
+
 		b.WriteString(fmt.Sprintf("%s %02x %02x\n",
 			hkdf.KeyLogLabelServerHandshake, secretEvent.ClientRandom, serverHandshakeSecret))
 
 		b.WriteString(fmt.Sprintf("%s %02x %02x\n",
-			hkdf.KeyLogLabelClientTraffic, secretEvent.ClientRandom, secretEvent.ClientAppTrafficSecret))
+			hkdf.KeyLogLabelClientTraffic, secretEvent.ClientRandom, secretEvent.ClientAppTrafficSecret[:length]))
 
 		b.WriteString(fmt.Sprintf("%s %02x %02x\n",
-			hkdf.KeyLogLabelServerTraffic, secretEvent.ClientRandom, secretEvent.ServerAppTrafficSecret))
+			hkdf.KeyLogLabelServerTraffic, secretEvent.ClientRandom, secretEvent.ServerAppTrafficSecret[:length]))
 
 		b.WriteString(fmt.Sprintf("%s %02x %02x\n",
 			hkdf.KeyLogLabelExporterSecret, secretEvent.ClientRandom, secretEvent.ExporterMasterSecret[:length]))
@@ -490,13 +507,20 @@ func (m *MOpenSSLProbe) saveMasterSecretBSSL(secretEvent *event.MasterSecretBSSL
 }
 
 func (m *MOpenSSLProbe) bSSLEvent12NullSecrets(e *event.MasterSecretBSSLEvent) bool {
+	return m.mk12NullSecrets(int(e.HashLen), e.Secret)
+}
+
+func (m *MOpenSSLProbe) oSSLEvent12NullSecrets(hashLen int, e *event.MasterSecretEvent) bool {
+	return m.mk12NullSecrets(hashLen, e.MasterKey)
+}
+
+func (m *MOpenSSLProbe) mk12NullSecrets(hashLen int, secret [48]byte) bool {
 	var isNull = true
-	var hashLen = int(e.HashLen)
 	for i := 0; i < hashLen; i++ {
-		if hashLen >= len(e.Secret) {
+		if hashLen > len(secret) {
 			break
 		}
-		if e.Secret[i] != 0 {
+		if secret[i] != 0 {
 			isNull = false
 			break
 		}
@@ -504,33 +528,61 @@ func (m *MOpenSSLProbe) bSSLEvent12NullSecrets(e *event.MasterSecretBSSLEvent) b
 	return isNull
 }
 
+// bSSLEvent13NullSecrets 检测boringssl Secret Event 是不是空密钥
 func (m *MOpenSSLProbe) bSSLEvent13NullSecrets(e *event.MasterSecretBSSLEvent) bool {
+	var hashLen = int(e.HashLen)
+	return m.mk13NullSecrets(hashLen,
+		e.ClientHandshakeSecret,
+		e.ClientTrafficSecret0,
+		e.ServerHandshakeSecret,
+		e.ServerTrafficSecret0,
+		e.ExporterSecret,
+	)
+}
+
+// oSSLEvent13NullSecrets 检测openssl Secret Event 是不是空密钥
+func (m *MOpenSSLProbe) oSSLEvent13NullSecrets(hashLen int, e *event.MasterSecretEvent, ClientHandshakeSecret, ServerHandshakeSecret [64]byte) bool {
+	return m.mk13NullSecrets(hashLen,
+		ClientHandshakeSecret,
+		e.ClientAppTrafficSecret,
+		ServerHandshakeSecret,
+		e.ServerAppTrafficSecret,
+		e.ExporterMasterSecret,
+	)
+}
+
+func (m *MOpenSSLProbe) mk13NullSecrets(hashLen int,
+	ClientHandshakeSecret [64]byte,
+	ClientTrafficSecret0 [64]byte,
+	ServerHandshakeSecret [64]byte,
+	ServerTrafficSecret0 [64]byte,
+	ExporterSecret [64]byte,
+) bool {
 	var isNUllCount = 5
 
-	var hashLen = int(e.HashLen)
 	var chsChecked, ctsChecked, shsChecked, stsChecked, esChecked bool
 	for i := 0; i < hashLen; i++ {
-		if !chsChecked && e.ClientHandshakeSecret[i] != 0 {
+		if !chsChecked && ClientHandshakeSecret[i] != 0 {
 			isNUllCount -= 1
 			chsChecked = true
 		}
 
-		if !ctsChecked && e.ClientTrafficSecret0[i] != 0 {
+		if !ctsChecked && ClientTrafficSecret0[i] != 0 {
 			isNUllCount -= 1
 			ctsChecked = true
 		}
 
-		if !shsChecked && e.ServerHandshakeSecret[i] != 0 {
+		if !shsChecked && ServerHandshakeSecret[i] != 0 {
 			isNUllCount -= 1
 			shsChecked = true
 		}
 
-		if !stsChecked && e.ServerTrafficSecret0[i] != 0 {
+		if !stsChecked && ServerTrafficSecret0[i] != 0 {
 			isNUllCount -= 1
 			stsChecked = true
 		}
 
-		if !esChecked && e.ExporterSecret[i] != 0 {
+		if !esChecked && ExporterSecret[i] != 0 {
 			isNUllCount -= 1
 			esChecked = true
 		}
