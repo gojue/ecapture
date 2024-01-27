@@ -74,7 +74,7 @@ func (m *MOpenSSLProbe) setupManagersPcap() error {
 
 	m.logger.Printf("%s\tHOOK type:%d, binrayPath:%s\n", m.Name(), m.conf.(*config.OpensslConfig).ElfType, binaryPath)
 	m.logger.Printf("%s\tIfname:%s, Ifindex:%d,  Port:%d, Pcapng filepath:%s\n", m.Name(), m.ifName, m.ifIdex, m.conf.(*config.OpensslConfig).Port, m.pcapngFilename)
-	m.logger.Printf("%s\tHook masterKey function:%s\n", m.Name(), m.masterHookFunc)
+	m.logger.Printf("%s\tHook masterKey function:%s\n", m.Name(), m.masterHookFuncs)
 
 	// create pcapng writer
 	netIfs, err := net.Interfaces()
@@ -116,16 +116,6 @@ func (m *MOpenSSLProbe) setupManagersPcap() error {
 				NetworkDirection: manager.Ingress,
 			},
 			// --------------------------------------------------
-
-			// openssl masterkey
-			{
-				Section:          "uprobe/SSL_write_key",
-				EbpfFuncName:     "probe_ssl_master_key",
-				AttachToFuncName: m.masterHookFunc, // SSL_do_handshake or SSL_write
-				BinaryPath:       binaryPath,
-				UID:              "uprobe_ssl_master_key",
-			},
-			//
 			{
 				EbpfFuncName:     "tcp_sendmsg",
 				Section:          "kprobe/tcp_sendmsg",
@@ -143,6 +133,15 @@ func (m *MOpenSSLProbe) setupManagersPcap() error {
 		},
 	}
 
+	for _, masterFunc := range m.masterHookFuncs {
+		m.bpfManager.Probes = append(m.bpfManager.Probes, &manager.Probe{
+			Section:          "uprobe/SSL_write_key",
+			EbpfFuncName:     "probe_ssl_master_key",
+			AttachToFuncName: masterFunc,
+			BinaryPath:       binaryPath,
+			UID:              fmt.Sprintf("uprobe_smk_%s", masterFunc),
+		})
+	}
 	m.bpfManagerOptions = manager.Options{
 		DefaultKProbeMaxActive: 512,
 
