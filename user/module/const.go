@@ -52,17 +52,17 @@ const (
 
 var (
 	/*
-	*	为了读取到TLS握手完成后的client_random等密钥，必需要选择一个合适的HOOK函数。
-	*	SSL_write\SSL_read时，TLS握手是建立完成的，但调用过于频繁，会带来性能问题，参见https://github.com/gojue/ecapture/issues/463
-	*	综合来看，合适的HOOK函数需要满足以下几个条件:
-	*	1. 函数是在TLS握手完成后调用
-	*	2. 函数名在动态链接库的符号表中是导出状态
-	*	3. 函数是低频调用
+	* 为了读取到TLS握手完成后的client_random等密钥，必需要选择一个合适的HOOK函数。
+	* SSL_write\SSL_read时，TLS握手是建立完成的，但调用过于频繁，会带来性能问题，参见https://github.com/gojue/ecapture/issues/463
+	* 综合来看，合适的HOOK函数需要满足以下几个条件:
+	* 1. 函数是在TLS握手完成后调用
+	* 2. 函数名在动态链接库的符号表中是导出状态
+	* 3. 函数是低频调用
 	*
-	*	在 openssl 类库中，以客户端角色调用 `SSL_connect` 或者以服务端角色 `SSL_accept` ，最终都会进入 `ssl/statem/statem.c` 的 `state_machine` 函数进行TLS握手。
-	*	所以，可选范围是在这个函数内以大写`SSL`开头的函数。
-	*	当使用openssl的方式为同步调用时，TLS握手成功会返回1，也就是`ret = 1`，即需要在这个变量赋值后，被调用的函数，才能拿到符合要求的内存数据。
-	*	在这个前提下，`的state_machine`函数内符合要求的就只有`SSL_get_wbio`了。
+	* 在 openssl 类库中，以客户端角色调用 `SSL_connect` 或者以服务端角色 `SSL_accept` ，最终都会进入 `ssl/statem/statem.c` 的 `state_machine` 函数进行TLS握手。
+	* 所以，可选范围是在这个函数内以大写`SSL`开头的函数。
+	* 当使用openssl的方式为`同步`调用时，TLS握手成功会返回1，也就是`ret = 1`，即需要在这个变量赋值后，被调用的函数，才能拿到符合要求的内存数据。 `state_machine`函数内符合要求的就只有`SSL_get_wbio`了。
+	* 当使用openssl的方式为`异步`调用时，还需要增加`SSL_in_before`函数。
 	 */
 	MasterKeyHookFuncs = []string{
 		"SSL_get_wbio", // openssl
