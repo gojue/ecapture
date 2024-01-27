@@ -136,7 +136,8 @@ AUTOGENCMD ?=
 TAG_COMMIT := $(shell git rev-list --abbrev-commit --tags --max-count=1)
 TAG := $(shell git describe --abbrev=0 --tags ${TAG_COMMIT} 2>/dev/null || true)
 COMMIT := $(shell git rev-parse --short HEAD)
-DATE := $(shell git log -1 --format=%cd --date=format:"%Y%m%d")
+#DATE := $(shell git log -1 --format=%cd --date=format:"%Y%m%d")
+DATE := $(shell date +"%Y%m%d")
 LAST_GIT_TAG := $(TAG:v%=%)-$(DATE)-$(COMMIT)
 RPM_RELEASE := $(DATE).$(COMMIT)
 #ifneq ($(COMMIT), $(TAG_COMMIT))
@@ -203,6 +204,7 @@ TARGETS += kern/openssl_1_1_1j
 TARGETS += kern/openssl_1_1_0a
 TARGETS += kern/openssl_1_0_2a
 TARGETS += kern/openssl_3_0_0
+TARGETS += kern/openssl_3_2_0
 TARGETS += kern/gotls
 
 ifeq ($(ANDROID),0)
