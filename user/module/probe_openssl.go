@@ -74,7 +74,7 @@ type MOpenSSLProbe struct {
 	sslVersionBpfMap map[string]string // bpf map key: ssl version, value: bpf map key
 	sslBpfFile       string            // ssl bpf file
 	isBoringSSL      bool              //
-	masterHookFuncs  []string          // SSL_in_init on boringSSL,  SSL_write on openssl
+	masterHookFuncs  []string          // set by masterKeyHookFuncs
 	cgroupPath       string
 }
 
@@ -89,7 +89,7 @@ func (m *MOpenSSLProbe) Init(ctx context.Context, logger *log.Logger, conf confi
 	m.pidLocker = new(sync.Mutex)
 	m.masterKeys = make(map[string]bool)
 	m.sslVersionBpfMap = make(map[string]string)
-	m.masterHookFuncs = MasterKeyHookFuncs
+	m.masterHookFuncs = masterKeyHookFuncs
 
 	//fd := os.Getpid()
 	var err error
@@ -147,9 +147,7 @@ func (m *MOpenSSLProbe) getSslBpfFile(soPath, sslVersion string) error {
 	defer func() {
 		if strings.Contains(m.sslBpfFile, "boringssl") {
 			m.isBoringSSL = true
-			//m.masterHookFuncs = MasterKeyHookFuncBoringSSL
-		} else {
-			//m.masterHookFuncs = MasterKeyHookFuncOpenSSL
+			m.masterHookFuncs = []string{MasterKeyHookFuncBoringSSL}
 		}
 	}()
 
