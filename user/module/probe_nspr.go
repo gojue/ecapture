@@ -28,6 +28,7 @@ import (
 	"log"
 	"math"
 	"os"
+	"path"
 )
 
 type MNsprProbe struct {
@@ -123,7 +124,7 @@ func (n *MNsprProbe) setupManagers() error {
 		binaryPath = n.conf.(*config.NsprConfig).Nsprpath
 	default:
 		//如果没找到
-		binaryPath = "/lib/x86_64-linux-gnu/libnspr4.so"
+		binaryPath = path.Join(defaultSoPath, "libnspr4.so")
 	}
 
 	_, err := os.Stat(binaryPath)

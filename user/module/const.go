@@ -14,6 +14,8 @@
 
 package module
 
+import "runtime"
+
 const (
 	ProbeTypeUprobe = "uprobe"
 	ProbeTypeKprobe = "kprobe"
@@ -50,3 +52,11 @@ const (
 const (
 	MasterSecretKeyLogName = "ecapture_masterkey.log"
 )
+
+var defaultSoPath = "/lib/x86_64-linux-gnu"
+
+func init() {
+	if runtime.GOARCH == "arm64" {
+		defaultSoPath = "/lib/aarch64-linux-gnu"
+	}
+}

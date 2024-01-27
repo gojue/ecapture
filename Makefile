@@ -49,6 +49,10 @@ ifeq ($(DEBUG),1)
 DEBUG_PRINT := -DDEBUG_PRINT
 endif
 
+ifndef ANDROID
+	ANDROID = 0
+endif
+
 TARGET_TAG ?= linux
 ifeq ($(ANDROID),1)
 TARGET_TAG := androidgki

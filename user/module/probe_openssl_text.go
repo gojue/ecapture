@@ -9,6 +9,7 @@ import (
 	"golang.org/x/sys/unix"
 	"math"
 	"os"
+	"path"
 	"strings"
 )
 
@@ -27,7 +28,7 @@ func (m *MOpenSSLProbe) setupManagersText() error {
 		}
 	default:
 		//如果没找到
-		binaryPath = "/lib/x86_64-linux-gnu/libssl.so.1.1"
+		binaryPath = path.Join(defaultSoPath, "libssl.so.1.1")
 		err := m.getSslBpfFile(binaryPath, sslVersion)
 		if err != nil {
 			return err
