@@ -40,7 +40,7 @@ const (
 
 const (
 	// 备选 HOOK的函数  SSL_is_init_finished \ SSL_get_wbio \ SSL_write
-	MasterKeyHookFuncOpenSSL = "SSL_is_init_finished"
+	MasterKeyHookFuncOpenSSL = "SSL_write"
 
 	/*
 		在boringSSL类库里，SSL_write函数调用了 SSL_do_handshake ，
@@ -64,17 +64,13 @@ var (
 	* 当使用openssl的方式为`同步`调用时，TLS握手成功会返回1，也就是`ret = 1`，即需要在这个变量赋值后，被调用的函数，才能拿到符合要求的内存数据。 `state_machine`函数内符合要求的就只有`SSL_get_wbio`了。
 	* 当使用openssl的方式为`异步`调用时，还需要增加`SSL_in_before`函数。
 	 */
-	MasterKeyHookFuncs = []string{
+	masterKeyHookFuncs = []string{
 		"SSL_get_wbio", // openssl
 		//"SSL_is_init",  // boringssl
 		// 备用HOOK 函数
 		//"SSL_is_init_finished",
 		"SSL_in_before",
 	}
-)
-
-const (
-	MasterSecretKeyLogName = "ecapture_masterkey.log"
 )
 
 var defaultSoPath = "/lib/x86_64-linux-gnu"
