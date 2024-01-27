@@ -47,7 +47,7 @@ func (m *MOpenSSLProbe) setupManagersText() error {
 	}
 
 	m.logger.Printf("%s\tHOOK type:%d, binrayPath:%s\n", m.Name(), m.conf.(*config.OpensslConfig).ElfType, binaryPath)
-	m.logger.Printf("%s\tHook masterKey function:%s\n", m.Name(), m.masterHookFunc)
+	m.logger.Printf("%s\tHook masterKey function:%s\n", m.Name(), m.masterHookFuncs)
 
 	m.bpfManager = &manager.Manager{
 		Probes: []*manager.Probe{
@@ -91,7 +91,7 @@ func (m *MOpenSSLProbe) setupManagersText() error {
 			/*{
 				Section:          "uprobe/SSL_write_key",
 				EbpfFuncName:     "probe_ssl_master_key",
-				AttachToFuncName: m.masterHookFunc,
+				AttachToFuncName: m.masterHookFuncs,
 				BinaryPath:       binaryPath,
 				UID:              "uprobe_ssl_master_key",
 			},*/
