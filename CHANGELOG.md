@@ -1,5 +1,15 @@
+# v0.7.3 (2024-01-28)
+## What's Changed
+
+## New Contributors
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v0.7.2...v0.7.3
+<hr>
+
 # v0.7.2 (2024-01-01)
 ## What's Changed
+* user: improve pcapng writer, flush every 2s. by @cfc4n in https://github.com/gojue/ecapture/pull/455
+* builder: add debian package build script. by @cfc4n in https://github.com/gojue/ecapture/pull/456
 
 ## New Contributors
 
