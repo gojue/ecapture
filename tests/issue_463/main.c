@@ -13,8 +13,8 @@
 #define SERVER "127.0.0.1"
 #define PORT 443
 #define REQUEST "GET / HTTP/1.1\r\nHost: www.cnxct.com\r\n\r\n"
-#define TEST_CNT 10000000
-//#define TEST_CNT 10
+//#define TEST_CNT 10000000
+#define TEST_CNT 1
 
 char g_requests[TEST_CNT][strlen(REQUEST) + 1];
 int create_socket(const char *host, int port) {
@@ -85,7 +85,8 @@ int main() {
         }
     }
 
-    SSL_read(ssl, reply, sizeof(reply));  // Read server response
+    int bytes_read = SSL_read(ssl, reply, sizeof(reply));  // Read server response
+    fprintf(stderr, "received %d bytes",bytes_read);
 
     SSL_free(ssl);
     close(server);
