@@ -87,6 +87,7 @@ int main() {
 
     int bytes_read = SSL_read(ssl, reply, sizeof(reply));  // Read server response
     fprintf(stderr, "received %d bytes",bytes_read);
+
     SSL_free(ssl);
     close(server);
     SSL_CTX_free(ctx);
