@@ -29,6 +29,7 @@ const (
 	LinuxDefauleFilename_1_1_1 = "linux_default_1_1_1"
 	LinuxDefauleFilename_3_0   = "linux_default_3_0"
 	LinuxDefauleFilename_3_1   = "linux_default_3_0"
+	LinuxDefauleFilename_3_2_0 = "linux_default_3_2"
 	AndroidDefauleFilename     = "android_default"
 
 	OpenSslVersionLen = 30 // openssl version string length
@@ -40,6 +41,7 @@ const (
 	MaxSupportedOpenSSL111Version = 'u'
 	MaxSupportedOpenSSL30Version  = 12
 	MaxSupportedOpenSSL31Version  = 4
+	MaxSupportedOpenSSL32Version  = 0
 )
 
 // initOpensslOffset initial BpfMap
@@ -56,6 +58,9 @@ func (m *MOpenSSLProbe) initOpensslOffset() {
 
 		// openssl 3.0.* and openssl 3.1.*
 		LinuxDefauleFilename_3_0: "openssl_3_0_0_kern.o",
+
+		// openssl 3.2.*
+		LinuxDefauleFilename_3_2_0: "openssl_3_2_0_kern.o",
 
 		// boringssl
 		"boringssl 1.1.1":      "boringssl_a_13_kern.o",
@@ -90,6 +95,11 @@ func (m *MOpenSSLProbe) initOpensslOffset() {
 	// openssl 3.1.0 - 3.1.4
 	for ch := 0; ch <= MaxSupportedOpenSSL31Version; ch++ {
 		m.sslVersionBpfMap[fmt.Sprintf("openssl 3.1.%d", ch)] = "openssl_3_0_0_kern.o"
+	}
+
+	// openssl 3.2.0
+	for ch := 0; ch <= MaxSupportedOpenSSL32Version; ch++ {
+		m.sslVersionBpfMap[fmt.Sprintf("openssl 3.2.%d", ch)] = "openssl_3_2_0_kern.o"
 	}
 
 	// openssl 1.1.0a - 1.1.0l
@@ -145,6 +155,7 @@ func (m *MOpenSSLProbe) detectOpenssl(soPath string) error {
 	versionKey := ""
 
 	// e.g : OpenSSL 1.1.1j  16 Feb 2021
+	// OpenSSL 3.2.0 23 Nov 2023
 	rex, err := regexp.Compile(`(OpenSSL\s\d\.\d\.[0-9a-z]+)`)
 	if err != nil {
 		return nil

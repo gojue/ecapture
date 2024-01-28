@@ -43,14 +43,8 @@ function run() {
     echo "Generating ${header_file}"
 
 
-    # config and make openssl/opensslconf.h
-    ./config
-
-#    make reconfigure reconf
-    make clean
-    make include/openssl/opensslconf.h
-    make include/openssl/configuration.h
-    make build_generated
+    # ./Configure and make openssl/opensslconf.h
+    ./Configure
 
 
     clang -I include/ -I . offset.c -o offset

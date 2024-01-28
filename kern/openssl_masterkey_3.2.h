@@ -113,7 +113,8 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
     if (type == SSL_TYPE_QUIC_CONNECTION) {
         // 重新获取 ssl->tls 的地址作为 SSL_CONNECTION的地址
         // Reget the address of the ssl->tls as the address of the SSL_CONNECTION
-//        ssl_st_ptr =
+        debug_bpf_printk("unsupported type: SSL_CONNECTION, coming soon.\n");
+        return;
     }
 
     // Get SSL->version pointer
