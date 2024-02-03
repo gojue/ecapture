@@ -16,14 +16,16 @@ package cmd
 
 import (
 	"context"
-	"ecapture/pkg/util/kernel"
-	"ecapture/user/config"
-	"ecapture/user/module"
 	"errors"
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
+
+	"ecapture/pkg/util/kernel"
+	"ecapture/user/config"
+	"ecapture/user/module"
 
 	"github.com/spf13/cobra"
 )
@@ -39,7 +41,7 @@ var gotlsCmd = &cobra.Command{
 ecapture gotls
 ecapture gotls --elfpath=/home/cfc4n/go_https_client --hex --pid=3423
 ecapture gotls -m keylog -k /tmp/ecap_gotls_key.log --elfpath=/home/cfc4n/go_https_client -l save.log --pid=3423
-ecapture gotls -m pcap --pcapfile=save_android.pcapng -i wlan0 --port 443 --elfpath=/home/cfc4n/go_https_client
+ecapture gotls -m pcap --pcapfile=save_android.pcapng -i wlan0 --elfpath=/home/cfc4n/go_https_client tcp port 443
 `,
 	Run: goTLSCommandFunc,
 }
@@ -50,12 +52,15 @@ func init() {
 	gotlsCmd.PersistentFlags().StringVarP(&goc.Model, "model", "m", "text", "capture model, such as : text, pcap/pcapng, key/keylog")
 	gotlsCmd.PersistentFlags().StringVarP(&goc.KeylogFile, "keylogfile", "k", "ecapture_gotls_key.log", "The file stores SSL/TLS keys, and eCapture captures these keys during encrypted traffic communication and saves them to the file.")
 	gotlsCmd.PersistentFlags().StringVarP(&goc.Ifname, "ifname", "i", "", "(TC Classifier) Interface name on which the probe will be attached.")
-	gotlsCmd.PersistentFlags().Uint16Var(&goc.Port, "port", 443, "port number to capture, default:443.")
 	rootCmd.AddCommand(gotlsCmd)
 }
 
 // goTLSCommandFunc executes the "bash" command.
 func goTLSCommandFunc(command *cobra.Command, args []string) {
+	if goc.PcapFilter == "" && len(args) != 0 {
+		goc.PcapFilter = strings.Join(args, " ")
+	}
+
 	stopper := make(chan os.Signal, 1)
 	signal.Notify(stopper, os.Interrupt, syscall.SIGTERM)
 
@@ -108,7 +113,7 @@ func goTLSCommandFunc(command *cobra.Command, args []string) {
 
 	logger.Printf("%s\tmodule initialization", mod.Name())
 
-	//初始化
+	// 初始化
 	err = mod.Init(context.TODO(), logger, conf)
 	if err != nil {
 		logger.Printf("%s\tmodule initialization failed, [skip it]. error:%+v", mod.Name(), err)

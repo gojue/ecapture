@@ -169,6 +169,9 @@ ifeq ($(UNAME_M),aarch64)
 				 -I ./kern/bpf/arm64
 	 AUTOGENCMD = ls -al kern/bpf/arm64/vmlinux.h
 	 IGNORE_LESS52 = -ignore '.*_less52\.o'
+	 CC = aarch64-linux-gnu-gcc
+	 LIBPCAP_ARCH = aarch64-unknown-linux-gnu
+	 SUDO =
 else
 	# x86_64 default
 	ARCH = x86_64
@@ -176,7 +179,10 @@ else
 	GO_ARCH = amd64
 	BPFHEADER = -I ./kern \
 			    -I ./kern/bpf/x86
-	AUTOGENCMD = $(CMD_BPFTOOL) btf dump file /sys/kernel/btf/vmlinux format c > kern/bpf/x86/vmlinux.h
+	AUTOGENCMD = test -f kern/bpf/x86/vmlinux.h || $(CMD_BPFTOOL) btf dump file /sys/kernel/btf/vmlinux format c > kern/bpf/x86/vmlinux.h
+	CC = gcc
+	LIBPCAP_ARCH = x86_64-unknown-linux-gnu
+	SUDO = sudo
 endif
 
 
@@ -189,6 +195,20 @@ KERN_BUILD_PATH ?= $(if $(KERN_HEADERS),$(KERN_HEADERS),/lib/modules/$(KERN_RELE
 KERN_SRC_PATH ?= $(if $(KERN_HEADERS),$(KERN_HEADERS),$(if $(wildcard /lib/modules/$(KERN_RELEASE)/source),/lib/modules/$(KERN_RELEASE)/source,$(KERN_BUILD_PATH)))
 
 BPF_NOCORE_TAG = $(subst .,_,$(KERN_RELEASE)).$(subst .,_,$(VERSION))
+
+
+#
+# cgo
+#
+
+CGO_ENABLED = 1
+
+
+#
+# libpcap
+#
+
+TARGET_LIBPCAP = /usr/local/lib/libpcap.a
 
 
 #
@@ -387,11 +407,38 @@ assets_nocore: \
 	ebpf_nocore
 	$(CMD_GO) run github.com/shuLhan/go-bindata/cmd/go-bindata $(IGNORE_LESS52) -pkg assets -o "assets/ebpf_probe.go" $(wildcard ./user/bytecode/*.o)
 
+
+$(TARGET_LIBPCAP):
+	test -f ./lib/libpcap/configure || git submodule update --init ./lib/libpcap
+	cd lib/libpcap && \
+		./configure --disable-rdma --disable-shared --disable-usb --disable-netmap --disable-bluetooth --disable-dbus --without-libnl --host=$(LIBPCAP_ARCH) && \
+		make && $(SUDO) make install
+
+
+BUILD_ECAPTURE = $(CMD_GO) build -tags $(TARGET_TAG) -ldflags "-w -s -X 'ecapture/cli/cmd.GitVersion=$(TARGET_TAG)_$(UNAME_M):$(VERSION):[CORE]'" -o bin/ecapture . && \
+	echo "Please ignore the above cgo libpcap warnings."
+
+
+.PHONY: build_ecapture
+build_ecapture:
+	$(BUILD_ECAPTURE)
+
+
 .PHONY: build
 build: \
 	.checkver_$(CMD_GO) \
-	assets
-	CGO_ENABLED=0 $(CMD_GO) build -tags $(TARGET_TAG) -ldflags "-w -s -X 'ecapture/cli/cmd.GitVersion=$(TARGET_TAG)_$(UNAME_M):$(VERSION):[CORE]'" -o bin/ecapture .
+	assets \
+	$(TARGET_LIBPCAP)
+	$(BUILD_ECAPTURE)
+
+
+BUILD_ECAPTURE_NOCORE = $(CMD_GO) build -tags $(TARGET_TAG) -ldflags "-w -s -X 'ecapture/cli/cmd.GitVersion=$(TARGET_TAG)_$(UNAME_M):$(VERSION):$(UNAME_R)' -X 'main.enableCORE=false'" -o bin/ecapture . && \
+	echo "Please ignore the above cgo libpcap warnings."
+
+
+.PHONY: build_ecapture_nocore
+build_ecapture_nocore:
+	$(BUILD_ECAPTURE_NOCORE)
 
 
 # FOR NON-CORE
@@ -399,8 +446,9 @@ build: \
 build_nocore: \
 	.checkver_$(CMD_GO) \
 	assets_nocore \
-	ebpf_nocore
-	CGO_ENABLED=0 $(CMD_GO) build -tags $(TARGET_TAG) -ldflags "-w -s -X 'ecapture/cli/cmd.GitVersion=$(TARGET_TAG)_$(UNAME_M):$(VERSION):$(UNAME_R)' -X 'main.enableCORE=false'" -o bin/ecapture .
+	ebpf_nocore \
+	$(TARGET_LIBPCAP)
+	$(BUILD_ECAPTURE_NOCORE)
 
 # Format the code
 format:

@@ -48,8 +48,6 @@
 
 // .rodata section bug via : https://github.com/gojue/ecapture/issues/39
 #ifndef KERNEL_LESS_5_2
-// alawyse, we used it in tc.h
-const volatile u64 target_port = 443;
 
 // Optional Target PID and UID
 const volatile u64 target_pid = 0;

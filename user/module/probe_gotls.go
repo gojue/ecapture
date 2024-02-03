@@ -4,10 +4,6 @@ package module
 import (
 	"bytes"
 	"context"
-	"ecapture/assets"
-	"ecapture/pkg/proc"
-	"ecapture/user/config"
-	"ecapture/user/event"
 	"errors"
 	"fmt"
 	"log"
@@ -15,6 +11,11 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
+
+	"ecapture/assets"
+	"ecapture/pkg/proc"
+	"ecapture/user/config"
+	"ecapture/user/event"
 
 	"github.com/cilium/ebpf"
 	manager "github.com/gojue/ebpfmanager"
@@ -31,9 +32,7 @@ const (
 	goTlsMasterSecretFunc = "crypto/tls.(*Config).writeKeyLog"
 )
 
-var (
-	NotGoCompiledBin = errors.New("It is not a program compiled in the Go language.")
-)
+var NotGoCompiledBin = errors.New("It is not a program compiled in the Go language.")
 
 // GoTLSProbe represents a probe for Go SSL
 type GoTLSProbe struct {
@@ -71,18 +70,18 @@ func (g *GoTLSProbe) Init(ctx context.Context, l *log.Logger, cfg config.IConfig
 		g.isRegisterABI = true
 	}
 
-	var model = g.conf.(*config.GoTLSConfig).Model
+	model := g.conf.(*config.GoTLSConfig).Model
 	switch model {
 	case config.TlsCaptureModelKey, config.TlsCaptureModelKeylog:
 		g.eBPFProgramType = TlsCaptureModelTypeKeylog
 		g.keyloggerFilename = g.conf.(*config.GoTLSConfig).KeylogFile
-		file, err := os.OpenFile(g.keyloggerFilename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+		file, err := os.OpenFile(g.keyloggerFilename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o600)
 		if err != nil {
 			return err
 		}
 		g.keylogger = file
 	case config.TlsCaptureModelPcap, config.TlsCaptureModelPcapng:
-		var pcapFile = g.conf.(*config.GoTLSConfig).PcapFile
+		pcapFile := g.conf.(*config.GoTLSConfig).PcapFile
 		g.eBPFProgramType = TlsCaptureModelTypePcap
 		fileInfo, err := filepath.Abs(pcapFile)
 		if err != nil {
@@ -141,7 +140,13 @@ func (g *GoTLSProbe) start() error {
 		return err
 	}
 
-	var bpfFileName = g.geteBPFName("user/bytecode/gotls_kern.o")
+	if pcapFilter := g.conf.(*config.GoTLSConfig).PcapFilter; pcapFilter != "" {
+		ebpfFuncs := []string{tcFuncNameIngress, tcFuncNameEgress}
+		g.bpfManager.InstructionPatchers = prepareInsnPatchers(g.bpfManager,
+			ebpfFuncs, pcapFilter)
+	}
+
+	bpfFileName := g.geteBPFName("user/bytecode/gotls_kern.o")
 	g.logger.Printf("%s\tBPF bytecode filename:%s\n", g.Name(), bpfFileName)
 	byteBuf, err := assets.Asset(bpfFileName)
 	if err != nil {
@@ -149,6 +154,10 @@ func (g *GoTLSProbe) start() error {
 	}
 
 	if err = g.bpfManager.InitWithOptions(bytes.NewReader(byteBuf), g.bpfManagerOptions); err != nil {
+		var ve *ebpf.VerifierError
+		if errors.As(err, &ve) {
+			g.logger.Printf("%s\tcouldn't verify bpf prog: %+v", g.Name(), ve)
+		}
 		return fmt.Errorf("couldn't init manager %v", err)
 	}
 	// start the bootstrap manager
@@ -175,19 +184,15 @@ func (g *GoTLSProbe) start() error {
 
 // 通过elf的常量替换方式传递数据
 func (g *GoTLSProbe) constantEditor() []manager.ConstantEditor {
-	var editor = []manager.ConstantEditor{
+	editor := []manager.ConstantEditor{
 		{
 			Name:  "target_pid",
 			Value: uint64(g.conf.GetPid()),
-			//FailOnMissing: true,
+			// FailOnMissing: true,
 		},
 		{
 			Name:  "target_uid",
 			Value: uint64(g.conf.GetUid()),
-		},
-		{
-			Name:  "target_port",
-			Value: uint64(g.conf.(*config.GoTLSConfig).Port),
 		},
 	}
 
@@ -225,7 +230,7 @@ func (g *GoTLSProbe) saveMasterSecret(secretEvent *event.MasterSecretGotlsEvent)
 	clientRandom = string(secretEvent.ClientRandom[0:secretEvent.ClientRandomLen])
 	secret = string(secretEvent.MasterSecret[0:secretEvent.MasterSecretLen])
 
-	var k = fmt.Sprintf("%s-%02x", label, clientRandom)
+	k := fmt.Sprintf("%s-%02x", label, clientRandom)
 
 	_, f := g.masterSecrets[k]
 	if f {

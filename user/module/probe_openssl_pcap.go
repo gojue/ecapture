@@ -15,17 +15,19 @@
 package module
 
 import (
-	"ecapture/user/config"
-	"ecapture/user/event"
 	"errors"
 	"fmt"
-	"github.com/cilium/ebpf"
-	manager "github.com/gojue/ebpfmanager"
-	"golang.org/x/sys/unix"
 	"math"
 	"net"
 	"path"
 	"strings"
+
+	"ecapture/user/config"
+	"ecapture/user/event"
+
+	"github.com/cilium/ebpf"
+	manager "github.com/gojue/ebpfmanager"
+	"golang.org/x/sys/unix"
 )
 
 type NetEventMetadata struct {
@@ -55,7 +57,7 @@ func (m *MOpenSSLProbe) setupManagersPcap() error {
 	sslVersion = m.conf.(*config.OpensslConfig).SslVersion
 	sslVersion = strings.ToLower(sslVersion)
 	switch m.conf.(*config.OpensslConfig).ElfType {
-	//case config.ElfTypeBin:
+	// case config.ElfTypeBin:
 	//	binaryPath = m.conf.(*config.OpensslConfig).Curlpath
 	case config.ElfTypeSo:
 		binaryPath = m.conf.(*config.OpensslConfig).Openssl
@@ -64,7 +66,7 @@ func (m *MOpenSSLProbe) setupManagersPcap() error {
 			return err
 		}
 	default:
-		//如果没找到
+		// 如果没找到
 		binaryPath = path.Join(defaultSoPath, "libssl.so.1.1")
 		err := m.getSslBpfFile(binaryPath, sslVersion)
 		if err != nil {
@@ -72,8 +74,9 @@ func (m *MOpenSSLProbe) setupManagersPcap() error {
 		}
 	}
 
+	pcapFilter := m.conf.(*config.OpensslConfig).PcapFilter
 	m.logger.Printf("%s\tHOOK type:%d, binrayPath:%s\n", m.Name(), m.conf.(*config.OpensslConfig).ElfType, binaryPath)
-	m.logger.Printf("%s\tIfname:%s, Ifindex:%d,  Port:%d, Pcapng filepath:%s\n", m.Name(), m.ifName, m.ifIdex, m.conf.(*config.OpensslConfig).Port, m.pcapngFilename)
+	m.logger.Printf("%s\tIfname:%s, Ifindex:%d, PcapFilter:%s, Pcapng filepath:%s\n", m.Name(), m.ifName, m.ifIdex, pcapFilter, m.pcapngFilename)
 	m.logger.Printf("%s\tHook masterKey function:%s\n", m.Name(), m.masterHookFuncs)
 
 	// create pcapng writer
@@ -105,13 +108,13 @@ func (m *MOpenSSLProbe) setupManagersPcap() error {
 			//	}
 			{
 				Section:          "classifier/egress",
-				EbpfFuncName:     "egress_cls_func",
+				EbpfFuncName:     tcFuncNameEgress,
 				Ifname:           m.ifName,
 				NetworkDirection: manager.Egress,
 			},
 			{
 				Section:          "classifier/ingress",
-				EbpfFuncName:     "ingress_cls_func",
+				EbpfFuncName:     tcFuncNameIngress,
 				Ifname:           m.ifName,
 				NetworkDirection: manager.Ingress,
 			},
@@ -165,7 +168,7 @@ func (m *MOpenSSLProbe) setupManagersPcap() error {
 }
 
 func (m *MOpenSSLProbe) initDecodeFunPcap() error {
-	//SkbEventsMap 与解码函数映射
+	// SkbEventsMap 与解码函数映射
 	SkbEventsMap, found, err := m.bpfManager.GetMap("skb_events")
 	if err != nil {
 		return err
@@ -175,7 +178,7 @@ func (m *MOpenSSLProbe) initDecodeFunPcap() error {
 	}
 	m.eventMaps = append(m.eventMaps, SkbEventsMap)
 	sslEvent := &event.TcSkbEvent{}
-	//sslEvent.SetModule(m)
+	// sslEvent.SetModule(m)
 	m.eventFuncMaps[SkbEventsMap] = sslEvent
 
 	MasterkeyEventsMap, found, err := m.bpfManager.GetMap("mastersecret_events")
@@ -195,7 +198,7 @@ func (m *MOpenSSLProbe) initDecodeFunPcap() error {
 		masterkeyEvent = &event.MasterSecretEvent{}
 	}
 
-	//masterkeyEvent.SetModule(m)
+	// masterkeyEvent.SetModule(m)
 	m.eventFuncMaps[MasterkeyEventsMap] = masterkeyEvent
 	return nil
 }

@@ -18,20 +18,23 @@ import (
 	"bytes"
 	"context"
 	"crypto"
-	"ecapture/assets"
-	"ecapture/pkg/util/hkdf"
-	"ecapture/user/config"
-	"ecapture/user/event"
+	"errors"
 	"fmt"
-	"github.com/cilium/ebpf"
-	manager "github.com/gojue/ebpfmanager"
-	"golang.org/x/sys/unix"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
+
+	"ecapture/assets"
+	"ecapture/pkg/util/hkdf"
+	"ecapture/user/config"
+	"ecapture/user/event"
+
+	"github.com/cilium/ebpf"
+	manager "github.com/gojue/ebpfmanager"
+	"golang.org/x/sys/unix"
 )
 
 const (
@@ -91,20 +94,20 @@ func (m *MOpenSSLProbe) Init(ctx context.Context, logger *log.Logger, conf confi
 	m.sslVersionBpfMap = make(map[string]string)
 	m.masterHookFuncs = masterKeyHookFuncs
 
-	//fd := os.Getpid()
+	// fd := os.Getpid()
 	var err error
-	var model = m.conf.(*config.OpensslConfig).Model
+	model := m.conf.(*config.OpensslConfig).Model
 	switch model {
 	case config.TlsCaptureModelKeylog, config.TlsCaptureModelKey:
 		m.keyloggerFilename = m.conf.(*config.OpensslConfig).KeylogFile
-		m.keylogger, err = os.OpenFile(m.keyloggerFilename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+		m.keylogger, err = os.OpenFile(m.keyloggerFilename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o600)
 		if err != nil {
 			return err
 		}
 		m.eBPFProgramType = TlsCaptureModelTypeKeylog
 		m.logger.Printf("%s\tmaster key keylogger: %s\n", m.Name(), m.keyloggerFilename)
 	case config.TlsCaptureModelPcap, config.TlsCaptureModelPcapng:
-		var pcapFile = m.conf.(*config.OpensslConfig).PcapFile
+		pcapFile := m.conf.(*config.OpensslConfig).PcapFile
 		m.eBPFProgramType = TlsCaptureModelTypePcap
 		fileInfo, err := filepath.Abs(pcapFile)
 		if err != nil {
@@ -172,7 +175,6 @@ func (m *MOpenSSLProbe) Start() error {
 }
 
 func (m *MOpenSSLProbe) start() error {
-
 	var err error
 	// setup the managers
 	switch m.eBPFProgramType {
@@ -193,19 +195,28 @@ func (m *MOpenSSLProbe) start() error {
 		return err
 	}
 
+	if pcapFilter := m.conf.(*config.OpensslConfig).PcapFilter; pcapFilter != "" {
+		ebpfFuncs := []string{tcFuncNameIngress, tcFuncNameEgress}
+		m.bpfManager.InstructionPatchers = prepareInsnPatchers(m.bpfManager,
+			ebpfFuncs, pcapFilter)
+	}
+
 	// fetch ebpf assets
 	// user/bytecode/openssl_kern.o
-	var bpfFileName = m.geteBPFName(filepath.Join("user/bytecode", m.sslBpfFile))
+	bpfFileName := m.geteBPFName(filepath.Join("user/bytecode", m.sslBpfFile))
 	m.logger.Printf("%s\tBPF bytecode filename:%s\n", m.Name(), bpfFileName)
 	byteBuf, err := assets.Asset(bpfFileName)
-
 	if err != nil {
 		return fmt.Errorf("%s\tcouldn't find asset %v .", m.Name(), err)
 	}
 
 	// initialize the bootstrap manager
 	if err = m.bpfManager.InitWithOptions(bytes.NewReader(byteBuf), m.bpfManagerOptions); err != nil {
-		return fmt.Errorf("couldn't init manager %v", err)
+		var ve *ebpf.VerifierError
+		if errors.As(err, &ve) {
+			m.logger.Printf("%s\tcouldn't verify bpf prog: %+v", m.Name(), ve)
+		}
+		return fmt.Errorf("couldn't init manager xxx %v", err)
 	}
 
 	// start the bootstrap manager
@@ -232,7 +243,6 @@ func (m *MOpenSSLProbe) start() error {
 }
 
 func (m *MOpenSSLProbe) Close() error {
-
 	m.logger.Printf("%s\tclose. \n", m.Name())
 	if err := m.bpfManager.Stop(manager.CleanAll); err != nil {
 		return fmt.Errorf("couldn't stop manager %v .", err)
@@ -242,19 +252,15 @@ func (m *MOpenSSLProbe) Close() error {
 
 // 通过elf的常量替换方式传递数据
 func (m *MOpenSSLProbe) constantEditor() []manager.ConstantEditor {
-	var editor = []manager.ConstantEditor{
+	editor := []manager.ConstantEditor{
 		{
 			Name:  "target_pid",
 			Value: uint64(m.conf.GetPid()),
-			//FailOnMissing: true,
+			// FailOnMissing: true,
 		},
 		{
 			Name:  "target_uid",
 			Value: uint64(m.conf.GetUid()),
-		},
-		{
-			Name:  "target_port",
-			Value: uint64(m.conf.(*config.OpensslConfig).Port),
 		},
 	}
 
@@ -298,7 +304,7 @@ func (m *MOpenSSLProbe) AddConn(pid, fd uint32, addr string) {
 	}
 	connMap[fd] = addr
 	m.pidConns[pid] = connMap
-	//m.logger.Printf("%s\tAddConn pid:%d, fd:%d, addr:%s, mapinfo:%v\n", m.Name(), pid, fd, addr, m.pidConns)
+	// m.logger.Printf("%s\tAddConn pid:%d, fd:%d, addr:%s, mapinfo:%v\n", m.Name(), pid, fd, addr, m.pidConns)
 	return
 }
 
@@ -325,6 +331,7 @@ func (m *MOpenSSLProbe) DelConn(pid, fd uint32) {
 	m.pidConns[pid] = connMap
 	return
 }
+
 func (m *MOpenSSLProbe) GetConn(pid, fd uint32) string {
 	if fd <= 0 {
 		return ConnNotFound
@@ -332,7 +339,7 @@ func (m *MOpenSSLProbe) GetConn(pid, fd uint32) string {
 	addr := ""
 	var connMap map[uint32]string
 	var f bool
-	//m.logger.Printf("%s\tGetConn pid:%d, fd:%d, mapinfo:%v\n", m.Name(), pid, fd, m.pidConns)
+	// m.logger.Printf("%s\tGetConn pid:%d, fd:%d, mapinfo:%v\n", m.Name(), pid, fd, m.pidConns)
 	m.pidLocker.Lock()
 	defer m.pidLocker.Unlock()
 	connMap, f = m.pidConns[pid]
@@ -347,8 +354,7 @@ func (m *MOpenSSLProbe) GetConn(pid, fd uint32) string {
 }
 
 func (m *MOpenSSLProbe) saveMasterSecret(secretEvent *event.MasterSecretEvent) {
-
-	var k = fmt.Sprintf("%02x", secretEvent.ClientRandom)
+	k := fmt.Sprintf("%02x", secretEvent.ClientRandom)
 
 	_, f := m.masterKeys[k]
 	if f {
@@ -360,7 +366,7 @@ func (m *MOpenSSLProbe) saveMasterSecret(secretEvent *event.MasterSecretEvent) {
 	var b *bytes.Buffer
 	switch secretEvent.Version {
 	case event.Tls12Version:
-		var length = event.MasterSecretMaxLen
+		length := event.MasterSecretMaxLen
 		if m.oSSLEvent12NullSecrets(length, secretEvent) {
 			return
 		}
@@ -438,7 +444,7 @@ func (m *MOpenSSLProbe) saveMasterSecret(secretEvent *event.MasterSecretEvent) {
 }
 
 func (m *MOpenSSLProbe) saveMasterSecretBSSL(secretEvent *event.MasterSecretBSSLEvent) {
-	var k = fmt.Sprintf("%02x", secretEvent.ClientRandom)
+	k := fmt.Sprintf("%02x", secretEvent.ClientRandom)
 
 	_, f := m.masterKeys[k]
 	if f {
@@ -453,7 +459,7 @@ func (m *MOpenSSLProbe) saveMasterSecretBSSL(secretEvent *event.MasterSecretBSSL
 		if m.bSSLEvent12NullSecrets(secretEvent) {
 			return
 		}
-		var length = int(secretEvent.HashLen)
+		length := int(secretEvent.HashLen)
 		if length > event.MasterSecretMaxLen {
 			length = event.MasterSecretMaxLen
 			m.logger.Printf("%s\tmaster secret length is too long, truncate to 48 bytes, but it may cause keylog file error\n", m.Name())
@@ -474,9 +480,9 @@ func (m *MOpenSSLProbe) saveMasterSecretBSSL(secretEvent *event.MasterSecretBSSL
 			return
 		}
 		m.masterKeys[k] = true
-		//m.logger.Printf("secretEvent.HashLen:%d, CipherId:%d", secretEvent.HashLen, secretEvent.HashLen)
+		// m.logger.Printf("secretEvent.HashLen:%d, CipherId:%d", secretEvent.HashLen, secretEvent.HashLen)
 		b = bytes.NewBufferString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelClientHandshake, secretEvent.ClientRandom, secretEvent.ClientHandshakeSecret[:length]))
-		//b.WriteString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelClientEarlyTafficSecret, secretEvent.ClientRandom, secretEvent.EarlyTrafficSecret[:length]))
+		// b.WriteString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelClientEarlyTafficSecret, secretEvent.ClientRandom, secretEvent.EarlyTrafficSecret[:length]))
 		b.WriteString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelClientTraffic, secretEvent.ClientRandom, secretEvent.ClientTrafficSecret0[:length]))
 		b.WriteString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelServerHandshake, secretEvent.ClientRandom, secretEvent.ServerHandshakeSecret[:length]))
 		b.WriteString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelServerTraffic, secretEvent.ClientRandom, secretEvent.ServerTrafficSecret0[:length]))
@@ -513,7 +519,7 @@ func (m *MOpenSSLProbe) oSSLEvent12NullSecrets(hashLen int, e *event.MasterSecre
 }
 
 func (m *MOpenSSLProbe) mk12NullSecrets(hashLen int, secret [48]byte) bool {
-	var isNull = true
+	isNull := true
 	for i := 0; i < hashLen; i++ {
 		if hashLen > len(secret) {
 			break
@@ -528,7 +534,7 @@ func (m *MOpenSSLProbe) mk12NullSecrets(hashLen int, secret [48]byte) bool {
 
 // bSSLEvent13NullSecrets 检测boringssl Secret Event 是不是空密钥
 func (m *MOpenSSLProbe) bSSLEvent13NullSecrets(e *event.MasterSecretBSSLEvent) bool {
-	var hashLen = int(e.HashLen)
+	hashLen := int(e.HashLen)
 	return m.mk13NullSecrets(hashLen,
 		e.ClientHandshakeSecret,
 		e.ClientTrafficSecret0,
@@ -556,7 +562,7 @@ func (m *MOpenSSLProbe) mk13NullSecrets(hashLen int,
 	ServerTrafficSecret0 [64]byte,
 	ExporterSecret [64]byte,
 ) bool {
-	var isNUllCount = 5
+	isNUllCount := 5
 
 	var chsChecked, ctsChecked, shsChecked, stsChecked, esChecked bool
 	for i := 0; i < hashLen; i++ {
@@ -605,21 +611,21 @@ func (m *MOpenSSLProbe) Dispatcher(eventStruct event.IEventStruct) {
 	case *event.SSLDataEvent:
 		m.dumpSslData(eventStruct.(*event.SSLDataEvent))
 	}
-	//m.logger.Println(eventStruct)
+	// m.logger.Println(eventStruct)
 }
 
 func (m *MOpenSSLProbe) dumpSslData(eventStruct *event.SSLDataEvent) {
 	if eventStruct.Fd <= 0 {
 		m.logger.Printf("\tnotice: SSLDataEvent's fd is 0.  pid:%d, fd:%d, addr:%s\n", eventStruct.Pid, eventStruct.Fd, eventStruct.Addr)
 	}
-	var addr = m.GetConn(eventStruct.Pid, eventStruct.Fd)
-	//m.logger.Printf("\tSSLDataEvent pid:%d, fd:%d, addr:%s\n", eventStruct.Pid, eventStruct.Fd, addr)
+	addr := m.GetConn(eventStruct.Pid, eventStruct.Fd)
+	// m.logger.Printf("\tSSLDataEvent pid:%d, fd:%d, addr:%s\n", eventStruct.Pid, eventStruct.Fd, addr)
 	if addr == ConnNotFound {
 		eventStruct.Addr = DefaultAddr
 	} else {
 		eventStruct.Addr = addr
 	}
-	//m.processor.PcapFile(eventStruct)
+	// m.processor.PcapFile(eventStruct)
 	if m.conf.GetHex() {
 		m.logger.Println(eventStruct.StringHex())
 	} else {
