@@ -24,7 +24,10 @@ jobs:
             sudo ln -s /usr/bin/$tool-9 /usr/bin/$tool
           done
         shell: bash
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+          fetch-depth: 0
       - name: Build
         run: |
           make clean
@@ -79,7 +82,10 @@ jobs:
             sudo ln -s /usr/bin/$tool-14 /usr/bin/$tool
           done
         shell: bash
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+          fetch-depth: 0
       - name: Build
         run: |
           make clean
@@ -127,8 +133,10 @@ jobs:
           - arch: aarch64
             distro: ubuntu22.04
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
+          submodules: 'recursive'
+          fetch-depth: 0
           set-safe-directory: '/source_code'
       - name: Branch Name
         run: |

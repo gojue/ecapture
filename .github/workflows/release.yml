@@ -9,8 +9,9 @@ jobs:
   build:
     runs-on: ubuntu-20.04
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
       with:
+        submodules: 'recursive'
         fetch-depth: 0
     - name: Get the version
       id: get_tags
@@ -62,8 +63,10 @@ jobs:
           - arch: aarch64
             distro: ubuntu22.04
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
+          submodules: 'recursive'
+          fetch-depth: 0
           set-safe-directory: '/source_code'
       - name: Get the version
         id: get_tags
