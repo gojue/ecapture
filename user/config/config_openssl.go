@@ -15,10 +15,11 @@
 package config
 
 import (
-	"golang.org/x/sys/unix"
 	"os"
 	"path/filepath"
 	"syscall"
+
+	"golang.org/x/sys/unix"
 )
 
 /*
@@ -28,20 +29,22 @@ ubuntu系统上，默认在/sys/fs/cgroup ，CentOS上，可以自己创建。 �
 创建命令：mkdir /mnt/ecapture_cgroupv2
 mount -t cgroup2 none /mnt/ecapture_cgroupv2
 */
-const cgroupPath = "/sys/fs/cgroup"               // ubuntu
-const cgroupPathCentos = "/mnt/ecapture_cgroupv2" // centos
+const (
+	cgroupPath       = "/sys/fs/cgroup"         // ubuntu
+	cgroupPathCentos = "/mnt/ecapture_cgroupv2" // centos
+)
 
 // 最终使用openssl参数
 type OpensslConfig struct {
 	eConfig
-	//Curlpath   string `json:"curlPath"` //curl的文件路径
+	// Curlpath   string `json:"curlPath"` //curl的文件路径
 	Openssl    string `json:"openssl"`
 	Pthread    string `json:"pThread"`    // /lib/x86_64-linux-gnu/libpthread.so.0
 	Model      string `json:"model"`      // eCapture Openssl capture model. text:pcap:keylog
 	PcapFile   string `json:"pcapFile"`   // pcapFile  the  raw  packets  to file rather than parsing and printing them out.
 	KeylogFile string `json:"keylog"`     // Keylog  The file stores SSL/TLS keys, and eCapture captures these keys during encrypted traffic communication and saves them to the file.
 	Ifname     string `json:"ifName"`     // (TC Classifier) Interface name on which the probe will be attached.
-	Port       uint16 `json:"port"`       // capture port
+	PcapFilter string `json:"pcapFilter"` // pcap filter
 	SslVersion string `json:"sslVersion"` // openssl version like 1.1.1a/1.1.1f/boringssl_1.1.1
 	CGroupPath string `json:"CGroupPath"` // cgroup path, used for filter process
 	ElfType    uint8  //
@@ -91,12 +94,12 @@ func checkCgroupPath(cp string) (string, error) {
 	newPath = cgroupPathCentos
 	err = syscall.Statfs(newPath, &st)
 	if err == nil {
-		//TODO 判断是否已经mount
+		// TODO 判断是否已经mount
 		return newPath, nil
 	}
 
 	// 若新路径不存在，重新创建
-	err = os.Mkdir(newPath, os.FileMode(0755))
+	err = os.Mkdir(newPath, os.FileMode(0o755))
 	if err != nil {
 		return "", err
 	}

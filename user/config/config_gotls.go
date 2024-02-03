@@ -25,9 +25,12 @@ import (
 	"golang.org/x/arch/x86/x86asm"
 )
 
-// Arm64armInstSize via :  arm64/arm64asm/decode.go:Decode() size = 4
-const Arm64armInstSize = 4
-const GoTlsReadFunc = "crypto/tls.(*Conn).Read"
+const (
+	// Arm64armInstSize via :  arm64/arm64asm/decode.go:Decode() size = 4
+	Arm64armInstSize = 4
+
+	GoTlsReadFunc = "crypto/tls.(*Conn).Read"
+)
 
 var (
 	ErrorGoBINNotFound  = errors.New("The executable program (compiled by Golang) was not found")
@@ -43,7 +46,7 @@ type GoTLSConfig struct {
 	KeylogFile   string    `json:"keylogFile"` // keylogFile  The file stores SSL/TLS keys, and eCapture captures these keys during encrypted traffic communication and saves them to the file.
 	Model        string    `json:"model"`      // model  such as : text, pcapng/pcap, key/keylog.
 	Ifname       string    `json:"ifName"`     // (TC Classifier) Interface name on which the probe will be attached.
-	Port         uint16    `json:"port"`       // capture port
+	PcapFilter   string    `json:"pcapFilter"` // pcap filter
 	goElfArch    string    //
 	goElf        *elf.File //
 	ReadTlsAddrs []int

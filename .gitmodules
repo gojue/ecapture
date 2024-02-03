@@ -1,0 +1,3 @@
+[submodule "lib/libpcap"]
+	path = lib/libpcap
+	url = https://github.com/the-tcpdump-group/libpcap.git

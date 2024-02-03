@@ -2,20 +2,25 @@ package module
 
 import (
 	"bytes"
-	"ecapture/pkg/util/ethernet"
-	"ecapture/user/event"
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/google/gopacket"
-	"github.com/google/gopacket/layers"
-	"github.com/google/gopacket/pcapgo"
 	"math"
 	"net"
 	"os"
 	"strings"
 	"sync"
 	"time"
+
+	"ecapture/pkg/util/ethernet"
+	"ecapture/user/event"
+
+	"github.com/cilium/ebpf"
+	manager "github.com/gojue/ebpfmanager"
+	"github.com/google/gopacket"
+	"github.com/google/gopacket/layers"
+	"github.com/google/gopacket/pcapgo"
+	"github.com/jschwinger233/elibpcap"
 )
 
 var eOverflow = errors.New("pcapNG channel overflow")
@@ -85,14 +90,14 @@ type MTCProbe struct {
 }
 
 func (t *MTCProbe) dumpTcSkb(tcEvent *event.TcSkbEvent) error {
-	var timeStamp = t.bootTime + tcEvent.Ts
+	timeStamp := t.bootTime + tcEvent.Ts
 	var payload []byte
 	payload = tcEvent.Payload()
 	if tcEvent.Pid > 0 {
 		err, p := t.writePid(tcEvent)
 		if err == nil {
 			payload = p
-			//fmt.Printf("pid:%d, comm:%s, cmdline:%s\n", tcEvent.Pid, tcEvent.Comm, tcEvent.Cmdline)
+			// fmt.Printf("pid:%d, comm:%s, cmdline:%s\n", tcEvent.Pid, tcEvent.Comm, tcEvent.Cmdline)
 		}
 	}
 	return t.writePacket(uint32(len(payload)), time.Unix(0, int64(timeStamp)), payload)
@@ -117,7 +122,7 @@ func (t *MTCProbe) writePid(tcEvent *event.TcSkbEvent) (error, []byte) {
 	metadata := packetMetaData{}
 	metadata.Magic = EcaptureMagic
 	metadata.Pid = tcEvent.Pid
-	var cmd = strings.TrimSpace(fmt.Sprintf("%s", tcEvent.Comm))
+	cmd := strings.TrimSpace(fmt.Sprintf("%s", tcEvent.Comm))
 	metadata.CmdLen = uint8(len(cmd))
 	metadata.Cmd = cmd
 
@@ -168,7 +173,7 @@ func (t *MTCProbe) savePcapng() (i int, err error) {
 }
 
 func (t *MTCProbe) createPcapng(netIfs []net.Interface) error {
-	pcapFile, err := os.OpenFile(t.pcapngFilename, os.O_TRUNC|os.O_WRONLY|os.O_CREATE, 0644)
+	pcapFile, err := os.OpenFile(t.pcapngFilename, os.O_TRUNC|os.O_WRONLY|os.O_CREATE, 0o644)
 	if err != nil {
 		return fmt.Errorf("error creating pcap file: %v", err)
 	}
@@ -224,7 +229,6 @@ func (t *MTCProbe) createPcapng(netIfs []net.Interface) error {
 }
 
 func (t *MTCProbe) writePacket(dataLen uint32, timeStamp time.Time, packetBytes []byte) error {
-
 	// TODO add packetMeta info (e.g: process. pid, commom, etc.)
 
 	info := gopacket.CaptureInfo{
@@ -255,7 +259,7 @@ func (t *MTCProbe) savePcapngSslKeyLog(sslKeyLog []byte) (err error) {
 
 // ServePcap is used to serve pcapng file
 func (t *MTCProbe) ServePcap() {
-	var ti = time.NewTicker(2 * time.Second)
+	ti := time.NewTicker(2 * time.Second)
 	t.logger.Printf("%s\tsaving pcapng file: %s\n", t.Name(), t.pcapngFilename)
 	var allCount int
 	defer func() {
@@ -306,4 +310,50 @@ func (t *MTCProbe) ServePcap() {
 			return
 		}
 	}
+}
+
+func injectPcapFilter(progSpec *ebpf.ProgramSpec, pcapFilter string) (*ebpf.ProgramSpec, error) {
+	if pcapFilter == "" {
+		return progSpec, nil
+	}
+
+	var err error
+	progSpec.Instructions, err = elibpcap.Inject(pcapFilter, progSpec.Instructions, elibpcap.Options{
+		AtBpf2Bpf:  "filter_pcap_ebpf_l2",
+		DirectRead: true,
+		L2Skb:      true,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to inject pcap filter: %w", err)
+	}
+
+	return progSpec, nil
+}
+
+func prepareInsnPatchers(m *manager.Manager, ebpfFuncs []string, pcapFilter string) []manager.InstructionPatcherFunc {
+	preparePatcher := func(ebpfFunc string) manager.InstructionPatcherFunc {
+		return func(m *manager.Manager) error {
+			progSpecs, ok, err := m.GetProgramSpec(manager.ProbeIdentificationPair{EbpfFuncName: ebpfFunc})
+			if err != nil || !ok || len(progSpecs) == 0 {
+				return fmt.Errorf("failed to get program spec for %s: %w", ebpfFunc, err)
+			}
+
+			for _, progSpec := range progSpecs {
+				progSpec, err = injectPcapFilter(progSpec, pcapFilter)
+				if err != nil {
+					return fmt.Errorf("failed to inject pcap filter for %s: %w", ebpfFunc, err)
+				}
+			}
+
+			return nil
+		}
+	}
+
+	insnPatchers := make([]manager.InstructionPatcherFunc, 0, len(ebpfFuncs))
+	for _, ebpfFunc := range ebpfFuncs {
+		fn := ebpfFunc
+		insnPatchers = append(insnPatchers, preparePatcher(fn))
+	}
+
+	return insnPatchers
 }

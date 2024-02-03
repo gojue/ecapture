@@ -72,12 +72,12 @@ eCapture默认查找`/etc/ld.so.conf`文件，查找SO文件的加载目录，�
 
 ## 模块介绍
 eCapture 有8个模块，分别支持openssl/gnutls/nspr/boringssl/gotls等类库的TLS/SSL加密类库的明文捕获、Bash、Mysql、PostGres软件审计。
-* bash		capture bash command 
-* gnutls	capture gnutls text content without CA cert for gnutls libraries. 
-* gotls		Capturing plaintext communication from Golang programs encrypted with TLS/HTTPS. 
-* mysqld	capture sql queries from mysqld 5.6/5.7/8.0 . 
-* nss		capture nss/nspr encrypted text content without CA cert for nss/nspr libraries. 
-* postgres	capture sql queries from postgres 10+. 
+* bash		capture bash command
+* gnutls	capture gnutls text content without CA cert for gnutls libraries.
+* gotls		Capturing plaintext communication from Golang programs encrypted with TLS/HTTPS.
+* mysqld	capture sql queries from mysqld 5.6/5.7/8.0 .
+* nss		capture nss/nspr encrypted text content without CA cert for nss/nspr libraries.
+* postgres	capture sql queries from postgres 10+.
 * tls		use to capture tls/ssl text content without CA cert. (Support openssl 1.0.x/1.1.x/3.0.x or newer).
 
 你可以通过`ecapture -h`来查看这些自命令列表。
@@ -90,8 +90,8 @@ openssl模块支持3中捕获模式
 ### Pcap 模式
 你可以通过`-m pcap`或`-m pcapng`参数来指定，需要配合`--pcapfile`、`-i`参数使用。其中`--pcapfile`参数的默认值为`ecapture_openssl.pcapng`。
 ```shell
-./ecapture tls -m pcap -i eth0 --pcapfile=ecapture.pcapng --port=443
-``` 
+./ecapture tls -m pcap -i eth0 --pcapfile=ecapture.pcapng tcp port 443
+```
 将捕获的明文数据包保存为pcapng文件，可以使用`Wireshark`打开查看。
 
 ### keylog 模式
@@ -163,7 +163,7 @@ ps -ef | grep foo
 **推荐使用`UBUNTU 20.04` 及以上版本的Linux测试。**
 
 > **Note**
-> 
+>
 > Android版本编译方法见 [eCapture旁观者：Android HTTPS明文抓包](https://mp.weixin.qq.com/s/KWm5d0uuzOzReRtr9PmuWQ)
 
 ## 工具链版本
@@ -189,6 +189,11 @@ ps -ef | grep foo
 * libelf-dev
 
 **克隆仓库代码，并进行编译**
+
+注意：如果系统里没有 `/usr/local/lib/libpcap.a`，则下面 `make` 命令会将 libpcap
+编译并安装到 `/usr/local/lib` 目录下。如果系统里已经安装了 libpcap 但没有
+`/usr/local/lib/libpcap.a`，则 `make` 命令会破坏系统里的 libpcap 头文件。
+
 ```shell
 git clone git@github.com:gojue/ecapture.git
 cd ecapture

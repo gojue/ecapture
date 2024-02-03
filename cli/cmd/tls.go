@@ -16,14 +16,16 @@ package cmd
 
 import (
 	"context"
-	"ecapture/pkg/util/kernel"
-	"ecapture/user/config"
-	"ecapture/user/module"
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
+
+	"ecapture/pkg/util/kernel"
+	"ecapture/user/config"
+	"ecapture/user/module"
 
 	"github.com/spf13/cobra"
 )
@@ -40,14 +42,14 @@ ecapture tls
 ecapture tls --hex --pid=3423
 ecapture tls -l save.log --pid=3423
 ecapture tls --libssl=/lib/x86_64-linux-gnu/libssl.so.1.1
-ecapture tls -m keylog --pcapfile save_3_0_5.pcapng --ssl_version="openssl 3.0.5" --libssl=/lib/x86_64-linux-gnu/libssl.so.3 
-ecapture tls -m pcap --pcapfile save_android.pcapng -i wlan0 --libssl=/apex/com.android.conscrypt/lib64/libssl.so --ssl_version="boringssl 1.1.1" --port 443
+ecapture tls -m keylog --pcapfile save_3_0_5.pcapng --ssl_version="openssl 3.0.5" --libssl=/lib/x86_64-linux-gnu/libssl.so.3
+ecapture tls -m pcap --pcapfile save_android.pcapng -i wlan0 --libssl=/apex/com.android.conscrypt/lib64/libssl.so --ssl_version="boringssl 1.1.1" tcp port 443
 `,
 	Run: openSSLCommandFunc,
 }
 
 func init() {
-	//opensslCmd.PersistentFlags().StringVar(&oc.Curlpath, "curl", "", "curl or wget file path, use to dectet openssl.so path, default:/usr/bin/curl. (Deprecated)")
+	// opensslCmd.PersistentFlags().StringVar(&oc.Curlpath, "curl", "", "curl or wget file path, use to dectet openssl.so path, default:/usr/bin/curl. (Deprecated)")
 	opensslCmd.PersistentFlags().StringVar(&oc.Openssl, "libssl", "", "libssl.so file path, will automatically find it from curl default.")
 	opensslCmd.PersistentFlags().StringVar(&oc.CGroupPath, "cgroup_path", "/sys/fs/cgroup", "cgroup path, default: /sys/fs/cgroup.")
 	opensslCmd.PersistentFlags().StringVar(&oc.Pthread, "pthread", "", "libpthread.so file path, use to hook connect to capture socket FD.will automatically find it from curl.")
@@ -55,7 +57,6 @@ func init() {
 	opensslCmd.PersistentFlags().StringVarP(&oc.KeylogFile, "keylogfile", "k", "ecapture_openssl_key.og", "The file stores SSL/TLS keys, and eCapture captures these keys during encrypted traffic communication and saves them to the file.")
 	opensslCmd.PersistentFlags().StringVar(&oc.PcapFile, "pcapfile", "ecapture_openssl.pcapng", "write the raw packets to file as pcapng format.")
 	opensslCmd.PersistentFlags().StringVarP(&oc.Ifname, "ifname", "i", "", "(TC Classifier) Interface name on which the probe will be attached.")
-	opensslCmd.PersistentFlags().Uint16Var(&oc.Port, "port", 443, "port number to capture, default:443; capture all ports:0")
 	opensslCmd.PersistentFlags().StringVar(&oc.SslVersion, "ssl_version", "", "openssl/boringssl version， e.g: --ssl_version=\"openssl 1.1.1g\" or  --ssl_version=\"boringssl 1.1.1\"")
 
 	rootCmd.AddCommand(opensslCmd)
@@ -63,6 +64,10 @@ func init() {
 
 // openSSLCommandFunc executes the "bash" command.
 func openSSLCommandFunc(command *cobra.Command, args []string) {
+	if oc.PcapFilter == "" && len(args) != 0 {
+		oc.PcapFilter = strings.Join(args, " ")
+	}
+
 	stopper := make(chan os.Signal, 1)
 	signal.Notify(stopper, os.Interrupt, syscall.SIGTERM)
 	ctx, cancelFun := context.WithCancel(context.TODO())
@@ -85,7 +90,7 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 	modNames = []string{module.ModuleNameOpenssl}
 
 	var runMods uint8
-	var runModules = make(map[string]module.IModule)
+	runModules := make(map[string]module.IModule)
 	var wg sync.WaitGroup
 
 	for _, modName := range modNames {
@@ -117,7 +122,7 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 
 		logger.Printf("%s\tmodule initialization", mod.Name())
 
-		//初始化
+		// 初始化
 		err = mod.Init(ctx, logger, conf)
 		if err != nil {
 			logger.Printf("%s\tmodule initialization failed, [skip it]. error:%+v", mod.Name(), err)

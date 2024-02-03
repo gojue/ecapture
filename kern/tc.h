@@ -112,6 +112,19 @@ static __always_inline bool skb_revalidate_data(struct __sk_buff *skb,
     return true;
 }
 
+// filter_pcap_ebpf_l2 is a stub to inject pcap-filter.
+static __noinline bool filter_pcap_ebpf_l2(void *_skb, void *__skb,
+                                           void *___skb, void *data,
+                                           void* data_end) {
+    return data != data_end && _skb == __skb && __skb == ___skb;
+}
+
+static __always_inline bool filter_pcap_l2(struct __sk_buff *skb, void *data,
+                                           void *data_end) {
+    return filter_pcap_ebpf_l2((void *) skb, (void *) skb, (void *) skb, data,
+                               data_end);
+}
+
 ///////////////////// ebpf functions //////////////////////
 static __always_inline int capture_packets(struct __sk_buff *skb, bool is_ingress) {
     // packet data
@@ -163,15 +176,8 @@ static __always_inline int capture_packets(struct __sk_buff *skb, bool is_ingres
     struct tcphdr *tcp = (struct tcphdr *)(data_start + l4_hdr_off);
 
 #ifndef KERNEL_LESS_5_2
-    if (target_port > 0 ) {
-        // supports only target_port when target_port is not 0
-        if (tcp->source != bpf_htons(target_port) &&
-            tcp->dest != bpf_htons(target_port)) {
-            return TC_ACT_OK;
-        }
-    } else {
-        // supports all ports when target_port is 0
-    }
+    if (!filter_pcap_l2(skb, data_start, data_end))
+        return TC_ACT_OK;
 #endif
 
 

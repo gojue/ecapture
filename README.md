@@ -74,7 +74,7 @@ The OpenSSL module supports three capture modes:
 You can specify `-m pcap` or `-m pcapng` and use it in conjunction with `--pcapfile` and `-i` parameters. The default value for `--pcapfile` is `ecapture_openssl.pcapng`.
 
 ```shell
-./ecapture tls -m pcap -i eth0 --pcapfile=ecapture.pcapng --port=443
+./ecapture tls -m pcap -i eth0 --pcapfile=ecapture.pcapng tcp port 443
 ```
 
 This command saves captured plaintext data packets as a pcapng file, which can be viewed using `Wireshark`.
@@ -145,7 +145,7 @@ ps -ef | grep foo
 # How to compile
 Linux Kernel: >= 4.18.
 
-## Tools 
+## Tools
 * golang 1.21 or newer
 * clang 9.0 or newer
 * cmake 3.18.4 or newer
@@ -167,6 +167,12 @@ In addition to the software listed in the 'Toolchain Version' section above, the
 * libelf-dev
 
 **Clone the repository code and compile it**
+
+Caution: The following `make` command will install libpcap into the system
+directory if `libpcap.a` does not exist under `/usr/local/lib`. If you have
+installed libpcap in system without `libpcap.a`, it maybe break your libpcap's
+headers.
+
 ```shell
 git clone git@github.com:gojue/ecapture.git
 cd ecapture
