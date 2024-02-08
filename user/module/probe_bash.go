@@ -17,16 +17,18 @@ package module
 import (
 	"bytes"
 	"context"
+	"debug/elf"
 	"ecapture/assets"
 	"ecapture/user/config"
 	"ecapture/user/event"
 	"errors"
 	"fmt"
+	"log"
+	"math"
+
 	"github.com/cilium/ebpf"
 	manager "github.com/gojue/ebpfmanager"
 	"golang.org/x/sys/unix"
-	"log"
-	"math"
 )
 
 type MBashProbe struct {
@@ -138,7 +140,38 @@ func (b *MBashProbe) setupManagers() {
 		binaryPath = "/bin/bash"
 	}
 
-	b.logger.Printf("%s\tHOOK binrayPath:%s, FunctionName:readline\n", b.Name(), binaryPath)
+	var readlineFuncName string // 将默认hook函数改为readline_internal_teardown说明：https://github.com/gojue/ecapture/pull/479
+
+	getReadlineFuncName := func(binaryPath string) string {
+		//打开二进制文件，在符号表中查找是否有readline_internal_teardown。
+		file, err := elf.Open(binaryPath)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer file.Close()
+
+		symbols, err := file.DynamicSymbols()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		targetSymbol := "readline_internal_teardown"
+		found := false
+		for _, sym := range symbols {
+			if sym.Name == targetSymbol {
+				found = true
+				break
+			}
+		}
+		if found {
+			return "readline_internal_teardown"
+		} else {
+			return "readline"
+		}
+	}
+	readlineFuncName = getReadlineFuncName(binaryPath)
+
+	b.logger.Printf("%s\tHOOK binrayPath:%s, FunctionName:%s\n", b.Name(), binaryPath, readlineFuncName)
 	b.logger.Printf("%s\tHOOK binrayPath:%s, FunctionName:execute_command\n", b.Name(), binaryPath)
 
 	b.bpfManager = &manager.Manager{
@@ -146,8 +179,8 @@ func (b *MBashProbe) setupManagers() {
 			{
 				Section:          "uretprobe/bash_readline",
 				EbpfFuncName:     "uretprobe_bash_readline",
-				AttachToFuncName: "readline",
-				//UprobeOffset: 0x8232, 	//若找不到 readline 函数，则使用offset便宜地址方式。
+				AttachToFuncName: readlineFuncName,
+				//UprobeOffset: 0x8232, 	//若找不到 readline 函数，则使用offset偏移地址方式。
 				BinaryPath: binaryPath, // 可能是 /bin/bash 也可能是 readline.so的真实地址
 			},
 			{
