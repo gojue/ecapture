@@ -104,37 +104,18 @@ cfc4n@vm-server:~$# cat /boot/config-`uname -r` | grep CONFIG_DEBUG_INFO_BTF
 CONFIG_DEBUG_INFO_BTF=y
 ```
 
-### tls コマンド
-
-TLS テキストコンテキストをキャプチャします。
-ステップ 1:
+Step 1:
 ```shell
-./ecapture tls --hex
+./ecapture gotls --elfpath=/home/cfc4n/go_https_client --hex
 ```
 
-ステップ 2:
+Step 2:
 ```shell
-curl https://github.com
+/home/cfc4n/go_https_client
 ```
-
-### libssl & boringssl
+### more help
 ```shell
-# インストールされた libssl に対して、libssl.so.52 は動的な ssl lib です
-vm@vm-server:~$ ldd /usr/local/bin/openssl
-	linux-vdso.so.1 (0x00007ffc82985000)
-	libssl.so.52 => /usr/local/lib/libssl.so.52 (0x00007f1730f9f000)
-	libcrypto.so.49 => /usr/local/lib/libcrypto.so.49 (0x00007f1730d8a000)
-	libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007f1730b62000)
-	/lib64/ld-linux-x86-64.so.2 (0x00007f17310b2000)
-
-# libssl を使って libssl.so のパスを設定
-vm@vm-server:~$ sudo ./ecapture tls --libssl="/usr/local/lib/libssl.so.52" --hex
-
-# 別の端末で実行し、何らかの文字列を入力し、ecapture の出力を確認
-vm@vm-server:~$ /usr/local/bin/openssl s_client -connect github.com:443
-
-# インストールされた boringssl の場合、使い方は同じです
-/path/to/bin/bssl s_client -connect github.com:443
+./ecapture gotls -h
 ```
 
 ### bash コマンド

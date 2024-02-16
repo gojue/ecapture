@@ -112,41 +112,26 @@ cfc4n@vm-server:~$# cat /boot/config-`uname -r` | grep CONFIG_DEBUG_INFO_BTF
 CONFIG_DEBUG_INFO_BTF=y
 ```
 
-### tls command
+### gotls command
 
 capture tls text context.
+
 Step 1:
 ```shell
-./ecapture tls --hex
+./ecapture gotls --elfpath=/home/cfc4n/go_https_client --hex
 ```
 
 Step 2:
 ```shell
-curl https://github.com
+/home/cfc4n/go_https_client
 ```
-
-### libressl&boringssl
+### more help
 ```shell
-# for installed libressl, libssl.so.52 is the dynamic ssl lib
-vm@vm-server:~$ ldd /usr/local/bin/openssl
-	linux-vdso.so.1 (0x00007ffc82985000)
-	libssl.so.52 => /usr/local/lib/libssl.so.52 (0x00007f1730f9f000)
-	libcrypto.so.49 => /usr/local/lib/libcrypto.so.49 (0x00007f1730d8a000)
-	libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007f1730b62000)
-	/lib64/ld-linux-x86-64.so.2 (0x00007f17310b2000)
-
-# use the libssl to config the libssl.so path
-vm@vm-server:~$ sudo ./ecapture tls --libssl="/usr/local/lib/libssl.so.52" --hex
-
-# in another terminal, use the command, then type some string, watch the output of ecapture
-vm@vm-server:~$ /usr/local/bin/openssl s_client -connect github.com:443
-
-# for installed boringssl, usage is the same
-/path/to/bin/bssl s_client -connect github.com:443
+./ecapture gotls -h
 ```
 
-### bash command
-capture bash command.
+## bash Module
+capture bash command : `ecapture bash`
 ```shell
 ps -ef | grep foo
 ```
