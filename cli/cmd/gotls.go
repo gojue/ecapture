@@ -97,6 +97,7 @@ func goTLSCommandFunc(command *cobra.Command, args []string) {
 	if err != nil {
 		// ErrorGoBINNotFound is a special error, we should not print it.
 		if errors.Is(err, config.ErrorGoBINNotFound) {
+			logger.Printf("%s\t%s, exec \"ecapture gotls --help\" for more detail.", mod.Name(), config.ErrorGoBINNotFound.Error())
 			logger.Printf("%s\tmodule [disabled].", mod.Name())
 			return
 		}

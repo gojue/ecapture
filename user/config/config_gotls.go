@@ -30,7 +30,7 @@ const Arm64armInstSize = 4
 const GoTlsReadFunc = "crypto/tls.(*Conn).Read"
 
 var (
-	ErrorGoBINNotFound  = errors.New("GO application not found")
+	ErrorGoBINNotFound  = errors.New("The executable program (compiled by Golang) was not found")
 	ErrorSymbolNotFound = errors.New("symbol not found")
 	ErrorNoRetFound     = errors.New("no RET instructions found")
 )
