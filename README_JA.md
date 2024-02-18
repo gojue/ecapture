@@ -74,7 +74,7 @@ openssl模块支持3中捕获模式
 你可以通过`-m pcap`或`-m pcapng`参数来指定，需要配合`--pcapfile`、`-i`参数使用。其中`--pcapfile`参数的默认值为`ecapture_openssl.pcapng`。
 ```shell
 ./ecapture tls -m pcap -i eth0 --pcapfile=ecapture.pcapng --port=443
-``` 
+```
 将捕获的明文数据包保存为pcapng文件，可以使用`Wireshark`打开查看。
 
 ### keylog 模式
@@ -154,7 +154,7 @@ Linux カーネル: >= 4.18.
 
 **リポジトリのコードをクローンし、コンパイルしてください**
 ```shell
-git clone git@github.com:gojue/ecapture.git
+git clone --recurse-submodules git@github.com:gojue/ecapture.git
 cd ecapture
 make
 bin/ecapture

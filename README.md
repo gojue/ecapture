@@ -174,7 +174,7 @@ installed libpcap in system without `libpcap.a`, it maybe break your libpcap's
 headers.
 
 ```shell
-git clone git@github.com:gojue/ecapture.git
+git clone --recurse-submodules git@github.com:gojue/ecapture.git
 cd ecapture
 make
 bin/ecapture

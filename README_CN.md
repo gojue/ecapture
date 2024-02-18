@@ -195,7 +195,7 @@ ps -ef | grep foo
 `/usr/local/lib/libpcap.a`，则 `make` 命令会破坏系统里的 libpcap 头文件。
 
 ```shell
-git clone git@github.com:gojue/ecapture.git
+git clone --recurse-submodules git@github.com:gojue/ecapture.git
 cd ecapture
 make
 bin/ecapture
