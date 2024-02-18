@@ -58,12 +58,12 @@ ifeq ($(ANDROID),1)
 TARGET_TAG := androidgki
 endif
 
-EXTRA_CFLAGS ?= -O2 -mcpu=v1 \
+BPF_EXTRA_CFLAGS ?= -O2 -mcpu=v1 \
 	$(DEBUG_PRINT)	\
 	-nostdinc \
 	-Wno-pointer-sign
 
-EXTRA_CFLAGS_NOCORE ?= -emit-llvm -O2 -S\
+BPF_EXTRA_CFLAGS_NOCORE ?= -emit-llvm -O2 -S\
 	-xc -g \
 	-D__BPF_TRACING__ \
 	-D__KERNEL__ \
@@ -169,7 +169,6 @@ ifeq ($(UNAME_M),aarch64)
 				 -I ./kern/bpf/arm64
 	 AUTOGENCMD = ls -al kern/bpf/arm64/vmlinux.h
 	 IGNORE_LESS52 = -ignore '.*_less52\.o'
-	 CC = aarch64-linux-gnu-gcc
 	 LIBPCAP_ARCH = aarch64-unknown-linux-gnu
 	 SUDO =
 else
@@ -180,11 +179,12 @@ else
 	BPFHEADER = -I ./kern \
 			    -I ./kern/bpf/x86
 	AUTOGENCMD = test -f kern/bpf/x86/vmlinux.h || $(CMD_BPFTOOL) btf dump file /sys/kernel/btf/vmlinux format c > kern/bpf/x86/vmlinux.h
-	CC = gcc
 	LIBPCAP_ARCH = x86_64-unknown-linux-gnu
 	SUDO = sudo
 endif
 
+# Use clang as default compiler for both libpcap and cgo.
+CC = clang
 
 #
 # include vpath
@@ -332,13 +332,13 @@ $(KERN_OBJECTS): %.o: %.c \
 	.checkver_$(CMD_GO) \
 	autogen
 	$(CMD_CLANG) -D__TARGET_ARCH_$(LINUX_ARCH) \
-		$(EXTRA_CFLAGS) \
+		$(BPF_EXTRA_CFLAGS) \
 		$(BPFHEADER) \
 		-target bpfel -c $< -o $(subst kern/,user/bytecode/,$@) \
 		-fno-ident -fdebug-compilation-dir . -g -D__BPF_TARGET_MISSING="GCC error \"The eBPF is using target specific macros, please provide -target\"" \
 		-MD -MP
 	$(CMD_CLANG) -D__TARGET_ARCH_$(LINUX_ARCH) \
-		$(EXTRA_CFLAGS) \
+		$(BPF_EXTRA_CFLAGS) \
 		$(BPFHEADER) \
 		-DKERNEL_LESS_5_2 \
 		-target bpfel -c $< -o $(subst kern/,user/bytecode/,$(subst .c,$(KERNEL_LESS_5_2_PREFIX),$<)) \
@@ -370,7 +370,7 @@ $(KERN_OBJECTS_NOCORE): %.nocore: %.c \
     		-I $(KERN_SRC_PATH)/include/uapi \
     		-I $(KERN_BUILD_PATH)/include/generated \
     		-I $(KERN_BUILD_PATH)/include/generated/uapi \
-    		$(EXTRA_CFLAGS_NOCORE) \
+    		$(BPF_EXTRA_CFLAGS_NOCORE) \
     		-c $< \
     		-o - |$(CMD_LLC) \
     		-march=bpf \
@@ -387,7 +387,7 @@ $(KERN_OBJECTS_NOCORE): %.nocore: %.c \
         		-I $(KERN_SRC_PATH)/include/uapi \
         		-I $(KERN_BUILD_PATH)/include/generated \
         		-I $(KERN_BUILD_PATH)/include/generated/uapi \
-        		$(EXTRA_CFLAGS_NOCORE) \
+        		$(BPF_EXTRA_CFLAGS_NOCORE) \
         		-DKERNEL_LESS_5_2 \
         		-c $< \
         		-o - |$(CMD_LLC) \
@@ -411,11 +411,14 @@ assets_nocore: \
 $(TARGET_LIBPCAP):
 	test -f ./lib/libpcap/configure || git submodule update --init ./lib/libpcap
 	cd lib/libpcap && \
-		./configure --disable-rdma --disable-shared --disable-usb --disable-netmap --disable-bluetooth --disable-dbus --without-libnl --host=$(LIBPCAP_ARCH) && \
+		CC=$(CC) ./configure --disable-rdma --disable-shared --disable-usb \
+			--disable-netmap --disable-bluetooth --disable-dbus --without-libnl \
+			--without-dpdk --without-dag --without-septel --without-snf \
+			--without-turbocap --host=$(LIBPCAP_ARCH) && \
 		make && $(SUDO) make install
 
 
-BUILD_ECAPTURE = $(CMD_GO) build -tags $(TARGET_TAG) -ldflags "-w -s -X 'ecapture/cli/cmd.GitVersion=$(TARGET_TAG)_$(UNAME_M):$(VERSION):[CORE]'" -o bin/ecapture . && \
+BUILD_ECAPTURE = CC=$(CC) $(CMD_GO) build -tags $(TARGET_TAG) -ldflags "-w -s -X 'ecapture/cli/cmd.GitVersion=$(TARGET_TAG)_$(UNAME_M):$(VERSION):[CORE]'" -o bin/ecapture . && \
 	echo "Please ignore the above cgo libpcap warnings."
 
 
@@ -432,7 +435,7 @@ build: \
 	$(BUILD_ECAPTURE)
 
 
-BUILD_ECAPTURE_NOCORE = $(CMD_GO) build -tags $(TARGET_TAG) -ldflags "-w -s -X 'ecapture/cli/cmd.GitVersion=$(TARGET_TAG)_$(UNAME_M):$(VERSION):$(UNAME_R)' -X 'main.enableCORE=false'" -o bin/ecapture . && \
+BUILD_ECAPTURE_NOCORE = CC=$(CC) $(CMD_GO) build -tags $(TARGET_TAG) -ldflags "-w -s -X 'ecapture/cli/cmd.GitVersion=$(TARGET_TAG)_$(UNAME_M):$(VERSION):$(UNAME_R)' -X 'main.enableCORE=false'" -o bin/ecapture . && \
 	echo "Please ignore the above cgo libpcap warnings."
 
 
