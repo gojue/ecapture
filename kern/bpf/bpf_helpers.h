@@ -40,6 +40,9 @@
 #undef __always_inline
 #define __always_inline inline __attribute__((always_inline))
 
+#if defined(NOCORE) && defined(noinline)
+#undef noinline
+#endif
 #ifndef __noinline
 #define __noinline __attribute__((noinline))
 #endif
