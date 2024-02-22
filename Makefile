@@ -161,6 +161,16 @@ UNAME_R := $(shell uname -r)
 #
 BPFHEADER ?=
 IGNORE_LESS52 ?=
+SUDO ?=
+
+# Determine whether the command sudo exists
+# on docerk or the arm64 docker simulated by qemu, the sudo command does not exist
+ifeq ($(shell command -v sudo 2> /dev/null),)
+	SUDO =
+else
+	SUDO = sudo
+endif
+
 ifeq ($(UNAME_M),aarch64)
 	 ARCH = arm64
 	 LINUX_ARCH = arm64
@@ -170,7 +180,6 @@ ifeq ($(UNAME_M),aarch64)
 	 AUTOGENCMD = ls -al kern/bpf/arm64/vmlinux.h
 	 IGNORE_LESS52 = -ignore '.*_less52\.o'
 	 LIBPCAP_ARCH = aarch64-unknown-linux-gnu
-	 SUDO =
 else
 	# x86_64 default
 	ARCH = x86_64
@@ -180,7 +189,6 @@ else
 			    -I ./kern/bpf/x86
 	AUTOGENCMD = test -f kern/bpf/x86/vmlinux.h || $(CMD_BPFTOOL) btf dump file /sys/kernel/btf/vmlinux format c > kern/bpf/x86/vmlinux.h
 	LIBPCAP_ARCH = x86_64-unknown-linux-gnu
-	SUDO = sudo
 endif
 
 # Use clang as default compiler for both libpcap and cgo.
@@ -240,6 +248,10 @@ KERN_SOURCES = ${TARGETS:=_kern.c}
 KERN_OBJECTS = ${KERN_SOURCES:.c=.o}
 KERN_OBJECTS_NOCORE = ${KERN_SOURCES:.c=.nocore}
 
+# golang build
+ECAPTURE_LDFLAGS = "-w -s -X 'ecapture/cli/cmd.GitVersion=$(TARGET_TAG)_$(UNAME_M):$(VERSION):[CORE]'"
+ECAPTURE_NOCORE_LDFLAGS = "-w -s -X 'ecapture/cli/cmd.GitVersion=$(TARGET_TAG)_$(UNAME_M):$(VERSION):$(UNAME_R)' -X 'main.enableCORE=false'"
+ECAPTURE_BUILD = CGO_CFLAGS='-O2 -g -gdwarf-4' CC=$(CC) $(CMD_GO) build -tags $(TARGET_TAG) -ldflags
 
 .PHONY: env
 env:
@@ -407,42 +419,31 @@ assets_nocore: \
 	ebpf_nocore
 	$(CMD_GO) run github.com/shuLhan/go-bindata/cmd/go-bindata $(IGNORE_LESS52) -pkg assets -o "assets/ebpf_probe.go" $(wildcard ./user/bytecode/*.o)
 
-
+.PHONY: $(TARGET_LIBPCAP)
 $(TARGET_LIBPCAP):
-	test -f ./lib/libpcap/configure || git submodule update --init ./lib/libpcap
+	test -f ./lib/libpcap/configure || git submodule update --init
 	cd lib/libpcap && \
-		CC=$(CC) ./configure --disable-rdma --disable-shared --disable-usb \
+		CC=$(CC) CFLAGS="-O2 -g -gdwarf-4" ./configure --disable-rdma --disable-shared --disable-usb \
 			--disable-netmap --disable-bluetooth --disable-dbus --without-libnl \
 			--without-dpdk --without-dag --without-septel --without-snf \
 			--without-turbocap --host=$(LIBPCAP_ARCH) && \
 		make && $(SUDO) make install
 
-
-BUILD_ECAPTURE = CC=$(CC) $(CMD_GO) build -tags $(TARGET_TAG) -ldflags "-w -s -X 'ecapture/cli/cmd.GitVersion=$(TARGET_TAG)_$(UNAME_M):$(VERSION):[CORE]'" -o bin/ecapture . && \
-	echo "Please ignore the above cgo libpcap warnings."
-
-
 .PHONY: build_ecapture
 build_ecapture:
-	$(BUILD_ECAPTURE)
+	$(ECAPTURE_BUILD) $(ECAPTURE_LDFLAGS) -o bin/ecapture .
 
 
 .PHONY: build
 build: \
 	.checkver_$(CMD_GO) \
 	assets \
-	$(TARGET_LIBPCAP)
-	$(BUILD_ECAPTURE)
-
-
-BUILD_ECAPTURE_NOCORE = CC=$(CC) $(CMD_GO) build -tags $(TARGET_TAG) -ldflags "-w -s -X 'ecapture/cli/cmd.GitVersion=$(TARGET_TAG)_$(UNAME_M):$(VERSION):$(UNAME_R)' -X 'main.enableCORE=false'" -o bin/ecapture . && \
-	echo "Please ignore the above cgo libpcap warnings."
-
+	$(TARGET_LIBPCAP) \
+	build_ecapture
 
 .PHONY: build_ecapture_nocore
 build_ecapture_nocore:
-	$(BUILD_ECAPTURE_NOCORE)
-
+	$(ECAPTURE_BUILD) $(ECAPTURE_NOCORE_LDFLAGS) -o bin/ecapture .
 
 # FOR NON-CORE
 .PHONY: build_nocore
@@ -450,8 +451,8 @@ build_nocore: \
 	.checkver_$(CMD_GO) \
 	assets_nocore \
 	ebpf_nocore \
-	$(TARGET_LIBPCAP)
-	$(BUILD_ECAPTURE_NOCORE)
+	$(TARGET_LIBPCAP) \
+	build_ecapture_nocore
 
 # Format the code
 format:
