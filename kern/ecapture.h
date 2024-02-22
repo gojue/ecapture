@@ -35,9 +35,9 @@
 #include <linux/types.h>
 
 /*
-* asm_inline is defined as asm __inline in "include/linux/compiler_types.h"
-* if supported by the kernel's CC (i.e CONFIG_CC_HAS_ASM_INLINE) which is not
-* supported by CLANG.
+ * asm_inline is defined as asm __inline in "include/linux/compiler_types.h"
+ * if supported by the kernel's CC (i.e CONFIG_CC_HAS_ASM_INLINE) which is not
+ * supported by CLANG.
 */
 #ifdef asm_inline
 #undef asm_inline
@@ -49,6 +49,15 @@
 #include <linux/socket.h>
 #include <net/sock.h>
 #include <bpf/bpf_core_read.h>
+
+/*
+ * The code in the bpf directory is the same as that in the bpf directory of the Linux kernel source code.
+ * move from bpf/bpf_helpers.h to ecapture.h
+ * see https://github.com/gojue/ecapture/commit/f50b9de628c9d1c9987d83c1737a673b7a5135b5 more detail.
+*/
+#if defined(noinline)
+#undef noinline
+#endif
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_tracing.h>
 #include <bpf/bpf_endian.h>
