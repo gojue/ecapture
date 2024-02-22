@@ -109,7 +109,7 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
         return 0;
     }
     // TODO 检查 ssl->type, 参考 ssl/ssl_local.h的 SSL_CONNECTION_FROM_SSL_int 宏
-    int type;
+    int type = 0;
     if (type == SSL_TYPE_QUIC_CONNECTION) {
         // 重新获取 ssl->tls 的地址作为 SSL_CONNECTION的地址
         // Reget the address of the ssl->tls as the address of the SSL_CONNECTION
