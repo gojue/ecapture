@@ -43,7 +43,7 @@ func (m *MOpenSSLProbe) setupManagersPcap() error {
 	m.ifName = ifname
 	interf, err := net.InterfaceByName(m.ifName)
 	if err != nil {
-		return err
+		return fmt.Errorf("InterfaceByName: %s , failed: %v", m.ifName, err)
 	}
 
 	// loopback devices are special, some tc probes should be skipped
@@ -61,14 +61,14 @@ func (m *MOpenSSLProbe) setupManagersPcap() error {
 	//	binaryPath = m.conf.(*config.OpensslConfig).Curlpath
 	case config.ElfTypeSo:
 		binaryPath = m.conf.(*config.OpensslConfig).Openssl
-		err := m.getSslBpfFile(binaryPath, sslVersion)
+		err = m.getSslBpfFile(binaryPath, sslVersion)
 		if err != nil {
 			return err
 		}
 	default:
 		// 如果没找到
 		binaryPath = path.Join(defaultSoPath, "libssl.so.1.1")
-		err := m.getSslBpfFile(binaryPath, sslVersion)
+		err = m.getSslBpfFile(binaryPath, sslVersion)
 		if err != nil {
 			return err
 		}
