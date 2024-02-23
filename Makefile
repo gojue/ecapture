@@ -194,6 +194,8 @@ endif
 
 # Use clang as default compiler for both libpcap and cgo.
 CC = clang
+CGO_ENABLED = 1
+TARGET_LIBPCAP = /usr/local/lib/libpcap.a
 
 #
 # include vpath
@@ -204,21 +206,6 @@ KERN_BUILD_PATH ?= $(if $(KERN_HEADERS),$(KERN_HEADERS),/lib/modules/$(KERN_RELE
 KERN_SRC_PATH ?= $(if $(KERN_HEADERS),$(KERN_HEADERS),$(if $(wildcard /lib/modules/$(KERN_RELEASE)/source),/lib/modules/$(KERN_RELEASE)/source,$(KERN_BUILD_PATH)))
 
 BPF_NOCORE_TAG = $(subst .,_,$(KERN_RELEASE)).$(subst .,_,$(VERSION))
-
-
-#
-# cgo
-#
-
-CGO_ENABLED = 1
-
-
-#
-# libpcap
-#
-
-TARGET_LIBPCAP = /usr/local/lib/libpcap.a
-
 
 #
 # BPF Source file
@@ -251,6 +238,7 @@ KERN_OBJECTS_NOCORE = ${KERN_SOURCES:.c=.nocore}
 
 VERSION_FLAG = [CORE]
 ENABLECORE = true
+OUT_BIN = bin/ecapture
 define allow-override
   $(if $(or $(findstring environment,$(origin $(1))),\
             $(findstring command line,$(origin $(1)))),,\
@@ -258,7 +246,8 @@ define allow-override
 endef
 
 define gobuild
-	CGO_CFLAGS='-O2 -g -gdwarf-4' CC=$(CC) $(CMD_GO) build -tags $(TARGET_TAG) -ldflags "-w -s -X 'ecapture/cli/cmd.GitVersion=$(TARGET_TAG)_$(UNAME_M):$(VERSION):$(VERSION_FLAG)' -X 'main.enableCORE=$(ENABLECORE)'" -o bin/ecapture
+	CGO_CFLAGS='-O2 -g -gdwarf-4' CC=$(CC) $(CMD_GO) build -tags $(TARGET_TAG) -ldflags "-w -s -X 'ecapture/cli/cmd.GitVersion=$(TARGET_TAG)_$(UNAME_M):$(VERSION):$(VERSION_FLAG)' -X 'main.enableCORE=$(ENABLECORE)'" -o $(OUT_BIN)
+	$(OUT_BIN) -v
 endef
 
 .PHONY: env
