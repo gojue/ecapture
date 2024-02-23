@@ -1,8 +1,8 @@
 .PHONY: all | env nocore
-all: autogen ebpf assets build
+all: autogen libpcap ebpf assets build
 	@echo $(shell date)
 
-nocore: ebpf_nocore assets_nocore build_nocore
+nocore: libpcap ebpf_nocore assets_nocore build_nocore
 	@echo $(shell date)
 
 .ONESHELL:
@@ -162,6 +162,7 @@ UNAME_R := $(shell uname -r)
 BPFHEADER ?=
 IGNORE_LESS52 ?=
 SUDO ?=
+LIBPCAP_ARCH ?=
 
 # Determine whether the command sudo exists
 # on docerk or the arm64 docker simulated by qemu, the sudo command does not exist
@@ -419,40 +420,40 @@ assets_nocore: \
 	ebpf_nocore
 	$(CMD_GO) run github.com/shuLhan/go-bindata/cmd/go-bindata $(IGNORE_LESS52) -pkg assets -o "assets/ebpf_probe.go" $(wildcard ./user/bytecode/*.o)
 
-.PHONY: $(TARGET_LIBPCAP)
+.PHONY: libpcap
 $(TARGET_LIBPCAP):
 	test -f ./lib/libpcap/configure || git submodule update --init
 	cd lib/libpcap && \
 		CC=$(CC) CFLAGS="-O2 -g -gdwarf-4" ./configure --disable-rdma --disable-shared --disable-usb \
 			--disable-netmap --disable-bluetooth --disable-dbus --without-libnl \
 			--without-dpdk --without-dag --without-septel --without-snf \
+			--without-gcc \
 			--without-turbocap --host=$(LIBPCAP_ARCH) && \
-		make && $(SUDO) make install
+	make && $(SUDO) make install
 
 .PHONY: build_ecapture
 build_ecapture:
-	$(ECAPTURE_BUILD) $(ECAPTURE_LDFLAGS) -o bin/ecapture .
+	$(ECAPTURE_BUILD) $(ECAPTURE_LDFLAGS) -o bin/ecapture . 2>/dev/null
 
 
 .PHONY: build
 build: \
 	.checkver_$(CMD_GO) \
-	assets \
 	$(TARGET_LIBPCAP) \
-	build_ecapture
+	assets
+	+make build_ecapture
 
 .PHONY: build_ecapture_nocore
 build_ecapture_nocore:
-	$(ECAPTURE_BUILD) $(ECAPTURE_NOCORE_LDFLAGS) -o bin/ecapture .
+	$(ECAPTURE_BUILD) $(ECAPTURE_NOCORE_LDFLAGS) -o bin/ecapture . 2>/dev/null
 
 # FOR NON-CORE
 .PHONY: build_nocore
 build_nocore: \
 	.checkver_$(CMD_GO) \
-	assets_nocore \
-	ebpf_nocore \
 	$(TARGET_LIBPCAP) \
-	build_ecapture_nocore
+	assets_nocore
+	+make build_ecapture_nocore
 
 # Format the code
 format:
@@ -461,6 +462,6 @@ format:
 	@clang-format -i -style=$(STYLE) kern/common.h
 	@clang-format -i -style=$(STYLE) kern/openssl_masterkey.h
 	@clang-format -i -style=$(STYLE) kern/openssl_masterkey_3.0.h
+	@clang-format -i -style=$(STYLE) kern/openssl_masterkey_3.2.h
 	@clang-format -i -style=$(STYLE) kern/boringssl_masterkey.h
-	@clang-format -i -style=$(STYLE) kern/openssl_tc.h
 	@clang-format -i -style=$(STYLE) utils/*.c
