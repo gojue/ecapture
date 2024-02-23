@@ -249,10 +249,17 @@ KERN_SOURCES = ${TARGETS:=_kern.c}
 KERN_OBJECTS = ${KERN_SOURCES:.c=.o}
 KERN_OBJECTS_NOCORE = ${KERN_SOURCES:.c=.nocore}
 
-# golang build
-ECAPTURE_LDFLAGS = "-w -s -X 'ecapture/cli/cmd.GitVersion=$(TARGET_TAG)_$(UNAME_M):$(VERSION):[CORE]'"
-ECAPTURE_NOCORE_LDFLAGS = "-w -s -X 'ecapture/cli/cmd.GitVersion=$(TARGET_TAG)_$(UNAME_M):$(VERSION):$(UNAME_R)' -X 'main.enableCORE=false'"
-ECAPTURE_BUILD = CGO_CFLAGS='-O2 -g -gdwarf-4' CC=$(CC) $(CMD_GO) build -tags $(TARGET_TAG) -ldflags
+VERSION_FLAG = [CORE]
+ENABLECORE = true
+define allow-override
+  $(if $(or $(findstring environment,$(origin $(1))),\
+            $(findstring command line,$(origin $(1)))),,\
+    $(eval $(1) = $(2)))
+endef
+
+define gobuild
+	CGO_CFLAGS='-O2 -g -gdwarf-4' CC=$(CC) $(CMD_GO) build -tags $(TARGET_TAG) -ldflags "-w -s -X 'ecapture/cli/cmd.GitVersion=$(TARGET_TAG)_$(UNAME_M):$(VERSION):$(VERSION_FLAG)' -X 'main.enableCORE=$(ENABLECORE)'" -o bin/ecapture
+endef
 
 .PHONY: env
 env:
@@ -431,21 +438,12 @@ $(TARGET_LIBPCAP):
 			--without-turbocap --host=$(LIBPCAP_ARCH) && \
 	make && $(SUDO) make install
 
-.PHONY: build_ecapture
-build_ecapture:
-	$(ECAPTURE_BUILD) $(ECAPTURE_LDFLAGS) -o bin/ecapture . 2>/dev/null
-
-
 .PHONY: build
 build: \
 	.checkver_$(CMD_GO) \
 	$(TARGET_LIBPCAP) \
 	assets
-	+make build_ecapture
-
-.PHONY: build_ecapture_nocore
-build_ecapture_nocore:
-	$(ECAPTURE_BUILD) $(ECAPTURE_NOCORE_LDFLAGS) -o bin/ecapture . 2>/dev/null
+	$(call gobuild)
 
 # FOR NON-CORE
 .PHONY: build_nocore
@@ -453,7 +451,9 @@ build_nocore: \
 	.checkver_$(CMD_GO) \
 	$(TARGET_LIBPCAP) \
 	assets_nocore
-	+make build_ecapture_nocore
+	$(call allow-override,VERSION_FLAG,$(UNAME_R))
+	$(call allow-override,ENABLECORE,false)
+	$(call gobuild)
 
 # Format the code
 format:
