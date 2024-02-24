@@ -95,6 +95,7 @@ clean:
 	$(CMD_RM) -f assets/ebpf_probe.go
 	$(CMD_RM) -f bin/ecapture
 	$(CMD_RM) -f .check*
+	cd lib/libpcap && make clean
 
 .PHONY: $(KERN_OBJECTS)
 $(KERN_OBJECTS): %.o: %.c \
@@ -181,12 +182,12 @@ assets_nocore: \
 $(TARGET_LIBPCAP):
 	test -f ./lib/libpcap/configure || git submodule update --init
 	cd lib/libpcap && \
-		CC=$(CMD_CLANG) CFLAGS="-O2 -g -gdwarf-4" ./configure --disable-rdma --disable-shared --disable-usb \
+		CC=$(CROSS_COMPILE)$(CMD_GCC) AR=$(CROSS_COMPILE)$(CMD_AR) CFLAGS="-O2 -g -gdwarf-4 -static" ./configure --disable-rdma --disable-shared --disable-usb \
 			--disable-netmap --disable-bluetooth --disable-dbus --without-libnl \
 			--without-dpdk --without-dag --without-septel --without-snf \
-			--without-gcc \
+			--without-gcc --with-pcap=linux --disable-ipv6\
 			--without-turbocap --host=$(LIBPCAP_ARCH) && \
-	make && $(SUDO) make install
+	CC=$(CROSS_COMPILE)gcc AR=$(CROSS_COMPILE)ar make
 
 .PHONY: build
 build: \
