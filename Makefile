@@ -95,7 +95,9 @@ clean:
 	$(CMD_RM) -f assets/ebpf_probe.go
 	$(CMD_RM) -f bin/ecapture
 	$(CMD_RM) -f .check*
-	cd lib/libpcap && make clean
+	@if [ -e ./lib/libpcap/Makefile ] ; then \
+		cd ./lib/libpcap && make clean
+	fi
 
 .PHONY: $(KERN_OBJECTS)
 $(KERN_OBJECTS): %.o: %.c \
