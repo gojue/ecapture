@@ -44,11 +44,11 @@ command `./ecapture --help`.
 >
 > Need ROOT permission.
 >
-eCapture search `/etc/ld.so.conf` file default, to search load directories of  `SO` file, and search `openssl` shard
+eCapture search `/etc/ld.so.conf` file default, to search load directories of  `SO` file, and search `openssl` shared
 libraries location. or you can use `--libssl`
 flag to set shard library path.
 
-If target program is compile statically, you can set program path as `--libssl` flag value directly。
+If target program is compiled statically, you can set program path as `--libssl` flag value directly。
 
 ## Modules
 The eCapture tool comprises 8 modules that respectively support plaintext capture for TLS/SSL encryption libraries like OpenSSL, GnuTLS, NSPR, BoringSSL, and GoTLS. Additionally, it facilitates software audits for Bash, MySQL, and PostgreSQL applications.
