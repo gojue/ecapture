@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-20.04
     name: build on ubuntu-20.04 x86_64
     steps:
-      - uses: actions/setup-go@v3
+      - uses: actions/setup-go@v5
         with:
           go-version: '1.21.0'
       - name: Install Compilers
@@ -34,7 +34,7 @@ jobs:
           make env
           make nocore -j4
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v3
+        uses: golangci/golangci-lint-action@v4
         with:
           # Optional: version of golangci-lint to use in form of v1.2 or v1.2.3 or `latest` to use the latest version
           #          version: v3.2.0
@@ -50,13 +50,13 @@ jobs:
 
           # Optional: if set to true then the all caching functionality will be complete disabled,
           #           takes precedence over all other caching options.
-          # skip-cache: true
+          skip-cache: true
 
           # Optional: if set to true then the action don't cache or restore ~/go/pkg.
-          # skip-pkg-cache: true
+          skip-pkg-cache: true
 
           # Optional: if set to true then the action don't cache or restore ~/.cache/go-build.
-          # skip-build-cache: true
+          skip-build-cache: true
       - name: Build NOCORE
         run: |
           make clean
@@ -69,7 +69,7 @@ jobs:
     runs-on: ubuntu-22.04
     name: build on ubuntu-22.04 x86_64
     steps:
-      - uses: actions/setup-go@v3
+      - uses: actions/setup-go@v5
         with:
           go-version: '1.21.0'
       - name: Install Compilers
@@ -92,7 +92,7 @@ jobs:
           make env
           make -j8
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v3
+        uses: golangci/golangci-lint-action@v4
         with:
           # Optional: version of golangci-lint to use in form of v1.2 or v1.2.3 or `latest` to use the latest version
           #          version: v3.2.0
@@ -108,13 +108,13 @@ jobs:
 
           # Optional: if set to true then the all caching functionality will be complete disabled,
           #           takes precedence over all other caching options.
-          # skip-cache: true
+          skip-cache: true
 
           # Optional: if set to true then the action don't cache or restore ~/go/pkg.
-          # skip-pkg-cache: true
+          skip-pkg-cache: true
 
           # Optional: if set to true then the action don't cache or restore ~/.cache/go-build.
-          # skip-build-cache: true
+          skip-build-cache: true
       - name: Build NOCORE
         run: |
           make clean
