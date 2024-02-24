@@ -53,8 +53,9 @@ func (g *GoTLSProbe) setupManagersPcap() error {
 
 	pcapFilter := g.conf.(*config.GoTLSConfig).PcapFilter
 	g.logger.Printf("%s\tHOOK type:golang elf, binrayPath:%s\n", g.Name(), g.path)
-	g.logger.Printf("%s\tIfname:%s, Ifindex:%d, PcapFilter:%s, Pcapng filepath:%s\n", g.Name(), g.ifName, g.ifIdex, pcapFilter, g.pcapngFilename)
-	g.logger.Printf("%s\tHook masterKey function:%s\n", g.Name(), goTlsMasterSecretFunc)
+	g.logger.Printf("%s\tPcapFilter: %s\n", g.Name(), pcapFilter)
+	g.logger.Printf("%s\tIfname: %s, Ifindex: %d\n", g.Name(), g.ifName, g.ifIdex)
+	g.logger.Printf("%s\tHook masterKey function: %s\n", g.Name(), goTlsMasterSecretFunc)
 
 	// create pcapng writer
 	netIfs, err := net.Interfaces()

@@ -298,7 +298,7 @@ func (t *MTCProbe) ServePcap() {
 			i++
 		case _ = <-t.ctx.Done():
 			if i == 0 || len(t.tcPackets) == 0 {
-				continue
+				return
 			}
 			n, e := t.savePcapng()
 			if e != nil {
