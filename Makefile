@@ -196,7 +196,7 @@ build: \
 	.checkver_$(CMD_GO) \
 	$(TARGET_LIBPCAP) \
 	assets
-	$(call gobuild)
+	$(call gobuild, $(ANDROID))
 
 # FOR NON-CORE
 .PHONY: build_nocore
@@ -206,7 +206,7 @@ build_nocore: \
 	assets_nocore
 	$(call allow-override,VERSION_FLAG,$(UNAME_R))
 	$(call allow-override,ENABLECORE,false)
-	$(call gobuild)
+	$(call gobuild, $(ANDROID))
 
 # Format the code
 .PHONY: format
