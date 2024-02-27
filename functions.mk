@@ -49,5 +49,7 @@ define gobuild
 	CGO_LDFLAGS='-O2 -g -L$(CURDIR)/lib/libpcap -lpcap -static' \
 	GOOS=linux GOARCH=$(GOARCH) CC=$(CMD_CLANG) \
 	$(CMD_GO) build -tags $(TARGET_TAG) -ldflags "-w -s -X 'ecapture/cli/cmd.GitVersion=$(TARGET_TAG)_$(UNAME_M):$(VERSION):$(VERSION_FLAG)' -X 'main.enableCORE=$(ENABLECORE)'" -o $(OUT_BIN)
-	$(OUT_BIN) -v
+    @if [$(1) -eq 0 ]; then
+		$(OUT_BIN) -v
+    fi
 endef
