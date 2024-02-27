@@ -24,6 +24,8 @@ import (
 
 func init() {
 	mod := &GoTLSProbe{}
+	mod.name = ModuleNameGotls
+	mod.mType = ProbeTypeUprobe
 	Register(mod)
 }
 
@@ -107,6 +109,7 @@ func (g *GoTLSProbe) Init(ctx context.Context, l *log.Logger, cfg config.IConfig
 	g.bootTime = uint64(bootTime)
 
 	g.tcPackets = make([]*TcPacket, 0, 1024)
+	g.tcPacketsChan = make(chan *TcPacket, 2048)
 	g.tcPacketLocker = &sync.Mutex{}
 	g.masterKeyBuffer = bytes.NewBuffer([]byte{})
 	return nil
