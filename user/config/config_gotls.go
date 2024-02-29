@@ -98,7 +98,7 @@ func (gc *GoTLSConfig) Check() error {
 	case "amd64":
 	case "arm64":
 	default:
-		err = fmt.Errorf("unsupport CPU arch :%s", goElfArch)
+		return fmt.Errorf("unsupport CPU arch :%s", goElfArch)
 	}
 	gc.goElfArch = goElfArch
 	gc.goElf = goElf
@@ -156,7 +156,7 @@ func (gc *GoTLSConfig) findRetOffsets(symbolName string) ([]int, error) {
 	var offsets []int
 	var instHex []byte
 	instHex = elfText[start:end]
-	offsets, err = gc.decodeInstruction(instHex)
+	offsets, _ = gc.decodeInstruction(instHex)
 	if len(offsets) == 0 {
 		return offsets, ErrorNoRetFound
 	}
