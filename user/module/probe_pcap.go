@@ -339,7 +339,7 @@ func prepareInsnPatchers(m *manager.Manager, ebpfFuncs []string, pcapFilter stri
 			}
 
 			for _, progSpec := range progSpecs {
-				progSpec, err = injectPcapFilter(progSpec, pcapFilter)
+				_, err = injectPcapFilter(progSpec, pcapFilter)
 				if err != nil {
 					return fmt.Errorf("failed to inject pcap filter for %s: %w", ebpfFunc, err)
 				}

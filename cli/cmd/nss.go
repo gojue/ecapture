@@ -71,7 +71,7 @@ func nssCommandFunc(command *cobra.Command, args []string) {
 	logger.Printf("ECAPTURE :: %s Version : %s", cliName, GitVersion)
 	logger.Printf("ECAPTURE :: Pid Info : %d", os.Getpid())
 	var version kernel.Version
-	version, err = kernel.HostVersion()
+	version, _ = kernel.HostVersion() // it's safe to ignore error because we have checked it in func main
 	logger.Printf("ECAPTURE :: Kernel Info : %s", version.String())
 	modNames := []string{module.ModuleNameNspr}
 
@@ -85,13 +85,12 @@ func nssCommandFunc(command *cobra.Command, args []string) {
 			logger.Printf("ECAPTURE :: \tcant found module: %s", modName)
 			break
 		}
-
-		var conf config.IConfig
-		conf = nc
-		if conf == nil {
+		if nc == nil {
 			logger.Printf("ECAPTURE :: \tcant found module %s config info.", mod.Name())
 			break
 		}
+		var conf config.IConfig
+		conf = nc
 
 		conf.SetPid(gConf.Pid)
 		conf.SetUid(gConf.Uid)
