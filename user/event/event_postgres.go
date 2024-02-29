@@ -63,12 +63,12 @@ func (pe *PostgresEvent) Decode(payload []byte) (err error) {
 }
 
 func (pe *PostgresEvent) String() string {
-	s := fmt.Sprintf(fmt.Sprintf(" PID: %d, Comm: %s, Time: %d, Query: %s", pe.Pid, pe.Comm, pe.Timestamp, unix.ByteSliceToString((pe.Query[:]))))
+	s := fmt.Sprintf(" PID: %d, Comm: %s, Time: %d, Query: %s", pe.Pid, pe.Comm, pe.Timestamp, unix.ByteSliceToString((pe.Query[:])))
 	return s
 }
 
 func (pe *PostgresEvent) StringHex() string {
-	s := fmt.Sprintf(fmt.Sprintf(" PID: %d, Comm: %s, Time: %d, Query: %s", pe.Pid, pe.Comm, pe.Timestamp, unix.ByteSliceToString((pe.Query[:]))))
+	s := fmt.Sprintf(" PID: %d, Comm: %s, Time: %d, Query: %s", pe.Pid, pe.Comm, pe.Timestamp, unix.ByteSliceToString((pe.Query[:])))
 	return s
 }
 

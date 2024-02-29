@@ -107,12 +107,12 @@ func (me *MysqldEvent) Decode(payload []byte) (err error) {
 }
 
 func (me *MysqldEvent) String() string {
-	s := fmt.Sprintf(fmt.Sprintf(" PID:%d, Comm:%s, Time:%d,  length:(%d/%d),  return:%s, Line:%s", me.Pid, me.Comm, me.Timestamp, me.Len, me.Alllen, me.Retval, unix.ByteSliceToString((me.Query[:]))))
+	s := fmt.Sprintf(" PID:%d, Comm:%s, Time:%d,  length:(%d/%d),  return:%s, Line:%s", me.Pid, me.Comm, me.Timestamp, me.Len, me.Alllen, me.Retval, unix.ByteSliceToString((me.Query[:])))
 	return s
 }
 
 func (me *MysqldEvent) StringHex() string {
-	s := fmt.Sprintf(fmt.Sprintf(" PID:%d, Comm:%s, Time:%d,  length:(%d/%d),  return:%s, Line:%s", me.Pid, me.Comm, me.Timestamp, me.Len, me.Alllen, me.Retval, unix.ByteSliceToString((me.Query[:]))))
+	s := fmt.Sprintf(" PID:%d, Comm:%s, Time:%d,  length:(%d/%d),  return:%s, Line:%s", me.Pid, me.Comm, me.Timestamp, me.Len, me.Alllen, me.Retval, unix.ByteSliceToString((me.Query[:])))
 	return s
 }
 

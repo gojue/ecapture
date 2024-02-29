@@ -62,12 +62,12 @@ func (be *BashEvent) Decode(payload []byte) (err error) {
 }
 
 func (be *BashEvent) String() string {
-	s := fmt.Sprintf(fmt.Sprintf("PID:%d, UID:%d, \tComm:%s, \tRetvalue:%d, \tLine:\n%s", be.Pid, be.Uid, be.Comm, be.Retval, unix.ByteSliceToString((be.Line[:]))))
+	s := fmt.Sprintf("PID:%d, UID:%d, \tComm:%s, \tRetvalue:%d, \tLine:\n%s", be.Pid, be.Uid, be.Comm, be.Retval, unix.ByteSliceToString((be.Line[:])))
 	return s
 }
 
 func (be *BashEvent) StringHex() string {
-	s := fmt.Sprintf(fmt.Sprintf("PID:%d, UID:%d, \tComm:%s, \tRetvalue:%d, \tLine:\n%s,", be.Pid, be.Uid, be.Comm, be.Retval, dumpByteSlice([]byte(unix.ByteSliceToString((be.Line[:]))), "")))
+	s := fmt.Sprintf("PID:%d, UID:%d, \tComm:%s, \tRetvalue:%d, \tLine:\n%s,", be.Pid, be.Uid, be.Comm, be.Retval, dumpByteSlice([]byte(unix.ByteSliceToString((be.Line[:]))), ""))
 	return s
 }
 

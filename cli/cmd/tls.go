@@ -85,10 +85,9 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 	logger.Printf("ECAPTURE :: %s Version : %s", cliName, GitVersion)
 	logger.Printf("ECAPTURE :: Pid Info : %d", os.Getpid())
 	var version kernel.Version
-	version, err = kernel.HostVersion()
+	version, _ = kernel.HostVersion() // it's safe to ignore err because we have checked it in func main
 	logger.Printf("ECAPTURE :: Kernel Info : %s", version.String())
-	modNames := []string{}
-	modNames = []string{module.ModuleNameOpenssl}
+	modNames := []string{module.ModuleNameOpenssl}
 
 	var runMods uint8
 	runModules := make(map[string]module.IModule)
@@ -100,14 +99,12 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 			logger.Printf("ECAPTURE :: \tcant found module: %s", modName)
 			break
 		}
-
-		var conf config.IConfig
-		conf = oc
-
-		if conf == nil {
+		if oc == nil {
 			logger.Printf("ECAPTURE :: \tcant found module %s config info.", mod.Name())
 			break
 		}
+		var conf config.IConfig
+		conf = oc
 
 		conf.SetPid(gConf.Pid)
 		conf.SetUid(gConf.Uid)
