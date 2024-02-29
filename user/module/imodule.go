@@ -85,10 +85,8 @@ func (m *Module) Init(ctx context.Context, logger *log.Logger, conf config.IConf
 	m.logger = logger
 	m.processor = event_processor.NewEventProcessor(logger, conf.GetHex())
 	m.isKernelLess5_2 = false //set false default
-	kv, err := kernel.HostVersion()
-	if err != nil {
-		// nothing to do.
-	}
+	kv, _ := kernel.HostVersion()
+	// it's safe to ignore err because we have checked it in main funcition
 	if kv < kernel.VersionCode(5, 2, 0) {
 		m.isKernelLess5_2 = true
 	}
