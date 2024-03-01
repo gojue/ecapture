@@ -2,7 +2,7 @@ HTTP/1.1 200 OK
 Server: nginx/1.14.0 (Ubuntu)
 Date: Wed, 29 Jun 2022 09:44:35 GMT
 Content-Type: text/html; charset=UTF-8
-Content-Length: 74332
+Content-Length: 20124
 Connection: keep-alive
 Vary: Accept-Encoding, Cookie
 Cache-Control: max-age=3, must-revalidate
