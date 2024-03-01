@@ -126,9 +126,15 @@ func (hr *HTTPResponse) Display() []byte {
 			log.Println(err)
 			break
 		}
+		gbuf, err := io.ReadAll(reader)
+		if err != nil {
+			log.Println(err)
+			break
+		}
 
+		hr.response.Body = io.NopCloser(bytes.NewReader(gbuf))
 		// gzip uncompressed success
-		hr.response.Body = reader
+		hr.response.ContentLength = int64(len(gbuf))
 		hr.packerType = PacketTypeGzip
 		defer reader.Close()
 	default:
