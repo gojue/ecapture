@@ -1,6 +1,7 @@
 package event_processor
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -30,6 +31,8 @@ type SSLDataEventTmp struct {
 func TestEventProcessor_Serve(t *testing.T) {
 
 	logger := log.Default()
+	var buf bytes.Buffer
+	logger.SetOutput(&buf)
 	/*
 		f, e := os.Create("./output.log")
 		if e != nil {
@@ -68,12 +71,23 @@ func TestEventProcessor_Serve(t *testing.T) {
 	}
 
 	tick := time.NewTicker(time.Second * 3)
-	select {
-	case <-tick.C:
-	}
+	<-tick.C
+
 	err = ep.Close()
+	lines = strings.Split(buf.String(), "\n")
+	ok := true
+	for _, line := range lines {
+		if strings.Contains(strings.ToLower(line), "dump") {
+			t.Log(line)
+			ok = false
+		}
+	}
 	if err != nil {
 		t.Fatalf("close error: %s", err.Error())
 	}
+	if !ok {
+		t.Fatalf("some errors occurred")
+	}
+	t.Log(buf.String())
 	t.Log("done")
 }

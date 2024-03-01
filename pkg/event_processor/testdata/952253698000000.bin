@@ -1,0 +1,7 @@
+GET / HTTP/1.1
+Host: www.baidu.com
+User-Agent: Wget/1.21.2
+Accept: */*
+Accept-Encoding: gzip
+Connection: Keep-Alive
+
