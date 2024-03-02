@@ -42,7 +42,7 @@ eBPF `Uprobe`/`Traffic Control`实现的各种用户空间/内核空间的数据
 
 ### 演示视频
 #### Linux上使用eCapture
-[![eCapture User Manual](./images/ecapture-user-manual.png)](https://www.bilibili.com/video/BV1si4y1Q74a "eCapture User Manual")
+![](./images/ecapture-help-v0.7.4.png)
 
 #### Android上使用eCapture
 [![eCapture User Manual](./images/ecapture-user-manual-on-android.png)](https://www.bilibili.com/video/BV1xP4y1Z7HB "eCapture for Android")

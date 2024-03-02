@@ -25,8 +25,9 @@
 * mysql query SQL audit, support mysqld 5.6\5.7\8.0, and mariadDB.
 
 # eCapture User Manual
+![](./images/ecapture-help-v0.7.4.png)
 
-[![eCapture User Manual](./images/ecapture-user-manual.png)](https://www.youtube.com/watch?v=CoDIjEQCvvA "eCapture User Manual")
+Youtube video: [How to use eCapture v0.1.0](https://www.youtube.com/watch?v=CoDIjEQCvvA "eCapture User Manual")
 
 # Getting started
 

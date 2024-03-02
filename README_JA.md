@@ -15,6 +15,10 @@
 > Windows、macOS には対応していません。
 ----
 
+# eCapture ユーザーマニュアル
+
+![](./images/ecapture-help-v0.7.4.png)
+
 #  eCapture の仕組み
 
 ![](./images/how-ecapture-works.png)
@@ -27,9 +31,6 @@
 # eCapture アーキテクチャ
 ![](./images/ecapture-architecture.png)
 
-# eCapture ユーザーマニュアル
-
-[![eCapture User Manual](./images/ecapture-user-manual.png)](https://www.youtube.com/watch?v=CoDIjEQCvvA "eCapture User Manual")
 
 # はじめに
 
