@@ -97,11 +97,10 @@ func (hr *HTTPResponse) Write(b []byte) (int, error) {
 func (hr *HTTPResponse) detect(payload []byte) error {
 	rd := bytes.NewReader(payload)
 	buf := bufio.NewReader(rd)
-	res, err := http.ReadResponse(buf, nil)
+	_, err := http.ReadResponse(buf, nil)
 	if err != nil {
 		return err
 	}
-	hr.response = res
 	return nil
 }
 
