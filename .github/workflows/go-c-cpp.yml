@@ -48,7 +48,7 @@ jobs:
           make env
           make nocore
       - name: Test
-        run: go test -v ./...
+        run: go test -v -race ./...
 
   build-on-ubuntu2204:
     runs-on: ubuntu-22.04
@@ -91,7 +91,7 @@ jobs:
           make env
           make nocore
       - name: Test
-        run: go test -v ./...
+        run: go test -v -race ./...
 
   build-on-ubuntu2004-arm64:
     runs-on: ubuntu-22.04

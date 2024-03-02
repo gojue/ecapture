@@ -81,11 +81,10 @@ func (hr *HTTPRequest) detect(payload []byte) error {
 	//hr.Init()
 	rd := bytes.NewReader(payload)
 	buf := bufio.NewReader(rd)
-	req, err := http.ReadRequest(buf)
+	_, err := http.ReadRequest(buf)
 	if err != nil {
 		return err
 	}
-	hr.request = req
 	return nil
 }
 

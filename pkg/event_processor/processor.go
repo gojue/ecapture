@@ -115,6 +115,8 @@ func (this *EventProcessor) Write(e event.IEventStruct) {
 }
 
 func (this *EventProcessor) Close() error {
+	this.Lock()
+	defer this.Unlock()
 	if len(this.workerQueue) > 0 {
 		return fmt.Errorf("EventProcessor.Close(): workerQueue is not empty:%d", len(this.workerQueue))
 	}
