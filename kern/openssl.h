@@ -216,7 +216,7 @@ int probe_entry_SSL_write(struct pt_regs* ctx) {
     }
 
     // get fd ssl->wbio->num
-    ssl_wbio_num_ptr = (u64 *)(ssl_wbio_ptr + BIO_ST_NUM);
+    ssl_wbio_num_ptr = (u64 *)(ssl_wbio_addr + BIO_ST_NUM);
     ret = bpf_probe_read_user(&ssl_wbio_num_addr, sizeof(ssl_wbio_num_addr),
                               ssl_wbio_num_ptr);
     if (ret) {
