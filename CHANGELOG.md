@@ -1,3 +1,11 @@
+# v0.7.5 (2024-03-03)
+## What's Changed
+
+## New Contributors
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v0.7.4...v0.7.5
+<hr>
+
 # v0.7.4 (2024-02-24)
 ## 🚀 Breaking Changes
 eCapture supports [Pcap Filter Syntax] (https://www.tcpdump.org/manpages/pcap-filter.7.html), and you can use the pcap filter expression to filter network packets like tcpdump.
@@ -12,9 +20,17 @@ eCapture支持[Pcap Filter Syntax](https://www.tcpdump.org/manpages/pcap-filter.
 ecapture tls -m pcap -i wlan0 -w save.pcapng host 192.168.1.1 and tcp port 443
 ```
 
+![](https://github.com/gojue/ecapture/blob/master/images/ecapture-help-v0.7.4.png)
+
 ## What's Changed
+* Update probe_bash.go by @sancppp in https://github.com/gojue/ecapture/pull/479
+* docs: Optimized the error message in the gotls module.(fix: #482) by @cfc4n in https://github.com/gojue/ecapture/pull/484
+* feat: Support pcap-filter expression for pcap mode by @Asphaltt in https://github.com/gojue/ecapture/pull/478
+* chore: Pcap filter tidy,support ubuntu arm64 to make libpcap by @cfc4n in https://github.com/gojue/ecapture/pull/487
 
 ## New Contributors
+* @sancppp made their first contribution in https://github.com/gojue/ecapture/pull/479
+* @Asphaltt made their first contribution in https://github.com/gojue/ecapture/pull/478
 
 **Full Changelog**: https://github.com/gojue/ecapture/compare/v0.7.3...v0.7.4
 <hr>
