@@ -70,6 +70,7 @@ func (this *EventProcessor) dispatch(e event.IEventStruct) {
 	}
 
 	err := eWorker.Write(e)
+	eWorker.Put() // never touch eWorker again
 	if err != nil {
 		//...
 		this.GetLogger().Fatalf("write event failed , error:%v", err)
@@ -89,6 +90,7 @@ func (this *EventProcessor) getWorkerByUUID(uuid string) (bool, IWorker) {
 	if !found {
 		return false, eWorker
 	}
+	eWorker.Get()
 	return true, eWorker
 }
 
@@ -96,6 +98,7 @@ func (this *EventProcessor) addWorkerByUUID(worker IWorker) {
 	this.Lock()
 	defer this.Unlock()
 	this.workerQueue[worker.GetUUID()] = worker
+	worker.Get()
 }
 
 // 每个worker调用该方法，从处理器中删除自己
