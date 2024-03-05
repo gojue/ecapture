@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"ecapture/user/event"
 	"encoding/hex"
-	"runtime"
 	"sync/atomic"
 	"time"
 )
