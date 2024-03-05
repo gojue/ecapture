@@ -177,10 +177,7 @@ func (gc *GoTLSConfig) decodeInstruction(instHex []byte) ([]int, error) {
 			}
 			i += inst.Len
 		} else {
-			inst, err := arm64asm.Decode(instHex[i:])
-			if err != nil {
-				return nil, err
-			}
+			inst, _ := arm64asm.Decode(instHex[i:])
 			if inst.Op == arm64asm.RET {
 				offsets = append(offsets, i)
 			}
