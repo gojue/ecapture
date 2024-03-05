@@ -18,11 +18,12 @@ import (
 	"context"
 	"ecapture/user/config"
 	"ecapture/user/module"
-	"github.com/spf13/cobra"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/spf13/cobra"
 )
 
 var bc = config.NewBashConfig()
@@ -55,10 +56,11 @@ func init() {
 
 // bashCommandFunc executes the "bash" command.
 func bashCommandFunc(command *cobra.Command, args []string) {
+
 	stopper := make(chan os.Signal, 1)
 	signal.Notify(stopper, os.Interrupt, syscall.SIGTERM)
 	ctx, cancelFun := context.WithCancel(context.TODO())
-
+	ctx = context.WithValue(ctx, config.CONTEXT_KEY_MODULE_NAME, "bash")
 	mod := module.GetModuleByName(module.ModuleNameBash)
 
 	logger := log.New(os.Stdout, "bash_", log.LstdFlags)

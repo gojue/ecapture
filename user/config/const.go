@@ -18,3 +18,8 @@ const (
 	ElfTypeBin uint8 = 1
 	ElfTypeSo  uint8 = 2
 )
+
+// context info
+type contextKey string
+
+const CONTEXT_KEY_MODULE_NAME contextKey = "module_name"
