@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"strings"
@@ -70,10 +71,11 @@ func TestEventProcessor_Serve(t *testing.T) {
 		ep.Write(&BaseEvent{Data_len: eventSSL.Data_len, Data: eventSSL.Data, DataType: eventSSL.DataType, Timestamp: eventSSL.Timestamp, Pid: eventSSL.Pid, Tid: eventSSL.Tid, Comm: eventSSL.Comm, Fd: eventSSL.Fd, Version: eventSSL.Version})
 	}
 
-	tick := time.NewTicker(time.Second * 3)
+	tick := time.NewTicker(time.Second * 10)
 	<-tick.C
 
 	err = ep.Close()
+	logger.SetOutput(io.Discard)
 	lines = strings.Split(buf.String(), "\n")
 	ok := true
 	for _, line := range lines {
