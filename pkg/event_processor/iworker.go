@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"ecapture/user/event"
 	"encoding/hex"
+	"runtime"
 	"sync/atomic"
 	"time"
 )
@@ -165,6 +166,7 @@ func (ew *eventWorker) Run() {
 						ew.writeEvent(e)
 					default:
 						if ew.IfUsed() {
+							time.Sleep(10 * time.Millisecond)
 							continue
 						}
 						ew.Close()
