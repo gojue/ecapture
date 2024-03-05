@@ -136,12 +136,13 @@ func (ew *eventWorker) Run() {
 			// 输出包
 			if ew.tickerCount > MaxTickerCount {
 				//ew.processor.GetLogger().Printf("eventWorker TickerCount > %d, event closed.", MaxTickerCount)
-				ew.Close()
+				ew.processor.delWorkerByUUID(ew)
+
 				/*
-					When returned from ew.Close(), there are two possiblities:
+					When returned from delWorkerByUUID(), there are two possiblities:
 					1) no routine can touch it.
 					2) one routine can still touch ew because getWorkerByUUID()
-					*happen before* ew.Close()
+					*happen before* delWorkerByUUID()
 
 					When no routine can touch it (i.e.,ew.IfUsed == false),
 					we just drain the ew.incoming and return.
@@ -152,7 +153,7 @@ func (ew *eventWorker) Run() {
 					other routine will touch it and send events through the ew.incoming.
 					So, we return.
 
-					Because eworker has been deleted from workqueue after ew.Close()
+					Because eworker has been deleted from workqueue after delWorkerByUUID()
 					(ordered by a workqueue lock), at this point, we can ensure that
 					no ew will not be touched even **in the future**. So the return is
 					safe.
@@ -166,6 +167,7 @@ func (ew *eventWorker) Run() {
 						if ew.IfUsed() {
 							continue
 						}
+						ew.Close()
 						return
 					}
 				}
@@ -185,7 +187,6 @@ func (ew *eventWorker) Close() {
 	ew.ticker.Stop()
 	ew.Display()
 	ew.tickerCount = 0
-	ew.processor.delWorkerByUUID(ew)
 }
 
 func (ew *eventWorker) Get() {
