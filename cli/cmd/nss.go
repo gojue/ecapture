@@ -58,7 +58,7 @@ func nssCommandFunc(command *cobra.Command, args []string) {
 	stopper := make(chan os.Signal, 1)
 	signal.Notify(stopper, os.Interrupt, syscall.SIGTERM)
 	ctx, cancelFun := context.WithCancel(context.TODO())
-
+	ctx = context.WithValue(ctx, config.CONTEXT_KEY_MODULE_NAME, module.ModuleNameNspr)
 	logger := log.New(os.Stdout, "tls_", log.LstdFlags)
 
 	// save global config

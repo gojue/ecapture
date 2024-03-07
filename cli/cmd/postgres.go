@@ -49,7 +49,7 @@ func postgresCommandFunc(command *cobra.Command, args []string) {
 	stopper := make(chan os.Signal, 1)
 	signal.Notify(stopper, os.Interrupt, syscall.SIGTERM)
 	ctx, cancelFun := context.WithCancel(context.TODO())
-
+	ctx = context.WithValue(ctx, config.CONTEXT_KEY_MODULE_NAME, module.ModuleNamePostgres)
 	mod := module.GetModuleByName(module.ModuleNamePostgres)
 
 	logger := log.New(os.Stdout, "postgress_", log.LstdFlags)
