@@ -18,9 +18,12 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"strings"
 
 	"golang.org/x/sys/unix"
 )
+
+var lineMap map[string]string = make(map[string]string)
 
 /*
  u32 pid;
@@ -30,9 +33,11 @@ import (
 */
 
 const MaxDataSizeBash = 256
+const BASH_ERRNO_DEFAULT = 128
 
 type BashEvent struct {
 	eventType EventType
+	Type      uint32                 `json:"type"`
 	Pid       uint32                 `json:"pid"`
 	Uid       uint32                 `json:"uid"`
 	Line      [MaxDataSizeBash]uint8 `json:"line"`
@@ -42,6 +47,9 @@ type BashEvent struct {
 
 func (be *BashEvent) Decode(payload []byte) (err error) {
 	buf := bytes.NewBuffer(payload)
+	if err = binary.Read(buf, binary.LittleEndian, &be.Type); err != nil {
+		return
+	}
 	if err = binary.Read(buf, binary.LittleEndian, &be.Pid); err != nil {
 		return
 	}
@@ -62,13 +70,49 @@ func (be *BashEvent) Decode(payload []byte) (err error) {
 }
 
 func (be *BashEvent) String() string {
-	s := fmt.Sprintf("PID:%d, UID:%d, \tComm:%s, \tRetvalue:%d, \tLine:\n%s", be.Pid, be.Uid, be.Comm, be.Retval, unix.ByteSliceToString((be.Line[:])))
-	return s
+	return be.handleLine(false)
 }
 
 func (be *BashEvent) StringHex() string {
-	s := fmt.Sprintf("PID:%d, UID:%d, \tComm:%s, \tRetvalue:%d, \tLine:\n%s,", be.Pid, be.Uid, be.Comm, be.Retval, dumpByteSlice([]byte(unix.ByteSliceToString((be.Line[:]))), ""))
-	return s
+	return be.handleLine(true)
+}
+
+func (be *BashEvent) handleLine(isHex bool) string {
+	if be.Type == 0 {
+		// #define BASH_EVENT_TYPE_READLINE 0 in common.h
+		newline := unix.ByteSliceToString((be.Line[:]))
+		trimedline := strings.TrimSpace(newline)
+		line := lineMap[be.GetUUID()]
+		if strings.HasPrefix(trimedline, "exit") || strings.HasPrefix(trimedline, "exec") {
+			line += newline
+			be.Retval = BASH_ERRNO_DEFAULT // unavailable return value
+			return be.printMsg(line, isHex)
+		}
+		if line != "" {
+			line += "\n" + newline
+		} else {
+			line += newline
+		}
+		lineMap[be.GetUUID()] = line
+		return ""
+	} else {
+		// #define BASH_EVENT_TYPE_RETVAL 1 in common.h
+		line, ok := lineMap[be.GetUUID()]
+		delete(lineMap, be.GetUUID())
+		if !ok || line == "" || be.Retval == BASH_ERRNO_DEFAULT {
+			return ""
+		}
+		return be.printMsg(line, isHex)
+	}
+}
+
+func (be *BashEvent) printMsg(line string, isHex bool) string {
+	if isHex {
+		return fmt.Sprintf("PID:%d, UID:%d, \tComm:%s, \tRetvalue:%d, \tLine:\n%s,", be.Pid, be.Uid, be.Comm, be.Retval, dumpByteSlice([]byte(line), ""))
+	} else {
+		return fmt.Sprintf("PID:%d, UID:%d, \tComm:%s, \tRetvalue:%d, \tLine:\n%s", be.Pid, be.Uid, be.Comm, be.Retval, line)
+	}
+
 }
 
 func (be *BashEvent) Clone() IEventStruct {
