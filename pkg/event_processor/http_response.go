@@ -18,6 +18,7 @@ import (
 	"bufio"
 	"bytes"
 	"compress/gzip"
+	"context"
 	"fmt"
 	"io"
 	"log"
@@ -30,7 +31,7 @@ const HTTP_NEW_LINE_LENGTH = 4
 
 type HTTPResponse struct {
 	response     *http.Response
-	packerType   PacketType
+	packetType   PacketType
 	isDone       bool
 	receivedLen  int64
 	headerLength int64
@@ -51,7 +52,7 @@ func (hr *HTTPResponse) Name() string {
 }
 
 func (hr *HTTPResponse) PacketType() PacketType {
-	return hr.packerType
+	return hr.packetType
 }
 
 func (hr *HTTPResponse) ParserType() ParserType {
@@ -94,7 +95,7 @@ func (hr *HTTPResponse) Write(b []byte) (int, error) {
 	return l, nil
 }
 
-func (hr *HTTPResponse) detect(payload []byte) error {
+func (hr *HTTPResponse) detect(ctx context.Context, payload []byte) error {
 	rd := bytes.NewReader(payload)
 	buf := bufio.NewReader(rd)
 	_, err := http.ReadResponse(buf, nil)
@@ -134,11 +135,11 @@ func (hr *HTTPResponse) Display() []byte {
 		hr.response.Body = io.NopCloser(bytes.NewReader(gbuf))
 		// gzip uncompressed success
 		hr.response.ContentLength = int64(len(gbuf))
-		hr.packerType = PacketTypeGzip
+		hr.packetType = PacketTypeGzip
 		defer reader.Close()
 	default:
 		//reader = hr.response.Body
-		hr.packerType = PacketTypeNull
+		hr.packetType = PacketTypeNull
 		//TODO for debug
 		//return []byte("")
 	}

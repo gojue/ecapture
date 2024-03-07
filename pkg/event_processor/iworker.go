@@ -16,6 +16,7 @@ package event_processor
 
 import (
 	"bytes"
+	"context"
 	"ecapture/user/event"
 	"encoding/hex"
 	"sync/atomic"
@@ -45,34 +46,38 @@ const (
 type eventWorker struct {
 	incoming chan event.IEventStruct
 	//events      []user.IEventStruct
-	status      ProcessStatus
-	packetType  PacketType
-	ticker      *time.Ticker
-	tickerCount uint8
-	UUID        string
-	processor   *EventProcessor
-	parser      IParser
-	payload     *bytes.Buffer
-	used        atomic.Bool
+	status        ProcessStatus
+	packetType    PacketType
+	ticker        *time.Ticker
+	tickerCount   uint8
+	UUID          string
+	processor     *EventProcessor
+	parser        IParser
+	payload       *bytes.Buffer
+	used          atomic.Bool
+	ctx           context.Context
+	endSignalChan chan interface{}
 }
 
-func NewEventWorker(uuid string, processor *EventProcessor) IWorker {
+func NewEventWorker(uuid string, processor *EventProcessor, duration int64) IWorker {
 	eWorker := &eventWorker{}
-	eWorker.init(uuid, processor)
+	eWorker.init(uuid, processor, duration)
 	go func() {
 		eWorker.Run()
 	}()
 	return eWorker
 }
 
-func (ew *eventWorker) init(uuid string, processor *EventProcessor) {
-	ew.ticker = time.NewTicker(time.Millisecond * 100)
+func (ew *eventWorker) init(uuid string, processor *EventProcessor, d int64) {
+	ew.ticker = time.NewTicker(time.Millisecond * time.Duration(d))
 	ew.incoming = make(chan event.IEventStruct, MaxChanLen)
 	ew.status = ProcessStateInit
 	ew.UUID = uuid
 	ew.processor = processor
 	ew.payload = bytes.NewBuffer(nil)
 	ew.payload.Reset()
+	ew.ctx = processor.ctx
+	ew.endSignalChan = make(chan interface{}, 1)
 }
 
 func (ew *eventWorker) GetUUID() string {
@@ -114,12 +119,16 @@ func (ew *eventWorker) writeEvent(e event.IEventStruct) {
 		return
 	}
 	ew.payload.Write(e.Payload())
+	if e.PayloadLen() == 0 {
+		//包结束，立刻输出
+		ew.endSignalChan <- struct{}{}
+	}
 }
 
 // 解析类型，输出
 func (ew *eventWorker) parserEvents() []byte {
 	ew.status = ProcessStateProcessing
-	parser := NewParser(ew.payload.Bytes())
+	parser := NewParser(ew.ctx, ew.payload.Bytes())
 	ew.parser = parser
 	n, e := ew.parser.Write(ew.payload.Bytes())
 	if e != nil {
@@ -132,46 +141,15 @@ func (ew *eventWorker) parserEvents() []byte {
 func (ew *eventWorker) Run() {
 	for {
 		select {
+		case <-ew.endSignalChan:
+			ew.trytoClose()
+			return
 		case <-ew.ticker.C:
 			// 输出包
 			if ew.tickerCount > MaxTickerCount {
 				//ew.processor.GetLogger().Printf("eventWorker TickerCount > %d, event closed.", MaxTickerCount)
-				ew.processor.delWorkerByUUID(ew)
-
-				/*
-					When returned from delWorkerByUUID(), there are two possiblities:
-					1) no routine can touch it.
-					2) one routine can still touch ew because getWorkerByUUID()
-					*happen before* delWorkerByUUID()
-
-					When no routine can touch it (i.e.,ew.IfUsed == false),
-					we just drain the ew.incoming and return.
-
-					When one routine can touch it (i.e.,ew.IfUsed == true), we ensure
-					that we only return after the routine can not touch it
-					(i.e.,ew.IfUsed == false). At this point, we can ensure that no
-					other routine will touch it and send events through the ew.incoming.
-					So, we return.
-
-					Because eworker has been deleted from workqueue after delWorkerByUUID()
-					(ordered by a workqueue lock), at this point, we can ensure that
-					no ew will not be touched even **in the future**. So the return is
-					safe.
-
-				*/
-				for {
-					select {
-					case e := <-ew.incoming:
-						ew.writeEvent(e)
-					default:
-						if ew.IfUsed() {
-							time.Sleep(10 * time.Millisecond)
-							continue
-						}
-						ew.Close()
-						return
-					}
-				}
+				ew.trytoClose()
+				return
 			}
 			ew.tickerCount++
 		case e := <-ew.incoming:
@@ -182,7 +160,43 @@ func (ew *eventWorker) Run() {
 	}
 
 }
+func (ew *eventWorker) trytoClose() {
+	ew.processor.delWorkerByUUID(ew)
+	/*
+		When returned from delWorkerByUUID(), there are two possiblities:
+		1) no routine can touch it.
+		2) one routine can still touch ew because getWorkerByUUID()
+		*happen before* delWorkerByUUID()
 
+		When no routine can touch it (i.e.,ew.IfUsed == false),
+		we just drain the ew.incoming and return.
+
+		When one routine can touch it (i.e.,ew.IfUsed == true), we ensure
+		that we only return after the routine can not touch it
+		(i.e.,ew.IfUsed == false). At this point, we can ensure that no
+		other routine will touch it and send events through the ew.incoming.
+		So, we return.
+
+		Because eworker has been deleted from workqueue after delWorkerByUUID()
+		(ordered by a workqueue lock), at this point, we can ensure that
+		no ew will not be touched even **in the future**. So the return is
+		safe.
+
+	*/
+	for {
+		select {
+		case e := <-ew.incoming:
+			ew.writeEvent(e)
+		default:
+			if ew.IfUsed() {
+				time.Sleep(10 * time.Millisecond)
+				continue
+			}
+			ew.Close()
+			return
+		}
+	}
+}
 func (ew *eventWorker) Close() {
 	// 即将关闭， 必须输出结果
 	ew.ticker.Stop()
@@ -204,6 +218,5 @@ func (ew *eventWorker) Put() {
 }
 
 func (ew *eventWorker) IfUsed() bool {
-
 	return ew.used.Load()
 }

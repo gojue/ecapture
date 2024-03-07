@@ -17,6 +17,7 @@ package event_processor
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"log"
 	"net/http"
 	"net/http/httputil"
@@ -24,7 +25,7 @@ import (
 
 type HTTPRequest struct {
 	request    *http.Request
-	packerType PacketType
+	packetType PacketType
 	isDone     bool
 	isInit     bool
 	reader     *bytes.Buffer
@@ -41,7 +42,7 @@ func (hr *HTTPRequest) Name() string {
 }
 
 func (hr *HTTPRequest) PacketType() PacketType {
-	return hr.packerType
+	return hr.packetType
 }
 
 func (hr *HTTPRequest) ParserType() ParserType {
@@ -77,7 +78,7 @@ func (hr *HTTPRequest) Write(b []byte) (int, error) {
 	return l, nil
 }
 
-func (hr *HTTPRequest) detect(payload []byte) error {
+func (hr *HTTPRequest) detect(ctx context.Context, payload []byte) error {
 	//hr.Init()
 	rd := bytes.NewReader(payload)
 	buf := bufio.NewReader(rd)

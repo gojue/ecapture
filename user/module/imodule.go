@@ -22,11 +22,12 @@ import (
 	"ecapture/user/event"
 	"errors"
 	"fmt"
+	"log"
+	"strings"
+
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/perf"
 	"github.com/cilium/ebpf/ringbuf"
-	"log"
-	"strings"
 )
 
 type IModule interface {
@@ -83,7 +84,7 @@ type Module struct {
 func (m *Module) Init(ctx context.Context, logger *log.Logger, conf config.IConfig) {
 	m.ctx = ctx
 	m.logger = logger
-	m.processor = event_processor.NewEventProcessor(logger, conf.GetHex())
+	m.processor = event_processor.NewEventProcessor(ctx, logger, conf.GetHex())
 	m.isKernelLess5_2 = false //set false default
 	kv, _ := kernel.HostVersion()
 	// it's safe to ignore err because we have checked it in main funcition

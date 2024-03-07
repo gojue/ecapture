@@ -2,6 +2,7 @@ package event_processor
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -41,7 +42,7 @@ func TestEventProcessor_Serve(t *testing.T) {
 		}
 		logger.SetOutput(f)
 	*/
-	ep := NewEventProcessor(logger, true)
+	ep := NewEventProcessor(context.Background(), logger, true)
 
 	go func() {
 		ep.Serve()

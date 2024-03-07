@@ -15,6 +15,8 @@
 package event_processor
 
 import (
+	"context"
+	"ecapture/user/config"
 	"ecapture/user/event"
 	"fmt"
 	"log"
@@ -28,9 +30,9 @@ const (
 
 type EventProcessor struct {
 	sync.Mutex
+	ctx context.Context
 	// 收包，来自调用者发来的新事件
 	incoming chan event.IEventStruct
-
 	// key为 PID+UID+COMMON等确定唯一的信息
 	workerQueue map[string]IWorker
 
@@ -51,11 +53,8 @@ func (this *EventProcessor) init() {
 
 // Write event 处理器读取事件
 func (this *EventProcessor) Serve() {
-	for {
-		select {
-		case e := <-this.incoming:
-			this.dispatch(e)
-		}
+	for e := range this.incoming {
+		this.dispatch(e)
 	}
 }
 
@@ -65,7 +64,16 @@ func (this *EventProcessor) dispatch(e event.IEventStruct) {
 	found, eWorker := this.getWorkerByUUID(uuid)
 	if !found {
 		// ADD a new eventWorker into queue
-		eWorker = NewEventWorker(e.GetUUID(), this)
+
+		var duration int64 // 计时器时间
+		switch this.ctx.Value(config.CONTEXT_KEY_MODULE_NAME) {
+		case "EBPFProbeBash":
+			duration = 1000
+		default:
+			duration = 100
+		}
+
+		eWorker = NewEventWorker(e.GetUUID(), this, duration)
 		this.addWorkerByUUID(eWorker)
 	}
 
@@ -126,9 +134,9 @@ func (this *EventProcessor) Close() error {
 	return nil
 }
 
-func NewEventProcessor(logger *log.Logger, isHex bool) *EventProcessor {
-	var ep *EventProcessor
-	ep = &EventProcessor{}
+func NewEventProcessor(ctx context.Context, logger *log.Logger, isHex bool) *EventProcessor {
+	ep := &EventProcessor{}
+	ep.ctx = ctx
 	ep.logger = logger
 	ep.isHex = isHex
 	ep.init()

@@ -16,6 +16,7 @@ package event_processor
 
 import (
 	"bytes"
+	"context"
 	"encoding/hex"
 	"fmt"
 )
@@ -35,6 +36,7 @@ const (
 	PacketTypeUnknow
 	PacketTypeGzip
 	PacketTypeWebSocket
+	PacketTypeBash
 )
 
 const (
@@ -44,10 +46,11 @@ const (
 	ParserTypeHttpResponse
 	ParserTypeHttp2Response
 	ParserTypeWebSocket
+	ParserTypeBash
 )
 
 type IParser interface {
-	detect(b []byte) error
+	detect(ctx context.Context, b []byte) error
 	Write(b []byte) (int, error)
 	ParserType() ParserType
 	PacketType() PacketType
@@ -82,11 +85,11 @@ func GetModuleByName(name string) IParser {
 	return parsers[name]
 }
 
-func NewParser(payload []byte) IParser {
+func NewParser(ctx context.Context, payload []byte) IParser {
 	if len(payload) > 0 {
 		var newParser IParser
 		for _, parser := range GetAllModules() {
-			err := parser.detect(payload)
+			err := parser.detect(ctx, payload)
 			if err == nil {
 				switch parser.ParserType() {
 				case ParserTypeHttpRequest:
@@ -99,6 +102,8 @@ func NewParser(payload []byte) IParser {
 					//hpack.NewEncoder(buf)
 				case ParserTypeHttp2Response:
 					// TODO  support HTTP2 response
+				case ParserTypeBash:
+					newParser = new(BashParser)
 				}
 				break
 			}
@@ -133,7 +138,7 @@ func (this *DefaultParser) Write(b []byte) (int, error) {
 }
 
 // DefaultParser 检测包类型
-func (this *DefaultParser) detect(b []byte) error {
+func (this *DefaultParser) detect(ctx context.Context, b []byte) error {
 	return nil
 }
 
