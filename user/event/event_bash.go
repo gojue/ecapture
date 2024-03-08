@@ -18,26 +18,18 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-
-	"golang.org/x/sys/unix"
 )
 
-var lineMap map[string]string = make(map[string]string)
-
 /*
- u32 pid;
- u8 line[MAX_DATE_SIZE_BASH];
- u32 Retval;
- char Comm[TASK_COMM_LEN];
+  u8 type;
+  u32 pid;
+  u32 uid;
+  u8 line[MAX_DATA_SIZE_BASH];
+  u32 retval;
+  char comm[TASK_COMM_LEN];
 */
 
 const MaxDataSizeBash = 256
-const BASH_ERRNO_DEFAULT = 128
-const (
-	BASH_EVENT_TYPE_READLINE     = 0
-	BASH_EVENT_TYPE_RETVAL       = 1
-	BASH_EVENT_TYPE_EXIT_OR_EXEC = 2
-)
 
 type BashEvent struct {
 	eventType EventType
@@ -47,6 +39,7 @@ type BashEvent struct {
 	Line      [MaxDataSizeBash]uint8 `json:"line"`
 	Retval    uint32                 `json:"Retval"`
 	Comm      [16]byte               `json:"Comm"`
+	AllLines  string
 }
 
 func (be *BashEvent) Decode(payload []byte) (err error) {
@@ -69,61 +62,22 @@ func (be *BashEvent) Decode(payload []byte) (err error) {
 	if err = binary.Read(buf, binary.LittleEndian, &be.Comm); err != nil {
 		return
 	}
-
 	return nil
 }
 
 func (be *BashEvent) String() string {
-	return be.handleLine(false)
+	s := fmt.Sprintf("TYPE:%d, PID:%d, UID:%d, \tComm:%s, \tRetvalue:%d, \tLine:\n%s", be.Type, be.Pid, be.Uid, be.Comm, be.Retval, be.AllLines)
+	return s
 }
 
 func (be *BashEvent) StringHex() string {
-	return be.handleLine(true)
-}
-
-func (be *BashEvent) handleLine(isHex bool) string {
-	switch be.Type {
-	case BASH_EVENT_TYPE_READLINE:
-		newline := unix.ByteSliceToString((be.Line[:]))
-		line := lineMap[be.GetUUID()]
-		if line != "" {
-			line += "\n" + newline
-		} else {
-			line += newline
-		}
-		lineMap[be.GetUUID()] = line
-		return ""
-	case BASH_EVENT_TYPE_RETVAL:
-		line := lineMap[be.GetUUID()]
-		delete(lineMap, be.GetUUID())
-		if line == "" || be.Retval == BASH_ERRNO_DEFAULT {
-			return ""
-		}
-		return be.printMsg(line, isHex)
-	case BASH_EVENT_TYPE_EXIT_OR_EXEC:
-		line := lineMap[be.GetUUID()]
-		delete(lineMap, be.GetUUID())
-		if line == "" {
-			return ""
-		}
-		be.Retval = BASH_EVENT_TYPE_EXIT_OR_EXEC // we do not know the return value here
-		return be.printMsg(line, isHex)
-	}
-	return "unknown"
-}
-
-func (be *BashEvent) printMsg(line string, isHex bool) string {
-	if isHex {
-		return fmt.Sprintf("PID:%d, UID:%d, \tComm:%s, \tRetvalue:%d, \tLine:\n%s,", be.Pid, be.Uid, be.Comm, be.Retval, dumpByteSlice([]byte(line), ""))
-	} else {
-		return fmt.Sprintf("PID:%d, UID:%d, \tComm:%s, \tRetvalue:%d, \tLine:\n%s", be.Pid, be.Uid, be.Comm, be.Retval, line)
-	}
-
+	s := fmt.Sprintf("PID:%d, UID:%d, \tComm:%s, \tRetvalue:%d, \tLine:\n%s,", be.Pid, be.Uid, be.Comm, be.Retval, dumpByteSlice([]byte(be.AllLines), ""))
+	return s
 }
 
 func (be *BashEvent) Clone() IEventStruct {
 	event := new(BashEvent)
-	event.eventType = EventTypeOutput
+	event.eventType = EventTypeModuleData
 	return event
 }
 
