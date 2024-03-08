@@ -292,7 +292,11 @@ func (m *Module) Dispatcher(e event.IEventStruct) {
 	// If Hex mode is enabled, data in hex format is directly printed for event processor and output events
 	if m.conf.GetHex() {
 		if e.EventType() == event.EventTypeEventProcessor || e.EventType() == event.EventTypeOutput {
-			m.logger.Println(e.StringHex())
+			s := e.StringHex()
+			if s == "" {
+				return
+			}
+			m.logger.Println(s)
 			return
 		}
 	}
@@ -301,7 +305,11 @@ func (m *Module) Dispatcher(e event.IEventStruct) {
 	// they will be handled according to multiple branches of the switch
 	switch e.EventType() {
 	case event.EventTypeOutput:
-		m.logger.Println(e.String())
+		s := e.String()
+		if s == "" {
+			return
+		}
+		m.logger.Println(s)
 	case event.EventTypeEventProcessor:
 		m.processor.Write(e)
 	case event.EventTypeModuleData:

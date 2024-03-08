@@ -18,30 +18,35 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-
-	"golang.org/x/sys/unix"
 )
 
 /*
- u32 pid;
- u8 line[MAX_DATE_SIZE_BASH];
- u32 Retval;
- char Comm[TASK_COMM_LEN];
+  u8 type;
+  u32 pid;
+  u32 uid;
+  u8 line[MAX_DATA_SIZE_BASH];
+  u32 retval;
+  char comm[TASK_COMM_LEN];
 */
 
 const MaxDataSizeBash = 256
 
 type BashEvent struct {
 	eventType EventType
+	BashType  uint32                 `json:"bashtype"`
 	Pid       uint32                 `json:"pid"`
 	Uid       uint32                 `json:"uid"`
 	Line      [MaxDataSizeBash]uint8 `json:"line"`
 	Retval    uint32                 `json:"Retval"`
 	Comm      [16]byte               `json:"Comm"`
+	AllLines  string
 }
 
 func (be *BashEvent) Decode(payload []byte) (err error) {
 	buf := bytes.NewBuffer(payload)
+	if err = binary.Read(buf, binary.LittleEndian, &be.BashType); err != nil {
+		return
+	}
 	if err = binary.Read(buf, binary.LittleEndian, &be.Pid); err != nil {
 		return
 	}
@@ -57,23 +62,22 @@ func (be *BashEvent) Decode(payload []byte) (err error) {
 	if err = binary.Read(buf, binary.LittleEndian, &be.Comm); err != nil {
 		return
 	}
-
 	return nil
 }
 
 func (be *BashEvent) String() string {
-	s := fmt.Sprintf("PID:%d, UID:%d, \tComm:%s, \tRetvalue:%d, \tLine:\n%s", be.Pid, be.Uid, be.Comm, be.Retval, unix.ByteSliceToString((be.Line[:])))
+	s := fmt.Sprintf("PID:%d, UID:%d, \tComm:%s, \tRetvalue:%d, \tLine:\n%s", be.Pid, be.Uid, be.Comm, be.Retval, be.AllLines)
 	return s
 }
 
 func (be *BashEvent) StringHex() string {
-	s := fmt.Sprintf("PID:%d, UID:%d, \tComm:%s, \tRetvalue:%d, \tLine:\n%s,", be.Pid, be.Uid, be.Comm, be.Retval, dumpByteSlice([]byte(unix.ByteSliceToString((be.Line[:]))), ""))
+	s := fmt.Sprintf("PID:%d, UID:%d, \tComm:%s, \tRetvalue:%d, \tLine:\n%s,", be.Pid, be.Uid, be.Comm, be.Retval, dumpByteSlice([]byte(be.AllLines), ""))
 	return s
 }
 
 func (be *BashEvent) Clone() IEventStruct {
 	event := new(BashEvent)
-	event.eventType = EventTypeOutput
+	event.eventType = EventTypeModuleData
 	return event
 }
 

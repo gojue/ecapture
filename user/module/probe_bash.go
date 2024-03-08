@@ -31,12 +31,20 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+const BASH_ERRNO_DEFAULT = 128
+const (
+	BASH_EVENT_TYPE_READLINE     = 0
+	BASH_EVENT_TYPE_RETVAL       = 1
+	BASH_EVENT_TYPE_EXIT_OR_EXEC = 2
+)
+
 type MBashProbe struct {
 	Module
 	bpfManager        *manager.Manager
 	bpfManagerOptions manager.Options
 	eventFuncMaps     map[*ebpf.Map]event.IEventStruct
 	eventMaps         []*ebpf.Map
+	lineMap           map[string]string
 }
 
 // 对象初始化
@@ -46,6 +54,7 @@ func (b *MBashProbe) Init(ctx context.Context, logger *log.Logger, conf config.I
 	b.Module.SetChild(b)
 	b.eventMaps = make([]*ebpf.Map, 0, 2)
 	b.eventFuncMaps = make(map[*ebpf.Map]event.IEventStruct)
+	b.lineMap = make(map[string]string)
 	return nil
 }
 
@@ -173,7 +182,8 @@ func (b *MBashProbe) setupManagers() {
 
 	b.logger.Printf("%s\tHOOK binrayPath:%s, FunctionName:%s\n", b.Name(), binaryPath, readlineFuncName)
 	b.logger.Printf("%s\tHOOK binrayPath:%s, FunctionName:execute_command\n", b.Name(), binaryPath)
-
+	b.logger.Printf("%s\tHOOK binrayPath:%s, FunctionName:exit_builtin\n", b.Name(), binaryPath)
+	b.logger.Printf("%s\tHOOK binrayPath:%s, FunctionName:exec_builtin\n", b.Name(), binaryPath)
 	b.bpfManager = &manager.Manager{
 		Probes: []*manager.Probe{
 			{
@@ -188,6 +198,18 @@ func (b *MBashProbe) setupManagers() {
 				EbpfFuncName:     "uretprobe_bash_retval",
 				AttachToFuncName: "execute_command",
 				BinaryPath:       binaryPath, // 可能是 /bin/bash 也可能是 readline.so的真实地址
+			},
+			{
+				Section:          "uprobe/exec_builtin",
+				EbpfFuncName:     "uprobe_exec_builtin",
+				AttachToFuncName: "exec_builtin",
+				BinaryPath:       binaryPath,
+			},
+			{
+				Section:          "uprobe/exit_builtin",
+				EbpfFuncName:     "uprobe_exit_builtin",
+				AttachToFuncName: "exit_builtin",
+				BinaryPath:       binaryPath,
 			},
 		},
 
@@ -244,6 +266,51 @@ func (b *MBashProbe) initDecodeFun() error {
 
 func (b *MBashProbe) Events() []*ebpf.Map {
 	return b.eventMaps
+}
+
+func (b *MBashProbe) Dispatcher(eventStruct event.IEventStruct) {
+	be, ok := eventStruct.(*event.BashEvent)
+	if !ok {
+		return
+	}
+	b.handleLine(be)
+}
+
+func (b *MBashProbe) handleLine(be *event.BashEvent) {
+	switch be.BashType {
+	case BASH_EVENT_TYPE_READLINE:
+		newline := unix.ByteSliceToString((be.Line[:]))
+		line := b.lineMap[be.GetUUID()]
+		if line != "" {
+			line += "\n" + newline
+		} else {
+			line += newline
+		}
+		b.lineMap[be.GetUUID()] = line
+		return
+	case BASH_EVENT_TYPE_RETVAL:
+		line := b.lineMap[be.GetUUID()]
+		delete(b.lineMap, be.GetUUID())
+		if line == "" || be.Retval == BASH_ERRNO_DEFAULT {
+			return
+		}
+		be.AllLines = line
+	case BASH_EVENT_TYPE_EXIT_OR_EXEC:
+		line := b.lineMap[be.GetUUID()]
+		delete(b.lineMap, be.GetUUID())
+		if line == "" {
+			return
+		}
+		be.Retval = BASH_EVENT_TYPE_EXIT_OR_EXEC // we do not know the return value here
+		be.AllLines = line
+	default:
+		return
+	}
+	if b.conf.GetHex() {
+		b.logger.Println(be.StringHex())
+	} else {
+		b.logger.Println(be.String())
+	}
 }
 
 func init() {
