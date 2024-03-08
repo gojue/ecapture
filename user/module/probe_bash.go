@@ -173,7 +173,8 @@ func (b *MBashProbe) setupManagers() {
 
 	b.logger.Printf("%s\tHOOK binrayPath:%s, FunctionName:%s\n", b.Name(), binaryPath, readlineFuncName)
 	b.logger.Printf("%s\tHOOK binrayPath:%s, FunctionName:execute_command\n", b.Name(), binaryPath)
-
+	b.logger.Printf("%s\tHOOK binrayPath:%s, FunctionName:exit_builtin\n", b.Name(), binaryPath)
+	b.logger.Printf("%s\tHOOK binrayPath:%s, FunctionName:exec_builtin\n", b.Name(), binaryPath)
 	b.bpfManager = &manager.Manager{
 		Probes: []*manager.Probe{
 			{
