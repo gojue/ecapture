@@ -189,6 +189,18 @@ func (b *MBashProbe) setupManagers() {
 				AttachToFuncName: "execute_command",
 				BinaryPath:       binaryPath, // 可能是 /bin/bash 也可能是 readline.so的真实地址
 			},
+			{
+				Section:          "uprobe/exec_builtin",
+				EbpfFuncName:     "uprobe_exec_builtin",
+				AttachToFuncName: "exec_builtin",
+				BinaryPath:       binaryPath,
+			},
+			{
+				Section:          "uprobe/exit_builtin",
+				EbpfFuncName:     "uprobe_exit_builtin",
+				AttachToFuncName: "exit_builtin",
+				BinaryPath:       binaryPath,
+			},
 		},
 
 		Maps: []*manager.Map{

@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"strings"
 
 	"golang.org/x/sys/unix"
 )
@@ -34,6 +33,11 @@ var lineMap map[string]string = make(map[string]string)
 
 const MaxDataSizeBash = 256
 const BASH_ERRNO_DEFAULT = 128
+const (
+	BASH_EVENT_TYPE_READLINE     = 0
+	BASH_EVENT_TYPE_RETVAL       = 1
+	BASH_EVENT_TYPE_EXIT_OR_EXEC = 2
+)
 
 type BashEvent struct {
 	eventType EventType
@@ -78,16 +82,10 @@ func (be *BashEvent) StringHex() string {
 }
 
 func (be *BashEvent) handleLine(isHex bool) string {
-	if be.Type == 0 {
-		// #define BASH_EVENT_TYPE_READLINE 0 in common.h
+	switch be.Type {
+	case BASH_EVENT_TYPE_READLINE:
 		newline := unix.ByteSliceToString((be.Line[:]))
-		trimedline := strings.TrimSpace(newline)
 		line := lineMap[be.GetUUID()]
-		if strings.HasPrefix(trimedline, "exit") || strings.HasPrefix(trimedline, "exec") {
-			line += newline
-			be.Retval = BASH_ERRNO_DEFAULT // unavailable return value
-			return be.printMsg(line, isHex)
-		}
 		if line != "" {
 			line += "\n" + newline
 		} else {
@@ -95,15 +93,23 @@ func (be *BashEvent) handleLine(isHex bool) string {
 		}
 		lineMap[be.GetUUID()] = line
 		return ""
-	} else {
-		// #define BASH_EVENT_TYPE_RETVAL 1 in common.h
-		line, ok := lineMap[be.GetUUID()]
+	case BASH_EVENT_TYPE_RETVAL:
+		line := lineMap[be.GetUUID()]
 		delete(lineMap, be.GetUUID())
-		if !ok || line == "" || be.Retval == BASH_ERRNO_DEFAULT {
+		if line == "" || be.Retval == BASH_ERRNO_DEFAULT {
 			return ""
 		}
 		return be.printMsg(line, isHex)
+	case BASH_EVENT_TYPE_EXIT_OR_EXEC:
+		line := lineMap[be.GetUUID()]
+		delete(lineMap, be.GetUUID())
+		if line == "" {
+			return ""
+		}
+		be.Retval = BASH_EVENT_TYPE_EXIT_OR_EXEC // we do not know the return value here
+		return be.printMsg(line, isHex)
 	}
+	return "unknown"
 }
 
 func (be *BashEvent) printMsg(line string, isHex bool) string {

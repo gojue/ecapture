@@ -115,3 +115,29 @@ int uretprobe_bash_retval(struct pt_regs *ctx) {
     }
     return 0;
 }
+
+static __always_inline int send_bash_exit_event(struct pt_regs *ctx){
+    u64 pid_tgid = bpf_get_current_pid_tgid();
+    u32 pid = pid_tgid >> 32;
+    u64 current_uid_gid = bpf_get_current_uid_gid();
+    u32 uid = current_uid_gid;
+    struct event event = {
+        .type = BASH_EVENT_TYPE_EXIT_OR_EXEC,
+        .pid = pid,
+        .uid = uid,
+    };
+    bpf_get_current_comm(&event.comm, sizeof(event.comm));
+    bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, &event,
+                          sizeof(struct event));
+    return 0;
+}
+
+SEC("uprobe/exec_builtin")
+int uprobe_exec_builtin(struct pt_regs *ctx){
+    return send_bash_exit_event(ctx);
+}
+
+SEC("uprobe/exit_builtin")
+int uprobe_exit_builtin(struct pt_regs *ctx){
+    return send_bash_exit_event(ctx);
+}
