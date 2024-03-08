@@ -33,7 +33,7 @@ const MaxDataSizeBash = 256
 
 type BashEvent struct {
 	eventType EventType
-	Type      uint32                 `json:"type"`
+	BashType  uint32                 `json:"bashtype"`
 	Pid       uint32                 `json:"pid"`
 	Uid       uint32                 `json:"uid"`
 	Line      [MaxDataSizeBash]uint8 `json:"line"`
@@ -44,7 +44,7 @@ type BashEvent struct {
 
 func (be *BashEvent) Decode(payload []byte) (err error) {
 	buf := bytes.NewBuffer(payload)
-	if err = binary.Read(buf, binary.LittleEndian, &be.Type); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &be.BashType); err != nil {
 		return
 	}
 	if err = binary.Read(buf, binary.LittleEndian, &be.Pid); err != nil {

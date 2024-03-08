@@ -277,7 +277,7 @@ func (b *MBashProbe) Dispatcher(eventStruct event.IEventStruct) {
 }
 
 func (b *MBashProbe) handleLine(be *event.BashEvent) {
-	switch be.Type {
+	switch be.BashType {
 	case BASH_EVENT_TYPE_READLINE:
 		newline := unix.ByteSliceToString((be.Line[:]))
 		line := b.lineMap[be.GetUUID()]
