@@ -66,7 +66,7 @@ func (be *BashEvent) Decode(payload []byte) (err error) {
 }
 
 func (be *BashEvent) String() string {
-	s := fmt.Sprintf("TYPE:%d, PID:%d, UID:%d, \tComm:%s, \tRetvalue:%d, \tLine:\n%s", be.Type, be.Pid, be.Uid, be.Comm, be.Retval, be.AllLines)
+	s := fmt.Sprintf("PID:%d, UID:%d, \tComm:%s, \tRetvalue:%d, \tLine:\n%s", be.Pid, be.Uid, be.Comm, be.Retval, be.AllLines)
 	return s
 }
 
