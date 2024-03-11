@@ -181,9 +181,9 @@ func (m *MOpenSSLProbe) detectOpenssl(soPath string) error {
 			break
 		}
 
-		// Substracting OpenSslVersionLen from totalReadCount,
+		// Subtracting OpenSslVersionLen from totalReadCount,
 		// to cover the edge-case in which openssl version string
-		// could be split into two buffers. Substraction will,
+		// could be split into two buffers. Subtraction will,
 		// makes sure that last 30 bytes of previous buffer are considered.
 		totalReadCount += readCount - OpenSslVersionLen
 

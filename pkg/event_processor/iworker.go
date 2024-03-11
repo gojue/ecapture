@@ -139,7 +139,7 @@ func (ew *eventWorker) Run() {
 				ew.processor.delWorkerByUUID(ew)
 
 				/*
-					When returned from delWorkerByUUID(), there are two possiblities:
+					When returned from delWorkerByUUID(), there are two possibilities:
 					1) no routine can touch it.
 					2) one routine can still touch ew because getWorkerByUUID()
 					*happen before* delWorkerByUUID()

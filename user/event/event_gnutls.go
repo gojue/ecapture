@@ -67,7 +67,7 @@ func (ge *GnutlsDataEvent) StringHex() string {
 	var perfix, packetType string
 	switch AttachType(ge.DataType) {
 	case ProbeEntry:
-		packetType = fmt.Sprintf("%sRecived%s", COLORGREEN, COLORRESET)
+		packetType = fmt.Sprintf("%sReceived%s", COLORGREEN, COLORRESET)
 		perfix = COLORGREEN
 	case ProbeRet:
 		packetType = fmt.Sprintf("%sSend%s", COLORPURPLE, COLORRESET)
@@ -86,7 +86,7 @@ func (ge *GnutlsDataEvent) String() string {
 	var perfix, packetType string
 	switch AttachType(ge.DataType) {
 	case ProbeEntry:
-		packetType = fmt.Sprintf("%sRecived%s", COLORGREEN, COLORRESET)
+		packetType = fmt.Sprintf("%sReceived%s", COLORGREEN, COLORRESET)
 		perfix = COLORGREEN
 	case ProbeRet:
 		packetType = fmt.Sprintf("%sSend%s", COLORPURPLE, COLORRESET)
