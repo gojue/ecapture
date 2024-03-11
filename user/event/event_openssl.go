@@ -137,7 +137,7 @@ func (se *SSLDataEvent) StringHex() string {
 	var perfix, connInfo string
 	switch AttachType(se.DataType) {
 	case ProbeEntry:
-		connInfo = fmt.Sprintf("%sRecived %d%s bytes from %s%s%s", COLORGREEN, se.DataLen, COLORRESET, COLORYELLOW, addr, COLORRESET)
+		connInfo = fmt.Sprintf("%sReceived %d%s bytes from %s%s%s", COLORGREEN, se.DataLen, COLORRESET, COLORYELLOW, addr, COLORRESET)
 		perfix = COLORGREEN
 	case ProbeRet:
 		connInfo = fmt.Sprintf("%sSend %d%s bytes to %s%s%s", COLORPURPLE, se.DataLen, COLORRESET, COLORYELLOW, addr, COLORRESET)
@@ -163,7 +163,7 @@ func (se *SSLDataEvent) String() string {
 	var perfix, connInfo string
 	switch AttachType(se.DataType) {
 	case ProbeEntry:
-		connInfo = fmt.Sprintf("%sRecived %d%s bytes from %s%s%s", COLORGREEN, se.DataLen, COLORRESET, COLORYELLOW, addr, COLORRESET)
+		connInfo = fmt.Sprintf("%sReceived %d%s bytes from %s%s%s", COLORGREEN, se.DataLen, COLORRESET, COLORYELLOW, addr, COLORRESET)
 		perfix = COLORGREEN
 	case ProbeRet:
 		connInfo = fmt.Sprintf("%sSend %d%s bytes to %s%s%s", COLORPURPLE, se.DataLen, COLORRESET, COLORYELLOW, addr, COLORRESET)

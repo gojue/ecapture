@@ -112,7 +112,7 @@ func (t *MTCProbe) writePid(tcEvent *event.TcSkbEvent) (error, []byte) {
 
 	oldEthLayer := ethPacket.Layers()[0].(*layers.Ethernet)
 
-	// subtract oldethelayer from the begining of ethpacket
+	// subtract oldethelayer from the beginning of ethpacket
 	restOfLayers := ethPacket.Layers()[1:]
 	remainder := []byte{}
 	for _, layer := range restOfLayers {
