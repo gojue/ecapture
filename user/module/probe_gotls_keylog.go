@@ -15,6 +15,7 @@
 package module
 
 import (
+	"ecapture/user/config"
 	"ecapture/user/event"
 	"errors"
 	"github.com/cilium/ebpf"
@@ -26,7 +27,7 @@ import (
 func (g *GoTLSProbe) setupManagersKeylog() error {
 
 	g.logger.Printf("%s\tHOOK type:golang elf, binrayPath:%s\n", g.Name(), g.path)
-	g.logger.Printf("%s\tHook masterKey function:%s\n", g.Name(), goTlsMasterSecretFunc)
+	g.logger.Printf("%s\tHook masterKey function:%s, Address:%x \n", g.Name(), config.GoTlsMasterSecretFunc, g.conf.(*config.GoTLSConfig).GoTlsMasterSecretAddr)
 
 	var (
 		sec string
@@ -47,9 +48,10 @@ func (g *GoTLSProbe) setupManagersKeylog() error {
 			{
 				Section:          sec,
 				EbpfFuncName:     fn,
-				AttachToFuncName: goTlsMasterSecretFunc,
+				AttachToFuncName: config.GoTlsMasterSecretFunc,
 				BinaryPath:       g.path,
 				UID:              "uprobe_gotls_master_secret",
+				UAddress:         g.conf.(*config.GoTLSConfig).GoTlsMasterSecretAddr,
 			},
 		},
 

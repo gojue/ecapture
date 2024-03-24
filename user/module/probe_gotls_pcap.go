@@ -55,7 +55,7 @@ func (g *GoTLSProbe) setupManagersPcap() error {
 	g.logger.Printf("%s\tHOOK type:golang elf, binrayPath:%s\n", g.Name(), g.path)
 	g.logger.Printf("%s\tPcapFilter: %s\n", g.Name(), pcapFilter)
 	g.logger.Printf("%s\tIfname: %s, Ifindex: %d\n", g.Name(), g.ifName, g.ifIdex)
-	g.logger.Printf("%s\tHook masterKey function: %s\n", g.Name(), goTlsMasterSecretFunc)
+	g.logger.Printf("%s\tHook masterKey function: %s, Address:%x \n", g.Name(), config.GoTlsMasterSecretFunc, g.conf.(*config.GoTLSConfig).GoTlsMasterSecretAddr)
 
 	// create pcapng writer
 	netIfs, err := net.Interfaces()
@@ -106,9 +106,10 @@ func (g *GoTLSProbe) setupManagersPcap() error {
 			{
 				Section:          sec,
 				EbpfFuncName:     fn,
-				AttachToFuncName: goTlsMasterSecretFunc,
+				AttachToFuncName: config.GoTlsMasterSecretFunc,
 				BinaryPath:       g.path,
 				UID:              "uprobe_gotls_master_secret",
+				UAddress:         g.conf.(*config.GoTLSConfig).GoTlsMasterSecretAddr,
 			},
 		},
 
