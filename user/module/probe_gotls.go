@@ -29,11 +29,6 @@ func init() {
 	Register(mod)
 }
 
-const (
-	goTlsWriteFunc        = "crypto/tls.(*Conn).writeRecordLocked"
-	goTlsMasterSecretFunc = "crypto/tls.(*Config).writeKeyLog"
-)
-
 var NotGoCompiledBin = errors.New("It is not a program compiled in the Go language.")
 
 // GoTLSProbe represents a probe for Go SSL
@@ -261,6 +256,8 @@ func (g *GoTLSProbe) saveMasterSecret(secretEvent *event.MasterSecretGotlsEvent)
 			g.logger.Fatalf("%s: save masterSecrets to pcapng error:%s", secretEvent.String(), e.Error())
 			return
 		}
+	default:
+		g.logger.Fatalf("unhandled default case with eBPF Program type:%d", g.eBPFProgramType)
 	}
 }
 
