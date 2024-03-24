@@ -48,8 +48,9 @@ func (g *GoTLSProbe) setupManagersText() error {
 			{
 				Section:          sec,
 				EbpfFuncName:     fn,
-				AttachToFuncName: goTlsWriteFunc,
+				AttachToFuncName: config.GoTlsWriteFunc,
 				BinaryPath:       g.path,
+				UAddress:         g.conf.(*config.GoTLSConfig).GoTlsWriteAddr,
 			},
 		},
 		Maps: []*manager.Map{
@@ -69,8 +70,9 @@ func (g *GoTLSProbe) setupManagersText() error {
 			EbpfFuncName:     readFn,
 			AttachToFuncName: config.GoTlsReadFunc,
 			BinaryPath:       g.path,
-			UprobeOffset:     uint64(v),
-			UID:              uid,
+			//UprobeOffset:     uint64(v),
+			UAddress: uint64(v),
+			UID:      uid,
 		})
 	}
 	g.bpfManagerOptions = manager.Options{
