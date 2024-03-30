@@ -106,7 +106,10 @@ static __always_inline int gotls_write(struct pt_regs *ctx,
     len_ptr = (void *)go_get_argument(ctx, is_register_abi, 4);
     bpf_probe_read_kernel(&len, sizeof(len), (void *)&len_ptr);
 
-    debug_bpf_printk("gotls_write record_type:%d\n", record_type);
+    if (len == 0) {
+        return 0;
+    }
+    debug_bpf_printk("gotls_write record_type:%d, len:%d\n", record_type, len);
     if (record_type != recordTypeApplicationData) {
         return 0;
     }
@@ -115,7 +118,7 @@ static __always_inline int gotls_write(struct pt_regs *ctx,
     if (!event) {
         return 0;
     }
-
+    len = len & 0xFFFF;
     event->data_len = len;
     int ret =
         bpf_probe_read_user(&event->data, sizeof(event->data), (void *)str);
@@ -157,7 +160,10 @@ static __always_inline int gotls_read(struct pt_regs *ctx,
     // Read函数的返回值第一个是int类型，存放在栈里的顺序是5
     ret_len_ptr = (void *)go_get_argument_by_stack(ctx, 5);
     bpf_probe_read_kernel(&ret_len, sizeof(ret_len), (void *)&ret_len_ptr);
-    if (len == 0) {
+    if (len <= 0) {
+        return 0;
+    }
+    if (ret_len <= 0 ) {
         return 0;
     }
 
