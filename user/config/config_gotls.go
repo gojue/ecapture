@@ -359,17 +359,15 @@ func (gc *GoTLSConfig) findPieSymbolAddr(lfunc string) (uint64, error) {
 		return 0, errors.New("Cant found symbol address on pie model.")
 	}
 	var err error
-	var address uint64
 	for _, prog := range gc.goElf.Progs {
 		if prog.Type != elf.PT_LOAD || (prog.Flags&elf.PF_X) == 0 {
 			continue
 		}
 		// For more info on this calculation: stackoverflow.com/a/40249502
-		address = f.Value
 		if prog.Vaddr <= f.Value && f.Value < (prog.Vaddr+prog.Memsz) {
 			funcLen := f.End - f.Entry
 			data := make([]byte, funcLen)
-			address = f.Value - prog.Vaddr + prog.Off + IdaProOffset
+			address := f.Value - prog.Vaddr + prog.Off + IdaProOffset
 			_, err = prog.ReadAt(data, int64(address))
 			if err != nil {
 				return 0, fmt.Errorf("search function return: %w", err)
