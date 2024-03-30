@@ -1,7 +1,24 @@
-# v0.7.5 (2024-03-03)
+# v0.7.6 (2024-03-30)
 ## What's Changed
 
 ## New Contributors
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v0.7.5...v0.7.6
+<hr>
+
+
+# v0.7.5 (2024-03-03)
+## What's Changed
+* Improve makefile by @cfc4n in https://github.com/gojue/ecapture/pull/488
+* Fix: init GoTLSProbe.tcPacketsChan #492 by @ruitianzhong in https://github.com/gojue/ecapture/pull/493
+* fix: avoid printing confusing message when input contains special character by @ruitianzhong in https://github.com/gojue/ecapture/pull/495
+* correctly update ContentLength for uncompressed response body by @ruitianzhong in https://github.com/gojue/ecapture/pull/498
+* add -race flags for `go test` and fix data race warning by @ruitianzhong in https://github.com/gojue/ecapture/pull/499
+* openssl: encode the value of fd (ssl->wbio->num) to gen uuid, rather than an unexpected random number by @wuyexkx in https://github.com/gojue/ecapture/pull/494
+
+## New Contributors
+* @ruitianzhong made their first contribution in https://github.com/gojue/ecapture/pull/493
+* @wuyexkx made their first contribution in https://github.com/gojue/ecapture/pull/494
 
 **Full Changelog**: https://github.com/gojue/ecapture/compare/v0.7.4...v0.7.5
 <hr>
