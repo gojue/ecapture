@@ -43,6 +43,10 @@ func (g *GoTLSProbe) setupManagersText() error {
 		readFn = "gotls_read_stack"
 	}
 	g.logger.Printf("%s\teBPF Function Name:%s, isRegisterABI:%t\n", g.Name(), fn, g.isRegisterABI)
+	if g.conf.(*config.GoTLSConfig).IsPieBuildMode {
+		// buildmode pie is enabled.
+		g.logger.Printf("%s\tGolang elf buildmode with pie\n", g.Name())
+	}
 	g.bpfManager = &manager.Manager{
 		Probes: []*manager.Probe{
 			{

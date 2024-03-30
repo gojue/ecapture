@@ -28,14 +28,15 @@ import (
 )
 
 const (
-	// 46EE50 - 46EDB0
-	//
-	GoTlsReadFunc = "crypto/tls.(*Conn).Read"
-
+	GoTlsReadFunc         = "crypto/tls.(*Conn).Read"
 	GoTlsWriteFunc        = "crypto/tls.(*Conn).writeRecordLocked"
 	GoTlsMasterSecretFunc = "crypto/tls.(*Config).writeKeyLog"
-	// crypto_tls._ptr_Conn.Read
-	GoTlsReadFuncArm64 = "crypto_tls._ptr_Conn.Read"
+
+	/*
+		我是通过IDA静态分析符号发现`crypto/tls.(*Conn).Read`的地址是`46EE50`。用程序计算出来的总是比这个数字少了`0x120` ，通过分析其他多个编译的程序，发现差值总是`0x120`。
+		所以，我定义了一个常量，增加到程序计算的地址上。但是我不知道原因，如果你知道，请告诉我。更多信息见：https://github.com/gojue/ecapture/pull/512
+	*/
+	IdaProOffset = 0x120
 )
 
 var (
@@ -88,7 +89,7 @@ type GoTLSConfig struct {
 	PcapFilter            string    `json:"pcapFilter"` // pcap filter
 	goElfArch             string    //
 	goElf                 *elf.File //
-	buildinfo             *buildinfo.BuildInfo
+	Buildinfo             *buildinfo.BuildInfo
 	ReadTlsAddrs          []int
 	GoTlsWriteAddr        uint64
 	GoTlsMasterSecretAddr uint64
@@ -119,7 +120,7 @@ func (gc *GoTLSConfig) Check() error {
 	}
 
 	// Read the build information of the Go application
-	gc.buildinfo, err = buildinfo.ReadFile(gc.Path)
+	gc.Buildinfo, err = buildinfo.ReadFile(gc.Path)
 	if err != nil {
 		return err
 	}
@@ -154,7 +155,7 @@ func (gc *GoTLSConfig) Check() error {
 	gc.goElf = goElf
 	// If built with PIE and stripped, gopclntab is
 	// unlabeled and nested under .data.rel.ro.
-	for _, bs := range gc.buildinfo.Settings {
+	for _, bs := range gc.Buildinfo.Settings {
 		if bs.Key == "-buildmode" {
 			if bs.Value == "pie" {
 				gc.IsPieBuildMode = true
@@ -167,16 +168,21 @@ func (gc *GoTLSConfig) Check() error {
 		if err != nil {
 			return err
 		}
-		fun := gc.goSymTab.LookupFunc(GoTlsWriteFunc)
-		if fun != nil {
-			gc.GoTlsWriteAddr = fun.Entry
+		var addr uint64
+		addr, err = gc.findPieSymbolAddr(GoTlsWriteFunc)
+		if err != nil {
+			return fmt.Errorf("%s symbol address error:%s", GoTlsWriteFunc, err.Error())
 		}
-		fun = gc.goSymTab.LookupFunc(GoTlsMasterSecretFunc)
-		if fun != nil {
-			gc.GoTlsMasterSecretAddr = fun.Entry
+		gc.GoTlsWriteAddr = addr
+		addr, err = gc.findPieSymbolAddr(GoTlsMasterSecretFunc)
+		if err != nil {
+			return fmt.Errorf("%s symbol address error:%s", GoTlsMasterSecretFunc, err.Error())
 		}
+		gc.GoTlsMasterSecretAddr = addr
+
 		gc.ReadTlsAddrs, err = gc.findRetOffsetsPie(GoTlsReadFunc)
 		if err != nil {
+			panic(err)
 			return err
 		}
 	} else {
@@ -186,20 +192,6 @@ func (gc *GoTLSConfig) Check() error {
 		}
 	}
 	return err
-}
-
-func (gc *GoTLSConfig) findRetOffsetsPie(symbolName string) ([]int, error) {
-	var offsets []int
-	var err error
-
-	fun := gc.goSymTab.LookupFunc(symbolName)
-	if fun == nil {
-		return nil, ErrorSymbolNotFoundFromTable
-	}
-
-	//fmt.Printf("found in %s, entry:%x, end:%x , end-entry:%x\n", fun.Name, fun.Entry, fun.End, fun.End-fun.Entry)
-	offsets, err = gc.findFuncOffsetBySymfun(fun, gc.goElf)
-	return offsets, err
 }
 
 // FindRetOffsets searches for the addresses of all RET instructions within
@@ -214,7 +206,6 @@ func (gc *GoTLSConfig) findRetOffsets(symbolName string) ([]int, error) {
 	if len(goSymbs) > 0 {
 		allSymbs = append(allSymbs, goSymbs...)
 	}
-
 	goDynamicSymbs, _ := gc.goElf.DynamicSymbols()
 	if len(goDynamicSymbs) > 0 {
 		allSymbs = append(allSymbs, goDynamicSymbs...)
@@ -256,6 +247,23 @@ func (gc *GoTLSConfig) findRetOffsets(symbolName string) ([]int, error) {
 	if len(offsets) == 0 {
 		return offsets, ErrorNoRetFound
 	}
+
+	address := symbol.Value
+	for _, prog := range gc.goElf.Progs {
+		// Skip uninteresting segments.
+		if prog.Type != elf.PT_LOAD || (prog.Flags&elf.PF_X) == 0 {
+			continue
+		}
+
+		if prog.Vaddr <= symbol.Value && symbol.Value < (prog.Vaddr+prog.Memsz) {
+			// stackoverflow.com/a/40249502
+			address = symbol.Value - prog.Vaddr + prog.Off
+			break
+		}
+	}
+	for i, offset := range offsets {
+		offsets[i] = int(address) + offset
+	}
 	return offsets, nil
 }
 
@@ -278,29 +286,33 @@ func (gc *GoTLSConfig) checkModel() (string, error) {
 }
 
 func (gc *GoTLSConfig) ReadTable() (*gosym.Table, error) {
-	sectionLabel := ".data.rel.ro"
+	sectionLabel := ".gopclntab"
 	section := gc.goElf.Section(sectionLabel)
 	if section == nil {
 		// binary may be built with -pie
-		sectionLabel = ".gopclntab"
+		sectionLabel = ".data.rel.ro.gopclntab"
 		section = gc.goElf.Section(sectionLabel)
 		if section == nil {
-			return nil, fmt.Errorf("could not read section %s from %s ", sectionLabel, gc.Path)
+			sectionLabel = ".data.rel.ro"
+			section = gc.goElf.Section(sectionLabel)
+			if section == nil {
+				return nil, fmt.Errorf("could not read section %s from %s ", sectionLabel, gc.Path)
+			}
 		}
 	}
 	tableData, err := section.Data()
 	if err != nil {
 		return nil, fmt.Errorf("found section but could not read %s from %s ", sectionLabel, gc.Path)
 	}
-
 	// Find .gopclntab by magic number even if there is no section label
-	magic := magicNumber(gc.buildinfo.GoVersion)
+	magic := magicNumber(gc.Buildinfo.GoVersion)
 	pclntabIndex := bytes.Index(tableData, magic)
-	//fmt.Printf("buildinfo :%v, magic:%x, pclntabIndex:%d offset:%x , section:%v \n", gc.buildinfo, magic, pclntabIndex, section.Offset, section)
+	//fmt.Printf("Buildinfo :%v, magic:%x, pclntabIndex:%d offset:%x , section:%v \n", gc.Buildinfo, magic, pclntabIndex, section.Offset, section)
 	if pclntabIndex < 0 {
 		return nil, fmt.Errorf("could not find magic number in %s ", gc.Path)
 	}
 	tableData = tableData[pclntabIndex:]
+
 	addr := gc.goElf.Section(".text").Addr
 	lineTable := gosym.NewLineTable(tableData, addr)
 	symTable, err := gosym.NewTable([]byte{}, lineTable)
@@ -310,38 +322,60 @@ func (gc *GoTLSConfig) ReadTable() (*gosym.Table, error) {
 	return symTable, nil
 }
 
-func (gc *GoTLSConfig) findFuncOffsetBySymfun(f *gosym.Func, elfF *elf.File) ([]int, error) {
+func (gc *GoTLSConfig) findRetOffsetsPie(lfunc string) ([]int, error) {
 	var offsets []int
+	var address uint64
 	var err error
+	address, err = gc.findPieSymbolAddr(lfunc)
+	if err != nil {
+		return offsets, err
+	}
+	f := gc.goSymTab.LookupFunc(lfunc)
+	funcLen := f.End - f.Entry
+	for _, prog := range gc.goElf.Progs {
+		if prog.Type != elf.PT_LOAD || (prog.Flags&elf.PF_X) == 0 {
+			continue
+		}
+		data := make([]byte, funcLen)
+		_, err = prog.ReadAt(data, int64(address))
+		if err != nil {
+			return offsets, fmt.Errorf("finding function return: %w", err)
+		}
+		offsets, err = gc.decodeInstruction(data)
+		if err != nil {
+			return offsets, fmt.Errorf("finding function return: %w", err)
+		}
+		for i, offset := range offsets {
+			offsets[i] = int(address) + offset
+		}
+		return offsets, nil
+	}
+	return offsets, errors.New("cant found gotls symbol offsets.")
+}
 
-	for _, prog := range elfF.Progs {
+func (gc *GoTLSConfig) findPieSymbolAddr(lfunc string) (uint64, error) {
+	f := gc.goSymTab.LookupFunc(lfunc)
+	if f == nil {
+		return 0, errors.New("Cant found symbol address on pie model.")
+	}
+	var err error
+	var address uint64
+	for _, prog := range gc.goElf.Progs {
 		if prog.Type != elf.PT_LOAD || (prog.Flags&elf.PF_X) == 0 {
 			continue
 		}
 		// For more info on this calculation: stackoverflow.com/a/40249502
-		/*
-		 ida :  		 start : 46EE50, end : 46F258   , len :0x408
-		 elf info:       start : 46ed30, end :         ,  len: 0x3B0,  0x58
-
-		*/
+		address = f.Value
 		if prog.Vaddr <= f.Value && f.Value < (prog.Vaddr+prog.Memsz) {
 			funcLen := f.End - f.Entry
-			fmt.Printf("name :%s, f.Value:%x, f.Entry:%x, f.End:%x, funcLen:%X \n ", f.Name, f.Value, f.Entry, f.End, funcLen)
 			data := make([]byte, funcLen)
-			_, err = prog.ReadAt(data, int64(f.Value-prog.Vaddr))
+			address = f.Value - prog.Vaddr + prog.Off + IdaProOffset
+			_, err = prog.ReadAt(data, int64(address))
 			if err != nil {
-				return offsets, fmt.Errorf("finding function return: %w", err)
+				return 0, fmt.Errorf("search function return: %w", err)
 			}
-
-			offsets, err = gc.decodeInstruction(data)
-			if err != nil {
-				return offsets, fmt.Errorf("finding function return: %w", err)
-			}
-			for i, offset := range offsets {
-				offsets[i] = int(f.Entry) + offset
-			}
-			return offsets, nil
+			return address, nil
 		}
 	}
-	return offsets, ErrorNoRetFoundFromSymTabFun
+	return 0, ErrorNoRetFoundFromSymTabFun
 }

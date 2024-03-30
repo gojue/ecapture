@@ -22,12 +22,28 @@ import (
 	manager "github.com/gojue/ebpfmanager"
 	"golang.org/x/sys/unix"
 	"math"
+	"strings"
 )
 
 func (g *GoTLSProbe) setupManagersKeylog() error {
-
-	g.logger.Printf("%s\tHOOK type:golang elf, binrayPath:%s\n", g.Name(), g.path)
-	g.logger.Printf("%s\tHook masterKey function:%s, Address:%x \n", g.Name(), config.GoTlsMasterSecretFunc, g.conf.(*config.GoTLSConfig).GoTlsMasterSecretAddr)
+	var gotlsConf = g.conf.(*config.GoTLSConfig)
+	var buildInfo = new(strings.Builder)
+	for _, setting := range gotlsConf.Buildinfo.Settings {
+		if setting.Value == "" {
+			continue
+		}
+		buildInfo.WriteString(" ")
+		buildInfo.WriteString(setting.Key)
+		buildInfo.WriteString("=")
+		buildInfo.WriteString(setting.Value)
+	}
+	g.logger.Printf("%s\tHOOK type:Golang elf, binrayPath:%s\n", g.Name(), g.path)
+	g.logger.Printf("%s\tGolang buildInfo version:%s, Params: %s\n", g.Name(), gotlsConf.Buildinfo.GoVersion, buildInfo.String())
+	if gotlsConf.IsPieBuildMode {
+		// buildmode pie is enabled.
+		g.logger.Printf("%s\tGolang elf buildmode with pie\n", g.Name())
+	}
+	g.logger.Printf("%s\tHook masterKey function:%s, Address:%x \n", g.Name(), config.GoTlsMasterSecretFunc, gotlsConf.GoTlsMasterSecretAddr)
 
 	var (
 		sec string
