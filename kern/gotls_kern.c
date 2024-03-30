@@ -251,7 +251,7 @@ static __always_inline int gotls_mastersecret(struct pt_regs *ctx,
         return 0;
     }
 
-    debug_bpf_printk("gotls_mastersecret read mastersecret label%s\n",
+    debug_bpf_printk("gotls_mastersecret read mastersecret label:%s\n",
                      mastersecret_gotls.label);
     ret = bpf_probe_read_user_str(&mastersecret_gotls.client_random,
                                   sizeof(mastersecret_gotls.client_random),
