@@ -23,6 +23,7 @@ import (
 	manager "github.com/gojue/ebpfmanager"
 	"golang.org/x/sys/unix"
 	"math"
+	"strings"
 )
 
 func (g *GoTLSProbe) setupManagersText() error {
@@ -42,7 +43,20 @@ func (g *GoTLSProbe) setupManagersText() error {
 		readSec = "uprobe/gotls_read_stack"
 		readFn = "gotls_read_stack"
 	}
+	var gotlsConf = g.conf.(*config.GoTLSConfig)
+	var buildInfo = new(strings.Builder)
+	for _, setting := range gotlsConf.Buildinfo.Settings {
+		if setting.Value == "" {
+			continue
+		}
+		buildInfo.WriteString(" ")
+		buildInfo.WriteString(setting.Key)
+		buildInfo.WriteString("=")
+		buildInfo.WriteString(setting.Value)
+	}
 	g.logger.Printf("%s\teBPF Function Name:%s, isRegisterABI:%t\n", g.Name(), fn, g.isRegisterABI)
+	g.logger.Printf("%s\tGolang buildInfo version:%s, Params: %s\n", g.Name(), gotlsConf.Buildinfo.GoVersion, buildInfo.String())
+
 	if g.conf.(*config.GoTLSConfig).IsPieBuildMode {
 		// buildmode pie is enabled.
 		g.logger.Printf("%s\tGolang elf buildmode with pie\n", g.Name())

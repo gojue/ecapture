@@ -182,7 +182,6 @@ func (gc *GoTLSConfig) Check() error {
 
 		gc.ReadTlsAddrs, err = gc.findRetOffsetsPie(GoTlsReadFunc)
 		if err != nil {
-			panic(err)
 			return err
 		}
 	} else {
