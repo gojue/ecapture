@@ -4,7 +4,7 @@
 
 .PHONY: all
 all: help
-release: snapshot build_deb snapshot_android publish
+release: snapshot build_deb snapshot_android snapshot_android_nocore publish
 
 #
 # make
@@ -167,6 +167,7 @@ $(OUTPUT_DIR):
 
 
 
+# snapshot Linux non-CO-RE version, and non-CO-RE only on Linux OS.
 .PHONY: snapshot
 snapshot: \
 	$(OUTPUT_DIR) \
@@ -186,12 +187,31 @@ snapshot: \
 	$(CMD_CP) README_CN.md $(TAR_DIR)/README_CN.md
 	$(CMD_CP) $(OUTPUT_DIR)/ecapture $(TAR_DIR)/ecapture
 	$(CMD_TAR)  -czf $(OUT_ARCHIVE) $(TAR_DIR)
-	cd $(OUTPUT_DIR)
-	$(CMD_CHECKSUM) $(OUT_ARCHIVE_ANDROID) > ./../$(OUT_CHECKSUMS)
-	cd ../
+	$(CMD_CHECKSUM) $(OUT_ARCHIVE) | $(CMD_SED) 's/.\/bin\///g' > $(OUT_CHECKSUMS)
 
 .PHONY: snapshot_android
 snapshot_android: \
+	$(OUTPUT_DIR) \
+	| .check_tree \
+	.check_$(CMD_TAR) \
+	.check_$(CMD_CHECKSUM) \
+	.check_$(CMD_GITHUB)
+
+	# build binaries
+	$(MAKE) clean
+	ANDROID=1 $(MAKE) RELEASE_TAG=$(SNAPSHOT_VERSION)
+	# create the tar ball and checksum files
+	$(CMD_MKDIR) -p $(TAR_DIR_ANDROID)
+	$(CMD_CP) LICENSE $(TAR_DIR_ANDROID)/LICENSE
+	$(CMD_CP) CHANGELOG.md $(TAR_DIR_ANDROID)/CHANGELOG.md
+	$(CMD_CP) README.md $(TAR_DIR_ANDROID)/README.md
+	$(CMD_CP) README_CN.md $(TAR_DIR_ANDROID)/README_CN.md
+	$(CMD_CP) $(OUTPUT_DIR)/ecapture $(TAR_DIR_ANDROID)/ecapture
+	$(CMD_TAR)  -czf $(OUT_ARCHIVE_ANDROID) $(TAR_DIR_ANDROID)
+	$(CMD_CHECKSUM) $(OUT_ARCHIVE_ANDROID) | $(CMD_SED) 's/.\/bin\///g' >> $(OUT_CHECKSUMS)
+
+.PHONY: snapshot_android_nocore
+snapshot_android_nocore: \
 	$(OUTPUT_DIR) \
 	| .check_tree \
 	.check_$(CMD_TAR) \
@@ -209,14 +229,13 @@ snapshot_android: \
 	$(CMD_CP) README_CN.md $(TAR_DIR_ANDROID_NOCORE)/README_CN.md
 	$(CMD_CP) $(OUTPUT_DIR)/ecapture $(TAR_DIR_ANDROID_NOCORE)/ecapture
 	$(CMD_TAR)  -czf $(OUT_ARCHIVE_ANDROID_NOCORE) $(TAR_DIR_ANDROID_NOCORE)
-	cd $(OUTPUT_DIR)
-	$(CMD_CHECKSUM) $(OUT_ARCHIVE_ANDROID_NOCORE) >> ./../$(OUT_CHECKSUMS)
-	cd ../
+	$(CMD_CHECKSUM) $(OUT_ARCHIVE_ANDROID_NOCORE) | $(CMD_SED) 's/.\/bin\///g' >> $(OUT_CHECKSUMS)
 
 .PHONY: publish
 publish: \
 	$(OUTPUT_DIR) \
 	$(OUT_ARCHIVE) \
+	$(OUT_ARCHIVE_ANDROID) \
 	$(OUT_ARCHIVE_ANDROID_NOCORE) \
 	$(OUT_CHECKSUMS) \
 	$(OUT_DEB_FILE) \
@@ -224,7 +243,7 @@ publish: \
 	.check_$(CMD_GITHUB)
 #
 	# release it!
-	$(CMD_GITHUB) release create $(SNAPSHOT_VERSION) $(OUT_ARCHIVE) $(OUT_ARCHIVE_ANDROID_NOCORE) $(OUT_DEB_FILE) $(OUT_CHECKSUMS) --title "eCapture $(SNAPSHOT_VERSION)"  --notes-file $(RELEASE_NOTES)
+	$(CMD_GITHUB) release create $(SNAPSHOT_VERSION) $(OUT_ARCHIVE) $(OUT_ARCHIVE_ANDROID) $(OUT_ARCHIVE_ANDROID_NOCORE) $(OUT_DEB_FILE) $(OUT_CHECKSUMS) --title "eCapture $(SNAPSHOT_VERSION)"  --notes-file $(RELEASE_NOTES)
 
 .PHONY: clean
 clean:
@@ -234,7 +253,7 @@ clean:
 .PHONY: deb
 deb: snapshot build_deb
 
-# 用于构建DEB包的目标
+# 用于构建DEB包的目标, non-CO-RE default.
 build_deb:
 	# 创建软件包目录结构
 	$(CMD_RM) -rf $(BUILD_DIR)
@@ -252,3 +271,4 @@ build_deb:
 	echo "Homepage: $(PACKAGE_HOMEPAGE)" >> $(BUILD_DIR)/DEBIAN/control
     # 构建DEB包
 	$(CMD_DPKG-DEB) --build $(BUILD_DIR) $(OUT_DEB_FILE)
+	$(CMD_CHECKSUM) $(OUT_DEB_FILE) | $(CMD_SED) 's/.\/bin\///g' >> $(OUT_CHECKSUMS)
