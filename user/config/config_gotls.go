@@ -366,7 +366,10 @@ func (gc *GoTLSConfig) findPieSymbolAddr(lfunc string) (uint64, error) {
 		if prog.Vaddr <= f.Value && f.Value < (prog.Vaddr+prog.Memsz) {
 			funcLen := f.End - f.Entry
 			data := make([]byte, funcLen)
-			address := f.Value - prog.Vaddr + prog.Off + IdaProOffset
+			address := f.Value - prog.Vaddr + prog.Off
+			if gc.goElfArch == "arm64" {
+				address += IdaProOffset
+			}
 			_, err = prog.ReadAt(data, int64(address))
 			if err != nil {
 				return 0, fmt.Errorf("search function return: %w", err)
