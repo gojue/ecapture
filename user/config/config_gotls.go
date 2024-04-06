@@ -31,12 +31,6 @@ const (
 	GoTlsReadFunc         = "crypto/tls.(*Conn).Read"
 	GoTlsWriteFunc        = "crypto/tls.(*Conn).writeRecordLocked"
 	GoTlsMasterSecretFunc = "crypto/tls.(*Config).writeKeyLog"
-
-	/*
-		我是通过IDA静态分析符号发现`crypto/tls.(*Conn).Read`的地址是`46EE50`。用程序计算出来的总是比这个数字少了`0x120` ，通过分析其他多个编译的程序，发现差值总是`0x120`。
-		所以，我定义了一个常量，增加到程序计算的地址上。但是我不知道原因，如果你知道，请告诉我。更多信息见：https://github.com/gojue/ecapture/pull/512
-	*/
-	IdaProOffset = 0x120
 )
 
 var (
@@ -311,8 +305,18 @@ func (gc *GoTLSConfig) ReadTable() (*gosym.Table, error) {
 		return nil, fmt.Errorf("could not find magic number in %s ", gc.Path)
 	}
 	tableData = tableData[pclntabIndex:]
-
-	addr := gc.goElf.Section(".text").Addr
+	var addr uint64
+	{
+		// get textStart from pclntable
+		// please see https://go-review.googlesource.com/c/go/+/366695
+		// tableData
+		ptrSize := uint32(tableData[7])
+		if ptrSize == 4 {
+			addr = uint64(binary.LittleEndian.Uint32(tableData[8+2*ptrSize:]))
+		} else {
+			addr = binary.LittleEndian.Uint64(tableData[8+2*ptrSize:])
+		}
+	}
 	lineTable := gosym.NewLineTable(tableData, addr)
 	symTable, err := gosym.NewTable([]byte{}, lineTable)
 	if err != nil {
@@ -366,7 +370,7 @@ func (gc *GoTLSConfig) findPieSymbolAddr(lfunc string) (uint64, error) {
 		if prog.Vaddr <= f.Value && f.Value < (prog.Vaddr+prog.Memsz) {
 			funcLen := f.End - f.Entry
 			data := make([]byte, funcLen)
-			address := f.Value - prog.Vaddr + prog.Off + IdaProOffset
+			address := f.Value - prog.Vaddr + prog.Off
 			_, err = prog.ReadAt(data, int64(address))
 			if err != nil {
 				return 0, fmt.Errorf("search function return: %w", err)
