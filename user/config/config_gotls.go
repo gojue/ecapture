@@ -340,7 +340,7 @@ func (gc *GoTLSConfig) findRetOffsetsPie(lfunc string) ([]int, error) {
 			continue
 		}
 		data := make([]byte, funcLen)
-		_, err = prog.ReadAt(data, int64(address))
+		_, err = prog.ReadAt(data, int64(address-prog.Vaddr))
 		if err != nil {
 			return offsets, fmt.Errorf("finding function return: %w", err)
 		}
