@@ -168,6 +168,11 @@ make nocore
 bin/ecapture --help
 ```
 
+## クロスコンパイル（eBPF CO-REモードのみ）
+Ubuntuの `amd64` システムで `arm64` の成果物をビルドするには、`CROSS_ARCH`環境変数を設定してクロスコンパイルを実行できます。
+```shell
+CROSS_ARCH=arm64 make
+```
 ## Stargazers over time
 
 [![Stargazers over time](https://starchart.cc/gojue/ecapture.svg)](https://starchart.cc/gojue/ecapture)

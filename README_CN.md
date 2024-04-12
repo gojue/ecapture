@@ -215,6 +215,11 @@ cd ecapture
 make nocore
 bin/ecapture
 ```
+## 交叉编译 (仅限eBPF CO-RE模式)
+要在ubuntu `amd64` 系统上构建 `arm64`的产物，您可以设置 `CROSS_ARCH`环境变量来实现交叉编译。
+```shell
+CROSS_ARCH=arm64 make
+```
 
 ## Stargazers over time
 
