@@ -4,6 +4,7 @@ CMD_TR ?= tr
 CMD_CUT ?= cut
 CMD_AWK ?= awk
 CMD_SED ?= sed
+CMD_FILE ?= file
 CMD_GIT ?= git
 CMD_CLANG ?= clang
 CMD_GCC ?= gcc
@@ -151,6 +152,7 @@ ifeq ($(TARGET_ARCH),aarch64)
 	 GOARCH = arm64
 	 AUTOGENCMD = ls -al kern/bpf/arm64/vmlinux.h
 	 BPFHEADER += -I ./kern/bpf/arm64
+	 # sh lib/libpcap/config.sub arm64-linux for ARCH value
 	 LIBPCAP_ARCH = aarch64-unknown-linux-gnu
 else
 	# x86_64 default
@@ -158,7 +160,8 @@ else
 	GOARCH = amd64
 	BPFHEADER += -I ./kern/bpf/x86
 	AUTOGENCMD = test -f kern/bpf/x86/vmlinux.h || $(CMD_BPFTOOL) btf dump file /sys/kernel/btf/vmlinux format c > kern/bpf/x86/vmlinux.h
-	LIBPCAP_ARCH = x86_64-unknown-linux-gnu
+	 # sh lib/libpcap/config.sub amd64-linux or x86_64-linux for ARCH value
+	LIBPCAP_ARCH = x86_64-pc-linux-gnu
 endif
 
 #

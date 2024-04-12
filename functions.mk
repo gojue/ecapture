@@ -45,11 +45,10 @@ define allow-override
 endef
 
 define gobuild
+	CGO_ENABLED=1 \
 	CGO_CFLAGS='-O2 -g -gdwarf-4 -I$(CURDIR)/lib/libpcap/' \
-	CGO_LDFLAGS='-O2 -g -L$(CURDIR)/lib/libpcap -lpcap -static' \
-	GOOS=linux GOARCH=$(GOARCH) CC=$(CMD_CLANG) \
-	$(CMD_GO) build -tags $(TARGET_TAG) -ldflags "-w -s -X 'ecapture/cli/cmd.GitVersion=$(TARGET_TAG)_$(UNAME_M):$(VERSION):$(VERSION_FLAG)' -X 'main.enableCORE=$(ENABLECORE)'" -o $(OUT_BIN)
-    @if [$(1) -eq 0 ]; then
-		$(OUT_BIN) -v
-    fi
+	CGO_LDFLAGS='-O2 -g -L$(CURDIR)/lib/libpcap/ -lpcap -static' \
+	GOOS=linux GOARCH=$(GOARCH) CC=$(CROSS_COMPILE)gcc \
+	$(CMD_GO) build -tags $(TARGET_TAG) -ldflags "-w -s -X 'ecapture/cli/cmd.GitVersion=$(TARGET_TAG)_$(GOARCH):$(VERSION):$(VERSION_FLAG)' -X 'main.enableCORE=$(ENABLECORE)' -linkmode=external -extldflags -static " -o $(OUT_BIN)
+	$(CMD_FILE) $(OUT_BIN)
 endef
