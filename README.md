@@ -187,6 +187,11 @@ make nocore
 bin/ecapture --help
 ```
 
+## cross-compiltion (eBPF CO-RE model supported only)
+To build an `arm64` artifact on an ubuntu `amd64` system, you can set the `CROSS_ARCH` environment variable to achieve cross-compilation.
+```shell
+CROSS_ARCH=arm64 make
+```
 
 ## Stargazers over time
 
