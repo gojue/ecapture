@@ -34,12 +34,12 @@ const (
 )
 
 var (
-	ErrorGoBINNotFound           = errors.New("The executable program (compiled by Golang) was not found")
-	ErrorSymbolEmpty             = errors.New("symbol is empty")
-	ErrorSymbolNotFound          = errors.New("symbol not found")
-	ErrorSymbolNotFoundFromTable = errors.New("symbol not found from table")
-	ErrorNoRetFound              = errors.New("no RET instructions found")
-	ErrorNoRetFoundFromSymTabFun = errors.New("no RET instructions found from golang symbol table with Fun")
+	ErrorGoBINNotFound            = errors.New("The executable program (compiled by Golang) was not found")
+	ErrorSymbolEmpty              = errors.New("symbol is empty")
+	ErrorSymbolNotFound           = errors.New("symbol not found")
+	ErrorSymbolNotFoundFromTable  = errors.New("symbol not found from table")
+	ErrorNoRetFound               = errors.New("no RET instructions found")
+	ErrorNoFuncFoundFromSymTabFun = errors.New("no function found from golang symbol table with Func Name")
 )
 
 // From go/src/debug/gosym/pclntab.go
@@ -339,6 +339,7 @@ func (gc *GoTLSConfig) findRetOffsetsPie(lfunc string) ([]int, error) {
 		if prog.Type != elf.PT_LOAD || (prog.Flags&elf.PF_X) == 0 {
 			continue
 		}
+		// via https://github.com/golang/go/blob/a65a2bbd8e58cd77dbff8a751dbd6079424beb05/src/cmd/internal/objfile/elf.go#L174
 		data := make([]byte, funcLen)
 		_, err = prog.ReadAt(data, int64(address-prog.Vaddr))
 		if err != nil {
@@ -359,24 +360,7 @@ func (gc *GoTLSConfig) findRetOffsetsPie(lfunc string) ([]int, error) {
 func (gc *GoTLSConfig) findPieSymbolAddr(lfunc string) (uint64, error) {
 	f := gc.goSymTab.LookupFunc(lfunc)
 	if f == nil {
-		return 0, errors.New("Cant found symbol address on pie model.")
+		return 0, ErrorNoFuncFoundFromSymTabFun
 	}
-	var err error
-	for _, prog := range gc.goElf.Progs {
-		if prog.Type != elf.PT_LOAD || (prog.Flags&elf.PF_X) == 0 {
-			continue
-		}
-		// For more info on this calculation: stackoverflow.com/a/40249502
-		if prog.Vaddr <= f.Value && f.Value < (prog.Vaddr+prog.Memsz) {
-			funcLen := f.End - f.Entry
-			data := make([]byte, funcLen)
-			address := f.Value - prog.Vaddr + prog.Off
-			_, err = prog.ReadAt(data, int64(address))
-			if err != nil {
-				return 0, fmt.Errorf("search function return: %w", err)
-			}
-			return address, nil
-		}
-	}
-	return 0, ErrorNoRetFoundFromSymTabFun
+	return f.Value, nil
 }
