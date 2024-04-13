@@ -152,6 +152,17 @@ func (m *MOpenSSLProbe) getSslBpfFile(soPath, sslVersion string) error {
 			m.isBoringSSL = true
 			m.masterHookFuncs = []string{MasterKeyHookFuncBoringSSL}
 		}
+		// TODO detect sslVersion less then 1.1.0 ,  ref # https://github.com/gojue/ecapture/issues/518
+		tmpSslVer := m.conf.(*config.OpensslConfig).SslVersion
+		if strings.Contains(tmpSslVer, " 1.0.") {
+			// no function named SSL_in_before at openssl 1.0.* , and it is a macro definition， so need to change to SSL_state
+			for i, hookFunc := range m.masterHookFuncs {
+				if hookFunc == MasterKeyHookFuncSSLBefore {
+					m.masterHookFuncs[i] = MasterKeyHookFuncSSLState
+					m.logger.Printf("openssl version:%s, used function %s insted %s", tmpSslVer, MasterKeyHookFuncSSLState, MasterKeyHookFuncSSLBefore)
+				}
+			}
+		}
 	}()
 
 	if sslVersion != "" {
