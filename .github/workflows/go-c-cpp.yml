@@ -28,13 +28,6 @@ jobs:
         with:
           submodules: 'recursive'
           fetch-depth: 0
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v4
-        with:
-          args: --disable-all -E errcheck -E staticcheck
-          skip-cache: true
-          skip-pkg-cache: true
-          skip-build-cache: true
       - name: Build
         run: |
           make clean
@@ -42,6 +35,13 @@ jobs:
           make nocore -j4
           cd ./lib/libpcap/ && sudo make install
           cd $GITHUB_WORKSPACE
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v4
+        with:
+          args: --disable-all -E errcheck -E staticcheck
+          skip-cache: true
+          skip-pkg-cache: true
+          skip-build-cache: true
       - name: Build NOCORE
         run: |
           make clean
