@@ -216,6 +216,12 @@ make nocore
 bin/ecapture
 ```
 ## 交叉编译 (仅限eBPF CO-RE模式)
+### ToolChains
+在amd64架构下，交叉编译aarch64架构的二进制文件，需要安装gcc-aarch64-linux-gnu工具链。同样，在aarch64架构下，交叉编译amd64架构的二进制文件，需要安装gcc-x86-64-linux-gnu工具链。
+* amd64 arch: gcc-aarch64-linux-gnu
+* arm64 arch: gcc-x86-64-linux-gnu
+
+### 编译命令
 要在ubuntu `amd64` 系统上构建 `arm64`的产物，您可以设置 `CROSS_ARCH`环境变量来实现交叉编译。
 ```shell
 CROSS_ARCH=arm64 make

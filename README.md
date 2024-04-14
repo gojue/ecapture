@@ -187,7 +187,13 @@ make nocore
 bin/ecapture --help
 ```
 
-## cross-compiltion (eBPF CO-RE model supported only)
+## cross-compilation (eBPF CO-RE model supported only)
+### ToolChains
+To cross-compile binary files for the aarch64 architecture on an amd64 architecture system, you need to install the gcc-aarch64-linux-gnu toolchain. Similarly, to cross-compile binary files for the amd64 architecture on an aarch64 system, you need to install the gcc-x86-64-linux-gnu toolchain.
+* amd64 arch: gcc-aarch64-linux-gnu
+* arm64 arch: gcc-x86-64-linux-gnu
+
+### 编译命令
 To build an `arm64` artifact on an ubuntu `amd64` system, you can set the `CROSS_ARCH` environment variable to achieve cross-compilation.
 ```shell
 CROSS_ARCH=arm64 make
