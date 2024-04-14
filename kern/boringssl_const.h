@@ -5,13 +5,6 @@
 // SSL_MAX_MD_SIZE is size of the largest hash function used in TLS, SHA-384.
 #define SSL_MAX_MD_SIZE 48
 
-#define roundup(x, y) (					\
-{							\
-	typeof(y) __y = y;				\
-	(((x) + (__y - 1)) / __y) * __y;		\
-}							\
-)
-
 
 // memory layout from boringssl repo  ssl/internal.h line 1720
 // struct of struct SSL_HANDSHAKE

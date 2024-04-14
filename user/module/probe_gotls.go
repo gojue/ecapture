@@ -138,7 +138,8 @@ func (g *GoTLSProbe) start() error {
 		return err
 	}
 
-	if pcapFilter := g.conf.(*config.GoTLSConfig).PcapFilter; pcapFilter != "" {
+	pcapFilter := g.conf.(*config.GoTLSConfig).PcapFilter
+	if g.eBPFProgramType == TlsCaptureModelTypePcap && pcapFilter != "" {
 		ebpfFuncs := []string{tcFuncNameIngress, tcFuncNameEgress}
 		g.bpfManager.InstructionPatchers = prepareInsnPatchers(g.bpfManager,
 			ebpfFuncs, pcapFilter)

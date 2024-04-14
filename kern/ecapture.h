@@ -66,6 +66,16 @@
 #include <linux/ip.h>
 #include <linux/in.h>
 
+// fix  4.19.91-27.7.al7.x86_64/source/include/linux/kernel.h:140:9: warning: 'roundup' macro redefined
+#ifndef roundup
+#define roundup(x, y) (					\
+{							\
+	typeof(y) __y = y;				\
+	(((x) + (__y - 1)) / __y) * __y;		\
+}							\
+)
+#endif
+
 struct tcphdr {
     __be16 source;
     __be16 dest;

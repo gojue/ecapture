@@ -203,6 +203,7 @@ func (m *MOpenSSLProbe) detectOpenssl(soPath string) error {
 	var found bool
 	if versionKey != "" {
 		versionKeyLower := strings.ToLower(versionKey)
+		m.conf.(*config.OpensslConfig).SslVersion = versionKeyLower
 		m.logger.Printf("%s\torigin version:%s, as key:%s", m.Name(), versionKey, versionKeyLower)
 		// find the sslVersion bpfFile from sslVersionBpfMap
 		bpfFile, found = m.sslVersionBpfMap[versionKeyLower]
