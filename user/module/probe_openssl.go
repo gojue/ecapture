@@ -159,7 +159,7 @@ func (m *MOpenSSLProbe) getSslBpfFile(soPath, sslVersion string) error {
 			for i, hookFunc := range m.masterHookFuncs {
 				if hookFunc == MasterKeyHookFuncSSLBefore {
 					m.masterHookFuncs[i] = MasterKeyHookFuncSSLState
-					m.logger.Printf("openssl version:%s, used function %s insted %s", tmpSslVer, MasterKeyHookFuncSSLState, MasterKeyHookFuncSSLBefore)
+					m.logger.Printf("openssl version:%s, used function %s instead %s", tmpSslVer, MasterKeyHookFuncSSLState, MasterKeyHookFuncSSLBefore)
 				}
 			}
 		}
@@ -206,7 +206,8 @@ func (m *MOpenSSLProbe) start() error {
 		return err
 	}
 
-	if pcapFilter := m.conf.(*config.OpensslConfig).PcapFilter; pcapFilter != "" {
+	pcapFilter := m.conf.(*config.OpensslConfig).PcapFilter
+	if m.eBPFProgramType == TlsCaptureModelTypePcap && pcapFilter != "" {
 		ebpfFuncs := []string{tcFuncNameIngress, tcFuncNameEgress}
 		m.bpfManager.InstructionPatchers = prepareInsnPatchers(m.bpfManager,
 			ebpfFuncs, pcapFilter)
