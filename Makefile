@@ -35,11 +35,11 @@ env:
 	@echo "CMD_MD5                  $(CMD_MD5)"
 	@echo "CMD_PKGCONFIG            $(CMD_PKGCONFIG)"
 	@echo "CMD_STRIP                $(CMD_STRIP)"
+	@echo "CMD_CC            		$(CMD_CC)"
 	@echo ---------------------------------------
 	@echo "VERSION                  $(VERSION)"
 	@echo "LAST_GIT_TAG             $(LAST_GIT_TAG)"
 	@echo "BPF_NOCORE_TAG           $(BPF_NOCORE_TAG)"
-	@echo "CROSS_COMPILE            $(CROSS_COMPILE)"
 	@echo "KERN_RELEASE             $(KERN_RELEASE)"
 	@echo "KERN_BUILD_PATH          $(KERN_BUILD_PATH)"
 	@echo "KERN_SRC_PATH            $(KERN_SRC_PATH)"
@@ -184,12 +184,12 @@ assets_nocore: \
 $(TARGET_LIBPCAP):
 	test -f ./lib/libpcap/configure || git submodule update --init
 	cd lib/libpcap && \
-		CC=$(CROSS_COMPILE)$(CMD_GCC) AR=$(CROSS_COMPILE)$(CMD_AR) CFLAGS="-O2 -g -gdwarf-4 -static" ./configure --disable-rdma --disable-shared --disable-usb \
+		CC=$(CMD_CC) AR=$(CMD_AR) CFLAGS="-O2 -g -gdwarf-4 -static" ./configure --disable-rdma --disable-shared --disable-usb \
 			--disable-netmap --disable-bluetooth --disable-dbus --without-libnl \
 			--without-dpdk --without-dag --without-septel --without-snf \
 			--without-gcc --with-pcap=linux --disable-ipv6\
 			--without-turbocap --host=$(LIBPCAP_ARCH) && \
-	CC=$(CROSS_COMPILE)gcc AR=$(CROSS_COMPILE)ar make
+	CC=$(CMD_CC) AR=$(CMD_AR) make
 
 .PHONY: build
 build: \

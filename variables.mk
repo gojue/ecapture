@@ -7,7 +7,7 @@ CMD_SED ?= sed
 CMD_FILE ?= file
 CMD_GIT ?= git
 CMD_CLANG ?= clang
-CMD_GCC ?= gcc
+CMD_CC ?= gcc
 CMD_AR ?= ar
 CMD_STRIP ?= llvm-strip
 CMD_RM ?= rm
@@ -32,7 +32,6 @@ SUDO ?=
 LIBPCAP_ARCH ?=
 GOARCH ?=
 DEBUG_PRINT ?=
-CROSS_COMPILE ?=
 TARGET_ARCH = x86_64
 # Use clang as default compiler for both libpcap and cgo.
 CGO_ENABLED = 1
@@ -119,7 +118,9 @@ ifdef CROSS_ARCH
 	ifeq ($(UNAME_M),aarch64)
 		ifeq ($(CROSS_ARCH),amd64)
 		# cross compile
-			CROSS_COMPILE = x86_64-linux-gnu-
+			CMD_CC = x86_64-linux-gnu-gcc
+			CMD_AR = x86_64-linux-gnu-ar
+			TARGET_ARCH = x86_64
 		else
 		# not cross compile
 			TARGET_ARCH = $(UNAME_M)
@@ -127,7 +128,9 @@ ifdef CROSS_ARCH
 	else ifeq ($(UNAME_M),x86_64)
 		ifeq ($(CROSS_ARCH),arm64)
 		# cross compile
-			CROSS_COMPILE = aarch64-linux-gnu-
+			CMD_CC = aarch64-linux-gnu-gcc
+			CMD_AR = aarch64-linux-gnu-ar
+			TARGET_ARCH = aarch64
 		else
 		# not cross compile
 			TARGET_ARCH = $(UNAME_M)
