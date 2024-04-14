@@ -266,7 +266,7 @@ func (t *MTCProbe) ServePcap() {
 		if allCount == 0 {
 			t.logger.Printf("%s\tnothing captured, please check your network interface, see \"ecapture tls -h\" for more information.", t.Name())
 		} else {
-			t.logger.Printf("%s\t save %d packets into pcapng file.\n", t.Name(), allCount)
+			t.logger.Printf("%s\tsave %d packets into pcapng file.\n", t.Name(), allCount)
 		}
 		ti.Stop()
 	}()
