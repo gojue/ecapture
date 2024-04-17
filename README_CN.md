@@ -19,6 +19,22 @@
 
 ----
 
+
+<!-- MarkdownTOC autolink="true" -->
+
+- [eCapture旁观者](#ecapture旁观者)
+- [eCapture 工作原理](#ecapture-工作原理)
+- [演示](#演示)
+- [使用](#使用)
+- [eCapture 系统架构](#ecapture-系统架构)
+- [原理](#原理)
+- [编译方法](#编译方法)
+- [贡献](#贡献)
+
+<!-- /MarkdownTOC -->
+----
+
+
 # eCapture旁观者
 
 eCapture的中文名字为**旁观者**，即「**当局者迷，旁观者清**」，与其本身功能**旁路、观察**契合，且发音与英文有相似之处。
