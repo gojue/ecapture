@@ -1,7 +1,17 @@
-# v0.7.6 (2024-03-30)
+# v0.7.7 (2024-04-21)
 ## What's Changed
 
-## New Contributors
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v0.7.6...v0.7.7
+<hr>
+
+# v0.7.6 (2024-03-30)
+## What's Changed
+* fix #500 to avoid potential hang and event loss by @ruitianzhong in https://github.com/gojue/ecapture/pull/501
+* fix issue#504 by @sancppp in https://github.com/gojue/ecapture/pull/506
+* tentative fix to address bash problem #490 by @ruitianzhong in https://github.com/gojue/ecapture/pull/510
+* Fix cant found RET offset in gotls mode. fix #502. by @cfc4n in https://github.com/gojue/ecapture/pull/512
+
 
 **Full Changelog**: https://github.com/gojue/ecapture/compare/v0.7.5...v0.7.6
 <hr>
