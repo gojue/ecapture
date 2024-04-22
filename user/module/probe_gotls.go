@@ -12,10 +12,10 @@ import (
 	"sync"
 	"time"
 
-	"ecapture/assets"
-	"ecapture/pkg/proc"
-	"ecapture/user/config"
-	"ecapture/user/event"
+	"github.com/gojue/ecapture/assets"
+	"github.com/gojue/ecapture/pkg/proc"
+	"github.com/gojue/ecapture/user/config"
+	"github.com/gojue/ecapture/user/event"
 
 	"github.com/cilium/ebpf"
 	manager "github.com/gojue/ebpfmanager"

@@ -23,9 +23,9 @@ import (
 	"strings"
 	"syscall"
 
-	"ecapture/pkg/util/kernel"
-	"ecapture/user/config"
-	"ecapture/user/module"
+	"github.com/gojue/ecapture/pkg/util/kernel"
+	"github.com/gojue/ecapture/user/config"
+	"github.com/gojue/ecapture/user/module"
 
 	"github.com/spf13/cobra"
 )

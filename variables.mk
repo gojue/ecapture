@@ -53,7 +53,6 @@ endif
 
 ifeq ($(ANDROID),1)
 	TARGET_TAG := androidgki
-	IGNORE_LESS52 = -ignore '.*_less52\.o'
 endif
 
 EXTRA_CFLAGS ?= -O2 -mcpu=v1 \
@@ -157,6 +156,10 @@ ifeq ($(TARGET_ARCH),aarch64)
 	 BPFHEADER += -I ./kern/bpf/arm64
 	 # sh lib/libpcap/config.sub arm64-linux for ARCH value
 	 LIBPCAP_ARCH = aarch64-unknown-linux-gnu
+	 # Constant replacement is not supported in the current version because the bpf_probe_read_user function
+	 # which supports eBPF on the aarch architecture of the Linux Kernel, has been supported since version 5.5,
+	 # which is higher than the constant replacement feature of cilium/ebpf
+	 IGNORE_LESS52 = -ignore '.*_less52\.o'
 else
 	# x86_64 default
 	LINUX_ARCH = x86

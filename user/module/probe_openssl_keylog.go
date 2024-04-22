@@ -15,12 +15,12 @@
 package module
 
 import (
-	"ecapture/user/config"
-	"ecapture/user/event"
 	"errors"
 	"fmt"
 	"github.com/cilium/ebpf"
 	manager "github.com/gojue/ebpfmanager"
+	"github.com/gojue/ecapture/user/config"
+	"github.com/gojue/ecapture/user/event"
 	"golang.org/x/sys/unix"
 	"math"
 	"path"

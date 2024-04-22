@@ -15,8 +15,8 @@
 package event_processor
 
 import (
-	"ecapture/user/event"
 	"fmt"
+	"github.com/gojue/ecapture/user/event"
 	"log"
 	"sync"
 )

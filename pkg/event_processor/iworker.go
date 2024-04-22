@@ -16,8 +16,8 @@ package event_processor
 
 import (
 	"bytes"
-	"ecapture/user/event"
 	"encoding/hex"
+	"github.com/gojue/ecapture/user/event"
 	"sync/atomic"
 	"time"
 )

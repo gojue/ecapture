@@ -20,10 +20,10 @@ package module
 import (
 	"bytes"
 	"context"
-	"ecapture/assets"
-	"ecapture/user/config"
-	"ecapture/user/event"
 	"fmt"
+	"github.com/gojue/ecapture/assets"
+	"github.com/gojue/ecapture/user/config"
+	"github.com/gojue/ecapture/user/event"
 	"log"
 	"math"
 	"os"

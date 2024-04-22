@@ -16,8 +16,8 @@ package cmd
 
 import (
 	"context"
-	"ecapture/user/config"
-	"ecapture/user/module"
+	"github.com/gojue/ecapture/user/config"
+	"github.com/gojue/ecapture/user/module"
 	"github.com/spf13/cobra"
 	"log"
 	"os"

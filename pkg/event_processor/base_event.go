@@ -16,9 +16,9 @@ package event_processor
 
 import (
 	"bytes"
-	"ecapture/user/event"
 	"encoding/binary"
 	"fmt"
+	"github.com/gojue/ecapture/user/event"
 )
 
 type AttachType int64

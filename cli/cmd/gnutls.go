@@ -19,9 +19,9 @@ package cmd
 
 import (
 	"context"
-	"ecapture/pkg/util/kernel"
-	"ecapture/user/config"
-	"ecapture/user/module"
+	"github.com/gojue/ecapture/pkg/util/kernel"
+	"github.com/gojue/ecapture/user/config"
+	"github.com/gojue/ecapture/user/module"
 	"log"
 	"os"
 	"os/signal"
