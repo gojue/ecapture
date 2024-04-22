@@ -1,4 +1,4 @@
-module ecapture
+module github.com/gojue/ecapture
 
 go 1.21.5
 

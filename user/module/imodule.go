@@ -16,15 +16,15 @@ package module
 
 import (
 	"context"
-	"ecapture/pkg/event_processor"
-	"ecapture/pkg/util/kernel"
-	"ecapture/user/config"
-	"ecapture/user/event"
 	"errors"
 	"fmt"
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/perf"
 	"github.com/cilium/ebpf/ringbuf"
+	"github.com/gojue/ecapture/pkg/event_processor"
+	"github.com/gojue/ecapture/pkg/util/kernel"
+	"github.com/gojue/ecapture/user/config"
+	"github.com/gojue/ecapture/user/event"
 	"log"
 	"strings"
 )

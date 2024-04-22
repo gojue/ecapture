@@ -15,7 +15,7 @@
 package cmd
 
 import (
-	"ecapture/cli/cobrautl"
+	"github.com/gojue/ecapture/cli/cobrautl"
 	"os"
 
 	"github.com/spf13/cobra"

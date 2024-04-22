@@ -12,8 +12,8 @@ import (
 	"sync"
 	"time"
 
-	"ecapture/pkg/util/ethernet"
-	"ecapture/user/event"
+	"github.com/gojue/ecapture/pkg/util/ethernet"
+	"github.com/gojue/ecapture/user/event"
 
 	"github.com/cilium/ebpf"
 	manager "github.com/gojue/ebpfmanager"

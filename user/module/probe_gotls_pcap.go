@@ -20,8 +20,8 @@ import (
 	"math"
 	"net"
 
-	"ecapture/user/config"
-	"ecapture/user/event"
+	"github.com/gojue/ecapture/user/config"
+	"github.com/gojue/ecapture/user/event"
 
 	"github.com/cilium/ebpf"
 	manager "github.com/gojue/ebpfmanager"

@@ -16,8 +16,8 @@ package module
 
 import (
 	"debug/elf"
-	"ecapture/user/config"
 	"fmt"
+	"github.com/gojue/ecapture/user/config"
 	"os"
 	"regexp"
 	"strings"

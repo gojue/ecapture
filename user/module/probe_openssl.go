@@ -27,10 +27,10 @@ import (
 	"sync"
 	"time"
 
-	"ecapture/assets"
-	"ecapture/pkg/util/hkdf"
-	"ecapture/user/config"
-	"ecapture/user/event"
+	"github.com/gojue/ecapture/assets"
+	"github.com/gojue/ecapture/pkg/util/hkdf"
+	"github.com/gojue/ecapture/user/config"
+	"github.com/gojue/ecapture/user/event"
 
 	"github.com/cilium/ebpf"
 	manager "github.com/gojue/ebpfmanager"

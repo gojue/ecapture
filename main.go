@@ -1,9 +1,9 @@
 package main
 
 import (
-	"ecapture/cli"
-	"ecapture/pkg/util/ebpf"
-	"ecapture/pkg/util/kernel"
+	"github.com/gojue/ecapture/cli"
+	"github.com/gojue/ecapture/pkg/util/ebpf"
+	"github.com/gojue/ecapture/pkg/util/kernel"
 	_ "github.com/shuLhan/go-bindata" // add for bindata in Makefile
 	"log"
 	"runtime"
