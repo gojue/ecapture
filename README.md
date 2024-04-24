@@ -54,6 +54,15 @@ command `./ecapture --help`.
 * Linux kernel version >= 4.18 is required.
 * Enable BTF [BPF Type Format (BTF)](https://www.kernel.org/doc/html/latest/bpf/btf.html)  (Optional, 2022-04-17)
 
+## use docker image
+
+```shell
+# pull docker image
+docker pull TODO/ecapture:latest
+# run
+docker run --rm --privileged=true --net=host -v ${HOST_PATH}:${CONTAINER_PATH} ecapture ARGS
+```
+
 ## Command line options
 
 > **Note**

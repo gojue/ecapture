@@ -57,6 +57,15 @@ ELF zip ファイル[リリース](https://github.com/gojue/ecapture/releases)�
 * Linux kernel version >= 4.18 is required.
 * Enable BTF [BPF Type Format (BTF)](https://www.kernel.org/doc/html/latest/bpf/btf.html)  (Optional, 2022-04-17)
 
+## docker containerised run
+
+```shell
+## イメージをプルする
+docker pull TODO/ecapture:latest
+# 実行
+docker run --rm --privileged=true --net=host -v ${hostファイルパス}:${コンテナ内パス} ecapture ARGS
+```
+
 ## コマンドラインオプション
 
 > **注**

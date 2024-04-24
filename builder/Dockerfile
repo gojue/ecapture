@@ -11,10 +11,8 @@ RUN apt-get update &&\
 
 # Install golang
 ARG TARGETARCH
-RUN if [ "$TARGETARCH" = "arm64" ]; then \
-  wget -O go.tar.gz https://golang.google.cn/dl/go1.22.2.linux-arm64.tar.gz; \
-  elif [ "$TARGETARCH" = "amd64" ]; then \
-  wget -O go.tar.gz https://golang.google.cn/dl/go1.22.2.linux-amd64.tar.gz; \
+RUN if [ "$TARGETARCH" = "arm64" ] || [ "$TARGETARCH" = "amd64" ]; then\
+  wget -O go.tar.gz https://golang.google.cn/dl/go1.22.2.linux-${TARGETARCH}.tar.gz; \
   else \
   echo "unsupport arch" && /bin/false ; \
   fi && \
@@ -23,15 +21,12 @@ RUN if [ "$TARGETARCH" = "arm64" ]; then \
   rm go.tar.gz
 
 ENV PATH="/usr/local/go/bin:${PATH}"
-RUN go env -w GOPROXY=https://goproxy.cn,direct
 
 # Build ecapture
 COPY ./ /build/ecapture
 RUN cd /build/ecapture &&\
   make clean &&\
   make all -j $(nproc)
-RUN cd /build/ecapture/lib/libpcap/ &&\
-  make install
 
 # ecapture release image
 FROM alpine:latest as ecapture

@@ -75,12 +75,11 @@ eBPF `Uprobe`/`Traffic Control`实现的各种用户空间/内核空间的数据
 
 ## docker 容器化运行
 
-若在本地无法正常编译&运行，可尝试使用docker构建&运行。
 ```shell
-# 构建
-docker buildx build --tag ecapture --target ecapture .
+# 拉取镜像
+docker pull TODO/ecapture:latest
 # 运行
-docker run --rm --privileged=true -v $宿主机文件路径:$容器内路径 ecapture ARGS
+docker run --rm --privileged=true --net=host -v ${宿主机文件路径}:${容器内路径} ecapture ARGS
 ```
 
 ## 命令参数
