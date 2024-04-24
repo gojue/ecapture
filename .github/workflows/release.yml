@@ -6,80 +6,30 @@ on:
 
 jobs:
 
-  build:
-    runs-on: ubuntu-20.04
-    steps:
-    - uses: actions/checkout@v4
-      with:
-        submodules: 'recursive'
-        fetch-depth: 0
-    - name: Get the version
-      id: get_tags
-      run: echo "VERSION=${GITHUB_REF/refs\/tags\//}" >> $GITHUB_OUTPUT
-      shell: bash
-    - name: Set up Go
-      uses: actions/setup-go@v2
-      with:
-        go-version: '1.21.0'
-    - name: Install Compilers
-      run: |
-        sudo apt-get update
-        sudo apt-get install --yes build-essential pkgconf libelf-dev llvm-9 clang-9 linux-tools-common linux-tools-generic
-        for tool in "clang" "llc" "llvm-strip"
-        do
-          sudo rm -f /usr/bin/$tool
-          sudo ln -s /usr/bin/$tool-9 /usr/bin/$tool
-        done
-      shell: bash
-    - name: authenticate
-      run: |
-        gh auth login --with-token <<<'${{ secrets.GITHUB_TOKEN }}'
-    - name: Build Changelog
-      id: github_release
-      uses: mikepenz/release-changelog-builder-action@v1
-      with:
-        configuration: "configuration.json"
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    - name: Write File
-      uses: DamianReeves/write-file-action@v1.2
-      with:
-        path: ./bin/release_notes.txt
-        contents: |
-          ${{ steps.github_release.outputs.changelog }}
-        write-mode: append
-    - name: Release
-      run: |
-        make env
-        make -f builder/Makefile.release release SNAPSHOT_VERSION=${{ steps.get_tags.outputs.VERSION }}
-
-  build-on-ubuntu2204-arm64:
+  build-on-ubuntu2204:
     runs-on: ubuntu-22.04
-    name: build on ubuntu-22.04 arm64
-    # Run steps on a matrix of 3 arch/distro combinations
-    strategy:
-      matrix:
-        include:
-          - arch: aarch64
-            distro: ubuntu22.04
+    name: build on ubuntu-22.04 x86_64
     steps:
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.21.0'
+      - name: Install Compilers
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes build-essential pkgconf libelf-dev llvm-14 clang-14 linux-tools-common linux-tools-generic gcc gcc-aarch64-linux-gnu
+          for tool in "clang" "llc" "llvm-strip"
+          do
+            sudo rm -f /usr/bin/$tool
+            sudo ln -s /usr/bin/$tool-14 /usr/bin/$tool
+          done
+        shell: bash
       - uses: actions/checkout@v4
         with:
           submodules: 'recursive'
           fetch-depth: 0
-          set-safe-directory: '/source_code'
-      - name: Get the version
-        id: get_tags
-        run: echo "VERSION=${GITHUB_REF/refs\/tags\//}" >> $GITHUB_OUTPUT
-        shell: bash
       - name: authenticate
         run: |
           gh auth login --with-token <<<'${{ secrets.GITHUB_TOKEN }}'
-      - name: Branch Name
-        run: |
-          echo running on branch ${{ github.ref_name }}
-          echo checkout directory ${GITHUB_WORKSPACE}
-          echo PWD directory ${PWD}
       - name: Build Changelog
         id: github_release
         uses: mikepenz/release-changelog-builder-action@v1
@@ -94,77 +44,14 @@ jobs:
           contents: |
             ${{ steps.github_release.outputs.changelog }}
           write-mode: append
-      - uses: uraimo/run-on-arch-action@v2
-        name: Build artifact
-        id: build
-        with:
-          arch: ${{ matrix.arch }}
-          distro: ${{ matrix.distro }}
-
-          # Not required, but speeds up builds
-          githubToken: ${{ github.token }}
-
-          # Create an artifacts directory
-          setup: |
-            mkdir -p "${PWD}/artifacts"
-
-          # Mount the artifacts directory as /artifacts in the container
-          dockerRunArgs: |
-            --volume "${PWD}/artifacts:/artifacts"
-            --volume "${GITHUB_WORKSPACE}:/source_code"
-
-          # Pass some environment variables to the container
-          env: | # YAML, but pipe character is necessary
-            artifact_name: ecapture-${{ steps.get_tags.outputs.VERSION }}
-
-          # The shell to run commands with in the container
-          shell: /bin/sh
-
-          # Install some dependencies in the container. This speeds up builds if
-          # you are also using githubToken. Any dependencies installed here will
-          # be part of the container image that gets cached, so subsequent
-          # builds don't have to re-install them. The image layer is cached
-          # publicly in your project's package repository, so it is vital that
-          # no secrets are present in the container state or logs.
-          install: |
-            uname -a
-            apt-get update
-            apt-get install --yes wget git build-essential pkgconf libelf-dev llvm-12 clang-12  linux-tools-generic linux-tools-common flex bison file gcc-x86-64-linux-gnu
-            wget https://go.dev/dl/go1.21.0.linux-arm64.tar.gz
-            rm -rf /usr/local/go
-            tar -C /usr/local -xzf go1.21.0.linux-arm64.tar.gz
-          # Produce a binary artifact and place it in the mounted volume
-          run: |
-            uname -a
-            date
-            export PATH=/usr/local/go/bin:$PATH:/usr/local/bin
-            echo $PATH
-            for tool in "clang" "llc" "llvm-strip"
-            do
-            rm -f /usr/bin/$tool
-            ln -s /usr/bin/$tool-12 /usr/bin/$tool
-            done
-            clang --version
-            which bpftool
-            git config --global --add safe.directory /source_code
-            cd /source_code
-            echo "-------------------start: make release -------------------"
-            make env
-            make -f builder/Makefile.release release SNAPSHOT_VERSION=${{ steps.get_tags.outputs.VERSION }}
-            cp bin/* "/artifacts/"
-            echo "-------------------- end: make release -------------------"
-            echo "Produced artifact at /artifacts/${artifact_name}"
-
-      - name: Upload artifacts
-        # Items placed in /artifacts in the container will be in
-        # ${PWD}/artifacts on the host.
-        # gh command help: https://cli.github.com/manual/gh_release_download
+      - name: Release amd64
         run: |
-          ls -al "${PWD}/artifacts"
-          cd "${PWD}/artifacts"
-          gh release download ${{ steps.get_tags.outputs.VERSION }} -p "checksum-${{ steps.get_tags.outputs.VERSION }}.txt"
-          sha256sum ecapture*.tar.gz >> checksum-${{ steps.get_tags.outputs.VERSION }}.txt
-          sha256sum ecapture*.deb >> checksum-${{ steps.get_tags.outputs.VERSION }}.txt
-          files=($(ls ecapture-*.tar.gz ecapture*.deb checksum-${{ steps.get_tags.outputs.VERSION }}.txt))
-          echo "-------------------upload files: ${files[@]} -------------------"
-          gh release upload ${{ steps.get_tags.outputs.VERSION }} "${files[@]}" --clobber
+          make env
+          make -f builder/Makefile.release release SNAPSHOT_VERSION=${{ steps.get_tags.outputs.VERSION }}
+      - name: Release arm64 (CROSS COMPILATION)
+        run: |
+          make env
+          CROSS_ARCH=arm64 make -f builder/Makefile.release release SNAPSHOT_VERSION=${{ steps.get_tags.outputs.VERSION }}
+      - name: Publish
+        run: |
+          make -f builder/Makefile.release publish SNAPSHOT_VERSION=${{ steps.get_tags.outputs.VERSION }}

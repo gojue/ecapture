@@ -3,11 +3,11 @@ include functions.mk
 
 .PHONY: all | env nocore
 # include core and non-core ebpf bytecode
-all: ebpf ebpf_nocore assets build
+all: ebpf ebpf_noncore assets build
 	@echo $(shell date)
 
 # exclude core ebpf
-nocore: ebpf_nocore assets build
+nocore: ebpf_noncore assets_noncore build
 	@echo $(shell date)
 
 .ONESHELL:
@@ -129,8 +129,8 @@ autogen: .checkver_$(CMD_BPFTOOL)
 .PHONY: ebpf
 ebpf: autogen $(KERN_OBJECTS)
 
-.PHONY: ebpf_nocore
-ebpf_nocore: $(KERN_OBJECTS_NOCORE)
+.PHONY: ebpf_noncore
+ebpf_noncore: $(KERN_OBJECTS_NOCORE)
 
 .PHONY: $(KERN_OBJECTS_NOCORE)
 $(KERN_OBJECTS_NOCORE): %.nocore: %.c \
@@ -177,6 +177,13 @@ assets: \
 	.checkver_$(CMD_GO) \
 	ebpf
 	$(CMD_GO) run github.com/shuLhan/go-bindata/cmd/go-bindata $(IGNORE_LESS52) -pkg assets -o "assets/ebpf_probe.go" $(wildcard ./user/bytecode/*.o)
+
+.PHONY: assets_noncore
+assets_noncore: \
+	.checkver_$(CMD_GO) \
+	ebpf_noncore
+	$(CMD_GO) run github.com/shuLhan/go-bindata/cmd/go-bindata $(IGNORE_LESS52) -pkg assets -o "assets/ebpf_probe.go" $(wildcard ./user/bytecode/*.o)
+
 
 .PHONY: $(TARGET_LIBPCAP)
 $(TARGET_LIBPCAP):
