@@ -49,6 +49,29 @@ define gobuild
 	CGO_CFLAGS='-O2 -g -gdwarf-4 -I$(CURDIR)/lib/libpcap/' \
 	CGO_LDFLAGS='-O2 -g -L$(CURDIR)/lib/libpcap/ -lpcap -static' \
 	GOOS=linux GOARCH=$(GOARCH) CC=$(CMD_CC) \
-	$(CMD_GO) build -tags $(TARGET_TAG) -ldflags "-w -s -X 'ecapture/cli/cmd.GitVersion=$(TARGET_TAG)_$(GOARCH):$(VERSION):$(VERSION_FLAG)' -X 'main.enableCORE=$(ENABLECORE)' -linkmode=external -extldflags -static " -o $(OUT_BIN)
+	$(CMD_GO) build -tags $(TARGET_TAG) -ldflags "-w -s -X 'ecapture/cli/cmd.GitVersion=$(TARGET_TAG)_$(GOARCH):$(VERSION_NUM):$(VERSION_FLAG)' -X 'main.enableCORE=$(ENABLECORE)' -linkmode=external -extldflags -static " -o $(OUT_BIN)
 	$(CMD_FILE) $(OUT_BIN)
+endef
+
+
+define CHECK_IS_NON_CORE
+$(if $(filter $(1),$(2)),-nocore,)
+endef
+
+# build and tar
+define release_tar
+	$(call allow-override,CORE_PREFIX,$(call CHECK_IS_NON_CORE,$(2),nocore))
+	$(call allow-override,TAR_DIR,ecapture-$(DEB_VERSION)-$(1)-$(GOARCH)$(CORE_PREFIX))
+	$(call allow-override,OUT_ARCHIVE,$(OUTPUT_DIR)/$(TAR_DIR).tar.gz)
+	$(MAKE) clean
+	$(MAKE) $(2)
+	# create the tar ball and checksum files
+	$(CMD_MKDIR) -p $(TAR_DIR)
+	$(CMD_CP) LICENSE $(TAR_DIR)/LICENSE
+	$(CMD_CP) CHANGELOG.md $(TAR_DIR)/CHANGELOG.md
+	$(CMD_CP) README.md $(TAR_DIR)/README.md
+	$(CMD_CP) README_CN.md $(TAR_DIR)/README_CN.md
+	$(CMD_CP) $(OUTPUT_DIR)/ecapture $(TAR_DIR)/ecapture
+	$(CMD_TAR) -czf $(OUT_ARCHIVE) $(TAR_DIR)
+	$(CMD_CHECKSUM) $(OUT_ARCHIVE) | $(CMD_SED) 's/.\/bin\///g' >> $(OUT_CHECKSUMS)
 endef

@@ -21,8 +21,9 @@ env:
 	@echo "CROSS_ARCH               $(CROSS_ARCH)"
 	@echo "ANDROID                  $(ANDROID)"
 	@echo "DEBUG                    $(DEBUG)"
+	@echo "SNAPSHOT_VERSION         $(SNAPSHOT_VERSION)"
 	@echo ---------------------------------------
-	@echo "UNAME_M                  $(UNAME_M)"
+	@echo "HOST_ARCH                $(HOST_ARCH)"
 	@echo "UNAME_R                  $(UNAME_R)"
 	@echo "CLANG_VERSION            $(CLANG_VERSION)"
 	@echo "GO_VERSION               $(GO_VERSION)"
@@ -35,9 +36,12 @@ env:
 	@echo "CMD_MD5                  $(CMD_MD5)"
 	@echo "CMD_PKGCONFIG            $(CMD_PKGCONFIG)"
 	@echo "CMD_STRIP                $(CMD_STRIP)"
-	@echo "CMD_CC            		$(CMD_CC)"
+	@echo "CMD_CC                   $(CMD_CC)"
+	@echo "CMD_TAR                  $(CMD_TAR)"
+	@echo "CMD_RPMBUILD             $(CMD_RPMBUILD)"
+	@echo "CMD_RPM_SETUP_TREE       $(CMD_RPM_SETUP_TREE)"
 	@echo ---------------------------------------
-	@echo "VERSION                  $(VERSION)"
+	@echo "VERSION_NUM              $(VERSION_NUM)"
 	@echo "LAST_GIT_TAG             $(LAST_GIT_TAG)"
 	@echo "BPF_NOCORE_TAG           $(BPF_NOCORE_TAG)"
 	@echo "KERN_RELEASE             $(KERN_RELEASE)"
@@ -48,10 +52,8 @@ env:
 	@echo "LINUX_ARCH               $(LINUX_ARCH)"
 	@echo "LIBPCAP_ARCH             $(LIBPCAP_ARCH)"
 	@echo "AUTOGENCMD               $(AUTOGENCMD)"
-	@echo ---------------------------------------
-	@echo "rpmdev-setuptree         $(CMD_RPM_SETUP_TREE)"
-	@echo "tar                      $(CMD_TAR)"
-	@echo "rpmbuild                 $(CMD_RPMBUILD)"
+	@echo "PACKAGE_VERSION          $(PACKAGE_VERSION)"
+	@echo "OUT_DEB_FILE             $(OUT_DEB_FILE)"
 	@echo ---------------------------------------
 
 .PHONY:rpm

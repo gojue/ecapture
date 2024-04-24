@@ -23,6 +23,14 @@ CMD_BPFTOOL ?= bpftool
 CMD_TAR ?= tar
 CMD_RPM_SETUP_TREE ?= rpmdev-setuptree
 CMD_RPMBUILD ?= rpmbuild
+CMD_CHECKSUM ?= sha256sum
+CMD_GITHUB ?= gh
+CMD_MV ?= mv
+CMD_CP ?= cp
+CMD_CD ?= cd
+CMD_DPKG-DEB ?= dpkg-deb
+CMD_ECHO ?= echo
+
 KERNEL_LESS_5_2_PREFIX ?= _less52.o
 STYLE    ?= "{BasedOnStyle: Google, IndentWidth: 4}"
 IGNORE_LESS52 ?=
@@ -47,12 +55,14 @@ ifeq ($(DEBUG),1)
 	DEBUG_PRINT := -DDEBUG_PRINT
 endif
 
+TARGET_OS ?= linux
 ifndef ANDROID
 	ANDROID = 0
 endif
 
 ifeq ($(ANDROID),1)
 	TARGET_TAG := androidgki
+	TARGET_OS = android
 endif
 
 EXTRA_CFLAGS ?= -O2 -mcpu=v1 \
@@ -94,8 +104,8 @@ CLANG_VERSION = $(shell $(CMD_CLANG) --version 2>/dev/null | \
 
 PARALLEL = $(shell $(CMD_GREP) -c ^processor /proc/cpuinfo)
 GO_VERSION = $(shell $(CMD_GO) version 2>/dev/null | $(CMD_AWK) '{print $$3}' | $(CMD_SED) 's:go::g' | $(CMD_CUT) -d. -f1,2)
-GO_VERSION_MAJ = $(shell echo $(GO_VERSION) | $(CMD_CUT) -d'.' -f1)
-GO_VERSION_MIN = $(shell echo $(GO_VERSION) | $(CMD_CUT) -d'.' -f2)
+GO_VERSION_MAJ = $(shell $(CMD_ECHO) $(GO_VERSION) | $(CMD_CUT) -d'.' -f1)
+GO_VERSION_MIN = $(shell $(CMD_ECHO) $(GO_VERSION) | $(CMD_CUT) -d'.' -f2)
 
 # tags date info
 TAG_COMMIT := $(shell git rev-list --abbrev-commit --tags --max-count=1)
@@ -105,16 +115,27 @@ DATE := $(shell git log -1 --format=%cd --date=format:"%Y%m%d")
 LAST_GIT_TAG := $(TAG:v%=%)-$(DATE)-$(COMMIT)
 RPM_RELEASE := $(DATE).$(COMMIT)
 
-VERSION ?= $(if $(RELEASE_TAG),$(RELEASE_TAG),$(LAST_GIT_TAG))
+#VERSION_NUM ?= $(if $(SNAPSHOT_VERSION),$(SNAPSHOT_VERSION),$(LAST_GIT_TAG))
+DEB_VERSION ?=
+ifndef SNAPSHOT_VERSION
+	VERSION_NUM = $(LAST_GIT_TAG)
+	DEB_VERSION = v0.0.0
+else
+	VERSION_NUM = $(SNAPSHOT_VERSION)
+	DEB_VERSION = $(SNAPSHOT_VERSION)
+endif
 
 #
 # environment
 #
-UNAME_M := $(shell uname -m)
+#SNAPSHOT_VERSION ?= $(shell git rev-parse HEAD)
+BUILD_DATE := $(shell date +%Y-%m-%d)
+
+HOST_ARCH := $(shell uname -m)
 UNAME_R := $(shell uname -r)
 
 ifdef CROSS_ARCH
-	ifeq ($(UNAME_M),aarch64)
+	ifeq ($(HOST_ARCH),aarch64)
 		ifeq ($(CROSS_ARCH),amd64)
 		# cross compile
 			CMD_CC = x86_64-linux-gnu-gcc
@@ -122,9 +143,9 @@ ifdef CROSS_ARCH
 			TARGET_ARCH = x86_64
 		else
 		# not cross compile
-			TARGET_ARCH = $(UNAME_M)
+			TARGET_ARCH = $(HOST_ARCH)
 		endif
-	else ifeq ($(UNAME_M),x86_64)
+	else ifeq ($(HOST_ARCH),x86_64)
 		ifeq ($(CROSS_ARCH),arm64)
 		# cross compile
 			CMD_CC = aarch64-linux-gnu-gcc
@@ -132,13 +153,13 @@ ifdef CROSS_ARCH
 			TARGET_ARCH = aarch64
 		else
 		# not cross compile
-			TARGET_ARCH = $(UNAME_M)
+			TARGET_ARCH = $(HOST_ARCH)
 		endif
 	else
 		# not support
 	endif
 else
-	TARGET_ARCH = $(UNAME_M)
+	TARGET_ARCH = $(HOST_ARCH)
 endif
 
 # Determine whether the command sudo exists
@@ -178,7 +199,7 @@ KERN_RELEASE ?= $(UNAME_R)
 KERN_BUILD_PATH ?= $(if $(KERN_HEADERS),$(KERN_HEADERS),/lib/modules/$(KERN_RELEASE)/build)
 KERN_SRC_PATH ?= $(if $(KERN_HEADERS),$(KERN_HEADERS),$(if $(wildcard /lib/modules/$(KERN_RELEASE)/source),/lib/modules/$(KERN_RELEASE)/source,$(KERN_BUILD_PATH)))
 
-BPF_NOCORE_TAG = $(subst .,_,$(KERN_RELEASE)).$(subst .,_,$(VERSION))
+BPF_NOCORE_TAG = $(subst .,_,$(KERN_RELEASE)).$(subst .,_,$(VERSION_NUM))
 
 #
 # BPF Source file
@@ -215,3 +236,38 @@ OUT_BIN = bin/ecapture
 
 ECAPTURE_NAME = $(shell $(CMD_GREP) "Name:" builder/rpmBuild.spec | $(CMD_AWK) '{print $$2}')
 RPM_SOURCE0 = $(ECAPTURE_NAME)-$(TAG).tar.gz
+
+
+#
+# output dir
+#
+
+OUTPUT_DIR = ./bin
+#TAR_DIR = ecapture-$(DEB_VERSION)-linux-$(GOARCH)
+#TAR_DIR_NOCORE = ecapture-$(DEB_VERSION)-linux-$(GOARCH)-nocore
+#TAR_DIR_ANDROID = ecapture-$(DEB_VERSION)-android-$(GOARCH)
+#TAR_DIR_ANDROID_NOCORE = ecapture-$(DEB_VERSION)-android-$(GOARCH)-nocore
+
+# from CLI args.
+RELEASE_NOTES ?= $(OUTPUT_DIR)/release_notes.txt
+
+# DEB 软件包的名称和版本
+PACKAGE_NAME = ecapture
+PACKAGE_DESC = eCapture(旁观者): Capture SSL/TLS text content without a CA certificate using eBPF. This tool is compatible with Linux/Android x86_64/Aarch64.
+PACKAGE_HOMEPAGE = https://ecapture.cc
+PACKAGE_MAINTAINER = CFC4N <cfc4n.cs@gmail.com>
+PACKAGE_VERSION ?= $(shell $(CMD_ECHO) $(DEB_VERSION) | $(CMD_SED) 's/v//g' )
+OUT_DEB_FILE = $(OUTPUT_DIR)/$(PACKAGE_NAME)_$(DEB_VERSION)_linux_$(GOARCH).deb
+
+# 构建目录
+BUILD_DIR = build
+
+#
+# Create a release snapshot
+#
+
+#OUT_ARCHIVE := $(OUTPUT_DIR)/$(TAR_DIR).tar.gz
+#OUT_ARCHIVE_NOCORE := $(OUTPUT_DIR)/$(TAR_DIR_NOCORE).tar.gz
+#OUT_ARCHIVE_ANDROID := $(OUTPUT_DIR)/$(TAR_DIR_ANDROID).tar.gz
+#OUT_ARCHIVE_ANDROID_NOCORE := $(OUTPUT_DIR)/$(TAR_DIR_ANDROID_NOCORE).tar.gz
+OUT_CHECKSUMS := $(OUTPUT_DIR)/checksum-$(DEB_VERSION).txt
