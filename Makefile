@@ -7,7 +7,7 @@ all: ebpf ebpf_noncore assets build
 	@echo $(shell date)
 
 # exclude core ebpf
-nocore: ebpf_noncore assets_noncore build
+nocore: ebpf_noncore assets_noncore build_noncore
 	@echo $(shell date)
 
 .ONESHELL:
@@ -175,7 +175,8 @@ $(KERN_OBJECTS_NOCORE): %.nocore: %.c \
 .PHONY: assets
 assets: \
 	.checkver_$(CMD_GO) \
-	ebpf
+	ebpf \
+	ebpf_noncore
 	$(CMD_GO) run github.com/shuLhan/go-bindata/cmd/go-bindata $(IGNORE_LESS52) -pkg assets -o "assets/ebpf_probe.go" $(wildcard ./user/bytecode/*.o)
 
 .PHONY: assets_noncore
@@ -200,8 +201,18 @@ $(TARGET_LIBPCAP):
 build: \
 	.checkver_$(CMD_GO) \
 	$(TARGET_LIBPCAP) \
-	assets
+	assets \
+	assets_noncore
 	$(call allow-override,VERSION_FLAG,$(UNAME_R))
+	$(call gobuild, $(ANDROID))
+
+
+.PHONY: build_noncore
+build_noncore: \
+	.checkver_$(CMD_GO) \
+	$(TARGET_LIBPCAP) \
+	assets_noncore
+	$(call allow-override,VERSION_FLAG,$(HOST_ARCH))
 	$(call gobuild, $(ANDROID))
 
 # Format the code
