@@ -270,7 +270,7 @@ func (g *GoTLSProbe) Dispatcher(eventStruct event.IEventStruct) {
 	case *event.TcSkbEvent:
 		err := g.dumpTcSkb(eventStruct.(*event.TcSkbEvent))
 		if err != nil {
-			g.logger.Printf("%s\t save packet error %s .\n", g.Name(), err.Error())
+			g.logger.Printf("%s\tsave packet error %s .\n", g.Name(), err.Error())
 		}
 	}
 }

@@ -618,7 +618,7 @@ func (m *MOpenSSLProbe) Dispatcher(eventStruct event.IEventStruct) {
 	case *event.TcSkbEvent:
 		err := m.dumpTcSkb(eventStruct.(*event.TcSkbEvent))
 		if err != nil {
-			m.logger.Printf("%s\t save packet error %s .\n", m.Name(), err.Error())
+			m.logger.Printf("%s\tsave packet error %s .\n", m.Name(), err.Error())
 		}
 	case *event.SSLDataEvent:
 		m.dumpSslData(eventStruct.(*event.SSLDataEvent))

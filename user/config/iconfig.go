@@ -24,10 +24,12 @@ type IConfig interface {
 	GetPid() uint64
 	GetUid() uint64
 	GetHex() bool
+	GetBTF() uint8
 	GetDebug() bool
 	SetPid(uint64)
 	SetUid(uint64)
 	SetHex(bool)
+	SetBTF(uint8)
 	SetDebug(bool)
 	GetPerCpuMapSize() int
 	SetPerCpuMapSize(int)
@@ -42,12 +44,19 @@ const (
 	TlsCaptureModelKeylog = "keylog"
 )
 
+const (
+	BTFModeAutoDetect = 0
+	BTFModeCore       = 1
+	BTFModeNonCore    = 2
+)
+
 type eConfig struct {
 	Pid           uint64
 	Uid           uint64
 	PerCpuMapSize int // ebpf map size for per Cpu.   see https://github.com/gojue/ecapture/issues/433 .
 	IsHex         bool
 	Debug         bool
+	BtfMode       uint8
 }
 
 func (c *eConfig) GetPid() uint64 {
@@ -80,6 +89,14 @@ func (c *eConfig) SetDebug(b bool) {
 
 func (c *eConfig) SetHex(isHex bool) {
 	c.IsHex = isHex
+}
+
+func (c *eConfig) SetBTF(BtfMode uint8) {
+	c.BtfMode = BtfMode
+}
+
+func (c *eConfig) GetBTF() uint8 {
+	return c.BtfMode
 }
 
 func (c *eConfig) GetPerCpuMapSize() int {

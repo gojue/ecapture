@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/ebpf/perf"
 	"github.com/cilium/ebpf/ringbuf"
 	"github.com/gojue/ecapture/pkg/event_processor"
+	ebpfenv "github.com/gojue/ecapture/pkg/util/ebpf"
 	"github.com/gojue/ecapture/pkg/util/kernel"
 	"github.com/gojue/ecapture/user/config"
 	"github.com/gojue/ecapture/user/event"
@@ -59,7 +60,11 @@ type IModule interface {
 	Dispatcher(event.IEventStruct)
 }
 
-const KernelLess52Prefix = "_less52.o"
+const (
+	KernelLess52Prefix = "_less52.o"
+	BtfNotSupport      = "You can compile the BTF-free version by using the command `make nocore`, please read the Makefile for more information."
+	BtfModeSwitch      = "如果eCapture运行失败，请尝试指定BTF模式."
+)
 
 type Module struct {
 	opts   *ebpf.CollectionOptions
@@ -76,27 +81,76 @@ type Module struct {
 	conf config.IConfig
 
 	processor       *event_processor.EventProcessor
-	isKernelLess5_2 bool //is  kernel version less 5.2
+	isKernelLess5_2 bool // is  kernel version less 5.2
+	isCoreUsed      bool // is core mode used
 }
 
 // Init 对象初始化
 func (m *Module) Init(ctx context.Context, logger *log.Logger, conf config.IConfig) {
 	m.ctx = ctx
 	m.logger = logger
-	m.processor = event_processor.NewEventProcessor(logger, conf.GetHex())
 	m.isKernelLess5_2 = false //set false default
-	kv, _ := kernel.HostVersion()
-	// it's safe to ignore err because we have checked it in main funcition
-	if kv < kernel.VersionCode(5, 2, 0) {
-		m.isKernelLess5_2 = true
+	m.processor = event_processor.NewEventProcessor(logger, conf.GetHex())
+	kv, err := kernel.HostVersion()
+	if err != nil {
+		m.logger.Printf("%s\tUnable to detect kernel version due to an error:%v.used non-Less5_2 bytecode.\n", m.child.Name(), err)
+	} else {
+		// it's safe to ignore err because we have checked it in main funcition
+		if kv < kernel.VersionCode(5, 2, 0) {
+			m.isKernelLess5_2 = true
+		}
+	}
+
+	if conf.GetBTF() == config.BTFModeAutoDetect {
+		// 如果是自动检测模式
+		m.autoDetectBTF()
+	} else {
+		// 如果是手动指定模式
+		if conf.GetBTF() == config.BTFModeCore {
+			m.isCoreUsed = true
+		} else {
+			m.isCoreUsed = false
+		}
+	}
+	if m.isCoreUsed {
+		m.logger.Printf("%s\tBTF bytecode mode: CORE.\n", m.Name())
+	} else {
+		m.logger.Printf("%s\tBTF bytecode mode: non-CORE.\n", m.Name())
 	}
 }
 
-func (m *Module) geteBPFName(filename string) string {
-	if m.isKernelLess5_2 {
-		return strings.Replace(filename, ".o", KernelLess52Prefix, 1)
+func (m *Module) autoDetectBTF() {
+	// 检测是否是容器
+	isContainer, err := ebpfenv.IsContainer()
+	if err == nil {
+		if isContainer {
+			m.logger.Printf("%s\tYour environment is like a container. We won't be able to detect the BTF configuration.\n"+BtfModeSwitch, m.Name())
+		}
+		enable, e := ebpfenv.IsEnableBTF()
+		if e != nil {
+			m.logger.Fatalf("%s\tUnable to find BTF configuration due to an error:%v.\n"+BtfNotSupport, m.Name(), e)
+		}
+		if enable {
+			m.isCoreUsed = true
+		}
+	} else {
+		m.logger.Printf("%s\tFailed to detect container environment, error:%v,This may cause eCapture not to work.\n"+BtfNotSupport, m.Name(), err)
 	}
-	return filename
+}
+func (m *Module) geteBPFName(filename string) string {
+	var newFilename = filename
+	// CO-RE detect first
+	if m.isCoreUsed {
+		newFilename = strings.Replace(newFilename, ".o", "_core.o", 1)
+	} else {
+		newFilename = strings.Replace(newFilename, ".o", "_noncore.o", 1)
+	}
+	//
+	if m.isKernelLess5_2 {
+		newFilename = strings.Replace(filename, ".o", KernelLess52Prefix, 1)
+	}
+
+	return newFilename
 }
 
 func (m *Module) SetChild(module IModule) {
@@ -153,7 +207,7 @@ func (m *Module) run() {
 		case _ = <-m.ctx.Done():
 			err := m.child.Stop()
 			if err != nil {
-				m.logger.Fatalf("%s\t stop Module error:%v.", m.child.Name(), err)
+				m.logger.Fatalf("%s\tstop Module error:%v.", m.child.Name(), err)
 			}
 			return
 		}

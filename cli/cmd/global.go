@@ -32,6 +32,7 @@ const (
 // and are inherited to all sub-commands.
 type GlobalFlags struct {
 	IsHex      bool
+	BtfMode    uint8 // BTFModeAutoDetect = 0, BTFModeEnable = 1, BTFModeDisable = 2
 	Debug      bool
 	Pid        uint64 // PID
 	Uid        uint64 // UID
@@ -59,6 +60,11 @@ func getGlobalConf(command *cobra.Command) (conf GlobalFlags, err error) {
 	}
 
 	conf.IsHex, err = command.Flags().GetBool("hex")
+	if err != nil {
+		return
+	}
+
+	conf.BtfMode, err = command.Flags().GetUint8("btf")
 	if err != nil {
 		return
 	}

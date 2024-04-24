@@ -2,10 +2,12 @@ include variables.mk
 include functions.mk
 
 .PHONY: all | env nocore
-all: ebpf assets build
+# include core and non-core ebpf bytecode
+all: ebpf ebpf_nocore assets build
 	@echo $(shell date)
 
-nocore: ebpf_nocore assets_nocore build_nocore
+# exclude core ebpf
+nocore: ebpf_nocore assets build
 	@echo $(shell date)
 
 .ONESHELL:
@@ -109,14 +111,14 @@ $(KERN_OBJECTS): %.o: %.c \
 	$(CMD_CLANG) -D__TARGET_ARCH_$(LINUX_ARCH) \
 		$(EXTRA_CFLAGS) \
 		$(BPFHEADER) \
-		-target bpfel -c $< -o $(subst kern/,user/bytecode/,$@) \
+		-target bpfel -c $< -o $(subst kern/,user/bytecode/,$(subst .o,_core.o,$@)) \
 		-fno-ident -fdebug-compilation-dir . -g -D__BPF_TARGET_MISSING="GCC error \"The eBPF is using target specific macros, please provide -target\"" \
 		-MD -MP
 	$(CMD_CLANG) -D__TARGET_ARCH_$(LINUX_ARCH) \
 		$(EXTRA_CFLAGS) \
 		$(BPFHEADER) \
 		-DKERNEL_LESS_5_2 \
-		-target bpfel -c $< -o $(subst kern/,user/bytecode/,$(subst .c,$(KERNEL_LESS_5_2_PREFIX),$<)) \
+		-target bpfel -c $< -o $(subst kern/,user/bytecode/,$(subst .c,_core$(KERNEL_LESS_5_2_PREFIX),$<)) \
 		-fno-ident -fdebug-compilation-dir . -g -D__BPF_TARGET_MISSING="GCC error \"The eBPF is using target specific macros, please provide -target\"" \
 		-MD -MP
 
@@ -150,7 +152,7 @@ $(KERN_OBJECTS_NOCORE): %.nocore: %.c \
     		-o - |$(CMD_LLC) \
     		-march=bpf \
     		-filetype=obj \
-    		-o $(subst kern/,user/bytecode/,$(subst .c,.o,$<))
+    		-o $(subst kern/,user/bytecode/,$(subst .c,_noncore.o,$<))
 	$(CMD_CLANG) \
 			$(EXTRA_CFLAGS_NOCORE) \
 			$(BPFHEADER) \
@@ -168,18 +170,12 @@ $(KERN_OBJECTS_NOCORE): %.nocore: %.c \
 			-o - |$(CMD_LLC) \
 			-march=bpf \
 			-filetype=obj \
-			-o $(subst kern/,user/bytecode/,$(subst .c,$(KERNEL_LESS_5_2_PREFIX),$<))
+			-o $(subst kern/,user/bytecode/,$(subst .c,_noncore$(KERNEL_LESS_5_2_PREFIX),$<))
 
 .PHONY: assets
 assets: \
 	.checkver_$(CMD_GO) \
 	ebpf
-	$(CMD_GO) run github.com/shuLhan/go-bindata/cmd/go-bindata $(IGNORE_LESS52) -pkg assets -o "assets/ebpf_probe.go" $(wildcard ./user/bytecode/*.o)
-
-.PHONY: assets_nocore
-assets_nocore: \
-	.checkver_$(CMD_GO) \
-	ebpf_nocore
 	$(CMD_GO) run github.com/shuLhan/go-bindata/cmd/go-bindata $(IGNORE_LESS52) -pkg assets -o "assets/ebpf_probe.go" $(wildcard ./user/bytecode/*.o)
 
 .PHONY: $(TARGET_LIBPCAP)
@@ -198,16 +194,7 @@ build: \
 	.checkver_$(CMD_GO) \
 	$(TARGET_LIBPCAP) \
 	assets
-	$(call gobuild, $(ANDROID))
-
-# FOR NON-CORE
-.PHONY: build_nocore
-build_nocore: \
-	.checkver_$(CMD_GO) \
-	$(TARGET_LIBPCAP) \
-	assets_nocore
 	$(call allow-override,VERSION_FLAG,$(UNAME_R))
-	$(call allow-override,ENABLECORE,false)
 	$(call gobuild, $(ANDROID))
 
 # Format the code

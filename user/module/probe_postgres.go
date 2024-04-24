@@ -64,7 +64,7 @@ func (p *MPostgresProbe) start() error {
 	// fetch ebpf assets
 	var bpfFileName = p.geteBPFName("user/bytecode/postgres_kern.o")
 	p.logger.Printf("%s\tBPF bytecode filename:%s\n", p.Name(), bpfFileName)
-	byteBuf, err := assets.Asset("user/bytecode/postgres_kern.o")
+	byteBuf, err := assets.Asset(bpfFileName)
 	if err != nil {
 		return fmt.Errorf("couldn't find asset")
 	}
