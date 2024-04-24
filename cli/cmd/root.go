@@ -91,6 +91,7 @@ func init() {
 	// when this action is called directly.
 	//rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	rootCmd.PersistentFlags().BoolVarP(&globalFlags.Debug, "debug", "d", false, "enable debug logging.(coming soon)")
+	rootCmd.PersistentFlags().Uint8VarP(&globalFlags.BtfMode, "btf", "b", 0, "enable BTF mode.(0:auto; 1:core; 2:non-core))")
 	rootCmd.PersistentFlags().BoolVar(&globalFlags.IsHex, "hex", false, "print byte strings as hex encoded strings")
 	rootCmd.PersistentFlags().IntVar(&globalFlags.mapSizeKB, "mapsize", 1024, "eBPF map size per CPU,for events buffer. default:1024 * PAGESIZE. (KB)")
 	rootCmd.PersistentFlags().Uint64VarP(&globalFlags.Pid, "pid", "p", defaultPid, "if pid is 0 then we target all pids")

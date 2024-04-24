@@ -66,6 +66,7 @@ func postgresCommandFunc(command *cobra.Command, args []string) {
 	postgresConfig.Pid = gConf.Pid
 	postgresConfig.Debug = gConf.Debug
 	postgresConfig.IsHex = gConf.IsHex
+	postgresConfig.SetBTF(gConf.BtfMode)
 	postgresConfig.SetPerCpuMapSize(gConf.mapSizeKB)
 	log.Printf("ECAPTURE :: pid info: %d", os.Getpid())
 	//bc.Pid = globalFlags.Pid
