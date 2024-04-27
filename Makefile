@@ -97,6 +97,7 @@ help:
 .PHONY: prepare
 prepare:
 	#create linux header files to build CROSS COMPILING dependencies
+	test -f $(LINUX_SOURCE_TAR) || $(SUDO) apt install -y linux-source-$(HOST_VERSION_SHORT)
 	test -f $(LINUX_SOURCE_PATH)/Makefile || tar -xvf $(LINUX_SOURCE_TAR)
 	$(KERNEL_HEADER_GEN)
 
