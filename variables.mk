@@ -108,7 +108,7 @@ HOST_VERSION_SHORT := $(shell uname -r | cut -d'-' -f 1)
 
 # linux-source-5.15.0.tar.bz2
 LINUX_SOURCE_PATH ?= /usr/src/linux-source-$(HOST_VERSION_SHORT)/linux-source-$(HOST_VERSION_SHORT)
-LINUX_SOURCE_TAR ?= $(LINUX_SOURCE_PATH).tar.bz2
+LINUX_SOURCE_TAR ?= /usr/src/linux-source-$(HOST_VERSION_SHORT).tar.bz2
 
 ifdef CROSS_ARCH
 	ifeq ($(HOST_ARCH),aarch64)

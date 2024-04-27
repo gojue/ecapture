@@ -17,7 +17,7 @@ jobs:
       - name: Install Compilers
         run: |
           sudo apt-get update
-          sudo apt-get install --yes build-essential pkgconf libelf-dev llvm-9 clang-9 linux-tools-common linux-tools-generic gcc
+          sudo apt-get install --yes build-essential pkgconf libelf-dev llvm-9 clang-9 linux-tools-common linux-tools-generic gcc linux-source
           for tool in "clang" "llc" "llvm-strip"
           do
             sudo rm -f /usr/bin/$tool
