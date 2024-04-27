@@ -8,7 +8,9 @@ CMD_FILE ?= file
 CMD_GIT ?= git
 CMD_CLANG ?= clang
 CMD_CC ?= gcc
+CMD_CC_PREFIX ?=
 CMD_AR ?= ar
+CMD_AR_PREFIX ?=
 CMD_STRIP ?= llvm-strip
 CMD_RM ?= rm
 CMD_INSTALL ?= install
@@ -45,7 +47,7 @@ TARGET_ARCH = x86_64
 CGO_ENABLED = 1
 TARGET_LIBPCAP = ./lib/libpcap.a
 TARGET_TAG ?= linux
-
+KERNEL_HEADER_GEN ?=
 
 ifndef DEBUG
 	DEBUG = 0
@@ -64,37 +66,6 @@ ifeq ($(ANDROID),1)
 	TARGET_TAG := androidgki
 	TARGET_OS = android
 endif
-
-EXTRA_CFLAGS ?= -O2 -mcpu=v1 \
-	$(DEBUG_PRINT)	\
-	-nostdinc \
-	-Wno-pointer-sign
-
-EXTRA_CFLAGS_NOCORE ?= -emit-llvm -O2 -S\
-	-D__TARGET_ARCH_$(LINUX_ARCH) \
-	-xc -g \
-	-D__BPF_TRACING__ \
-	-D__KERNEL__ \
-	-DNOCORE \
-	-DKBUILD_MODNAME=\"eCapture\" \
-	-target $(TARGET_ARCH) \
-	$(DEBUG_PRINT) \
-	-Wall \
-	-Wno-unused-variable \
-	-Wnounused-but-set-variable \
-	-Wno-frame-address \
-	-Wno-unused-value \
-	-Wno-unknown-warning-option \
-	-Wno-pragma-once-outside-header \
-	-Wno-pointer-sign \
-	-Wno-gnu-variable-sized-type-not-at-end \
-	-Wno-deprecated-declarations \
-	-Wno-compare-distinct-pointer-types \
-	-Wno-address-of-packed-member \
-	-fno-stack-protector \
-	-fno-jump-tables \
-	-fno-unwind-tables \
-	-fno-asynchronous-unwind-tables
 
 #
 # tools version
@@ -133,14 +104,19 @@ BUILD_DATE := $(shell date +%Y-%m-%d)
 
 HOST_ARCH := $(shell uname -m)
 UNAME_R := $(shell uname -r)
+HOST_VERSION_SHORT := $(shell uname -r | cut -d'-' -f 1)
+
+# linux-source-5.15.0.tar.bz2
+LINUX_SOURCE_PATH ?= /usr/src/linux-source-$(HOST_VERSION_SHORT)/linux-source-$(HOST_VERSION_SHORT)
+LINUX_SOURCE_TAR ?= $(LINUX_SOURCE_PATH).tar.bz2
 
 ifdef CROSS_ARCH
 	ifeq ($(HOST_ARCH),aarch64)
 		ifeq ($(CROSS_ARCH),amd64)
 		# cross compile
-			CMD_CC = x86_64-linux-gnu-gcc
-			CMD_AR = x86_64-linux-gnu-ar
-			TARGET_ARCH = x86_64
+			CMD_CC_PREFIX = x86_64-linux-gnu-
+			CMD_AR_PREFIX = x86_64-linux-gnu-
+			TARGET_ARCH = x86_64-unknown-linux-gnu
 		else
 		# not cross compile
 			TARGET_ARCH = $(HOST_ARCH)
@@ -148,9 +124,9 @@ ifdef CROSS_ARCH
 	else ifeq ($(HOST_ARCH),x86_64)
 		ifeq ($(CROSS_ARCH),arm64)
 		# cross compile
-			CMD_CC = aarch64-linux-gnu-gcc
-			CMD_AR = aarch64-linux-gnu-ar
-			TARGET_ARCH = aarch64
+			CMD_CC_PREFIX = aarch64-linux-gnu-
+			CMD_AR_PREFIX = aarch64-linux-gnu-
+			TARGET_ARCH = aarch64-unknown-linux-gnu
 		else
 		# not cross compile
 			TARGET_ARCH = $(HOST_ARCH)
@@ -194,7 +170,10 @@ endif
 #
 # include vpath
 #
-
+ifdef CROSS_ARCH
+	KERNEL_HEADER_GEN = cd $(LINUX_SOURCE_PATH) && yes "" | $(SUDO) make ARCH=$(LINUX_ARCH) CROSS_COMPILE=$(CMD_CC_PREFIX) prepare V=0
+	KERN_HEADERS = $(LINUX_SOURCE_PATH)
+endif
 KERN_RELEASE ?= $(UNAME_R)
 KERN_BUILD_PATH ?= $(if $(KERN_HEADERS),$(KERN_HEADERS),/lib/modules/$(KERN_RELEASE)/build)
 KERN_SRC_PATH ?= $(if $(KERN_HEADERS),$(KERN_HEADERS),$(if $(wildcard /lib/modules/$(KERN_RELEASE)/source),/lib/modules/$(KERN_RELEASE)/source,$(KERN_BUILD_PATH)))
@@ -230,6 +209,39 @@ KERN_SOURCES = ${TARGETS:=_kern.c}
 KERN_OBJECTS = ${KERN_SOURCES:.c=.o}
 KERN_OBJECTS_NOCORE = ${KERN_SOURCES:.c=.nocore}
 
+
+EXTRA_CFLAGS ?= -O2 -mcpu=v1 \
+	$(DEBUG_PRINT)	\
+	-nostdinc \
+	-Wno-pointer-sign
+
+EXTRA_CFLAGS_NOCORE ?= -emit-llvm -O2 -S\
+	-D__TARGET_ARCH_$(LINUX_ARCH) \
+	-xc -g -isystem \
+	-D__BPF_TRACING__ \
+	-D__KERNEL__ \
+	-DNOCORE \
+	-nostdinc \
+	-DKBUILD_MODNAME=\"eCapture\" \
+	-target $(TARGET_ARCH) \
+	$(DEBUG_PRINT) \
+	-Wall \
+	-Wno-unused-variable \
+	-Wnounused-but-set-variable \
+	-Wno-frame-address \
+	-Wno-unused-value \
+	-Wno-unknown-warning-option \
+	-Wno-pragma-once-outside-header \
+	-Wno-pointer-sign \
+	-Wno-gnu-variable-sized-type-not-at-end \
+	-Wno-deprecated-declarations \
+	-Wno-compare-distinct-pointer-types \
+	-Wno-address-of-packed-member \
+	-fno-stack-protector \
+	-fno-jump-tables \
+	-fno-unwind-tables \
+	-fno-asynchronous-unwind-tables
+
 VERSION_FLAG = [CORE]
 ENABLECORE = true
 OUT_BIN = bin/ecapture
@@ -249,7 +261,7 @@ OUTPUT_DIR = ./bin
 #TAR_DIR_ANDROID_NOCORE = ecapture-$(DEB_VERSION)-android-$(GOARCH)-nocore
 
 # from CLI args.
-RELEASE_NOTES ?= $(OUTPUT_DIR)/release_notes.txt
+RELEASE_NOTES ?= release_notes.txt
 
 # DEB 软件包的名称和版本
 PACKAGE_NAME = ecapture
@@ -270,4 +282,4 @@ BUILD_DIR = build
 #OUT_ARCHIVE_NOCORE := $(OUTPUT_DIR)/$(TAR_DIR_NOCORE).tar.gz
 #OUT_ARCHIVE_ANDROID := $(OUTPUT_DIR)/$(TAR_DIR_ANDROID).tar.gz
 #OUT_ARCHIVE_ANDROID_NOCORE := $(OUTPUT_DIR)/$(TAR_DIR_ANDROID_NOCORE).tar.gz
-OUT_CHECKSUMS := $(OUTPUT_DIR)/checksum-$(DEB_VERSION).txt
+OUT_CHECKSUMS := checksum-$(DEB_VERSION).txt

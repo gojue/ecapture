@@ -16,7 +16,7 @@ jobs:
       - name: Install Compilers
         run: |
           sudo apt-get update
-          sudo apt-get install --yes build-essential pkgconf libelf-dev llvm-14 clang-14 linux-tools-common linux-tools-generic gcc gcc-aarch64-linux-gnu
+          sudo apt-get install --yes build-essential pkgconf libelf-dev llvm-14 clang-14 linux-tools-common linux-tools-generic gcc gcc-aarch64-linux-gnu linux-source
           for tool in "clang" "llc" "llvm-strip"
           do
             sudo rm -f /usr/bin/$tool
@@ -46,10 +46,12 @@ jobs:
           write-mode: append
       - name: Release amd64
         run: |
+          make clean
           make env
           make -f builder/Makefile.release release SNAPSHOT_VERSION=${{ steps.get_tags.outputs.VERSION }}
       - name: Release arm64 (CROSS COMPILATION)
         run: |
+          make clean
           make env
           CROSS_ARCH=arm64 make -f builder/Makefile.release release SNAPSHOT_VERSION=${{ steps.get_tags.outputs.VERSION }}
       - name: Publish

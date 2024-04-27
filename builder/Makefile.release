@@ -112,24 +112,14 @@ snapshot_android: \
 .PHONY: publish
 publish: \
 	$(OUTPUT_DIR) \
-	$(OUT_CHECKSUMS) \
 	$(OUT_ARCHIVE) \
 	$(OUT_DEB_FILE) \
 	| .check_tree \
 	.check_$(CMD_GITHUB)
-
 	@$(CMD_CD) $(OUTPUT_DIR)
-	FILES=$$(ls ecapture-*.tar.gz ecapture*.deb checksum-*.txt)
-	# 判断 GitHub release 是否存在
-    ifneq ($(shell $(CMD_GITHUB) release list | $(CMD_GREP) -q $(DEB_VERSION) && $(CMD_ECHO) "exists"), exists)
-		# release 不存在
-		@$(CMD_ECHO) "Creating release $(DEB_VERSION)"
-		$(CMD_GITHUB) release create $(DEB_VERSION) $$FILES --title "eCapture $(DEB_VERSION)"  --notes-file $(RELEASE_NOTES)
-    else
-		# release 存在
-		@$(CMD_ECHO) "Updating release $(DEB_VERSION)"
-		$(CMD_GITHUB) release upload --replace $(DEB_VERSION) $$FILES
-    endif
+	@$(CMD_CHECKSUM) ecapture*v* | $(CMD_SED) 's/.\/bin\///g' > $(OUT_CHECKSUMS)
+	@FILES=$$(ls ecapture-*.tar.gz ecapture*.deb checksum-*.txt)
+	@$(CMD_GITHUB) release create $(DEB_VERSION) $$FILES --title "eCapture $(DEB_VERSION)"  --notes-file $(RELEASE_NOTES)
 
 .PHONY: clean
 clean:
@@ -157,4 +147,3 @@ build_deb:
 	$(CMD_ECHO) "Homepage: $(PACKAGE_HOMEPAGE)" >> $(BUILD_DIR)/DEBIAN/control
     # 构建DEB包
 	$(CMD_DPKG-DEB) --build $(BUILD_DIR) $(OUT_DEB_FILE)
-	$(CMD_CHECKSUM) $(OUT_DEB_FILE) | $(CMD_SED) 's/.\/bin\///g' >> $(OUT_CHECKSUMS)
