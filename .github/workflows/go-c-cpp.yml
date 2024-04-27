@@ -17,7 +17,8 @@ jobs:
       - name: Install Compilers
         run: |
           sudo apt-get update
-          sudo apt-get install --yes build-essential pkgconf libelf-dev llvm-9 clang-9 linux-tools-common linux-tools-generic gcc linux-source
+          kernel_ver=`uname -r | cut -d'-' -f 1`
+          sudo apt-get install --yes build-essential pkgconf libelf-dev llvm-9 clang-9 linux-tools-common linux-tools-generic gcc linux-source-${kernel_ver}
           for tool in "clang" "llc" "llvm-strip"
           do
             sudo rm -f /usr/bin/$tool
@@ -60,7 +61,8 @@ jobs:
       - name: Install Compilers
         run: |
           sudo apt-get update
-          sudo apt-get install --yes build-essential pkgconf libelf-dev llvm-14 clang-14 linux-tools-common linux-tools-generic gcc gcc-aarch64-linux-gnu linux-source
+          kernel_ver=`uname -r | cut -d'-' -f 1`
+          sudo apt-get install --yes build-essential pkgconf libelf-dev llvm-14 clang-14 linux-tools-common linux-tools-generic gcc gcc-aarch64-linux-gnu linux-source-${kernel_ver}
           for tool in "clang" "llc" "llvm-strip"
           do
             sudo rm -f /usr/bin/$tool
@@ -160,7 +162,8 @@ jobs:
           install: |
             uname -a
             apt-get update
-            apt-get install --yes wget git build-essential pkgconf libelf-dev llvm-12 clang-12  linux-tools-generic linux-tools-common flex bison file gcc-x86-64-linux-gnu
+            kernel_ver=`uname -r | cut -d'-' -f 1`
+            apt-get install --yes wget git build-essential pkgconf libelf-dev llvm-12 clang-12  linux-tools-generic linux-tools-common flex bison file gcc-x86-64-linux-gnu linux-source-${kernel_ver}
             wget https://go.dev/dl/go1.21.0.linux-arm64.tar.gz
             rm -rf /usr/local/go
             tar -C /usr/local -xzf go1.21.0.linux-arm64.tar.gz
