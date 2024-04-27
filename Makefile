@@ -10,6 +10,9 @@ all: ebpf ebpf_noncore assets build
 nocore: ebpf_noncore assets_noncore build_noncore
 	@echo $(shell date)
 
+noncore: nocore
+ebpf_nocore: ebpf_noncore
+
 .ONESHELL:
 SHELL = /bin/bash
 
@@ -38,7 +41,7 @@ env:
 	@echo "CMD_MD5                  $(CMD_MD5)"
 	@echo "CMD_PKGCONFIG            $(CMD_PKGCONFIG)"
 	@echo "CMD_STRIP                $(CMD_STRIP)"
-	@echo "CMD_CC                   $(CMD_CC)"
+	@echo "CMD_CC_PREFIX            $(CMD_CC_PREFIX)"
 	@echo "CMD_TAR                  $(CMD_TAR)"
 	@echo "CMD_RPMBUILD             $(CMD_RPMBUILD)"
 	@echo "CMD_RPM_SETUP_TREE       $(CMD_RPM_SETUP_TREE)"
@@ -90,6 +93,13 @@ help:
 	@echo "# flags"
 	@echo "    $$ ANDROID=1 make ...				# build eCapture for Android"
 
+
+.PHONY: prepare
+prepare:
+	#create linux header files to build CROSS COMPILING dependencies
+	test -f $(LINUX_SOURCE_PATH)/Makefile || tar -xvf $(LINUX_SOURCE_TAR)
+	$(KERNEL_HEADER_GEN)
+
 .PHONY: clean assets build ebpf
 
 .PHONY: clean
@@ -130,7 +140,7 @@ autogen: .checkver_$(CMD_BPFTOOL)
 ebpf: autogen $(KERN_OBJECTS)
 
 .PHONY: ebpf_noncore
-ebpf_noncore: $(KERN_OBJECTS_NOCORE)
+ebpf_noncore: prepare $(KERN_OBJECTS_NOCORE)
 
 .PHONY: $(KERN_OBJECTS_NOCORE)
 $(KERN_OBJECTS_NOCORE): %.nocore: %.c \
@@ -140,13 +150,11 @@ $(KERN_OBJECTS_NOCORE): %.nocore: %.c \
 			$(EXTRA_CFLAGS_NOCORE) \
     		$(BPFHEADER) \
 			-I $(KERN_SRC_PATH)/arch/$(LINUX_ARCH)/include \
-			-I $(KERN_SRC_PATH)/arch/$(LINUX_ARCH)/include/uapi \
 			-I $(KERN_BUILD_PATH)/arch/$(LINUX_ARCH)/include/generated \
-			-I $(KERN_BUILD_PATH)/arch/$(LINUX_ARCH)/include/generated/uapi \
 			-I $(KERN_SRC_PATH)/include \
-			-I $(KERN_BUILD_PATH)/include \
+			-I $(KERN_SRC_PATH)/arch/$(LINUX_ARCH)/include/uapi \
+			-I $(KERN_BUILD_PATH)/arch/$(LINUX_ARCH)/include/generated/uapi \
 			-I $(KERN_SRC_PATH)/include/uapi \
-			-I $(KERN_BUILD_PATH)/include/generated \
 			-I $(KERN_BUILD_PATH)/include/generated/uapi \
     		-c $< \
     		-o - |$(CMD_LLC) \
@@ -157,13 +165,11 @@ $(KERN_OBJECTS_NOCORE): %.nocore: %.c \
 			$(EXTRA_CFLAGS_NOCORE) \
 			$(BPFHEADER) \
 			-I $(KERN_SRC_PATH)/arch/$(LINUX_ARCH)/include \
-			-I $(KERN_SRC_PATH)/arch/$(LINUX_ARCH)/include/uapi \
 			-I $(KERN_BUILD_PATH)/arch/$(LINUX_ARCH)/include/generated \
-			-I $(KERN_BUILD_PATH)/arch/$(LINUX_ARCH)/include/generated/uapi \
 			-I $(KERN_SRC_PATH)/include \
-			-I $(KERN_BUILD_PATH)/include \
+			-I $(KERN_SRC_PATH)/arch/$(LINUX_ARCH)/include/uapi \
+			-I $(KERN_BUILD_PATH)/arch/$(LINUX_ARCH)/include/generated/uapi \
 			-I $(KERN_SRC_PATH)/include/uapi \
-			-I $(KERN_BUILD_PATH)/include/generated \
 			-I $(KERN_BUILD_PATH)/include/generated/uapi \
 			-DKERNEL_LESS_5_2 \
 			-c $< \
@@ -190,12 +196,12 @@ assets_noncore: \
 $(TARGET_LIBPCAP):
 	test -f ./lib/libpcap/configure || git submodule update --init
 	cd lib/libpcap && \
-		CC=$(CMD_CC) AR=$(CMD_AR) CFLAGS="-O2 -g -gdwarf-4 -static" ./configure --disable-rdma --disable-shared --disable-usb \
+		CC=$(CMD_CC_PREFIX)$(CMD_CC) AR=$(CMD_AR_PREFIX)$(CMD_AR) CFLAGS="-O2 -g -gdwarf-4 -static" ./configure --disable-rdma --disable-shared --disable-usb \
 			--disable-netmap --disable-bluetooth --disable-dbus --without-libnl \
 			--without-dpdk --without-dag --without-septel --without-snf \
 			--without-gcc --with-pcap=linux --disable-ipv6\
 			--without-turbocap --host=$(LIBPCAP_ARCH) && \
-	CC=$(CMD_CC) AR=$(CMD_AR) make
+	CC=$(CMD_CC_PREFIX)$(CMD_CC) AR=$(CMD_AR_PREFIX)$(CMD_AR) make
 
 .PHONY: build
 build: \

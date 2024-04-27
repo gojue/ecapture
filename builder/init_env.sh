@@ -54,7 +54,7 @@ uname -a
 sudo apt-get update
 
 # 环境安装
-sudo apt-get install --yes build-essential pkgconf libelf-dev llvm-${CLANG_NUM} clang-${CLANG_NUM} linux-tools-common linux-tools-generic flex bison
+sudo apt-get install --yes build-essential pkgconf libelf-dev llvm-${CLANG_NUM} clang-${CLANG_NUM} linux-tools-common linux-tools-generic flex bison linux-source
 for tool in "clang" "llc" "llvm-strip"
 do
   sudo rm -f /usr/bin/$tool

@@ -60,7 +60,7 @@ jobs:
       - name: Install Compilers
         run: |
           sudo apt-get update
-          sudo apt-get install --yes build-essential pkgconf libelf-dev llvm-14 clang-14 linux-tools-common linux-tools-generic gcc gcc-aarch64-linux-gnu
+          sudo apt-get install --yes build-essential pkgconf libelf-dev llvm-14 clang-14 linux-tools-common linux-tools-generic gcc gcc-aarch64-linux-gnu linux-source
           for tool in "clang" "llc" "llvm-strip"
           do
             sudo rm -f /usr/bin/$tool
@@ -195,7 +195,7 @@ jobs:
             echo "-------------------start: Build non-CO-RE Android -------------------"
             make clean
             make env
-            ANDROID=1 make -j2
+            ANDROID=1 make nocore -j2
 
       - name: Show the artifact
         # Items placed in /artifacts in the container will be in

@@ -48,7 +48,7 @@ define gobuild
 	CGO_ENABLED=1 \
 	CGO_CFLAGS='-O2 -g -gdwarf-4 -I$(CURDIR)/lib/libpcap/' \
 	CGO_LDFLAGS='-O2 -g -L$(CURDIR)/lib/libpcap/ -lpcap -static' \
-	GOOS=linux GOARCH=$(GOARCH) CC=$(CMD_CC) \
+	GOOS=linux GOARCH=$(GOARCH) CC=$(CMD_CC_PREFIX)$(CMD_CC) \
 	$(CMD_GO) build -tags $(TARGET_TAG) -ldflags "-w -s -X 'ecapture/cli/cmd.GitVersion=$(TARGET_TAG)_$(GOARCH):$(VERSION_NUM):$(VERSION_FLAG)' -linkmode=external -extldflags -static " -o $(OUT_BIN)
 	$(CMD_FILE) $(OUT_BIN)
 endef
@@ -73,5 +73,4 @@ define release_tar
 	$(CMD_CP) README_CN.md $(TAR_DIR)/README_CN.md
 	$(CMD_CP) $(OUTPUT_DIR)/ecapture $(TAR_DIR)/ecapture
 	$(CMD_TAR) -czf $(OUT_ARCHIVE) $(TAR_DIR)
-	$(CMD_CHECKSUM) $(OUT_ARCHIVE) | $(CMD_SED) 's/.\/bin\///g' >> $(OUT_CHECKSUMS)
 endef
