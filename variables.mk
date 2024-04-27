@@ -116,7 +116,7 @@ ifdef CROSS_ARCH
 		# cross compile
 			CMD_CC_PREFIX = x86_64-linux-gnu-
 			CMD_AR_PREFIX = x86_64-linux-gnu-
-			TARGET_ARCH = x86_64-unknown-linux-gnu
+			TARGET_ARCH = x86_64
 		else
 		# not cross compile
 			TARGET_ARCH = $(HOST_ARCH)
@@ -126,7 +126,7 @@ ifdef CROSS_ARCH
 		# cross compile
 			CMD_CC_PREFIX = aarch64-linux-gnu-
 			CMD_AR_PREFIX = aarch64-linux-gnu-
-			TARGET_ARCH = aarch64-unknown-linux-gnu
+			TARGET_ARCH = aarch64
 		else
 		# not cross compile
 			TARGET_ARCH = $(HOST_ARCH)
