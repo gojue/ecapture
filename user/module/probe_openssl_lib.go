@@ -104,7 +104,7 @@ func (m *MOpenSSLProbe) initOpensslOffset() {
 
 	// openssl 1.1.0a - 1.1.0l
 	for ch := 'a'; ch <= MaxSupportedOpenSSL110Version; ch++ {
-		m.sslVersionBpfMap["openssl 1.1.0"+string(ch)] = "openssl_1_1_1a_kern.o"
+		m.sslVersionBpfMap["openssl 1.1.0"+string(ch)] = "openssl_1_1_0a_kern.o"
 	}
 
 	// openssl 1.0.2a - 1.0.2u
