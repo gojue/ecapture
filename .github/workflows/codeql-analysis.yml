@@ -49,12 +49,19 @@ jobs:
       - name: Install Compilers
         run: |
           sudo apt-get update
-          sudo apt-get install --yes build-essential pkgconf libelf-dev llvm-12 clang-12 linux-tools-common linux-tools-generic flex bison
+          kernel_ver=`uname -r | cut -d'-' -f 1`
+          sudo apt-get install --yes build-essential pkgconf libelf-dev llvm-12 clang-12 linux-tools-common linux-tools-generic flex bison gcc-aarch64-linux-gnu libssl-dev linux-source-${kernel_ver}
           for tool in "clang" "llc" "llvm-strip"
           do
             sudo rm -f /usr/bin/$tool
             sudo ln -s /usr/bin/$tool-12 /usr/bin/$tool
           done
+          cd /usr/src
+          sudo tar -xf linux-source-${kernel_ver}.tar.bz2
+          cd /usr/src/linux-source-${kernel_ver}
+          test -f .config || sudo make oldconfig
+          sudo make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- prepare V=0
+          ls -al /usr/src/linux-source-${kernel_ver}
         shell: bash
       # Initializes the CodeQL tools for scanning.
       - name: Initialize CodeQL

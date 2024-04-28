@@ -231,7 +231,18 @@ cd ecapture
 make nocore
 bin/ecapture
 ```
-## 交叉编译 (仅限eBPF CO-RE模式)
+## 交叉编译
+### 内核头文件
+要交叉编译eCapture工具，您需要安装目标体系结构的内核头文件。需要安装`linux-source`软件包。
+```shell
+kernel_ver=`uname -r | cut -d'-' -f 1`
+sudo apt-get install -y linux-source-$kernel_ver
+cd /usr/src
+sudo tar -xf linux-source-${kernel_ver}.tar.bz2
+cd /usr/src/linux-source-${kernel_ver}
+test -f .config || yes "" | sudo make oldconfig
+```
+
 ### ToolChains
 在amd64架构下，交叉编译aarch64架构的二进制文件，需要安装gcc-aarch64-linux-gnu工具链。同样，在aarch64架构下，交叉编译amd64架构的二进制文件，需要安装gcc-x86-64-linux-gnu工具链。
 * amd64 arch: gcc-aarch64-linux-gnu

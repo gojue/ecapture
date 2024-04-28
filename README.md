@@ -202,7 +202,18 @@ make nocore
 bin/ecapture --help
 ```
 
-## cross-compilation (eBPF CO-RE model supported only)
+## cross-compilation
+### Kernel header files
+To cross-compile the eCapture tool, you need to install the kernel header files for the target architecture. you need to install the `linux-source` package.
+```shell
+kernel_ver=`uname -r | cut -d'-' -f 1`
+sudo apt-get install -y linux-source-$kernel_ver
+cd /usr/src
+sudo tar -xf linux-source-${kernel_ver}.tar.bz2
+cd /usr/src/linux-source-${kernel_ver}
+test -f .config || yes "" | sudo make oldconfig
+```
+
 ### ToolChains
 To cross-compile binary files for the aarch64 architecture on an amd64 architecture system, you need to install the gcc-aarch64-linux-gnu toolchain. Similarly, to cross-compile binary files for the amd64 architecture on an aarch64 system, you need to install the gcc-x86-64-linux-gnu toolchain.
 * amd64 arch: gcc-aarch64-linux-gnu

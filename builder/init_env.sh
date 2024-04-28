@@ -52,14 +52,21 @@ cd ~
 
 uname -a
 sudo apt-get update
-
+kernel_ver=`uname -r | cut -d'-' -f 1`
 # 环境安装
-sudo apt-get install --yes build-essential pkgconf libelf-dev llvm-${CLANG_NUM} clang-${CLANG_NUM} linux-tools-common linux-tools-generic flex bison linux-source
+sudo apt-get install --yes build-essential pkgconf libelf-dev llvm-${CLANG_NUM} clang-${CLANG_NUM} linux-tools-common linux-tools-generic gcc-aarch64-linux-gnu libssl-dev flex bison linux-source-${kernel_ver}
 for tool in "clang" "llc" "llvm-strip"
 do
   sudo rm -f /usr/bin/$tool
   sudo ln -s /usr/bin/$tool-${CLANG_NUM} /usr/bin/$tool
 done
+
+cd /usr/src
+sudo tar -xf linux-source-${kernel_ver}.tar.bz2
+cd /usr/src/linux-source-${kernel_ver}
+test -f .config || yes "" | sudo make oldconfig
+yes "" | sudo make ARCH=${ARCH} CROSS_COMPILE=aarch64-linux-gnu- prepare V=0
+ls -al /usr/src/linux-source-${kernel_ver}
 
 clang --version
 

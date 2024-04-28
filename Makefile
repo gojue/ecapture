@@ -96,9 +96,8 @@ help:
 
 .PHONY: prepare
 prepare:
-	#create linux header files to build CROSS COMPILING dependencies
-	test -f $(LINUX_SOURCE_PATH)/Makefile || tar -xf $(LINUX_SOURCE_TAR)
-	$(KERNEL_HEADER_GEN)
+	$(CMD_CD) $(LINUX_SOURCE_PATH)
+	$(KERNEL_HEADER_GEN) || exit 1
 
 .PHONY: clean assets build ebpf
 

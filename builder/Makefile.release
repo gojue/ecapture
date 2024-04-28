@@ -35,7 +35,7 @@ MAKEFLAGS += --no-print-directory
 
 .PHONY: env
 env:
-	DEBUG=$(DEBUG) ANDROID=$(ANDROID) CROSS_ARCH=$(CROSS_ARCH) SNAPSHOT_VERSION=$(SNAPSHOT_VERSION) $(MAKE) env
+	DEBUG=$(DEBUG) ANDROID=$(ANDROID) CROSS_ARCH=$(CROSS_ARCH) SNAPSHOT_VERSION=$(SNAPSHOT_VERSION) $(CMD_MAKE) env
 
 #
 # usage
@@ -124,7 +124,7 @@ publish: \
 .PHONY: clean
 clean:
 #
-	$(MAKE) clean
+	$(CMD_MAKE) clean
 
 .PHONY: deb
 deb: snapshot build_deb
