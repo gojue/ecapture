@@ -23,6 +23,12 @@ jobs:
             sudo rm -f /usr/bin/$tool
             sudo ln -s /usr/bin/$tool-14 /usr/bin/$tool
           done
+          cd /usr/src
+          sudo tar -xf linux-source-${kernel_ver}.tar.bz2
+          cd /usr/src/linux-source-${kernel_ver}
+          test -f .config || sudo make oldconfig
+          sudo make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- prepare V=0
+          ls -al /usr/src/linux-source-${kernel_ver}
         shell: bash
       - uses: actions/checkout@v4
         with:

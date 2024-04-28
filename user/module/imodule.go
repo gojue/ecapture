@@ -63,7 +63,7 @@ type IModule interface {
 const (
 	KernelLess52Prefix = "_less52.o"
 	BtfNotSupport      = "You can compile the BTF-free version by using the command `make nocore`, please read the Makefile for more information."
-	BtfModeSwitch      = "如果eCapture运行失败，请尝试指定BTF模式."
+	BtfModeSwitch      = "If eCapture fails to run, try specifying the BTF mode. use `-b 2` to specify non-CORE mode."
 )
 
 type Module struct {
@@ -93,7 +93,7 @@ func (m *Module) Init(ctx context.Context, logger *log.Logger, conf config.IConf
 	m.processor = event_processor.NewEventProcessor(logger, conf.GetHex())
 	kv, err := kernel.HostVersion()
 	if err != nil {
-		m.logger.Printf("%s\tUnable to detect kernel version due to an error:%v.used non-Less5_2 bytecode.\n", m.child.Name(), err)
+		m.logger.Printf("%s\tUnable to detect kernel version due to an error:%v.used non-Less5_2 bytecode.\n", m.Name(), err)
 	} else {
 		// it's safe to ignore err because we have checked it in main funcition
 		if kv < kernel.VersionCode(5, 2, 0) {
@@ -128,7 +128,7 @@ func (m *Module) autoDetectBTF() {
 		}
 		enable, e := ebpfenv.IsEnableBTF()
 		if e != nil {
-			m.logger.Fatalf("%s\tUnable to find BTF configuration due to an error:%v.\n"+BtfNotSupport, m.Name(), e)
+			m.logger.Printf("%s\tUnable to find BTF configuration due to an error:%v.\n"+BtfNotSupport, m.Name(), e)
 		}
 		if enable {
 			m.isCoreUsed = true

@@ -183,7 +183,18 @@ make nocore
 bin/ecapture --help
 ```
 
-## クロスコンパイル（eBPF CO-REモードのみ）
+## クロスコンパイル
+### 内核头文件
+要交叉编译eCapture工具，您需要安装目标体系结构的内核头文件。需要安装`linux-source`软件包。
+```shell
+kernel_ver=`uname -r | cut -d'-' -f 1`
+sudo apt-get install -y linux-source-$kernel_ver
+cd /usr/src
+sudo tar -xf linux-source-${kernel_ver}.tar.bz2
+cd /usr/src/linux-source-${kernel_ver}
+test -f .config || yes "" | sudo make oldconfig
+```
+
 Ubuntuの `amd64` システムで `arm64` の成果物をビルドするには、`CROSS_ARCH`環境変数を設定してクロスコンパイルを実行できます。
 ```shell
 CROSS_ARCH=arm64 make

@@ -1,4 +1,4 @@
-MAKE = make
+CMD_MAKE = make
 CMD_LLC ?= llc
 CMD_TR ?= tr
 CMD_CUT ?= cut
@@ -47,7 +47,7 @@ TARGET_ARCH = x86_64
 CGO_ENABLED = 1
 TARGET_LIBPCAP = ./lib/libpcap.a
 TARGET_TAG ?= linux
-KERNEL_HEADER_GEN ?=
+KERNEL_HEADER_GEN ?= whoami
 
 ifndef DEBUG
 	DEBUG = 0
@@ -107,7 +107,7 @@ UNAME_R := $(shell uname -r)
 HOST_VERSION_SHORT := $(shell uname -r | cut -d'-' -f 1)
 
 # linux-source-5.15.0.tar.bz2
-LINUX_SOURCE_PATH ?= /usr/src/linux-source-$(HOST_VERSION_SHORT)/linux-source-$(HOST_VERSION_SHORT)
+LINUX_SOURCE_PATH ?= /usr/src/linux-source-$(HOST_VERSION_SHORT)
 LINUX_SOURCE_TAR ?= /usr/src/linux-source-$(HOST_VERSION_SHORT).tar.bz2
 
 ifdef CROSS_ARCH
@@ -171,7 +171,7 @@ endif
 # include vpath
 #
 ifdef CROSS_ARCH
-	KERNEL_HEADER_GEN = cd $(LINUX_SOURCE_PATH) && yes "" | $(SUDO) make ARCH=$(LINUX_ARCH) CROSS_COMPILE=$(CMD_CC_PREFIX) prepare V=0
+	KERNEL_HEADER_GEN = yes "" | $(SUDO) make ARCH=$(LINUX_ARCH) CROSS_COMPILE=$(CMD_CC_PREFIX) prepare V=0
 	KERN_HEADERS = $(LINUX_SOURCE_PATH)
 endif
 KERN_RELEASE ?= $(UNAME_R)
