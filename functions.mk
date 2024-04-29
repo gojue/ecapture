@@ -64,7 +64,7 @@ define release_tar
 	$(call allow-override,TAR_DIR,ecapture-$(DEB_VERSION)-$(1)-$(GOARCH)$(CORE_PREFIX))
 	$(call allow-override,OUT_ARCHIVE,$(OUTPUT_DIR)/$(TAR_DIR).tar.gz)
 	$(CMD_MAKE) clean
-	$(CMD_MAKE) $(2)
+	ANDROID=$(ANDROID) $(CMD_MAKE) $(2)
 	# create the tar ball and checksum files
 	$(CMD_MKDIR) -p $(TAR_DIR)
 	$(CMD_CP) LICENSE $(TAR_DIR)/LICENSE
