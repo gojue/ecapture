@@ -173,7 +173,7 @@ jobs:
             uname -a
             apt-get update
             kernel_ver=`uname -r | cut -d'-' -f 1`
-            apt-get install --yes wget git build-essential pkgconf libelf-dev llvm-12 clang-12  linux-tools-generic linux-tools-common flex bison file gcc-x86-64-linux-gnu libssl-dev bc linux-source-${kernel_ver}
+            apt-get install --yes wget git build-essential pkgconf libelf-dev llvm-12 clang-12 linux-tools-generic linux-tools-common flex bison file gcc-x86-64-linux-gnu libssl-dev bc linux-source-${kernel_ver}
             wget https://go.dev/dl/go1.21.0.linux-arm64.tar.gz
             rm -rf /usr/local/go
             tar -C /usr/local -xzf go1.21.0.linux-arm64.tar.gz
@@ -182,6 +182,7 @@ jobs:
             cd /usr/src/linux-source-${kernel_ver}
             test -f .config || make oldconfig > /dev/null
             make ARCH=x86 CROSS_COMPILE=x86_64-linux-gnu- prepare V=0 > /dev/null
+            make prepare V=0 > /dev/null
             ls -al /usr/src/linux-source-${kernel_ver}
           # Produce a binary artifact and place it in the mounted volume
           run: |
@@ -202,20 +203,17 @@ jobs:
             cat /proc/1/sched
             git config --global --add safe.directory /source_code
             cd /source_code
-            echo "-------------------start: Build CO-RE Linux -------------------"
-            make env
+            kernel_ver=`uname -r | cut -d'-' -f 1`
+            echo "-------------------start: Build CO-RE Linux (include non-CO-RE)-------------------"
+            KERN_HEADERS=/usr/src/linux-source-${kernel_ver} make env
             make clean
-            make
+            KERN_HEADERS=/usr/src/linux-source-${kernel_ver} make
             bin/ecapture -v
-            echo "-------------------start: Build CO-RE (Cross-Compilation) Linux -------------------"
+            echo "-------------------start: Build non-CO-RE (Cross-Compilation) Linux -------------------"
             make clean
-            CROSS_ARCH=amd64 make env
-            CROSS_ARCH=amd64 make -j8
-            echo "-------------------start: Build non-CO-RE Android -------------------"
-            make clean
-            make env
-            ANDROID=1 make nocore -j2
-
+            KERN_HEADERS=/usr/src/linux-source-${kernel_ver} CROSS_ARCH=amd64 make env
+            KERN_HEADERS=/usr/src/linux-source-${kernel_ver} CROSS_ARCH=amd64 make nocore -j8
+            file bin/ecapture
       - name: Show the artifact
         # Items placed in /artifacts in the container will be in
         # ${PWD}/artifacts on the host.

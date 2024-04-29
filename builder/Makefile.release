@@ -98,6 +98,7 @@ snapshot: \
 	.check_$(CMD_TAR) \
 	.check_$(CMD_CHECKSUM) \
 	.check_$(CMD_GITHUB)
+	$(call allow-override,ANDROID,0)
 	$(call release_tar,linux,)
 
 .PHONY: snapshot_android
@@ -107,6 +108,7 @@ snapshot_android: \
 	.check_$(CMD_TAR) \
 	.check_$(CMD_CHECKSUM) \
 	.check_$(CMD_GITHUB)
+	$(call allow-override,ANDROID,1)
 	$(call release_tar,android,)
 
 .PHONY: publish
