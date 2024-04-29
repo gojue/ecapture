@@ -37,17 +37,6 @@ struct mastersecret_t {
     u8 exporter_master_secret[EVP_MAX_MD_SIZE];
 };
 
-// ssl/ssl_local.h 1556行
-struct ssl3_state_st {
-    long flags;
-    size_t read_mac_secret_size;
-    unsigned char read_mac_secret[EVP_MAX_MD_SIZE];
-    size_t write_mac_secret_size;
-    unsigned char write_mac_secret[EVP_MAX_MD_SIZE];
-    unsigned char server_random[SSL3_RANDOM_SIZE];
-    unsigned char client_random[SSL3_RANDOM_SIZE];
-};
-
 #define TLS1_1_VERSION 0x0302
 #define TLS1_2_VERSION 0x0303
 #define TLS1_3_VERSION 0x0304
@@ -138,24 +127,19 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
             "bpf_probe_read ssl_s3_st_ptr pointer failed, ret :%d\n", ret);
         return 0;
     }
-    struct ssl3_state_st ssl3_stat;
-    ret = bpf_probe_read_user(&ssl3_stat, sizeof(ssl3_stat), (void *)address);
+
+    // Get ssl3_state_st->client_random pointer
+    u64 *s3_st_client_random_ptr = (u64 *)(address + SSL3_STATE_ST_CLIENT_RANDOM);
+    ret = bpf_probe_read_user(&mastersecret->client_random, 
+                              sizeof(mastersecret->client_random),
+                              (void *)s3_st_client_random_ptr);
     if (ret) {
         debug_bpf_printk(
             "bpf_probe_read ssl3_state_st struct failed, ret :%d\n", ret);
         return 0;
     }
-    debug_bpf_printk("client_random: %x %x %x\n", ssl3_stat.client_random[0],
-                     ssl3_stat.client_random[1], ssl3_stat.client_random[2]);
-    ret = bpf_probe_read_kernel(&mastersecret->client_random,
-                                sizeof(mastersecret->client_random),
-                                (void *)&ssl3_stat.client_random);
-    if (ret) {
-        debug_bpf_printk(
-            "bpf_probe_read_kernel ssl3_stat.client_random failed, ret :%d\n",
-            ret);
-        return 0;
-    }
+    debug_bpf_printk("client_random: %x %x %x\n", mastersecret->client_random[0],
+                     mastersecret->client_random[1], mastersecret->client_random[2]);
 
     // Get ssl_session_st pointer
     u64 *ssl_session_st_ptr;
