@@ -1,6 +1,28 @@
-# v0.7.7 (2024-04-21)
+# v0.8.0 (2024-05-04)
+## 🚀 Breaking Changes
+- for Uesr: No need to distinguish between CO-RE and non-CO-RE versions, automatically identified by eCapture.
+  - 无需区分CO-RE和non-CO-RE版本，由eCapture自动识别。
+- for Developer: Supports cross-compilation for both amd64 and arm64 CPU architectures, building CO-RE and non-CO-RE versions respectively.
+  - 支持在amd64\arm64两个CPU架构下的交叉编译，分别构建CO-RE和non-CO-RE版本
 ## What's Changed
 
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v0.7.7...v0.8.0
+<hr>
+
+# v0.7.7 (2024-04-21)
+## What's Changed
+* [Fix] get textStart from pclnTable by @wlingze in https://github.com/gojue/ecapture/pull/516
+* fix: amd64, offset read error issue for PIE executable. PR #516 by @cfc4n in https://github.com/gojue/ecapture/pull/517
+* makefile: used CC=$(CROSS_COMPILE)gcc for CGO compile. by @cfc4n in https://github.com/gojue/ecapture/pull/519
+* user: return error when detect openssl version failed. by @cfc4n in https://github.com/gojue/ecapture/pull/521
+* user : fixed the invalid address reference of the SSL_in_before symbol OpenSSL 1.0.2k. by @cfc4n in https://github.com/gojue/ecapture/pull/520
+* feat: support cross-compilation for workflows. by @cfc4n in https://github.com/gojue/ecapture/pull/523
+* readme: improve English README.md translation and add TOCs by @zhoukuncheng in https://github.com/gojue/ecapture/pull/525
+* build(deps): bump golang.org/x/net from 0.17.0 to 0.23.0 by @dependabot in https://github.com/gojue/ecapture/pull/528
+
+## New Contributors
+* @wlingze made their first contribution in https://github.com/gojue/ecapture/pull/516
+* @zhoukuncheng made their first contribution in https://github.com/gojue/ecapture/pull/525
 
 **Full Changelog**: https://github.com/gojue/ecapture/compare/v0.7.6...v0.7.7
 <hr>
