@@ -90,3 +90,7 @@ jobs:
           make nocore -j4
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v2
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v4.0.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
