@@ -55,12 +55,12 @@ jobs:
         run: |
           make clean
           make env
-          make -f builder/Makefile.release release SNAPSHOT_VERSION=${{ steps.get_tags.outputs.VERSION }}
+          make -f builder/Makefile.release release SNAPSHOT_VERSION=${{ github.ref_name }}
       - name: Release arm64 (CROSS COMPILATION)
         run: |
           make clean
           make env
-          CROSS_ARCH=arm64 make -f builder/Makefile.release release SNAPSHOT_VERSION=${{ steps.get_tags.outputs.VERSION }}
+          CROSS_ARCH=arm64 make -f builder/Makefile.release release SNAPSHOT_VERSION=${{ github.ref_name }}
       - name: Publish
         run: |
-          make -f builder/Makefile.release publish SNAPSHOT_VERSION=${{ steps.get_tags.outputs.VERSION }}
+          make -f builder/Makefile.release publish SNAPSHOT_VERSION=${{ github.ref_name }}
