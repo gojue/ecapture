@@ -158,7 +158,7 @@ jobs:
 
           # Pass some environment variables to the container
           env: | # YAML, but pipe character is necessary
-            artifact_name: ecapture-${{ steps.get_tags.outputs.VERSION }}
+            artifact_name: ecapture-${{ github.ref_name }}
 
           # The shell to run commands with in the container
           shell: /bin/sh
