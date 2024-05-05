@@ -149,8 +149,8 @@ endif
 ifeq ($(TARGET_ARCH),aarch64)
 	 LINUX_ARCH = arm64
 	 GOARCH = arm64
-	 AUTOGENCMD = ls -al kern/bpf/arm64/vmlinux.h
-	 BPFHEADER += -I ./kern/bpf/arm64
+	 BPFHEADER += -I ./kern/bpf/$(LINUX_ARCH)
+	 AUTOGENCMD = ls -al kern/bpf/$(LINUX_ARCH)/vmlinux.h
 	 # sh lib/libpcap/config.sub arm64-linux for ARCH value
 	 LIBPCAP_ARCH = aarch64-unknown-linux-gnu
 	 # Constant replacement is not supported in the current version because the bpf_probe_read_user function
@@ -161,8 +161,8 @@ else
 	# x86_64 default
 	LINUX_ARCH = x86
 	GOARCH = amd64
-	BPFHEADER += -I ./kern/bpf/x86
-	AUTOGENCMD = test -f kern/bpf/x86/vmlinux.h || $(CMD_BPFTOOL) btf dump file /sys/kernel/btf/vmlinux format c > kern/bpf/x86/vmlinux.h
+	BPFHEADER += -I ./kern/bpf/$(LINUX_ARCH)
+	AUTOGENCMD = test -f kern/bpf/$(LINUX_ARCH)/vmlinux.h || $(CMD_BPFTOOL) btf dump file /sys/kernel/btf/vmlinux format c > kern/bpf/$(LINUX_ARCH)/vmlinux.h
 	 # sh lib/libpcap/config.sub amd64-linux or x86_64-linux for ARCH value
 	LIBPCAP_ARCH = x86_64-pc-linux-gnu
 endif
@@ -171,7 +171,7 @@ endif
 # include vpath
 #
 ifdef CROSS_ARCH
-	KERNEL_HEADER_GEN = yes "" | $(SUDO) make ARCH=$(LINUX_ARCH) CROSS_COMPILE=$(CMD_CC_PREFIX) prepare V=0
+	KERNEL_HEADER_GEN = test -e arch/$(LINUX_ARCH)/kernel/asm-offsets.s || yes "" | $(SUDO) make ARCH=$(LINUX_ARCH) CROSS_COMPILE=$(CMD_CC_PREFIX) prepare V=0
 	KERN_HEADERS = $(LINUX_SOURCE_PATH)
 endif
 KERN_RELEASE ?= $(UNAME_R)

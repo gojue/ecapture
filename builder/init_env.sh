@@ -65,7 +65,8 @@ cd /usr/src
 sudo tar -xf linux-source-${kernel_ver}.tar.bz2
 cd /usr/src/linux-source-${kernel_ver}
 test -f .config || yes "" | sudo make oldconfig
-yes "" | sudo make ARCH=${ARCH} CROSS_COMPILE=aarch64-linux-gnu- prepare V=0
+yes "" | sudo make ARCH=${ARCH} CROSS_COMPILE=aarch64-linux-gnu- prepare V=0 > /dev/null
+yes "" | sudo make prepare V=0 > /dev/null
 ls -al /usr/src/linux-source-${kernel_ver}
 
 clang --version
