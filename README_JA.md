@@ -57,6 +57,15 @@ ELF zip ファイル[リリース](https://github.com/gojue/ecapture/releases)�
 * Linux kernel version >= 4.18 is required.
 * Enable BTF [BPF Type Format (BTF)](https://www.kernel.org/doc/html/latest/bpf/btf.html)  (Optional, 2022-04-17)
 
+## docker containerised run
+
+```shell
+## イメージをプルする
+docker pull gojue/ecapture:latest
+# 実行
+docker run --rm --privileged=true --net=host -v ${hostファイルパス}:${コンテナ内パス} gojue/ecapture ARGS
+```
+
 ## コマンドラインオプション
 
 > **注**
@@ -100,7 +109,7 @@ openssl模块支持3中捕获模式
 ./ecapture tls -m keylog -keylogfile=openssl_keylog.log
 ```
 
-也可以直接使用`tshark`软件实时解密展示。
+也可以直接使用`Wireshark`软件实时解密展示。
 ```shell
 tshark -o tls.keylog_file:ecapture_masterkey.log -Y http -T fields -e http.file_data -f "port 443" -i eth0
 ```

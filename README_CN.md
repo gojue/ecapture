@@ -73,6 +73,16 @@ eBPF `Uprobe`/`Traffic Control`实现的各种用户空间/内核空间的数据
 * 系统linux kernel版本必须高于4.18。
 * 开启BTF [BPF Type Format (BTF)](https://www.kernel.org/doc/html/latest/bpf/btf.html) 支持。 (可选, 2022-04-17)
 
+## docker 容器化运行
+
+```shell
+# 拉取镜像
+docker pull gojue/ecapture:latest
+# 运行
+docker run --rm --privileged=true --net=host -v ${宿主机文件路径}:${容器内路径} gojue/ecapture ARGS
+```
+
+
 ## 命令参数
 
 > **Note**
