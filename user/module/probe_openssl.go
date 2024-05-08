@@ -20,7 +20,7 @@ import (
 	"crypto"
 	"errors"
 	"fmt"
-	"log"
+	"github.com/rs/zerolog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -58,6 +58,18 @@ const (
 	TlsCaptureModelTypeKeylog
 )
 
+func (t TlsCaptureModelType) String() string {
+	switch t {
+	case TlsCaptureModelTypePcap:
+		return "PcapNG"
+	case TlsCaptureModelTypeKeylog:
+		return "KeyLog"
+	case TlsCaptureModelTypeText:
+		return "Text"
+	}
+	return "UnknowTlsCaptureModel"
+}
+
 type MOpenSSLProbe struct {
 	MTCProbe
 	bpfManager        *manager.Manager
@@ -82,7 +94,7 @@ type MOpenSSLProbe struct {
 }
 
 // 对象初始化
-func (m *MOpenSSLProbe) Init(ctx context.Context, logger *log.Logger, conf config.IConfig) error {
+func (m *MOpenSSLProbe) Init(ctx context.Context, logger *zerolog.Logger, conf config.IConfig) error {
 	m.Module.Init(ctx, logger, conf)
 	m.conf = conf
 	m.Module.SetChild(m)
@@ -105,12 +117,14 @@ func (m *MOpenSSLProbe) Init(ctx context.Context, logger *log.Logger, conf confi
 			return err
 		}
 		m.eBPFProgramType = TlsCaptureModelTypeKeylog
-		m.logger.Printf("%s\tmaster key keylogger: %s\n", m.Name(), m.keyloggerFilename)
+		m.logger.Info().Str("keylogger", m.keyloggerFilename).Str("eBPFProgramType", m.eBPFProgramType.String()).Msg("master key keylogger has been set.")
 	case config.TlsCaptureModelPcap, config.TlsCaptureModelPcapng:
 		pcapFile := m.conf.(*config.OpensslConfig).PcapFile
 		m.eBPFProgramType = TlsCaptureModelTypePcap
-		fileInfo, err := filepath.Abs(pcapFile)
+		var fileInfo string
+		fileInfo, err = filepath.Abs(pcapFile)
 		if err != nil {
+			m.logger.Warn().Err(err).Str("pcapFile", pcapFile).Str("eBPFProgramType", m.eBPFProgramType.String()).Msg("pcapFile not found")
 			return err
 		}
 		m.tcPacketsChan = make(chan *TcPacket, 2048)
@@ -120,7 +134,7 @@ func (m *MOpenSSLProbe) Init(ctx context.Context, logger *log.Logger, conf confi
 		fallthrough
 	default:
 		m.eBPFProgramType = TlsCaptureModelTypeText
-		m.logger.Printf("%s\tmaster key keylogger: %s\n", m.Name(), m.keyloggerFilename)
+		m.logger.Info().Str("keylogger", m.keyloggerFilename).Str("eBPFProgramType", m.eBPFProgramType.String()).Msg("master key keylogger has been set.")
 	}
 
 	var ts unix.Timespec
@@ -159,20 +173,20 @@ func (m *MOpenSSLProbe) getSslBpfFile(soPath, sslVersion string) error {
 			for i, hookFunc := range m.masterHookFuncs {
 				if hookFunc == MasterKeyHookFuncSSLBefore {
 					m.masterHookFuncs[i] = MasterKeyHookFuncSSLState
-					m.logger.Printf("openssl version:%s, used function %s instead %s", tmpSslVer, MasterKeyHookFuncSSLState, MasterKeyHookFuncSSLBefore)
+					m.logger.Info().Str("openssl version", tmpSslVer).Str("hookFunc", MasterKeyHookFuncSSLState).Str("oldHookFunc", MasterKeyHookFuncSSLBefore).Msg("openssl version is less than 1.0.*")
 				}
 			}
 		}
 	}()
 
 	if sslVersion != "" {
-		m.logger.Printf("%s\tOpenSSL/BoringSSL version: %s\n", m.Name(), sslVersion)
+		m.logger.Info().Str("sslVersion", sslVersion).Msg("OpenSSL/BoringSSL version found")
 		bpfFile, found := m.sslVersionBpfMap[sslVersion]
 		if found {
 			m.sslBpfFile = bpfFile
 			return nil
 		} else {
-			m.logger.Printf("%s\tCan't found OpenSSL/BoringSSL bpf bytecode file. auto detected.\n", m.Name())
+			m.logger.Error().Msg("Can't found OpenSSL/BoringSSL bpf bytecode file. auto detected.")
 		}
 	}
 
@@ -190,18 +204,15 @@ func (m *MOpenSSLProbe) start() error {
 	// setup the managers
 	switch m.eBPFProgramType {
 	case TlsCaptureModelTypeKeylog:
-		m.logger.Printf("%s\tKeylog MODEL\n", m.Name())
 		err = m.setupManagersKeylog()
 	case TlsCaptureModelTypePcap:
-		m.logger.Printf("%s\tPcapng MODEL\n", m.Name())
 		err = m.setupManagersPcap()
 	case TlsCaptureModelTypeText:
-		m.logger.Printf("%s\tText MODEL\n", m.Name())
 		err = m.setupManagersText()
 	default:
-		m.logger.Printf("%s\tText MODEL\n", m.Name())
 		err = m.setupManagersText()
 	}
+	m.logger.Info().Str("eBPFProgramType", m.eBPFProgramType.String()).Msg("setupManagers")
 	if err != nil {
 		return err
 	}
@@ -216,9 +227,10 @@ func (m *MOpenSSLProbe) start() error {
 	// fetch ebpf assets
 	// user/bytecode/openssl_kern.o
 	bpfFileName := m.geteBPFName(filepath.Join("user/bytecode", m.sslBpfFile))
-	m.logger.Printf("%s\tBPF bytecode filename:%s\n", m.Name(), bpfFileName)
+	m.logger.Info().Str("bpfFileName", bpfFileName).Msg("BPF bytecode file is matched.")
 	byteBuf, err := assets.Asset(bpfFileName)
 	if err != nil {
+		m.logger.Error().Err(err).Strs("bytecode files", assets.AssetNames()).Msg("couldn't find bpf bytecode file")
 		return fmt.Errorf("%s\tcouldn't find asset %v .", m.Name(), err)
 	}
 
@@ -226,7 +238,7 @@ func (m *MOpenSSLProbe) start() error {
 	if err = m.bpfManager.InitWithOptions(bytes.NewReader(byteBuf), m.bpfManagerOptions); err != nil {
 		var ve *ebpf.VerifierError
 		if errors.As(err, &ve) {
-			m.logger.Printf("%s\tcouldn't verify bpf prog: %+v", m.Name(), ve)
+			m.logger.Error().Err(ve).Msg("couldn't verify bpf prog")
 		}
 		return fmt.Errorf("couldn't init manager xxx %v", err)
 	}
@@ -248,6 +260,7 @@ func (m *MOpenSSLProbe) start() error {
 		err = m.initDecodeFunText()
 	}
 	if err != nil {
+		m.logger.Warn().Err(err).Msg("initDecodeFunText failed")
 		return err
 	}
 
@@ -255,7 +268,7 @@ func (m *MOpenSSLProbe) start() error {
 }
 
 func (m *MOpenSSLProbe) Close() error {
-	m.logger.Printf("%s\tclose. \n", m.Name())
+	m.logger.Info().Msg("module close.")
 	if err := m.bpfManager.Stop(manager.CleanAll); err != nil {
 		return fmt.Errorf("couldn't stop manager %v .", err)
 	}
@@ -277,15 +290,15 @@ func (m *MOpenSSLProbe) constantEditor() []manager.ConstantEditor {
 	}
 
 	if m.conf.GetPid() <= 0 {
-		m.logger.Printf("%s\ttarget all process. \n", m.Name())
+		m.logger.Info().Msg("target all process.")
 	} else {
-		m.logger.Printf("%s\ttarget PID:%d \n", m.Name(), m.conf.GetPid())
+		m.logger.Info().Uint64("target PID", m.conf.GetPid()).Msg("target process.")
 	}
 
 	if m.conf.GetUid() <= 0 {
-		m.logger.Printf("%s\ttarget all users. \n", m.Name())
+		m.logger.Info().Msg("target all users.")
 	} else {
-		m.logger.Printf("%s\ttarget UID:%d \n", m.Name(), m.conf.GetUid())
+		m.logger.Info().Uint64("target UID", m.conf.GetUid()).Msg("target user.")
 	}
 
 	return editor
@@ -302,7 +315,7 @@ func (m *MOpenSSLProbe) Events() []*ebpf.Map {
 
 func (m *MOpenSSLProbe) AddConn(pid, fd uint32, addr string) {
 	if fd <= 0 {
-		m.logger.Printf("%s\tAddConn failed. pid:%d, fd:%d, addr:%s\n", m.Name(), pid, fd, addr)
+		m.logger.Info().Uint32("pid", pid).Uint32("fd", fd).Str("address", addr).Msg("AddConn failed")
 		return
 	}
 	// save
@@ -316,7 +329,7 @@ func (m *MOpenSSLProbe) AddConn(pid, fd uint32, addr string) {
 	}
 	connMap[fd] = addr
 	m.pidConns[pid] = connMap
-	// m.logger.Printf("%s\tAddConn pid:%d, fd:%d, addr:%s, mapinfo:%v\n", m.Name(), pid, fd, addr, m.pidConns)
+	m.logger.Debug().Uint32("pid", pid).Uint32("fd", fd).Str("address", addr).Msg("AddConn success")
 	return
 }
 
@@ -351,7 +364,7 @@ func (m *MOpenSSLProbe) GetConn(pid, fd uint32) string {
 	addr := ""
 	var connMap map[uint32]string
 	var f bool
-	// m.logger.Printf("%s\tGetConn pid:%d, fd:%d, mapinfo:%v\n", m.Name(), pid, fd, m.pidConns)
+	m.logger.Debug().Uint32("pid", pid).Uint32("fd", fd).Msg("GetConn")
 	m.pidLocker.Lock()
 	defer m.pidLocker.Unlock()
 	connMap, f = m.pidConns[pid]
@@ -397,7 +410,7 @@ func (m *MOpenSSLProbe) saveMasterSecret(secretEvent *event.MasterSecretEvent) {
 		default:
 			length = 32
 			transcript = crypto.SHA256
-			m.logger.Printf("non-TLSv1.3 cipher suite found, CipherId: %d, clientrandom:%02x", secretEvent.CipherId, secretEvent.ClientRandom)
+			m.logger.Info().Uint32("CipherId", secretEvent.CipherId).Str("CLientRandom", fmt.Sprintf("%02x", secretEvent.ClientRandom)).Msg("non-TLSv1.3 cipher suite found")
 			return
 		}
 
@@ -440,17 +453,17 @@ func (m *MOpenSSLProbe) saveMasterSecret(secretEvent *event.MasterSecretEvent) {
 	case TlsCaptureModelTypePcap:
 		e := m.savePcapngSslKeyLog(b.Bytes())
 		if e != nil {
-			m.logger.Fatalf("%s\t%s: save CLIENT_RANDOM to pcapng error:%s", m.Name(), v.String(), e.Error())
+			m.logger.Warn().Err(e).Str("TlsVersion", v.String()).Str("CLientRandom", k).Str("eBPFProgramType", m.eBPFProgramType.String()).Msg("CLIENT_RANDOM save failed")
 			return
 		}
-		m.logger.Printf("%s\t%s: save CLIENT_RANDOM %02x to file success, %d bytes", m.Name(), v.String(), secretEvent.ClientRandom, b.Len())
+		m.logger.Info().Str("TlsVersion", v.String()).Str("CLientRandom", k).Int("bytes", b.Len()).Msg("CLIENT_RANDOM save success")
 	case TlsCaptureModelTypeKeylog:
 		l, e := m.keylogger.WriteString(b.String())
 		if e != nil {
-			m.logger.Fatalf("%s\t%s: save CLIENT_RANDOM to file error:%s", m.Name(), v.String(), e.Error())
+			m.logger.Warn().Err(e).Str("TlsVersion", v.String()).Str("CLientRandom", k).Str("eBPFProgramType", m.eBPFProgramType.String()).Msg("CLIENT_RANDOM save failed")
 			return
 		}
-		m.logger.Printf("%s\t%s: save CLIENT_RANDOM %02x to file success, %d bytes", m.Name(), v.String(), secretEvent.ClientRandom, l)
+		m.logger.Info().Str("TlsVersion", v.String()).Str("CLientRandom", k).Str("eBPFProgramType", m.eBPFProgramType.String()).Int("bytes", l).Msg("CLIENT_RANDOM save success")
 	default:
 	}
 }
@@ -473,8 +486,8 @@ func (m *MOpenSSLProbe) saveMasterSecretBSSL(secretEvent *event.MasterSecretBSSL
 		}
 		length := int(secretEvent.HashLen)
 		if length > event.MasterSecretMaxLen {
+			m.logger.Error().Int("length", length).Msg("master secret length is too long, truncate to 48 bytes, but it may cause keylog file error")
 			length = event.MasterSecretMaxLen
-			m.logger.Printf("%s\tmaster secret length is too long, truncate to 48 bytes, but it may cause keylog file error\n", m.Name())
 		}
 		b = bytes.NewBufferString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelTLS12, secretEvent.ClientRandom, secretEvent.Secret[:length]))
 		m.masterKeys[k] = true
@@ -484,15 +497,15 @@ func (m *MOpenSSLProbe) saveMasterSecretBSSL(secretEvent *event.MasterSecretBSSL
 		var length int
 		length = int(secretEvent.HashLen)
 		if length > event.EvpMaxMdSize {
-			m.logger.Printf("%s\tmaster secret length is too long, truncate to 64 bytes, but it may cause keylog file error\n", m.Name())
+			m.logger.Error().Int("length", length).Msg("master secret length is too long, truncate to 64 bytes, but it may cause keylog file error")
 			length = event.EvpMaxMdSize
 		}
 		// 判断 密钥是否为空
 		if m.bSSLEvent13NullSecrets(secretEvent) {
+			m.logger.Debug().Str("ClientRandom", k).Msg("something in mastersecret is null")
 			return
 		}
 		m.masterKeys[k] = true
-		// m.logger.Printf("secretEvent.HashLen:%d, CipherId:%d", secretEvent.HashLen, secretEvent.HashLen)
 		b = bytes.NewBufferString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelClientHandshake, secretEvent.ClientRandom, secretEvent.ClientHandshakeSecret[:length]))
 		// b.WriteString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelClientEarlyTafficSecret, secretEvent.ClientRandom, secretEvent.EarlyTrafficSecret[:length]))
 		b.WriteString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelClientTraffic, secretEvent.ClientRandom, secretEvent.ClientTrafficSecret0[:length]))
@@ -507,17 +520,17 @@ func (m *MOpenSSLProbe) saveMasterSecretBSSL(secretEvent *event.MasterSecretBSSL
 	case TlsCaptureModelTypePcap:
 		e := m.savePcapngSslKeyLog(b.Bytes())
 		if e != nil {
-			m.logger.Fatalf("%s\t%s: save CLIENT_RANDOM to pcapng error:%s", m.Name(), v.String(), e.Error())
+			m.logger.Warn().Err(e).Str("eBPFProgramType", m.eBPFProgramType.String()).Str("CLientRandom", k).Msg("save sslKeylog failed")
 			return
 		}
-		m.logger.Printf("%s\t%s: save CLIENT_RANDOM %02x to file success, %d bytes", m.Name(), v.String(), secretEvent.ClientRandom, b.Len())
+		m.logger.Info().Str("eBPFProgramType", m.eBPFProgramType.String()).Str("sslVersion", v.String()).Str("CLientRandom", k).Int("bytes", b.Len()).Msg("CLIENT_RANDOM save success")
 	case TlsCaptureModelTypeKeylog:
 		l, e := m.keylogger.WriteString(b.String())
 		if e != nil {
-			m.logger.Fatalf("%s\t%s: save CLIENT_RANDOM to file error:%s", m.Name(), v.String(), e.Error())
+			m.logger.Warn().Err(e).Str("eBPFProgramType", m.eBPFProgramType.String()).Str("CLientRandom", k).Msg("save sslKeylog failed")
 			return
 		}
-		m.logger.Printf("%s\t%s: save CLIENT_RANDOM %02x to file success, %d bytes", m.Name(), v.String(), secretEvent.ClientRandom, l)
+		m.logger.Info().Str("eBPFProgramType", m.eBPFProgramType.String()).Str("sslVersion", v.String()).Str("CLientRandom", k).Int("bytes", l).Msg("CLIENT_RANDOM save success")
 	default:
 	}
 }
@@ -618,20 +631,21 @@ func (m *MOpenSSLProbe) Dispatcher(eventStruct event.IEventStruct) {
 	case *event.TcSkbEvent:
 		err := m.dumpTcSkb(eventStruct.(*event.TcSkbEvent))
 		if err != nil {
-			m.logger.Printf("%s\tsave packet error %s .\n", m.Name(), err.Error())
+			m.logger.Error().Err(err).Msg("save packet error.")
 		}
 	case *event.SSLDataEvent:
 		m.dumpSslData(eventStruct.(*event.SSLDataEvent))
 	}
-	// m.logger.Println(eventStruct)
+	m.logger.Debug().Msg("Dispatcher eventStruct")
 }
 
 func (m *MOpenSSLProbe) dumpSslData(eventStruct *event.SSLDataEvent) {
 	if eventStruct.Fd <= 0 {
-		m.logger.Printf("\tnotice: SSLDataEvent's fd is 0.  pid:%d, fd:%d, addr:%s\n", eventStruct.Pid, eventStruct.Fd, eventStruct.Addr)
+		m.logger.Error().Uint32("pid", eventStruct.Pid).Uint32("fd", eventStruct.Fd).Str("address", eventStruct.Addr).Msg("SSLDataEvent's fd is 0")
+		//return
 	}
 	addr := m.GetConn(eventStruct.Pid, eventStruct.Fd)
-	// m.logger.Printf("\tSSLDataEvent pid:%d, fd:%d, addr:%s\n", eventStruct.Pid, eventStruct.Fd, addr)
+	m.logger.Debug().Uint32("pid", eventStruct.Pid).Uint32("fd", eventStruct.Fd).Str("address", addr).Msg("SSLDataEvent")
 	if addr == ConnNotFound {
 		eventStruct.Addr = DefaultAddr
 	} else {

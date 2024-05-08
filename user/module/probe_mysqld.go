@@ -27,8 +27,8 @@ import (
 	"github.com/gojue/ecapture/assets"
 	"github.com/gojue/ecapture/user/config"
 	"github.com/gojue/ecapture/user/event"
+	"github.com/rs/zerolog"
 	"golang.org/x/sys/unix"
-	"log"
 	"math"
 	"os"
 )
@@ -42,7 +42,7 @@ type MMysqldProbe struct {
 }
 
 // 对象初始化
-func (m *MMysqldProbe) Init(ctx context.Context, logger *log.Logger, conf config.IConfig) error {
+func (m *MMysqldProbe) Init(ctx context.Context, logger *zerolog.Logger, conf config.IConfig) error {
 	m.Module.Init(ctx, logger, conf)
 	m.conf = conf
 	m.Module.SetChild(m)
@@ -62,9 +62,10 @@ func (m *MMysqldProbe) start() error {
 
 	// fetch ebpf assets
 	var bpfFileName = m.geteBPFName("user/bytecode/mysqld_kern.o")
-	m.logger.Printf("%s\tBPF bytecode filename:%s\n", m.Name(), bpfFileName)
+	m.logger.Info().Str("bpfFileName", bpfFileName).Msg("BPF bytecode file is matched.")
 	byteBuf, err := assets.Asset(bpfFileName)
 	if err != nil {
+		m.logger.Error().Err(err).Strs("bytecode files", assets.AssetNames()).Msg("couldn't find bpf bytecode file")
 		return fmt.Errorf("couldn't find asset %v.", err)
 	}
 
@@ -187,8 +188,8 @@ func (m *MMysqldProbe) setupManagers() error {
 		},
 	}
 
-	m.logger.Printf("%s\tMysql Version:%s, binrayPath:%s, FunctionName:%s ,UprobeOffset:%d\n", m.Name(), versionInfo, binaryPath, attachFunc, offset)
-
+	m.logger.Info().Str("binrayPath", binaryPath).Str("FunctionName", attachFunc).
+		Str("Version", versionInfo).Uint64("UprobeOffset", offset).Msg("Mysql Probe Hooked")
 	m.bpfManagerOptions = manager.Options{
 		DefaultKProbeMaxActive: 512,
 

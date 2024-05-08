@@ -75,10 +75,9 @@ func (m *MOpenSSLProbe) setupManagersPcap() error {
 	}
 
 	pcapFilter := m.conf.(*config.OpensslConfig).PcapFilter
-	m.logger.Printf("%s\tHOOK type: %d, binrayPath: %s\n", m.Name(), m.conf.(*config.OpensslConfig).ElfType, binaryPath)
-	m.logger.Printf("%s\tPcapFilter: %s\n", m.Name(), pcapFilter)
-	m.logger.Printf("%s\tIfname: %s, Ifindex: %d\n", m.Name(), m.ifName, m.ifIdex)
-	m.logger.Printf("%s\tHook masterKey function: %s\n", m.Name(), m.masterHookFuncs)
+	m.logger.Info().Str("binrayPath", binaryPath).Str("IFname", m.ifName).Int("IFindex", m.ifIdex).
+		Str("PcapFilter", pcapFilter).Uint8("ElfType", m.conf.(*config.OpensslConfig).ElfType).Msg("HOOK type:Golang elf")
+	m.logger.Info().Strs("Functions", m.masterHookFuncs).Msg("Hook masterKey function")
 
 	// create pcapng writer
 	netIfs, err := net.Interfaces()

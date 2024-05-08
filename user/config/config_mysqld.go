@@ -38,7 +38,7 @@ const (
 
 // 最终使用mysqld参数
 type MysqldConfig struct {
-	eConfig
+	BaseConfig
 	Mysqldpath  string     `json:"mysqldPath"` //curl的文件路径
 	FuncName    string     `json:"funcName"`
 	Offset      uint64     `json:"offset"`
@@ -97,7 +97,6 @@ func (mc *MysqldConfig) Check() error {
 		if match == nil {
 			continue
 		}
-		//fmt.Printf("\tsize:%d,  name:%s,  offset:%d\n", sym.Size, sym.Name, 0)
 		funcName = sym.Name
 		break
 	}
@@ -155,7 +154,6 @@ func getMysqlVer(buf []byte) (MysqldType, string) {
 
 		mysqldVer := string(slice[i])
 		if strings.Contains(mysqldVer, "mysqld-8.") {
-			//fmt.Println(fmt.Sprintf("offset:%d, body:%s", offset, slice[i]))
 			return MysqldType80, mysqldVer
 		} else if strings.Contains(mysqldVer, "mysqld-5.7") {
 			return MysqldType57, mysqldVer

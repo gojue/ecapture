@@ -31,6 +31,9 @@ type IConfig interface {
 	SetHex(bool)
 	SetBTF(uint8)
 	SetDebug(bool)
+	SetAddrType(uint8)
+	SetAddress(string)
+	GetAddress() string
 	GetPerCpuMapSize() int
 	SetPerCpuMapSize(int)
 	EnableGlobalVar() bool //
@@ -50,64 +53,81 @@ const (
 	BTFModeNonCore    = 2
 )
 
-type eConfig struct {
-	Pid           uint64
-	Uid           uint64
+type BaseConfig struct {
+	Pid uint64
+	Uid uint64
+
+	// mapSizeKB
 	PerCpuMapSize int // ebpf map size for per Cpu.   see https://github.com/gojue/ecapture/issues/433 .
 	IsHex         bool
 	Debug         bool
 	BtfMode       uint8
+	AddrType      uint8 // 0:stdout, 1:file, 2:tcp
+	Address       string
+	LoggerAddr    string // save file
 }
 
-func (c *eConfig) GetPid() uint64 {
+func (c *BaseConfig) GetPid() uint64 {
 	return c.Pid
 }
 
-func (c *eConfig) GetUid() uint64 {
+func (c *BaseConfig) GetUid() uint64 {
 	return c.Uid
 }
 
-func (c *eConfig) GetDebug() bool {
+func (c *BaseConfig) GetDebug() bool {
 	return c.Debug
 }
 
-func (c *eConfig) GetHex() bool {
+func (c *BaseConfig) GetHex() bool {
 	return c.IsHex
 }
 
-func (c *eConfig) SetPid(pid uint64) {
+func (c *BaseConfig) SetPid(pid uint64) {
 	c.Pid = pid
 }
 
-func (c *eConfig) SetUid(uid uint64) {
+func (c *BaseConfig) SetUid(uid uint64) {
 	c.Uid = uid
 }
 
-func (c *eConfig) SetDebug(b bool) {
+func (c *BaseConfig) SetAddress(addr string) {
+	c.Address = addr
+}
+
+func (c *BaseConfig) GetAddress() string {
+	return c.Address
+}
+
+func (c *BaseConfig) SetAddrType(t uint8) {
+	c.AddrType = t
+}
+
+func (c *BaseConfig) SetDebug(b bool) {
 	c.Debug = b
 }
 
-func (c *eConfig) SetHex(isHex bool) {
+func (c *BaseConfig) SetHex(isHex bool) {
 	c.IsHex = isHex
 }
 
-func (c *eConfig) SetBTF(BtfMode uint8) {
+func (c *BaseConfig) SetBTF(BtfMode uint8) {
 	c.BtfMode = BtfMode
 }
 
-func (c *eConfig) GetBTF() uint8 {
+func (c *BaseConfig) GetBTF() uint8 {
 	return c.BtfMode
 }
 
-func (c *eConfig) GetPerCpuMapSize() int {
+func (c *BaseConfig) GetPerCpuMapSize() int {
 	return c.PerCpuMapSize
 }
 
-func (c *eConfig) SetPerCpuMapSize(size int) {
+func (c *BaseConfig) SetPerCpuMapSize(size int) {
 	c.PerCpuMapSize = size * os.Getpagesize()
 }
 
-func (c *eConfig) EnableGlobalVar() bool {
+func (c *BaseConfig) EnableGlobalVar() bool {
 	kv, err := kernel.HostVersion()
 	if err != nil {
 		//log.Fatal(err)

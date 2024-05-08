@@ -15,17 +15,9 @@
 package cmd
 
 import (
-	"context"
-	"errors"
-	"log"
-	"os"
-	"os/signal"
-	"strings"
-	"syscall"
-
-	"github.com/gojue/ecapture/pkg/util/kernel"
 	"github.com/gojue/ecapture/user/config"
 	"github.com/gojue/ecapture/user/module"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -61,79 +53,5 @@ func goTLSCommandFunc(command *cobra.Command, args []string) {
 		goc.PcapFilter = strings.Join(args, " ")
 	}
 
-	stopper := make(chan os.Signal, 1)
-	signal.Notify(stopper, os.Interrupt, syscall.SIGTERM)
-
-	logger := log.New(os.Stdout, "tls_", log.LstdFlags)
-
-	// save global config
-	gConf, err := getGlobalConf(command)
-	if err != nil {
-		logger.Fatal(err)
-	}
-	logger.SetOutput(gConf.writer)
-	logger.Printf("ECAPTURE :: %s Version : %s", cliName, GitVersion)
-	logger.Printf("ECAPTURE :: Pid Info : %d", os.Getpid())
-	var version kernel.Version
-	version, _ = kernel.HostVersion() // it's safe to ignore error because we have checked it in func main
-	logger.Printf("ECAPTURE :: Kernel Info : %s", version.String())
-
-	mod := module.GetModuleByName(module.ModuleNameGotls)
-	if mod == nil {
-		logger.Printf("ECAPTURE :: \tcant found module: %s", module.ModuleNameGotls)
-		return
-	}
-	if goc == nil {
-		logger.Printf("ECAPTURE :: \tcant found module %s config info.", mod.Name())
-		return
-	}
-	var conf config.IConfig
-	conf = goc
-
-	conf.SetPid(gConf.Pid)
-	conf.SetUid(gConf.Uid)
-	conf.SetDebug(gConf.Debug)
-	conf.SetHex(gConf.IsHex)
-	conf.SetBTF(gConf.BtfMode)
-	conf.SetPerCpuMapSize(gConf.mapSizeKB)
-
-	err = conf.Check()
-
-	if err != nil {
-		// ErrorGoBINNotFound is a special error, we should not print it.
-		if errors.Is(err, config.ErrorGoBINNotFound) {
-			logger.Printf("%s\t%s, exec \"ecapture gotls --help\" for more detail.", mod.Name(), config.ErrorGoBINNotFound.Error())
-			logger.Printf("%s\tmodule [disabled].", mod.Name())
-			return
-		}
-
-		logger.Printf("%s\tmodule initialization failed. [skip it]. error:%+v", mod.Name(), err)
-		return
-	}
-
-	logger.Printf("%s\tmodule initialization", mod.Name())
-
-	// 初始化
-	err = mod.Init(context.TODO(), logger, conf)
-	if err != nil {
-		logger.Printf("%s\tmodule initialization failed, [skip it]. error:%+v", mod.Name(), err)
-		return
-	}
-
-	err = mod.Run()
-	if err != nil {
-		logger.Printf("%s\tmodule run failed, [skip it]. error:%+v", mod.Name(), err)
-		return
-	}
-
-	logger.Printf("%s\tmodule started successfully.", mod.Name())
-
-	<-stopper
-
-	// clean up
-	err = mod.Close()
-	if err != nil {
-		logger.Fatalf("%s\tmodule close failed. error:%+v", mod.Name(), err)
-	}
-	os.Exit(0)
+	runModule(module.ModuleNameGotls, goc)
 }

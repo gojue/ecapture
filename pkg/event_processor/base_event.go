@@ -34,7 +34,8 @@ const ChunkSize = 16
 const ChunkSizeHalf = ChunkSize / 2
 
 const MaxDataSize = 1024 * 4
-const SaDataLen = 14
+
+//const SaDataLen = 14
 
 const (
 	Ssl2Version   = 0x0002
@@ -47,11 +48,11 @@ const (
 	Dtls12Version = 0xFEFD
 )
 
-type tls_version struct {
+type tlsVersion struct {
 	version int32
 }
 
-func (t tls_version) String() string {
+func (t tlsVersion) String() string {
 	switch t.version {
 	case Ssl2Version:
 		return "SSL2_VERSION"
@@ -74,106 +75,106 @@ func (t tls_version) String() string {
 }
 
 type BaseEvent struct {
-	event_type event.EventType
-	DataType   int64
-	Timestamp  uint64
-	Pid        uint32
-	Tid        uint32
-	Data       [MaxDataSize]byte
-	Data_len   int32
-	Comm       [16]byte
-	Fd         uint32
-	Version    int32
+	eventType event.EventType
+	DataType  int64
+	Timestamp uint64
+	Pid       uint32
+	Tid       uint32
+	Data      [MaxDataSize]byte
+	DataLen   int32
+	Comm      [16]byte
+	Fd        uint32
+	Version   int32
 }
 
-func (this *BaseEvent) Decode(payload []byte) (err error) {
+func (be *BaseEvent) Decode(payload []byte) (err error) {
 	buf := bytes.NewBuffer(payload)
-	if err = binary.Read(buf, binary.LittleEndian, &this.DataType); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &be.DataType); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.Timestamp); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &be.Timestamp); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.Pid); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &be.Pid); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.Tid); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &be.Tid); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.Data); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &be.Data); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.Data_len); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &be.DataLen); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.Comm); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &be.Comm); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.Fd); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &be.Fd); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.Version); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &be.Version); err != nil {
 		return
 	}
 
 	return nil
 }
 
-func (this *BaseEvent) GetUUID() string {
-	return fmt.Sprintf("%d_%d_%s_%d_%d", this.Pid, this.Tid, CToGoString(this.Comm[:]), this.Fd, this.DataType)
+func (be *BaseEvent) GetUUID() string {
+	return fmt.Sprintf("%d_%d_%s_%d_%d", be.Pid, be.Tid, CToGoString(be.Comm[:]), be.Fd, be.DataType)
 }
 
-func (this *BaseEvent) Payload() []byte {
-	return this.Data[:this.Data_len]
+func (be *BaseEvent) Payload() []byte {
+	return be.Data[:be.DataLen]
 }
 
-func (this *BaseEvent) PayloadLen() int {
-	return int(this.Data_len)
+func (be *BaseEvent) PayloadLen() int {
+	return int(be.DataLen)
 }
 
-func (this *BaseEvent) StringHex() string {
+func (be *BaseEvent) StringHex() string {
 
-	var perfix, connInfo string
-	switch AttachType(this.DataType) {
+	var prefix, connInfo string
+	switch AttachType(be.DataType) {
 	case ProbeEntry:
-		connInfo = fmt.Sprintf("Recived %d bytes", this.Data_len)
+		connInfo = fmt.Sprintf("Recived %d bytes", be.DataLen)
 	case ProbeRet:
-		connInfo = fmt.Sprintf("Send %d bytes", this.Data_len)
+		connInfo = fmt.Sprintf("Send %d bytes", be.DataLen)
 	default:
-		perfix = fmt.Sprintf("UNKNOW_%d", this.DataType)
+		prefix = fmt.Sprintf("UNKNOW_%d", be.DataType)
 	}
 
-	b := dumpByteSlice(this.Data[:this.Data_len], perfix)
+	b := dumpByteSlice(be.Data[:be.DataLen], prefix)
 
-	v := tls_version{version: this.Version}
-	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, %s, Version:%s, Payload:\n%s", this.Pid, CToGoString(this.Comm[:]), this.Tid, connInfo, v.String(), b.String())
+	v := tlsVersion{version: be.Version}
+	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, %s, Version:%s, Payload:\n%s", be.Pid, CToGoString(be.Comm[:]), be.Tid, connInfo, v.String(), b.String())
 	return s
 }
 
-func (this *BaseEvent) String() string {
+func (be *BaseEvent) String() string {
 
 	var connInfo string
-	switch AttachType(this.DataType) {
+	switch AttachType(be.DataType) {
 	case ProbeEntry:
-		connInfo = fmt.Sprintf("Recived %dbytes", this.Data_len)
+		connInfo = fmt.Sprintf("Recived %dbytes", be.DataLen)
 	case ProbeRet:
-		connInfo = fmt.Sprintf("Send %d bytes", this.Data_len)
+		connInfo = fmt.Sprintf("Send %d bytes", be.DataLen)
 	default:
-		connInfo = fmt.Sprintf("UNKNOW_%d", this.DataType)
+		connInfo = fmt.Sprintf("UNKNOW_%d", be.DataType)
 	}
-	v := tls_version{version: this.Version}
-	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, Version:%s, %s, Payload:\n%s", this.Pid, bytes.TrimSpace(this.Comm[:]), this.Tid, v.String(), connInfo, string(this.Data[:this.Data_len]))
+	v := tlsVersion{version: be.Version}
+	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, Version:%s, %s, Payload:\n%s", be.Pid, bytes.TrimSpace(be.Comm[:]), be.Tid, v.String(), connInfo, string(be.Data[:be.DataLen]))
 	return s
 }
 
-func (this *BaseEvent) Clone() event.IEventStruct {
+func (be *BaseEvent) Clone() event.IEventStruct {
 	e := new(BaseEvent)
-	e.event_type = event.EventTypeOutput
+	e.eventType = event.EventTypeOutput
 	return e
 }
 
-func (this *BaseEvent) EventType() event.EventType {
-	return this.event_type
+func (be *BaseEvent) EventType() event.EventType {
+	return be.eventType
 }
 
 func CToGoString(c []byte) string {
@@ -187,7 +188,7 @@ func CToGoString(c []byte) string {
 	return string(c[:n+1])
 }
 
-func dumpByteSlice(b []byte, perfix string) *bytes.Buffer {
+func dumpByteSlice(b []byte, prefix string) *bytes.Buffer {
 	var a [ChunkSize]byte
 	bb := new(bytes.Buffer)
 	n := (len(b) + (ChunkSize - 1)) &^ (ChunkSize - 1)
@@ -196,7 +197,7 @@ func dumpByteSlice(b []byte, perfix string) *bytes.Buffer {
 
 		// 序号列
 		if i%ChunkSize == 0 {
-			bb.WriteString(perfix)
+			bb.WriteString(prefix)
 			bb.WriteString(fmt.Sprintf("%04d", i))
 		}
 

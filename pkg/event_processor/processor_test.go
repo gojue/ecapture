@@ -41,10 +41,13 @@ func TestEventProcessor_Serve(t *testing.T) {
 		}
 		logger.SetOutput(f)
 	*/
-	ep := NewEventProcessor(logger, true)
-
+	ep := NewEventProcessor(&buf, true)
 	go func() {
-		ep.Serve()
+		var err error
+		err = ep.Serve()
+		if err != nil {
+			log.Fatalf(err.Error())
+		}
 	}()
 	content, err := os.ReadFile(testFile)
 	if err != nil {
@@ -68,7 +71,7 @@ func TestEventProcessor_Serve(t *testing.T) {
 			t.Fatalf("read payload file error: %s, file:%s", e.Error(), payloadFile)
 		}
 		copy(eventSSL.Data[:], b)
-		ep.Write(&BaseEvent{Data_len: eventSSL.Data_len, Data: eventSSL.Data, DataType: eventSSL.DataType, Timestamp: eventSSL.Timestamp, Pid: eventSSL.Pid, Tid: eventSSL.Tid, Comm: eventSSL.Comm, Fd: eventSSL.Fd, Version: eventSSL.Version})
+		ep.Write(&BaseEvent{DataLen: eventSSL.Data_len, Data: eventSSL.Data, DataType: eventSSL.DataType, Timestamp: eventSSL.Timestamp, Pid: eventSSL.Pid, Tid: eventSSL.Tid, Comm: eventSSL.Comm, Fd: eventSSL.Fd, Version: eventSSL.Version})
 	}
 
 	tick := time.NewTicker(time.Second * 10)

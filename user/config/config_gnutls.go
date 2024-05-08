@@ -14,10 +14,10 @@
 
 package config
 
-// 最终使用openssl参数
+// GnutlsConfig 最终使用openssl参数
 type GnutlsConfig struct {
-	eConfig
-	//Curlpath string `json:"curlpath"` //curl的文件路径
+	BaseConfig
+	//Curl path string `json:"curlpath"` //curl的文件路径
 	Gnutls  string `json:"gnutls"`
 	ElfType uint8  //
 }

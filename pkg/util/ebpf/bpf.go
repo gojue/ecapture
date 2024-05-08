@@ -140,7 +140,7 @@ func IsEnableBTF() (bool, error) {
 	return true, nil
 }
 
-// check BPF CONFIG
+// IsEnableBPF check BPF CONFIG
 func IsEnableBPF() (bool, error) {
 	var e error
 	var KernelConfig = make(map[string]string)

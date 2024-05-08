@@ -15,14 +15,9 @@
 package cmd
 
 import (
-	"context"
 	"github.com/gojue/ecapture/user/config"
 	"github.com/gojue/ecapture/user/module"
 	"github.com/spf13/cobra"
-	"log"
-	"os"
-	"os/signal"
-	"syscall"
 )
 
 var bc = config.NewBashConfig()
@@ -55,52 +50,5 @@ func init() {
 
 // bashCommandFunc executes the "bash" command.
 func bashCommandFunc(command *cobra.Command, args []string) {
-	stopper := make(chan os.Signal, 1)
-	signal.Notify(stopper, os.Interrupt, syscall.SIGTERM)
-	ctx, cancelFun := context.WithCancel(context.TODO())
-
-	mod := module.GetModuleByName(module.ModuleNameBash)
-
-	logger := log.New(os.Stdout, "bash_", log.LstdFlags)
-	logger.Printf("ECAPTURE :: version :%s", GitVersion)
-	logger.Printf("ECAPTURE :: start to run %s module", mod.Name())
-
-	// save global config
-	gConf, e := getGlobalConf(command)
-	if e != nil {
-		logger.Fatal(e)
-		os.Exit(1)
-	}
-	logger.SetOutput(gConf.writer)
-	bc.Pid = gConf.Pid
-	bc.Uid = gConf.Uid
-	bc.Debug = gConf.Debug
-	bc.IsHex = gConf.IsHex
-	bc.SetBTF(gConf.BtfMode)
-	bc.SetPerCpuMapSize(gConf.mapSizeKB)
-
-	logger.Printf("ECAPTURE :: pid info :%d", os.Getpid())
-	//bc.Pid = globalFlags.Pid
-	if e := bc.Check(); e != nil {
-		logger.Fatal(e)
-		os.Exit(1)
-	}
-
-	//初始化
-	err := mod.Init(ctx, logger, bc)
-	if err != nil {
-		logger.Fatal(err)
-		os.Exit(1)
-	}
-
-	// 加载ebpf，挂载到hook点上，开始监听
-	go func(module module.IModule) {
-		err := module.Run()
-		if err != nil {
-			logger.Fatalf("%v", err)
-		}
-	}(mod)
-	<-stopper
-	cancelFun()
-	os.Exit(0)
+	runModule(module.ModuleNameBash, bc)
 }

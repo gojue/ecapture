@@ -17,6 +17,7 @@ package event_processor
 import (
 	"bytes"
 	"encoding/hex"
+	"fmt"
 	"github.com/gojue/ecapture/user/event"
 	"sync/atomic"
 	"time"
@@ -54,6 +55,7 @@ type eventWorker struct {
 	parser      IParser
 	payload     *bytes.Buffer
 	used        atomic.Bool
+	msgBuffer   *bytes.Buffer
 }
 
 func NewEventWorker(uuid string, processor *EventProcessor) IWorker {
@@ -73,6 +75,8 @@ func (ew *eventWorker) init(uuid string, processor *EventProcessor) {
 	ew.processor = processor
 	ew.payload = bytes.NewBuffer(nil)
 	ew.payload.Reset()
+	ew.msgBuffer = bytes.NewBuffer(nil)
+	ew.msgBuffer.Reset()
 }
 
 func (ew *eventWorker) GetUUID() string {
@@ -98,10 +102,11 @@ func (ew *eventWorker) Display() {
 		b = []byte(hex.Dump(b))
 	}
 
-	// TODO 格式化的终端输出
 	// 重置状态
-	ew.processor.GetLogger().Printf("UUID:%s, Name:%s, Type:%d, Length:%d", ew.UUID, ew.parser.Name(), ew.parser.ParserType(), len(b))
-	ew.processor.GetLogger().Println("\n" + string(b))
+	ew.msgBuffer.WriteString(fmt.Sprintf("UUID:%s, Name:%s, Type:%d, Length:%d\n", ew.UUID, ew.parser.Name(), ew.parser.ParserType(), len(b)))
+	ew.msgBuffer.WriteString("\n" + string(b))
+	ew.processor.GetLogger().Write(ew.msgBuffer.Bytes())
+	ew.msgBuffer.Reset()
 	//ew.parser.Reset()
 	// 设定状态、重置包类型
 	ew.status = ProcessStateInit
@@ -110,7 +115,9 @@ func (ew *eventWorker) Display() {
 
 func (ew *eventWorker) writeEvent(e event.IEventStruct) {
 	if ew.status != ProcessStateInit {
-		ew.processor.GetLogger().Printf("write events failed, unknow eventWorker status")
+		ew.msgBuffer.WriteString("write events failed, unknow eventWorker status")
+		ew.processor.GetLogger().Write(ew.msgBuffer.Bytes())
+		ew.msgBuffer.Reset()
 		return
 	}
 	ew.payload.Write(e.Payload())
@@ -123,7 +130,9 @@ func (ew *eventWorker) parserEvents() []byte {
 	ew.parser = parser
 	n, e := ew.parser.Write(ew.payload.Bytes())
 	if e != nil {
-		ew.processor.GetLogger().Printf("ew.parser write payload %d bytes, error:%v", n, e)
+		ew.msgBuffer.WriteString(fmt.Sprintf("ew.parser write payload %d bytes, error:%v", n, e))
+		ew.processor.GetLogger().Write(ew.msgBuffer.Bytes())
+		ew.msgBuffer.Reset()
 	}
 	ew.status = ProcessStateDone
 	return ew.parser.Display()

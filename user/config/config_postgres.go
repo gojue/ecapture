@@ -25,7 +25,7 @@ import (
 )
 
 type PostgresConfig struct {
-	eConfig
+	BaseConfig
 	PostgresPath string `json:"postgresPath"`
 	FuncName     string `json:"funcName"`
 }

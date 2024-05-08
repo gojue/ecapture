@@ -15,18 +15,20 @@
 package config
 
 import (
+	"debug/elf"
 	"errors"
 	"os"
 	"strings"
 )
 
-// Bashpath 与 readline 两个参数，使用时二选一
+// BashConfig Bashpath 与 readline 两个参数，使用时二选一
 type BashConfig struct {
-	eConfig
-	Bashpath string `json:"bashpath"` //bash的文件路径
-	Readline string `json:"readline"`
-	ErrNo    int
-	ElfType  uint8 //
+	BaseConfig
+	Bashpath         string `json:"bashpath"` //bash的文件路径
+	Readline         string `json:"readline"`
+	ErrNo            int
+	ElfType          uint8 //
+	ReadlineFuncName string
 }
 
 func NewBashConfig() *BashConfig {
@@ -36,7 +38,44 @@ func NewBashConfig() *BashConfig {
 }
 
 func (bc *BashConfig) Check() error {
+	var binaryPath string
+	switch bc.ElfType {
+	case ElfTypeBin:
+		binaryPath = bc.Bashpath
+	case ElfTypeSo:
+		binaryPath = bc.Readline
+	default:
+		binaryPath = "/bin/bash"
+	}
 
+	file, err := elf.Open(binaryPath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	symbols, err := file.DynamicSymbols()
+	if err != nil {
+		return err
+	}
+
+	targetSymbol := "readline_internal_teardown"
+	found := false
+	for _, sym := range symbols {
+		if sym.Name == targetSymbol {
+			found = true
+			break
+		}
+	}
+	if found {
+		bc.ReadlineFuncName = "readline_internal_teardown"
+	} else {
+		bc.ReadlineFuncName = "readline"
+	}
+	return nil
+}
+
+func (bc *BashConfig) checkElf() error {
 	// 如果readline 配置，且存在，则直接返回。
 	if bc.Readline != "" || len(strings.TrimSpace(bc.Readline)) > 0 {
 		_, e := os.Stat(bc.Readline)
@@ -62,7 +101,6 @@ func (bc *BashConfig) Check() error {
 	if b {
 		soPath, e := getDynPathByElf(bash, "libreadline.so")
 		if e != nil {
-			//bc.logger.Printf("get bash:%s dynamic library error:%v.\n", bash, e)
 			bc.Bashpath = bash
 			bc.ElfType = ElfTypeBin
 		} else {
@@ -73,6 +111,5 @@ func (bc *BashConfig) Check() error {
 	} else {
 		return errors.New("cant found $SHELL path.")
 	}
-
 	return nil
 }

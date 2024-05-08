@@ -7,8 +7,9 @@ require (
 	github.com/gojue/ebpfmanager v0.4.5
 	github.com/google/gopacket v1.1.19
 	github.com/jschwinger233/elibpcap v0.0.0-20231010035657-e99300096f5e
+	github.com/rs/zerolog v1.32.0
 	github.com/shuLhan/go-bindata v4.0.0+incompatible
-	github.com/spf13/cobra v1.4.0
+	github.com/spf13/cobra v1.8.0
 	github.com/spf13/pflag v1.0.5
 	golang.org/x/arch v0.7.0
 	golang.org/x/crypto v0.21.0
@@ -22,8 +23,10 @@ require (
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/hashicorp/errwrap v1.0.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
-	github.com/inconshreveable/mousetrap v1.0.0 // indirect
+	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/josharian/native v1.1.0 // indirect
+	github.com/mattn/go-colorable v0.1.13 // indirect
+	github.com/mattn/go-isatty v0.0.19 // indirect
 	github.com/mdlayher/netlink v1.7.1 // indirect
 	github.com/mdlayher/socket v0.4.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect

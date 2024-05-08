@@ -52,10 +52,10 @@ func (g *GoTLSProbe) setupManagersPcap() error {
 	g.ifIdex = interf.Index
 
 	pcapFilter := g.conf.(*config.GoTLSConfig).PcapFilter
-	g.logger.Printf("%s\tHOOK type:golang elf, binrayPath:%s\n", g.Name(), g.path)
-	g.logger.Printf("%s\tPcapFilter: %s\n", g.Name(), pcapFilter)
-	g.logger.Printf("%s\tIfname: %s, Ifindex: %d\n", g.Name(), g.ifName, g.ifIdex)
-	g.logger.Printf("%s\tHook masterKey function: %s, Address:%x \n", g.Name(), config.GoTlsMasterSecretFunc, g.conf.(*config.GoTLSConfig).GoTlsMasterSecretAddr)
+	g.logger.Info().Str("binrayPath", g.path).Str("IFname", g.ifName).Int("IFindex", g.ifIdex).
+		Str("PcapFilter", pcapFilter).Msg("HOOK type:Golang elf")
+	g.logger.Info().Str("Function", config.GoTlsMasterSecretFunc).
+		Str("Address", fmt.Sprintf("%X", g.conf.(*config.GoTLSConfig).GoTlsMasterSecretAddr)).Msg("Hook masterKey function")
 
 	// create pcapng writer
 	netIfs, err := net.Interfaces()

@@ -51,7 +51,7 @@ type IParser interface {
 	Write(b []byte) (int, error)
 	ParserType() ParserType
 	PacketType() PacketType
-	//Body() []byte
+	// Name Body() []byte
 	Name() string
 	IsDone() bool
 	Init()
@@ -72,12 +72,12 @@ func Register(p IParser) {
 	parsers[name] = p
 }
 
-// GetModules 获取modules列表
+// GetAllModules  获取modules列表
 func GetAllModules() map[string]IParser {
 	return parsers
 }
 
-// GetModules 获取modules列表
+// GetModuleByName  获取modules列表
 func GetModuleByName(name string) IParser {
 	return parsers[name]
 }
@@ -99,6 +99,8 @@ func NewParser(payload []byte) IParser {
 					//hpack.NewEncoder(buf)
 				case ParserTypeHttp2Response:
 					// TODO  support HTTP2 response
+				default:
+					newParser = new(DefaultParser)
 				}
 				break
 			}
@@ -119,48 +121,48 @@ type DefaultParser struct {
 	isdone bool
 }
 
-func (this *DefaultParser) ParserType() ParserType {
+func (dp *DefaultParser) ParserType() ParserType {
 	return ParserTypeNull
 }
 
-func (this *DefaultParser) PacketType() PacketType {
+func (dp *DefaultParser) PacketType() PacketType {
 	return PacketTypeNull
 }
 
-func (this *DefaultParser) Write(b []byte) (int, error) {
-	this.isdone = true
-	return this.reader.Write(b)
+func (dp *DefaultParser) Write(b []byte) (int, error) {
+	dp.isdone = true
+	return dp.reader.Write(b)
 }
 
 // DefaultParser 检测包类型
-func (this *DefaultParser) detect(b []byte) error {
+func (dp *DefaultParser) detect(b []byte) error {
 	return nil
 }
 
-func (this *DefaultParser) Name() string {
+func (dp *DefaultParser) Name() string {
 	return "DefaultParser"
 }
 
-func (this *DefaultParser) IsDone() bool {
-	return this.isdone
+func (dp *DefaultParser) IsDone() bool {
+	return dp.isdone
 }
 
-func (this *DefaultParser) Init() {
-	this.reader = bytes.NewBuffer(nil)
+func (dp *DefaultParser) Init() {
+	dp.reader = bytes.NewBuffer(nil)
 }
 
-func (this *DefaultParser) Display() []byte {
-	b := this.reader.Bytes()
+func (dp *DefaultParser) Display() []byte {
+	b := dp.reader.Bytes()
 	if len(b) <= 0 {
 		return []byte{}
 	}
 	if b[0] < 32 || b[0] > 126 {
 		return []byte(hex.Dump(b))
 	}
-	return []byte(CToGoString(this.reader.Bytes()))
+	return []byte(CToGoString(dp.reader.Bytes()))
 }
 
-func (this *DefaultParser) Reset() {
-	this.isdone = false
-	this.reader.Reset()
+func (dp *DefaultParser) Reset() {
+	dp.isdone = false
+	dp.reader.Reset()
 }

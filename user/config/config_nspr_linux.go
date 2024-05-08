@@ -35,37 +35,6 @@ func (nc *NsprConfig) Check() error {
 		nc.ElfType = ElfTypeSo
 		return nil
 	}
-	/*
-		//如果配置 Curlpath的地址，判断文件是否存在，不存在则直接返回
-		if nc.Firefoxpath != "" || len(strings.TrimSpace(nc.Firefoxpath)) > 0 {
-			_, e := os.Stat(nc.Firefoxpath)
-			if e != nil {
-				return e
-			}
-		} else {
-			//如果没配置，则直接指定。
-			nc.Firefoxpath = "/usr/lib/firefox/firefox"
-		}
-
-		soPath, e := getDynPathByElf(nc.Firefoxpath, "libnspr4.so")
-		if e != nil {
-			//nc.logger.Printf("get bash:%s dynamic library error:%v.\n", bash, e)
-			_, e = os.Stat(X86BinaryPrefix)
-			prefix := X86BinaryPrefix
-			if e != nil {
-				prefix = OthersBinaryPrefix
-			}
-			nc.Nsprpath = filepath.Join(prefix, "libnspr4.so")
-			//nc.Gnutls = "/usr/lib/firefox/libnss3.so"
-			//"/usr/lib/firefox/libnspr4.so"
-			nc.ElfType = ElfTypeSo
-			_, e = os.Stat(nc.Nsprpath)
-			if e != nil {
-				return e
-			}
-			return nil
-		}
-	*/
 
 	nc.Nsprpath = DefaultNsprNssPath
 	nc.ElfType = ElfTypeSo

@@ -16,6 +16,7 @@ package module
 
 import (
 	"errors"
+	"fmt"
 	"github.com/cilium/ebpf"
 	manager "github.com/gojue/ebpfmanager"
 	"github.com/gojue/ecapture/user/config"
@@ -37,14 +38,15 @@ func (g *GoTLSProbe) setupManagersKeylog() error {
 		buildInfo.WriteString("=")
 		buildInfo.WriteString(setting.Value)
 	}
-	g.logger.Printf("%s\tHOOK type:Golang elf, binrayPath:%s\n", g.Name(), g.path)
-	g.logger.Printf("%s\tGolang buildInfo version:%s, Params: %s\n", g.Name(), gotlsConf.Buildinfo.GoVersion, buildInfo.String())
+	g.logger.Info().Str("binrayPath", g.path).
+		Str("GoVersion", gotlsConf.Buildinfo.GoVersion).
+		Str("buildInfo", buildInfo.String()).Msg("HOOK type:Golang elf")
 	if gotlsConf.IsPieBuildMode {
 		// buildmode pie is enabled.
-		g.logger.Printf("%s\tGolang elf buildmode with pie\n", g.Name())
+		g.logger.Warn().Msg("Golang elf buildmode with pie")
 	}
-	g.logger.Printf("%s\tHook masterKey function:%s, Address:%x \n", g.Name(), config.GoTlsMasterSecretFunc, gotlsConf.GoTlsMasterSecretAddr)
-
+	g.logger.Info().Str("Function", config.GoTlsMasterSecretFunc).
+		Str("Address", fmt.Sprintf("%X", gotlsConf.GoTlsMasterSecretAddr)).Msg("Hook masterKey function")
 	var (
 		sec string
 		fn  string

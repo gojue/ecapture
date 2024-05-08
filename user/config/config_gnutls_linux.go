@@ -37,35 +37,6 @@ func (gc *GnutlsConfig) Check() error {
 		return nil
 	}
 
-	/*
-		//如果配置 Curlpath的地址，判断文件是否存在，不存在则直接返回
-		if gc.Curlpath != "" || len(strings.TrimSpace(gc.Curlpath)) > 0 {
-			_, e := os.Stat(gc.Curlpath)
-			if e != nil {
-				return e
-			}
-		} else {
-			//如果没配置，则直接指定。
-			gc.Curlpath = "/usr/bin/wget"
-		}
-
-		soPath, e := getDynPathByElf(gc.Curlpath, "libgnutls.so")
-		if e != nil {
-			//gc.logger.Printf("get bash:%s dynamic library error:%v.\n", bash, e)
-			_, e = os.Stat(X86BinaryPrefix)
-			prefix := X86BinaryPrefix
-			if e != nil {
-				prefix = OthersBinaryPrefix
-			}
-			gc.Gnutls = filepath.Join(prefix, "libgnutls.so.30")
-			gc.ElfType = ElfTypeSo
-			_, e = os.Stat(gc.Gnutls)
-			if e != nil {
-				return e
-			}
-			return nil
-		}
-	*/
 	var soLoadPaths = GetDynLibDirs()
 	var sslPath string
 	for _, soPath := range soLoadPaths {

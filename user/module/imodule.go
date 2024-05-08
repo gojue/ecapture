@@ -26,13 +26,14 @@ import (
 	"github.com/gojue/ecapture/pkg/util/kernel"
 	"github.com/gojue/ecapture/user/config"
 	"github.com/gojue/ecapture/user/event"
-	"log"
+	"github.com/rs/zerolog"
+	"os"
 	"strings"
 )
 
 type IModule interface {
 	// Init 初始化
-	Init(context.Context, *log.Logger, config.IConfig) error
+	Init(context.Context, *zerolog.Logger, config.IConfig) error
 
 	// Name 获取当前module的名字
 	Name() string
@@ -70,7 +71,8 @@ type Module struct {
 	opts   *ebpf.CollectionOptions
 	reader []IClose
 	ctx    context.Context
-	logger *log.Logger
+	//logger *zerolog.Logger
+	logger *zerolog.Logger
 	child  IModule
 	// probe的名字
 	name string
@@ -83,23 +85,37 @@ type Module struct {
 	processor       *event_processor.EventProcessor
 	isKernelLess5_2 bool // is  kernel version less 5.2
 	isCoreUsed      bool // is core mode used
+	errChan         chan error
 }
 
 // Init 对象初始化
-func (m *Module) Init(ctx context.Context, logger *log.Logger, conf config.IConfig) {
+func (m *Module) Init(ctx context.Context, logger *zerolog.Logger, conf config.IConfig) {
 	m.ctx = ctx
 	m.logger = logger
+	m.errChan = make(chan error)
 	m.isKernelLess5_2 = false //set false default
+	logger.Info().Str("AppName", fmt.Sprintf("%s(%s)", config.CliName, config.CliNameZh)).Send()
+	logger.Info().Str("HomePage", config.CliHomepage).Send()
+	logger.Info().Str("Repository", config.CliRepo).Send()
+	logger.Info().Str("Author", config.CliAuthor).Send()
+	logger.Info().Str("Description", config.CliDescription).Send()
+	logger.Info().Str("Version", config.GitVersion).Send()
+	if conf.GetAddress() != "" {
+		logger.Info().Str("logAddr", conf.GetAddress()).Send()
+	}
+
 	m.processor = event_processor.NewEventProcessor(logger, conf.GetHex())
 	kv, err := kernel.HostVersion()
 	if err != nil {
-		m.logger.Printf("%s\tUnable to detect kernel version due to an error:%v.used non-Less5_2 bytecode.\n", m.Name(), err)
+		m.logger.Warn().Err(err).Msg("Unable to detect kernel version due to an error:%v.used non-Less5_2 bytecode.")
 	} else {
 		// it's safe to ignore err because we have checked it in main funcition
 		if kv < kernel.VersionCode(5, 2, 0) {
 			m.isKernelLess5_2 = true
 		}
 	}
+
+	logger.Info().Int("Pid", os.Getpid()).Str("Kernel Info", kv.String()).Send()
 
 	if conf.GetBTF() == config.BTFModeAutoDetect {
 		// 如果是自动检测模式
@@ -113,9 +129,9 @@ func (m *Module) Init(ctx context.Context, logger *log.Logger, conf config.IConf
 		}
 	}
 	if m.isCoreUsed {
-		m.logger.Printf("%s\tBTF bytecode mode: CORE.\n", m.Name())
+		m.logger.Info().Msg("BTF bytecode mode: CORE.")
 	} else {
-		m.logger.Printf("%s\tBTF bytecode mode: non-CORE.\n", m.Name())
+		m.logger.Info().Msg("BTF bytecode mode: non-CORE.")
 	}
 }
 
@@ -124,17 +140,17 @@ func (m *Module) autoDetectBTF() {
 	isContainer, err := ebpfenv.IsContainer()
 	if err == nil {
 		if isContainer {
-			m.logger.Printf("%s\tYour environment is like a container. We won't be able to detect the BTF configuration.\n"+BtfModeSwitch, m.Name())
+			m.logger.Warn().Msg("Your environment is like a container. We won't be able to detect the BTF configuration.\n" + BtfModeSwitch)
 		}
 		enable, e := ebpfenv.IsEnableBTF()
 		if e != nil {
-			m.logger.Printf("%s\tUnable to find BTF configuration due to an error:%v.\n"+BtfNotSupport, m.Name(), e)
+			m.logger.Warn().Err(e).Msg("Unable to find BTF configuration due to an error:%v.\n" + BtfNotSupport)
 		}
 		if enable {
 			m.isCoreUsed = true
 		}
 	} else {
-		m.logger.Printf("%s\tFailed to detect container environment, error:%v,This may cause eCapture not to work.\n"+BtfNotSupport, m.Name(), err)
+		m.logger.Warn().Err(err).Msg("Failed to detect container environment, error:%v,This may cause eCapture not to work.\n" + BtfNotSupport)
 	}
 }
 func (m *Module) geteBPFName(filename string) string {
@@ -174,7 +190,7 @@ func (m *Module) Name() string {
 }
 
 func (m *Module) Run() error {
-	m.logger.Printf("ECAPTURE ::\tModule.Run()")
+	m.logger.Info().Msg("Module.Run()")
 	//  start
 	err := m.child.Start()
 	if err != nil {
@@ -186,7 +202,11 @@ func (m *Module) Run() error {
 	}()
 
 	go func() {
-		m.processor.Serve()
+		err := m.processor.Serve()
+		if err != nil {
+			m.errChan <- fmt.Errorf("%s\tprocessor.Serve error:%v.", m.child.Name(), err)
+			return
+		}
 	}()
 
 	err = m.readEvents()
@@ -205,10 +225,14 @@ func (m *Module) run() {
 	for {
 		select {
 		case _ = <-m.ctx.Done():
-			err := m.child.Stop()
-			if err != nil {
-				m.logger.Fatalf("%s\tstop Module error:%v.", m.child.Name(), err)
-			}
+			// 由最上层Context的cancel函数关闭后调用 close().
+			//err := m.child.Close()
+			//if err != nil {
+			//}
+			m.logger.Info().Msg("Module closed,message recived from Context")
+			return
+		case err := <-m.errChan:
+			m.logger.Warn().AnErr("Module closed,message recived from errChan", err).Send()
 			return
 		}
 	}
@@ -220,7 +244,7 @@ func (m *Module) readEvents() error {
 		for {
 			select {
 			case err := <-errChan:
-				m.logger.Printf("%s\treadEvents error:%v", m.child.Name(), err)
+				m.logger.Error().AnErr("readEvents error", err).Send()
 			}
 		}
 	}()
@@ -241,7 +265,7 @@ func (m *Module) readEvents() error {
 }
 
 func (m *Module) perfEventReader(errChan chan error, em *ebpf.Map) {
-	m.logger.Printf("%s\tperfEventReader created. mapSize:%d MB", m.child.Name(), m.conf.GetPerCpuMapSize()/1024/1024)
+	m.logger.Info().Int("mapSize(MB)", m.conf.GetPerCpuMapSize()/1024/1024).Msg("perfEventReader created")
 	rd, err := perf.NewReader(em, m.conf.GetPerCpuMapSize())
 	if err != nil {
 		errChan <- fmt.Errorf("creating %s reader dns: %s", em.String(), err)
@@ -253,7 +277,7 @@ func (m *Module) perfEventReader(errChan chan error, em *ebpf.Map) {
 			//判断ctx是不是结束
 			select {
 			case _ = <-m.ctx.Done():
-				m.logger.Printf("%s\tperfEventReader received close signal from context.Done().", m.child.Name())
+				m.logger.Info().Msg("perfEventReader received close signal from context.Done().")
 				return
 			default:
 			}
@@ -268,14 +292,14 @@ func (m *Module) perfEventReader(errChan chan error, em *ebpf.Map) {
 			}
 
 			if record.LostSamples != 0 {
-				m.logger.Printf("%s\tperf event ring buffer full, dropped %d samples", m.child.Name(), record.LostSamples)
+				m.logger.Warn().Uint64("lostSamples", record.LostSamples).Msg("perf event ring buffer full, dropped samples")
 				continue
 			}
 
 			var event event.IEventStruct
 			event, err = m.child.Decode(em, record.RawSample)
 			if err != nil {
-				m.logger.Printf("%s\tm.child.decode error:%v", m.child.Name(), err)
+				m.logger.Warn().Err(err).Msg("m.child.decode error")
 				continue
 			}
 
@@ -297,7 +321,7 @@ func (m *Module) ringbufEventReader(errChan chan error, em *ebpf.Map) {
 			//判断ctx是不是结束
 			select {
 			case _ = <-m.ctx.Done():
-				m.logger.Printf("%s\tringbufEventReader received close signal from context.Done().", m.child.Name())
+				m.logger.Info().Msg("ringbufEventReader received close signal from context.Done().")
 				return
 			default:
 			}
@@ -305,7 +329,7 @@ func (m *Module) ringbufEventReader(errChan chan error, em *ebpf.Map) {
 			record, err := rd.Read()
 			if err != nil {
 				if errors.Is(err, ringbuf.ErrClosed) {
-					m.logger.Printf("%s\tReceived signal, exiting..", m.child.Name())
+					m.logger.Warn().Msg("ringbufEventReader received close signal from ringbuf reader.")
 					return
 				}
 				errChan <- fmt.Errorf("%s\treading from ringbuf reader: %s", m.child.Name(), err)
@@ -315,7 +339,7 @@ func (m *Module) ringbufEventReader(errChan chan error, em *ebpf.Map) {
 			var e event.IEventStruct
 			e, err = m.child.Decode(em, record.RawSample)
 			if err != nil {
-				m.logger.Printf("%s\tm.child.decode error:%v", m.child.Name(), err)
+				m.logger.Warn().Err(err).Msg("m.child.decode error")
 				continue
 			}
 
@@ -370,17 +394,18 @@ func (m *Module) Dispatcher(e event.IEventStruct) {
 		// Save to cache
 		m.child.Dispatcher(e)
 	default:
-		m.logger.Printf("%s\tunknown event type:%d", m.child.Name(), e.EventType())
+		m.logger.Warn().Uint8("eventType", uint8(e.EventType())).Msg("unknown event type")
 	}
 }
 
 func (m *Module) Close() error {
-	m.logger.Printf("%s\tclose", m.child.Name())
+	m.logger.Info().Msg("iModule module close")
 	for _, iClose := range m.reader {
 		if err := iClose.Close(); err != nil {
 			return err
 		}
 	}
 	err := m.processor.Close()
-	return err
+	err1 := m.child.Close()
+	return errors.Join(err, err1)
 }
