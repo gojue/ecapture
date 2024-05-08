@@ -140,6 +140,8 @@ func runModule(modName string, modConfig config.IConfig) {
 		if err == nil && writer != nil {
 			multi := zerolog.MultiLevelWriter(consoleWriter, writer)
 			logger = zerolog.New(multi).With().Timestamp().Logger()
+		} else {
+			logger.Warn().Err(err).Msg("failed to create logger")
 		}
 	}
 

@@ -89,13 +89,13 @@ func (ew *eventWorker) Write(e event.IEventStruct) error {
 }
 
 // 输出包内容
-func (ew *eventWorker) Display() {
+func (ew *eventWorker) Display() error {
 
 	//  输出包内容
 	b := ew.parserEvents()
 	defer ew.parser.Reset()
 	if len(b) <= 0 {
-		return
+		return nil
 	}
 
 	if ew.processor.isHex {
@@ -105,18 +105,19 @@ func (ew *eventWorker) Display() {
 	// 重置状态
 	ew.msgBuffer.WriteString(fmt.Sprintf("UUID:%s, Name:%s, Type:%d, Length:%d\n", ew.UUID, ew.parser.Name(), ew.parser.ParserType(), len(b)))
 	ew.msgBuffer.WriteString("\n" + string(b))
-	ew.processor.GetLogger().Write(ew.msgBuffer.Bytes())
+	_, e := ew.processor.GetLogger().Write(ew.msgBuffer.Bytes())
 	ew.msgBuffer.Reset()
 	//ew.parser.Reset()
 	// 设定状态、重置包类型
 	ew.status = ProcessStateInit
 	ew.packetType = PacketTypeNull
+	return e
 }
 
 func (ew *eventWorker) writeEvent(e event.IEventStruct) {
 	if ew.status != ProcessStateInit {
 		ew.msgBuffer.WriteString("write events failed, unknow eventWorker status")
-		ew.processor.GetLogger().Write(ew.msgBuffer.Bytes())
+		_, _ = ew.processor.GetLogger().Write(ew.msgBuffer.Bytes())
 		ew.msgBuffer.Reset()
 		return
 	}
@@ -131,7 +132,7 @@ func (ew *eventWorker) parserEvents() []byte {
 	n, e := ew.parser.Write(ew.payload.Bytes())
 	if e != nil {
 		ew.msgBuffer.WriteString(fmt.Sprintf("ew.parser write payload %d bytes, error:%v", n, e))
-		ew.processor.GetLogger().Write(ew.msgBuffer.Bytes())
+		_, _ = ew.processor.GetLogger().Write(ew.msgBuffer.Bytes())
 		ew.msgBuffer.Reset()
 	}
 	ew.status = ProcessStateDone
@@ -195,7 +196,7 @@ func (ew *eventWorker) Run() {
 func (ew *eventWorker) Close() {
 	// 即将关闭， 必须输出结果
 	ew.ticker.Stop()
-	ew.Display()
+	_ = ew.Display()
 	ew.tickerCount = 0
 }
 
