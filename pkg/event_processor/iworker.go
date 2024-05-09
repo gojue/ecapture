@@ -46,6 +46,7 @@ const (
 type eventWorker struct {
 	incoming chan event.IEventStruct
 	//events      []user.IEventStruct
+	outComing   chan string
 	status      ProcessStatus
 	packetType  PacketType
 	ticker      *time.Ticker
@@ -55,7 +56,6 @@ type eventWorker struct {
 	parser      IParser
 	payload     *bytes.Buffer
 	used        atomic.Bool
-	msgBuffer   *bytes.Buffer
 }
 
 func NewEventWorker(uuid string, processor *EventProcessor) IWorker {
@@ -70,13 +70,12 @@ func NewEventWorker(uuid string, processor *EventProcessor) IWorker {
 func (ew *eventWorker) init(uuid string, processor *EventProcessor) {
 	ew.ticker = time.NewTicker(time.Millisecond * 100)
 	ew.incoming = make(chan event.IEventStruct, MaxChanLen)
+	ew.outComing = processor.outComing
 	ew.status = ProcessStateInit
 	ew.UUID = uuid
 	ew.processor = processor
 	ew.payload = bytes.NewBuffer(nil)
 	ew.payload.Reset()
-	ew.msgBuffer = bytes.NewBuffer(nil)
-	ew.msgBuffer.Reset()
 }
 
 func (ew *eventWorker) GetUUID() string {
@@ -88,9 +87,13 @@ func (ew *eventWorker) Write(e event.IEventStruct) error {
 	return nil
 }
 
+func (ew *eventWorker) writeToChan(s string) error {
+	ew.outComing <- s
+	return nil
+}
+
 // 输出包内容
 func (ew *eventWorker) Display() error {
-
 	//  输出包内容
 	b := ew.parserEvents()
 	defer ew.parser.Reset()
@@ -102,11 +105,8 @@ func (ew *eventWorker) Display() error {
 		b = []byte(hex.Dump(b))
 	}
 
-	// 重置状态
-	ew.msgBuffer.WriteString(fmt.Sprintf("UUID:%s, Name:%s, Type:%d, Length:%d\n", ew.UUID, ew.parser.Name(), ew.parser.ParserType(), len(b)))
-	ew.msgBuffer.WriteString("\n" + string(b))
-	_, e := ew.processor.GetLogger().Write(ew.msgBuffer.Bytes())
-	ew.msgBuffer.Reset()
+	// TODO 应该外部传入一个chan，iWorker只负责写入，不应该打印。
+	e := ew.writeToChan(fmt.Sprintf("UUID:%s, Name:%s, Type:%d, Length:%d\n:%s\n", ew.UUID, ew.parser.Name(), ew.parser.ParserType(), len(b), b))
 	//ew.parser.Reset()
 	// 设定状态、重置包类型
 	ew.status = ProcessStateInit
@@ -116,9 +116,7 @@ func (ew *eventWorker) Display() error {
 
 func (ew *eventWorker) writeEvent(e event.IEventStruct) {
 	if ew.status != ProcessStateInit {
-		ew.msgBuffer.WriteString("write events failed, unknow eventWorker status")
-		_, _ = ew.processor.GetLogger().Write(ew.msgBuffer.Bytes())
-		ew.msgBuffer.Reset()
+		_ = ew.writeToChan("write events failed, unknow eventWorker status")
 		return
 	}
 	ew.payload.Write(e.Payload())
@@ -131,9 +129,7 @@ func (ew *eventWorker) parserEvents() []byte {
 	ew.parser = parser
 	n, e := ew.parser.Write(ew.payload.Bytes())
 	if e != nil {
-		ew.msgBuffer.WriteString(fmt.Sprintf("ew.parser write payload %d bytes, error:%v", n, e))
-		_, _ = ew.processor.GetLogger().Write(ew.msgBuffer.Bytes())
-		ew.msgBuffer.Reset()
+		_ = ew.writeToChan(fmt.Sprintf("ew.parser write payload %d bytes, error:%v", n, e))
 	}
 	ew.status = ProcessStateDone
 	return ew.parser.Display()

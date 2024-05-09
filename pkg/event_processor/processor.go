@@ -31,11 +31,14 @@ type EventProcessor struct {
 	sync.Mutex
 	// 收包，来自调用者发来的新事件
 	incoming chan event.IEventStruct
-
+	// send to output
+	outComing chan string
 	// key为 PID+UID+COMMON等确定唯一的信息
 	workerQueue map[string]IWorker
-
+	// log
 	logger io.Writer
+
+	closeChan chan bool
 
 	// output model
 	isHex bool
@@ -47,6 +50,8 @@ func (ep *EventProcessor) GetLogger() io.Writer {
 
 func (ep *EventProcessor) init() {
 	ep.incoming = make(chan event.IEventStruct, MaxIncomingChanLen)
+	ep.outComing = make(chan string, MaxIncomingChanLen)
+	ep.closeChan = make(chan bool)
 	ep.workerQueue = make(map[string]IWorker, MaxParserQueueLen)
 }
 
@@ -61,6 +66,10 @@ func (ep *EventProcessor) Serve() error {
 				err1 := ep.Close()
 				return errors.Join(err, err1)
 			}
+		case s := <-ep.outComing:
+			_, _ = ep.GetLogger().Write([]byte(s))
+		case _ = <-ep.closeChan:
+			return nil
 		}
 	}
 }
@@ -128,6 +137,8 @@ func (ep *EventProcessor) Write(e event.IEventStruct) {
 func (ep *EventProcessor) Close() error {
 	ep.Lock()
 	defer ep.Unlock()
+	close(ep.closeChan)
+	close(ep.incoming)
 	if len(ep.workerQueue) > 0 {
 		return fmt.Errorf("EventProcessor.Close(): workerQueue is not empty:%d", len(ep.workerQueue))
 	}

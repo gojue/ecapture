@@ -406,6 +406,5 @@ func (m *Module) Close() error {
 		}
 	}
 	err := m.processor.Close()
-	err1 := m.child.Close()
-	return errors.Join(err, err1)
+	return err
 }

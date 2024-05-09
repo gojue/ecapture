@@ -179,5 +179,6 @@ func runModule(modName string, modConfig config.IConfig) {
 	if err != nil {
 		logger.Warn().Err(err).Msg("module close failed")
 	}
+	logger.Info().Msg("bye bye.")
 	//os.Exit(0)
 }
