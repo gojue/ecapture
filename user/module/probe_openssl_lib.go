@@ -24,13 +24,13 @@ import (
 )
 
 const (
-	LinuxDefauleFilename_1_0_2 = "linux_default_1_0_2"
-	LinuxDefauleFilename_1_1_0 = "linux_default_1_1_0"
-	LinuxDefauleFilename_1_1_1 = "linux_default_1_1_1"
-	LinuxDefauleFilename_3_0   = "linux_default_3_0"
-	LinuxDefauleFilename_3_1   = "linux_default_3_0"
-	LinuxDefauleFilename_3_2_0 = "linux_default_3_2"
-	AndroidDefauleFilename     = "android_default"
+	Linuxdefaulefilename102 = "linux_default_1_0_2"
+	Linuxdefaulefilename110 = "linux_default_1_1_0"
+	Linuxdefaulefilename111 = "linux_default_1_1_1"
+	Linuxdefaulefilename30  = "linux_default_3_0"
+	Linuxdefaulefilename31  = "linux_default_3_0"
+	Linuxdefaulefilename320 = "linux_default_3_2"
+	AndroidDefauleFilename  = "android_default"
 
 	OpenSslVersionLen = 30 // openssl version string length
 )
@@ -38,29 +38,29 @@ const (
 const (
 	MaxSupportedOpenSSL102Version = 'u'
 	MaxSupportedOpenSSL110Version = 'l'
-	MaxSupportedOpenSSL111Version = 'u'
-	MaxSupportedOpenSSL30Version  = 12
-	MaxSupportedOpenSSL31Version  = 4
-	MaxSupportedOpenSSL32Version  = 0
+	MaxSupportedOpenSSL111Version = 'w'
+	MaxSupportedOpenSSL30Version  = 13
+	MaxSupportedOpenSSL31Version  = 5
+	MaxSupportedOpenSSL32Version  = 1
 )
 
 // initOpensslOffset initial BpfMap
 func (m *MOpenSSLProbe) initOpensslOffset() {
 	m.sslVersionBpfMap = map[string]string{
 		// openssl 1.0.2*
-		LinuxDefauleFilename_1_0_2: "openssl_1_0_2a_kern.o",
+		Linuxdefaulefilename102: "openssl_1_0_2a_kern.o",
 
 		// openssl 1.1.0*
-		LinuxDefauleFilename_1_1_0: "openssl_1_1_0a_kern.o",
+		Linuxdefaulefilename110: "openssl_1_1_0a_kern.o",
 
 		// openssl 1.1.1*
-		LinuxDefauleFilename_1_1_1: "openssl_1_1_1j_kern.o",
+		Linuxdefaulefilename111: "openssl_1_1_1j_kern.o",
 
 		// openssl 3.0.* and openssl 3.1.*
-		LinuxDefauleFilename_3_0: "openssl_3_0_0_kern.o",
+		Linuxdefaulefilename30: "openssl_3_0_0_kern.o",
 
 		// openssl 3.2.*
-		LinuxDefauleFilename_3_2_0: "openssl_3_2_0_kern.o",
+		Linuxdefaulefilename320: "openssl_3_2_0_kern.o",
 
 		// boringssl
 		"boringssl 1.1.1":      "boringssl_a_13_kern.o",
@@ -94,6 +94,7 @@ func (m *MOpenSSLProbe) initOpensslOffset() {
 
 	// openssl 3.1.0 - 3.1.4
 	for ch := 0; ch <= MaxSupportedOpenSSL31Version; ch++ {
+		// The OpenSSL 3.0 series is the same as the 3.1 series of offsets
 		m.sslVersionBpfMap[fmt.Sprintf("openssl 3.1.%d", ch)] = "openssl_3_0_0_kern.o"
 	}
 
@@ -233,11 +234,11 @@ func (m *MOpenSSLProbe) detectOpenssl(soPath string) error {
 		}
 	} else {
 		if strings.Contains(soPath, "libssl.so.3") {
-			bpfFile, _ = m.sslVersionBpfMap[LinuxDefauleFilename_3_0]
-			m.logger.Info().Str("OpenSSL Version", LinuxDefauleFilename_3_0).Msg("OpenSSL/BoringSSL version not found from shared library file, used default version")
+			bpfFile, _ = m.sslVersionBpfMap[Linuxdefaulefilename30]
+			m.logger.Info().Str("OpenSSL Version", Linuxdefaulefilename30).Msg("OpenSSL/BoringSSL version not found from shared library file, used default version")
 		} else {
-			bpfFile, _ = m.sslVersionBpfMap[LinuxDefauleFilename_1_1_1]
-			m.logger.Info().Str("OpenSSL Version", LinuxDefauleFilename_1_1_1).Msg("OpenSSL/BoringSSL version not found from shared library file, used default version")
+			bpfFile, _ = m.sslVersionBpfMap[Linuxdefaulefilename111]
+			m.logger.Info().Str("OpenSSL Version", Linuxdefaulefilename111).Msg("OpenSSL/BoringSSL version not found from shared library file, used default version")
 		}
 	}
 	m.sslBpfFile = bpfFile

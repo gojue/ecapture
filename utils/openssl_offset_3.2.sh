@@ -26,6 +26,7 @@ function run() {
   cp -f ${PROJECT_ROOT_DIR}/utils/openssl_3_2_0_offset.c ${OPENSSL_DIR}/offset.c
   declare -A sslVerMap=()
   sslVerMap["0"]="0"
+  sslVerMap["1"]="0"
 
   # shellcheck disable=SC2068
   for ver in ${!sslVerMap[@]}; do
@@ -45,6 +46,8 @@ function run() {
 
     # ./Configure and make openssl/opensslconf.h
     ./Configure
+    make clean
+    make build_generated
 
 
     clang -I include/ -I . offset.c -o offset
