@@ -15,9 +15,10 @@
 package event_processor
 
 import (
+	"errors"
 	"fmt"
 	"github.com/gojue/ecapture/user/event"
-	"log"
+	"io"
 	"sync"
 )
 
@@ -30,63 +31,79 @@ type EventProcessor struct {
 	sync.Mutex
 	// 收包，来自调用者发来的新事件
 	incoming chan event.IEventStruct
-
+	// send to output
+	outComing chan string
 	// key为 PID+UID+COMMON等确定唯一的信息
 	workerQueue map[string]IWorker
+	// log
+	logger io.Writer
 
-	logger *log.Logger
+	closeChan chan bool
 
 	// output model
 	isHex bool
 }
 
-func (this *EventProcessor) GetLogger() *log.Logger {
-	return this.logger
+func (ep *EventProcessor) GetLogger() io.Writer {
+	return ep.logger
 }
 
-func (this *EventProcessor) init() {
-	this.incoming = make(chan event.IEventStruct, MaxIncomingChanLen)
-	this.workerQueue = make(map[string]IWorker, MaxParserQueueLen)
+func (ep *EventProcessor) init() {
+	ep.incoming = make(chan event.IEventStruct, MaxIncomingChanLen)
+	ep.outComing = make(chan string, MaxIncomingChanLen)
+	ep.closeChan = make(chan bool)
+	ep.workerQueue = make(map[string]IWorker, MaxParserQueueLen)
 }
 
-// Write event 处理器读取事件
-func (this *EventProcessor) Serve() {
+// Serve Write event 处理器读取事件
+func (ep *EventProcessor) Serve() error {
+	var err error
 	for {
 		select {
-		case e := <-this.incoming:
-			this.dispatch(e)
+		case eventStruct := <-ep.incoming:
+			err = ep.dispatch(eventStruct)
+			if err != nil {
+				err1 := ep.Close()
+				return errors.Join(err, err1)
+			}
+		case s := <-ep.outComing:
+			_, _ = ep.GetLogger().Write([]byte(s))
+		case _ = <-ep.closeChan:
+			return nil
 		}
 	}
 }
 
-func (this *EventProcessor) dispatch(e event.IEventStruct) {
-	//this.logger.Printf("event ID:%s", e.GetUUID())
-	var uuid string = e.GetUUID()
-	found, eWorker := this.getWorkerByUUID(uuid)
+func (ep *EventProcessor) dispatch(e event.IEventStruct) error {
+	//ep.logger.Printf("event ID:%s", e.GetUUID())
+	var uuid = e.GetUUID()
+	found, eWorker := ep.getWorkerByUUID(uuid)
 	if !found {
 		// ADD a new eventWorker into queue
-		eWorker = NewEventWorker(e.GetUUID(), this)
-		this.addWorkerByUUID(eWorker)
+		eWorker = NewEventWorker(e.GetUUID(), ep)
+		ep.addWorkerByUUID(eWorker)
 	}
 
 	err := eWorker.Write(e)
 	eWorker.Put() // never touch eWorker again
 	if err != nil {
 		//...
-		this.GetLogger().Fatalf("write event failed , error:%v", err)
+		//ep.GetLogger().Write("write event failed , error:%v", err)
+		return err
 	}
+	return nil
 }
 
 //func (this *EventProcessor) Incoming() chan user.IEventStruct {
 //	return this.incoming
 //}
 
-func (this *EventProcessor) getWorkerByUUID(uuid string) (bool, IWorker) {
-	this.Lock()
-	defer this.Unlock()
+func (ep *EventProcessor) getWorkerByUUID(uuid string) (bool, IWorker) {
+	ep.Lock()
+	defer ep.Unlock()
 	var eWorker IWorker
 	var found bool
-	eWorker, found = this.workerQueue[uuid]
+	eWorker, found = ep.workerQueue[uuid]
 	if !found {
 		return false, eWorker
 	}
@@ -94,39 +111,41 @@ func (this *EventProcessor) getWorkerByUUID(uuid string) (bool, IWorker) {
 	return true, eWorker
 }
 
-func (this *EventProcessor) addWorkerByUUID(worker IWorker) {
-	this.Lock()
-	defer this.Unlock()
-	this.workerQueue[worker.GetUUID()] = worker
+func (ep *EventProcessor) addWorkerByUUID(worker IWorker) {
+	ep.Lock()
+	defer ep.Unlock()
+	ep.workerQueue[worker.GetUUID()] = worker
 	worker.Get()
 }
 
 // 每个worker调用该方法，从处理器中删除自己
-func (this *EventProcessor) delWorkerByUUID(worker IWorker) {
-	this.Lock()
-	defer this.Unlock()
-	delete(this.workerQueue, worker.GetUUID())
+func (ep *EventProcessor) delWorkerByUUID(worker IWorker) {
+	ep.Lock()
+	defer ep.Unlock()
+	delete(ep.workerQueue, worker.GetUUID())
 }
 
 // Write event
 // 外部调用者调用该方法
-func (this *EventProcessor) Write(e event.IEventStruct) {
+func (ep *EventProcessor) Write(e event.IEventStruct) {
 	select {
-	case this.incoming <- e:
+	case ep.incoming <- e:
 		return
 	}
 }
 
-func (this *EventProcessor) Close() error {
-	this.Lock()
-	defer this.Unlock()
-	if len(this.workerQueue) > 0 {
-		return fmt.Errorf("EventProcessor.Close(): workerQueue is not empty:%d", len(this.workerQueue))
+func (ep *EventProcessor) Close() error {
+	ep.Lock()
+	defer ep.Unlock()
+	close(ep.closeChan)
+	close(ep.incoming)
+	if len(ep.workerQueue) > 0 {
+		return fmt.Errorf("EventProcessor.Close(): workerQueue is not empty:%d", len(ep.workerQueue))
 	}
 	return nil
 }
 
-func NewEventProcessor(logger *log.Logger, isHex bool) *EventProcessor {
+func NewEventProcessor(logger io.Writer, isHex bool) *EventProcessor {
 	var ep *EventProcessor
 	ep = &EventProcessor{}
 	ep.logger = logger

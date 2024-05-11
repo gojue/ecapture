@@ -24,8 +24,8 @@ import (
 	"github.com/gojue/ecapture/assets"
 	"github.com/gojue/ecapture/user/config"
 	"github.com/gojue/ecapture/user/event"
+	"github.com/rs/zerolog"
 	"golang.org/x/sys/unix"
-	"log"
 	"math"
 	"os"
 	"path"
@@ -40,7 +40,7 @@ type MNsprProbe struct {
 }
 
 // 对象初始化
-func (n *MNsprProbe) Init(ctx context.Context, logger *log.Logger, conf config.IConfig) error {
+func (n *MNsprProbe) Init(ctx context.Context, logger *zerolog.Logger, conf config.IConfig) error {
 	n.Module.Init(ctx, logger, conf)
 	n.conf = conf
 	n.Module.SetChild(n)
@@ -60,9 +60,10 @@ func (n *MNsprProbe) start() error {
 
 	// fetch ebpf assets
 	var bpfFileName = n.geteBPFName("user/bytecode/nspr_kern.o")
-	n.logger.Printf("%s\tBPF bytecode filename:%s\n", n.Name(), bpfFileName)
+	n.logger.Info().Str("bpfFileName", bpfFileName).Msg("BPF bytecode file is matched.")
 	byteBuf, err := assets.Asset(bpfFileName)
 	if err != nil {
+		n.logger.Error().Err(err).Strs("bytecode files", assets.AssetNames()).Msg("couldn't find bpf bytecode file")
 		return fmt.Errorf("couldn't find asset %v .", err)
 	}
 
@@ -105,12 +106,21 @@ func (n *MNsprProbe) constantEditor() []manager.ConstantEditor {
 			Name:  "target_pid",
 			Value: uint64(n.conf.GetPid()),
 		},
+		{
+			Name:  "target_uid",
+			Value: uint64(n.conf.GetUid()),
+		},
 	}
 
 	if n.conf.GetPid() <= 0 {
-		n.logger.Printf("%s\ttarget all process. \n", n.Name())
+		n.logger.Info().Msg("target all process.")
 	} else {
-		n.logger.Printf("%s\ttarget PID:%d \n", n.Name(), n.conf.GetPid())
+		n.logger.Info().Uint64("target PID", n.conf.GetPid()).Msg("target process.")
+	}
+	if n.conf.GetUid() <= 0 {
+		n.logger.Info().Msg("target all users.")
+	} else {
+		n.logger.Info().Uint64("target UID", n.conf.GetUid()).Msg("target user.")
 	}
 	return editor
 }
@@ -132,8 +142,7 @@ func (n *MNsprProbe) setupManagers() error {
 		return err
 	}
 
-	n.logger.Printf("%s\tHOOK type:%d, binrayPath:%s\n", n.Name(), n.conf.(*config.NsprConfig).ElfType, binaryPath)
-
+	n.logger.Info().Str("binrayPath", binaryPath).Uint8("ElfType", n.conf.(*config.NsprConfig).ElfType).Msg("HOOK type:nspr elf")
 	n.bpfManager = &manager.Manager{
 		Probes: []*manager.Probe{
 			{

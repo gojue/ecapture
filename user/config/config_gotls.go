@@ -74,7 +74,7 @@ type FuncOffsets struct {
 
 // GoTLSConfig represents configuration for Go SSL probe
 type GoTLSConfig struct {
-	eConfig
+	BaseConfig
 	Path                  string    `json:"path"`       // golang application path to binary built with Go toolchain.
 	PcapFile              string    `json:"pcapFile"`   // pcapFile  the  raw  packets  to file rather than parsing and printing them out.
 	KeylogFile            string    `json:"keylogFile"` // keylogFile  The file stores SSL/TLS keys, and eCapture captures these keys during encrypted traffic communication and saves them to the file.
@@ -271,7 +271,6 @@ func (gc *GoTLSConfig) checkModel() (string, error) {
 		if gc.Ifname == "" {
 			return "", errors.New("'pcap' model used, please used -i flag to set ifname value.")
 		}
-		fmt.Println(gc.Ifname)
 	default:
 		m = TlsCaptureModelText
 	}
@@ -300,7 +299,6 @@ func (gc *GoTLSConfig) ReadTable() (*gosym.Table, error) {
 	// Find .gopclntab by magic number even if there is no section label
 	magic := magicNumber(gc.Buildinfo.GoVersion)
 	pclntabIndex := bytes.Index(tableData, magic)
-	//fmt.Printf("Buildinfo :%v, magic:%x, pclntabIndex:%d offset:%x , section:%v \n", gc.Buildinfo, magic, pclntabIndex, section.Offset, section)
 	if pclntabIndex < 0 {
 		return nil, fmt.Errorf("could not find magic number in %s ", gc.Path)
 	}

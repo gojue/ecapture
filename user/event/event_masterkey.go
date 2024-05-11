@@ -50,81 +50,81 @@ type MasterSecretEvent struct {
 	payload                string
 }
 
-func (me *MasterSecretEvent) Decode(payload []byte) (err error) {
+func (mse *MasterSecretEvent) Decode(payload []byte) (err error) {
 	buf := bytes.NewBuffer(payload)
-	if err = binary.Read(buf, binary.LittleEndian, &me.Version); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &mse.Version); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &me.ClientRandom); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &mse.ClientRandom); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &me.MasterKey); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &mse.MasterKey); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &me.CipherId); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &mse.CipherId); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &me.HandshakeSecret); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &mse.HandshakeSecret); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &me.HandshakeTrafficHash); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &mse.HandshakeTrafficHash); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &me.ClientAppTrafficSecret); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &mse.ClientAppTrafficSecret); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &me.ServerAppTrafficSecret); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &mse.ServerAppTrafficSecret); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &me.ExporterMasterSecret); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &mse.ExporterMasterSecret); err != nil {
 		return
 	}
-	me.payload = fmt.Sprintf("CLIENT_RANDOM %02x %02x", me.ClientRandom, me.MasterKey)
+	mse.payload = fmt.Sprintf("CLIENT_RANDOM %02x %02x", mse.ClientRandom, mse.MasterKey)
 	return nil
 }
 
-func (me *MasterSecretEvent) StringHex() string {
+func (mse *MasterSecretEvent) StringHex() string {
 	v := TlsVersion{
-		Version: me.Version,
+		Version: mse.Version,
 	}
-	s := fmt.Sprintf("TLS Version:%s, ClientRandom:%02x", v.String(), me.ClientRandom)
+	s := fmt.Sprintf("TLS Version:%s, ClientRandom:%02x", v.String(), mse.ClientRandom)
 	return s
 }
 
-func (me *MasterSecretEvent) String() string {
+func (mse *MasterSecretEvent) String() string {
 	v := TlsVersion{
-		Version: me.Version,
+		Version: mse.Version,
 	}
-	s := fmt.Sprintf("TLS Version:%s, ClientRandom:%02x", v.String(), me.ClientRandom)
+	s := fmt.Sprintf("TLS Version:%s, ClientRandom:%02x", v.String(), mse.ClientRandom)
 	return s
 }
 
-func (me *MasterSecretEvent) Clone() IEventStruct {
+func (mse *MasterSecretEvent) Clone() IEventStruct {
 	event := new(MasterSecretEvent)
 	event.eventType = EventTypeModuleData
 	return event
 }
 
-func (me *MasterSecretEvent) EventType() EventType {
-	return me.eventType
+func (mse *MasterSecretEvent) EventType() EventType {
+	return mse.eventType
 }
 
-func (me *MasterSecretEvent) GetUUID() string {
-	return fmt.Sprintf("%02X", me.ClientRandom)
+func (mse *MasterSecretEvent) GetUUID() string {
+	return fmt.Sprintf("%02X", mse.ClientRandom)
 }
 
-func (me *MasterSecretEvent) Payload() []byte {
-	return []byte(me.payload)
+func (mse *MasterSecretEvent) Payload() []byte {
+	return []byte(mse.payload)
 }
 
-func (me *MasterSecretEvent) PayloadLen() int {
-	return len(me.payload)
+func (mse *MasterSecretEvent) PayloadLen() int {
+	return len(mse.payload)
 }
 
-// for BoringSSL  TLS 1.3
+// MasterSecretBSSLEvent for BoringSSL  TLS 1.3
 type MasterSecretBSSLEvent struct {
-	event_type EventType
-	Version    int32 `json:"version"` // TLS Version
+	eventType EventType
+	Version   int32 `json:"version"` // TLS Version
 
 	// TLS 1.2 or older
 	ClientRandom [Ssl3RandomSize]byte     `json:"clientRandom"` // Client Random
@@ -141,76 +141,76 @@ type MasterSecretBSSLEvent struct {
 	payload               string
 }
 
-func (this *MasterSecretBSSLEvent) Decode(payload []byte) (err error) {
+func (msbe *MasterSecretBSSLEvent) Decode(payload []byte) (err error) {
 	buf := bytes.NewBuffer(payload)
-	if err = binary.Read(buf, binary.LittleEndian, &this.Version); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &msbe.Version); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.ClientRandom); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &msbe.ClientRandom); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.Secret); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &msbe.Secret); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.HashLen); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &msbe.HashLen); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.EarlyTrafficSecret); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &msbe.EarlyTrafficSecret); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.ClientHandshakeSecret); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &msbe.ClientHandshakeSecret); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.ServerHandshakeSecret); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &msbe.ServerHandshakeSecret); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.ClientTrafficSecret0); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &msbe.ClientTrafficSecret0); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.ServerTrafficSecret0); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &msbe.ServerTrafficSecret0); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &this.ExporterSecret); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &msbe.ExporterSecret); err != nil {
 		return
 	}
-	this.payload = fmt.Sprintf("CLIENT_RANDOM %02x %02x", this.ClientRandom, this.Secret)
+	msbe.payload = fmt.Sprintf("CLIENT_RANDOM %02x %02x", msbe.ClientRandom, msbe.Secret)
 	return nil
 }
 
-func (this *MasterSecretBSSLEvent) StringHex() string {
+func (msbe *MasterSecretBSSLEvent) StringHex() string {
 	v := TlsVersion{
-		Version: this.Version,
+		Version: msbe.Version,
 	}
-	s := fmt.Sprintf("TLS Version:%s, ClientRandom:%02x", v.String(), this.ClientRandom)
+	s := fmt.Sprintf("TLS Version:%s, ClientRandom:%02x", v.String(), msbe.ClientRandom)
 	return s
 }
 
-func (this *MasterSecretBSSLEvent) String() string {
+func (msbe *MasterSecretBSSLEvent) String() string {
 	v := TlsVersion{
-		Version: this.Version,
+		Version: msbe.Version,
 	}
-	s := fmt.Sprintf("TLS Version:%s, ClientRandom:%02x", v.String(), this.ClientRandom)
+	s := fmt.Sprintf("TLS Version:%s, ClientRandom:%02x", v.String(), msbe.ClientRandom)
 	return s
 }
 
-func (this *MasterSecretBSSLEvent) Clone() IEventStruct {
+func (msbe *MasterSecretBSSLEvent) Clone() IEventStruct {
 	event := new(MasterSecretBSSLEvent)
-	event.event_type = EventTypeModuleData
+	event.eventType = EventTypeModuleData
 	return event
 }
 
-func (this *MasterSecretBSSLEvent) EventType() EventType {
-	return this.event_type
+func (msbe *MasterSecretBSSLEvent) EventType() EventType {
+	return msbe.eventType
 }
 
-func (this *MasterSecretBSSLEvent) GetUUID() string {
-	return fmt.Sprintf("%02X", this.ClientRandom)
+func (msbe *MasterSecretBSSLEvent) GetUUID() string {
+	return fmt.Sprintf("%02X", msbe.ClientRandom)
 }
 
-func (this *MasterSecretBSSLEvent) Payload() []byte {
-	return []byte(this.payload)
+func (msbe *MasterSecretBSSLEvent) Payload() []byte {
+	return []byte(msbe.payload)
 }
 
-func (this *MasterSecretBSSLEvent) PayloadLen() int {
-	return len(this.payload)
+func (msbe *MasterSecretBSSLEvent) PayloadLen() int {
+	return len(msbe.payload)
 }

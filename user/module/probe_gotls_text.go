@@ -54,12 +54,12 @@ func (g *GoTLSProbe) setupManagersText() error {
 		buildInfo.WriteString("=")
 		buildInfo.WriteString(setting.Value)
 	}
-	g.logger.Printf("%s\teBPF Function Name:%s, isRegisterABI:%t\n", g.Name(), fn, g.isRegisterABI)
-	g.logger.Printf("%s\tGolang buildInfo version:%s, Params: %s\n", g.Name(), gotlsConf.Buildinfo.GoVersion, buildInfo.String())
-
+	g.logger.Info().Str("binrayPath", g.path).Bool("isRegisterABI", g.isRegisterABI).
+		Str("GoVersion", gotlsConf.Buildinfo.GoVersion).
+		Str("buildInfo", buildInfo.String()).Msg("HOOK type:Golang elf")
 	if g.conf.(*config.GoTLSConfig).IsPieBuildMode {
 		// buildmode pie is enabled.
-		g.logger.Printf("%s\tGolang elf buildmode with pie\n", g.Name())
+		g.logger.Warn().Msg("Golang elf buildmode with pie")
 	}
 	g.bpfManager = &manager.Manager{
 		Probes: []*manager.Probe{
@@ -82,7 +82,8 @@ func (g *GoTLSProbe) setupManagersText() error {
 	//g.bpfManager.Probes = []*manager.Probe{}
 	for _, v := range readOffsets {
 		var uid = fmt.Sprintf("%s_%d", readFn, v)
-		g.logger.Printf("%s\tadd uretprobe function :%s, offset:0x%X\n", g.Name(), config.GoTlsReadFunc, v)
+		g.logger.Info().Str("function", config.GoTlsReadFunc).
+			Str("offset", fmt.Sprintf("%X", v)).Msg("golang uretprobe added.")
 		g.bpfManager.Probes = append(g.bpfManager.Probes, &manager.Probe{
 			Section:          readSec,
 			EbpfFuncName:     readFn,

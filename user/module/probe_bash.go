@@ -17,13 +17,12 @@ package module
 import (
 	"bytes"
 	"context"
-	"debug/elf"
 	"errors"
 	"fmt"
 	"github.com/gojue/ecapture/assets"
 	"github.com/gojue/ecapture/user/config"
 	"github.com/gojue/ecapture/user/event"
-	"log"
+	"github.com/rs/zerolog"
 	"math"
 
 	"github.com/cilium/ebpf"
@@ -31,11 +30,10 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-const BASH_ERRNO_DEFAULT = 128
 const (
-	BASH_EVENT_TYPE_READLINE     = 0
-	BASH_EVENT_TYPE_RETVAL       = 1
-	BASH_EVENT_TYPE_EXIT_OR_EXEC = 2
+	BashEventTypeReadline   = 0
+	BashEventTypeRetval     = 1
+	BashEventTypeExitOrExec = 2
 )
 
 type MBashProbe struct {
@@ -48,7 +46,7 @@ type MBashProbe struct {
 }
 
 // 对象初始化
-func (b *MBashProbe) Init(ctx context.Context, logger *log.Logger, conf config.IConfig) error {
+func (b *MBashProbe) Init(ctx context.Context, logger *zerolog.Logger, conf config.IConfig) error {
 	b.Module.Init(ctx, logger, conf)
 	b.conf = conf
 	b.Module.SetChild(b)
@@ -69,9 +67,11 @@ func (b *MBashProbe) start() error {
 
 	// fetch ebpf assets
 	var bpfFileName = b.geteBPFName("user/bytecode/bash_kern.o")
-	b.logger.Printf("%s\tBPF bytecode filename:%s\n", b.Name(), bpfFileName)
+	b.logger.Info().Str("bpfFileName", bpfFileName).Msg("BPF bytecode file is matched.")
 	byteBuf, err := assets.Asset(bpfFileName)
+
 	if err != nil {
+		b.logger.Error().Err(err).Strs("bytecode files", assets.AssetNames()).Msg("couldn't find bpf bytecode file")
 		return fmt.Errorf("couldn't find asset %v", err)
 	}
 
@@ -124,15 +124,15 @@ func (b *MBashProbe) constantEditor() []manager.ConstantEditor {
 	}
 
 	if b.conf.GetPid() <= 0 {
-		b.logger.Printf("%s\ttarget all process. \n", b.Name())
+		b.logger.Info().Msg("target all process.")
 	} else {
-		b.logger.Printf("%s\ttarget PID:%d \n", b.Name(), b.conf.GetPid())
+		b.logger.Info().Uint64("target PID", b.conf.GetPid()).Send()
 	}
 
 	if b.conf.GetUid() <= 0 {
-		b.logger.Printf("%s\ttarget all users. \n", b.Name())
+		b.logger.Info().Msg("target all users.")
 	} else {
-		b.logger.Printf("%s\ttarget UID:%d \n", b.Name(), b.conf.GetUid())
+		b.logger.Info().Uint64("target UID", b.conf.GetUid()).Send()
 	}
 
 	return editor
@@ -150,40 +150,11 @@ func (b *MBashProbe) setupManagers() {
 	}
 
 	var readlineFuncName string // 将默认hook函数改为readline_internal_teardown说明：https://github.com/gojue/ecapture/pull/479
+	readlineFuncName = b.conf.(*config.BashConfig).ReadlineFuncName
 
-	getReadlineFuncName := func(binaryPath string) string {
-		//打开二进制文件，在符号表中查找是否有readline_internal_teardown。
-		file, err := elf.Open(binaryPath)
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer file.Close()
-
-		symbols, err := file.DynamicSymbols()
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		targetSymbol := "readline_internal_teardown"
-		found := false
-		for _, sym := range symbols {
-			if sym.Name == targetSymbol {
-				found = true
-				break
-			}
-		}
-		if found {
-			return "readline_internal_teardown"
-		} else {
-			return "readline"
-		}
-	}
-	readlineFuncName = getReadlineFuncName(binaryPath)
-
-	b.logger.Printf("%s\tHOOK binrayPath:%s, FunctionName:%s\n", b.Name(), binaryPath, readlineFuncName)
-	b.logger.Printf("%s\tHOOK binrayPath:%s, FunctionName:execute_command\n", b.Name(), binaryPath)
-	b.logger.Printf("%s\tHOOK binrayPath:%s, FunctionName:exit_builtin\n", b.Name(), binaryPath)
-	b.logger.Printf("%s\tHOOK binrayPath:%s, FunctionName:exec_builtin\n", b.Name(), binaryPath)
+	b.logger.Info().Str("binaryPath", binaryPath).Str("readlineFuncName", readlineFuncName).
+		Str("execute_command", readlineFuncName).Str("exit_builtin", readlineFuncName).
+		Str("exec_builtin", readlineFuncName).Msg("Hook Info")
 	b.bpfManager = &manager.Manager{
 		Probes: []*manager.Probe{
 			{
@@ -278,7 +249,7 @@ func (b *MBashProbe) Dispatcher(eventStruct event.IEventStruct) {
 
 func (b *MBashProbe) handleLine(be *event.BashEvent) {
 	switch be.BashType {
-	case BASH_EVENT_TYPE_READLINE:
+	case BashEventTypeReadline:
 		newline := unix.ByteSliceToString((be.Line[:]))
 		line := b.lineMap[be.GetUUID()]
 		if line != "" {
@@ -288,20 +259,20 @@ func (b *MBashProbe) handleLine(be *event.BashEvent) {
 		}
 		b.lineMap[be.GetUUID()] = line
 		return
-	case BASH_EVENT_TYPE_RETVAL:
+	case BashEventTypeRetval:
 		line := b.lineMap[be.GetUUID()]
 		delete(b.lineMap, be.GetUUID())
-		if line == "" || be.Retval == BASH_ERRNO_DEFAULT {
+		if line == "" || be.Retval == uint32(BashErrnoDefault) {
 			return
 		}
 		be.AllLines = line
-	case BASH_EVENT_TYPE_EXIT_OR_EXEC:
+	case BashEventTypeExitOrExec:
 		line := b.lineMap[be.GetUUID()]
 		delete(b.lineMap, be.GetUUID())
 		if line == "" {
 			return
 		}
-		be.Retval = BASH_EVENT_TYPE_EXIT_OR_EXEC // we do not know the return value here
+		be.Retval = BashEventTypeExitOrExec // we do not know the return value here
 		be.AllLines = line
 	default:
 		return

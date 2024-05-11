@@ -18,3 +18,17 @@ const (
 	ElfTypeBin uint8 = 1
 	ElfTypeSo  uint8 = 2
 )
+
+const (
+	CliName        = "eCapture"
+	CliNameZh      = "旁观者"
+	CliDescription = "Capturing SSL/TLS plaintext without a CA certificate using eBPF. Supported on Linux/Android kernels for amd64/arm64."
+	CliHomepage    = "https://ecapture.cc"
+	CliAuthor      = "CFC4N <cfc4ncs@gmail.com>"
+	CliRepo        = "https://github.com/gojue/ecapture"
+)
+
+var (
+	GitVersion = "v0.0.0_unknow"
+	//ReleaseDate = "2022-03-16"
+)

@@ -36,7 +36,7 @@ const (
 
 // 最终使用openssl参数
 type OpensslConfig struct {
-	eConfig
+	BaseConfig
 	// Curlpath   string `json:"curlPath"` //curl的文件路径
 	Openssl    string `json:"openssl"`
 	Pthread    string `json:"pThread"`    // /lib/x86_64-linux-gnu/libpthread.so.0

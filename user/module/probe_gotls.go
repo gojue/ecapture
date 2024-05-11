@@ -6,7 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
+	"github.com/rs/zerolog"
 	"os"
 	"path/filepath"
 	"sync"
@@ -29,7 +29,7 @@ func init() {
 	Register(mod)
 }
 
-var NotGoCompiledBin = errors.New("It is not a program compiled in the Go language.")
+var NotGoCompiledBin = errors.New("it is not a program compiled in the Go language")
 
 // GoTLSProbe represents a probe for Go SSL
 type GoTLSProbe struct {
@@ -47,7 +47,7 @@ type GoTLSProbe struct {
 	isRegisterABI     bool
 }
 
-func (g *GoTLSProbe) Init(ctx context.Context, l *log.Logger, cfg config.IConfig) error {
+func (g *GoTLSProbe) Init(ctx context.Context, l *zerolog.Logger, cfg config.IConfig) error {
 	g.Module.Init(ctx, l, cfg)
 	g.conf = cfg
 	g.Module.SetChild(g)
@@ -89,8 +89,8 @@ func (g *GoTLSProbe) Init(ctx context.Context, l *log.Logger, cfg config.IConfig
 		fallthrough
 	default:
 		g.eBPFProgramType = TlsCaptureModelTypeText
-		g.logger.Printf("%s\tmaster key keylogger: %s\n", g.Name(), g.keyloggerFilename)
 	}
+	g.logger.Info().Str("model", g.eBPFProgramType.String()).Str("keylogFile", g.keyloggerFilename).Msg("GoTlsProbe init")
 
 	var ts unix.Timespec
 	err = unix.ClockGettime(unix.CLOCK_MONOTONIC, &ts)
@@ -122,16 +122,12 @@ func (g *GoTLSProbe) start() error {
 	var err error
 	switch g.eBPFProgramType {
 	case TlsCaptureModelTypeKeylog:
-		g.logger.Printf("%s\tKeylog MODEL\n", g.Name())
 		err = g.setupManagersKeylog()
 	case TlsCaptureModelTypePcap:
-		g.logger.Printf("%s\tPcap MODEL\n", g.Name())
 		err = g.setupManagersPcap()
 	case TlsCaptureModelTypeText:
-		g.logger.Printf("%s\tText MODEL\n", g.Name())
 		err = g.setupManagersText()
 	default:
-		g.logger.Printf("%s\tText MODEL\n", g.Name())
 		err = g.setupManagersText()
 	}
 	if err != nil {
@@ -146,16 +142,17 @@ func (g *GoTLSProbe) start() error {
 	}
 
 	bpfFileName := g.geteBPFName("user/bytecode/gotls_kern.o")
-	g.logger.Printf("%s\tBPF bytecode filename:%s\n", g.Name(), bpfFileName)
+	g.logger.Info().Str("bpfFileName", bpfFileName).Msg("BPF bytecode file is matched.")
 	byteBuf, err := assets.Asset(bpfFileName)
 	if err != nil {
+		g.logger.Error().Err(err).Strs("bytecode files", assets.AssetNames()).Msg("couldn't find bpf bytecode file")
 		return err
 	}
 
 	if err = g.bpfManager.InitWithOptions(bytes.NewReader(byteBuf), g.bpfManagerOptions); err != nil {
 		var ve *ebpf.VerifierError
 		if errors.As(err, &ve) {
-			g.logger.Printf("%s\tcouldn't verify bpf prog: %+v", g.Name(), ve)
+			g.logger.Warn().Err(ve).Msg("couldn't verify bpf prog")
 		}
 		return fmt.Errorf("couldn't init manager %v", err)
 	}
@@ -196,15 +193,17 @@ func (g *GoTLSProbe) constantEditor() []manager.ConstantEditor {
 	}
 
 	if g.conf.GetPid() <= 0 {
-		g.logger.Printf("%s\ttarget all process. \n", g.Name())
+		g.logger.Info().Msg("target all process.")
+
 	} else {
-		g.logger.Printf("%s\ttarget PID:%d \n", g.Name(), g.conf.GetPid())
+		g.logger.Info().Uint64("target PID", g.conf.GetPid()).Msg("target process.")
+
 	}
 
 	if g.conf.GetUid() <= 0 {
-		g.logger.Printf("%s\ttarget all users. \n", g.Name())
+		g.logger.Info().Msg("target all users.")
 	} else {
-		g.logger.Printf("%s\ttarget UID:%d \n", g.Name(), g.conf.GetUid())
+		g.logger.Info().Uint64("target UID", g.conf.GetUid()).Msg("target user.")
 	}
 
 	return editor
@@ -216,7 +215,7 @@ func (g *GoTLSProbe) DecodeFun(m *ebpf.Map) (event.IEventStruct, bool) {
 }
 
 func (g *GoTLSProbe) Close() error {
-	g.logger.Printf("%s\tclose. \n", g.Name())
+	g.logger.Info().Msg("module close.")
 	if err := g.bpfManager.Stop(manager.CleanAll); err != nil {
 		return fmt.Errorf("couldn't stop manager %v .", err)
 	}
@@ -247,18 +246,18 @@ func (g *GoTLSProbe) saveMasterSecret(secretEvent *event.MasterSecretGotlsEvent)
 		var l int
 		l, e = g.keylogger.WriteString(b)
 		if e != nil {
-			g.logger.Fatalf("%s: save masterSecrets to file error:%s", secretEvent.String(), e.Error())
+			g.logger.Warn().Err(e).Str("clientRandom", clientRandom).Msg("save masterSecrets to keylog error")
 			return
 		}
-		g.logger.Printf("%s: save CLIENT_RANDOM %02x to file success, %d bytes", label, clientRandom, l)
+		g.logger.Info().Str("clientRandom", clientRandom).Str("label", label).Int("bytes", l).Msg("save CLIENT_RANDOM success")
 	case TlsCaptureModelTypePcap:
 		e = g.savePcapngSslKeyLog([]byte(b))
 		if e != nil {
-			g.logger.Fatalf("%s: save masterSecrets to pcapng error:%s", secretEvent.String(), e.Error())
+			g.logger.Warn().Err(e).Str("clientRandom", clientRandom).Msg("save masterSecrets to pcapNG error")
 			return
 		}
 	default:
-		g.logger.Fatalf("unhandled default case with eBPF Program type:%d", g.eBPFProgramType)
+		g.logger.Warn().Str("clientRandom", clientRandom).Uint8("eBPFProgramType", uint8(g.eBPFProgramType)).Msg("unhandled default case with eBPF Program type")
 	}
 }
 
@@ -270,7 +269,7 @@ func (g *GoTLSProbe) Dispatcher(eventStruct event.IEventStruct) {
 	case *event.TcSkbEvent:
 		err := g.dumpTcSkb(eventStruct.(*event.TcSkbEvent))
 		if err != nil {
-			g.logger.Printf("%s\tsave packet error %s .\n", g.Name(), err.Error())
+			g.logger.Warn().Err(err).Msg("save packet error.")
 		}
 	}
 }

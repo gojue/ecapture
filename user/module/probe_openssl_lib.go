@@ -164,10 +164,11 @@ func (m *MOpenSSLProbe) detectOpenssl(soPath string) error {
 	buf := make([]byte, 1024*1024) // 1Mb
 	totalReadCount := 0
 	for totalReadCount < int(sectionSize) {
-		readCount, err := f.Read(buf)
+		var readCount int
+		readCount, err = f.Read(buf)
 
 		if err != nil {
-			m.logger.Printf("%s\t[f.Read] Error:%v\t", m.Name(), err)
+			m.logger.Error().Err(err).Msg("read openssl version failed")
 			break
 		}
 
@@ -204,7 +205,7 @@ func (m *MOpenSSLProbe) detectOpenssl(soPath string) error {
 	if versionKey != "" {
 		versionKeyLower := strings.ToLower(versionKey)
 		m.conf.(*config.OpensslConfig).SslVersion = versionKeyLower
-		m.logger.Printf("%s\torigin version:%s, as key:%s", m.Name(), versionKey, versionKeyLower)
+		m.logger.Info().Str("origin versionKey", versionKey).Str("versionKeyLower", versionKeyLower).Msg("OpenSSL/BoringSSL version found")
 		// find the sslVersion bpfFile from sslVersionBpfMap
 		bpfFile, found = m.sslVersionBpfMap[versionKeyLower]
 		if found {
@@ -225,18 +226,18 @@ func (m *MOpenSSLProbe) detectOpenssl(soPath string) error {
 		bpfFile, found = m.sslVersionBpfMap[bpfFildAndroid]
 		if found {
 			m.sslBpfFile = bpfFile
-			m.logger.Printf("%s\tOpenSSL/BoringSSL version found, ro.build.version.release=%s\n", m.Name(), androidVer)
+			m.logger.Info().Str("BoringSSL Version", androidVer).Msg("OpenSSL/BoringSSL version found")
 		} else {
 			bpfFile, _ = m.sslVersionBpfMap[AndroidDefauleFilename]
-			m.logger.Printf("%s\tOpenSSL/BoringSSL version not found, used default version :%s\n", m.Name(), AndroidDefauleFilename)
+			m.logger.Warn().Str("BoringSSL Version", AndroidDefauleFilename).Msg("OpenSSL/BoringSSL version not found, used default version")
 		}
 	} else {
 		if strings.Contains(soPath, "libssl.so.3") {
 			bpfFile, _ = m.sslVersionBpfMap[LinuxDefauleFilename_3_0]
-			m.logger.Printf("%s\tOpenSSL/BoringSSL version not found from shared library file, used default version:%s\n", m.Name(), LinuxDefauleFilename_3_0)
+			m.logger.Info().Str("OpenSSL Version", LinuxDefauleFilename_3_0).Msg("OpenSSL/BoringSSL version not found from shared library file, used default version")
 		} else {
 			bpfFile, _ = m.sslVersionBpfMap[LinuxDefauleFilename_1_1_1]
-			m.logger.Printf("%s\tOpenSSL/BoringSSL version not found from shared library file, used default version:%s\n", m.Name(), LinuxDefauleFilename_1_1_1)
+			m.logger.Info().Str("OpenSSL Version", LinuxDefauleFilename_1_1_1).Msg("OpenSSL/BoringSSL version not found from shared library file, used default version")
 		}
 	}
 	m.sslBpfFile = bpfFile

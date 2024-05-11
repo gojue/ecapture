@@ -24,7 +24,7 @@ import (
 	"github.com/gojue/ecapture/assets"
 	"github.com/gojue/ecapture/user/config"
 	"github.com/gojue/ecapture/user/event"
-	"log"
+	"github.com/rs/zerolog"
 	"math"
 	"os"
 
@@ -43,7 +43,7 @@ type MPostgresProbe struct {
 }
 
 // init probe
-func (p *MPostgresProbe) Init(ctx context.Context, logger *log.Logger, conf config.IConfig) error {
+func (p *MPostgresProbe) Init(ctx context.Context, logger *zerolog.Logger, conf config.IConfig) error {
 	p.Module.Init(ctx, logger, conf)
 	p.conf = conf
 	p.Module.SetChild(p)
@@ -63,9 +63,11 @@ func (p *MPostgresProbe) start() error {
 
 	// fetch ebpf assets
 	var bpfFileName = p.geteBPFName("user/bytecode/postgres_kern.o")
-	p.logger.Printf("%s\tBPF bytecode filename:%s\n", p.Name(), bpfFileName)
+	p.logger.Info().Str("bpfFileName", bpfFileName).Msg("BPF bytecode file is matched.")
+
 	byteBuf, err := assets.Asset(bpfFileName)
 	if err != nil {
+		p.logger.Error().Err(err).Strs("bytecode files", assets.AssetNames()).Msg("couldn't find bpf bytecode file")
 		return fmt.Errorf("couldn't find asset")
 	}
 
@@ -102,9 +104,9 @@ func (p *MPostgresProbe) Close() error {
 }
 
 func (p *MPostgresProbe) setupManagers() error {
-	binaryPath := p.conf.(*config.PostgresConfig).PostgresPath
+	binrayPath := p.conf.(*config.PostgresConfig).PostgresPath
 
-	_, err := os.Stat(binaryPath)
+	_, err := os.Stat(binrayPath)
 	if err != nil {
 		return err
 	}
@@ -115,7 +117,7 @@ func (p *MPostgresProbe) setupManagers() error {
 			Section:          "uprobe/exec_simple_query",
 			EbpfFuncName:     "postgres_query",
 			AttachToFuncName: attachFunc,
-			BinaryPath:       binaryPath,
+			BinaryPath:       binrayPath,
 		},
 	}
 
@@ -128,7 +130,7 @@ func (p *MPostgresProbe) setupManagers() error {
 		},
 	}
 
-	p.logger.Printf("Postgres, binrayPath: %s, FunctionName: %s\n", binaryPath, attachFunc)
+	p.logger.Info().Str("binrayPath", binrayPath).Str("Function", attachFunc).Msg("Postgres probe setup")
 
 	p.bpfManagerOptions = manager.Options{
 		DefaultKProbeMaxActive: 512,

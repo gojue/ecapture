@@ -118,7 +118,6 @@ func (oc *OpensslConfig) checkConnect() error {
 			if sym.Name != "connect" {
 				continue
 			}
-			//fmt.Printf("\tsize:%d,  name:%s,  offset:%d\n", sym.Size, sym.Name, 0)
 			funcName = sym.Name
 			found = true
 			break

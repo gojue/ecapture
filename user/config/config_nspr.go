@@ -16,7 +16,7 @@ package config
 
 // 最终使用openssl参数
 type NsprConfig struct {
-	eConfig
+	BaseConfig
 	//Firefoxpath string `json:"firefoxpath"` //curl的文件路径
 	Nsprpath string `json:"nsprpath"`
 	ElfType  uint8  //

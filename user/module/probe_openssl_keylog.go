@@ -50,9 +50,8 @@ func (m *MOpenSSLProbe) setupManagersKeylog() error {
 		}
 	}
 
-	m.logger.Printf("%s\tHOOK type:%d, binrayPath:%s\n", m.Name(), m.conf.(*config.OpensslConfig).ElfType, binaryPath)
-	m.logger.Printf("%s\tHook masterKey function:%s\n", m.Name(), m.masterHookFuncs)
-
+	m.logger.Info().Str("binrayPath", binaryPath).Uint8("ElfType", m.conf.(*config.OpensslConfig).ElfType).
+		Strs("masterHookFuncs", m.masterHookFuncs).Msg("HOOK type:Openssl elf")
 	m.bpfManager = &manager.Manager{
 		Maps: []*manager.Map{
 			{

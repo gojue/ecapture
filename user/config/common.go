@@ -30,7 +30,6 @@ func GlobMany(targets []string, onErr func(string, error)) []string {
 	rv := make([]string, 0, 20)
 	addFile := func(path string, fi os.FileInfo, err error) error {
 		if err != nil {
-			log.Println(err.Error())
 			return err
 		}
 		rv = append(rv, path)
@@ -141,8 +140,6 @@ func recurseDynStrings(dynSym []string, searchPath []string, soName string) stri
 			if _, err := os.Stat(path); !os.IsNotExist(err) {
 				fd, err = os.OpenFile(path, os.O_RDONLY, 0644)
 				if err != nil {
-					//log.Fatal(err)
-					fmt.Printf("open keylogger:%s  error:%v\n", path, err)
 					continue
 				} else {
 					// found
