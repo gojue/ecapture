@@ -140,13 +140,11 @@ func (hr *HTTPResponse) Display() []byte {
 		//reader = hr.response.Body
 		hr.packerType = PacketTypeNull
 		//TODO for debug
-		//return []byte("")
 	}
 	headerMap := bytes.NewBufferString("")
 	for k, v := range hr.response.Header {
 		headerMap.WriteString(fmt.Sprintf("\t%s\t=>\t%s\n", k, v))
 	}
-	//log.Printf("HTTPS Headers \n\t%s", headerMap.String())
 
 	var b []byte
 	var e error

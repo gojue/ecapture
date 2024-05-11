@@ -17,6 +17,7 @@ package event_processor
 import (
 	"bytes"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"github.com/gojue/ecapture/user/event"
 	"sync/atomic"
@@ -83,16 +84,26 @@ func (ew *eventWorker) GetUUID() string {
 }
 
 func (ew *eventWorker) Write(e event.IEventStruct) error {
-	ew.incoming <- e
-	return nil
+	var err error
+	select {
+	case ew.incoming <- e:
+	default:
+		err = errors.New("eventWorker Write failed, incoming chan is full")
+	}
+	return err
 }
 
 func (ew *eventWorker) writeToChan(s string) error {
-	ew.outComing <- s
-	return nil
+	var err error
+	select {
+	case ew.outComing <- s:
+	default:
+		err = errors.New("eventWorker Write failed, outComing chan is full")
+	}
+	return err
 }
 
-// 输出包内容
+// Display 输出包内容
 func (ew *eventWorker) Display() error {
 	//  输出包内容
 	b := ew.parserEvents()
