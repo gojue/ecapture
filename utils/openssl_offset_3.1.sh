@@ -30,13 +30,14 @@ function run() {
   sslVerMap["2"]="0"
   sslVerMap["3"]="0"
   sslVerMap["4"]="0"
+  sslVerMap["5"]="0"
 
   # shellcheck disable=SC2068
   for ver in ${!sslVerMap[@]}; do
     tag="openssl-3.1.${ver}"
     val=${sslVerMap[$ver]}
     # 3.1.X and 3.0.X OFFSET is the same, use the same for the time being
-    header_file="${OUTPUT_DIR}/openssl_3_0_${val}_kern.c"
+    header_file="${OUTPUT_DIR}/openssl_3_1_${val}_kern.c"
     header_define="OPENSSL_3_0_$(echo ${val} | tr "[:lower:]" "[:upper:]")_KERN_H"
 
     if [[ -f ${header_file} ]]; then
@@ -55,7 +56,7 @@ function run() {
     make clean
     make include/openssl/opensslconf.h
     make include/openssl/configuration.h
-    make build_generated
+      make build_generated
 
 
     clang -I include/ -I . offset.c -o offset
