@@ -145,9 +145,9 @@ func runModule(modName string, modConfig config.IConfig) {
 		}
 	}
 
-	mod := module.GetModuleByName(modName)
-	if mod == nil {
-		logger.Fatal().Err(fmt.Errorf("cant found module: %s", modName)).Send()
+	modFunc := module.GetModuleFunc(modName)
+	if modFunc == nil {
+		logger.Fatal().Err(fmt.Errorf("cant found module function: %s", modName)).Send()
 	}
 	err = setModConfig(globalConf, modConfig)
 	if err != nil {
@@ -155,30 +155,33 @@ func runModule(modName string, modConfig config.IConfig) {
 	}
 	err = modConfig.Check()
 	if err != nil {
-		logger.Fatal().Err(err).Msg("module initialization failed")
+		logger.Fatal().Err(err).Msg("config check failed")
 	}
 
-	// 初始化
-	ctx, cancelFun := context.WithCancel(context.TODO())
-	err = mod.Init(ctx, &logger, modConfig)
-	if err != nil {
-		logger.Fatal().Err(err).Msg("module initialization failed")
-	}
-	logger.Info().Str("moduleName", modName).Msg("module initialization.")
+	{
+		// 初始化
+		mod := modFunc()
+		ctx, cancelFun := context.WithCancel(context.TODO())
+		err = mod.Init(ctx, &logger, modConfig)
+		if err != nil {
+			logger.Fatal().Err(err).Msg("module initialization failed")
+		}
+		logger.Info().Str("moduleName", modName).Msg("module initialization.")
 
-	err = mod.Run()
-	if err != nil {
-		logger.Fatal().Err(err).Msg("module run failed, skip it.")
-	}
-	logger.Info().Str("moduleName", modName).Msg("module started successfully.")
+		err = mod.Run()
+		if err != nil {
+			logger.Fatal().Err(err).Msg("module run failed, skip it.")
+		}
+		logger.Info().Str("moduleName", modName).Msg("module started successfully.")
 
-	<-stopper
-	cancelFun()
-	// clean up
-	err = mod.Close()
-	if err != nil {
-		logger.Warn().Err(err).Msg("module close failed")
+		<-stopper
+		cancelFun()
+		// clean up
+		err = mod.Close()
+		if err != nil {
+			logger.Warn().Err(err).Msg("module close failed")
+		}
+		logger.Info().Msg("bye bye.")
 	}
-	logger.Info().Msg("bye bye.")
 	//os.Exit(0)
 }

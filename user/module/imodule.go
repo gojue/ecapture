@@ -129,9 +129,9 @@ func (m *Module) Init(ctx context.Context, logger *zerolog.Logger, conf config.I
 		}
 	}
 	if m.isCoreUsed {
-		m.logger.Info().Msg("BTF bytecode mode: CORE.")
+		m.logger.Info().Uint8("btf_mode", conf.GetBTF()).Msg("BTF bytecode mode: CORE.")
 	} else {
-		m.logger.Info().Msg("BTF bytecode mode: non-CORE.")
+		m.logger.Info().Uint8("btf_mode", conf.GetBTF()).Msg("BTF bytecode mode: non-CORE.")
 	}
 }
 

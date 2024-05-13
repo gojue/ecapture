@@ -262,7 +262,7 @@ func (b *MBashProbe) handleLine(be *event.BashEvent) {
 	case BashEventTypeRetval:
 		line := b.lineMap[be.GetUUID()]
 		delete(b.lineMap, be.GetUUID())
-		if line == "" || be.Retval == uint32(BashErrnoDefault) {
+		if line == "" || be.ReturnValue == uint32(BashErrnoDefault) {
 			return
 		}
 		be.AllLines = line
@@ -272,7 +272,7 @@ func (b *MBashProbe) handleLine(be *event.BashEvent) {
 		if line == "" {
 			return
 		}
-		be.Retval = BashEventTypeExitOrExec // we do not know the return value here
+		be.ReturnValue = BashEventTypeExitOrExec // we do not know the return value here
 		be.AllLines = line
 	default:
 		return
@@ -285,8 +285,12 @@ func (b *MBashProbe) handleLine(be *event.BashEvent) {
 }
 
 func init() {
+	RegisteFunc(NewBashProbe)
+}
+
+func NewBashProbe() IModule {
 	mod := &MBashProbe{}
 	mod.name = ModuleNameBash
 	mod.mType = ProbeTypeUprobe
-	Register(mod)
+	return mod
 }

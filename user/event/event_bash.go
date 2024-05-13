@@ -32,14 +32,14 @@ import (
 const MaxDataSizeBash = 256
 
 type BashEvent struct {
-	eventType EventType
-	BashType  uint32                 `json:"bashtype"`
-	Pid       uint32                 `json:"pid"`
-	Uid       uint32                 `json:"uid"`
-	Line      [MaxDataSizeBash]uint8 `json:"line"`
-	Retval    uint32                 `json:"Retval"`
-	Comm      [16]byte               `json:"Comm"`
-	AllLines  string
+	eventType   EventType
+	BashType    uint32                 `json:"bash_type"`
+	Pid         uint32                 `json:"pid"`
+	Uid         uint32                 `json:"uid"`
+	Line        [MaxDataSizeBash]uint8 `json:"line"`
+	ReturnValue uint32                 `json:"ret_val"`
+	Comm        [16]byte               `json:"Comm"`
+	AllLines    string
 }
 
 func (be *BashEvent) Decode(payload []byte) (err error) {
@@ -56,7 +56,7 @@ func (be *BashEvent) Decode(payload []byte) (err error) {
 	if err = binary.Read(buf, binary.LittleEndian, &be.Line); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &be.Retval); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &be.ReturnValue); err != nil {
 		return
 	}
 	if err = binary.Read(buf, binary.LittleEndian, &be.Comm); err != nil {
@@ -66,12 +66,12 @@ func (be *BashEvent) Decode(payload []byte) (err error) {
 }
 
 func (be *BashEvent) String() string {
-	s := fmt.Sprintf("PID:%d, UID:%d, \tComm:%s, \tRetvalue:%d, \tLine:\n%s", be.Pid, be.Uid, be.Comm, be.Retval, be.AllLines)
+	s := fmt.Sprintf("PID:%d, UID:%d, \tComm:%s, \tRetvalue:%d, \tLine:\n%s", be.Pid, be.Uid, be.Comm, be.ReturnValue, be.AllLines)
 	return s
 }
 
 func (be *BashEvent) StringHex() string {
-	s := fmt.Sprintf("PID:%d, UID:%d, \tComm:%s, \tRetvalue:%d, \tLine:\n%s,", be.Pid, be.Uid, be.Comm, be.Retval, dumpByteSlice([]byte(be.AllLines), ""))
+	s := fmt.Sprintf("PID:%d, UID:%d, \tComm:%s, \tRetvalue:%d, \tLine:\n%s,", be.Pid, be.Uid, be.Comm, be.ReturnValue, dumpByteSlice([]byte(be.AllLines), ""))
 	return s
 }
 

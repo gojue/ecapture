@@ -54,17 +54,17 @@ const (
 )
 
 type BaseConfig struct {
-	Pid uint64
-	Uid uint64
+	Pid uint64 `json:"pid,omitempty"`
+	Uid uint64 `json:"uid,omitempty"`
 
 	// mapSizeKB
-	PerCpuMapSize int // ebpf map size for per Cpu.   see https://github.com/gojue/ecapture/issues/433 .
-	IsHex         bool
-	Debug         bool
-	BtfMode       uint8
-	AddrType      uint8 // 0:stdout, 1:file, 2:tcp
-	Address       string
-	LoggerAddr    string // save file
+	PerCpuMapSize int    `json:"per_cpu_map_size,omitempty"` // ebpf map size for per Cpu.   see https://github.com/gojue/ecapture/issues/433 .
+	IsHex         bool   `json:"is_hex,omitempty"`
+	Debug         bool   `json:"debug,omitempty"`
+	BtfMode       uint8  `json:"btf_mode,omitempty"`
+	AddrType      uint8  `json:"addr_type,omitempty"` // 0:stdout, 1:file, 2:tcp
+	Address       string `json:"address,omitempty"`
+	LoggerAddr    string `json:"logger_addr,omitempty"` // save file
 }
 
 func (c *BaseConfig) GetPid() uint64 {

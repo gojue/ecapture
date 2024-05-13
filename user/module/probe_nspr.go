@@ -260,8 +260,12 @@ func (n *MNsprProbe) Events() []*ebpf.Map {
 }
 
 func init() {
+	RegisteFunc(NewNsprProbe)
+}
+
+func NewNsprProbe() IModule {
 	mod := &MNsprProbe{}
 	mod.name = ModuleNameNspr
 	mod.mType = ProbeTypeUprobe
-	Register(mod)
+	return mod
 }

@@ -214,8 +214,12 @@ func (g *MGnutlsProbe) Events() []*ebpf.Map {
 }
 
 func init() {
+	RegisteFunc(NewGnutlsProbe)
+}
+
+func NewGnutlsProbe() IModule {
 	mod := &MGnutlsProbe{}
 	mod.name = ModuleNameGnutls
 	mod.mType = ProbeTypeUprobe
-	Register(mod)
+	return mod
 }
