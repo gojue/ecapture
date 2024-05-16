@@ -18,6 +18,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"strings"
+
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/perf"
 	"github.com/cilium/ebpf/ringbuf"
@@ -27,8 +30,6 @@ import (
 	"github.com/gojue/ecapture/user/config"
 	"github.com/gojue/ecapture/user/event"
 	"github.com/rs/zerolog"
-	"os"
-	"strings"
 )
 
 type IModule interface {
@@ -163,7 +164,7 @@ func (m *Module) geteBPFName(filename string) string {
 	}
 	//
 	if m.isKernelLess5_2 {
-		newFilename = strings.Replace(filename, ".o", KernelLess52Prefix, 1)
+		newFilename = strings.Replace(newFilename, ".o", KernelLess52Prefix, 1)
 	}
 
 	return newFilename
