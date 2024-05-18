@@ -97,7 +97,7 @@ func (t *MTCProbe) dumpTcSkb(tcEvent *event.TcSkbEvent) error {
 		err, p := t.writePid(tcEvent)
 		if err == nil {
 			payload = p
-			t.logger.Debug().Uint32("pid", tcEvent.Pid).Str("comm", fmt.Sprintf("%s", tcEvent.Comm)).Str("cmdline", fmt.Sprintf("%s", tcEvent.Cmdline)).Msg("dumpTcSkb")
+			//t.logger.Debug().Uint32("pid", tcEvent.Pid).Str("comm", fmt.Sprintf("%s", tcEvent.Comm)).Str("cmdline", fmt.Sprintf("%s", tcEvent.Cmdline)).Msg("dumpTcSkb")
 		}
 	}
 	return t.writePacket(uint32(len(payload)), time.Unix(0, int64(timeStamp)), payload)
@@ -153,6 +153,9 @@ func (t *MTCProbe) savePcapng() (i int, err error) {
 	if err != nil {
 		return
 	}
+
+	// reset master key buffer, fix issue #542
+	t.masterKeyBuffer.Reset()
 	t.tcPacketLocker.Lock()
 	defer func() {
 		t.tcPacketLocker.Unlock()
