@@ -15,6 +15,7 @@
 package config
 
 import (
+	"encoding/json"
 	"github.com/gojue/ecapture/pkg/util/kernel"
 	"os"
 )
@@ -37,6 +38,7 @@ type IConfig interface {
 	GetPerCpuMapSize() int
 	SetPerCpuMapSize(int)
 	EnableGlobalVar() bool //
+	Bytes() []byte
 }
 
 const (
@@ -54,8 +56,9 @@ const (
 )
 
 type BaseConfig struct {
-	Pid uint64 `json:"pid,omitempty"`
-	Uid uint64 `json:"uid,omitempty"`
+	Pid    uint64 `json:"pid,omitempty"`
+	Uid    uint64 `json:"uid,omitempty"`
+	Listen string `json:"listen,omitempty"` // listen address, default: 127.0.0.1:28256
 
 	// mapSizeKB
 	PerCpuMapSize int    `json:"per_cpu_map_size,omitempty"` // ebpf map size for per Cpu.   see https://github.com/gojue/ecapture/issues/433 .
@@ -137,4 +140,12 @@ func (c *BaseConfig) EnableGlobalVar() bool {
 		return false
 	}
 	return true
+}
+
+func (c *BaseConfig) Bytes() []byte {
+	b, e := json.Marshal(c)
+	if e != nil {
+		return []byte{}
+	}
+	return b
 }

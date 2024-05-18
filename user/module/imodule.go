@@ -94,15 +94,6 @@ func (m *Module) Init(ctx context.Context, logger *zerolog.Logger, conf config.I
 	m.logger = logger
 	m.errChan = make(chan error)
 	m.isKernelLess5_2 = false //set false default
-	logger.Info().Str("AppName", fmt.Sprintf("%s(%s)", config.CliName, config.CliNameZh)).Send()
-	logger.Info().Str("HomePage", config.CliHomepage).Send()
-	logger.Info().Str("Repository", config.CliRepo).Send()
-	logger.Info().Str("Author", config.CliAuthor).Send()
-	logger.Info().Str("Description", config.CliDescription).Send()
-	logger.Info().Str("Version", config.GitVersion).Send()
-	if conf.GetAddress() != "" {
-		logger.Info().Str("logAddr", conf.GetAddress()).Send()
-	}
 
 	m.processor = event_processor.NewEventProcessor(logger, conf.GetHex())
 	kv, err := kernel.HostVersion()
@@ -129,9 +120,9 @@ func (m *Module) Init(ctx context.Context, logger *zerolog.Logger, conf config.I
 		}
 	}
 	if m.isCoreUsed {
-		m.logger.Info().Uint8("btf_mode", conf.GetBTF()).Msg("BTF bytecode mode: CORE.")
+		m.logger.Info().Uint8("btfMode", conf.GetBTF()).Msg("BTF bytecode mode: CORE.")
 	} else {
-		m.logger.Info().Uint8("btf_mode", conf.GetBTF()).Msg("BTF bytecode mode: non-CORE.")
+		m.logger.Info().Uint8("btfMode", conf.GetBTF()).Msg("BTF bytecode mode: non-CORE.")
 	}
 }
 
