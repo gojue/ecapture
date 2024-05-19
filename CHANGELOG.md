@@ -1,10 +1,24 @@
+# v0.8.1 (2024-05-19)
+## What's Changed
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v0.8.0...v0.8.1
+<hr>
+
 # v0.8.0 (2024-05-04)
 ## 🚀 Breaking Changes
-- for Uesr: No need to distinguish between CO-RE and non-CO-RE versions, automatically identified by eCapture.
+- for User: No need to distinguish between CO-RE and non-CO-RE versions, automatically identified by eCapture.
   - 无需区分CO-RE和non-CO-RE版本，由eCapture自动识别。
 - for Developer: Supports cross-compilation for both amd64 and arm64 CPU architectures, building CO-RE and non-CO-RE versions respectively.
   - 支持在amd64\arm64两个CPU架构下的交叉编译，分别构建CO-RE和non-CO-RE版本
+
 ## What's Changed
+* chore: rename ecapture module name. by @cfc4n in https://github.com/gojue/ecapture/pull/530
+* Fix keylog mode not working correctly on certain OpenSSL versions by @AmazingPP in https://github.com/gojue/ecapture/pull/534
+* feat: support CORE and non-CORE mode in one by @cfc4n in https://github.com/gojue/ecapture/pull/532
+* workflows: change steps.get_tags.outputs.VERSION to github.ref_name by @sancppp in https://github.com/gojue/ecapture/pull/535
+
+## New Contributors
+* @AmazingPP made their first contribution in https://github.com/gojue/ecapture/pull/534
 
 **Full Changelog**: https://github.com/gojue/ecapture/compare/v0.7.7...v0.8.0
 <hr>
