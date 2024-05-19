@@ -102,11 +102,11 @@ jobs:
           make clean
           CROSS_ARCH=arm64 make env
           CROSS_ARCH=arm64 make -j8
-      - name: Build non-CO-RE (Cross-Compilation)
+      - name: Build non-CO-RE (Cross-Compilation/Android)
         run: |
           make clean
           CROSS_ARCH=arm64 make env
-          CROSS_ARCH=arm64 make nocore -j8
+          ANDROID=1 CROSS_ARCH=arm64 make nocore -j8
       - name: Test
         run: go test -v -race ./...
 
