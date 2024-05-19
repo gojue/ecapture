@@ -1,5 +1,22 @@
+# v0.8.2 (2024-05-19)
+## What's Changed
+* android version compilation has failed. by @cfc4n in https://github.com/gojue/ecapture/pull/548
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v0.8.1...v0.8.2
+<hr>
+
 # v0.8.1 (2024-05-19)
 ## What's Changed
+* makefile: Optimized the generation mechanism of kernel header files by @cfc4n in https://github.com/gojue/ecapture/pull/536
+* add dockerfile by @sancppp in https://github.com/gojue/ecapture/pull/537
+* cli: Use a formatted logger rs/zerolog by @cfc4n in https://github.com/gojue/ecapture/pull/539
+* utils: supported openssl 1.1.1w, 3.0.13, 3.1.5, 3.2.1 by @cfc4n in https://github.com/gojue/ecapture/pull/540
+* BPF name should be appended after _core/_noncore by @darren in https://github.com/gojue/ecapture/pull/545
+* user: fixed #542, masterkey being written to pcapng multiple times. by @cfc4n in https://github.com/gojue/ecapture/pull/546
+* user:  prepare for service-oriented architecture. by @cfc4n in https://github.com/gojue/ecapture/pull/541
+
+## New Contributors
+* @darren made their first contribution in https://github.com/gojue/ecapture/pull/545
 
 **Full Changelog**: https://github.com/gojue/ecapture/compare/v0.8.0...v0.8.1
 <hr>
@@ -742,7 +759,7 @@ Quick Guide:
 
 ## mysqld 模块
 - 支持mysql5.6的mariaDB数据库的查询审计
-  - 默认path目录为/usr/sbin/mariadb 。 
+  - 默认path目录为/usr/sbin/mariadb 。
   - 支持function name、offset两个参数自定义。
 
 <hr>
