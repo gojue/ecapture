@@ -14,6 +14,8 @@
 
 package config
 
+import "encoding/json"
+
 // 最终使用openssl参数
 type NsprConfig struct {
 	BaseConfig
@@ -26,4 +28,12 @@ func NewNsprConfig() *NsprConfig {
 	config := &NsprConfig{}
 	config.PerCpuMapSize = DefaultMapSizePerCpu
 	return config
+}
+
+func (nc *NsprConfig) Bytes() []byte {
+	b, e := json.Marshal(nc)
+	if e != nil {
+		return []byte{}
+	}
+	return b
 }

@@ -15,6 +15,7 @@
 package config
 
 import (
+	"encoding/json"
 	"github.com/gojue/ecapture/pkg/util/kernel"
 	"os"
 )
@@ -32,11 +33,12 @@ type IConfig interface {
 	SetBTF(uint8)
 	SetDebug(bool)
 	SetAddrType(uint8)
-	SetAddress(string)
-	GetAddress() string
+	SetLoggerTCPAddr(string)
+	GetLoggerTCPAddr() string
 	GetPerCpuMapSize() int
 	SetPerCpuMapSize(int)
 	EnableGlobalVar() bool //
+	Bytes() []byte
 }
 
 const (
@@ -54,17 +56,18 @@ const (
 )
 
 type BaseConfig struct {
-	Pid uint64
-	Uid uint64
+	Pid    uint64 `json:"pid"`
+	Uid    uint64 `json:"uid"`
+	Listen string `json:"listen"` // listen address, default: 127.0.0.1:28256
 
 	// mapSizeKB
-	PerCpuMapSize int // ebpf map size for per Cpu.   see https://github.com/gojue/ecapture/issues/433 .
-	IsHex         bool
-	Debug         bool
-	BtfMode       uint8
-	AddrType      uint8 // 0:stdout, 1:file, 2:tcp
-	Address       string
-	LoggerAddr    string // save file
+	PerCpuMapSize int    `json:"per_cpu_map_size"` // ebpf map size for per Cpu.   see https://github.com/gojue/ecapture/issues/433 .
+	IsHex         bool   `json:"is_hex"`
+	Debug         bool   `json:"debug"`
+	BtfMode       uint8  `json:"btf_mode"`
+	LoggerAddr    string `json:"logger_addr"` // save file
+	LoggerType    uint8  `json:"logger_type"` // 0:stdout, 1:file, 2:tcp
+	LoggerTCPAddr string `json:"logger_tcp_addr"`
 }
 
 func (c *BaseConfig) GetPid() uint64 {
@@ -91,16 +94,16 @@ func (c *BaseConfig) SetUid(uid uint64) {
 	c.Uid = uid
 }
 
-func (c *BaseConfig) SetAddress(addr string) {
-	c.Address = addr
+func (c *BaseConfig) SetLoggerTCPAddr(addr string) {
+	c.LoggerTCPAddr = addr
 }
 
-func (c *BaseConfig) GetAddress() string {
-	return c.Address
+func (c *BaseConfig) GetLoggerTCPAddr() string {
+	return c.LoggerTCPAddr
 }
 
 func (c *BaseConfig) SetAddrType(t uint8) {
-	c.AddrType = t
+	c.LoggerType = t
 }
 
 func (c *BaseConfig) SetDebug(b bool) {
@@ -130,11 +133,18 @@ func (c *BaseConfig) SetPerCpuMapSize(size int) {
 func (c *BaseConfig) EnableGlobalVar() bool {
 	kv, err := kernel.HostVersion()
 	if err != nil {
-		//log.Fatal(err)
 		return true
 	}
 	if kv < kernel.VersionCode(5, 2, 0) {
 		return false
 	}
 	return true
+}
+
+func (c *BaseConfig) Bytes() []byte {
+	b, e := json.Marshal(c)
+	if e != nil {
+		return []byte{}
+	}
+	return b
 }

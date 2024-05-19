@@ -14,6 +14,8 @@
 
 package config
 
+import "encoding/json"
+
 // GnutlsConfig 最终使用openssl参数
 type GnutlsConfig struct {
 	BaseConfig
@@ -26,4 +28,12 @@ func NewGnutlsConfig() *GnutlsConfig {
 	config := &GnutlsConfig{}
 	config.PerCpuMapSize = DefaultMapSizePerCpu
 	return config
+}
+
+func (gc *GnutlsConfig) Bytes() []byte {
+	b, e := json.Marshal(gc)
+	if e != nil {
+		return []byte{}
+	}
+	return b
 }

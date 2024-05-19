@@ -659,8 +659,12 @@ func (m *MOpenSSLProbe) dumpSslData(eventStruct *event.SSLDataEvent) {
 }
 
 func init() {
+	RegisteFunc(NewOpenSSLProbe)
+}
+
+func NewOpenSSLProbe() IModule {
 	mod := &MOpenSSLProbe{}
 	mod.name = ModuleNameOpenssl
 	mod.mType = ProbeTypeUprobe
-	Register(mod)
+	return mod
 }

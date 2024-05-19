@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/gojue/ecapture/cli/cobrautl"
+	"github.com/gojue/ecapture/cli/http"
 	"github.com/gojue/ecapture/user/config"
 	"github.com/gojue/ecapture/user/module"
 	"github.com/rs/zerolog"
@@ -33,6 +34,20 @@ import (
 )
 
 const (
+	CliName        = "eCapture"
+	CliNameZh      = "旁观者"
+	CliDescription = "Capturing SSL/TLS plaintext without a CA certificate using eBPF. Supported on Linux/Android kernels for amd64/arm64."
+	CliHomepage    = "https://ecapture.cc"
+	CliAuthor      = "CFC4N <cfc4ncs@gmail.com>"
+	CliRepo        = "https://github.com/gojue/ecapture"
+)
+
+var (
+	GitVersion = "v0.0.0_unknow"
+	//ReleaseDate = "2022-03-16"
+)
+
+const (
 	defaultPid uint64 = 0
 	defaultUid uint64 = 0
 )
@@ -43,10 +58,15 @@ const (
 	loggerTypeTcp    = 2
 )
 
+// ListenPort1 or ListenPort2 are the default ports for the http server.
+const (
+	eCaptureListenAddr = "localhost:28256"
+)
+
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:        config.CliName,
-	Short:      config.CliDescription,
+	Use:        CliName,
+	Short:      CliDescription,
 	SuggestFor: []string{"ecapture"},
 
 	Long: `eCapture(旁观者) is a tool that can capture plaintext packets 
@@ -67,7 +87,7 @@ Usage:
 }
 
 func usageFunc(c *cobra.Command) error {
-	return cobrautl.UsageFunc(c, config.GitVersion)
+	return cobrautl.UsageFunc(c, GitVersion)
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -76,7 +96,7 @@ func Execute() {
 	rootCmd.SetUsageFunc(usageFunc)
 	rootCmd.SetHelpTemplate(`{{.UsageString}}`)
 	rootCmd.CompletionOptions.DisableDefaultCmd = true
-	rootCmd.Version = config.GitVersion
+	rootCmd.Version = GitVersion
 	rootCmd.SetVersionTemplate(`{{with .Name}}{{printf "%s " .}}{{end}}{{printf "version:\t%s" .Version}}
 `)
 	err := rootCmd.Execute()
@@ -97,9 +117,11 @@ func init() {
 	rootCmd.PersistentFlags().IntVar(&globalConf.PerCpuMapSize, "mapsize", 1024, "eBPF map size per CPU,for events buffer. default:1024 * PAGESIZE. (KB)")
 	rootCmd.PersistentFlags().Uint64VarP(&globalConf.Pid, "pid", "p", defaultPid, "if pid is 0 then we target all pids")
 	rootCmd.PersistentFlags().Uint64VarP(&globalConf.Uid, "uid", "u", defaultUid, "if uid is 0 then we target all users")
-	rootCmd.PersistentFlags().StringVarP(&globalConf.LoggerAddr, "logaddr", "l", "", "-l /tmp/ecapture.log or -l tcp://127.0.0.1:8080")
+	rootCmd.PersistentFlags().StringVarP(&globalConf.LoggerAddr, "logaddr", "l", "", "send logs to this server.-l /tmp/ecapture.log or -l tcp://127.0.0.1:8080")
+	rootCmd.PersistentFlags().StringVar(&globalConf.Listen, "listen", eCaptureListenAddr, "listen on this address for http server, default: 127.0.0.1:28256")
 }
 
+// setModConfig set module config
 func setModConfig(globalConf config.BaseConfig, modConf config.IConfig) error {
 	modConf.SetPid(globalConf.Pid)
 	modConf.SetUid(globalConf.Uid)
@@ -111,74 +133,138 @@ func setModConfig(globalConf config.BaseConfig, modConf config.IConfig) error {
 	return nil
 }
 
-func runModule(modName string, modConfig config.IConfig) {
-	stopper := make(chan os.Signal, 1)
-	signal.Notify(stopper, os.Interrupt, syscall.SIGTERM)
-
+// initLogger init logger
+func initLogger(addr string, modConfig config.IConfig) zerolog.Logger {
 	var logger zerolog.Logger
 	var err error
 	consoleWriter := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}
 	logger = zerolog.New(consoleWriter).With().Timestamp().Logger()
-	if globalConf.LoggerAddr != "" {
+	if addr != "" {
 		var writer io.Writer
 		var address string
-		if strings.Contains(globalConf.LoggerAddr, "tcp://") {
-			address = strings.Replace(globalConf.LoggerAddr, "tcp://", "", 1)
+		if strings.Contains(addr, "tcp://") {
+			address = strings.Replace(addr, "tcp://", "", 1)
 			var conn net.Conn
 			conn, err = net.Dial("tcp", address)
 			modConfig.SetAddrType(loggerTypeTcp)
-			modConfig.SetAddress(address)
+			modConfig.SetLoggerTCPAddr(address)
 			writer = conn
 		} else {
-			address = globalConf.LoggerAddr
 			var f *os.File
 			f, err = os.Create(address)
 			modConfig.SetAddrType(loggerTypeFile)
-			modConfig.SetAddress(address)
+			modConfig.SetLoggerTCPAddr("")
 			writer = f
 		}
 		if err == nil && writer != nil {
 			multi := zerolog.MultiLevelWriter(consoleWriter, writer)
 			logger = zerolog.New(multi).With().Timestamp().Logger()
 		} else {
-			logger.Warn().Err(err).Msg("failed to create logger")
+			logger.Warn().Err(err).Msg("failed to create multiLogger")
+		}
+	}
+	return logger
+}
+
+// runModule run module
+func runModule(modName string, modConfig config.IConfig) {
+	var err error
+	var logger = initLogger(globalConf.LoggerAddr, modConfig)
+	// init eCapture
+	logger.Info().Str("AppName", fmt.Sprintf("%s(%s)", CliName, CliNameZh)).Send()
+	logger.Info().Str("HomePage", CliHomepage).Send()
+	logger.Info().Str("Repository", CliRepo).Send()
+	logger.Info().Str("Author", CliAuthor).Send()
+	logger.Info().Str("Description", CliDescription).Send()
+	logger.Info().Str("Version", GitVersion).Send()
+	if modConfig.GetLoggerTCPAddr() != "" {
+		logger.Info().Str("LoggerTCPAddress", modConfig.GetLoggerTCPAddr()).Send()
+	}
+
+	var isReload bool
+	var reRloadConfig = make(chan config.IConfig, 10)
+
+	// listen http server
+	go func() {
+		logger.Info().Str("listen", globalConf.Listen).Send()
+		logger.Info().Msg("https server starting...You can update the configuration file via the HTTP interface.")
+		var ec = http.NewHttpServer(globalConf.Listen, reRloadConfig, logger)
+		err = ec.Run()
+		if err != nil {
+			logger.Fatal().Err(err).Msg("http server start failed")
+			return
+		}
+	}()
+
+	// run module
+	{
+		// config check
+		err = setModConfig(globalConf, modConfig)
+		if err != nil {
+			logger.Fatal().Err(err).Send()
+		}
+		err = modConfig.Check()
+		if err != nil {
+			logger.Fatal().Err(err).Msg("config check failed")
+		}
+		modFunc := module.GetModuleFunc(modName)
+		if modFunc == nil {
+			logger.Fatal().Err(fmt.Errorf("cant found module function: %s", modName)).Send()
+		}
+
+	reload:
+		// 初始化
+		logger.Warn().Msg("========== module starting. ==========")
+		mod := modFunc()
+		ctx, cancelFun := context.WithCancel(context.TODO())
+		err = mod.Init(ctx, &logger, modConfig)
+		if err != nil {
+			logger.Fatal().Err(err).Bool("isReload", isReload).Msg("module initialization failed")
+		}
+		logger.Info().Str("moduleName", modName).Bool("isReload", isReload).Msg("module initialization.")
+
+		err = mod.Run()
+		if err != nil {
+			logger.Fatal().Err(err).Bool("isReload", isReload).Msg("module run failed, skip it.")
+		}
+		logger.Info().Str("moduleName", modName).Bool("isReload", isReload).Msg("module started successfully.")
+
+		// reset isReload
+		isReload = false
+		stopper := make(chan os.Signal, 1)
+		signal.Notify(stopper, os.Interrupt, syscall.SIGTERM)
+		select {
+		case _, ok := <-stopper:
+			if !ok {
+				logger.Warn().Msg("reload stopper channel closed.")
+				break
+			}
+			isReload = false
+		case rc, ok := <-reRloadConfig:
+			if !ok {
+				logger.Warn().Msg("reload config channel closed.")
+				isReload = false
+				break
+			}
+			logger.Warn().Msg("========== Signal received; the module will initiate a restart. ==========")
+			isReload = true
+			modConfig = rc
+		}
+		cancelFun()
+		// clean up
+		err = mod.Close()
+		if err != nil {
+			logger.Warn().Err(err).Msg("module close failed")
+		}
+		// reload
+		if isReload {
+			isReload = false
+			logger.Info().RawJSON("config", modConfig.Bytes()).Msg("reloading module...")
+			goto reload
 		}
 	}
 
-	mod := module.GetModuleByName(modName)
-	if mod == nil {
-		logger.Fatal().Err(fmt.Errorf("cant found module: %s", modName)).Send()
-	}
-	err = setModConfig(globalConf, modConfig)
-	if err != nil {
-		logger.Fatal().Err(err).Send()
-	}
-	err = modConfig.Check()
-	if err != nil {
-		logger.Fatal().Err(err).Msg("module initialization failed")
-	}
+	// TODO Stop http server
 
-	// 初始化
-	ctx, cancelFun := context.WithCancel(context.TODO())
-	err = mod.Init(ctx, &logger, modConfig)
-	if err != nil {
-		logger.Fatal().Err(err).Msg("module initialization failed")
-	}
-	logger.Info().Str("moduleName", modName).Msg("module initialization.")
-
-	err = mod.Run()
-	if err != nil {
-		logger.Fatal().Err(err).Msg("module run failed, skip it.")
-	}
-	logger.Info().Str("moduleName", modName).Msg("module started successfully.")
-
-	<-stopper
-	cancelFun()
-	// clean up
-	err = mod.Close()
-	if err != nil {
-		logger.Warn().Err(err).Msg("module close failed")
-	}
 	logger.Info().Msg("bye bye.")
-	//os.Exit(0)
 }

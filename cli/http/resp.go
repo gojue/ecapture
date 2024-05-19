@@ -12,9 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package config
+package http
+
+//go:generate stringer -type=Status
+type Status uint8
 
 const (
-	ElfTypeBin uint8 = 1
-	ElfTypeSo  uint8 = 2
+	RespOK Status = iota
+	RespErrorInvaildRequest
+	RespErrorInternalServer
+	RespErrorNotFound
+	RespConfigDecodeFailed
+	RespConfigCheckFailed
+	RespSendToChanFailed
 )
+
+// Resp -
+type Resp struct {
+	Code       Status      `json:"code"`
+	ModuleType string      `json:"module_type"` // config.ModuleType
+	Msg        string      `json:"msg"`
+	Data       interface{} `json:"data"`
+}

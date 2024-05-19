@@ -20,6 +20,7 @@ package config
 import (
 	"bytes"
 	"debug/elf"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -161,4 +162,12 @@ func getMysqlVer(buf []byte) (MysqldType, string) {
 		offset += len(slice[i]) + 1
 	}
 	return MysqldTypeUnknow, ""
+}
+
+func (mc *MysqldConfig) Bytes() []byte {
+	b, e := json.Marshal(mc)
+	if e != nil {
+		return []byte{}
+	}
+	return b
 }

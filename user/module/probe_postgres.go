@@ -174,8 +174,12 @@ func (p *MPostgresProbe) Events() []*ebpf.Map {
 }
 
 func init() {
+	RegisteFunc(NewPostgresProbe)
+}
+
+func NewPostgresProbe() IModule {
 	mod := &MPostgresProbe{}
 	mod.name = ModuleNamePostgres
 	mod.mType = ProbeTypeUprobe
-	Register(mod)
+	return mod
 }
