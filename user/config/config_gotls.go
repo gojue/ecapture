@@ -20,6 +20,7 @@ import (
 	"debug/elf"
 	"debug/gosym"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -361,4 +362,12 @@ func (gc *GoTLSConfig) findPieSymbolAddr(lfunc string) (uint64, error) {
 		return 0, ErrorNoFuncFoundFromSymTabFun
 	}
 	return f.Value, nil
+}
+
+func (gc *GoTLSConfig) Bytes() []byte {
+	b, e := json.Marshal(gc)
+	if e != nil {
+		return []byte{}
+	}
+	return b
 }

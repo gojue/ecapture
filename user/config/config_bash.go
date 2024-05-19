@@ -16,6 +16,7 @@ package config
 
 import (
 	"debug/elf"
+	"encoding/json"
 	"errors"
 	"os"
 	"strings"
@@ -112,4 +113,12 @@ func (bc *BashConfig) checkElf() error {
 		return errors.New("cant found $SHELL path.")
 	}
 	return nil
+}
+
+func (bc *BashConfig) Bytes() []byte {
+	b, e := json.Marshal(bc)
+	if e != nil {
+		return []byte{}
+	}
+	return b
 }

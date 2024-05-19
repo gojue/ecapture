@@ -35,10 +35,9 @@ type HttpServer struct {
 }
 
 func NewHttpServer(addr string, confChan chan config.IConfig, zerologger zerolog.Logger) *HttpServer {
-	//gin.SetMode(gin.ReleaseMode)
+	gin.SetMode(gin.ReleaseMode)
 	var errLogger = &ErrLogger{zerologger: zerologger}
 	var infoLogger = &InfoLogger{zerologger: zerologger}
-	// set request logging
 	gin.DefaultWriter = infoLogger
 	gin.DefaultErrorWriter = errLogger
 	r := gin.Default()

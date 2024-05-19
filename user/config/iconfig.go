@@ -133,7 +133,6 @@ func (c *BaseConfig) SetPerCpuMapSize(size int) {
 func (c *BaseConfig) EnableGlobalVar() bool {
 	kv, err := kernel.HostVersion()
 	if err != nil {
-		//log.Fatal(err)
 		return true
 	}
 	if kv < kernel.VersionCode(5, 2, 0) {
