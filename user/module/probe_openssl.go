@@ -388,7 +388,7 @@ func (m *MOpenSSLProbe) saveMasterSecret(secretEvent *event.MasterSecretEvent) {
 	}
 
 	// save to file
-	var b *bytes.Buffer
+	var b = bytes.NewBuffer(nil)
 	switch secretEvent.Version {
 	case event.Tls12Version:
 		length := event.MasterSecretMaxLen
@@ -636,7 +636,6 @@ func (m *MOpenSSLProbe) Dispatcher(eventStruct event.IEventStruct) {
 	case *event.SSLDataEvent:
 		m.dumpSslData(eventStruct.(*event.SSLDataEvent))
 	}
-	m.logger.Debug().Msg("Dispatcher eventStruct")
 }
 
 func (m *MOpenSSLProbe) dumpSslData(eventStruct *event.SSLDataEvent) {
