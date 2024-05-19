@@ -18,6 +18,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gojue/ecapture/user/config"
 	"github.com/gojue/ecapture/user/module"
+	"github.com/rs/zerolog"
 	"net/http"
 )
 
@@ -30,16 +31,23 @@ type HttpServer struct {
 	confChan   chan config.IConfig
 	ge         *gin.Engine
 	addr       string
+	logger     zerolog.Logger
 }
 
-func NewHttpServer(addr string, confChan chan config.IConfig) *HttpServer {
-	gin.SetMode(gin.ReleaseMode)
+func NewHttpServer(addr string, confChan chan config.IConfig, zerologger zerolog.Logger) *HttpServer {
+	//gin.SetMode(gin.ReleaseMode)
+	var errLogger = &ErrLogger{zerologger: zerologger}
+	var infoLogger = &InfoLogger{zerologger: zerologger}
+	// set request logging
+	gin.DefaultWriter = infoLogger
+	gin.DefaultErrorWriter = errLogger
 	r := gin.Default()
 	r.Use(gin.Recovery())
 	hs := &HttpServer{
 		confChan: confChan,
 		ge:       r,
 		addr:     addr,
+		logger:   zerologger,
 	}
 	hs.attach()
 	return hs
@@ -51,8 +59,11 @@ func (hs *HttpServer) attach() {
 	hs.ge.POST("/gotls", hs.Gotls)
 	hs.ge.POST("/mysqld", hs.Mysqld)
 	hs.ge.POST("/nss", hs.Nss)
+	hs.ge.POST("/nspr", hs.Nss)
 	hs.ge.POST("/postgress", hs.Postgress)
 	hs.ge.POST("/tls", hs.Tls)
+	hs.ge.POST("/openssl", hs.Tls)
+	hs.ge.POST("/boringssl", hs.Tls)
 }
 
 func (hs HttpServer) Run() error {
@@ -133,5 +144,6 @@ func (hs *HttpServer) decodeConf(ic config.IConfig, c *gin.Context, modName stri
 			Data:       nil,
 		})
 	}
+	hs.logger.Info().RawJSON("config", ic.Bytes()).Msg("config send to channel.")
 	return
 }

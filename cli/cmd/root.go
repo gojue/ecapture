@@ -121,6 +121,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&globalConf.Listen, "listen", eCaptureListenAddr, "listen on this address for http server, default: 127.0.0.1:28256")
 }
 
+// setModConfig set module config
 func setModConfig(globalConf config.BaseConfig, modConf config.IConfig) error {
 	modConf.SetPid(globalConf.Pid)
 	modConf.SetUid(globalConf.Uid)
@@ -132,37 +133,43 @@ func setModConfig(globalConf config.BaseConfig, modConf config.IConfig) error {
 	return nil
 }
 
-func runModule(modName string, modConfig config.IConfig) {
+// initLogger init logger
+func initLogger(addr string, modConfig config.IConfig) zerolog.Logger {
 	var logger zerolog.Logger
 	var err error
 	consoleWriter := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}
 	logger = zerolog.New(consoleWriter).With().Timestamp().Logger()
-	if globalConf.LoggerAddr != "" {
+	if addr != "" {
 		var writer io.Writer
 		var address string
-		if strings.Contains(globalConf.LoggerAddr, "tcp://") {
-			address = strings.Replace(globalConf.LoggerAddr, "tcp://", "", 1)
+		if strings.Contains(addr, "tcp://") {
+			address = strings.Replace(addr, "tcp://", "", 1)
 			var conn net.Conn
 			conn, err = net.Dial("tcp", address)
 			modConfig.SetAddrType(loggerTypeTcp)
-			modConfig.SetAddress(address)
+			modConfig.SetLoggerTCPAddr(address)
 			writer = conn
 		} else {
-			address = globalConf.LoggerAddr
 			var f *os.File
 			f, err = os.Create(address)
 			modConfig.SetAddrType(loggerTypeFile)
-			modConfig.SetAddress(address)
+			modConfig.SetLoggerTCPAddr("")
 			writer = f
 		}
 		if err == nil && writer != nil {
 			multi := zerolog.MultiLevelWriter(consoleWriter, writer)
 			logger = zerolog.New(multi).With().Timestamp().Logger()
 		} else {
-			logger.Warn().Err(err).Msg("failed to create logger")
+			logger.Warn().Err(err).Msg("failed to create multiLogger")
 		}
 	}
+	return logger
+}
 
+// runModule run module
+func runModule(modName string, modConfig config.IConfig) {
+	var err error
+	var logger = initLogger(globalConf.LoggerAddr, modConfig)
 	// init eCapture
 	logger.Info().Str("AppName", fmt.Sprintf("%s(%s)", CliName, CliNameZh)).Send()
 	logger.Info().Str("HomePage", CliHomepage).Send()
@@ -170,17 +177,18 @@ func runModule(modName string, modConfig config.IConfig) {
 	logger.Info().Str("Author", CliAuthor).Send()
 	logger.Info().Str("Description", CliDescription).Send()
 	logger.Info().Str("Version", GitVersion).Send()
-	if modConfig.GetAddress() != "" {
-		logger.Info().Str("logAddr", modConfig.GetAddress()).Send()
+	if modConfig.GetLoggerTCPAddr() != "" {
+		logger.Info().Str("LoggerTCPAddress", modConfig.GetLoggerTCPAddr()).Send()
 	}
 
 	var isReload bool
 	var reRloadConfig = make(chan config.IConfig, 10)
+
 	// listen http server
 	go func() {
 		logger.Info().Str("listen", globalConf.Listen).Send()
 		logger.Info().Msg("https server starting...You can update the configuration file via the HTTP interface.")
-		var ec = http.NewHttpServer(globalConf.Listen, reRloadConfig)
+		var ec = http.NewHttpServer(globalConf.Listen, reRloadConfig, logger)
 		err = ec.Run()
 		if err != nil {
 			logger.Fatal().Err(err).Msg("http server start failed")
@@ -188,6 +196,7 @@ func runModule(modName string, modConfig config.IConfig) {
 		}
 	}()
 
+	// run module
 	{
 		// config check
 		err = setModConfig(globalConf, modConfig)
@@ -205,6 +214,7 @@ func runModule(modName string, modConfig config.IConfig) {
 
 	reload:
 		// 初始化
+		logger.Warn().Msg("========== module starting. ==========")
 		mod := modFunc()
 		ctx, cancelFun := context.WithCancel(context.TODO())
 		err = mod.Init(ctx, &logger, modConfig)
@@ -236,6 +246,7 @@ func runModule(modName string, modConfig config.IConfig) {
 				isReload = false
 				break
 			}
+			logger.Warn().Msg("========== Signal received; the module will initiate a restart. ==========")
 			isReload = true
 			modConfig = rc
 		}
