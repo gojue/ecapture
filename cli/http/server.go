@@ -52,30 +52,12 @@ func NewHttpServer(addr string, confChan chan config.IConfig, zerologger zerolog
 	return hs
 }
 
-func (hs *HttpServer) attach() {
-	hs.ge.POST("/bash", hs.Bash)
-	hs.ge.POST("/gnutls", hs.Gnutls)
-	hs.ge.POST("/gotls", hs.Gotls)
-	hs.ge.POST("/mysqld", hs.Mysqld)
-	hs.ge.POST("/nss", hs.Nss)
-	hs.ge.POST("/nspr", hs.Nss)
-	hs.ge.POST("/postgress", hs.Postgress)
-	hs.ge.POST("/tls", hs.Tls)
-	hs.ge.POST("/openssl", hs.Tls)
-	hs.ge.POST("/boringssl", hs.Tls)
-}
-
 func (hs HttpServer) Run() error {
 	return hs.ge.Run(hs.addr)
 }
 
 func (hs *HttpServer) Tls(c *gin.Context) {
 	hs.decodeConf(new(config.OpensslConfig), c, module.ModuleNameOpenssl)
-	return
-}
-
-func (hs *HttpServer) Bash(c *gin.Context) {
-	hs.decodeConf(new(config.BashConfig), c, module.ModuleNameBash)
 	return
 }
 
@@ -89,18 +71,8 @@ func (hs *HttpServer) Gotls(c *gin.Context) {
 	return
 }
 
-func (hs *HttpServer) Mysqld(c *gin.Context) {
-	hs.decodeConf(new(config.MysqldConfig), c, module.ModuleNameMysqld)
-	return
-}
-
 func (hs *HttpServer) Nss(c *gin.Context) {
 	hs.decodeConf(new(config.NsprConfig), c, module.ModuleNameNspr)
-	return
-}
-
-func (hs *HttpServer) Postgress(c *gin.Context) {
-	hs.decodeConf(new(config.PostgresConfig), c, module.ModuleNamePostgres)
 	return
 }
 
