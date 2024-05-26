@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
+PROJECT_ROOT_DIR=$(pwd)
 # for non android boringssl , git repo : https://github.com/google/boringssl
 BORINGSSL_REPO=https://github.com/google/boringssl.git
 BORINGSSL_DIR="${PROJECT_ROOT_DIR}/deps/boringssl_non_android"
@@ -23,15 +24,14 @@ function run() {
   git fetch --tags
   cp -f ${PROJECT_ROOT_DIR}/utils/boringssl-offset.c ${BORINGSSL_DIR}/offset.c
   declare -A sslVerMap=()
-  sslVerMap["0"]="12" # android12-release
-  sslVerMap["1"]="13" # android13-release
-  sslVerMap["2"]="14" # android14-release
+  sslVerMap["0"]="master" # master
+#  sslVerMap["1"]="fips-20220613" # fips-20220613
+#  sslVerMap["2"]="fips-20210429" # android14-release
 
   # shellcheck disable=SC2068
   # shellcheck disable=SC2034
   for ver in ${!sslVerMap[@]}; do
-    tag="android${ver}-release"
-    val=${sslVerMap[$ver]}
+    tag=${sslVerMap[$ver]}
 
     header_file="${OUTPUT_DIR}/boringssl_na_kern.c"
     header_define="BORINGSSL_NA_KERN_H"

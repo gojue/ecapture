@@ -63,10 +63,16 @@ func (m *MOpenSSLProbe) initOpensslOffset() {
 		Linuxdefaulefilename320: "openssl_3_2_0_kern.o",
 
 		// boringssl
+		// git repo: https://android.googlesource.com/platform/external/boringssl/+/refs/heads/android12-release
 		"boringssl 1.1.1":      "boringssl_a_13_kern.o",
 		"boringssl_a_13":       "boringssl_a_13_kern.o",
 		"boringssl_a_14":       "boringssl_a_14_kern.o",
 		AndroidDefauleFilename: "boringssl_a_13_kern.o",
+
+		// non-Android boringssl
+		// "boringssl na" is a special version for non-android
+		// git repo: https://github.com/google/boringssl
+		"boringssl na": "boringssl_na_kern.o",
 	}
 
 	// in openssl source files, there are 4 offset groups for all 1.1.1* version.
