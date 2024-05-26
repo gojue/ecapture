@@ -80,6 +80,10 @@ HomePage: https://ecapture.cc
 Usage:
   ecapture tls -h
   ecapture bash -h
+
+Docker usage:
+docker pull gojue/ecapture:latest
+docker run --rm --privileged=true --net=host -v ${HOST_PATH}:${CONTAINER_PATH} gojue/ecapture -h
 `,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
