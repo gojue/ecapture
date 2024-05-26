@@ -27,8 +27,8 @@ var oc = config.NewOpensslConfig()
 var opensslCmd = &cobra.Command{
 	Use:     "tls",
 	Aliases: []string{"openssl"},
-	Short:   "use to capture tls/ssl text content without CA cert. (Support openssl 1.0.x/1.1.x/3.0.x or newer).",
-	Long: `use eBPF uprobe/TC to capture process event data and network data.also support pcap-NG format.
+	Short:   "Used to capture TLS/SSL text content without the need for a CA certificate. (Supports OpenSSL 1.0.x/1.1.x/3.x or newer).",
+	Long: `Uses eBPF uprobe/TC to capture process event data and network data. Also supports the pcap-NG format.
 
 ecapture tls -m [text|keylog|pcap] [flags] [pcap filter expression (for pcap mode)]
 ecapture tls -m pcap -i wlan0 -w save.pcapng host 192.168.1.1 and tcp port 443
@@ -36,6 +36,10 @@ ecapture tls -l save.log --pid=3423
 ecapture tls --libssl=/lib/x86_64-linux-gnu/libssl.so.1.1
 ecapture tls -m keylog --pcapfile save_3_0_5.pcapng --ssl_version="openssl 3.0.5" --libssl=/lib/x86_64-linux-gnu/libssl.so.3
 ecapture tls -m pcap --pcapfile save_android.pcapng -i wlan0 --libssl=/apex/com.android.conscrypt/lib64/libssl.so --ssl_version="boringssl 1.1.1" tcp port 443
+
+Docker usage:
+docker pull gojue/ecapture
+docker run --rm --privileged=true --net=host -v /etc:/etc -v /usr:/usr -v ${PWD}:/output gojue/ecapture tls -m pcap -i wlp3s0 --pcapfile=/output/ecapture.pcapng tcp port 443
 `,
 	Example: "ecapture tls -m pcap -i wlan0 -w save.pcapng host 192.168.1.1 and tcp port 443",
 	Run:     openSSLCommandFunc,
