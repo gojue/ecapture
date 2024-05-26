@@ -589,6 +589,11 @@ func (m *MOpenSSLProbe) mk13NullSecrets(hashLen int,
 ) bool {
 	isNUllCount := 5
 
+	// The mandatory setting is 64 bytes, and the length of the XXXX secret is not allowed to be more than 64 bytes.
+	if hashLen > 64 {
+		hashLen = 64
+	}
+
 	var chsChecked, ctsChecked, shsChecked, stsChecked, esChecked bool
 	for i := 0; i < hashLen; i++ {
 		if !chsChecked && ClientHandshakeSecret[i] != 0 {

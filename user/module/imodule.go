@@ -142,7 +142,7 @@ func (m *Module) autoDetectBTF() {
 			m.isCoreUsed = true
 		}
 	} else {
-		m.logger.Warn().Err(err).Msg("Failed to detect container environment, error:%v,This may cause eCapture not to work.\n" + BtfNotSupport)
+		m.logger.Warn().Err(err).Msg("Failed to detect container environment,This may cause eCapture not to work.\n" + BtfNotSupport)
 	}
 }
 func (m *Module) geteBPFName(filename string) string {
