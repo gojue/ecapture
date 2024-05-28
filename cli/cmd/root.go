@@ -115,7 +115,7 @@ func init() {
 	cobra.EnablePrefixMatching = true
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
-	rootCmd.PersistentFlags().BoolVarP(&globalConf.Debug, "debug", "d", false, "enable debug logging.(coming soon)")
+	rootCmd.PersistentFlags().BoolVarP(&globalConf.Debug, "debug", "d", false, "enable debug logging")
 	rootCmd.PersistentFlags().Uint8VarP(&globalConf.BtfMode, "btf", "b", 0, "enable BTF mode.(0:auto; 1:core; 2:non-core)")
 	rootCmd.PersistentFlags().BoolVar(&globalConf.IsHex, "hex", false, "print byte strings as hex encoded strings")
 	rootCmd.PersistentFlags().IntVar(&globalConf.PerCpuMapSize, "mapsize", 1024, "eBPF map size per CPU,for events buffer. default:1024 * PAGESIZE. (KB)")
@@ -126,7 +126,7 @@ func init() {
 }
 
 // setModConfig set module config
-func setModConfig(globalConf config.BaseConfig, modConf config.IConfig) error {
+func setModConfig(globalConf config.BaseConfig, modConf config.IConfig) {
 	modConf.SetPid(globalConf.Pid)
 	modConf.SetUid(globalConf.Uid)
 	modConf.SetDebug(globalConf.Debug)
@@ -134,7 +134,6 @@ func setModConfig(globalConf config.BaseConfig, modConf config.IConfig) error {
 	modConf.SetBTF(globalConf.BtfMode)
 	modConf.SetPerCpuMapSize(globalConf.PerCpuMapSize)
 	modConf.SetAddrType(loggerTypeStdout)
-	return nil
 }
 
 // initLogger init logger
@@ -143,6 +142,10 @@ func initLogger(addr string, modConfig config.IConfig) zerolog.Logger {
 	var err error
 	consoleWriter := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}
 	logger = zerolog.New(consoleWriter).With().Timestamp().Logger()
+	zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	if modConfig.GetDebug() {
+		zerolog.SetGlobalLevel(zerolog.DebugLevel)
+	}
 	if addr != "" {
 		var writer io.Writer
 		var address string
@@ -173,6 +176,7 @@ func initLogger(addr string, modConfig config.IConfig) zerolog.Logger {
 // runModule run module
 func runModule(modName string, modConfig config.IConfig) {
 	var err error
+	setModConfig(globalConf, modConfig)
 	var logger = initLogger(globalConf.LoggerAddr, modConfig)
 	// init eCapture
 	logger.Info().Str("AppName", fmt.Sprintf("%s(%s)", CliName, CliNameZh)).Send()
@@ -203,10 +207,6 @@ func runModule(modName string, modConfig config.IConfig) {
 	// run module
 	{
 		// config check
-		err = setModConfig(globalConf, modConfig)
-		if err != nil {
-			logger.Fatal().Err(err).Send()
-		}
 		err = modConfig.Check()
 		if err != nil {
 			logger.Fatal().Err(err).Msg("config check failed")

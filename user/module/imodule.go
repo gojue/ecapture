@@ -68,11 +68,20 @@ const (
 	BtfModeSwitch      = "If eCapture fails to run, try specifying the BTF mode. use `-b 2` to specify non-CORE mode."
 )
 
+// eventProcesser Logger
+type epLogger struct {
+	logger *zerolog.Logger
+}
+
+func (e epLogger) Write(p []byte) (n int, err error) {
+	e.logger.Info().Msg(string(p))
+	return len(p), nil
+}
+
 type Module struct {
 	opts   *ebpf.CollectionOptions
 	reader []IClose
 	ctx    context.Context
-	//logger *zerolog.Logger
 	logger *zerolog.Logger
 	child  IModule
 	// probe的名字
@@ -95,8 +104,8 @@ func (m *Module) Init(ctx context.Context, logger *zerolog.Logger, conf config.I
 	m.logger = logger
 	m.errChan = make(chan error)
 	m.isKernelLess5_2 = false //set false default
-
-	m.processor = event_processor.NewEventProcessor(logger, conf.GetHex())
+	var epl = epLogger{logger: logger}
+	m.processor = event_processor.NewEventProcessor(epl, conf.GetHex())
 	kv, err := kernel.HostVersion()
 	if err != nil {
 		m.logger.Warn().Err(err).Msg("Unable to detect kernel version due to an error:%v.used non-Less5_2 bytecode.")
@@ -379,7 +388,7 @@ func (m *Module) Dispatcher(e event.IEventStruct) {
 		if s == "" {
 			return
 		}
-		m.logger.Println(s)
+		m.logger.Info().Msg(s)
 	case event.EventTypeEventProcessor:
 		m.processor.Write(e)
 	case event.EventTypeModuleData:
