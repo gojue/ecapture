@@ -242,28 +242,30 @@ func (g *GoTLSProbe) saveMasterSecret(secretEvent *event.MasterSecretGotlsEvent)
 		return
 	}
 
-	// TODO 保存多个lable 整组里？？？
+	// 保存到多个lable 整组里
 	// save to file
-	var b string
+	var b, cr string
 	var e error
-	b = fmt.Sprintf("%s %02x %02x\n", label, clientRandom, secret)
+	cr = fmt.Sprintf("%02x", clientRandom)
+	b = fmt.Sprintf("%s %s %02x\n", label, cr, secret)
+
 	switch g.eBPFProgramType {
 	case TlsCaptureModelTypeKeylog:
 		var l int
 		l, e = g.keylogger.WriteString(b)
 		if e != nil {
-			g.logger.Warn().Err(e).Str("clientRandom", clientRandom).Msg("save masterSecrets to keylog error")
+			g.logger.Warn().Err(e).Str("clientRandom", cr).Msg("save masterSecrets to keylog error")
 			return
 		}
-		g.logger.Info().Str("clientRandom", clientRandom).Str("label", label).Int("bytes", l).Msg("save CLIENT_RANDOM success")
+		g.logger.Info().Str("clientRandom", cr).Str("label", label).Int("bytes", l).Msg("save CLIENT_RANDOM success")
 	case TlsCaptureModelTypePcap:
 		e = g.savePcapngSslKeyLog([]byte(b))
 		if e != nil {
-			g.logger.Warn().Err(e).Str("clientRandom", clientRandom).Msg("save masterSecrets to pcapNG error")
+			g.logger.Warn().Err(e).Str("clientRandom", cr).Msg("save masterSecrets to pcapNG error")
 			return
 		}
 	default:
-		g.logger.Warn().Str("clientRandom", clientRandom).Uint8("eBPFProgramType", uint8(g.eBPFProgramType)).Msg("unhandled default case with eBPF Program type")
+		g.logger.Warn().Str("clientRandom", cr).Uint8("eBPFProgramType", uint8(g.eBPFProgramType)).Msg("unhandled default case with eBPF Program type")
 	}
 }
 
