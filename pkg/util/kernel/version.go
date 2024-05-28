@@ -34,7 +34,10 @@ func HostVersion() (Version, error) {
 // ParseVersion parses a string in the format of x.x.x to a Version
 func ParseVersion(s string) Version {
 	var a, b, c byte
-	fmt.Sscanf(s, "%d.%d.%d", &a, &b, &c)
+	_, err := fmt.Sscanf(s, "%d.%d.%d", &a, &b, &c)
+	if err != nil {
+		return Version(0)
+	}
 	return VersionCode(a, b, c)
 }
 

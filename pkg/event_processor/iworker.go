@@ -116,8 +116,8 @@ func (ew *eventWorker) Display() error {
 		b = []byte(hex.Dump(b))
 	}
 
-	// TODO 应该外部传入一个chan，iWorker只负责写入，不应该打印。
-	e := ew.writeToChan(fmt.Sprintf("UUID:%s, Name:%s, Type:%d, Length:%d\n:%s\n", ew.UUID, ew.parser.Name(), ew.parser.ParserType(), len(b), b))
+	//iWorker只负责写入，不应该打印。
+	e := ew.writeToChan(fmt.Sprintf("UUID:%s, Name:%s, Type:%d, Length:%d\n%s\n", ew.UUID, ew.parser.Name(), ew.parser.ParserType(), len(b), b))
 	//ew.parser.Reset()
 	// 设定状态、重置包类型
 	ew.status = ProcessStateInit
