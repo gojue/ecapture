@@ -40,7 +40,6 @@ type OpensslConfig struct {
 	BaseConfig
 	// Curlpath   string `json:"curlPath"` //curl的文件路径
 	Openssl    string `json:"openssl"`
-	Pthread    string `json:"pthread"`    // /lib/x86_64-linux-gnu/libpthread.so.0
 	Model      string `json:"model"`      // eCapture Openssl capture model. text:pcap:keylog
 	PcapFile   string `json:"pcapfile"`   // pcapFile  the  raw  packets  to file rather than parsing and printing them out.
 	KeylogFile string `json:"keylog"`     // Keylog  The file stores SSL/TLS keys, and eCapture captures these keys during encrypted traffic communication and saves them to the file.

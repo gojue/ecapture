@@ -391,9 +391,9 @@ int probe_ret_SSL_read(struct pt_regs* ctx) {
     return 0;
 }
 
-// https://github.com/lattera/glibc/blob/895ef79e04a953cac1493863bcae29ad85657ee1/socket/connect.c
-// int __connect (int fd, __CONST_SOCKADDR_ARG addr, socklen_t len)
-SEC("uprobe/connect")
+// libc : int __connect (int fd, __CONST_SOCKADDR_ARG addr, socklen_t len)
+// kernel : int __sys_connect(int fd, struct sockaddr __user *uservaddr, int addrlen)
+SEC("kprobe/sys_connect")
 int probe_connect(struct pt_regs* ctx) {
     u64 current_pid_tgid = bpf_get_current_pid_tgid();
     u32 pid = current_pid_tgid >> 32;
