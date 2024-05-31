@@ -46,15 +46,6 @@ func (oc *OpensslConfig) Check() error {
 		oc.Openssl = DefaultOpensslPath
 	}
 
-	if oc.Pthread != "" || len(strings.TrimSpace(oc.Pthread)) > 0 {
-		_, e := os.Stat(oc.Pthread)
-		if e != nil {
-			return e
-		}
-	} else {
-		oc.Pthread = DefaultLibcPath
-	}
-
 	if oc.Ifname == "" || len(strings.TrimSpace(oc.Ifname)) == 0 {
 		oc.Ifname = DefaultIfname
 	}

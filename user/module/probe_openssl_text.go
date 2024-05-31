@@ -14,7 +14,7 @@ import (
 )
 
 func (m *MOpenSSLProbe) setupManagersText() error {
-	var libPthread, binaryPath, sslVersion string
+	var binaryPath, sslVersion string
 	sslVersion = m.conf.(*config.OpensslConfig).SslVersion
 	sslVersion = strings.ToLower(sslVersion)
 	switch m.conf.(*config.OpensslConfig).ElfType {
@@ -33,12 +33,6 @@ func (m *MOpenSSLProbe) setupManagersText() error {
 		if err != nil {
 			return err
 		}
-	}
-
-	libPthread = m.conf.(*config.OpensslConfig).Pthread
-	if libPthread == "" {
-		//libPthread = "/lib/x86_64-linux-gnu/libpthread.so.0"
-		m.logger.Warn().Msg("libPthread path not found, IP info lost.")
 	}
 
 	_, err := os.Stat(binaryPath)
@@ -76,12 +70,18 @@ func (m *MOpenSSLProbe) setupManagersText() error {
 			},
 
 			// --------------------------------------------------
-			//{
-			//	Section:          "uprobe/connect",
-			//	EbpfFuncName:     "probe_connect",
-			//	AttachToFuncName: "connect",
-			//	BinaryPath:       libPthread,
-			//},
+			{
+				Section:          "kprobe/sys_connect",
+				EbpfFuncName:     "probe_connect",
+				AttachToFuncName: "__sys_connect",
+				UID:              "kprobe_sys_connect",
+			},
+			{
+				Section:          "kprobe/sys_connect",
+				EbpfFuncName:     "probe_connect",
+				AttachToFuncName: "__sys_accept4",
+				UID:              "kprobe_sys_accept4",
+			},
 
 			// --------------------------------------------------
 
@@ -129,21 +129,6 @@ func (m *MOpenSSLProbe) setupManagersText() error {
 			//	Name: "mastersecret_events",
 			//},
 		},
-	}
-
-	if libPthread != "" {
-		// detect libpthread.so path
-		_, err = os.Stat(libPthread)
-		if err == nil {
-			m.logger.Info().Str("libPthread", libPthread).Msg("libPthread path found")
-			m.bpfManager.Probes = append(m.bpfManager.Probes, &manager.Probe{
-				Section:          "uprobe/connect",
-				EbpfFuncName:     "probe_connect",
-				AttachToFuncName: "connect",
-				BinaryPath:       libPthread,
-				UID:              "uprobe_connect",
-			})
-		}
 	}
 
 	m.bpfManagerOptions = manager.Options{

@@ -18,9 +18,7 @@
 package config
 
 import (
-	"debug/elf"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -34,11 +32,6 @@ var (
 	libsslSharedObjects = []string{
 		"libssl.so.3",   // ubuntu server 22.04
 		"libssl.so.1.1", // ubuntu server 21.04
-	}
-	connectSharedObjects = []string{
-		"libpthread.so.0", // ubuntu 21.04 server
-		"libc.so.6",       // ubuntu 21.10 server
-		"libc.so",         // Android
 	}
 )
 
@@ -73,73 +66,9 @@ func (oc *OpensslConfig) checkOpenssl() error {
 	return nil
 }
 
-func (oc *OpensslConfig) checkConnect() error {
-
-	var funcName = ""
-	var found bool
-	var e error
-	for _, so := range connectSharedObjects {
-		var prefix string
-		var soLoadPaths = GetDynLibDirs()
-		for _, soPath := range soLoadPaths {
-
-			_, e = os.Stat(soPath)
-			if e != nil {
-				continue
-			}
-			prefix = soPath
-			break
-		}
-		if prefix == "" {
-			continue
-		}
-		oc.Pthread = filepath.Join(prefix, so)
-		_, e = os.Stat(oc.Pthread)
-		if e != nil {
-			// search all of connectSharedObjects
-			//return e
-			continue
-		}
-
-		_elf, e := elf.Open(oc.Pthread)
-		if e != nil {
-			//return e
-			continue
-		}
-
-		dynamicSymbols, err := _elf.DynamicSymbols()
-		if err != nil {
-			//return err
-			continue
-		}
-
-		//
-		for _, sym := range dynamicSymbols {
-			if sym.Name != "connect" {
-				continue
-			}
-			funcName = sym.Name
-			found = true
-			break
-		}
-
-		// if found
-		if found && funcName != "" {
-			break
-		}
-	}
-
-	//如果没找到，则报错。
-	if !found || funcName == "" {
-		oc.Pthread = ""
-		return errors.New(fmt.Sprintf("cant found 'connect' function to hook in files::%v", connectSharedObjects))
-	}
-	return nil
-}
-
 func (oc *OpensslConfig) Check() error {
 	oc.IsAndroid = false
-	var checkedOpenssl, checkedConnect bool
+	var checkedOpenssl bool
 	// 如果readline 配置，且存在，则直接返回。
 	if oc.Openssl != "" || len(strings.TrimSpace(oc.Openssl)) > 0 {
 		_, e := os.Stat(oc.Openssl)
@@ -154,21 +83,15 @@ func (oc *OpensslConfig) Check() error {
 		oc.Ifname = DefaultIfname
 	}
 
-	if checkedConnect && checkedOpenssl {
+	if checkedOpenssl {
 		return nil
 	}
 
-	if !checkedOpenssl {
-		e := oc.checkOpenssl()
-		if e != nil {
-			return e
-		}
+	e := oc.checkOpenssl()
+	if e != nil {
+		return e
 	}
 
-	if !checkedConnect {
-		// Optional check
-		_ = oc.checkConnect()
-	}
 	s, e := checkCgroupPath(oc.CGroupPath)
 	if e != nil {
 		return e
