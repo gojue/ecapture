@@ -120,7 +120,7 @@ func (se *SSLDataEvent) Decode(payload []byte) (err error) {
 }
 
 func (se *SSLDataEvent) GetUUID() string {
-	return fmt.Sprintf("%d_%d_%s_%d_%d", se.Pid, se.Tid, CToGoString(se.Comm[:]), se.Fd, se.DataType)
+	return fmt.Sprintf("%d_%d_%s_%d_%d_%s", se.Pid, se.Tid, CToGoString(se.Comm[:]), se.Fd, se.DataType, se.Addr)
 }
 
 func (se *SSLDataEvent) Payload() []byte {
@@ -178,7 +178,7 @@ func (se *SSLDataEvent) String() string {
 
 func (se *SSLDataEvent) Clone() IEventStruct {
 	event := new(SSLDataEvent)
-	event.eventType = EventTypeEventProcessor
+	event.eventType = EventTypeModuleData //EventTypeEventProcessor
 	return event
 }
 
