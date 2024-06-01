@@ -281,10 +281,7 @@ int tcp_sendmsg(struct pt_regs *ctx){
     struct net_ctx_t net_ctx;
     net_ctx.pid = pid;
     bpf_get_current_comm(&net_ctx.comm, sizeof(net_ctx.comm));
-    //
-//    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
-//    get_proc_cmdline(task, net_ctx.cmdline, sizeof(net_ctx.cmdline));
-//
+
     debug_bpf_printk("tcp_sendmsg pid : %d, comm :%s\n", net_ctx.pid, net_ctx.comm);
     bpf_map_update_elem(&network_map, &conn_id, &net_ctx, BPF_ANY);
     return 0;

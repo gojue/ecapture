@@ -656,11 +656,12 @@ func (m *MOpenSSLProbe) dumpSslData(eventStruct *event.SSLDataEvent) {
 		eventStruct.Addr = addr
 	}
 	// m.processor.PcapFile(eventStruct)
-	if m.conf.GetHex() {
-		m.logger.Println(eventStruct.StringHex())
-	} else {
-		m.logger.Println(eventStruct.String())
-	}
+	//if m.conf.GetHex() {
+	//	m.logger.Println(eventStruct.StringHex())
+	//} else {
+	//	m.logger.Println(eventStruct.String())
+	//}
+	m.processor.Write(eventStruct)
 }
 
 func init() {
