@@ -1,3 +1,9 @@
+# v0.8.3 (2024-06-01)
+## What's Changed
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v0.8.2...v0.8.3
+<hr>
+
 # v0.8.2 (2024-05-19)
 ## What's Changed
 * android version compilation has failed. by @cfc4n in https://github.com/gojue/ecapture/pull/548
