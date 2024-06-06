@@ -38,6 +38,7 @@ var (
 		"/proc/config.gz",
 		"/boot/config",
 		"/boot/config-%s",
+		"/lib/modules/%s/build/.config",
 	}
 )
 
