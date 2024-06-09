@@ -158,7 +158,7 @@ func initLogger(addr string, modConfig config.IConfig) zerolog.Logger {
 			writer = conn
 		} else {
 			var f *os.File
-			f, err = os.Create(address)
+			f, err = os.Create(addr)
 			modConfig.SetAddrType(loggerTypeFile)
 			modConfig.SetLoggerTCPAddr("")
 			writer = f
