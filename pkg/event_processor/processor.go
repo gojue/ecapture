@@ -29,6 +29,7 @@ const (
 
 type EventProcessor struct {
 	sync.Mutex
+	isClosed bool // 是否已关闭
 	// 收包，来自调用者发来的新事件
 	incoming chan event.IEventStruct
 	// send to output
@@ -128,6 +129,9 @@ func (ep *EventProcessor) delWorkerByUUID(worker IWorker) {
 // Write event
 // 外部调用者调用该方法
 func (ep *EventProcessor) Write(e event.IEventStruct) {
+	if ep.isClosed {
+		return
+	}
 	select {
 	case ep.incoming <- e:
 		return
@@ -137,6 +141,7 @@ func (ep *EventProcessor) Write(e event.IEventStruct) {
 func (ep *EventProcessor) Close() error {
 	ep.Lock()
 	defer ep.Unlock()
+	ep.isClosed = true
 	close(ep.closeChan)
 	close(ep.incoming)
 	if len(ep.workerQueue) > 0 {
@@ -150,6 +155,7 @@ func NewEventProcessor(logger io.Writer, isHex bool) *EventProcessor {
 	ep = &EventProcessor{}
 	ep.logger = logger
 	ep.isHex = isHex
+	ep.isClosed = false
 	ep.init()
 	return ep
 }

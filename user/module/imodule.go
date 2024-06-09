@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync/atomic"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/perf"
@@ -79,11 +80,12 @@ func (e epLogger) Write(p []byte) (n int, err error) {
 }
 
 type Module struct {
-	opts   *ebpf.CollectionOptions
-	reader []IClose
-	ctx    context.Context
-	logger *zerolog.Logger
-	child  IModule
+	isClosed atomic.Bool
+	opts     *ebpf.CollectionOptions
+	reader   []IClose
+	ctx      context.Context
+	logger   *zerolog.Logger
+	child    IModule
 	// probe的名字
 	name string
 
@@ -100,6 +102,7 @@ type Module struct {
 
 // Init 对象初始化
 func (m *Module) Init(ctx context.Context, logger *zerolog.Logger, conf config.IConfig) {
+	m.isClosed.Store(false)
 	m.ctx = ctx
 	m.logger = logger
 	m.errChan = make(chan error)
@@ -367,7 +370,11 @@ func (m *Module) Decode(em *ebpf.Map, b []byte) (event event.IEventStruct, err e
 
 // Dispatcher 写入数据，或者上传到远程数据库，写入到其他chan 等。
 func (m *Module) Dispatcher(e event.IEventStruct) {
-
+	// check is Module shutdown.
+	if m.isClosed.Load() {
+		m.logger.Error().Bool("isClosed", m.isClosed.Load()).Msg("eCapture iModule is closed, ignore event.")
+		return
+	}
 	// If Hex mode is enabled, data in hex format is directly printed for event processor and output events
 	if m.conf.GetHex() {
 		if e.EventType() == event.EventTypeEventProcessor || e.EventType() == event.EventTypeOutput {
@@ -375,7 +382,7 @@ func (m *Module) Dispatcher(e event.IEventStruct) {
 			if s == "" {
 				return
 			}
-			m.logger.Println(s)
+			m.logger.Info().Msg(s)
 			return
 		}
 	}
@@ -400,6 +407,7 @@ func (m *Module) Dispatcher(e event.IEventStruct) {
 }
 
 func (m *Module) Close() error {
+	m.isClosed.Store(true)
 	m.logger.Info().Msg("iModule module close")
 	for _, iClose := range m.reader {
 		if err := iClose.Close(); err != nil {
