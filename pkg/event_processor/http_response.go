@@ -153,6 +153,10 @@ func (hr *HTTPResponse) Display() []byte {
 		b, e = httputil.DumpResponse(hr.response, false)
 	} else {
 		b, e = httputil.DumpResponse(hr.response, true)
+		// Method is HEAD, no respones body will raise UnexpectedEOF
+		if e == io.ErrUnexpectedEOF {
+			b, e = httputil.DumpResponse(hr.response, false)
+		}
 	}
 	if e != nil {
 		log.Println("[http response] DumpResponse error:", e)
