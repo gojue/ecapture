@@ -17,6 +17,8 @@ package event_processor
 import (
 	"bufio"
 	"bytes"
+	"compress/gzip"
+	"io"
 	"log"
 	"net/http"
 	"net/http/httputil"
@@ -103,12 +105,54 @@ func (hr *HTTPRequest) Display() []byte {
 	if hr.request.Proto == "HTTP/2.0" {
 		return hr.reader.Bytes()
 	}
-	b, e := httputil.DumpRequest(hr.request, true)
-	if e != nil {
-		log.Println("DumpRequest error:", e)
+	rawData, err := io.ReadAll(hr.request.Body)
+	rawLength := int64(len(rawData))
+	switch err {
+	case nil:
+		// Passed
+	case io.ErrUnexpectedEOF:
+		if rawLength > 0 && hr.request.ContentLength > rawLength {
+			log.Println("[http request] Truncated request body")
+		}
+	default:
+		log.Println("[http request] Read request body error:", err)
 		return hr.reader.Bytes()
 	}
-	return b
+	var reader io.ReadCloser
+	switch hr.request.Header.Get("Content-Encoding") {
+	case "gzip":
+		if rawLength == 0 {
+			break
+		}
+		reader, err = gzip.NewReader(bytes.NewReader(rawData))
+		if err != nil {
+			log.Println("[http request] Create gzip reader error:", err)
+			break
+		}
+		rawData, err = io.ReadAll(reader)
+		if err != nil {
+			log.Println("[http request] Uncompress gzip data error:", err)
+			break
+		}
+		// gzip uncompressed success
+		// hr.request.Body = io.NopCloser(bytes.NewReader(gbuf))
+		// hr.request.ContentLength = int64(len(gbuf))
+		hr.packerType = PacketTypeGzip
+		defer reader.Close()
+	default:
+		hr.packerType = PacketTypeNull
+	}
+	b, err := httputil.DumpRequest(hr.request, false)
+	if err != nil {
+		log.Println("[http request] DumpRequest error:", err)
+		return hr.reader.Bytes()
+	}
+	var buff bytes.Buffer
+	buff.Write(b)
+	if rawLength > 0 {
+		buff.Write(rawData)
+	}
+	return buff.Bytes()
 }
 
 func init() {
