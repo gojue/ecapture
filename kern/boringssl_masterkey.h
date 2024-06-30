@@ -64,6 +64,27 @@ struct ssl3_state_st {
     unsigned char client_random[SSL3_RANDOM_SIZE];
 };
 
+/*
+ * 最好的办法是先判断当前SSL的模式，是server还是client。 目前ssl->server 字段是bool类型，offsetof方法不太好读取
+ * 暂时使用state的最小值代替， 下面 TLS 1.3的判断机制也是这样。
+ *
+ * The best way is to first determine the current SSL mode, whether it is server or client. Currently,
+ * the ssl->server field is of bool type, and using the offsetof method is not very readable.
+ * Therefore, the minimum value of the state is temporarily used instead.
+ * The judgment mechanism for TLS 1.3 follows the same approach.
+ */
+// constant of boringssl SSL state
+#define CLIENT_STATE13_READ_SERVER_FINISHED 8  // ssl/tls13_client.cc line 51: state_read_server_finished
+#define CLIENT_STATE13_DONE 14  // ssl/tls13_client.cc line 51: state_done
+#define SERVER_STATE13_READ_CLIENT_FINISHED 14 // ssl/internal.h line 1786: state13_read_client_finished
+#define SERVER_STATE13_SEND_NEW_SESSION_TICKET 15 // ssl/internal.h line 1786: state13_send_new_session_ticket
+#define SERVER_STATE13_DONE 16 // ssl/internal.h line 1786: state13_done
+
+#define CLIENT_STATE12_SEND_CLIENT_FINISHED 16  // ssl/handshake_client.cc line 201: state_send_client_finished
+#define CLIENT_STATE12_DONE 22  // ssl/handshake_client.cc line 201: state_done
+#define SERVER_STATE12_READ_CLIENT_FINISHED 18 // ssl/internal.h line 1766: state12_read_client_finished
+#define SERVER_STATE12_DONE 21 // ssl/internal.h line 1766: state12_done
+
 struct ssl3_handshake_st {
     // state is the internal state for the TLS 1.2 and below handshake. Its
     // values depend on |do_handshake| but the starting state is always zero.
@@ -294,9 +315,7 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
 
     ///////////////////////// get TLS 1.2 master secret ////////////////////
     if (mastersecret->version != TLS1_3_VERSION) {
-        // state12_finish_server_handshake
-        // state12_done
-        if (ssl3_hs_state.state < 20) {
+        if (ssl3_hs_state.state < CLIENT_STATE12_SEND_CLIENT_FINISHED) {
             // not finished yet.
             return 0;
         }
@@ -343,6 +362,12 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
 
         bpf_perf_event_output(ctx, &mastersecret_events, BPF_F_CURRENT_CPU,
                               mastersecret, sizeof(struct mastersecret_bssl_t));
+        return 0;
+    }
+
+    // ssl 1.3  server and client mode.
+    if (ssl3_hs_state.tls13_state < CLIENT_STATE13_READ_SERVER_FINISHED) {
+        // not finished yet.
         return 0;
     }
 
