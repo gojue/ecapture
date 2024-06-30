@@ -21,6 +21,7 @@
     X(ssl_st, s3)                        \
     X(ssl_st, rbio)                      \
     X(ssl_st, wbio)                      \
+    X(ssl_st, server)                    \
     X(ssl_session_st, master_key)        \
     X(ssl3_state_st, client_random)      \
     X(ssl_session_st, cipher)            \

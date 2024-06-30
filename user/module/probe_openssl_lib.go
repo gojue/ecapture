@@ -30,6 +30,7 @@ const (
 	Linuxdefaulefilename30  = "linux_default_3_0"
 	Linuxdefaulefilename31  = "linux_default_3_0"
 	Linuxdefaulefilename320 = "linux_default_3_2"
+	Linuxdefaulefilename330 = "linux_default_3_3"
 	AndroidDefauleFilename  = "android_default"
 
 	OpenSslVersionLen = 30 // openssl version string length
@@ -39,9 +40,10 @@ const (
 	MaxSupportedOpenSSL102Version = 'u'
 	MaxSupportedOpenSSL110Version = 'l'
 	MaxSupportedOpenSSL111Version = 'w'
-	MaxSupportedOpenSSL30Version  = 13
-	MaxSupportedOpenSSL31Version  = 5
-	MaxSupportedOpenSSL32Version  = 1
+	MaxSupportedOpenSSL30Version  = 14
+	MaxSupportedOpenSSL31Version  = 6
+	MaxSupportedOpenSSL32Version  = 2
+	MaxSupportedOpenSSL33Version  = 1
 )
 
 // initOpensslOffset initial BpfMap
@@ -107,6 +109,12 @@ func (m *MOpenSSLProbe) initOpensslOffset() {
 	// openssl 3.2.0
 	for ch := 0; ch <= MaxSupportedOpenSSL32Version; ch++ {
 		m.sslVersionBpfMap[fmt.Sprintf("openssl 3.2.%d", ch)] = "openssl_3_2_0_kern.o"
+	}
+
+	// openssl 3.3.0
+	for ch := 0; ch <= MaxSupportedOpenSSL33Version; ch++ {
+		// The OpenSSL 3.3.* series is the same as the 3.2.* series of offsets
+		m.sslVersionBpfMap[fmt.Sprintf("openssl 3.3.%d", ch)] = "openssl_3_2_0_kern.o"
 	}
 
 	// openssl 1.1.0a - 1.1.0l
