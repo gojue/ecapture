@@ -1,8 +1,8 @@
-#ifndef ECAPTURE_OPENSSL_3_2_0_KERN_H
-#define ECAPTURE_OPENSSL_3_2_0_KERN_H
+#ifndef ECAPTURE_OPENSSL_3_2_2_KERN_H
+#define ECAPTURE_OPENSSL_3_2_2_KERN_H
 
-/* OPENSSL_VERSION_TEXT: OpenSSL 3.2.0 23 Nov 2023 */
-/* OPENSSL_VERSION_NUMBER: 807403520 */
+/* OPENSSL_VERSION_TEXT: OpenSSL 3.2.2 4 Jun 2024 */
+/* OPENSSL_VERSION_NUMBER: 807403552 */
 
 // ssl_st->type
 #define SSL_ST_TYPE 0x0
@@ -21,6 +21,9 @@
 
 // ssl_connection_st->wbio
 #define SSL_CONNECTION_ST_WBIO 0x50
+
+// ssl_connection_st->server
+#define SSL_CONNECTION_ST_SERVER 0x70
 
 // ssl_session_st->master_key
 #define SSL_SESSION_ST_MASTER_KEY 0x50

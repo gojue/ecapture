@@ -21,32 +21,20 @@ if [[ ! -f "${OPENSSL_DIR}/.git" ]]; then
   fi
 fi
 
+# openssl 3.3.* 跟 3.2.* 的offset一致，故这里采用 3.2的文件名。
 function run() {
   git fetch --tags
-  cp -f ${PROJECT_ROOT_DIR}/utils/openssl_3_0_offset.c ${OPENSSL_DIR}/offset.c
+  cp -f ${PROJECT_ROOT_DIR}/utils/openssl_3_2_0_offset.c ${OPENSSL_DIR}/offset.c
   declare -A sslVerMap=()
   sslVerMap["0"]="0"
-  sslVerMap["1"]="0"
-  sslVerMap["2"]="0"
-  sslVerMap["3"]="0"
-  sslVerMap["4"]="0"
-  sslVerMap["5"]="0"
-  sslVerMap["6"]="0"
-  sslVerMap["7"]="0"
-  sslVerMap["8"]="0"
-  sslVerMap["9"]="0"
-  sslVerMap["10"]="0"
-  sslVerMap["11"]="0"
-  sslVerMap["12"]="0"
-  sslVerMap["13"]="0"
-  sslVerMap["14"]="0"
+  sslVerMap["1"]="1"
 
   # shellcheck disable=SC2068
   for ver in ${!sslVerMap[@]}; do
-    tag="openssl-3.0.${ver}"
+    tag="openssl-3.3.${ver}"
     val=${sslVerMap[$ver]}
-    header_file="${OUTPUT_DIR}/openssl_3_0_${val}_kern.c"
-    header_define="OPENSSL_3_0_$(echo ${val} | tr "[:lower:]" "[:upper:]")_KERN_H"
+    header_file="${OUTPUT_DIR}/openssl_3_2_${val}_kern.c"
+    header_define="OPENSSL_3_2_$(echo ${val} | tr "[:lower:]" "[:upper:]")_KERN_H"
 
     if [[ -f ${header_file} ]]; then
       echo "Skip ${header_file}"
@@ -57,13 +45,9 @@ function run() {
     echo "Generating ${header_file}"
 
 
-    # config and make openssl/opensslconf.h
-    ./config
-
-#    make reconfigure reconf
+    # ./Configure and make openssl/opensslconf.h
+    ./Configure
     make clean
-    make include/openssl/opensslconf.h
-    make include/openssl/configuration.h
     make build_generated
 
 
@@ -72,8 +56,11 @@ function run() {
     echo -e "#ifndef ECAPTURE_${header_define}" >${header_file}
     echo -e "#define ECAPTURE_${header_define}\n" >>${header_file}
     ./offset >>${header_file}
-    echo -e "#include \"openssl.h\"" >>${header_file}
-    echo -e "#include \"openssl_masterkey_3.0.h\"" >>${header_file}
+    echo -e "#define SSL_ST_VERSION SSL_CONNECTION_ST_VERSION\n" >>${header_file}
+    echo -e "#define SSL_ST_WBIO SSL_CONNECTION_ST_WBIO\n" >>${header_file}
+    echo -e "#define SSL_ST_RBIO SSL_CONNECTION_ST_RBIO\n" >>${header_file}
+    echo -e "\n#include \"openssl.h\"" >>${header_file}
+    echo -e "#include \"openssl_masterkey_3.3.h\"" >>${header_file}
     echo -e "\n#endif" >>${header_file}
 
     # clean up

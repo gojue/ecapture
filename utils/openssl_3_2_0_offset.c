@@ -12,6 +12,7 @@
     X(ssl_connection_st, s3)                        \
     X(ssl_connection_st, rbio)                      \
     X(ssl_connection_st, wbio)                      \
+    X(ssl_connection_st, server)                    \
     X(ssl_session_st, master_key)                   \
     X(ssl_connection_st, s3.client_random)          \
     X(ssl_session_st, cipher)                       \

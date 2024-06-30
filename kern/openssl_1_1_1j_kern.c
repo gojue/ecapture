@@ -1,8 +1,8 @@
 #ifndef ECAPTURE_OPENSSL_1_1_1_J_KERN_H
 #define ECAPTURE_OPENSSL_1_1_1_J_KERN_H
 
-/* OPENSSL_VERSION_TEXT: OpenSSL 1.1.1u  30 May 2023 */
-/* OPENSSL_VERSION_NUMBER: 269488479 */
+/* OPENSSL_VERSION_TEXT: OpenSSL 1.1.1w  11 Sep 2023 */
+/* OPENSSL_VERSION_NUMBER: 269488511 */
 
 // ssl_st->version
 #define SSL_ST_VERSION 0x0
@@ -18,6 +18,9 @@
 
 // ssl_st->wbio
 #define SSL_ST_WBIO 0x18
+
+// ssl_st->server
+#define SSL_ST_SERVER 0x38
 
 // ssl_session_st->master_key
 #define SSL_SESSION_ST_MASTER_KEY 0x50

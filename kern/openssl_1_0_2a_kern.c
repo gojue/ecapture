@@ -19,6 +19,9 @@
 // ssl_st->wbio
 #define SSL_ST_WBIO 0x18
 
+// ssl_st->server
+#define SSL_ST_SERVER 0x38
+
 // ssl_session_st->master_key
 #define SSL_SESSION_ST_MASTER_KEY 0x14
 
