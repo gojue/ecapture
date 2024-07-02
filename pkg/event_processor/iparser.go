@@ -94,11 +94,9 @@ func NewParser(payload []byte) IParser {
 				case ParserTypeHttpResponse:
 					newParser = new(HTTPResponse)
 				case ParserTypeHttp2Request:
-					// TODO support HTTP2 request
-					// via golang.org/x/net/http2
-					//hpack.NewEncoder(buf)
+					newParser = new(HTTP2Request)
 				case ParserTypeHttp2Response:
-					// TODO  support HTTP2 response
+					newParser = new(HTTP2Response)
 				default:
 					newParser = new(DefaultParser)
 				}
