@@ -17,6 +17,7 @@ package event_processor
 import (
 	"bufio"
 	"bytes"
+	"compress/gzip"
 	"fmt"
 	"io"
 	"log"
@@ -82,31 +83,60 @@ func (h2r *HTTP2Response) IsDone() bool {
 }
 
 func (h2r *HTTP2Response) Display() []byte {
-	bufStr := bytes.NewBufferString("")
+	var encoding string
+	dataBuf := bytes.NewBuffer(nil)
+	frameBuf := bytes.NewBufferString("")
 	for {
 		f, err := h2r.framer.ReadFrame()
 		if err != nil {
 			if err != io.EOF {
-				log.Println("[HTTP2Response] Dump HTTP2 Frame error:", err)
+				log.Println("[http2 response] Dump HTTP2 Frame error:", err)
 			}
 			break
 		}
 		switch f := f.(type) {
 		case *http2.MetaHeadersFrame:
-			bufStr.WriteString(fmt.Sprintf("\nFrame Type\t=>\tHEADERS\n"))
+			frameBuf.WriteString(fmt.Sprintf("\nFrame Type\t=>\tHEADERS\n"))
 			for _, header := range f.Fields {
-				bufStr.WriteString(fmt.Sprintf("%s\n", header.String()))
+				frameBuf.WriteString(fmt.Sprintf("%s\n", header.String()))
+				if header.Name == "content-encoding" {
+					encoding = header.Value
+				}
 			}
 		case *http2.DataFrame:
-			bufStr.WriteString(fmt.Sprintf("\nFrame Type\t=>\tDATA\n"))
-			payload := f.Data()
-			bufStr.Write(payload)
+			_, err := dataBuf.Write(f.Data())
+			if err != nil {
+				log.Println("[http2 response] Write HTTP2 Data Frame buffuer error:", err)
+			}
 		default:
 			fh := f.Header()
-			bufStr.WriteString(fmt.Sprintf("\nFrame Type\t=>\t%s\n", fh.Type.String()))
+			frameBuf.WriteString(fmt.Sprintf("\nFrame Type\t=>\t%s\n", fh.Type.String()))
 		}
 	}
-	return bufStr.Bytes()
+	// merge data frame
+	if dataBuf.Len() > 0 {
+		frameBuf.WriteString(fmt.Sprintf("\nFrame Type\t=>\tDATA\n"))
+		payload := dataBuf.Bytes()
+		switch encoding {
+		case "gzip":
+			reader, err := gzip.NewReader(bytes.NewReader(payload))
+			if err != nil {
+				log.Println("[http2 response] Create gzip reader error:", err)
+				break
+			}
+			payload, err = io.ReadAll(reader)
+			if err != nil {
+				log.Println("[http2 response] Uncompress gzip data error:", err)
+				break
+			}
+			h2r.packerType = PacketTypeGzip
+			defer reader.Close()
+		default:
+			h2r.packerType = PacketTypeNull
+		}
+		frameBuf.Write(payload)
+	}
+	return frameBuf.Bytes()
 }
 
 func init() {
