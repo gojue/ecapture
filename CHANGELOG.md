@@ -1,5 +1,18 @@
+# v0.8.4 (2024-07-09)
+## What's Changed
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v0.8.3...v0.8.4
+<hr>
+
 # v0.8.3 (2024-06-01)
 ## What's Changed
+* user: fix #553, `hashLen` is not allowed to be more than 64 bytes by @cfc4n in https://github.com/gojue/ecapture/pull/554
+* cli: update docker usage by @cfc4n in https://github.com/gojue/ecapture/pull/556
+* kern: Support for the non-Android boringssl library has been added. by @cfc4n in https://github.com/gojue/ecapture/pull/555
+* user: format clientRandom string in gotls module by @cfc4n in https://github.com/gojue/ecapture/pull/557
+* cli: support logger level by @cfc4n in https://github.com/gojue/ecapture/pull/558
+* use kprobe/__sys_connect inseated uprobe/connect. by @cfc4n in https://github.com/gojue/ecapture/pull/559
+
 
 **Full Changelog**: https://github.com/gojue/ecapture/compare/v0.8.2...v0.8.3
 <hr>
