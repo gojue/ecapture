@@ -83,7 +83,11 @@ func (h2r *HTTP2Request) IsDone() bool {
 }
 
 func (h2r *HTTP2Request) Display() []byte {
-	h2r.bufReader.Discard(H2MagicLen)
+	_, err := h2r.bufReader.Discard(H2MagicLen)
+	if err != nil {
+		log.Println("[http2 request] Discard HTTP2 Magic error:", err)
+		return h2r.reader.Bytes()
+	}
 	var encoding string
 	dataBuf := bytes.NewBuffer(nil)
 	frameBuf := bytes.NewBufferString("")
