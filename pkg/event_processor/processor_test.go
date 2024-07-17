@@ -97,10 +97,10 @@ func TestEventProcessor_Serve(t *testing.T) {
 			ok = false
 		}
 		// http2 parse count
-		if strings.Contains(line, "HTTP2Response") {
+		if strings.Contains(line, "Name:HTTP2Response") {
 			h2Resq += 1
 		}
-		if strings.Contains(line, "HTTP2Request") {
+		if strings.Contains(line, "Name:HTTP2Request") {
 			h2Req += 1
 		}
 	}
