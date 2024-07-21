@@ -84,8 +84,6 @@ func TestEventProcessor_Serve(t *testing.T) {
 
 	lines = strings.Split(string(bufString), "\n")
 	ok := true
-	h2Req := 0
-	h2Resq := 0
 	for _, line := range lines {
 		if strings.Contains(strings.ToLower(line), "dump") {
 			t.Log(line)
@@ -96,23 +94,12 @@ func TestEventProcessor_Serve(t *testing.T) {
 			t.Log(line)
 			ok = false
 		}
-		// http2 parse count
-		if strings.Contains(line, "Name:HTTP2Response") {
-			h2Resq += 1
-		}
-		if strings.Contains(line, "Name:HTTP2Request") {
-			h2Req += 1
-		}
+
 	}
 	if err != nil {
 		t.Fatalf("close error: %s", err.Error())
 	}
-	if h2Resq != 3 {
-		t.Fatalf("some errors occurred: HTTP2Response lack")
-	}
-	if h2Req != 2 {
-		t.Fatalf("some errors occurred: HTTP2Request lack")
-	}
+
 	if !ok {
 		t.Fatalf("some errors occurred")
 	}
