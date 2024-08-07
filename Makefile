@@ -198,7 +198,7 @@ $(TARGET_LIBPCAP):
 		CC=$(CMD_CC_PREFIX)$(CMD_CC) AR=$(CMD_AR_PREFIX)$(CMD_AR) CFLAGS="-O2 -g -gdwarf-4 -static" ./configure --disable-rdma --disable-shared --disable-usb \
 			--disable-netmap --disable-bluetooth --disable-dbus --without-libnl \
 			--without-dpdk --without-dag --without-septel --without-snf \
-			--without-gcc --with-pcap=linux --disable-ipv6\
+			--without-gcc --with-pcap=linux \
 			--without-turbocap --host=$(LIBPCAP_ARCH) && \
 	CC=$(CMD_CC_PREFIX)$(CMD_CC) AR=$(CMD_AR_PREFIX)$(CMD_AR) make
 
