@@ -37,8 +37,8 @@ struct net_id_t {
     u32 src_ip4;
     u32 dst_port;
     u32 dst_ip4;
-//    u32 src_ip6[4];
-//    u32 dst_ip6[4];
+    u32 src_ip6[4];
+    u32 dst_ip6[4];
 };
 
 struct net_ctx_t {
@@ -147,54 +147,90 @@ static __always_inline int capture_packets(struct __sk_buff *skb, bool is_ingres
         return TC_ACT_OK;
     }
 
-    // filter out non-IP packets
-    // TODO support IPv6
-    if (eth->h_proto != bpf_htons(ETH_P_IP)) {
-        return TC_ACT_OK;
-    }
-    l4_hdr_off = sizeof(struct ethhdr) + sizeof(struct iphdr);
-    if (!skb_revalidate_data(skb, &data_start, &data_end, l4_hdr_off)) {
-        return TC_ACT_OK;
-    }
+    struct net_ctx_t *net_ctx = NULL;
+    if (eth->h_proto == bpf_htons(ETH_P_IPV6)) {
+        // IPv6 packect
+        uint32_t l6_hdr_off = sizeof(struct ethhdr) + sizeof(struct ipv6hdr);
+        if (!skb_revalidate_data(skb, &data_start, &data_end, l6_hdr_off)) {
+            return TC_ACT_OK;
+        }
 
-    // IP headers
-    struct iphdr *iph = (struct iphdr *)(data_start + sizeof(struct ethhdr));
-    // filter out non-TCP packets
-    if (iph->protocol != IPPROTO_TCP) {
-        return TC_ACT_OK;
-    }
-    struct net_id_t conn_id = {0};
-    conn_id.protocol = iph->protocol;
-    conn_id.src_ip4 = iph->saddr;
-    conn_id.dst_ip4 = iph->daddr;
+        struct ipv6hdr *iph = (struct ipv6hdr *)(data_start + sizeof(struct ethhdr));
+        if (iph->nexthdr != IPPROTO_TCP) {
+            return TC_ACT_OK;
+        }
+        struct net_id_t conn_id = {0};
+        conn_id.protocol = iph->nexthdr;
+        __builtin_memcpy(conn_id.src_ip6, &iph->saddr, sizeof(iph->saddr));
+        __builtin_memcpy(conn_id.dst_ip6, &iph->daddr, sizeof(iph->daddr));
 
-    if (!skb_revalidate_data(skb, &data_start, &data_end,
-                             l4_hdr_off + sizeof(struct tcphdr))) {
+        if (!skb_revalidate_data(skb, &data_start, &data_end,
+                                 l6_hdr_off + sizeof(struct tcphdr))) {
+            return TC_ACT_OK;
+        }
+        struct tcphdr *tcp = (struct tcphdr *)(data_start + l6_hdr_off);
+
+#ifndef KERNEL_LESS_5_2
+    if (!filter_pcap_l2(skb, data_start, data_end))
         return TC_ACT_OK;
-    }
-//    debug_bpf_printk("!!!capture_packets src_ip4 : %d, dst_ip4 port :%d\n", conn_id.src_ip4, conn_id.dst_ip4);
-    struct tcphdr *tcp = (struct tcphdr *)(data_start + l4_hdr_off);
+#endif
+        
+        conn_id.src_port = bpf_ntohs(tcp->source);
+        conn_id.dst_port = bpf_ntohs(tcp->dest);
+
+        net_ctx = bpf_map_lookup_elem(&network_map, &conn_id);
+        if (net_ctx == NULL) {
+            u32 tmp_ip[4];
+            __builtin_memcpy(tmp_ip, conn_id.src_ip6, sizeof(conn_id.src_ip6));
+            __builtin_memcpy(conn_id.src_ip6, conn_id.dst_ip6, sizeof(conn_id.dst_ip6));
+            __builtin_memcpy(conn_id.dst_ip6, tmp_ip, sizeof(tmp_ip));
+            u32 tmp_port = conn_id.src_port;
+            conn_id.src_port = conn_id.dst_port;
+            conn_id.dst_port = tmp_port;
+            net_ctx = bpf_map_lookup_elem(&network_map, &conn_id);
+        }
+    } else if (eth->h_proto == bpf_htons(ETH_P_IP)) {
+        // IPv4 packect
+        l4_hdr_off = sizeof(struct ethhdr) + sizeof(struct iphdr);
+        if (!skb_revalidate_data(skb, &data_start, &data_end, l4_hdr_off)) {
+            return TC_ACT_OK;
+        }
+        // IP headers
+        struct iphdr *iph = (struct iphdr *)(data_start + sizeof(struct ethhdr));
+        // filter out non-TCP packets
+        if (iph->protocol != IPPROTO_TCP) {
+            return TC_ACT_OK;
+        }
+        struct net_id_t conn_id = {0};
+        conn_id.protocol = iph->protocol;
+        conn_id.src_ip4 = iph->saddr;
+        conn_id.dst_ip4 = iph->daddr;
+        if (!skb_revalidate_data(skb, &data_start, &data_end,
+                                 l4_hdr_off + sizeof(struct tcphdr))) {
+            return TC_ACT_OK;
+        }
+        // debug_bpf_printk("!!!capture_packets src_ip4 : %d, dst_ip4 port :%d\n", conn_id.src_ip4, conn_id.dst_ip4);
+        struct tcphdr *tcp = (struct tcphdr *)(data_start + l4_hdr_off);
 
 #ifndef KERNEL_LESS_5_2
     if (!filter_pcap_l2(skb, data_start, data_end))
         return TC_ACT_OK;
 #endif
 
-
-    conn_id.src_port = bpf_ntohs(tcp->source);
-    conn_id.dst_port = bpf_ntohs(tcp->dest);
-//    debug_bpf_printk("!!!capture_packets port : %d, dest port :%d\n", conn_id.src_port, conn_id.dst_port);
-
-    struct net_ctx_t *net_ctx = bpf_map_lookup_elem(&network_map, &conn_id);
-    if (net_ctx == NULL) {
-        // exchange src and dst
-        u32 tmp_ip = conn_id.src_ip4;
-        conn_id.src_ip4 = conn_id.dst_ip4;
-        conn_id.dst_ip4 = tmp_ip;
-        u32 tmp_port = conn_id.src_port;
-        conn_id.src_port = conn_id.dst_port;
-        conn_id.dst_port = tmp_port;
+        conn_id.src_port = bpf_ntohs(tcp->source);
+        conn_id.dst_port = bpf_ntohs(tcp->dest);
+        // debug_bpf_printk("!!!capture_packets port : %d, dest port :%d\n", conn_id.src_port, conn_id.dst_port);
         net_ctx = bpf_map_lookup_elem(&network_map, &conn_id);
+        if (net_ctx == NULL) {
+            // exchange src and dst
+            u32 tmp_ip = conn_id.src_ip4;
+            conn_id.src_ip4 = conn_id.dst_ip4;
+            conn_id.dst_ip4 = tmp_ip;
+            u32 tmp_port = conn_id.src_port;
+            conn_id.src_port = conn_id.dst_port;
+            conn_id.dst_port = tmp_port;
+            net_ctx = bpf_map_lookup_elem(&network_map, &conn_id);
+        }
     }
 
     // new packet event
@@ -260,23 +296,34 @@ int tcp_sendmsg(struct pt_regs *ctx){
     }
 
     u16 family, lport, dport;
-    u32 src_ip4, dst_ip4;
+    struct net_id_t conn_id = {0};
     bpf_probe_read(&family, sizeof(family), &sk->__sk_common.skc_family);
 
-    if (family != AF_INET) {
-        return 0;
-    }
-    bpf_probe_read(&lport, sizeof(lport), &sk->__sk_common.skc_num);
-    bpf_probe_read(&dport, sizeof(dport), &sk->__sk_common.skc_dport);
-    bpf_probe_read(&src_ip4, sizeof(src_ip4), &sk->__sk_common.skc_rcv_saddr);
-    bpf_probe_read(&dst_ip4, sizeof(dst_ip4), &sk->__sk_common.skc_daddr);
+    if (family == AF_INET6) {
+        u32 src_ip6[4], dst_ip6[4];
+        bpf_probe_read(&lport, sizeof(lport), &sk->__sk_common.skc_num);
+        bpf_probe_read(&dport, sizeof(dport), &sk->__sk_common.skc_dport);
+        bpf_probe_read(&src_ip6, sizeof(src_ip6), &sk->__sk_common.skc_v6_rcv_saddr);
+        bpf_probe_read(&dst_ip6, sizeof(dst_ip6), &sk->__sk_common.skc_v6_daddr);
 
-    struct net_id_t conn_id = {0};
-    conn_id.protocol = IPPROTO_TCP;
-    conn_id.src_port = lport;
-    conn_id.src_ip4 = src_ip4;
-    conn_id.dst_port = bpf_ntohs(dport);
-    conn_id.dst_ip4 = dst_ip4;
+        conn_id.protocol = IPPROTO_TCP;
+        conn_id.src_port = lport;
+        conn_id.dst_port = bpf_ntohs(dport);
+        __builtin_memcpy(conn_id.src_ip6, src_ip6, sizeof(src_ip6));
+        __builtin_memcpy(conn_id.dst_ip6, dst_ip6, sizeof(dst_ip6));
+    } else if (family == AF_INET) {
+        u32 src_ip4, dst_ip4;
+        bpf_probe_read(&lport, sizeof(lport), &sk->__sk_common.skc_num);
+        bpf_probe_read(&dport, sizeof(dport), &sk->__sk_common.skc_dport);
+        bpf_probe_read(&src_ip4, sizeof(src_ip4), &sk->__sk_common.skc_rcv_saddr);
+        bpf_probe_read(&dst_ip4, sizeof(dst_ip4), &sk->__sk_common.skc_daddr);
+
+        conn_id.protocol = IPPROTO_TCP;
+        conn_id.src_port = lport;
+        conn_id.src_ip4 = src_ip4;
+        conn_id.dst_port = bpf_ntohs(dport);
+        conn_id.dst_ip4 = dst_ip4;
+    }
 
     struct net_ctx_t net_ctx;
     net_ctx.pid = pid;

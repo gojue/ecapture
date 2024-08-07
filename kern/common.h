@@ -47,6 +47,7 @@
 ///////// for TC & XDP ebpf programs in tc.h
 #define TC_ACT_OK 0
 #define ETH_P_IP 0x0800 /* Internet Protocol packet        */
+#define ETH_P_IPV6 0x86DD
 #define SKB_MAX_DATA_SIZE 2048
 
 // .rodata section bug via : https://github.com/gojue/ecapture/issues/39
