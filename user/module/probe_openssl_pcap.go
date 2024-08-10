@@ -139,10 +139,16 @@ func (m *MOpenSSLProbe) setupManagersPcap() error {
 	for _, masterFunc := range m.masterHookFuncs {
 		m.bpfManager.Probes = append(m.bpfManager.Probes, &manager.Probe{
 			Section:          "uprobe/SSL_write_key",
-			EbpfFuncName:     "probe_ssl_master_key",
+			EbpfFuncName:     "probe_ssl_master_key_args",
 			AttachToFuncName: masterFunc,
 			BinaryPath:       binaryPath,
 			UID:              fmt.Sprintf("uprobe_smk_%s", masterFunc),
+		}, &manager.Probe{
+			Section:          "uretprobe/SSL_write_key",
+			EbpfFuncName:     "probe_ssl_master_key",
+			AttachToFuncName: masterFunc,
+			BinaryPath:       binaryPath,
+			UID:              fmt.Sprintf("uretprobe_smk_%s", masterFunc),
 		})
 	}
 	m.bpfManagerOptions = manager.Options{

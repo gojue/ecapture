@@ -65,6 +65,13 @@ struct {
     __uint(max_entries, 1);
 } bpf_context_gen SEC(".maps");
 
+struct {
+    __uint(type, BPF_MAP_TYPE_LRU_HASH);
+    __type(key, u64);
+    __type(value, u64);
+    __uint(max_entries, 1024);
+} write_key_args_map SEC(".maps");
+
 /////////////////////////COMMON FUNCTIONS ////////////////////////////////
 // 这个函数用来规避512字节栈空间限制，通过在堆上创建内存的方式，避开限制
 static __always_inline struct mastersecret_t *make_event() {
@@ -79,6 +86,37 @@ static __always_inline struct mastersecret_t *make_event() {
 
 /////////////////////////BPF FUNCTIONS ////////////////////////////////
 SEC("uprobe/SSL_write_key")
+int probe_ssl_master_key_args(struct pt_regs *ctx) {
+    u64 current_pid_tgid = bpf_get_current_pid_tgid();
+    u32 pid = current_pid_tgid >> 32;
+    u64 current_uid_gid = bpf_get_current_uid_gid();
+    u32 uid = current_uid_gid;
+#ifndef KERNEL_LESS_5_2
+    // if target_ppid is 0 then we target all pids
+    if (target_pid != 0 && target_pid != pid) {
+        return 0;
+    }
+    if (target_uid != 0 && target_uid != uid) {
+        return 0;
+    }
+#endif
+
+    u64 ssl_st_ptr = (u64)PT_REGS_PARM1(ctx);
+    if (!ssl_st_ptr) {
+        return 0;
+    }
+
+    u64 * val = bpf_map_lookup_elem(&write_key_args_map, &current_pid_tgid);
+    if (!val) {
+        bpf_map_update_elem(&write_key_args_map, &current_pid_tgid, &ssl_st_ptr, BPF_ANY);
+    }
+    else if (*val != ssl_st_ptr) {
+        bpf_map_update_elem(&write_key_args_map, &current_pid_tgid, &ssl_st_ptr, BPF_ANY);
+    }
+    return 0;
+}
+
+SEC("uretprobe/SSL_write_key")
 int probe_ssl_master_key(struct pt_regs *ctx) {
     u64 current_pid_tgid = bpf_get_current_pid_tgid();
     u32 pid = current_pid_tgid >> 32;
@@ -98,10 +136,19 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
 
     // mastersecret_t sent to userspace
     struct mastersecret_t *mastersecret = make_event();
-    // Get a ssl_st pointer
-    void *ssl_st_ptr = (void *)PT_REGS_PARM1(ctx);
     if (!mastersecret) {
         debug_bpf_printk("mastersecret is null\n");
+        return 0;
+    }
+    // Get a ssl_st pointer
+    u64 * val = bpf_map_lookup_elem(&write_key_args_map, &current_pid_tgid);
+    if (!val) {
+        debug_bpf_printk("args is null\n");
+        return 0;
+    }
+    void * ssl_st_ptr = (void *) *val;
+    if (!ssl_st_ptr) {
+        debug_bpf_printk("ssl_st_ptr is null\n");
         return 0;
     }
 
