@@ -70,7 +70,7 @@ yes "" | sudo make prepare V=0 > /dev/null
 ls -al /usr/src/linux-source-${kernel_ver}
 
 clang --version
-
+cd ~
 # 安装golang，设置goproxy
 wget https://golang.google.cn/dl/${GOBIN_ZIP}
 sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf ${GOBIN_ZIP}
