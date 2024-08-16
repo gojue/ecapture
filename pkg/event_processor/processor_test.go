@@ -44,13 +44,15 @@ func TestEventProcessor_Serve(t *testing.T) {
 		var err error
 		err = ep.Serve()
 		if err != nil {
-			log.Fatalf(err.Error())
+			//log.Fatalf(err.Error())
+			t.Error(err)
+			return
 		}
 	}()
 	content, err := os.ReadFile(testFile)
 	if err != nil {
 		//Do something
-		log.Fatalf("open file error: %s, file:%s", err.Error(), testFile)
+		t.Fatalf("open file error: %s, file:%s", err.Error(), testFile)
 	}
 	lines := strings.Split(string(content), "\n")
 

@@ -212,8 +212,8 @@ func (m *MOpenSSLProbe) detectOpenssl(soPath string) error {
 
 	}
 
-	f.Close()
-	buf = buf[:0]
+	_ = f.Close()
+	//buf = buf[:0]
 
 	var bpfFile string
 	var found bool
