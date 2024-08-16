@@ -117,6 +117,7 @@ func (m *Module) Init(ctx context.Context, logger *zerolog.Logger, conf config.I
 		if kv < kernel.VersionCode(5, 2, 0) {
 			m.isKernelLess5_2 = true
 		}
+		m.logger.Warn().Str("kernel", kv.String()).Msg("Kernel version is less than 5.2, Process filtering parameters do not take effect such as pid/uid.")
 	}
 
 	logger.Info().Int("Pid", os.Getpid()).Str("Kernel Info", kv.String()).Send()
