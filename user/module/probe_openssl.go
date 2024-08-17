@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/rs/zerolog"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -94,8 +95,8 @@ type MOpenSSLProbe struct {
 }
 
 // 对象初始化
-func (m *MOpenSSLProbe) Init(ctx context.Context, logger *zerolog.Logger, conf config.IConfig) error {
-	m.Module.Init(ctx, logger, conf)
+func (m *MOpenSSLProbe) Init(ctx context.Context, logger *zerolog.Logger, conf config.IConfig, ecw io.Writer) error {
+	m.Module.Init(ctx, logger, conf, ecw)
 	m.conf = conf
 	m.Module.SetChild(m)
 	m.eventMaps = make([]*ebpf.Map, 0, 2)

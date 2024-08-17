@@ -26,6 +26,7 @@ import (
 	"github.com/gojue/ecapture/user/event"
 	"github.com/rs/zerolog"
 	"golang.org/x/sys/unix"
+	"io"
 	"math"
 	"os"
 	"path"
@@ -40,8 +41,8 @@ type MNsprProbe struct {
 }
 
 // 对象初始化
-func (n *MNsprProbe) Init(ctx context.Context, logger *zerolog.Logger, conf config.IConfig) error {
-	n.Module.Init(ctx, logger, conf)
+func (n *MNsprProbe) Init(ctx context.Context, logger *zerolog.Logger, conf config.IConfig, ecw io.Writer) error {
+	n.Module.Init(ctx, logger, conf, ecw)
 	n.conf = conf
 	n.Module.SetChild(n)
 	n.eventMaps = make([]*ebpf.Map, 0, 2)

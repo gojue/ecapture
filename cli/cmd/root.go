@@ -121,8 +121,19 @@ func init() {
 	rootCmd.PersistentFlags().IntVar(&globalConf.PerCpuMapSize, "mapsize", 1024, "eBPF map size per CPU,for events buffer. default:1024 * PAGESIZE. (KB)")
 	rootCmd.PersistentFlags().Uint64VarP(&globalConf.Pid, "pid", "p", defaultPid, "if pid is 0 then we target all pids")
 	rootCmd.PersistentFlags().Uint64VarP(&globalConf.Uid, "uid", "u", defaultUid, "if uid is 0 then we target all users")
-	rootCmd.PersistentFlags().StringVarP(&globalConf.LoggerAddr, "logaddr", "l", "", "send logs to this server.-l /tmp/ecapture.log or -l tcp://127.0.0.1:8080")
+	rootCmd.PersistentFlags().StringVarP(&globalConf.LoggerAddr, "logaddr", "l", "", "send logs to this server. -l /tmp/ecapture.log or -l tcp://127.0.0.1:8080")
+	rootCmd.PersistentFlags().StringVar(&globalConf.EventCollectorAddr, "eventaddr", "", "the server address that receives the captured event. --eventaddr tcp://127.0.0.1:8090, default: same as logaddr")
 	rootCmd.PersistentFlags().StringVar(&globalConf.Listen, "listen", eCaptureListenAddr, "listen on this address for http server, default: 127.0.0.1:28256")
+}
+
+// eventProcesser Logger
+type epLogger struct {
+	logger *zerolog.Logger
+}
+
+func (e epLogger) Write(p []byte) (n int, err error) {
+	e.logger.Info().Msg(string(p))
+	return len(p), nil
 }
 
 // setModConfig set module config
@@ -154,13 +165,13 @@ func initLogger(addr string, modConfig config.IConfig) zerolog.Logger {
 			var conn net.Conn
 			conn, err = net.Dial("tcp", address)
 			modConfig.SetAddrType(loggerTypeTcp)
-			modConfig.SetLoggerTCPAddr(address)
+			//modConfig.SetLoggerTCPAddr(address)
 			writer = conn
 		} else {
 			var f *os.File
 			f, err = os.Create(addr)
 			modConfig.SetAddrType(loggerTypeFile)
-			modConfig.SetLoggerTCPAddr("")
+			//modConfig.SetLoggerTCPAddr("")
 			writer = f
 		}
 		if err == nil && writer != nil {
@@ -178,6 +189,13 @@ func runModule(modName string, modConfig config.IConfig) {
 	var err error
 	setModConfig(globalConf, modConfig)
 	var logger = initLogger(globalConf.LoggerAddr, modConfig)
+	var eventCollector zerolog.Logger
+	if globalConf.EventCollectorAddr == "" {
+		eventCollector = logger
+	} else {
+		eventCollector = initLogger(globalConf.EventCollectorAddr, modConfig)
+	}
+	var epl = epLogger{logger: &eventCollector}
 	// init eCapture
 	logger.Info().Str("AppName", fmt.Sprintf("%s(%s)", CliName, CliNameZh)).Send()
 	logger.Info().Str("HomePage", CliHomepage).Send()
@@ -185,9 +203,9 @@ func runModule(modName string, modConfig config.IConfig) {
 	logger.Info().Str("Author", CliAuthor).Send()
 	logger.Info().Str("Description", CliDescription).Send()
 	logger.Info().Str("Version", GitVersion).Send()
-	if modConfig.GetLoggerTCPAddr() != "" {
-		logger.Info().Str("LoggerTCPAddress", modConfig.GetLoggerTCPAddr()).Send()
-	}
+	//if modConfig.GetLoggerTCPAddr() != "" {
+	//	logger.Info().Str("LoggerTCPAddress", modConfig.GetLoggerTCPAddr()).Send()
+	//}
 
 	var isReload bool
 	var reRloadConfig = make(chan config.IConfig, 10)
@@ -221,7 +239,7 @@ func runModule(modName string, modConfig config.IConfig) {
 		logger.Warn().Msg("========== module starting. ==========")
 		mod := modFunc()
 		ctx, cancelFun := context.WithCancel(context.TODO())
-		err = mod.Init(ctx, &logger, modConfig)
+		err = mod.Init(ctx, &logger, modConfig, epl)
 		if err != nil {
 			logger.Fatal().Err(err).Bool("isReload", isReload).Msg("module initialization failed")
 		}

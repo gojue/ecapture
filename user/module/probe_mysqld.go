@@ -29,6 +29,7 @@ import (
 	"github.com/gojue/ecapture/user/event"
 	"github.com/rs/zerolog"
 	"golang.org/x/sys/unix"
+	"io"
 	"math"
 	"os"
 )
@@ -42,8 +43,8 @@ type MMysqldProbe struct {
 }
 
 // 对象初始化
-func (m *MMysqldProbe) Init(ctx context.Context, logger *zerolog.Logger, conf config.IConfig) error {
-	m.Module.Init(ctx, logger, conf)
+func (m *MMysqldProbe) Init(ctx context.Context, logger *zerolog.Logger, conf config.IConfig, ecw io.Writer) error {
+	m.Module.Init(ctx, logger, conf, ecw)
 	m.conf = conf
 	m.Module.SetChild(m)
 	m.eventMaps = make([]*ebpf.Map, 0, 2)
