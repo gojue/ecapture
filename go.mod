@@ -5,7 +5,7 @@ go 1.21.5
 require (
 	github.com/cilium/ebpf v0.12.3
 	github.com/gin-gonic/gin v1.10.0
-	github.com/gojue/ebpfmanager v0.4.5
+	github.com/gojue/ebpfmanager v0.4.6
 	github.com/google/gopacket v1.1.19
 	github.com/jschwinger233/elibpcap v0.0.0-20231010035657-e99300096f5e
 	github.com/rs/zerolog v1.32.0
@@ -14,6 +14,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	golang.org/x/arch v0.8.0
 	golang.org/x/crypto v0.23.0
+	golang.org/x/net v0.25.0
 	golang.org/x/sys v0.20.0
 )
 
@@ -52,7 +53,6 @@ require (
 	github.com/vishvananda/netlink v1.1.0 // indirect
 	github.com/vishvananda/netns v0.0.0-20210104183010-2eb08e3e575f // indirect
 	golang.org/x/exp v0.0.0-20230224173230-c95f2b4c22f2 // indirect
-	golang.org/x/net v0.25.0 // indirect
 	golang.org/x/sync v0.1.0 // indirect
 	golang.org/x/text v0.15.0 // indirect
 	google.golang.org/protobuf v1.34.1 // indirect
