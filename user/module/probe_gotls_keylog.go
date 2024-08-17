@@ -46,7 +46,7 @@ func (g *GoTLSProbe) setupManagersKeylog() error {
 		g.logger.Warn().Msg("Golang elf buildmode with pie")
 	}
 	g.logger.Info().Str("Function", config.GoTlsMasterSecretFunc).
-		Str("LoggerTCPAddr", fmt.Sprintf("%X", gotlsConf.GoTlsMasterSecretAddr)).Msg("Hook masterKey function")
+		Str("EventCollectorAddr", fmt.Sprintf("%X", gotlsConf.GoTlsMasterSecretAddr)).Msg("Hook masterKey function")
 	var (
 		sec string
 		fn  string

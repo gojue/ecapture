@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/rs/zerolog"
+	"io"
 	"os"
 	"path/filepath"
 	"sync"
@@ -53,8 +54,8 @@ type GoTLSProbe struct {
 	isRegisterABI     bool
 }
 
-func (g *GoTLSProbe) Init(ctx context.Context, l *zerolog.Logger, cfg config.IConfig) error {
-	g.Module.Init(ctx, l, cfg)
+func (g *GoTLSProbe) Init(ctx context.Context, l *zerolog.Logger, cfg config.IConfig, ecw io.Writer) error {
+	g.Module.Init(ctx, l, cfg, ecw)
 	g.conf = cfg
 	g.Module.SetChild(g)
 

@@ -25,6 +25,7 @@ import (
 	"github.com/gojue/ecapture/user/config"
 	"github.com/gojue/ecapture/user/event"
 	"github.com/rs/zerolog"
+	"io"
 	"math"
 	"os"
 
@@ -43,8 +44,8 @@ type MPostgresProbe struct {
 }
 
 // init probe
-func (p *MPostgresProbe) Init(ctx context.Context, logger *zerolog.Logger, conf config.IConfig) error {
-	p.Module.Init(ctx, logger, conf)
+func (p *MPostgresProbe) Init(ctx context.Context, logger *zerolog.Logger, conf config.IConfig, ecw io.Writer) error {
+	p.Module.Init(ctx, logger, conf, ecw)
 	p.conf = conf
 	p.Module.SetChild(p)
 	p.eventMaps = make([]*ebpf.Map, 0, 2)

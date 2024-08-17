@@ -23,6 +23,7 @@ import (
 	"github.com/gojue/ecapture/user/config"
 	"github.com/gojue/ecapture/user/event"
 	"github.com/rs/zerolog"
+	"io"
 	"math"
 
 	"github.com/cilium/ebpf"
@@ -46,8 +47,8 @@ type MBashProbe struct {
 }
 
 // 对象初始化
-func (b *MBashProbe) Init(ctx context.Context, logger *zerolog.Logger, conf config.IConfig) error {
-	b.Module.Init(ctx, logger, conf)
+func (b *MBashProbe) Init(ctx context.Context, logger *zerolog.Logger, conf config.IConfig, ecw io.Writer) error {
+	b.Module.Init(ctx, logger, conf, ecw)
 	b.conf = conf
 	b.Module.SetChild(b)
 	b.eventMaps = make([]*ebpf.Map, 0, 2)
@@ -278,9 +279,11 @@ func (b *MBashProbe) handleLine(be *event.BashEvent) {
 		return
 	}
 	if b.conf.GetHex() {
-		b.logger.Println(be.StringHex())
+		//b.logger.Println(be.StringHex())
+		b.eventCollector.Write([]byte(be.StringHex()))
 	} else {
-		b.logger.Println(be.String())
+		//b.logger.Println(be.String())
+		b.eventCollector.Write([]byte(be.String()))
 	}
 }
 

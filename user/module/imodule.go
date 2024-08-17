@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"sync/atomic"
@@ -35,7 +36,7 @@ import (
 
 type IModule interface {
 	// Init 初始化
-	Init(context.Context, *zerolog.Logger, config.IConfig) error
+	Init(context.Context, *zerolog.Logger, config.IConfig, io.Writer) error
 
 	// Name 获取当前module的名字
 	Name() string
@@ -69,23 +70,14 @@ const (
 	BtfModeSwitch      = "If eCapture fails to run, try specifying the BTF mode. use `-b 2` to specify non-CORE mode."
 )
 
-// eventProcesser Logger
-type epLogger struct {
-	logger *zerolog.Logger
-}
-
-func (e epLogger) Write(p []byte) (n int, err error) {
-	e.logger.Info().Msg(string(p))
-	return len(p), nil
-}
-
 type Module struct {
-	isClosed atomic.Bool
-	opts     *ebpf.CollectionOptions
-	reader   []IClose
-	ctx      context.Context
-	logger   *zerolog.Logger
-	child    IModule
+	isClosed       atomic.Bool
+	opts           *ebpf.CollectionOptions
+	reader         []IClose
+	ctx            context.Context
+	logger         *zerolog.Logger
+	eventCollector io.Writer
+	child          IModule
 	// probe的名字
 	name string
 
@@ -101,14 +93,15 @@ type Module struct {
 }
 
 // Init 对象初始化
-func (m *Module) Init(ctx context.Context, logger *zerolog.Logger, conf config.IConfig) {
+func (m *Module) Init(ctx context.Context, logger *zerolog.Logger, conf config.IConfig, eventCollector io.Writer) error {
 	m.isClosed.Store(false)
 	m.ctx = ctx
 	m.logger = logger
 	m.errChan = make(chan error)
 	m.isKernelLess5_2 = false //set false default
-	var epl = epLogger{logger: logger}
-	m.processor = event_processor.NewEventProcessor(epl, conf.GetHex())
+	m.eventCollector = eventCollector
+	//var epl = epLogger{logger: logger}
+	m.processor = event_processor.NewEventProcessor(eventCollector, conf.GetHex())
 	kv, err := kernel.HostVersion()
 	if err != nil {
 		m.logger.Warn().Err(err).Msg("Unable to detect kernel version due to an error:%v.used non-Less5_2 bytecode.")
@@ -138,6 +131,7 @@ func (m *Module) Init(ctx context.Context, logger *zerolog.Logger, conf config.I
 	} else {
 		m.logger.Info().Uint8("btfMode", conf.GetBTF()).Msg("BTF bytecode mode: non-CORE.")
 	}
+	return nil
 }
 
 func (m *Module) autoDetectBTF() {
@@ -383,7 +377,8 @@ func (m *Module) Dispatcher(e event.IEventStruct) {
 			if s == "" {
 				return
 			}
-			m.logger.Info().Msg(s)
+			//m.logger.Info().Msg(s)
+			m.eventCollector.Write([]byte(s))
 			return
 		}
 	}
@@ -396,7 +391,8 @@ func (m *Module) Dispatcher(e event.IEventStruct) {
 		if s == "" {
 			return
 		}
-		m.logger.Info().Msg(s)
+		//m.logger.Info().Msg(s)
+		m.eventCollector.Write([]byte(s))
 	case event.EventTypeEventProcessor:
 		m.processor.Write(e)
 	case event.EventTypeModuleData:

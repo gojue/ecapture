@@ -33,8 +33,8 @@ type IConfig interface {
 	SetBTF(uint8)
 	SetDebug(bool)
 	SetAddrType(uint8)
-	SetLoggerTCPAddr(string)
-	GetLoggerTCPAddr() string
+	SetEventCollectorAddr(string)
+	GetEventCollectorAddr() string
 	GetPerCpuMapSize() int
 	SetPerCpuMapSize(int)
 	EnableGlobalVar() bool //
@@ -61,13 +61,13 @@ type BaseConfig struct {
 	Listen string `json:"listen"` // listen address, default: 127.0.0.1:28256
 
 	// mapSizeKB
-	PerCpuMapSize int    `json:"per_cpu_map_size"` // ebpf map size for per Cpu.   see https://github.com/gojue/ecapture/issues/433 .
-	IsHex         bool   `json:"is_hex"`
-	Debug         bool   `json:"debug"`
-	BtfMode       uint8  `json:"btf_mode"`
-	LoggerAddr    string `json:"logger_addr"` // save file
-	LoggerType    uint8  `json:"logger_type"` // 0:stdout, 1:file, 2:tcp
-	LoggerTCPAddr string `json:"logger_tcp_addr"`
+	PerCpuMapSize      int    `json:"per_cpu_map_size"` // ebpf map size for per Cpu.   see https://github.com/gojue/ecapture/issues/433 .
+	IsHex              bool   `json:"is_hex"`
+	Debug              bool   `json:"debug"`
+	BtfMode            uint8  `json:"btf_mode"`
+	LoggerAddr         string `json:"logger_addr"`          // logger address
+	LoggerType         uint8  `json:"logger_type"`          // 0:stdout, 1:file, 2:tcp
+	EventCollectorAddr string `json:"event_collector_addr"` // the server address that receives the captured event
 }
 
 func (c *BaseConfig) GetPid() uint64 {
@@ -94,12 +94,12 @@ func (c *BaseConfig) SetUid(uid uint64) {
 	c.Uid = uid
 }
 
-func (c *BaseConfig) SetLoggerTCPAddr(addr string) {
-	c.LoggerTCPAddr = addr
+func (c *BaseConfig) SetEventCollectorAddr(addr string) {
+	c.EventCollectorAddr = addr
 }
 
-func (c *BaseConfig) GetLoggerTCPAddr() string {
-	return c.LoggerTCPAddr
+func (c *BaseConfig) GetEventCollectorAddr() string {
+	return c.EventCollectorAddr
 }
 
 func (c *BaseConfig) SetAddrType(t uint8) {
