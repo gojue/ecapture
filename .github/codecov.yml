@@ -9,7 +9,11 @@ flag_management:
     - name: "smart-labels"
       carryforward: true
       carryforward_mode: "labels"
-
+flags:
+  unittests-Solution:
+    carryforward: true
+    paths:
+      - ./**
 cli:
   plugins:
     pycoverage:
