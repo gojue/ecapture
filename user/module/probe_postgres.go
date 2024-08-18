@@ -45,7 +45,10 @@ type MPostgresProbe struct {
 
 // init probe
 func (p *MPostgresProbe) Init(ctx context.Context, logger *zerolog.Logger, conf config.IConfig, ecw io.Writer) error {
-	p.Module.Init(ctx, logger, conf, ecw)
+	err := p.Module.Init(ctx, logger, conf, ecw)
+	if err != nil {
+		return err
+	}
 	p.conf = conf
 	p.Module.SetChild(p)
 	p.eventMaps = make([]*ebpf.Map, 0, 2)

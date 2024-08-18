@@ -42,7 +42,10 @@ type MNsprProbe struct {
 
 // 对象初始化
 func (n *MNsprProbe) Init(ctx context.Context, logger *zerolog.Logger, conf config.IConfig, ecw io.Writer) error {
-	n.Module.Init(ctx, logger, conf, ecw)
+	err := n.Module.Init(ctx, logger, conf, ecw)
+	if err != nil {
+		return err
+	}
 	n.conf = conf
 	n.Module.SetChild(n)
 	n.eventMaps = make([]*ebpf.Map, 0, 2)

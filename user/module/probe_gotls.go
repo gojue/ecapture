@@ -55,7 +55,10 @@ type GoTLSProbe struct {
 }
 
 func (g *GoTLSProbe) Init(ctx context.Context, l *zerolog.Logger, cfg config.IConfig, ecw io.Writer) error {
-	g.Module.Init(ctx, l, cfg, ecw)
+	e := g.Module.Init(ctx, l, cfg, ecw)
+	if e != nil {
+		return e
+	}
 	g.conf = cfg
 	g.Module.SetChild(g)
 

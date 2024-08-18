@@ -96,7 +96,11 @@ type MOpenSSLProbe struct {
 
 // 对象初始化
 func (m *MOpenSSLProbe) Init(ctx context.Context, logger *zerolog.Logger, conf config.IConfig, ecw io.Writer) error {
-	m.Module.Init(ctx, logger, conf, ecw)
+	var err error
+	err = m.Module.Init(ctx, logger, conf, ecw)
+	if err != nil {
+		return err
+	}
 	m.conf = conf
 	m.Module.SetChild(m)
 	m.eventMaps = make([]*ebpf.Map, 0, 2)
@@ -108,7 +112,6 @@ func (m *MOpenSSLProbe) Init(ctx context.Context, logger *zerolog.Logger, conf c
 	m.masterHookFuncs = masterKeyHookFuncs
 
 	// fd := os.Getpid()
-	var err error
 	model := m.conf.(*config.OpensslConfig).Model
 	switch model {
 	case config.TlsCaptureModelKeylog, config.TlsCaptureModelKey:

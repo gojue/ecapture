@@ -44,7 +44,10 @@ type MMysqldProbe struct {
 
 // 对象初始化
 func (m *MMysqldProbe) Init(ctx context.Context, logger *zerolog.Logger, conf config.IConfig, ecw io.Writer) error {
-	m.Module.Init(ctx, logger, conf, ecw)
+	err := m.Module.Init(ctx, logger, conf, ecw)
+	if err != nil {
+		return err
+	}
 	m.conf = conf
 	m.Module.SetChild(m)
 	m.eventMaps = make([]*ebpf.Map, 0, 2)

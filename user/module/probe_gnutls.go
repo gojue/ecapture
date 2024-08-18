@@ -42,7 +42,10 @@ type MGnutlsProbe struct {
 
 // 对象初始化
 func (g *MGnutlsProbe) Init(ctx context.Context, logger *zerolog.Logger, conf config.IConfig, ecw io.Writer) error {
-	g.Module.Init(ctx, logger, conf, ecw)
+	err := g.Module.Init(ctx, logger, conf, ecw)
+	if err != nil {
+		return err
+	}
 	g.conf = conf
 	g.Module.SetChild(g)
 	g.eventMaps = make([]*ebpf.Map, 0, 2)
