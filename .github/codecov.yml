@@ -1,0 +1,16 @@
+ignore:
+  - tests/**
+
+beta_groups:
+  - "labels"
+
+flag_management:
+  individual_flags:
+    - name: "smart-labels"
+      carryforward: true
+      carryforward_mode: "labels"
+
+cli:
+  plugins:
+    pycoverage:
+      report_type: "json"
