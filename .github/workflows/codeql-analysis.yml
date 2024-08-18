@@ -100,13 +100,6 @@ jobs:
           pip install pytest-cov
           pytest --cov=./ --cov-report=xml
       - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v4.5.0
+        uses: codecov/codecov-action@v4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          directory: ./coverage/reports/
-          codecov_yml_path: .github/codecov.yml
-          fail_ci_if_error: true # optional (default = false)
-          files: ./coverage1.xml,./coverage2.xml # optional
-          flags: unittests # optional
-          name: codecov-umbrella # optional
-          verbose: true # optional (default = false)
