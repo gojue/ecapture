@@ -126,14 +126,13 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&globalConf.Listen, "listen", eCaptureListenAddr, "listen on this address for http server, default: 127.0.0.1:28256")
 }
 
-// eventProcesser Logger
-type epLogger struct {
+// eventCollector
+type eventCollectorWriter struct {
 	logger *zerolog.Logger
 }
 
-func (e epLogger) Write(p []byte) (n int, err error) {
-	e.logger.Info().Msg(string(p))
-	return len(p), nil
+func (e eventCollectorWriter) Write(p []byte) (n int, err error) {
+	return e.logger.Write(p)
 }
 
 // setModConfig set module config
@@ -195,7 +194,7 @@ func runModule(modName string, modConfig config.IConfig) {
 	} else {
 		eventCollector = initLogger(globalConf.EventCollectorAddr, modConfig)
 	}
-	var epl = epLogger{logger: &eventCollector}
+	var ecw = eventCollectorWriter{logger: &eventCollector}
 	// init eCapture
 	logger.Info().Str("AppName", fmt.Sprintf("%s(%s)", CliName, CliNameZh)).Send()
 	logger.Info().Str("HomePage", CliHomepage).Send()
@@ -203,9 +202,10 @@ func runModule(modName string, modConfig config.IConfig) {
 	logger.Info().Str("Author", CliAuthor).Send()
 	logger.Info().Str("Description", CliDescription).Send()
 	logger.Info().Str("Version", GitVersion).Send()
-	//if modConfig.GetLoggerTCPAddr() != "" {
-	//	logger.Info().Str("LoggerTCPAddress", modConfig.GetLoggerTCPAddr()).Send()
-	//}
+
+	logger.Info().Str("Listen", globalConf.Listen).Send()
+	logger.Info().Str("logger", globalConf.LoggerAddr).Msg("eCapture running logs")
+	logger.Info().Str("eventCollector", globalConf.EventCollectorAddr).Msg("the file handler that receives the captured event")
 
 	var isReload bool
 	var reRloadConfig = make(chan config.IConfig, 10)
@@ -239,7 +239,7 @@ func runModule(modName string, modConfig config.IConfig) {
 		logger.Warn().Msg("========== module starting. ==========")
 		mod := modFunc()
 		ctx, cancelFun := context.WithCancel(context.TODO())
-		err = mod.Init(ctx, &logger, modConfig, epl)
+		err = mod.Init(ctx, &logger, modConfig, ecw)
 		if err != nil {
 			logger.Fatal().Err(err).Bool("isReload", isReload).Msg("module initialization failed")
 		}
