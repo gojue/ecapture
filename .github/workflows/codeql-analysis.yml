@@ -93,14 +93,14 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@main
         with:
-          python-version: 3.10
+          python-version: 3.12.5
       - name: Generate coverage report
         run: |
           pip install pytest
           pip install pytest-cov
           pytest --cov=./ --cov-report=xml
       - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v4.0.1
+        uses: codecov/codecov-action@v4.5.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           directory: ./coverage/reports/
