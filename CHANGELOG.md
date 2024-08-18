@@ -1,5 +1,23 @@
+# v0.8.5 (2024-08-19)
+## What's Changed
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v0.8.4...v0.8.5
+<hr>
+
 # v0.8.4 (2024-07-09)
 ## What's Changed
+* add possible linux kernel config path by @w568w in https://github.com/gojue/ecapture/pull/561
+* workflows: add Qodana by @cfc4n in https://github.com/gojue/ecapture/pull/563
+* fix create output.log failed. by @cfc4n in https://github.com/gojue/ecapture/pull/566
+* pkg: fix send on closed channel by @cfc4n in https://github.com/gojue/ecapture/pull/567
+* fix: DumpResponse error in HEAD request by @yuweizzz in https://github.com/gojue/ecapture/pull/572
+* fix: truncated body dump error by @yuweizzz in https://github.com/gojue/ecapture/pull/573
+* kern: support openssl 3.3.* by @cfc4n in https://github.com/gojue/ecapture/pull/575
+* kern: Adjust the timing of key acquisition to distinguish between TLS by @cfc4n in https://github.com/gojue/ecapture/pull/576
+
+## New Contributors
+* @w568w made their first contribution in https://github.com/gojue/ecapture/pull/561
+* @yuweizzz made their first contribution in https://github.com/gojue/ecapture/pull/572
 
 **Full Changelog**: https://github.com/gojue/ecapture/compare/v0.8.3...v0.8.4
 <hr>
