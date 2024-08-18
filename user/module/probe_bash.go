@@ -48,7 +48,10 @@ type MBashProbe struct {
 
 // 对象初始化
 func (b *MBashProbe) Init(ctx context.Context, logger *zerolog.Logger, conf config.IConfig, ecw io.Writer) error {
-	b.Module.Init(ctx, logger, conf, ecw)
+	err := b.Module.Init(ctx, logger, conf, ecw)
+	if err != nil {
+		return err
+	}
 	b.conf = conf
 	b.Module.SetChild(b)
 	b.eventMaps = make([]*ebpf.Map, 0, 2)
@@ -280,10 +283,10 @@ func (b *MBashProbe) handleLine(be *event.BashEvent) {
 	}
 	if b.conf.GetHex() {
 		//b.logger.Println(be.StringHex())
-		b.eventCollector.Write([]byte(be.StringHex()))
+		_, _ = b.eventCollector.Write([]byte(be.StringHex()))
 	} else {
 		//b.logger.Println(be.String())
-		b.eventCollector.Write([]byte(be.String()))
+		_, _ = b.eventCollector.Write([]byte(be.String()))
 	}
 }
 

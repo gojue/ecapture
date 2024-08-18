@@ -378,7 +378,7 @@ func (m *Module) Dispatcher(e event.IEventStruct) {
 				return
 			}
 			//m.logger.Info().Msg(s)
-			m.eventCollector.Write([]byte(s))
+			_, _ = m.eventCollector.Write([]byte(s))
 			return
 		}
 	}
@@ -392,7 +392,7 @@ func (m *Module) Dispatcher(e event.IEventStruct) {
 			return
 		}
 		//m.logger.Info().Msg(s)
-		m.eventCollector.Write([]byte(s))
+		_, _ = m.eventCollector.Write([]byte(s))
 	case event.EventTypeEventProcessor:
 		m.processor.Write(e)
 	case event.EventTypeModuleData:
