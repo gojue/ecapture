@@ -40,8 +40,6 @@ jobs:
         with:
           args: --disable-all -E errcheck -E staticcheck
           skip-cache: true
-          skip-pkg-cache: true
-          skip-build-cache: true
           problem-matchers: true
       - name: Build NOCORE
         run: |
@@ -87,12 +85,11 @@ jobs:
           cd ./lib/libpcap/ && sudo make install
           cd $GITHUB_WORKSPACE
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v4
+        uses: golangci/golangci-lint-action@v6
         with:
           args: --disable-all -E errcheck -E staticcheck
           skip-cache: true
-          skip-pkg-cache: true
-          skip-build-cache: true
+          problem-matchers: true
       - name: Build non-CO-RE
         run: |
           make clean
