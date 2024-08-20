@@ -32,7 +32,7 @@ jobs:
         run: |
           make clean
           make env
-          make nocore -j4
+          DEBUG=1 make nocore -j4
           cd ./lib/libpcap/ && sudo make install
           cd $GITHUB_WORKSPACE
       - name: golangci-lint
@@ -81,7 +81,7 @@ jobs:
         run: |
           make clean
           make env
-          make -j8
+          DEBUG=1 make -j8
           cd ./lib/libpcap/ && sudo make install
           cd $GITHUB_WORKSPACE
       - name: golangci-lint
