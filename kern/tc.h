@@ -147,6 +147,7 @@ static __always_inline int capture_packets(struct __sk_buff *skb, bool is_ingres
         return TC_ACT_OK;
     }
 
+    struct net_id_t conn_id = {0};
     struct net_ctx_t *net_ctx = NULL;
     if (eth->h_proto == bpf_htons(ETH_P_IPV6)) {
         // IPv6 packect
@@ -159,7 +160,7 @@ static __always_inline int capture_packets(struct __sk_buff *skb, bool is_ingres
         if (iph->nexthdr != IPPROTO_TCP) {
             return TC_ACT_OK;
         }
-        struct net_id_t conn_id = {0};
+
         conn_id.protocol = iph->nexthdr;
         __builtin_memcpy(conn_id.src_ip6, &iph->saddr, sizeof(iph->saddr));
         __builtin_memcpy(conn_id.dst_ip6, &iph->daddr, sizeof(iph->daddr));
@@ -201,7 +202,7 @@ static __always_inline int capture_packets(struct __sk_buff *skb, bool is_ingres
         if (iph->protocol != IPPROTO_TCP) {
             return TC_ACT_OK;
         }
-        struct net_id_t conn_id = {0};
+
         conn_id.protocol = iph->protocol;
         conn_id.src_ip4 = iph->saddr;
         conn_id.dst_ip4 = iph->daddr;
