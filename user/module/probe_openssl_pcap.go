@@ -76,7 +76,7 @@ func (m *MOpenSSLProbe) setupManagersPcap() error {
 
 	pcapFilter := m.conf.(*config.OpensslConfig).PcapFilter
 	m.logger.Info().Str("binrayPath", binaryPath).Str("IFname", m.ifName).Int("IFindex", m.ifIdex).
-		Str("PcapFilter", pcapFilter).Uint8("ElfType", m.conf.(*config.OpensslConfig).ElfType).Msg("HOOK type:Golang elf")
+		Str("PcapFilter", pcapFilter).Uint8("ElfType", m.conf.(*config.OpensslConfig).ElfType).Msg("HOOK type:Openssl elf")
 	m.logger.Info().Strs("Functions", m.masterHookFuncs).Msg("Hook masterKey function")
 
 	// create pcapng writer

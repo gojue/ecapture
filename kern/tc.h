@@ -43,6 +43,7 @@ struct net_id_t {
 
 struct net_ctx_t {
     u32 pid;
+    u32 uid;
     char comm[TASK_COMM_LEN];
 //    u8 cmdline[PATH_MAX_LEN];
 };
@@ -236,18 +237,22 @@ static __always_inline int capture_packets(struct __sk_buff *skb, bool is_ingres
 
     // new packet event
     struct skb_data_event_t event = {0};
-//    struct skb_data_event_t *event = make_skb_data_event();
-//    if (event == NULL) {
-//        return TC_ACT_OK;
-//    }
+
     if (net_ctx != NULL) {
+        // pid uid filter
+#ifndef KERNEL_LESS_5_2
+        if (target_pid != 0 && target_pid != net_ctx->pid) {
+            return TC_ACT_OK;
+        }
+        if (target_uid != 0 && target_uid != net_ctx->uid) {
+            return TC_ACT_OK;
+        }
+#endif
         event.pid = net_ctx->pid;
         __builtin_memcpy(event.comm, net_ctx->comm, TASK_COMM_LEN);
-//        __builtin_memcpy(event.cmdline, net_ctx->cmdline, PATH_MAX_LEN);
         debug_bpf_printk("capture packet process found, pid: %d, comm :%s\n", event.pid, event.comm);
-    } else {
-        debug_bpf_printk("capture packet process not found, src_port:%d, dst_port:%d\n", conn_id.src_port, conn_id.dst_port);
     }
+
     event.ts = bpf_ktime_get_ns();
     event.len = skb->len;
     event.ifindex = skb->ifindex;
@@ -285,12 +290,17 @@ int ingress_cls_func(struct __sk_buff *skb) {
 SEC("kprobe/tcp_sendmsg")
 int tcp_sendmsg(struct pt_regs *ctx){
     u32 pid = bpf_get_current_pid_tgid() >> 32;
-// 仅对指定PID的进程发起的connect事件进行捕获
-#ifndef KERNEL_LESS_5_2
-  if (target_pid != 0 && target_pid != pid) {
-      return 0;
-  }
-#endif
+    u64 current_uid_gid = bpf_get_current_uid_gid();
+    u32 uid = current_uid_gid;
+// 这里需要对所有的进程进行监控，所以不需要对pid和uid进行过滤，否则在TC capture_packets函数里无法使用pid\uid过滤网络包
+//#ifndef KERNEL_LESS_5_2
+//  if (target_pid != 0 && target_pid != pid) {
+//      return 0;
+//  }
+//  if (target_uid != 0 && target_uid != uid) {
+//      return 0;
+//  }
+//#endif
     struct sock *sk = (struct sock *)PT_REGS_PARM1(ctx);
     if (sk == NULL) {
         return 0;
@@ -328,6 +338,7 @@ int tcp_sendmsg(struct pt_regs *ctx){
 
     struct net_ctx_t net_ctx;
     net_ctx.pid = pid;
+    net_ctx.uid = uid;
     bpf_get_current_comm(&net_ctx.comm, sizeof(net_ctx.comm));
 
     debug_bpf_printk("tcp_sendmsg pid : %d, comm :%s\n", net_ctx.pid, net_ctx.comm);
