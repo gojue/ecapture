@@ -59,25 +59,25 @@ func (mge *MasterSecretGotlsEvent) Decode(payload []byte) (err error) {
 		return
 	}
 	if int(mge.LabelLen) > len(mge.Label) {
-		return fmt.Errorf("invalid label length, LablenLen:%d, len(Label):%d", mge.LabelLen, len(mge.Label))
+		return fmt.Errorf("invalid label length, LablenLen: %d, len(Label): %d", mge.LabelLen, len(mge.Label))
 	}
 	if int(mge.ClientRandomLen) > len(mge.ClientRandom) {
-		return fmt.Errorf("invalid label length, ClientRandomLen:%d, len(ClientRandom):%d", mge.ClientRandomLen, len(mge.ClientRandom))
+		return fmt.Errorf("invalid label length, ClientRandomLen: %d, len(ClientRandom): %d", mge.ClientRandomLen, len(mge.ClientRandom))
 	}
 	if int(mge.MasterSecretLen) > len(mge.MasterSecret) {
-		return fmt.Errorf("invalid label length, MasterSecretLen:%d, len(MasterSecret):%d", mge.MasterSecretLen, len(mge.MasterSecret))
+		return fmt.Errorf("invalid label length, MasterSecretLen: %d, len(MasterSecret): %d", mge.MasterSecretLen, len(mge.MasterSecret))
 	}
 	mge.payload = fmt.Sprintf("%s %02x %02x", mge.Label, mge.ClientRandom, mge.MasterSecret)
 	return nil
 }
 
 func (mge *MasterSecretGotlsEvent) StringHex() string {
-	s := fmt.Sprintf("Label%s, ClientRandom:%02x, secret:%02x", mge.Label[0:mge.LabelLen], mge.ClientRandom[0:mge.ClientRandomLen], mge.MasterSecret[0:mge.MasterSecretLen])
+	s := fmt.Sprintf("Label %s, ClientRandom: %02x, secret: %02x", mge.Label[0:mge.LabelLen], mge.ClientRandom[0:mge.ClientRandomLen], mge.MasterSecret[0:mge.MasterSecretLen])
 	return s
 }
 
 func (mge *MasterSecretGotlsEvent) String() string {
-	s := fmt.Sprintf("Label:%s, ClientRandom:%02x, secret:%02x", mge.Label[0:mge.LabelLen], mge.ClientRandom[0:mge.ClientRandomLen], mge.MasterSecret[0:mge.MasterSecretLen])
+	s := fmt.Sprintf("Label: %s, ClientRandom: %02x, secret: %02x", mge.Label[0:mge.LabelLen], mge.ClientRandom[0:mge.ClientRandomLen], mge.MasterSecret[0:mge.MasterSecretLen])
 	return s
 }
 

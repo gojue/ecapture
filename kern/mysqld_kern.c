@@ -134,9 +134,9 @@ int mysql56_query_return(struct pt_regs *ctx) {
     if (!data) {
         return 0;  // missed start
     }
-    debug_bpf_printk("mysql query:%s\n", data->query);
+    debug_bpf_printk("mysql query: %s\n", data->query);
     data->retval = command_return;
-    debug_bpf_printk("mysql query return :%d\n", command_return);
+    debug_bpf_printk("mysql query return: %d\n", command_return);
     bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, data,
                           sizeof(struct data_t));
     return 0;
@@ -256,8 +256,8 @@ int mysql57_query_return(struct pt_regs *ctx) {
     if (!data) {
         return 0;  // missed start
     }
-    debug_bpf_printk("mysql57+ query:%s\n", data->query);
-    debug_bpf_printk("mysql57+ query return :%d\n", command_return);
+    debug_bpf_printk("mysql57+ query: %s\n", data->query);
+    debug_bpf_printk("mysql57+ query return: %d\n", command_return);
     if (command_return == 1) {
         data->retval = DISPATCH_COMMAND_V57_FAILED;
     } else {

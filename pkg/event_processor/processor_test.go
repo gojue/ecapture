@@ -52,7 +52,7 @@ func TestEventProcessor_Serve(t *testing.T) {
 	content, err := os.ReadFile(testFile)
 	if err != nil {
 		//Do something
-		t.Fatalf("open file error: %s, file:%s", err.Error(), testFile)
+		t.Fatalf("open file error: %s, file: %s", err.Error(), testFile)
 	}
 	lines := strings.Split(string(content), "\n")
 
@@ -63,12 +63,12 @@ func TestEventProcessor_Serve(t *testing.T) {
 		var eventSSL SSLDataEventTmp
 		err := json.Unmarshal([]byte(line), &eventSSL)
 		if err != nil {
-			t.Fatalf("json unmarshal error: %s, body:%v", err.Error(), line)
+			t.Fatalf("json unmarshal error: %s, body: %v", err.Error(), line)
 		}
 		payloadFile := fmt.Sprintf("testdata/%d.bin", eventSSL.Timestamp)
 		b, e := os.ReadFile(payloadFile)
 		if e != nil {
-			t.Fatalf("read payload file error: %s, file:%s", e.Error(), payloadFile)
+			t.Fatalf("read payload file error: %s, file: %s", e.Error(), payloadFile)
 		}
 		copy(eventSSL.Data[:], b)
 		ep.Write(&BaseEvent{DataLen: eventSSL.DataLen, Data: eventSSL.Data, DataType: eventSSL.DataType, Timestamp: eventSSL.Timestamp, Pid: eventSSL.Pid, Tid: eventSSL.Tid, Comm: eventSSL.Comm, Fd: eventSSL.Fd, Version: eventSSL.Version})

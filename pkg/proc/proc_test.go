@@ -26,14 +26,14 @@ func TestExtraceGoVersion(t *testing.T) {
 func TestExtraceGoVersionGccgo(t *testing.T) {
 	e := os.Chdir("go_elf")
 	if e != nil {
-		t.Fatalf("chdir error:%v\n", e)
+		t.Fatalf("chdir error: %v\n", e)
 	}
 
 	p, e := os.Getwd()
 	if e != nil {
-		t.Fatalf("Getwd error:%v", e)
+		t.Fatalf("Getwd error: %v", e)
 	}
-	t.Logf("pwd:%s", p)
+	t.Logf("pwd: %s", p)
 
 	// go build go_elf
 	pathEnv := os.Getenv("PATH")
@@ -57,17 +57,17 @@ func TestExtraceGoVersionGccgo(t *testing.T) {
 	c.Stdout = &outb
 	c.Stderr = &errb
 	e = c.Run()
-	t.Logf("output:%s, errput:%s", outb.String(), errb.String())
+	t.Logf("output: %s, errput: %s", outb.String(), errb.String())
 	if e != nil {
 		c.Stderr = os.Stderr
-		t.Fatalf("go build failed:%v", e)
+		t.Fatalf("go build failed: %v", e)
 	}
 
 	p1 := filepath.Join(p, ELF_BUILD_BY_CGO)
 	ver, err := ExtraceGoVersion(p1)
-	t.Logf("Extrace GoVersion from CGO ELF :%s", p1)
+	t.Logf("Extrace GoVersion from CGO ELF: %s", p1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("version found :%v", ver)
+	t.Logf("version found: %v", ver)
 }

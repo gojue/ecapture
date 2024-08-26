@@ -69,13 +69,13 @@ func (te *TcSkbEvent) Decode(payload []byte) (err error) {
 func (te *TcSkbEvent) StringHex() string {
 	b := dumpByteSlice(te.payload, COLORGREEN)
 	b.WriteString(COLORRESET)
-	s := fmt.Sprintf("Pid:%d, Comm:%s, Length:%d, Ifindex:%d, Payload:%s", te.Pid, te.Comm, te.Len, te.Ifindex, b.String())
+	s := fmt.Sprintf("Pid: %d, Comm: %s, Length: %d, Ifindex: %d, Payload: %s", te.Pid, te.Comm, te.Len, te.Ifindex, b.String())
 	return s
 }
 
 func (te *TcSkbEvent) String() string {
 
-	s := fmt.Sprintf("Pid:%d, Comm:%s, Length:%d, Ifindex:%d, Payload:[internal data]", te.Pid, te.Comm, te.Len, te.Ifindex)
+	s := fmt.Sprintf("Pid: %d, Comm: %s, Length: %d, Ifindex: %d, Payload:[internal data]", te.Pid, te.Comm, te.Len, te.Ifindex)
 	return s
 }
 

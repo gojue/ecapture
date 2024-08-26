@@ -25,7 +25,7 @@ func TestHttp2RequestParser(t *testing.T) {
 	h2File := "testdata/952293616935738.bin"
 	httpBody, err := os.ReadFile(h2File)
 	if err != nil {
-		t.Fatalf("TestHttp2RequestParser: read payload file error: %s, file:%s", err.Error(), h2File)
+		t.Fatalf("TestHttp2RequestParser: read payload file error: %s, file: %s", err.Error(), h2File)
 	}
 
 	h2r := &HTTP2Request{}
@@ -38,27 +38,27 @@ func TestHttp2RequestParser(t *testing.T) {
 	if e != nil {
 		t.Errorf("TestHttp2RequestParser: write http request failed: %v", e)
 	}
-	t.Logf("TestHttp2RequestParser: wrot body:%d", i)
+	t.Logf("TestHttp2RequestParser: wrot body: %d", i)
 
 	_, err = h2r.bufReader.Discard(H2MagicLen)
 	if err != nil {
-		t.Logf("[http2 request] Discard HTTP2 Magic error:%v", err)
+		t.Logf("[http2 request] Discard HTTP2 Magic error: %v", err)
 	}
 	var frameTypes = make([]string, 0)
 	for {
 		f, err := h2r.framer.ReadFrame()
 		if err != nil {
 			if err != io.EOF {
-				t.Fatalf("[http2 response] read http2 response frame error:%v", err)
+				t.Fatalf("[http2 response] read http2 response frame error: %v", err)
 			}
 			break
 		}
 		switch f := f.(type) {
 		case *http2.MetaHeadersFrame:
-			t.Logf("TestHttp2RequestParser: frame type:%s", f.Type)
+			t.Logf("TestHttp2RequestParser: frame type: %s", f.Type)
 			frameTypes = append(frameTypes, f.Type.String())
 		case *http2.DataFrame:
-			t.Logf("TestHttp2RequestParser: frame type:%s", f.Type)
+			t.Logf("TestHttp2RequestParser: frame type: %s", f.Type)
 			frameTypes = append(frameTypes, f.Type.String())
 		default:
 			fh := f.Header()
@@ -67,6 +67,6 @@ func TestHttp2RequestParser(t *testing.T) {
 		}
 	}
 	if len(frameTypes) != 5 {
-		t.Fatalf("TestHttp2ResponseParser: frameTypes length error, want: 5, got:%d", len(frameTypes))
+		t.Fatalf("TestHttp2ResponseParser: frameTypes length error, want: 5, got: %d", len(frameTypes))
 	}
 }

@@ -45,8 +45,8 @@ function ecapture.dissector(buffer, pinfo, tree)
   local magic = trailer(0, 4):uint()
   if(magic ~= ECAPTURE_MAGIC) then
 --     print("trailerlength:"..trailerlength)
---     print("magic:%x", magic)
---     print("trailer:%x", trailer)
+--     print("magic: %x", magic)
+--     print("trailer: %x", trailer)
     return
   end
 

@@ -58,6 +58,6 @@
 // bssl::SSL_HANDSHAKE->expected_client_finished_
 #define SSL_HANDSHAKE_EXPECTED_CLIENT_FINISHED_ SSL_HANDSHAKE_SECRET_+SSL_MAX_MD_SIZE*6
 
-///////////////////////////  END   ///////////////////////////
+///////////////////////////  END  ///////////////////////////
 
 #endif

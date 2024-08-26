@@ -24,7 +24,7 @@ func TestBpfConfig(t *testing.T) {
 	// 检测是否是容器
 	isContainer, err := IsContainer()
 	if err != nil {
-		t.Fatal("Check container error:", err)
+		t.Fatal("Check container error: ", err)
 	}
 
 	if isContainer {
@@ -39,7 +39,7 @@ func TestBpfConfig(t *testing.T) {
 	_, e := GetSystemConfig()
 	if e != nil {
 		// 正常情况 是没有找到配置文件
-		t.Logf("GetSystemConfig error:%s", e.Error())
+		t.Logf("GetSystemConfig error: %s", e.Error())
 	}
 
 	// 测试 config.gz 的解压，查找配置项
@@ -49,23 +49,23 @@ func TestBpfConfig(t *testing.T) {
 	}
 	m, e := GetSystemConfig()
 	if e != nil {
-		t.Fatalf("GetSystemConfig(gzip) error:%s", e.Error())
+		t.Fatalf("GetSystemConfig(gzip) error: %s", e.Error())
 	}
 	for _, item := range configCheckItems {
 		bc, found := m[item]
 		if !found {
 			// 没有这个配置项
-			t.Logf("Config not found,  item:%s.", item)
+			t.Logf("Config not found, item: %s.", item)
 		} else {
-			t.Logf("Config found, item:%s, value:%s.", item, bc)
+			t.Logf("Config found, item: %s, value: %s.", item, bc)
 		}
 
 		//如果有，在判断配置项的值
 		if bc != "y" {
 			// 没有开启
-			t.Logf("Config disabled, item :%s.", item)
+			t.Logf("Config disabled, item: %s.", item)
 		} else {
-			t.Logf("Config enabled, item :%s.", item)
+			t.Logf("Config enabled, item: %s.", item)
 		}
 	}
 
@@ -79,19 +79,19 @@ func TestBpfConfig(t *testing.T) {
 	}
 	m, e = GetSystemConfig()
 	if e != nil {
-		t.Fatalf("GetSystemConfig error:%s", e.Error())
+		t.Fatalf("GetSystemConfig error: %s", e.Error())
 	}
 	for _, item := range configCheckItems {
 		bc, found := m[item]
 		if !found {
 			// 没有这个配置项
-			t.Logf("Config not found,  item:%s.", item)
+			t.Logf("Config not found, item: %s.", item)
 		}
 
 		//如果有，在判断配置项的值
 		if bc != "y" {
 			// 没有开启
-			t.Logf("Config disabled, item :%s.", item)
+			t.Logf("Config disabled, item: %s.", item)
 		}
 	}
 	t.Logf("GetSystemConfig success")
@@ -100,7 +100,7 @@ func TestBpfConfig(t *testing.T) {
 func TestIsContainerCgroup(t *testing.T) {
 	isContainer, err := isContainerCgroup()
 	if err != nil {
-		t.Fatalf("TestIsContainerCgroup :: IsContainer error:%s", err.Error())
+		t.Fatalf("TestIsContainerCgroup :: IsContainer error: %s", err.Error())
 	}
 	if isContainer {
 		t.Logf("TestIsContainerCgroup :: IsContainer true")
@@ -112,7 +112,7 @@ func TestIsContainerCgroup(t *testing.T) {
 func TestIsContainerSched(t *testing.T) {
 	isContainer, err := isContainerSched()
 	if err != nil {
-		t.Fatalf("TestIsContainerSched :: IsContainer error:%s", err.Error())
+		t.Fatalf("TestIsContainerSched :: IsContainer error: %s", err.Error())
 	}
 	if isContainer {
 		t.Logf("TestIsContainerSched :: IsContainer true")

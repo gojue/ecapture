@@ -147,7 +147,7 @@ func (be *BaseEvent) StringHex() string {
 	b := dumpByteSlice(be.Data[:be.DataLen], prefix)
 
 	v := tlsVersion{version: be.Version}
-	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, %s, Version:%s, Payload:\n%s", be.Pid, CToGoString(be.Comm[:]), be.Tid, connInfo, v.String(), b.String())
+	s := fmt.Sprintf("PID: %d, Comm: %s, TID: %d, %s, Version: %s, Payload:\n%s", be.Pid, CToGoString(be.Comm[:]), be.Tid, connInfo, v.String(), b.String())
 	return s
 }
 
@@ -163,7 +163,7 @@ func (be *BaseEvent) String() string {
 		connInfo = fmt.Sprintf("UNKNOW_%d", be.DataType)
 	}
 	v := tlsVersion{version: be.Version}
-	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, Version:%s, %s, Payload:\n%s", be.Pid, bytes.TrimSpace(be.Comm[:]), be.Tid, v.String(), connInfo, string(be.Data[:be.DataLen]))
+	s := fmt.Sprintf("PID: %d, Comm: %s, TID: %d, Version: %s, %s, Payload:\n%s", be.Pid, bytes.TrimSpace(be.Comm[:]), be.Tid, v.String(), connInfo, string(be.Data[:be.DataLen]))
 	return s
 }
 

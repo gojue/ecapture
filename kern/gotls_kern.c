@@ -109,7 +109,7 @@ static __always_inline int gotls_write(struct pt_regs *ctx,
     if (len == 0) {
         return 0;
     }
-    debug_bpf_printk("gotls_write record_type:%d, len:%d\n", record_type, len);
+    debug_bpf_printk("gotls_write record_type: %d, len: %d\n", record_type, len);
     if (record_type != recordTypeApplicationData) {
         return 0;
     }
@@ -124,7 +124,7 @@ static __always_inline int gotls_write(struct pt_regs *ctx,
         bpf_probe_read_user(&event->data, sizeof(event->data), (void *)str);
     if (ret < 0) {
         debug_bpf_printk(
-            "gotls_write bpf_probe_read_user_str failed, ret:%d, str:%d\n", ret,
+            "gotls_write bpf_probe_read_user_str failed, ret: %d, str: %d\n", ret,
             str);
         return 0;
     }
@@ -172,8 +172,8 @@ static __always_inline int gotls_read(struct pt_regs *ctx,
         return 0;
     }
 
-    debug_bpf_printk("gotls_read event, str addr:%p, len:%d\n", len_ptr, len);
-    debug_bpf_printk("gotls_read event, str ret_len_ptr:%d, ret_len:%d\n",
+    debug_bpf_printk("gotls_read event, str addr: %p, len: %d\n", len_ptr, len);
+    debug_bpf_printk("gotls_read event, str ret_len_ptr: %d, ret_len: %d\n",
                      ret_len_ptr, ret_len);
     event->data_len = len;
     event->event_type = GOTLS_EVENT_TYPE_READ;
@@ -181,7 +181,7 @@ static __always_inline int gotls_read(struct pt_regs *ctx,
         bpf_probe_read_user(&event->data, sizeof(event->data), (void *)str);
     if (ret < 0) {
         debug_bpf_printk(
-            "gotls_text bpf_probe_read_user_str failed, ret:%d, str:%d\n", ret,
+            "gotls_text bpf_probe_read_user_str failed, ret: %d, str: %d\n", ret,
             str);
         return 0;
     }
@@ -238,8 +238,8 @@ static __always_inline int gotls_mastersecret(struct pt_regs *ctx,
     }
 
     debug_bpf_printk(
-        "gotls_mastersecret read params length success, lab_len:%d, cr_len:%d, "
-        "secret_len:%d\n",
+        "gotls_mastersecret read params length success, lab_len: %d, cr_len: %d, "
+        "secret_len: %d\n",
         lab_len, cr_len, secret_len);
 
     struct mastersecret_gotls_t mastersecret_gotls = {};
@@ -251,13 +251,13 @@ static __always_inline int gotls_mastersecret(struct pt_regs *ctx,
                                       (void *)lab_ptr);
     if (ret < 0) {
         debug_bpf_printk(
-            "gotls_mastersecret read mastersecret label failed, ret:%d, "
-            "lab_ptr:%p\n",
+            "gotls_mastersecret read mastersecret label failed, ret: %d, "
+            "lab_ptr: %p\n",
             ret, lab_ptr);
         return 0;
     }
 
-    debug_bpf_printk("gotls_mastersecret read mastersecret label:%s\n",
+    debug_bpf_printk("gotls_mastersecret read mastersecret label: %s\n",
                      mastersecret_gotls.label);
     ret = bpf_probe_read_user_str(&mastersecret_gotls.client_random,
                                   sizeof(mastersecret_gotls.client_random),
@@ -265,7 +265,7 @@ static __always_inline int gotls_mastersecret(struct pt_regs *ctx,
     if (ret < 0) {
         debug_bpf_printk(
             "gotls_mastersecret read mastersecret client_random failed, "
-            "ret:%d, cr_ptr:%p\n",
+            "ret: %d, cr_ptr: %p\n",
             ret, cr_ptr);
         return 0;
     }
@@ -275,8 +275,8 @@ static __always_inline int gotls_mastersecret(struct pt_regs *ctx,
                                   (void *)secret_ptr);
     if (ret < 0) {
         debug_bpf_printk(
-            "gotls_mastersecret read mastersecret secret_ failed, ret:%d, "
-            "secret_ptr:%p\n",
+            "gotls_mastersecret read mastersecret secret_ failed, ret: %d, "
+            "secret_ptr: %p\n",
             ret, secret_ptr);
         return 0;
     }

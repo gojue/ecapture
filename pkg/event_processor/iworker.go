@@ -117,7 +117,7 @@ func (ew *eventWorker) Display() error {
 	}
 
 	//iWorker只负责写入，不应该打印。
-	e := ew.writeToChan(fmt.Sprintf("UUID:%s, Name:%s, Type:%d, Length:%d\n%s\n", ew.UUID, ew.parser.Name(), ew.parser.ParserType(), len(b), b))
+	e := ew.writeToChan(fmt.Sprintf("UUID: %s, Name: %s, Type: %d, Length: %d\n%s\n", ew.UUID, ew.parser.Name(), ew.parser.ParserType(), len(b), b))
 	//ew.parser.Reset()
 	// 设定状态、重置包类型
 	ew.status = ProcessStateInit
@@ -140,7 +140,7 @@ func (ew *eventWorker) parserEvents() []byte {
 	ew.parser = parser
 	n, e := ew.parser.Write(ew.payload.Bytes())
 	if e != nil {
-		_ = ew.writeToChan(fmt.Sprintf("ew.parser write payload %d bytes, error:%v", n, e))
+		_ = ew.writeToChan(fmt.Sprintf("ew.parser write payload %d bytes, error: %v", n, e))
 	}
 	ew.status = ProcessStateDone
 	return ew.parser.Display()

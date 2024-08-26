@@ -69,7 +69,7 @@ func (g *GoTLSProbe) Init(ctx context.Context, l *zerolog.Logger, cfg config.ICo
 	g.path = cfg.(*config.GoTLSConfig).Path
 	ver, err := proc.ExtraceGoVersion(g.path)
 	if err != nil {
-		return fmt.Errorf("%s, error:%v", NotGoCompiledBin, err)
+		return fmt.Errorf("%s, error: %v", NotGoCompiledBin, err)
 	}
 
 	// supported at 1.17 via https://github.com/golang/go/issues/40724
