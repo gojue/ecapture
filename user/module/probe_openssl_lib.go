@@ -249,10 +249,10 @@ func (m *MOpenSSLProbe) detectOpenssl(soPath string) error {
 	} else {
 		if strings.Contains(soPath, "libssl.so.3") {
 			bpfFile, _ = m.sslVersionBpfMap[Linuxdefaulefilename30]
-			m.logger.Info().Str("OpenSSL Version", Linuxdefaulefilename30).Msg("OpenSSL/BoringSSL version not found from shared library file, used default version")
+			m.logger.Warn().Str("OpenSSL Version", Linuxdefaulefilename30).Msg("OpenSSL/BoringSSL version not found from shared library file, used default version")
 		} else {
 			bpfFile, _ = m.sslVersionBpfMap[Linuxdefaulefilename111]
-			m.logger.Info().Str("OpenSSL Version", Linuxdefaulefilename111).Msg("OpenSSL/BoringSSL version not found from shared library file, used default version")
+			m.logger.Warn().Str("OpenSSL Version", Linuxdefaulefilename111).Msg("OpenSSL/BoringSSL version not found from shared library file, used default version")
 		}
 	}
 	m.sslBpfFile = bpfFile
