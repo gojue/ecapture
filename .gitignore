@@ -22,6 +22,9 @@
 # VSCode
 .vscode/settings.json
 
+#idea
+.idea/*
+
 bin/*
 /.check*
 /deps/*
