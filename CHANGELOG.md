@@ -1,5 +1,17 @@
+# v0.8.6 (2024-09-06)
+## What's Changed
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v0.8.5...v0.8.6
+<hr>
+
 # v0.8.5 (2024-08-19)
 ## What's Changed
+* feat: parse http2 data in text mode by @yuweizzz in https://github.com/gojue/ecapture/pull/580
+* pkg: add http2 request/response unit test. by @cfc4n in https://github.com/gojue/ecapture/pull/583
+* feat: allow capture ipv6 packet by @yuweizzz in https://github.com/gojue/ecapture/pull/586
+* workflows: remove Qodana CI workflow. by @cfc4n in https://github.com/gojue/ecapture/pull/589
+* Constant parameter notice by @cfc4n in https://github.com/gojue/ecapture/pull/591
+* user: split loggers, which are divided into loggers and event collectors by @cfc4n in https://github.com/gojue/ecapture/pull/592
 
 **Full Changelog**: https://github.com/gojue/ecapture/compare/v0.8.4...v0.8.5
 <hr>
