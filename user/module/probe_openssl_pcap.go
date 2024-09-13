@@ -124,6 +124,11 @@ func (m *MOpenSSLProbe) setupManagersPcap() error {
 				Section:          "kprobe/tcp_sendmsg",
 				AttachToFuncName: "tcp_sendmsg",
 			},
+			{
+				EbpfFuncName:     "udp_sendmsg",
+				Section:          "kprobe/udp_sendmsg",
+				AttachToFuncName: "udp_sendmsg",
+			},
 		},
 
 		Maps: []*manager.Map{

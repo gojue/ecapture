@@ -158,7 +158,7 @@ static __always_inline int capture_packets(struct __sk_buff *skb, bool is_ingres
         }
 
         struct ipv6hdr *iph = (struct ipv6hdr *)(data_start + sizeof(struct ethhdr));
-        if (iph->nexthdr != IPPROTO_TCP) {
+        if (iph->nexthdr != IPPROTO_TCP && iph->nexthdr != IPPROTO_UDP) {
             return TC_ACT_OK;
         }
 
@@ -170,15 +170,23 @@ static __always_inline int capture_packets(struct __sk_buff *skb, bool is_ingres
                                  l6_hdr_off + sizeof(struct tcphdr))) {
             return TC_ACT_OK;
         }
-        struct tcphdr *tcp = (struct tcphdr *)(data_start + l6_hdr_off);
+        // udphdr
+        // struct udphdr {
+        //  __be16	source;
+        //  __be16	dest;
+        //  __be16	len;
+        //  __sum16	check;
+        // };
+        // udp protocol reuse tcphdr
+        struct tcphdr *hdr = (struct tcphdr *)(data_start + l6_hdr_off);
 
 #ifndef KERNEL_LESS_5_2
     if (!filter_pcap_l2(skb, data_start, data_end))
         return TC_ACT_OK;
 #endif
-        
-        conn_id.src_port = bpf_ntohs(tcp->source);
-        conn_id.dst_port = bpf_ntohs(tcp->dest);
+
+        conn_id.src_port = bpf_ntohs(hdr->source);
+        conn_id.dst_port = bpf_ntohs(hdr->dest);
 
         net_ctx = bpf_map_lookup_elem(&network_map, &conn_id);
         if (net_ctx == NULL) {
@@ -200,7 +208,7 @@ static __always_inline int capture_packets(struct __sk_buff *skb, bool is_ingres
         // IP headers
         struct iphdr *iph = (struct iphdr *)(data_start + sizeof(struct ethhdr));
         // filter out non-TCP packets
-        if (iph->protocol != IPPROTO_TCP) {
+        if (iph->protocol != IPPROTO_TCP && iph->protocol != IPPROTO_UDP) {
             return TC_ACT_OK;
         }
 
@@ -212,15 +220,16 @@ static __always_inline int capture_packets(struct __sk_buff *skb, bool is_ingres
             return TC_ACT_OK;
         }
         // debug_bpf_printk("!!!capture_packets src_ip4 : %d, dst_ip4 port :%d\n", conn_id.src_ip4, conn_id.dst_ip4);
-        struct tcphdr *tcp = (struct tcphdr *)(data_start + l4_hdr_off);
+        // udp protocol reuse tcphdr
+        struct tcphdr *hdr = (struct tcphdr *)(data_start + l4_hdr_off);
 
 #ifndef KERNEL_LESS_5_2
     if (!filter_pcap_l2(skb, data_start, data_end))
         return TC_ACT_OK;
 #endif
 
-        conn_id.src_port = bpf_ntohs(tcp->source);
-        conn_id.dst_port = bpf_ntohs(tcp->dest);
+        conn_id.src_port = bpf_ntohs(hdr->source);
+        conn_id.dst_port = bpf_ntohs(hdr->dest);
         // debug_bpf_printk("!!!capture_packets port : %d, dest port :%d\n", conn_id.src_port, conn_id.dst_port);
         net_ctx = bpf_map_lookup_elem(&network_map, &conn_id);
         if (net_ctx == NULL) {
@@ -342,6 +351,56 @@ int tcp_sendmsg(struct pt_regs *ctx){
     bpf_get_current_comm(&net_ctx.comm, sizeof(net_ctx.comm));
 
     debug_bpf_printk("tcp_sendmsg pid : %d, comm :%s\n", net_ctx.pid, net_ctx.comm);
+    bpf_map_update_elem(&network_map, &conn_id, &net_ctx, BPF_ANY);
+    return 0;
+};
+
+SEC("kprobe/udp_sendmsg")
+int udp_sendmsg(struct pt_regs *ctx){
+    u32 pid = bpf_get_current_pid_tgid() >> 32;
+    u64 current_uid_gid = bpf_get_current_uid_gid();
+    u32 uid = current_uid_gid;
+    struct sock *sk = (struct sock *)PT_REGS_PARM1(ctx);
+    if (sk == NULL) {
+        return 0;
+    }
+
+    u16 family, lport, dport;
+    struct net_id_t conn_id = {0};
+    bpf_probe_read(&family, sizeof(family), &sk->__sk_common.skc_family);
+
+    if (family == AF_INET6) {
+        u32 src_ip6[4], dst_ip6[4];
+        bpf_probe_read(&lport, sizeof(lport), &sk->__sk_common.skc_num);
+        bpf_probe_read(&dport, sizeof(dport), &sk->__sk_common.skc_dport);
+        bpf_probe_read(&src_ip6, sizeof(src_ip6), &sk->__sk_common.skc_v6_rcv_saddr);
+        bpf_probe_read(&dst_ip6, sizeof(dst_ip6), &sk->__sk_common.skc_v6_daddr);
+
+        conn_id.protocol = IPPROTO_UDP;
+        conn_id.src_port = lport;
+        conn_id.dst_port = bpf_ntohs(dport);
+        __builtin_memcpy(conn_id.src_ip6, src_ip6, sizeof(src_ip6));
+        __builtin_memcpy(conn_id.dst_ip6, dst_ip6, sizeof(dst_ip6));
+    } else if (family == AF_INET) {
+        u32 src_ip4, dst_ip4;
+        bpf_probe_read(&lport, sizeof(lport), &sk->__sk_common.skc_num);
+        bpf_probe_read(&dport, sizeof(dport), &sk->__sk_common.skc_dport);
+        bpf_probe_read(&src_ip4, sizeof(src_ip4), &sk->__sk_common.skc_rcv_saddr);
+        bpf_probe_read(&dst_ip4, sizeof(dst_ip4), &sk->__sk_common.skc_daddr);
+
+        conn_id.protocol = IPPROTO_UDP;
+        conn_id.src_port = lport;
+        conn_id.src_ip4 = src_ip4;
+        conn_id.dst_port = bpf_ntohs(dport);
+        conn_id.dst_ip4 = dst_ip4;
+    }
+
+    struct net_ctx_t net_ctx;
+    net_ctx.pid = pid;
+    net_ctx.uid = uid;
+    bpf_get_current_comm(&net_ctx.comm, sizeof(net_ctx.comm));
+
+    debug_bpf_printk("udp_sendmsg pid: %d, comm: %s\n", net_ctx.pid, net_ctx.comm);
     bpf_map_update_elem(&network_map, &conn_id, &net_ctx, BPF_ANY);
     return 0;
 };
