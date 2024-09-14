@@ -156,12 +156,16 @@ static __always_inline int gotls_read(struct pt_regs *ctx,
     str = (void *)go_get_argument_by_stack(ctx, 2);
     len_ptr = (void *)go_get_argument_by_stack(ctx, 3);
     bpf_probe_read_kernel(&len, sizeof(len), (void *)&len_ptr);
-
-    // Read函数的返回值第一个是int类型，存放在栈里的顺序是5
-    ret_len_ptr = (void *)go_get_argument_by_stack(ctx, 5);
-    bpf_probe_read_kernel(&ret_len, sizeof(ret_len), (void *)&ret_len_ptr);
     if (len <= 0) {
         return 0;
+    }
+
+    if (is_register_abi) {
+        ret_len = (int)go_get_argument_by_reg(ctx, 1);
+    } else {
+        // Read函数的返回值第一个是int类型，存放在栈里的顺序是5
+        ret_len_ptr = (void *)go_get_argument_by_stack(ctx, 5);
+        bpf_probe_read_kernel(&ret_len, sizeof(ret_len), (void *)&ret_len_ptr);
     }
     if (ret_len <= 0 ) {
         return 0;
