@@ -21,19 +21,20 @@ if [[ ! -f "${OPENSSL_DIR}/.git" ]]; then
   fi
 fi
 
-# openssl 3.3.* 跟 3.2.* 的offset一致，故这里采用 3.2的文件名。
+# openssl 3.3.* 跟 3.2.* 的offset一致。
 function run() {
   git fetch --tags
   cp -f ${PROJECT_ROOT_DIR}/utils/openssl_3_2_0_offset.c ${OPENSSL_DIR}/offset.c
   declare -A sslVerMap=()
   sslVerMap["0"]="0"
-  sslVerMap["1"]="1"
+  sslVerMap["1"]="0"
+  sslVerMap["2"]="0"
 
   # shellcheck disable=SC2068
   for ver in ${!sslVerMap[@]}; do
     tag="openssl-3.3.${ver}"
     val=${sslVerMap[$ver]}
-    header_file="${OUTPUT_DIR}/openssl_3_2_${val}_kern.c"
+    header_file="${OUTPUT_DIR}/openssl_3_3_${val}_kern.c"
     header_define="OPENSSL_3_2_$(echo ${val} | tr "[:lower:]" "[:upper:]")_KERN_H"
 
     if [[ -f ${header_file} ]]; then

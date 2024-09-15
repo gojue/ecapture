@@ -40,10 +40,11 @@ const (
 	MaxSupportedOpenSSL102Version = 'u'
 	MaxSupportedOpenSSL110Version = 'l'
 	MaxSupportedOpenSSL111Version = 'w'
-	MaxSupportedOpenSSL30Version  = 14
-	MaxSupportedOpenSSL31Version  = 6
-	MaxSupportedOpenSSL32Version  = 2
-	MaxSupportedOpenSSL33Version  = 1
+	MaxSupportedOpenSSL30Version  = 15
+	MaxSupportedOpenSSL31Version  = 7
+	SupportedOpenSSL32Version2    = 2 // openssl 3.2.0 ~ 3.2.2
+	MaxSupportedOpenSSL32Version  = 3 // openssl 3.2.3 ~ newer
+	MaxSupportedOpenSSL33Version  = 2
 )
 
 // initOpensslOffset initial BpfMap
@@ -95,7 +96,7 @@ func (m *MOpenSSLProbe) initOpensslOffset() {
 		m.sslVersionBpfMap["openssl 1.1.1"+string(ch)] = "openssl_1_1_1j_kern.o"
 	}
 
-	// openssl 3.0.0 - 3.0.12
+	// openssl 3.0.0 - 3.0.15
 	for ch := 0; ch <= MaxSupportedOpenSSL30Version; ch++ {
 		m.sslVersionBpfMap[fmt.Sprintf("openssl 3.0.%d", ch)] = "openssl_3_0_0_kern.o"
 	}
@@ -103,18 +104,23 @@ func (m *MOpenSSLProbe) initOpensslOffset() {
 	// openssl 3.1.0 - 3.1.4
 	for ch := 0; ch <= MaxSupportedOpenSSL31Version; ch++ {
 		// The OpenSSL 3.0 series is the same as the 3.1 series of offsets
-		m.sslVersionBpfMap[fmt.Sprintf("openssl 3.1.%d", ch)] = "openssl_3_0_0_kern.o"
+		m.sslVersionBpfMap[fmt.Sprintf("openssl 3.1.%d", ch)] = "openssl_3_1_0_kern.o"
 	}
 
 	// openssl 3.2.0
-	for ch := 0; ch <= MaxSupportedOpenSSL32Version; ch++ {
+	for ch := 0; ch <= SupportedOpenSSL32Version2; ch++ {
 		m.sslVersionBpfMap[fmt.Sprintf("openssl 3.2.%d", ch)] = "openssl_3_2_0_kern.o"
 	}
 
-	// openssl 3.3.0
+	// openssl 3.2.3 - newer
+	for ch := 3; ch <= MaxSupportedOpenSSL32Version; ch++ {
+		m.sslVersionBpfMap[fmt.Sprintf("openssl 3.2.%d", ch)] = "openssl_3_2_3_kern.o"
+	}
+
+	// openssl 3.3.0 - newer
 	for ch := 0; ch <= MaxSupportedOpenSSL33Version; ch++ {
 		// The OpenSSL 3.3.* series is the same as the 3.2.* series of offsets
-		m.sslVersionBpfMap[fmt.Sprintf("openssl 3.3.%d", ch)] = "openssl_3_2_0_kern.o"
+		m.sslVersionBpfMap[fmt.Sprintf("openssl 3.3.%d", ch)] = "openssl_3_3_0_kern.o"
 	}
 
 	// openssl 1.1.0a - 1.1.0l
