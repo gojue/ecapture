@@ -10,13 +10,14 @@
 ### eCapture(旁观者): capture SSL/TLS text content without a CA certificate using eBPF.
 
 > **Note:**
+>
 > Supports Linux/Android kernel versions x86_64 4.18 and above, **aarch64 5.5** and above.
 > Need ROOT permission.
 > Does not support Windows and macOS system.
 
 ----
-<!-- MarkdownTOC autolink="true" -->
 
+<!-- MarkdownTOC autolink="true" -->
 - [Introduction](#introduction)
 - [Getting started](#getting-started)
   - [Download](#download)
@@ -31,7 +32,6 @@
 - [Contributing](#contributing)
 - [Compilation](#compilation)
 <!-- /MarkdownTOC -->
-----
 
 # Introduction
 
@@ -53,7 +53,7 @@
 > support Linux/Android x86_64/aarch64.
 
 Download ELF zip file [release](https://github.com/gojue/ecapture/releases) , unzip and use by
-command `./ecapture --help`.
+command `sudo ecapture --help`.
 
 ### Docker image
 
@@ -146,57 +146,6 @@ Frame Type	=>	DATA
 The document has moved
 <A HREF="https://www.google.com/">here</A>.
 </BODY></HTML>
-
-
-2024-09-15T11:50:28Z INF AppName="eCapture(旁观者)"
-2024-09-15T11:50:28Z INF HomePage=https://ecapture.cc
-2024-09-15T11:50:28Z INF Repository=https://github.com/gojue/ecapture
-2024-09-15T11:50:28Z INF Author="CFC4N <cfc4ncs@gmail.com>"
-2024-09-15T11:50:28Z INF Description="Capturing SSL/TLS plaintext without a CA certificate using eBPF. Supported on Linux/Android kernels for amd64/arm64."
-2024-09-15T11:50:28Z INF Version=linux_arm64:0.8.6-20240915-d87ae48:5.15.0-113-generic
-2024-09-15T11:50:28Z INF Listen=localhost:28256
-2024-09-15T11:50:28Z INF eCapture running logs logger=
-2024-09-15T11:50:28Z INF the file handler that receives the captured event eventCollector=
-2024-09-15T11:50:28Z WRN ========== module starting. ==========
-2024-09-15T11:50:28Z INF listen=localhost:28256
-2024-09-15T11:50:28Z INF https server starting...You can update the configuration file via the HTTP interface.
-2024-09-15T11:50:28Z INF Kernel Info=5.15.152 Pid=233458
-2024-09-15T11:50:28Z INF BTF bytecode mode: CORE. btfMode=0
-2024-09-15T11:50:28Z INF master key keylogger has been set. eBPFProgramType=Text keylogger=
-2024-09-15T11:50:28Z INF module initialization. isReload=false moduleName=EBPFProbeOPENSSL
-2024-09-15T11:50:28Z INF Module.Run()
-2024-09-15T11:50:28Z WRN OpenSSL/BoringSSL version not found from shared library file, used default version OpenSSL Version=linux_default_3_0
-2024-09-15T11:50:28Z INF Hook masterKey function ElfType=2 Functions=["SSL_get_wbio","SSL_in_before","SSL_do_handshake"] binrayPath=/usr/lib/aarch64-linux-gnu/libssl.so.3
-2024-09-15T11:50:28Z INF target all process.
-2024-09-15T11:50:28Z INF target all users.
-2024-09-15T11:50:28Z INF setupManagers eBPFProgramType=Text
-2024-09-15T11:50:28Z INF BPF bytecode file is matched. bpfFileName=user/bytecode/openssl_3_0_0_kern_core.o
-2024-09-15T11:50:28Z INF perfEventReader created mapSize(MB)=4
-2024-09-15T11:50:28Z INF perfEventReader created mapSize(MB)=4
-2024-09-15T11:50:28Z INF module started successfully. isReload=false moduleName=EBPFProbeOPENSSL
-2024-09-15T11:50:31Z ??? UUID:233479_233479_curl_5_1_39.156.66.10:443, Name:HTTPRequest, Type:1, Length:73
-GET / HTTP/1.1
-Host: baidu.com
-Accept: */*
-User-Agent: curl/7.81.0
-
-
-2024-09-15T11:50:32Z ??? UUID:233479_233479_curl_5_0_39.156.66.10:443, Name:HTTPResponse, Type:3, Length:357
-HTTP/1.1 302 Moved Temporarily
-Content-Length: 161
-Connection: keep-alive
-Content-Type: text/html
-Date: Sun, 15 Sep 2024 11:50:30 GMT
-Location: http://www.baidu.com/
-Server: bfe/1.0.8.18
-
-<html>
-<head><title>302 Found</title></head>
-<body bgcolor="white">
-<center><h1>302 Found</h1></center>
-<hr><center>bfe/1.0.8.18</center>
-</body>
-</html>
 ```
 
 ## Modules
@@ -220,16 +169,17 @@ If target program is compile statically, you can set program path as `--libssl` 
 
 The OpenSSL module supports three capture modes:
 
-- `pcap`/`pcapng` mode stores captured plaintext data in pcap-NG format.
+- `pcap`/`pcapng` mode stores captured plaintext data in `pcap-NG` format.
 - `keylog`/`key` mode saves the TLS handshake keys to a file.
 - `text` mode directly captures plaintext data, either outputting to a specified file or printing to the command line.
 
 #### Pcap Mode
 
+Supported TLS encrypted http `1.0/1.1/2.0` over TCP, and http3 `QUIC` protocol over UDP.
 You can specify `-m pcap` or `-m pcapng` and use it in conjunction with `--pcapfile` and `-i` parameters. The default value for `--pcapfile` is `ecapture_openssl.pcapng`.
 
 ```shell
-sudo bin/ecapture tls -m pcap -w ecap.pcapng -i ens160
+sudo ecapture tls -m pcap -w ecap.pcapng -i ens160
 2024-09-15T06:54:12Z INF AppName="eCapture(旁观者)"
 2024-09-15T06:54:12Z INF HomePage=https://ecapture.cc
 2024-09-15T06:54:12Z INF Repository=https://github.com/gojue/ecapture
@@ -274,7 +224,7 @@ sudo bin/ecapture tls -m pcap -w ecap.pcapng -i ens160
 Used `Wireshark` to open `ecap.pcapng` file to view the plaintext data packets.
 
 ```shell
-./ecapture tls -m pcap -i eth0 --pcapfile=ecapture.pcapng tcp port 443
+sudo ecapture tls -m pcap -i eth0 --pcapfile=ecapture.pcapng tcp port 443
 ```
 
 This command saves captured plaintext data packets as a pcapng file, which can be viewed using `Wireshark`.
@@ -286,7 +236,7 @@ You can specify `-m keylog` or `-m key` and use it in conjunction with the `--ke
 The captured OpenSSL TLS `Master Secret` information is saved to `--keylogfile`. You can also enable `tcpdump` packet capture and then use `Wireshark` to open the file and set the `Master Secret` path to view plaintext data packets.
 
 ```shell
-./ecapture tls -m keylog -keylogfile=openssl_keylog.log
+sudo ecapture tls -m keylog -keylogfile=openssl_keylog.log
 ```
 
 You can also directly use the `tshark` software for real-time decryption and display:
@@ -297,7 +247,8 @@ tshark -o tls.keylog_file:ecapture_masterkey.log -Y http -T fields -e http.file_
 
 #### Text Mode
 
-`./ecapture tls -m text` will output all plaintext data packets. (Starting from v0.7.0, it no longer captures SSLKEYLOG information.)
+`sudo ecapture tls -m text` will output all plaintext data packets. (Starting from v0.7.0, it no longer captures
+SSLKEYLOG information.)
 
 ### GoTLS Module
 
@@ -318,7 +269,7 @@ capture tls text context.
 
 Step 1:
 ```shell
-./ecapture gotls --elfpath=/home/cfc4n/go_https_client --hex
+sudo ecapture gotls --elfpath=/home/cfc4n/go_https_client --hex
 ```
 
 Step 2:
@@ -328,7 +279,7 @@ Step 2:
 
 #### more help
 ```shell
-./ecapture gotls -h
+sudo ecapture gotls -h
 ```
 
 ### Other Modules

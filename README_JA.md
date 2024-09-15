@@ -52,7 +52,7 @@
 ## ELF バイナリファイルを使用する
 
 ELF zip ファイル[リリース](https://github.com/gojue/ecapture/releases)をダウンロードし、解凍して
-コマンド `./ecapture --help` で使用します。
+コマンド `sudo ecapture --help` で使用します。
 
 * Linux kernel version >= 4.18 is required.
 * Enable BTF [BPF Type Format (BTF)](https://www.kernel.org/doc/html/latest/bpf/btf.html)  (Optional, 2022-04-17)
@@ -98,7 +98,7 @@ openssl模块支持3中捕获模式
 ### Pcap 模式
 你可以通过`-m pcap`或`-m pcapng`参数来指定，需要配合`--pcapfile`、`-i`参数使用。其中`--pcapfile`参数的默认值为`ecapture_openssl.pcapng`。
 ```shell
-./ecapture tls -m pcap -i eth0 --pcapfile=ecapture.pcapng --port=443
+sudo ecapture tls -m pcap -i eth0 --pcapfile=ecapture.pcapng --port=443
 ```
 将捕获的明文数据包保存为pcapng文件，可以使用`Wireshark`打开查看。
 
@@ -106,7 +106,7 @@ openssl模块支持3中捕获模式
 你可以通过`-m keylog`或`-m key`参数来指定，需要配合`--keylogfile`参数使用，默认为`ecapture_masterkey.log`。
 捕获的openssl TLS的密钥`Master Secret`信息，将保存到`--keylogfile`中。你也可以同时开启`tcpdump`抓包，再使用`Wireshark`打开，设置`Master Secret`路径，查看明文数据包。
 ```shell
-./ecapture tls -m keylog -keylogfile=openssl_keylog.log
+sudo ecapture tls -m keylog -keylogfile=openssl_keylog.log
 ```
 
 也可以直接使用`Wireshark`软件实时解密展示。
@@ -114,7 +114,8 @@ openssl模块支持3中捕获模式
 tshark -o tls.keylog_file:ecapture_masterkey.log -Y http -T fields -e http.file_data -f "port 443" -i eth0
 ```
 ### text 模式
-`./ecapture tls -m text ` 将会输出所有的明文数据包。（v0.7.0起，不再捕获SSLKEYLOG信息。）
+
+`sudo ecapture tls -m text ` 将会输出所有的明文数据包。（v0.7.0起，不再捕获SSLKEYLOG信息。）
 
 
 ## gotls 模块
@@ -131,7 +132,7 @@ CONFIG_DEBUG_INFO_BTF=y
 
 Step 1:
 ```shell
-./ecapture gotls --elfpath=/home/cfc4n/go_https_client --hex
+sudo ecapture gotls --elfpath=/home/cfc4n/go_https_client --hex
 ```
 
 Step 2:
@@ -140,7 +141,7 @@ Step 2:
 ```
 ### more help
 ```shell
-./ecapture gotls -h
+sudo ecapture gotls -h
 ```
 
 ### bash コマンド

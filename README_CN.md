@@ -141,7 +141,7 @@ eCapture 有8个模块，分别支持openssl/gnutls/nspr/boringssl/gotls等类�
 
 ### openssl  模块
 
-执行`./ecapture -h`查看详细帮助文档。
+执行`sudo ecapture -h`查看详细帮助文档。
 
 eCapture默认查找`/etc/ld.so.conf`文件，查找SO文件的加载目录，并查找`openssl`等动态链接路位置。你也可以通过`--libssl`
 参数指定动态链接库路径。
@@ -155,9 +155,11 @@ openssl模块支持3中捕获模式
 - text模式，直接捕获明文数据，输出到指定文件中，或者打印到命令行。
 
 #### Pcap 模式
+
+支持了TLS加密的基于TCP的http `1.0/1.1/2.0`应用层协议, 以及基于UDP的 http3 `QUIC`应用层协议。
 你可以通过`-m pcap`或`-m pcapng`参数来指定，需要配合`--pcapfile`、`-i`参数使用。其中`--pcapfile`参数的默认值为`ecapture_openssl.pcapng`。
 ```shell
-./ecapture tls -m pcap -i eth0 --pcapfile=ecapture.pcapng tcp port 443
+sudo ecapture tls -m pcap -i eth0 --pcapfile=ecapture.pcapng tcp port 443
 2024-09-15T06:54:12Z INF AppName="eCapture(旁观者)"
 2024-09-15T06:54:12Z INF HomePage=https://ecapture.cc
 2024-09-15T06:54:12Z INF Repository=https://github.com/gojue/ecapture
@@ -205,7 +207,7 @@ openssl模块支持3中捕获模式
 你可以通过`-m keylog`或`-m key`参数来指定，需要配合`--keylogfile`参数使用，默认为`ecapture_masterkey.log`。
 捕获的openssl TLS的密钥`Master Secret`信息，将保存到`--keylogfile`中。你也可以同时开启`tcpdump`抓包，再使用`Wireshark`打开，设置`Master Secret`路径，查看明文数据包。
 ```shell
-./ecapture tls -m keylog -keylogfile=openssl_keylog.log
+sudo ecapture tls -m keylog -keylogfile=openssl_keylog.log
 ```
 
 也可以直接使用`tshark`软件实时解密展示。
@@ -214,7 +216,8 @@ tshark -o tls.keylog_file:ecapture_masterkey.log -Y http -T fields -e http.file_
 ```
 
 #### text 模式
-`./ecapture tls -m text ` 将会输出所有的明文数据包。（v0.7.0起，不再捕获SSLKEYLOG信息。）
+
+`sudo ecapture tls -m text ` 将会输出所有的明文数据包。（v0.7.0起，不再捕获SSLKEYLOG信息。）
 
 ### gotls 模块
 与openssl模块类似。
@@ -230,7 +233,7 @@ CONFIG_DEBUG_INFO_BTF=y
 
 #### 启动eCapture
 ```shell
-./ecapture gotls --elfpath=/home/cfc4n/go_https_client --hex
+sudo ecapture gotls --elfpath=/home/cfc4n/go_https_client --hex
 ```
 
 #### 启动该程序:
@@ -241,7 +244,7 @@ CONFIG_DEBUG_INFO_BTF=y
 
 #### 更多帮助
 ```shell
-./ecapture gotls -h
+sudo ecapture gotls -h
 ```
 
 ### 其他模块
