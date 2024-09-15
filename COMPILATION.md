@@ -2,7 +2,10 @@
 
 - [How eCapture works](#how-ecapture-works)
 - [eCapture Architecture](#ecapture-architecture)
-- [How to compile](#how-to-compile)
+- [Compilation instructions](#compilation-instructions)
+  - [Compiling from source on Linux](#compiling-from-source-on-linux)
+  - [compile without BTF](#compile-without-btf)
+  - [cross-compilation](#cross-compilation)
 - [What's eBPF](#whats-ebpf)
 
 <!-- /MarkdownTOC -->
@@ -12,11 +15,11 @@
 
 ![](./images/how-ecapture-works.png)
 
-# eCapture Architecture
+# Architecture
 
 ![](./images/ecapture-architecture.png)
 
-# Compilation instructions for developers
+# Compilation instructions
 
 ## Compiling from source on Linux
 

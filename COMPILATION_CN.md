@@ -3,9 +3,12 @@
 - [eCapture 工作原理](#ecapture-工作原理)
 - [eCapture 系统架构](#ecapture-系统架构)
 - [编译方法](#编译方法)
+    - [编译环境](#编译环境)
+    - [未开启BTF的编译](#未开启btf的编译)
+    - [交叉编译](#交叉编译)
 - [原理](#原理)
-- [微信公众号](#微信公众号)
-
+    - [eBPF技术](#ebpf技术)
+    - [eBPF学习资料](#ebpf学习资料)
 <!-- /MarkdownTOC -->
 ----
 
@@ -127,5 +130,5 @@ CROSS_ARCH=arm64 make
 
 ## eBPF学习资料
 
-* [eBPF slides](https://github/gojue/ebpf-slide)
+* [eBPF PDF资料精选](https://github/gojue/ebpf-slide)
 * [CFC4N的博客](https://www.cnxct.com)
