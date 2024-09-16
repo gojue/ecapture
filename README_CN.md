@@ -38,14 +38,8 @@
 
 # 介绍
 
-eCapture的中文名字为**旁观者**，即「**当局者迷，旁观者清**」，与其本身功能**旁路、观察**契合，且发音与英文有相似之处。
-官方网站： [https://ecapture.cc](https://ecapture.cc)
-eBPF `Uprobe`/`Traffic Control`实现的各种用户空间/内核空间的数据捕获，无需改动原程序。
-
-* SSL/HTTPS数据导出功能，针对HTTPS的数据包抓取，不需要导入CA证书。
-* 支持go tls类库的明文捕获，即使用golang语言编写的https/tls程序的加密通讯。
-* bash的命令捕获，HIDS的bash命令监控解决方案。
-* mysql query等数据库的数据库审计解决方案。
+eCapture的中文名字为**旁观者**，即「**当局者迷，旁观者清**」，与其本身功能**旁路、观察**
+契合，且发音与英文有相似之处。eCapture使用eBPF `Uprobe`/`Traffic Control`技术，实现各种用户空间/内核空间的数据捕获，无需改动原程序。
 
 # 快速上手
 
@@ -54,13 +48,15 @@ eBPF `Uprobe`/`Traffic Control`实现的各种用户空间/内核空间的数据
 ### ELF可执行文件
 
 > **提醒**
-> 支持 Linux/Android x86_64/aarch64。
+>
+> 支持 Linux/Android的x86_64/aarch64 CPU架构。
 
 下载 [release](https://github.com/gojue/ecapture/releases) 的二进制包，可直接使用。
 
 ### Docker容器镜像
 
 > **提醒**
+>
 > 仅支持Linux x86_64/aarch64。
 
 ```shell
@@ -129,13 +125,14 @@ Server: bfe/1.0.8.18
 
 ## 模块介绍
 eCapture 有8个模块，分别支持openssl/gnutls/nspr/boringssl/gotls等类库的TLS/SSL加密类库的明文捕获、Bash、Mysql、PostGres软件审计。
-* bash		capture bash command
-* gnutls	capture gnutls text content without CA cert for gnutls libraries.
-* gotls		Capturing plaintext communication from Golang programs encrypted with TLS/HTTPS.
-* mysqld	capture sql queries from mysqld 5.6/5.7/8.0 .
-* nss		capture nss/nspr encrypted text content without CA cert for nss/nspr libraries.
-* postgres	capture sql queries from postgres 10+.
-* tls		use to capture tls/ssl text content without CA cert. (Support openssl 1.0.x/1.1.x/3.0.x or newer).
+
+* bash 捕获bash命令行的输入输出
+* gnutls 捕获基于gnutls类库加密通讯的明文内容
+* gotls 捕获使用Golang语言编写的，基于内置crypt类库实现TLS/HTTPS加密通讯的明文内容
+* mysqld 捕获Mysqld的SQL查询，适用于数据库审计场景，支持Mysqld 5.6/5.7/8.0等
+* nss 捕获基于nss类库加密通讯的明文内容
+* postgres 支持postgres 10+的数据库审计，捕获查询语句
+* tls 捕获基于Openssl/Boringssl的加密通讯的明文内容，支持Openssl 1.0.x/1.1.x/3.x以及更新版本，支持BoringSSL所有发行版本
 
 你可以通过`ecapture -h`来查看这些自命令列表。
 
@@ -259,7 +256,7 @@ eCapture 还支持其他模块，如`bash`、`mysql`、`nss`、`postgres`等，�
 
 ### 视频：Linux上使用eCapture
 
-![](./images/ecapture-help-v0.7.4.png)
+[![eCapture User Manual](./images/ecapture-user-manual.png)](https://www.bilibili.com/video/BV1si4y1Q74a "eCapture User Manual")
 
 ### 视频：Android上使用eCapture
 
