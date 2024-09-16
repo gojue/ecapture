@@ -39,7 +39,7 @@ func TestEventProcessor_Serve(t *testing.T) {
 		t.Fatal(e)
 	}
 	logger.SetOutput(f)
-	ep := NewEventProcessor(f, true)
+	ep := NewEventProcessor(f, true, "ecapture_test", "1.0.0")
 	go func() {
 		var err error
 		err = ep.Serve()

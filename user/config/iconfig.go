@@ -38,6 +38,10 @@ type IConfig interface {
 	GetPerCpuMapSize() int
 	SetPerCpuMapSize(int)
 	EnableGlobalVar() bool //
+	AppName() string
+	SetAppName(string)
+	AppVersion() string
+	SetAppVersion(string)
 	Bytes() []byte
 }
 
@@ -68,6 +72,9 @@ type BaseConfig struct {
 	LoggerAddr         string `json:"logger_addr"`          // logger address
 	LoggerType         uint8  `json:"logger_type"`          // 0:stdout, 1:file, 2:tcp
 	EventCollectorAddr string `json:"event_collector_addr"` // the server address that receives the captured event
+
+	appName    string // app name
+	appVersion string // app version
 }
 
 func (c *BaseConfig) GetPid() uint64 {
@@ -147,4 +154,20 @@ func (c *BaseConfig) Bytes() []byte {
 		return []byte{}
 	}
 	return b
+}
+
+func (c *BaseConfig) AppName() string {
+	return c.appName
+}
+
+func (c *BaseConfig) SetAppName(name string) {
+	c.appName = name
+}
+
+func (c *BaseConfig) AppVersion() string {
+	return c.appVersion
+}
+
+func (c *BaseConfig) SetAppVersion(version string) {
+	c.appVersion = version
 }

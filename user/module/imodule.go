@@ -100,8 +100,7 @@ func (m *Module) Init(ctx context.Context, logger *zerolog.Logger, conf config.I
 	m.errChan = make(chan error)
 	m.isKernelLess5_2 = false //set false default
 	m.eventCollector = eventCollector
-	//var epl = epLogger{logger: logger}
-	m.processor = event_processor.NewEventProcessor(eventCollector, conf.GetHex())
+	m.processor = event_processor.NewEventProcessor(logger, eventCollector, conf.GetHex(), conf.AppName(), conf.AppVersion())
 	kv, err := kernel.HostVersion()
 	if err != nil {
 		m.logger.Warn().Err(err).Msg("Unable to detect kernel version due to an error:%v.used non-Less5_2 bytecode.")
@@ -189,7 +188,7 @@ func (m *Module) Name() string {
 }
 
 func (m *Module) Run() error {
-	m.logger.Info().Msg("Module.Run()")
+	m.logger.Debug().Msg("Module.Run()")
 	//  start
 	err := m.child.Start()
 	if err != nil {
@@ -335,15 +334,15 @@ func (m *Module) ringbufEventReader(errChan chan error, em *ebpf.Map) {
 				return
 			}
 
-			var e event.IEventStruct
-			e, err = m.child.Decode(em, record.RawSample)
+			var ev event.IEventStruct
+			ev, err = m.child.Decode(em, record.RawSample)
 			if err != nil {
 				m.logger.Warn().Err(err).Msg("m.child.decode error")
 				continue
 			}
 
 			// 上报数据
-			m.Dispatcher(e)
+			m.Dispatcher(ev)
 		}
 	}()
 }
@@ -405,7 +404,7 @@ func (m *Module) Dispatcher(e event.IEventStruct) {
 
 func (m *Module) Close() error {
 	m.isClosed.Store(true)
-	m.logger.Info().Msg("iModule module close")
+	m.logger.Debug().Msg("iModule module close")
 	for _, iClose := range m.reader {
 		if err := iClose.Close(); err != nil {
 			return err

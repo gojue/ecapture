@@ -163,6 +163,7 @@ func (hr *HTTPResponse) Display() []byte {
 	//	for k, v := range hr.response.Header {
 	//		headerMap.WriteString(fmt.Sprintf("\t%s\t=>\t%s\n", k, v))
 	//	}
+	//b, err := http.ReadResponse(hr.bufReader, nil)
 	b, err := httputil.DumpResponse(hr.response, false)
 	if err != nil {
 		log.Println("[http response] DumpResponse error:", err)

@@ -116,13 +116,26 @@ func (ew *eventWorker) Display() error {
 		b = []byte(hex.Dump(b))
 	}
 
+	//  判断包的类型，是不是HTTP 相关，如果是，则转化为har格式
+	var err error
+	switch ew.parser.ParserType() {
+	//case ParserTypeHttp2Request:
+	//case ParserTypeWebSocket:
+	//case ParserTypeHttpResponse:
+	//case ParserTypeHttpRequest:
+	//case ParserTypeHttp2Response:
+	//case ParserTypeNull:
+	//	fallthrough
+	default:
+		err = ew.writeToChan(fmt.Sprintf("UUID:%s, Name:%s, Type:%d, Length:%d\n%s\n", ew.UUID, ew.parser.Name(), ew.parser.ParserType(), len(b), b))
+	}
 	//iWorker只负责写入，不应该打印。
-	e := ew.writeToChan(fmt.Sprintf("UUID:%s, Name:%s, Type:%d, Length:%d\n%s\n", ew.UUID, ew.parser.Name(), ew.parser.ParserType(), len(b), b))
+
 	//ew.parser.Reset()
 	// 设定状态、重置包类型
 	ew.status = ProcessStateInit
 	ew.packetType = PacketTypeNull
-	return e
+	return err
 }
 
 func (ew *eventWorker) writeEvent(e event.IEventStruct) {
@@ -153,8 +166,6 @@ func (ew *eventWorker) Run() {
 			// 输出包
 			if ew.tickerCount > MaxTickerCount {
 				//ew.processor.GetLogger().Printf("eventWorker TickerCount > %d, event closed.", MaxTickerCount)
-				ew.processor.delWorkerByUUID(ew)
-
 				/*
 					When returned from delWorkerByUUID(), there are two possibilities:
 					1) no routine can touch it.
@@ -205,6 +216,9 @@ func (ew *eventWorker) Close() {
 	ew.ticker.Stop()
 	_ = ew.Display()
 	ew.tickerCount = 0
+
+	// 关闭时清除
+	ew.processor.delWorkerByUUID(ew)
 }
 
 func (ew *eventWorker) Get() {
