@@ -152,7 +152,7 @@ func TestModifyResponse(t *testing.T) {
 		Name:     "response",
 		Value:    "cookie",
 		Path:     "/",
-		Domain:   "example.com",
+		Domain:   "baidu.com",
 		Expires:  expires,
 		Secure:   true,
 		HttpOnly: true,
@@ -177,6 +177,10 @@ func TestModifyResponse(t *testing.T) {
 	fmt.Printf("log.Entries: %+v\n", log.Entries)
 	fmt.Printf("log.Entries[0].Response: %+v\n", log.Entries[0].Response)
 	hres := log.Entries[0].Response
+	//t.Logf("hres: %+v\n", hres)
+	if hres == nil {
+		t.Fatalf("log.Entries[0].Response: got nil, want not nil")
+	}
 	if got, want := hres.Status, 301; got != want {
 		t.Errorf("hres.Status: got %d, want %d", got, want)
 	}
@@ -767,7 +771,9 @@ func TestOptionResponseBodyLogging(t *testing.T) {
 	if got, want := len(log.Entries), 1; got != want {
 		t.Fatalf("len(log.Entries): got %d, want %d", got, want)
 	}
-
+	if log.Entries[0].Response == nil {
+		t.Fatalf("log.Entries[0].Response is nil")
+	}
 	if got, want := string(log.Entries[0].Response.Content.Text), "{\"response\": \"body\"}"; got != want {
 		t.Fatalf("log.Entries[0].Response.Content.Text: got %s, want %s", got, want)
 	}

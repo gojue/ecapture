@@ -3,12 +3,18 @@ package event_processor
 import (
 	"encoding/json"
 	"fmt"
-	"io"
-	"log"
+	"github.com/rs/zerolog"
 	"os"
 	"strings"
 	"testing"
 	"time"
+)
+
+// ZeroLog print level
+const (
+	eTestEventLevel        = zerolog.Level(88)
+	eTestEventName         = "[DATA]"
+	eTestEventConsoleColor = 35 // colorMagenta
 )
 
 var (
@@ -28,23 +34,48 @@ type SSLDataEventTmp struct {
 	Data      [4096]byte `json:"Data"`
 }
 
+type eventTestWriter struct {
+	logger *zerolog.Logger
+}
+
+func (e eventTestWriter) Write(p []byte) (n int, err error) {
+	e.logger.WithLevel(eTestEventLevel).Msgf("%s", p)
+	return len(p), nil
+}
+
+func initTestLogger(stdoutFile string) (*zerolog.Logger, error) {
+	var logger zerolog.Logger
+	// append zerolog Global variables
+	zerolog.FormattedLevels[eTestEventLevel] = eTestEventName
+	zerolog.LevelColors[eTestEventLevel] = eTestEventConsoleColor
+
+	consoleWriter := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}
+	logger = zerolog.New(consoleWriter).With().Timestamp().Logger()
+	zerolog.SetGlobalLevel(zerolog.DebugLevel)
+
+	f, err := os.Create(stdoutFile)
+	if err != nil {
+		return nil, err
+	}
+	multi := zerolog.MultiLevelWriter(consoleWriter, f)
+	logger = zerolog.New(multi).With().Timestamp().Logger()
+	return &logger, nil
+}
+
 func TestEventProcessor_Serve(t *testing.T) {
 
-	logger := log.Default()
-	//var buf bytes.Buffer
-	//logger.SetOutput(&buf)
 	var output = "./output.log"
-	f, e := os.Create(output)
-	if e != nil {
-		t.Fatal(e)
+	lger, err := initTestLogger(output)
+	if err != nil {
+		t.Fatalf("init logger error: %s", err.Error())
 	}
-	logger.SetOutput(f)
-	ep := NewEventProcessor(f, true, "ecapture_test", "1.0.0")
+	var ecw = eventTestWriter{logger: lger}
+
+	ep := NewEventProcessor(lger, ecw, true, "ecapture_test", "1.0.0")
 	go func() {
 		var err error
 		err = ep.Serve()
 		if err != nil {
-			//log.Fatalf(err.Error())
 			t.Error(err)
 			return
 		}
@@ -78,7 +109,7 @@ func TestEventProcessor_Serve(t *testing.T) {
 	<-tick.C
 
 	err = ep.Close()
-	logger.SetOutput(io.Discard)
+	//logger.SetOutput(io.Discard)
 	bufString, e := os.ReadFile(output)
 	if e != nil {
 		t.Fatal(e)
