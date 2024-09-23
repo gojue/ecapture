@@ -40,7 +40,7 @@ type IWorker interface {
 
 const (
 	MaxTickerCount = 10 // 1 Sencond/(eventWorker.ticker.C) = 10
-	MaxChanLen     = 16 // 包队列长度
+	MaxChanLen     = 128 // 包队列长度
 	//MAX_EVENT_LEN    = 16 // 事件数组长度
 )
 
