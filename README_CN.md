@@ -6,11 +6,11 @@
 [![GitHub forks](https://img.shields.io/github/forks/gojue/ecapture?label=Forks&logo=github)](https://github.com/gojue/ecapture)
 [![CI](https://github.com/gojue/ecapture/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/gojue/ecapture/actions/workflows/code-analysis.yml)
 [![Github Version](https://img.shields.io/github/v/release/gojue/ecapture?display_name=tag&include_prereleases&sort=semver)](https://github.com/gojue/ecapture/releases)
+[![QQ 群](https://img.shields.io/badge/QQ群-%2312B7F5?logo=tencent-qq&logoColor=white&style=flat-square)](https://qm.qq.com/cgi-bin/qm/qr?k=iCu561fq4zdbHVdntQLFV0Xugrnf7Hpv&jump_from=webapi&authKey=YamGv189Cg+KFdQt1Qnsw6GZlpx8BYA+G2WZFezohY4M03V+l0eElZWOhZj/wR/5)
 
 ### eCapture(旁观者): 基于eBPF技术实现SSL/TLS加密的明文捕获，无需CA证书。
 
-> **提醒：**
->
+> [!TIP]
 > 支持Linux系统内核x86_64 4.18及以上版本，aarch64 5.5及以上版本；
 > 需要ROOT权限；
 > 不支持Windows、macOS系统；
@@ -47,16 +47,14 @@ eCapture的中文名字为**旁观者**，即「**当局者迷，旁观者清**�
 
 ### ELF可执行文件
 
-> **提醒**
->
+> [!IMPORTANT]
 > 支持 Linux/Android的x86_64/aarch64 CPU架构。
 
 下载 [release](https://github.com/gojue/ecapture/releases) 的二进制包，可直接使用。
 
 ### Docker容器镜像
 
-> **提醒**
->
+> [!TIP]
 > 仅支持Linux x86_64/aarch64。
 
 ```shell
