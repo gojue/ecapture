@@ -22,6 +22,7 @@
 
 enum ssl_data_event_type { kSSLRead, kSSLWrite };
 const u32 invalidFD = 0;
+const u32 noSetFd = 0;
 
 struct ssl_data_event_t {
     enum ssl_data_event_type type;
@@ -33,6 +34,7 @@ struct ssl_data_event_t {
     char comm[TASK_COMM_LEN];
     u32 fd;
     s32 version;
+    u32 is_set_fd;
 };
 
 struct connect_event_t {
@@ -128,6 +130,7 @@ static __inline struct ssl_data_event_t* create_ssl_data_event(
     event->pid = current_pid_tgid >> 32;
     event->tid = current_pid_tgid & kMask32b;
     event->fd = invalidFD;
+    event->is_set_fd = noSetFd;
 
     return event;
 }
@@ -138,7 +141,7 @@ static __inline struct ssl_data_event_t* create_ssl_data_event(
 
 static int process_SSL_data(struct pt_regs* ctx, u64 id,
                             enum ssl_data_event_type type, const char* buf,
-                            u32 fd, s32 version) {
+                            u32 fd, s32 version, u32 is_set_fd) {
     int len = (int)PT_REGS_RC(ctx);
     if (len < 0) {
         return 0;
@@ -151,6 +154,7 @@ static int process_SSL_data(struct pt_regs* ctx, u64 id,
 
     event->type = type;
     event->fd = fd;
+    event->is_set_fd = is_set_fd;
     event->version = version;
     // This is a max function, but it is written in such a way to keep older BPF
     // verifiers happy.
@@ -186,7 +190,7 @@ int probe_entry_SSL_write(struct pt_regs* ctx) {
         return 0;
     }
 #endif
-    debug_bpf_printk("openssl uprobe/SSL_write pid :%d\n", pid);
+    debug_bpf_printk("openssl uprobe/SSL_write pid: %d\n", pid);
 
     void* ssl = (void*)PT_REGS_PARM1(ctx);
     // https://github.com/openssl/openssl/blob/OpenSSL_1_1_1-stable/crypto/bio/bio_local.h
@@ -200,7 +204,7 @@ int probe_entry_SSL_write(struct pt_regs* ctx) {
                               ssl_ver_ptr);
     if (ret) {
         debug_bpf_printk(
-            "(OPENSSL) bpf_probe_read ssl_ver_ptr failed, ret :%d\n",
+            "(OPENSSL) bpf_probe_read ssl_ver_ptr failed, ret: %d\n",
             ret);
         return 0;
     }
@@ -210,7 +214,7 @@ int probe_entry_SSL_write(struct pt_regs* ctx) {
                               ssl_wbio_ptr);
     if (ret) {
         debug_bpf_printk(
-            "(OPENSSL) bpf_probe_read ssl_wbio_addr failed, ret :%d\n",
+            "(OPENSSL) bpf_probe_read ssl_wbio_addr failed, ret: %d\n",
             ret);
         return 0;
     }
@@ -221,7 +225,7 @@ int probe_entry_SSL_write(struct pt_regs* ctx) {
                               ssl_wbio_num_ptr);
     if (ret) {
         debug_bpf_printk(
-            "(OPENSSL) bpf_probe_read ssl_wbio_num_ptr failed, ret :%d\n",
+            "(OPENSSL) bpf_probe_read ssl_wbio_num_ptr failed, ret: %d\n",
             ret);
         return 0;
     }
@@ -236,7 +240,7 @@ int probe_entry_SSL_write(struct pt_regs* ctx) {
         } else {
         }
     }
-    debug_bpf_printk("openssl uprobe SSL_write FD:%d, version:%d\n", fd, ssl_version);
+    debug_bpf_printk("openssl uprobe/SSL_write fd: %d, version: %d\n", fd, ssl_version);
 
     const char* buf = (const char*)PT_REGS_PARM2(ctx);
     struct active_ssl_buf active_ssl_buf_t;
@@ -266,15 +270,20 @@ int probe_ret_SSL_write(struct pt_regs* ctx) {
         return 0;
     }
 #endif
-    debug_bpf_printk("openssl uretprobe/SSL_write pid :%d\n", pid);
+    debug_bpf_printk("openssl uretprobe/SSL_write pid: %d\n", pid);
     struct active_ssl_buf* active_ssl_buf_t =
         bpf_map_lookup_elem(&active_ssl_write_args_map, &current_pid_tgid);
     if (active_ssl_buf_t != NULL) {
         const char* buf;
         u32 fd = active_ssl_buf_t->fd;
+        u32 is_set_fd = noSetFd;
+        if (fd > 0) {
+            is_set_fd = 1;
+        }
+        debug_bpf_printk("openssl uretprobe/SSL_write is_set_fd: %d\n", is_set_fd);
         s32 version = active_ssl_buf_t->version;
         bpf_probe_read(&buf, sizeof(const char*), &active_ssl_buf_t->buf);
-        process_SSL_data(ctx, current_pid_tgid, kSSLWrite, buf, fd, version);
+        process_SSL_data(ctx, current_pid_tgid, kSSLWrite, buf, fd, version, is_set_fd);
     }
     bpf_map_delete_elem(&active_ssl_write_args_map, &current_pid_tgid);
     return 0;
@@ -288,7 +297,7 @@ int probe_entry_SSL_read(struct pt_regs* ctx) {
     u32 pid = current_pid_tgid >> 32;
     u64 current_uid_gid = bpf_get_current_uid_gid();
     u32 uid = current_uid_gid;
-    debug_bpf_printk("openssl uprobe/SSL_read pid :%d\n", pid);
+    debug_bpf_printk("openssl uprobe/SSL_read pid: %d\n", pid);
 
 #ifndef KERNEL_LESS_5_2
     // if target_ppid is 0 then we target all pids
@@ -312,7 +321,7 @@ int probe_entry_SSL_read(struct pt_regs* ctx) {
                               ssl_ver_ptr);
     if (ret) {
         debug_bpf_printk(
-            "(OPENSSL) bpf_probe_read ssl_ver_ptr failed, ret :%d\n",
+            "(OPENSSL) bpf_probe_read ssl_ver_ptr failed, ret: %d\n",
             ret);
         return 0;
     }
@@ -322,7 +331,7 @@ int probe_entry_SSL_read(struct pt_regs* ctx) {
                               ssl_rbio_ptr);
     if (ret) {
         debug_bpf_printk(
-            "(OPENSSL) bpf_probe_read ssl_rbio_ptr failed, ret :%d\n",
+            "(OPENSSL) bpf_probe_read ssl_rbio_ptr failed, ret: %d\n",
             ret);
         return 0;
     }
@@ -333,7 +342,7 @@ int probe_entry_SSL_read(struct pt_regs* ctx) {
                               ssl_rbio_num_ptr);
     if (ret) {
         debug_bpf_printk(
-            "(OPENSSL) bpf_probe_read ssl_rbio_num_ptr failed, ret :%d\n",
+            "(OPENSSL) bpf_probe_read ssl_rbio_num_ptr failed, ret: %d\n",
             ret);
         return 0;
     }
@@ -347,7 +356,7 @@ int probe_entry_SSL_read(struct pt_regs* ctx) {
         } else {
         }
     }
-    debug_bpf_printk("openssl uprobe PID:%d, SSL_read FD:%d\n", pid, fd);
+    debug_bpf_printk("openssl uprobe/SSL_read fd: %d, version: %d\n", fd, ssl_version);
 
     const char* buf = (const char*)PT_REGS_PARM2(ctx);
     struct active_ssl_buf active_ssl_buf_t;
@@ -366,7 +375,7 @@ int probe_ret_SSL_read(struct pt_regs* ctx) {
     u32 pid = current_pid_tgid >> 32;
     u64 current_uid_gid = bpf_get_current_uid_gid();
     u32 uid = current_uid_gid;
-    debug_bpf_printk("openssl uretprobe/SSL_read pid :%d\n", pid);
+    debug_bpf_printk("openssl uretprobe/SSL_read pid: %d\n", pid);
 
 #ifndef KERNEL_LESS_5_2
     // if target_ppid is 0 then we target all pids
@@ -383,9 +392,14 @@ int probe_ret_SSL_read(struct pt_regs* ctx) {
     if (active_ssl_buf_t != NULL) {
         const char* buf;
         u32 fd = active_ssl_buf_t->fd;
+        u32 is_set_fd = noSetFd;
+        if (fd > 0) {
+            is_set_fd = 1;
+        }
+        debug_bpf_printk("openssl uretprobe/SSL_read is_set_fd: %d\n", is_set_fd);
         s32 version = active_ssl_buf_t->version;
         bpf_probe_read(&buf, sizeof(const char*), &active_ssl_buf_t->buf);
-        process_SSL_data(ctx, current_pid_tgid, kSSLRead, buf, fd, version);
+        process_SSL_data(ctx, current_pid_tgid, kSSLRead, buf, fd, version, is_set_fd);
     }
     bpf_map_delete_elem(&active_ssl_read_args_map, &current_pid_tgid);
     return 0;
@@ -454,6 +468,6 @@ int probe_SSL_set_fd(struct pt_regs* ctx) {
     u64 ssl_addr = (u64)PT_REGS_PARM1(ctx);
     u64 fd = (u64)PT_REGS_PARM2(ctx);
     bpf_map_update_elem(&ssl_st_fd, &ssl_addr, &fd, BPF_ANY);
-    debug_bpf_printk("SSL_set_fd hook!!, ssl_addr:%d, fd:%d\n", ssl_addr, fd);
+    debug_bpf_printk("SSL_set_fd hook!!, ssl_addr: %d, fd: %d\n", ssl_addr, fd);
     return 0;
 }

@@ -80,6 +80,7 @@ type SSLDataEvent struct {
 	Fd        uint32            `json:"fd"`
 	Version   int32             `json:"version"`
 	Addr      string
+	IsSetFd   uint32
 }
 
 func (se *SSLDataEvent) Decode(payload []byte) (err error) {
