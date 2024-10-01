@@ -4,16 +4,15 @@
 
 [![GitHub stars](https://img.shields.io/github/stars/gojue/ecapture.svg?label=Stars&logo=github)](https://github.com/gojue/ecapture)
 [![GitHub forks](https://img.shields.io/github/forks/gojue/ecapture?label=Forks&logo=github)](https://github.com/gojue/ecapture)
-[![CI](https://github.com/gojue/ecapture/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/gojue/ecapture/actions/workflows/code-analysis.yml)
+[![CI](https://github.com/gojue/ecapture/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/gojue/ecapture/blob/master/.github/workflows/codeql-analysis.yml)
 [![Github Version](https://img.shields.io/github/v/release/gojue/ecapture?display_name=tag&include_prereleases&sort=semver)](https://github.com/gojue/ecapture/releases)
-[![QQ 群](https://img.shields.io/badge/QQ群-%2312B7F5?logo=tencent-qq&logoColor=white&style=flat-square)](https://qm.qq.com/cgi-bin/qm/qr?k=iCu561fq4zdbHVdntQLFV0Xugrnf7Hpv&jump_from=webapi&authKey=YamGv189Cg+KFdQt1Qnsw6GZlpx8BYA+G2WZFezohY4M03V+l0eElZWOhZj/wR/5)
+[![Docker](https://img.shields.io/docker/pulls/gojue/ecapture?style=flat&logo=docker)](https://github.com/gojue/ecapture)
+[![QQ 群](https://img.shields.io/badge/QQ_群-%2312B7F5?logo=tencent-qq&logoColor=white&style=flat)](https://qm.qq.com/cgi-bin/qm/qr?k=iCu561fq4zdbHVdntQLFV0Xugrnf7Hpv&jump_from=webapi&authKey=YamGv189Cg+KFdQt1Qnsw6GZlpx8BYA+G2WZFezohY4M03V+l0eElZWOhZj/wR/5)
 
 ### eCapture(旁观者): 基于eBPF技术实现SSL/TLS加密的明文捕获，无需CA证书。
 
-> [!TIP]
-> 支持Linux系统内核x86_64 4.18及以上版本，aarch64 5.5及以上版本；
-> 需要ROOT权限；
-> 不支持Windows、macOS系统；
+> [!IMPORTANT]
+> 支持Linux/Android系统内核x86_64 4.18及以上版本，aarch64 5.5及以上版本；不支持Windows、macOS系统；需要ROOT权限；
 
 ----
 <!-- MarkdownTOC autolink="true" -->
@@ -47,7 +46,7 @@ eCapture的中文名字为**旁观者**，即「**当局者迷，旁观者清**�
 
 ### ELF可执行文件
 
-> [!IMPORTANT]
+> [!TIP]
 > 支持 Linux/Android的x86_64/aarch64 CPU架构。
 
 下载 [release](https://github.com/gojue/ecapture/releases) 的二进制包，可直接使用。
@@ -61,7 +60,7 @@ eCapture的中文名字为**旁观者**，即「**当局者迷，旁观者清**�
 # 拉取镜像
 docker pull gojue/ecapture:latest
 # 运行
-docker run --rm --privileged=true --net=host -v ${宿主机文件路径}:${容器内路径} gojue/ecapture ARGS
+docker run --rm --privileged=true --net=host -v ${宿主机文件路径}:${容器内路径} gojue/ecapture ${启动参数}
 ```
 
 # 小试身手
@@ -266,7 +265,9 @@ eCapture 还支持其他模块，如`bash`、`mysql`、`nss`、`postgres`等，�
 
 # 贡献
 
-参考 [CONTRIBUTING](./CONTRIBUTING.md)的介绍，提交缺陷、补丁、建议等，非常感谢。
+参考 [CONTRIBUTING](./CONTRIBUTING.md)
+的介绍，提交缺陷、补丁、建议等，非常感谢。另外，[eCapture路线图](https://github.com/orgs/gojue/projects/1)
+里列出了很多待开发的任务，也欢迎您一起建设。
 
 # 编译
 
