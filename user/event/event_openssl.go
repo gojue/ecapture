@@ -150,7 +150,7 @@ func (se *SSLDataEvent) StringHex() string {
 	b.WriteString(COLORRESET)
 
 	v := TlsVersion{Version: se.Version}
-	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, %s, Version:%s, Payload:\n%s", se.Pid, CToGoString(se.Comm[:]), se.Tid, connInfo, v.String(), b.String())
+	s := fmt.Sprintf("PID: %d, Comm: %s, TID: %d, %s, Version: %s, Payload:\n%s", se.Pid, CToGoString(se.Comm[:]), se.Tid, connInfo, v.String(), b.String())
 	return s
 }
 
@@ -172,7 +172,7 @@ func (se *SSLDataEvent) String() string {
 		connInfo = fmt.Sprintf("%sUNKNOW_%d%s", COLORRED, se.DataType, COLORRESET)
 	}
 	v := TlsVersion{Version: se.Version}
-	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, Version:%s, %s, Payload:\n%s%s%s", se.Pid, bytes.TrimSpace(se.Comm[:]), se.Tid, v.String(), connInfo, perfix, string(se.Data[:se.DataLen]), COLORRESET)
+	s := fmt.Sprintf("PID: %d, Comm: %s, TID: %d, Version: %s, %s, Payload:\n%s%s%s", se.Pid, bytes.TrimSpace(se.Comm[:]), se.Tid, v.String(), connInfo, perfix, string(se.Data[:se.DataLen]), COLORRESET)
 	return s
 }
 
@@ -233,12 +233,12 @@ func (ce *ConnDataEvent) Decode(payload []byte) (err error) {
 }
 
 func (ce *ConnDataEvent) StringHex() string {
-	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, FD:%d, Addr: %s", ce.Pid, bytes.TrimSpace(ce.Comm[:]), ce.Tid, ce.Fd, ce.Addr)
+	s := fmt.Sprintf("PID: %d, Comm: %s, TID: %d, FD: %d, Addr: %s", ce.Pid, bytes.TrimSpace(ce.Comm[:]), ce.Tid, ce.Fd, ce.Addr)
 	return s
 }
 
 func (ce *ConnDataEvent) String() string {
-	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, FD:%d, Addr: %s", ce.Pid, bytes.TrimSpace(ce.Comm[:]), ce.Tid, ce.Fd, ce.Addr)
+	s := fmt.Sprintf("PID: %d, Comm: %s, TID: %d, FD: %d, Addr: %s", ce.Pid, bytes.TrimSpace(ce.Comm[:]), ce.Tid, ce.Fd, ce.Addr)
 	return s
 }
 

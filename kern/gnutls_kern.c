@@ -126,7 +126,7 @@ int probe_entry_SSL_write(struct pt_regs* ctx) {
     u32 pid = current_pid_tgid >> 32;
     u64 current_uid_gid = bpf_get_current_uid_gid();
     u32 uid = current_uid_gid;
-    debug_bpf_printk("gnutls uprobe/gnutls_record_send pid :%d\n", pid);
+    debug_bpf_printk("gnutls uprobe/gnutls_record_send pid: %d\n", pid);
 
 #ifndef KERNEL_LESS_5_2
     // if target_ppid is 0 then we target all pids
@@ -150,7 +150,7 @@ int probe_ret_SSL_write(struct pt_regs* ctx) {
     u32 pid = current_pid_tgid >> 32;
     u64 current_uid_gid = bpf_get_current_uid_gid();
     u32 uid = current_uid_gid;
-    debug_bpf_printk("gnutls uretprobe/gnutls_record_send pid :%d\n", pid);
+    debug_bpf_printk("gnutls uretprobe/gnutls_record_send pid: %d\n", pid);
 
 #ifndef KERNEL_LESS_5_2
     // if target_ppid is 0 then we target all pids
@@ -182,7 +182,7 @@ int probe_entry_SSL_read(struct pt_regs* ctx) {
     u32 pid = current_pid_tgid >> 32;
     u64 current_uid_gid = bpf_get_current_uid_gid();
     u32 uid = current_uid_gid;
-    debug_bpf_printk("gnutls uprobe/gnutls_record_recv pid :%d\n", pid);
+    debug_bpf_printk("gnutls uprobe/gnutls_record_recv pid: %d\n", pid);
 
 #ifndef KERNEL_LESS_5_2
     // if target_ppid is 0 then we target all pids
@@ -206,7 +206,7 @@ int probe_ret_SSL_read(struct pt_regs* ctx) {
     u32 pid = current_pid_tgid >> 32;
     u64 current_uid_gid = bpf_get_current_uid_gid();
     u32 uid = current_uid_gid;
-    debug_bpf_printk("gnutls uretprobe/gnutls_record_recv pid :%d\n", pid);
+    debug_bpf_printk("gnutls uretprobe/gnutls_record_recv pid: %d\n", pid);
 
 #ifndef KERNEL_LESS_5_2
     // if target_ppid is 0 then we target all pids

@@ -77,9 +77,9 @@ type FuncOffsets struct {
 type GoTLSConfig struct {
 	BaseConfig
 	Path                  string    `json:"path"`       // golang application path to binary built with Go toolchain.
-	PcapFile              string    `json:"pcapFile"`   // pcapFile  the  raw  packets  to file rather than parsing and printing them out.
-	KeylogFile            string    `json:"keylogFile"` // keylogFile  The file stores SSL/TLS keys, and eCapture captures these keys during encrypted traffic communication and saves them to the file.
-	Model                 string    `json:"model"`      // model  such as : text, pcapng/pcap, key/keylog.
+	PcapFile              string    `json:"pcapFile"`   // pcapFile the raw packets to file rather than parsing and printing them out.
+	KeylogFile            string    `json:"keylogFile"` // keylogFile The file stores SSL/TLS keys, and eCapture captures these keys during encrypted traffic communication and saves them to the file.
+	Model                 string    `json:"model"`      // model such as: text, pcapng/pcap, key/keylog.
 	Ifname                string    `json:"ifName"`     // (TC Classifier) Interface name on which the probe will be attached.
 	PcapFilter            string    `json:"pcapFilter"` // pcap filter
 	goElfArch             string    //
@@ -137,14 +137,14 @@ func (gc *GoTLSConfig) Check() error {
 	}
 
 	if goElfArch != runtime.GOARCH {
-		err = fmt.Errorf("Go Application not match, want:%s, have:%s", runtime.GOARCH, goElfArch)
+		err = fmt.Errorf("Go Application not match, want: %s, have: %s", runtime.GOARCH, goElfArch)
 		return err
 	}
 	switch goElfArch {
 	case "amd64":
 	case "arm64":
 	default:
-		return fmt.Errorf("unsupport CPU arch :%s", goElfArch)
+		return fmt.Errorf("unsupport CPU arch: %s", goElfArch)
 	}
 	gc.goElfArch = goElfArch
 	gc.goElf = goElf
@@ -166,12 +166,12 @@ func (gc *GoTLSConfig) Check() error {
 		var addr uint64
 		addr, err = gc.findPieSymbolAddr(GoTlsWriteFunc)
 		if err != nil {
-			return fmt.Errorf("%s symbol address error:%s", GoTlsWriteFunc, err.Error())
+			return fmt.Errorf("%s symbol address error: %s", GoTlsWriteFunc, err.Error())
 		}
 		gc.GoTlsWriteAddr = addr
 		addr, err = gc.findPieSymbolAddr(GoTlsMasterSecretFunc)
 		if err != nil {
-			return fmt.Errorf("%s symbol address error:%s", GoTlsMasterSecretFunc, err.Error())
+			return fmt.Errorf("%s symbol address error: %s", GoTlsMasterSecretFunc, err.Error())
 		}
 		gc.GoTlsMasterSecretAddr = addr
 

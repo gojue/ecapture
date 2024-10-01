@@ -78,7 +78,7 @@ func (ge *GnutlsDataEvent) StringHex() string {
 
 	b := dumpByteSlice(ge.Data[:ge.DataLen], perfix)
 	b.WriteString(COLORRESET)
-	s := fmt.Sprintf("PID:%d, Comm:%s, Type:%s, TID:%d, DataLen:%d bytes, Payload:\n%s", ge.Pid, ge.Comm, packetType, ge.Tid, ge.DataLen, b.String())
+	s := fmt.Sprintf("PID: %d, Comm: %s, Type: %s, TID: %d, DataLen: %d bytes, Payload:\n%s", ge.Pid, ge.Comm, packetType, ge.Tid, ge.DataLen, b.String())
 	return s
 }
 
@@ -94,7 +94,7 @@ func (ge *GnutlsDataEvent) String() string {
 	default:
 		packetType = fmt.Sprintf("%sUNKNOW_%d%s", COLORRED, ge.DataType, COLORRESET)
 	}
-	s := fmt.Sprintf(" PID:%d, Comm:%s, TID:%d, TYPE:%s, DataLen:%d bytes, Payload:\n%s%s%s", ge.Pid, ge.Comm, ge.Tid, packetType, ge.DataLen, perfix, string(ge.Data[:ge.DataLen]), COLORRESET)
+	s := fmt.Sprintf("PID: %d, Comm: %s, TID: %d, TYPE: %s, DataLen: %d bytes, Payload:\n%s%s%s", ge.Pid, ge.Comm, ge.Tid, packetType, ge.DataLen, perfix, string(ge.Data[:ge.DataLen]), COLORRESET)
 	return s
 }
 

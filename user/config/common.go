@@ -96,7 +96,7 @@ func ParseDynLibConf(pattern string) (dirs []string, err error) {
 		}
 	}
 	if len(dirs) <= 0 {
-		err = errors.New(fmt.Sprintf("read keylogger :%s error .", pattern))
+		err = errors.New(fmt.Sprintf("read keylogger: %s error.", pattern))
 	}
 	return dirs, err
 }
@@ -158,7 +158,7 @@ func recurseDynStrings(dynSym []string, searchPath []string, soName string) stri
 		}
 
 		if fd == nil {
-			log.Fatal(fmt.Sprintf("cant found lib so:%s in dirs:%v", el, searchPath))
+			log.Fatal(fmt.Sprintf("cant found lib so: %s in dirs: %v", el, searchPath))
 		}
 
 		bint, err := elf.NewFile(fd)

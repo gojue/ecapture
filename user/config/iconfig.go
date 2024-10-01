@@ -61,7 +61,7 @@ type BaseConfig struct {
 	Listen string `json:"listen"` // listen address, default: 127.0.0.1:28256
 
 	// mapSizeKB
-	PerCpuMapSize      int    `json:"per_cpu_map_size"` // ebpf map size for per Cpu.   see https://github.com/gojue/ecapture/issues/433 .
+	PerCpuMapSize      int    `json:"per_cpu_map_size"`     // ebpf map size for per Cpu. see https://github.com/gojue/ecapture/issues/433 .
 	IsHex              bool   `json:"is_hex"`
 	Debug              bool   `json:"debug"`
 	BtfMode            uint8  `json:"btf_mode"`

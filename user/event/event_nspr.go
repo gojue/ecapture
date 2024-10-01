@@ -82,11 +82,11 @@ func (ne *NsprDataEvent) StringHex() string {
 	// disable filter default
 	if false && strings.Compare(fire_thread, "Socket Thread") != 0 {
 		b = bytes.NewBufferString(fmt.Sprintf("%s[ignore]%s", COLORBLUE, COLORRESET))
-		s = fmt.Sprintf("PID:%d, Comm:%s, Type:%s, TID:%d, DataLen:%d bytes, Payload:%s", ne.Pid, ne.Comm, packetType, ne.Tid, ne.DataLen, b.String())
+		s = fmt.Sprintf("PID: %d, Comm: %s, Type: %s, TID: %d, DataLen: %d bytes, Payload:%s", ne.Pid, ne.Comm, packetType, ne.Tid, ne.DataLen, b.String())
 	} else {
 		b = dumpByteSlice(ne.Data[:ne.DataLen], perfix)
 		b.WriteString(COLORRESET)
-		s = fmt.Sprintf("PID:%d, Comm:%s, Type:%s, TID:%d, DataLen:%d bytes, Payload:\n%s", ne.Pid, ne.Comm, packetType, ne.Tid, ne.DataLen, b.String())
+		s = fmt.Sprintf("PID: %d, Comm: %s, Type: %s, TID: %d, DataLen: %d bytes, Payload:\n%s", ne.Pid, ne.Comm, packetType, ne.Tid, ne.DataLen, b.String())
 	}
 
 	return s
@@ -113,7 +113,7 @@ func (ne *NsprDataEvent) String() string {
 	} else {
 		b = bytes.NewBuffer(ne.Data[:ne.DataLen])
 	}
-	s := fmt.Sprintf(" PID:%d, Comm:%s, TID:%d, TYPE:%s, DataLen:%d bytes, Payload:\n%s%s%s", ne.Pid, ne.Comm, ne.Tid, packetType, ne.DataLen, perfix, b.String(), COLORRESET)
+	s := fmt.Sprintf("PID: %d, Comm: %s, TID: %d, TYPE: %s, DataLen: %d bytes, Payload:\n%s%s%s", ne.Pid, ne.Comm, ne.Tid, packetType, ne.DataLen, perfix, b.String(), COLORRESET)
 	return s
 }
 

@@ -87,7 +87,7 @@ func (mse *MasterSecretEvent) StringHex() string {
 	v := TlsVersion{
 		Version: mse.Version,
 	}
-	s := fmt.Sprintf("TLS Version:%s, ClientRandom:%02x", v.String(), mse.ClientRandom)
+	s := fmt.Sprintf("TLS Version: %s, ClientRandom: %02x", v.String(), mse.ClientRandom)
 	return s
 }
 
@@ -95,7 +95,7 @@ func (mse *MasterSecretEvent) String() string {
 	v := TlsVersion{
 		Version: mse.Version,
 	}
-	s := fmt.Sprintf("TLS Version:%s, ClientRandom:%02x", v.String(), mse.ClientRandom)
+	s := fmt.Sprintf("TLS Version: %s, ClientRandom: %02x", v.String(), mse.ClientRandom)
 	return s
 }
 
@@ -181,7 +181,7 @@ func (msbe *MasterSecretBSSLEvent) StringHex() string {
 	v := TlsVersion{
 		Version: msbe.Version,
 	}
-	s := fmt.Sprintf("TLS Version:%s, ClientRandom:%02x", v.String(), msbe.ClientRandom)
+	s := fmt.Sprintf("TLS Version: %s, ClientRandom: %02x", v.String(), msbe.ClientRandom)
 	return s
 }
 
@@ -189,7 +189,7 @@ func (msbe *MasterSecretBSSLEvent) String() string {
 	v := TlsVersion{
 		Version: msbe.Version,
 	}
-	s := fmt.Sprintf("TLS Version:%s, ClientRandom:%02x", v.String(), msbe.ClientRandom)
+	s := fmt.Sprintf("TLS Version: %s, ClientRandom: %02x", v.String(), msbe.ClientRandom)
 	return s
 }
 

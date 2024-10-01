@@ -45,10 +45,10 @@ Set-Cookie: BDORZ=27315; max-age=86400; domain=.baidu.com; path=/
 	if e != nil {
 		t.Errorf("write http response failed: %v", e)
 	}
-	t.Logf("wrot:%d", i)
+	t.Logf("wrot: %d", i)
 	if hr.response.Proto != "HTTP/1.1" {
-		t.Fatalf("TestHttpResponseParser: http response proto error, want: HTTP/1.1, got:%s", hr.response.Proto)
+		t.Fatalf("TestHttpResponseParser: http response proto error, want: HTTP/1.1, got: %s", hr.response.Proto)
 	}
-	//t.Logf("http reponse body :%s", hr.Display())
+	//t.Logf("http reponse body: %s", hr.Display())
 
 }

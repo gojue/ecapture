@@ -41,8 +41,8 @@ type OpensslConfig struct {
 	// Curlpath   string `json:"curlPath"` //curl的文件路径
 	Openssl    string `json:"openssl"`
 	Model      string `json:"model"`      // eCapture Openssl capture model. text:pcap:keylog
-	PcapFile   string `json:"pcapfile"`   // pcapFile  the  raw  packets  to file rather than parsing and printing them out.
-	KeylogFile string `json:"keylog"`     // Keylog  The file stores SSL/TLS keys, and eCapture captures these keys during encrypted traffic communication and saves them to the file.
+	PcapFile   string `json:"pcapfile"`   // pcapFile the raw packets to file rather than parsing and printing them out.
+	KeylogFile string `json:"keylog"`     // Keylog The file stores SSL/TLS keys, and eCapture captures these keys during encrypted traffic communication and saves them to the file.
 	Ifname     string `json:"ifname"`     // (TC Classifier) Interface name on which the probe will be attached.
 	PcapFilter string `json:"pcapfilter"` // pcap filter
 	SslVersion string `json:"sslversion"` // openssl version like 1.1.1a/1.1.1f/boringssl_1.1.1

@@ -44,7 +44,7 @@ func (ge *GoTLSEvent) Decode(payload []byte) error {
 }
 
 func (ge *GoTLSEvent) String() string {
-	s := fmt.Sprintf("PID: %d, Comm: %s, TID: %d, PayloadType:%d, Payload: %s\n", ge.Pid, string(ge.Comm[:]), ge.Tid, ge.inner.PayloadType, string(ge.Data[:ge.Len]))
+	s := fmt.Sprintf("PID: %d, Comm: %s, TID: %d, PayloadType: %d, Payload: %s\n", ge.Pid, string(ge.Comm[:]), ge.Tid, ge.inner.PayloadType, string(ge.Data[:ge.Len]))
 	return s
 }
 
@@ -52,7 +52,7 @@ func (ge *GoTLSEvent) StringHex() string {
 	perfix := COLORGREEN
 	b := dumpByteSlice(ge.Data[:ge.Len], perfix)
 	b.WriteString(COLORRESET)
-	s := fmt.Sprintf("PID: %d, Comm: %s, TID: %d, PayloadType:%d, Payload: \n%s\n", ge.Pid, string(ge.Comm[:]), ge.Tid, ge.inner.PayloadType, b.String())
+	s := fmt.Sprintf("PID: %d, Comm: %s, TID: %d, PayloadType: %d, Payload: \n%s\n", ge.Pid, string(ge.Comm[:]), ge.Tid, ge.inner.PayloadType, b.String())
 	return s
 }
 

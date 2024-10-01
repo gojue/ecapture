@@ -76,7 +76,7 @@ func (ep *EventProcessor) Serve() error {
 }
 
 func (ep *EventProcessor) dispatch(e event.IEventStruct) error {
-	//ep.logger.Printf("event ID:%s", e.GetUUID())
+	//ep.logger.Printf("event ID: %s", e.GetUUID())
 	var uuid = e.GetUUID()
 	found, eWorker := ep.getWorkerByUUID(uuid)
 	if !found {
@@ -89,7 +89,7 @@ func (ep *EventProcessor) dispatch(e event.IEventStruct) error {
 	eWorker.Put() // never touch eWorker again
 	if err != nil {
 		//...
-		//ep.GetLogger().Write("write event failed , error:%v", err)
+		//ep.GetLogger().Write("write event failed , error: %v", err)
 		return err
 	}
 	return nil
@@ -145,7 +145,7 @@ func (ep *EventProcessor) Close() error {
 	close(ep.closeChan)
 	close(ep.incoming)
 	if len(ep.workerQueue) > 0 {
-		return fmt.Errorf("EventProcessor.Close(): workerQueue is not empty:%d", len(ep.workerQueue))
+		return fmt.Errorf("EventProcessor.Close(): workerQueue is not empty: %d", len(ep.workerQueue))
 	}
 	return nil
 }

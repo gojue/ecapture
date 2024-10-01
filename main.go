@@ -26,7 +26,7 @@ func main() {
 			log.Fatalf("The Linux/Android Kernel version %v (aarch64) is not supported. Requires a version greater than 5.5.", kv)
 		}
 	default:
-		log.Fatalf("Unsupported CPU arch:%v. ", runtime.GOARCH)
+		log.Fatalf("Unsupported CPU arch: %v.", runtime.GOARCH)
 	}
 
 	cli.Start()

@@ -104,7 +104,7 @@ func (m *Module) Init(ctx context.Context, logger *zerolog.Logger, conf config.I
 	m.processor = event_processor.NewEventProcessor(eventCollector, conf.GetHex())
 	kv, err := kernel.HostVersion()
 	if err != nil {
-		m.logger.Warn().Err(err).Msg("Unable to detect kernel version due to an error:%v.used non-Less5_2 bytecode.")
+		m.logger.Warn().Err(err).Msg("Unable to detect kernel version due to an error: %v.used non-Less5_2 bytecode.")
 	} else {
 		// it's safe to ignore err because we have checked it in main funcition
 		if kv < kernel.VersionCode(5, 2, 0) {
@@ -143,7 +143,7 @@ func (m *Module) autoDetectBTF() {
 		}
 		enable, e := ebpfenv.IsEnableBTF()
 		if e != nil {
-			m.logger.Warn().Err(e).Msg("Unable to find BTF configuration due to an error:%v.\n" + BtfNotSupport)
+			m.logger.Warn().Err(e).Msg("Unable to find BTF configuration due to an error: %v.\n" + BtfNotSupport)
 		}
 		if enable {
 			m.isCoreUsed = true
@@ -203,7 +203,7 @@ func (m *Module) Run() error {
 	go func() {
 		err := m.processor.Serve()
 		if err != nil {
-			m.errChan <- fmt.Errorf("%s\tprocessor.Serve error:%v.", m.child.Name(), err)
+			m.errChan <- fmt.Errorf("%s\tprocessor.Serve error: %v.", m.child.Name(), err)
 			return
 		}
 	}()
@@ -255,7 +255,7 @@ func (m *Module) readEvents() error {
 		case e.Type() == ebpf.PerfEventArray:
 			m.perfEventReader(errChan, e)
 		default:
-			return fmt.Errorf("%s\tunsupported mapType:%s , mapinfo:%s",
+			return fmt.Errorf("%s\tunsupported mapType: %s , mapinfo: %s",
 				m.child.Name(), e.Type().String(), e.String())
 		}
 	}
@@ -351,7 +351,7 @@ func (m *Module) ringbufEventReader(errChan chan error, em *ebpf.Map) {
 func (m *Module) Decode(em *ebpf.Map, b []byte) (event event.IEventStruct, err error) {
 	es, found := m.child.DecodeFun(em)
 	if !found {
-		err = fmt.Errorf("%s\tcan't found decode function :%s, address:%p", m.child.Name(), em.String(), em)
+		err = fmt.Errorf("%s\tcan't found decode function: %s, address: %p", m.child.Name(), em.String(), em)
 		return
 	}
 

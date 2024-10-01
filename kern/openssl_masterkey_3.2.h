@@ -98,7 +98,7 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
         return 0;
     }
 #endif
-    debug_bpf_printk("openssl uprobe/SSL_write masterKey PID :%d\n", pid);
+    debug_bpf_printk("openssl uprobe/SSL_write masterKey PID: %d\n", pid);
 
     // mastersecret_t sent to userspace
     struct mastersecret_t *mastersecret = make_event();
@@ -124,11 +124,11 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
     int ret =
         bpf_probe_read_user(&version, sizeof(version), (void *)ssl_version_ptr);
     if (ret) {
-        debug_bpf_printk("bpf_probe_read tls_version failed, ret :%d\n", ret);
+        debug_bpf_printk("bpf_probe_read tls_version failed, ret: %d\n", ret);
         return 0;
     }
     mastersecret->version = version;  // int version;
-    debug_bpf_printk("TLS version :%d\n", mastersecret->version);
+    debug_bpf_printk("TLS version: %d\n", mastersecret->version);
 
     u64 *ssl_client_random_ptr = (u64 *)(ssl_st_ptr + SSL_CONNECTION_ST_S3_CLIENT_RANDOM);
     // get SSL_CONNECTION_ST_S3_CLIENT_RANDOM
@@ -137,7 +137,7 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
                               (void *)ssl_client_random_ptr);
     if (ret) {
         debug_bpf_printk(
-            "bpf_probe_read ssl3_ssl_client_random_ptr_st failed, ret :%d\n",
+            "bpf_probe_read ssl3_ssl_client_random_ptr_st failed, ret: %d\n",
             ret);
         return 0;
     }
@@ -148,7 +148,7 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
                                 (void *)&client_random);
     if (ret) {
         debug_bpf_printk(
-            "bpf_probe_read_kernel ssl3_stat.client_random failed, ret :%d\n",
+            "bpf_probe_read_kernel ssl3_stat.client_random failed, ret: %d\n",
             ret);
         return 0;
     }
@@ -162,7 +162,7 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
                               ssl_session_st_ptr);
     if (ret) {
         debug_bpf_printk(
-            "(OPENSSL) bpf_probe_read ssl_session_st_ptr failed, ret :%d\n",
+            "(OPENSSL) bpf_probe_read ssl_session_st_ptr failed, ret: %d\n",
             ret);
         return 0;
     }
@@ -175,8 +175,8 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
                                   sizeof(mastersecret->master_key), ms_ptr);
         if (ret) {
             debug_bpf_printk(
-                "bpf_probe_read MASTER_KEY_OFFSET failed, ms_ptr:%llx, ret "
-                ":%d\n",
+                "bpf_probe_read MASTER_KEY_OFFSET failed, ms_ptr: %llx, ret: "
+                "%d\n",
                 ms_ptr, ret);
             return 0;
         }
@@ -200,7 +200,7 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
     ret = bpf_probe_read_user(&address, sizeof(address), ssl_cipher_st_ptr);
     if (ret || address == 0) {
         debug_bpf_printk(
-            "bpf_probe_read ssl_cipher_st_ptr failed, ret :%d, address:%x\n",
+            "bpf_probe_read ssl_cipher_st_ptr failed, ret: %d, address: %x\n",
             ret, address);
         // return 0;
         void *cipher_id_ptr =
@@ -211,7 +211,7 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
         if (ret) {
             debug_bpf_printk(
                 "bpf_probe_read SSL_SESSION_ST_CIPHER_ID failed from "
-                "SSL_SESSION->cipher_id, ret :%d\n",
+                "SSL_SESSION->cipher_id, ret: %d\n",
                 ret);
             return 0;
         }
@@ -224,7 +224,7 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
         if (ret) {
             debug_bpf_printk(
                 "bpf_probe_read SSL_CIPHER_ST_ID failed from "
-                "ssl_cipher_st->id, ret :%d\n",
+                "ssl_cipher_st->id, ret: %d\n",
                 ret);
             return 0;
         }
@@ -240,7 +240,7 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
                               (void *)hs_ptr_tls13);
     if (ret) {
         debug_bpf_printk(
-            "bpf_probe_read SSL_CONNECTION_ST_HANDSHAKE_SECRET failed, ret :%d\n", ret);
+            "bpf_probe_read SSL_CONNECTION_ST_HANDSHAKE_SECRET failed, ret: %d\n", ret);
         return 0;
     }
 
@@ -250,7 +250,7 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
                               (void *)hth_ptr_tls13);
     if (ret) {
         debug_bpf_printk(
-            "bpf_probe_read SSL_CONNECTION_ST_HANDSHAKE_TRAFFIC_HASH failed, ret :%d\n",
+            "bpf_probe_read SSL_CONNECTION_ST_HANDSHAKE_TRAFFIC_HASH failed, ret: %d\n",
             ret);
         return 0;
     }
@@ -262,7 +262,7 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
                               (void *)cats_ptr_tls13);
     if (ret) {
         debug_bpf_printk(
-            "bpf_probe_read SSL_CONNECTION_ST_CLIENT_APP_TRAFFIC_SECRET failed, ret :%d\n",
+            "bpf_probe_read SSL_CONNECTION_ST_CLIENT_APP_TRAFFIC_SECRET failed, ret: %d\n",
             ret);
         return 0;
     }
@@ -274,7 +274,7 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
                               (void *)sats_ptr_tls13);
     if (ret) {
         debug_bpf_printk(
-            "bpf_probe_read SSL_CONNECTION_ST_SERVER_APP_TRAFFIC_SECRET failed, ret :%d\n",
+            "bpf_probe_read SSL_CONNECTION_ST_SERVER_APP_TRAFFIC_SECRET failed, ret: %d\n",
             ret);
         return 0;
     }
@@ -285,7 +285,7 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
                               (void *)ems_ptr_tls13);
     if (ret) {
         debug_bpf_printk(
-            "bpf_probe_read SSL_CONNECTION_ST_EXPORTER_MASTER_SECRET failed, ret :%d\n",
+            "bpf_probe_read SSL_CONNECTION_ST_EXPORTER_MASTER_SECRET failed, ret: %d\n",
             ret);
         return 0;
     }

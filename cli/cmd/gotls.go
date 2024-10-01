@@ -40,8 +40,8 @@ ecapture gotls -m pcap --pcapfile=save_android.pcapng -i wlan0 --elfpath=/home/c
 
 func init() {
 	gotlsCmd.PersistentFlags().StringVarP(&goc.Path, "elfpath", "e", "", "ELF path to binary built with Go toolchain.")
-	gotlsCmd.PersistentFlags().StringVarP(&goc.PcapFile, "pcapfile", "w", "ecapture_gotls.pcapng", "write the  raw packets to file as pcapng format.")
-	gotlsCmd.PersistentFlags().StringVarP(&goc.Model, "model", "m", "text", "capture model, such as : text, pcap/pcapng, key/keylog")
+	gotlsCmd.PersistentFlags().StringVarP(&goc.PcapFile, "pcapfile", "w", "ecapture_gotls.pcapng", "write the raw packets to file as pcapng format.")
+	gotlsCmd.PersistentFlags().StringVarP(&goc.Model, "model", "m", "text", "capture model, such as: text, pcap/pcapng, key/keylog")
 	gotlsCmd.PersistentFlags().StringVarP(&goc.KeylogFile, "keylogfile", "k", "ecapture_gotls_key.log", "The file stores SSL/TLS keys, and eCapture captures these keys during encrypted traffic communication and saves them to the file.")
 	gotlsCmd.PersistentFlags().StringVarP(&goc.Ifname, "ifname", "i", "", "(TC Classifier) Interface name on which the probe will be attached.")
 	rootCmd.AddCommand(gotlsCmd)
