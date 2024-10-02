@@ -93,15 +93,13 @@ static __always_inline struct go_tls_event *get_gotls_event() {
     return bpf_map_lookup_elem(&gte_context, &id);
 }
 
-static __always_inline int gotls_write(struct pt_regs *ctx,
-                                       bool is_register_abi) {
+static __always_inline int gotls_write(struct pt_regs *ctx, bool is_register_abi) {
     s32 record_type, len;
     const char *str;
     void *record_type_ptr;
     void *len_ptr;
     record_type_ptr = (void *)go_get_argument(ctx, is_register_abi, 2);
-    bpf_probe_read_kernel(&record_type, sizeof(record_type),
-                          (void *)&record_type_ptr);
+    bpf_probe_read_kernel(&record_type, sizeof(record_type), (void *)&record_type_ptr);
     str = (void *)go_get_argument(ctx, is_register_abi, 3);
     len_ptr = (void *)go_get_argument(ctx, is_register_abi, 4);
     bpf_probe_read_kernel(&len, sizeof(len), (void *)&len_ptr);
@@ -120,16 +118,12 @@ static __always_inline int gotls_write(struct pt_regs *ctx,
     }
     len = len & 0xFFFF;
     event->data_len = len;
-    int ret =
-        bpf_probe_read_user(&event->data, sizeof(event->data), (void *)str);
+    int ret = bpf_probe_read_user(&event->data, sizeof(event->data), (void *)str);
     if (ret < 0) {
-        debug_bpf_printk(
-            "gotls_write bpf_probe_read_user_str failed, ret:%d, str:%d\n", ret,
-            str);
+        debug_bpf_printk("gotls_write bpf_probe_read_user_str failed, ret:%d, str:%d\n", ret, str);
         return 0;
     }
-    bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, event,
-                          sizeof(struct go_tls_event));
+    bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, event, sizeof(struct go_tls_event));
     return 0;
 }
 
@@ -143,27 +137,31 @@ int gotls_write_register(struct pt_regs *ctx) { return gotls_write(ctx, true); }
 SEC("uprobe/gotls_write_stack")
 int gotls_write_stack(struct pt_regs *ctx) { return gotls_write(ctx, false); }
 
+// crypto/tls/conn.go
 // func (c *Conn) Read(b []byte) (int, error)
-static __always_inline int gotls_read(struct pt_regs *ctx,
-                                      bool is_register_abi) {
-    s32 record_type, len, ret_len;
+static __always_inline int gotls_read(struct pt_regs *ctx, bool is_register_abi) {
+    s32 record_type, ret_len;
     const char *str;
     void *len_ptr, *ret_len_ptr;
 
     // golang
     // uretprobe的实现，为选择目标函数中，汇编指令的RET指令地址，即调用子函数的返回后的触发点，此时，此函数参数等地址存放在SP(stack
     // Point)上，故使用stack方式读取
-    str = (void *)go_get_argument_by_stack(ctx, 2);
-    len_ptr = (void *)go_get_argument_by_stack(ctx, 3);
-    bpf_probe_read_kernel(&len, sizeof(len), (void *)&len_ptr);
+    // str 是 Golang TLS  *Conn.Read函数第一个参数b []byte的类型，对应runtime中
 
-    // Read函数的返回值第一个是int类型，存放在栈里的顺序是5
-    ret_len_ptr = (void *)go_get_argument_by_stack(ctx, 5);
+    str = (void *)go_get_argument(ctx, false, 2);
+    if (is_register_abi) {
+        ret_len_ptr = (void *)go_get_argument(ctx, is_register_abi, 1);
+    } else {
+        // by stack, Read函数的返回值第一个是int类型，存放在栈里的顺序是5
+        ret_len_ptr = (void *)go_get_argument(ctx, is_register_abi, 5);
+    }
     bpf_probe_read_kernel(&ret_len, sizeof(ret_len), (void *)&ret_len_ptr);
-    if (len <= 0) {
+    debug_bpf_printk("gotls_read event, str:%p ret_len_ptr:%d, ret_len:%d\n", str, ret_len_ptr, ret_len);
+    if (str <= 0) {
         return 0;
     }
-    if (ret_len <= 0 ) {
+    if (ret_len <= 0) {
         return 0;
     }
 
@@ -172,21 +170,14 @@ static __always_inline int gotls_read(struct pt_regs *ctx,
         return 0;
     }
 
-    debug_bpf_printk("gotls_read event, str addr:%p, len:%d\n", len_ptr, len);
-    debug_bpf_printk("gotls_read event, str ret_len_ptr:%d, ret_len:%d\n",
-                     ret_len_ptr, ret_len);
-    event->data_len = len;
+    event->data_len = ret_len;
     event->event_type = GOTLS_EVENT_TYPE_READ;
-    int ret =
-        bpf_probe_read_user(&event->data, sizeof(event->data), (void *)str);
+    int ret = bpf_probe_read_user(&event->data, sizeof(event->data), (void *)str);
     if (ret < 0) {
-        debug_bpf_printk(
-            "gotls_text bpf_probe_read_user_str failed, ret:%d, str:%d\n", ret,
-            str);
+        debug_bpf_printk("gotls_text bpf_probe_read_user_str failed, ret:%d, str:%d\n", ret, str);
         return 0;
     }
-    bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, event,
-                          sizeof(struct go_tls_event));
+    bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, event, sizeof(struct go_tls_event));
     return 0;
 }
 
@@ -203,8 +194,7 @@ int gotls_read_stack(struct pt_regs *ctx) { return gotls_read(ctx, false); }
  * crypto/tls/common.go
  * func (c *Config) writeKeyLog(label string, clientRandom, secret []byte) error
  */
-static __always_inline int gotls_mastersecret(struct pt_regs *ctx,
-                                              bool is_register_abi) {
+static __always_inline int gotls_mastersecret(struct pt_regs *ctx, bool is_register_abi) {
     //    const char *label, *clientrandom, *secret;
     void *lab_ptr, *cr_ptr, *secret_ptr;
     void *lab_len_ptr, *cr_len_ptr, *secret_len_ptr;
@@ -230,8 +220,7 @@ static __always_inline int gotls_mastersecret(struct pt_regs *ctx,
 
     bpf_probe_read_kernel(&lab_len, sizeof(lab_len), (void *)&lab_len_ptr);
     bpf_probe_read_kernel(&cr_len, sizeof(lab_len), (void *)&cr_len_ptr);
-    bpf_probe_read_kernel(&secret_len, sizeof(lab_len),
-                          (void *)&secret_len_ptr);
+    bpf_probe_read_kernel(&secret_len, sizeof(lab_len), (void *)&secret_len_ptr);
 
     if (lab_len <= 0 || cr_len <= 0 || secret_len <= 0) {
         return 0;
@@ -246,9 +235,7 @@ static __always_inline int gotls_mastersecret(struct pt_regs *ctx,
     mastersecret_gotls.labellen = lab_len;
     mastersecret_gotls.client_random_len = cr_len;
     mastersecret_gotls.secret_len = secret_len;
-    int ret = bpf_probe_read_user_str(&mastersecret_gotls.label,
-                                      sizeof(mastersecret_gotls.label),
-                                      (void *)lab_ptr);
+    int ret = bpf_probe_read_user_str(&mastersecret_gotls.label, sizeof(mastersecret_gotls.label), (void *)lab_ptr);
     if (ret < 0) {
         debug_bpf_printk(
             "gotls_mastersecret read mastersecret label failed, ret:%d, "
@@ -257,10 +244,8 @@ static __always_inline int gotls_mastersecret(struct pt_regs *ctx,
         return 0;
     }
 
-    debug_bpf_printk("gotls_mastersecret read mastersecret label:%s\n",
-                     mastersecret_gotls.label);
-    ret = bpf_probe_read_user_str(&mastersecret_gotls.client_random,
-                                  sizeof(mastersecret_gotls.client_random),
+    debug_bpf_printk("gotls_mastersecret read mastersecret label:%s\n", mastersecret_gotls.label);
+    ret = bpf_probe_read_user_str(&mastersecret_gotls.client_random, sizeof(mastersecret_gotls.client_random),
                                   (void *)cr_ptr);
     if (ret < 0) {
         debug_bpf_printk(
@@ -270,9 +255,7 @@ static __always_inline int gotls_mastersecret(struct pt_regs *ctx,
         return 0;
     }
 
-    ret = bpf_probe_read_user_str(&mastersecret_gotls.secret_,
-                                  sizeof(mastersecret_gotls.secret_),
-                                  (void *)secret_ptr);
+    ret = bpf_probe_read_user_str(&mastersecret_gotls.secret_, sizeof(mastersecret_gotls.secret_), (void *)secret_ptr);
     if (ret < 0) {
         debug_bpf_printk(
             "gotls_mastersecret read mastersecret secret_ failed, ret:%d, "
@@ -281,18 +264,13 @@ static __always_inline int gotls_mastersecret(struct pt_regs *ctx,
         return 0;
     }
 
-    bpf_perf_event_output(ctx, &mastersecret_go_events, BPF_F_CURRENT_CPU,
-                          &mastersecret_gotls,
+    bpf_perf_event_output(ctx, &mastersecret_go_events, BPF_F_CURRENT_CPU, &mastersecret_gotls,
                           sizeof(struct mastersecret_gotls_t));
     return 0;
 }
 
 SEC("uprobe/gotls_mastersecret_register")
-int gotls_mastersecret_register(struct pt_regs *ctx) {
-    return gotls_mastersecret(ctx, true);
-}
+int gotls_mastersecret_register(struct pt_regs *ctx) { return gotls_mastersecret(ctx, true); }
 
 SEC("uprobe/gotls_mastersecret_stack")
-int gotls_mastersecret_stack(struct pt_regs *ctx) {
-    return gotls_mastersecret(ctx, false);
-}
+int gotls_mastersecret_stack(struct pt_regs *ctx) { return gotls_mastersecret(ctx, false); }

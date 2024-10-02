@@ -86,8 +86,7 @@ int mysql56_query(struct pt_regs *ctx) {
     data.alllen = len;  // origin query sql length
     data.timestamp = bpf_ktime_get_ns();
     data.retval = -1;
-    len = (len < MAX_DATA_SIZE_MYSQL ? (len & (MAX_DATA_SIZE_MYSQL - 1))
-                                     : MAX_DATA_SIZE_MYSQL);
+    len = (len < MAX_DATA_SIZE_MYSQL ? (len & (MAX_DATA_SIZE_MYSQL - 1)) : MAX_DATA_SIZE_MYSQL);
     data.len = len;  // only process id
     bpf_get_current_comm(&data.comm, sizeof(data.comm));
 
@@ -137,8 +136,7 @@ int mysql56_query_return(struct pt_regs *ctx) {
     debug_bpf_printk("mysql query:%s\n", data->query);
     data->retval = command_return;
     debug_bpf_printk("mysql query return :%d\n", command_return);
-    bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, data,
-                          sizeof(struct data_t));
+    bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, data, sizeof(struct data_t));
     return 0;
 }
 
@@ -217,8 +215,7 @@ int mysql57_query(struct pt_regs *ctx) {
     bpf_probe_read_user(&data.query, sizeof(data.query), query.query);
     bpf_probe_read_user(&data.alllen, sizeof(data.alllen), &query.length);
     len = data.alllen;
-    len = (len < MAX_DATA_SIZE_MYSQL ? (len & (MAX_DATA_SIZE_MYSQL - 1))
-                                     : MAX_DATA_SIZE_MYSQL);
+    len = (len < MAX_DATA_SIZE_MYSQL ? (len & (MAX_DATA_SIZE_MYSQL - 1)) : MAX_DATA_SIZE_MYSQL);
     data.len = len;
     bpf_get_current_comm(&data.comm, sizeof(data.comm));
 
@@ -263,8 +260,7 @@ int mysql57_query_return(struct pt_regs *ctx) {
     } else {
         data->retval = command_return;
     }
-    bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, data,
-                          sizeof(struct data_t));
+    bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, data, sizeof(struct data_t));
 
     return 0;
 }

@@ -80,10 +80,10 @@ func (g *GoTLSProbe) setupManagersText() error {
 
 	readOffsets := g.conf.(*config.GoTLSConfig).ReadTlsAddrs
 	//g.bpfManager.Probes = []*manager.Probe{}
+	g.logger.Info().Str("function", readFn).
+		Str("offsets", fmt.Sprintf("%v", readOffsets)).Msg("golang uretprobe added.")
 	for _, v := range readOffsets {
 		var uid = fmt.Sprintf("%s_%d", readFn, v)
-		g.logger.Info().Str("function", config.GoTlsReadFunc).
-			Str("offset", fmt.Sprintf("%X", v)).Msg("golang uretprobe added.")
 		g.bpfManager.Probes = append(g.bpfManager.Probes, &manager.Probe{
 			Section:          readSec,
 			EbpfFuncName:     readFn,

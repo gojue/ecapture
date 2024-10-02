@@ -34,7 +34,7 @@ CMD_DPKG-DEB ?= dpkg-deb
 CMD_ECHO ?= echo
 
 KERNEL_LESS_5_2_PREFIX ?= _less52.o
-STYLE    ?= "{BasedOnStyle: Google, IndentWidth: 4}"
+STYLE    ?= "{BasedOnStyle: Google, IndentWidth: 4, TabWidth: 4, UseTab: Never, ColumnLimit: 120}"
 IGNORE_LESS52 ?=
 AUTOGENCMD ?=
 BPFHEADER := -I ./kern
@@ -108,13 +108,6 @@ HOST_VERSION_SHORT := $(shell uname -r | cut -d'-' -f 1)
 
 # linux-source-5.15.0.tar.bz2
 LINUX_SOURCE_PATH ?= /usr/src/linux-source-$(HOST_VERSION_SHORT)
-ifdef KERN_HEADERS
-	LINUX_SOURCE_PATH = $(KERN_HEADERS)
-else
-	KERN_HEADERS = $(LINUX_SOURCE_PATH)
-endif
-
-LINUX_SOURCE_TAR ?= $(LINUX_SOURCE_PATH).tar.bz2
 
 ifdef CROSS_ARCH
 	ifeq ($(HOST_ARCH),aarch64)
@@ -178,7 +171,13 @@ endif
 #
 ifdef CROSS_ARCH
 	KERNEL_HEADER_GEN = test -e arch/$(LINUX_ARCH)/kernel/asm-offsets.s || yes "" | $(SUDO) make ARCH=$(LINUX_ARCH) CROSS_COMPILE=$(CMD_CC_PREFIX) prepare V=0
+	ifdef KERN_HEADERS
+		LINUX_SOURCE_PATH = $(KERN_HEADERS)
+	else
+		KERN_HEADERS = $(LINUX_SOURCE_PATH)
+    endif
 endif
+
 KERN_RELEASE ?= $(UNAME_R)
 KERN_BUILD_PATH ?= $(if $(KERN_HEADERS),$(KERN_HEADERS),/lib/modules/$(KERN_RELEASE)/build)
 KERN_SRC_PATH ?= $(if $(KERN_HEADERS),$(KERN_HEADERS),$(if $(wildcard /lib/modules/$(KERN_RELEASE)/source),/lib/modules/$(KERN_RELEASE)/source,$(KERN_BUILD_PATH)))
