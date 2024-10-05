@@ -175,6 +175,13 @@ jobs:
             wget https://go.dev/dl/go1.21.0.linux-arm64.tar.gz
             rm -rf /usr/local/go
             tar -C /usr/local -xzf go1.21.0.linux-arm64.tar.gz
+            for tool in "clang" "llc" "llvm-strip"
+            do
+            rm -f /usr/bin/$tool
+            ln -s /usr/bin/$tool-12 /usr/bin/$tool
+            done
+            clang --version
+            which bpftool
             cd /usr/src
             source_file=$(find . -maxdepth 1 -name "*linux-source*.tar.bz2")
             source_dir=$(echo "$source_file" | sed 's/\.tar\.bz2//g')
@@ -190,13 +197,6 @@ jobs:
             date
             export PATH=/usr/local/go/bin:$PATH:/usr/local/bin
             echo $PATH
-            for tool in "clang" "llc" "llvm-strip"
-            do
-            rm -f /usr/bin/$tool
-            ln -s /usr/bin/$tool-12 /usr/bin/$tool
-            done
-            clang --version
-            which bpftool
             echo "cat /proc/1/cgroup:"
             cat /proc/1/cgroup
             echo "cat /proc/1/sched:"
