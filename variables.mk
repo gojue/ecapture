@@ -47,7 +47,6 @@ TARGET_ARCH = x86_64
 CGO_ENABLED = 1
 TARGET_LIBPCAP = ./lib/libpcap.a
 TARGET_TAG ?= linux
-KERNEL_HEADER_GEN ?= whoami
 
 ifndef DEBUG
 	DEBUG = 0
@@ -109,7 +108,17 @@ HOST_VERSION_SHORT := $(shell uname -r | cut -d'-' -f 1)
 # linux-source-5.15.0.tar.bz2
 LINUX_SOURCE_PATH ?= /usr/src/linux-source-$(HOST_VERSION_SHORT)
 
+ifdef KERN_HEADERS
+	LINUX_SOURCE_PATH = $(KERN_HEADERS)
+else
+	KERN_HEADERS = $(LINUX_SOURCE_PATH)
+endif
+
+KERNEL_HEADER_GEN ?= yes "" | $(SUDO) make ARCH=$(LINUX_ARCH) prepare V=0
+
 ifdef CROSS_ARCH
+	KERNEL_HEADER_GEN = yes "" | $(SUDO) make ARCH=$(LINUX_ARCH) CROSS_COMPILE=$(CMD_CC_PREFIX) prepare V=0
+
 	ifeq ($(HOST_ARCH),aarch64)
 		ifeq ($(CROSS_ARCH),amd64)
 		# cross compile
@@ -164,18 +173,6 @@ else
 	AUTOGENCMD = test -f kern/bpf/$(LINUX_ARCH)/vmlinux.h || $(CMD_BPFTOOL) btf dump file /sys/kernel/btf/vmlinux format c > kern/bpf/$(LINUX_ARCH)/vmlinux.h
 	 # sh lib/libpcap/config.sub amd64-linux or x86_64-linux for ARCH value
 	LIBPCAP_ARCH = x86_64-pc-linux-gnu
-endif
-
-#
-# include vpath
-#
-ifdef CROSS_ARCH
-	KERNEL_HEADER_GEN = yes "" | $(SUDO) make ARCH=$(LINUX_ARCH) CROSS_COMPILE=$(CMD_CC_PREFIX) prepare V=0
-	ifdef KERN_HEADERS
-		LINUX_SOURCE_PATH = $(KERN_HEADERS)
-	else
-		KERN_HEADERS = $(LINUX_SOURCE_PATH)
-    endif
 endif
 
 KERN_RELEASE ?= $(UNAME_R)

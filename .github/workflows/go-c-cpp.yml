@@ -58,21 +58,30 @@ jobs:
           go-version: '1.21.0'
       - name: Install Compilers
         run: |
+          /usr/bin/bash
           sudo apt-get update
-          sudo apt-get install --yes build-essential pkgconf libelf-dev llvm-14 clang-14 flex bison linux-tools-common linux-tools-generic gcc gcc-aarch64-linux-gnu libssl-dev linux-source
+          sudo apt-get install --yes build-essential pkgconf libelf-dev llvm-14 clang-14 flex bison linux-tools-common linux-tools-generic gcc gcc-aarch64-linux-gnu libssl-dev
           for tool in "clang" "llc" "llvm-strip"
           do
             sudo rm -f /usr/bin/$tool
             sudo ln -s /usr/bin/$tool-14 /usr/bin/$tool
           done
-          cd /usr/src
-          source_file=$(find . -maxdepth 1 -name "*linux-source*.tar.bz2")
-          source_dir=$(echo "$source_file" | sed 's/\.tar\.bz2//g')  
-          sudo tar -xf $source_file
-          cd $source_dir
+          now_path=/tmp
+          kernel_version=$(uname -r | cut -d '-' -f 1)
+          IFS='.' read -r major minor patch <<< "$kernel_version"
+          patch_ver=""
+          if [ $patch -ne 0 ]; then
+          patch_ver=".$patch"
+          fi
+          source_name=linux-${major}.${minor}${patch_ver}
+          echo "major: $major , minor: $minor , patch: $patch , source_name : $source_name"  
+          cd ${now_path}
+          wget https://cdn.kernel.org/pub/linux/kernel/v${major}.x/${source_name}.tar.gz
+          tar -zxf ${source_name}.tar.gz
+          cd ${source_name}
           test -f .config || sudo make oldconfig
           sudo make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- prepare V=0
-          ls -al /usr/src/$source_dir
+          ls -al ${now_path}/$source_name
         shell: bash
       - uses: actions/checkout@v4
         with:
@@ -80,9 +89,17 @@ jobs:
           fetch-depth: 0
       - name: Build CO-RE
         run: |
+          now_path=/tmp
+          kernel_version=$(uname -r | cut -d '-' -f 1)
+          IFS='.' read -r major minor patch <<< "$kernel_version"
+          patch_ver=""
+          if [ $patch -ne 0 ]; then
+          patch_ver=".$patch"
+          fi
+          source_name=linux-${major}.${minor}${patch_ver}
           make clean
-          make env
-          DEBUG=1 make -j8
+          KERN_HEADERS=${now_path}/$source_name make env
+          KERN_HEADERS=${now_path}/$source_name DEBUG=1 make -j8
           cd ./lib/libpcap/ && sudo make install
           cd $GITHUB_WORKSPACE
       - name: golangci-lint
@@ -93,19 +110,43 @@ jobs:
           problem-matchers: true
       - name: Build non-CO-RE
         run: |
+          now_path=/tmp
+          kernel_version=$(uname -r | cut -d '-' -f 1)
+          IFS='.' read -r major minor patch <<< "$kernel_version"
+          patch_ver=""
+          if [ $patch -ne 0 ]; then
+          patch_ver=".$patch"
+          fi
+          source_name=linux-${major}.${minor}${patch_ver}
           make clean
-          make env
-          make nocore
+          KERN_HEADERS=${now_path}/$source_name make env
+          KERN_HEADERS=${now_path}/$source_name make nocore
       - name: Build CO-RE (Cross-Compilation)
         run: |
+          now_path=/tmp
+          kernel_version=$(uname -r | cut -d '-' -f 1)
+          IFS='.' read -r major minor patch <<< "$kernel_version"
+          patch_ver=""
+          if [ $patch -ne 0 ]; then
+          patch_ver=".$patch"
+          fi
+          source_name=linux-${major}.${minor}${patch_ver}
           make clean
-          CROSS_ARCH=arm64 make env
-          CROSS_ARCH=arm64 make -j8
+          KERN_HEADERS=${now_path}/$source_name CROSS_ARCH=arm64 make env
+          KERN_HEADERS=${now_path}/$source_name CROSS_ARCH=arm64 make -j8
       - name: Build non-CO-RE (Cross-Compilation/Android)
         run: |
+          now_path=/tmp
+          kernel_version=$(uname -r | cut -d '-' -f 1)
+          IFS='.' read -r major minor patch <<< "$kernel_version"
+          patch_ver=""
+          if [ $patch -ne 0 ]; then
+          patch_ver=".$patch"
+          fi
+          source_name=linux-${major}.${minor}${patch_ver}
           make clean
-          CROSS_ARCH=arm64 make env
-          ANDROID=1 CROSS_ARCH=arm64 make nocore -j8
+          KERN_HEADERS=${now_path}/$source_name CROSS_ARCH=arm64 make env
+          KERN_HEADERS=${now_path}/$source_name ANDROID=1 CROSS_ARCH=arm64 make nocore -j8
       - name: Test
         run: go test -v -race ./...
 
@@ -160,7 +201,7 @@ jobs:
             artifact_name: ecapture-${{ github.ref_name }}
 
           # The shell to run commands with in the container
-          shell: /bin/sh
+          shell: /bin/bash
 
           # Install some dependencies in the container. This speeds up builds if
           # you are also using githubToken. Any dependencies installed here will
@@ -171,7 +212,7 @@ jobs:
           install: |
             uname -a
             apt-get update
-            apt-get install --yes wget git build-essential pkgconf libelf-dev llvm-12 clang-12 linux-tools-generic linux-tools-common flex bison file gcc-x86-64-linux-gnu libssl-dev bc linux-source
+            apt-get install --yes wget git build-essential pkgconf libelf-dev llvm-12 clang-12 linux-tools-generic linux-tools-common flex bison file gcc-x86-64-linux-gnu libssl-dev bc
             wget https://go.dev/dl/go1.21.0.linux-arm64.tar.gz
             rm -rf /usr/local/go
             tar -C /usr/local -xzf go1.21.0.linux-arm64.tar.gz
@@ -182,15 +223,23 @@ jobs:
             done
             clang --version
             which bpftool
-            cd /usr/src
-            source_file=$(find . -maxdepth 1 -name "*linux-source*.tar.bz2")
-            source_dir=$(echo "$source_file" | sed 's/\.tar\.bz2//g')
-            tar -xf $source_file
-            cd $source_dir
+            kernel_version=$(uname -r | cut -d '-' -f 1)
+            IFS='.' read -r major minor patch <<< "$kernel_version"
+            patch_ver=""
+            if [ $patch -ne 0 ]; then
+            patch_ver=".$patch"
+            fi
+            source_name=linux-${major}.${minor}${patch_ver}
+            echo "major: $major , minor: $minor , patch: $patch , source_name : $source_name"  
+            now_path=/tmp
+            cd ${now_path}
+            wget https://cdn.kernel.org/pub/linux/kernel/v${major}.x/${source_name}.tar.gz
+            tar -zxf ${source_name}.tar.gz
+            cd ${source_name}
             test -f .config || make oldconfig > /dev/null
             make ARCH=x86 CROSS_COMPILE=x86_64-linux-gnu- prepare V=0 > /dev/null
             make prepare V=0 > /dev/null
-            ls -al /usr/src/$source_dir
+            ls -al ${now_path}/$source_name
           # Produce a binary artifact and place it in the mounted volume
           run: |
             uname -a
@@ -201,20 +250,27 @@ jobs:
             cat /proc/1/cgroup
             echo "cat /proc/1/sched:"
             cat /proc/1/sched
-            cd /usr/src
-            source_file=$(find . -maxdepth 1 -name "*linux-source*.tar.bz2")
-            source_dir=$(echo "$source_file" | sed 's/\.tar\.bz2//g')
+            now_path=/tmp
+            cd ${now_path}
+            kernel_version=$(uname -r | cut -d '-' -f 1)
+            IFS='.' read -r major minor patch <<< "$kernel_version"
+            patch_ver=""
+            if [ $patch -ne 0 ]; then
+            patch_ver=".$patch"
+            fi
+            source_name=linux-${major}.${minor}${patch_ver}
+            echo "major: $major , minor: $minor , patch: $patch , source_name : $source_name"  
             git config --global --add safe.directory /source_code
             cd /source_code
             echo "-------------------start: Build CO-RE Linux (include non-CO-RE)-------------------"
-            KERN_HEADERS=/usr/src/$source_dir make env
+            KERN_HEADERS=${now_path}/$source_name make env
             make clean
-            KERN_HEADERS=/usr/src/$source_dir make
+            KERN_HEADERS=${now_path}/$source_name make
             bin/ecapture -v
             echo "-------------------start: Build non-CO-RE (Cross-Compilation) Linux -------------------"
             make clean
-            KERN_HEADERS=/usr/src/$source_dir CROSS_ARCH=amd64 make env
-            KERN_HEADERS=/usr/src/$source_dir CROSS_ARCH=amd64 make nocore -j8
+            KERN_HEADERS=${now_path}/$source_name CROSS_ARCH=amd64 make env
+            KERN_HEADERS=${now_path}/$source_name CROSS_ARCH=amd64 make nocore -j8
             file bin/ecapture
       - name: Show the artifact
         # Items placed in /artifacts in the container will be in
