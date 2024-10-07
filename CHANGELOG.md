@@ -1,5 +1,27 @@
+# v0.8.7 (2024-10-07)
+
+## What's Changed
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v0.8.6...v0.8.7
+<hr>
+
 # v0.8.6 (2024-09-06)
 ## What's Changed
+
+* GitHub action codecov by @cfc4n in https://github.com/gojue/ecapture/pull/594
+* fix: fix undeclared identifier error when make in debug mode by @yuweizzz
+  in https://github.com/gojue/ecapture/pull/593
+* user: adjusted the timing of the display of the kernel version is too low by @cfc4n
+  in https://github.com/gojue/ecapture/pull/607
+* kern: support uid/pid filter in ebpf TC hook. by @cfc4n in https://github.com/gojue/ecapture/pull/606
+* fix: fallback to default version with warn by @xxxxxliil in https://github.com/gojue/ecapture/pull/613
+* chore: Use `-tags 'netgo'` in bulding process to avoid SIGSEGV because of the different version of glibc in dfferent
+  Linux distros by @Zheaoli in https://github.com/gojue/ecapture/pull/616
+
+## New Contributors
+
+* @xxxxxliil made their first contribution in https://github.com/gojue/ecapture/pull/613
+* @Zheaoli made their first contribution in https://github.com/gojue/ecapture/pull/616
 
 **Full Changelog**: https://github.com/gojue/ecapture/compare/v0.8.5...v0.8.6
 <hr>
