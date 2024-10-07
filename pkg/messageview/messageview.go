@@ -185,7 +185,7 @@ func (mv *MessageView) SnapshotResponse(res *http.Response) error {
 
 	if mv.chunked {
 		cw := httputil.NewChunkedWriter(buf)
-		cw.Write(data)
+		_, _ = cw.Write(data)
 		_ = cw.Close()
 	} else {
 		buf.Write(data)
