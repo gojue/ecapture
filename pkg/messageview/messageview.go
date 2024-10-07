@@ -93,7 +93,7 @@ func (mv *MessageView) SnapshotRequest(req *http.Request) error {
 
 	mv.compress = req.Header.Get("Content-Encoding")
 
-	req.Header.WriteSubset(buf, map[string]bool{
+	_ = req.Header.WriteSubset(buf, map[string]bool{
 		"Host":              true,
 		"Content-Length":    true,
 		"Transfer-Encoding": true,
@@ -118,7 +118,7 @@ func (mv *MessageView) SnapshotRequest(req *http.Request) error {
 
 	if mv.chunked {
 		cw := httputil.NewChunkedWriter(buf)
-		cw.Write(data)
+		_, _ = cw.Write(data)
 		cw.Close()
 	} else {
 		buf.Write(data)
@@ -129,7 +129,7 @@ func (mv *MessageView) SnapshotRequest(req *http.Request) error {
 	req.Body = io.NopCloser(bytes.NewReader(data))
 
 	if req.Trailer != nil {
-		req.Trailer.Write(buf)
+		_ = req.Trailer.Write(buf)
 	} else if mv.chunked {
 		fmt.Fprint(buf, "\r\n")
 	}
@@ -161,7 +161,7 @@ func (mv *MessageView) SnapshotResponse(res *http.Response) error {
 		mv.compress = ""
 	}
 
-	res.Header.WriteSubset(buf, map[string]bool{
+	_ = res.Header.WriteSubset(buf, map[string]bool{
 		"Content-Length":    true,
 		"Transfer-Encoding": true,
 	})
@@ -181,12 +181,12 @@ func (mv *MessageView) SnapshotResponse(res *http.Response) error {
 	if err != nil {
 		return err
 	}
-	res.Body.Close()
+	_ = res.Body.Close()
 
 	if mv.chunked {
 		cw := httputil.NewChunkedWriter(buf)
 		cw.Write(data)
-		cw.Close()
+		_ = cw.Close()
 	} else {
 		buf.Write(data)
 	}
@@ -196,7 +196,7 @@ func (mv *MessageView) SnapshotResponse(res *http.Response) error {
 	res.Body = io.NopCloser(bytes.NewReader(data))
 
 	if res.Trailer != nil {
-		res.Trailer.Write(buf)
+		_ = res.Trailer.Write(buf)
 	} else if mv.chunked {
 		fmt.Fprint(buf, "\r\n")
 	}

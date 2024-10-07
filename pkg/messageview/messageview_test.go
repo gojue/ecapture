@@ -265,9 +265,9 @@ func TestRequestViewChunkedTransferEncoding(t *testing.T) {
 func TestRequestViewDecodeGzipContentEncoding(t *testing.T) {
 	body := new(bytes.Buffer)
 	gw := gzip.NewWriter(body)
-	gw.Write([]byte("body content"))
-	gw.Flush()
-	gw.Close()
+	_, _ = gw.Write([]byte("body content"))
+	_ = gw.Flush()
+	_ = gw.Close()
 
 	req, err := http.NewRequest("GET", "http://example.com/path?k=v", body)
 	if err != nil {
@@ -331,9 +331,9 @@ func TestRequestViewDecodeDeflateContentEncoding(t *testing.T) {
 	if err != nil {
 		t.Fatalf("flate.NewWriter(): got %v, want no error", err)
 	}
-	dw.Write([]byte("body content"))
-	dw.Flush()
-	dw.Close()
+	_, _ = dw.Write([]byte("body content"))
+	_ = dw.Flush()
+	_ = dw.Close()
 
 	req, err := http.NewRequest("GET", "http://example.com/path?k=v", body)
 	if err != nil {
@@ -614,9 +614,9 @@ func TestResponseViewChunkedTransferEncoding(t *testing.T) {
 func TestResponseViewDecodeGzipContentEncoding(t *testing.T) {
 	body := new(bytes.Buffer)
 	gw := gzip.NewWriter(body)
-	gw.Write([]byte("body content"))
-	gw.Flush()
-	gw.Close()
+	_, _ = gw.Write([]byte("body content"))
+	_ = gw.Flush()
+	_ = gw.Close()
 
 	res := proxy.NewResponse(200, body, nil)
 	res.TransferEncoding = []string{"chunked"}
@@ -700,9 +700,9 @@ func TestResponseViewDecodeDeflateContentEncoding(t *testing.T) {
 	if err != nil {
 		t.Fatalf("flate.NewWriter(): got %v, want no error", err)
 	}
-	dw.Write([]byte("body content"))
-	dw.Flush()
-	dw.Close()
+	_, _ = dw.Write([]byte("body content"))
+	_ = dw.Flush()
+	_ = dw.Close()
 
 	res := proxy.NewResponse(200, body, nil)
 	res.TransferEncoding = []string{"chunked"}

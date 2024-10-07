@@ -29,6 +29,7 @@ func TestExportHandlerServeHTTP(t *testing.T) {
 		t.Fatalf("http.NewRequest(): got %v, want no error", err)
 	}
 
+	t.Logf("req host:%s", req.Host)
 	//if err := logger.ModifyRequest(req); err != nil {
 	//	t.Fatalf("ModifyRequest(): got %v, want no error", err)
 	//}

@@ -61,12 +61,12 @@ func TestContext(req *http.Request) (func(), error) {
 	ctxmu.Lock()
 	defer ctxmu.Unlock()
 
-	ctx, ok := ctxs[req]
+	_, ok := ctxs[req]
 	if ok {
 		return func() { unlink(req) }, nil
 	}
-	var err error
-	ctx, err = genID()
+
+	ctx, err := genID()
 	if err != nil {
 		return nil, err
 	}

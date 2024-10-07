@@ -329,17 +329,20 @@ func TestModifyRequestBodyMultipart(t *testing.T) {
 
 	body := new(bytes.Buffer)
 	mpw := multipart.NewWriter(body)
-	mpw.SetBoundary("boundary")
+	_ = mpw.SetBoundary("boundary")
 
 	if err := mpw.WriteField("key", "value"); err != nil {
 		t.Errorf("mpw.WriteField(): got %v, want no error", err)
 	}
 
 	w, err := mpw.CreateFormFile("file", "test.txt")
+	if err != nil {
+		t.Fatalf("create file failed:%v", err)
+	}
 	if _, err = w.Write([]byte("file contents")); err != nil {
 		t.Fatalf("Write(): got %v, want no error", err)
 	}
-	mpw.Close()
+	_ = mpw.Close()
 
 	req, err := http.NewRequest("POST", "http://example.com", body)
 	if err != nil {

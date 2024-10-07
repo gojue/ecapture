@@ -56,7 +56,7 @@ func (h *exportHandler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	rw.Header().Set("Content-Type", "application/json; charset=utf-8")
 
 	hl := h.logger.Export()
-	json.NewEncoder(rw).Encode(hl)
+	_ = json.NewEncoder(rw).Encode(hl)
 }
 
 // ServeHTTP resets the log, which clears its entries.
@@ -79,7 +79,7 @@ func (h *resetHandler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	if v {
 		rw.Header().Set("Content-Type", "application/json; charset=utf-8")
 		hl := h.logger.ExportAndReset()
-		json.NewEncoder(rw).Encode(hl)
+		_ = json.NewEncoder(rw).Encode(hl)
 	} else {
 		h.logger.Reset()
 		rw.WriteHeader(http.StatusNoContent)
