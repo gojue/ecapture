@@ -96,8 +96,14 @@ help:
 
 .PHONY: prepare
 prepare:
-	$(CMD_CD) $(LINUX_SOURCE_PATH)
-	$(KERNEL_HEADER_GEN) || exit 1
+	if [ -d "/lib/modules/$(KERN_RELEASE)/build" ]; then \
+		$(CMD_CD) /lib/modules/$(KERN_RELEASE)/build && $(KERNEL_HEADER_GEN) || { echo "Kernel header generation failed"; exit 1; } \
+	fi
+	if [ -d "$(LINUX_SOURCE_PATH)" ]; then \
+		$(CMD_CD) $(LINUX_SOURCE_PATH) && $(KERNEL_HEADER_GEN) || { echo "Kernel header generation failed"; exit 1; } \
+	elif [ -n "$(CROSS_ARCH)" ]; then \
+		$(CMD_ECHO) "linux source not found with path: $(LINUX_SOURCE_PATH)" || exit 1; \
+    fi
 
 .PHONY: clean assets build ebpf
 
@@ -144,10 +150,11 @@ ebpf_noncore: prepare $(KERN_OBJECTS_NOCORE)
 .PHONY: $(KERN_OBJECTS_NOCORE)
 $(KERN_OBJECTS_NOCORE): %.nocore: %.c \
 	| .checkver_$(CMD_CLANG) \
-	.checkver_$(CMD_GO)
+	.checkver_$(CMD_GO) \
+	prepare
 	$(CMD_CLANG) \
 			$(EXTRA_CFLAGS_NOCORE) \
-    		$(BPFHEADER) \
+			$(BPFHEADER) \
 			-I $(KERN_SRC_PATH)/arch/$(LINUX_ARCH)/include \
 			-I $(KERN_BUILD_PATH)/arch/$(LINUX_ARCH)/include/generated \
 			-I $(KERN_SRC_PATH)/include \
@@ -155,11 +162,11 @@ $(KERN_OBJECTS_NOCORE): %.nocore: %.c \
 			-I $(KERN_BUILD_PATH)/arch/$(LINUX_ARCH)/include/generated/uapi \
 			-I $(KERN_SRC_PATH)/include/uapi \
 			-I $(KERN_BUILD_PATH)/include/generated/uapi \
-    		-c $< \
-    		-o - |$(CMD_LLC) \
-    		-march=bpf \
-    		-filetype=obj \
-    		-o $(subst kern/,user/bytecode/,$(subst .c,_noncore.o,$<))
+			-c $< \
+			-o - |$(CMD_LLC) \
+			-march=bpf \
+			-filetype=obj \
+			-o $(subst kern/,user/bytecode/,$(subst .c,_noncore.o,$<))
 	$(CMD_CLANG) \
 			$(EXTRA_CFLAGS_NOCORE) \
 			$(BPFHEADER) \
@@ -195,7 +202,7 @@ assets_noncore: \
 $(TARGET_LIBPCAP):
 	test -f ./lib/libpcap/configure || git submodule update --init
 	cd lib/libpcap && \
-		CC=$(CMD_CC_PREFIX)$(CMD_CC) AR=$(CMD_AR_PREFIX)$(CMD_AR) CFLAGS="-O2 -g -gdwarf-4 -static" ./configure --disable-rdma --disable-shared --disable-usb \
+		CC=$(CMD_CC_PREFIX)$(CMD_CC) AR=$(CMD_AR_PREFIX)$(CMD_AR) CFLAGS="-O2 -g -gdwarf-4 -static -Wno-unused-result" ./configure --disable-rdma --disable-shared --disable-usb \
 			--disable-netmap --disable-bluetooth --disable-dbus --without-libnl \
 			--without-dpdk --without-dag --without-septel --without-snf \
 			--without-gcc --with-pcap=linux \
