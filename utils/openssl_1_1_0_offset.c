@@ -1,5 +1,5 @@
-#include <ctype.h>
 #include <crypto/bio/bio_lcl.h>
+#include <ctype.h>
 #include <openssl/crypto.h>
 #include <ssl/ssl_locl.h>
 #include <stddef.h>
@@ -42,8 +42,7 @@ int main() {
     printf("/* OPENSSL_VERSION_TEXT: %s */\n", OPENSSL_VERSION_TEXT);
     printf("/* OPENSSL_VERSION_NUMBER: %d */\n\n", OPENSSL_VERSION_NUMBER);
 
-#define X(struct_name, field_name) \
-    format(#struct_name, #field_name, offsetof(struct struct_name, field_name));
+#define X(struct_name, field_name) format(#struct_name, #field_name, offsetof(struct struct_name, field_name));
     SSL_STRUCT_OFFSETS
 #undef X
 

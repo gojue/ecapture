@@ -200,8 +200,10 @@ bin/ecapture --help
 kernel_ver=`uname -r | cut -d'-' -f 1`
 sudo apt-get install -y linux-source-$kernel_ver
 cd /usr/src
-sudo tar -xf linux-source-${kernel_ver}.tar.bz2
-cd /usr/src/linux-source-${kernel_ver}
+source_file=$(find . -maxdepth 1 -name "*linux-source*.tar.bz2")
+source_dir=$(echo "$source_file" | sed 's/\.tar\.bz2//g')  
+sudo tar -xf $source_file
+cd $source_dir
 test -f .config || yes "" | sudo make oldconfig
 ```
 

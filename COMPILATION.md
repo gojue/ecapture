@@ -85,11 +85,12 @@ To cross-compile the eCapture tool, you need to install the kernel header files 
 install the `linux-source` package.
 
 ```shell
-kernel_ver=`uname -r | cut -d'-' -f 1`
-sudo apt-get install -y linux-source-$kernel_ver
+sudo apt-get install -y linux-source
 cd /usr/src
-sudo tar -xf linux-source-${kernel_ver}.tar.bz2
-cd /usr/src/linux-source-${kernel_ver}
+source_file=$(find . -maxdepth 1 -name "*linux-source*.tar.bz2")
+source_dir=$(echo "$source_file" | sed 's/\.tar\.bz2//g')  
+sudo tar -xf $source_file
+cd $source_dir
 test -f .config || yes "" | sudo make oldconfig
 ```
 
