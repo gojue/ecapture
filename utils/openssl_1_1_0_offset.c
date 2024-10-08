@@ -11,13 +11,15 @@
     X(ssl_st, s3)                   \
     X(ssl_st, rbio)                 \
     X(ssl_st, wbio)                 \
-    X(ssl_st, server)                    \
+    X(ssl_st, server)               \
     X(ssl_session_st, master_key)   \
     X(ssl3_state_st, client_random) \
     X(ssl_session_st, cipher)       \
     X(ssl_session_st, cipher_id)    \
     X(ssl_cipher_st, id)            \
-    X(bio_st, num)
+    X(bio_st, num)                  \
+    X(bio_st, method)               \
+    X(bio_method_st, type)
 
 void toUpper(char *s) {
     int i = 0;
