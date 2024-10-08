@@ -648,12 +648,12 @@ func (m *MOpenSSLProbe) Dispatcher(eventStruct event.IEventStruct) {
 }
 
 func (m *MOpenSSLProbe) dumpSslData(eventStruct *event.SSLDataEvent) {
-	if eventStruct.IsSetFd > 0 && eventStruct.Fd <= 0 {
+	if eventStruct.Fd <= 0 {
 		m.logger.Error().Uint32("pid", eventStruct.Pid).Uint32("fd", eventStruct.Fd).Str("address", eventStruct.Addr).Msg("SSLDataEvent's fd is 0")
 		//return
 	}
 	addr := m.GetConn(eventStruct.Pid, eventStruct.Fd)
-	m.logger.Debug().Uint32("pid", eventStruct.Pid).Uint32("fd", eventStruct.Fd).Str("address", addr).Msg("SSLDataEvent")
+	m.logger.Debug().Uint32("pid", eventStruct.Pid).Uint32("bio_type", eventStruct.BioType).Uint32("fd", eventStruct.Fd).Str("address", addr).Msg("SSLDataEvent")
 	if addr == ConnNotFound {
 		eventStruct.Addr = DefaultAddr
 	} else {
