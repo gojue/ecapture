@@ -1,6 +1,18 @@
-# v0.8.7 (2024-10-07)
+# v0.8.8 (2024-10-09)
 
 ## What's Changed
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v0.8.7...v0.8.8
+<hr>
+
+# v0.8.7 (2024-10-07)
+## What's Changed
+
+* feat: remove tcp packet limitation by @yuweizzz in https://github.com/gojue/ecapture/pull/619
+* kern: support openssl 3.3.2/3.2.3/3.1.7/3.0.15 by @cfc4n in https://github.com/gojue/ecapture/pull/624
+* workflows: update linux source tgz file version. by @cfc4n in https://github.com/gojue/ecapture/pull/644
+* fix the issue with retrieving the return value of the Read function in the Golang TLS module. by @cfc4n
+  in https://github.com/gojue/ecapture/pull/646
 
 **Full Changelog**: https://github.com/gojue/ecapture/compare/v0.8.6...v0.8.7
 <hr>
