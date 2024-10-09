@@ -30,6 +30,8 @@
     X(ssl_session_st, secret)                \
     X(ssl_session_st, cipher)                \
     X(bio_st, num)                           \
+    X(bio_st, method)                        \
+    X(bio_method_st, type)                   \
     X(ssl_cipher_st, id)                     \
     X(bssl::SSL3_STATE, hs)                  \
     X(bssl::SSL3_STATE, client_random)       \

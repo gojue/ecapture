@@ -58,6 +58,12 @@
 // bio_st->num
 #define BIO_ST_NUM 0x38
 
+// bio_st->method
+#define BIO_ST_METHOD 0x8
+
+// bio_method_st->type
+#define BIO_METHOD_ST_TYPE 0x0
+
 // quic_conn_st->tls
 #define QUIC_CONN_ST_TLS 0x40
 

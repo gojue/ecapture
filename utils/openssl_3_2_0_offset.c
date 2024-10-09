@@ -24,6 +24,8 @@
     X(ssl_connection_st, server_app_traffic_secret) \
     X(ssl_connection_st, exporter_master_secret)    \
     X(bio_st, num)                                  \
+    X(bio_st, method)                               \
+    X(bio_method_st, type)                          \
     X(quic_conn_st, tls)
 
 void toUpper(char *s) {

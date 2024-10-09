@@ -22,7 +22,9 @@
     X(ssl_st, client_app_traffic_secret) \
     X(ssl_st, server_app_traffic_secret) \
     X(ssl_st, exporter_master_secret)    \
-    X(bio_st, num)
+    X(bio_st, num)                       \
+    X(bio_st, method)                    \
+    X(bio_method_st, type)
 
 void toUpper(char *s) {
     int i = 0;

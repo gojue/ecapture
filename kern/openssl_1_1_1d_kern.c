@@ -55,6 +55,12 @@
 // bio_st->num
 #define BIO_ST_NUM 0x30
 
+// bio_st->method
+#define BIO_ST_METHOD 0x0
+
+// bio_method_st->type
+#define BIO_METHOD_ST_TYPE 0x0
+
 #include "openssl.h"
 #include "openssl_masterkey.h"
 
