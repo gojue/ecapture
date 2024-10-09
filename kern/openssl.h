@@ -482,7 +482,7 @@ int probe_connect(struct pt_regs* ctx) {
         return 0;
     }
 
-    //debug_bpf_printk("@ sockaddr FM :%d\n", address_family);
+    debug_bpf_printk("@ sockaddr FM :%d\n", address_family);
 
     struct connect_event_t conn;
     __builtin_memset(&conn, 0, sizeof(conn));
