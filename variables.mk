@@ -105,9 +105,8 @@ BUILD_DATE := $(shell date +%Y-%m-%d)
 HOST_ARCH := $(shell uname -m)
 UNAME_R := $(shell uname -r)
 HOST_VERSION_SHORT := $(shell uname -r | cut -d'-' -f 1)
-
-# linux-source-5.15.0.tar.bz2
-LINUX_SOURCE_PATH ?= /usr/src/linux-source-$(HOST_VERSION_SHORT)
+LINUX_SOURCE_FILE := $(shell find /usr/src -maxdepth 1 -name "*linux-source*.tar.bz2")
+LINUX_SOURCE_PATH := $(shell echo $(LINUX_SOURCE_FILE) | $(CMD_SED) 's/\.tar\.bz2//g')
 
 ifdef CROSS_ARCH
 	ifeq ($(HOST_ARCH),aarch64)
@@ -170,7 +169,7 @@ endif
 # include vpath
 #
 ifdef CROSS_ARCH
-	KERNEL_HEADER_GEN = test -e arch/$(LINUX_ARCH)/kernel/asm-offsets.s || yes "" | $(SUDO) make ARCH=$(LINUX_ARCH) CROSS_COMPILE=$(CMD_CC_PREFIX) prepare V=0
+	KERNEL_HEADER_GEN = yes "" | $(SUDO) make ARCH=$(LINUX_ARCH) CROSS_COMPILE=$(CMD_CC_PREFIX) prepare V=0
 	ifdef KERN_HEADERS
 		LINUX_SOURCE_PATH = $(KERN_HEADERS)
 	else
