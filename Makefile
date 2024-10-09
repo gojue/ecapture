@@ -50,6 +50,7 @@ env:
 	@echo "LAST_GIT_TAG             $(LAST_GIT_TAG)"
 	@echo "BPF_NOCORE_TAG           $(BPF_NOCORE_TAG)"
 	@echo "KERN_RELEASE             $(KERN_RELEASE)"
+	@echo "LINUX_SOURCE_PATH        $(LINUX_SOURCE_PATH)"
 	@echo "KERN_BUILD_PATH          $(KERN_BUILD_PATH)"
 	@echo "KERN_SRC_PATH            $(KERN_SRC_PATH)"
 	@echo "TARGET_ARCH              $(TARGET_ARCH)"
