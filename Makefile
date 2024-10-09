@@ -96,9 +96,6 @@ help:
 
 .PHONY: prepare
 prepare:
-	if [ -d "/lib/modules/$(KERN_RELEASE)/build" ]; then \
-		$(CMD_CD) /lib/modules/$(KERN_RELEASE)/build && $(KERNEL_HEADER_GEN) || { echo "Kernel header generation failed"; exit 1; } \
-	fi
 	if [ -d "$(LINUX_SOURCE_PATH)" ]; then \
 		$(CMD_CD) $(LINUX_SOURCE_PATH) && $(KERNEL_HEADER_GEN) || { echo "Kernel header generation failed"; exit 1; } \
 	elif [ -n "$(CROSS_ARCH)" ]; then \

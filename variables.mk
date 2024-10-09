@@ -170,7 +170,7 @@ endif
 # include vpath
 #
 ifdef CROSS_ARCH
-	KERNEL_HEADER_GEN = test -e arch/$(LINUX_ARCH)/kernel/asm-offsets.s || yes "" | $(SUDO) make ARCH=$(LINUX_ARCH) CROSS_COMPILE=$(CMD_CC_PREFIX) prepare V=0
+	KERNEL_HEADER_GEN = yes "" | $(SUDO) make ARCH=$(LINUX_ARCH) CROSS_COMPILE=$(CMD_CC_PREFIX) prepare V=0
 	ifdef KERN_HEADERS
 		LINUX_SOURCE_PATH = $(KERN_HEADERS)
 	else
