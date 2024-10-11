@@ -7,7 +7,7 @@
 [![CI](https://github.com/gojue/ecapture/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/gojue/ecapture/actions/workflows/code-analysis.yml)
 [![Github Version](https://img.shields.io/github/v/release/gojue/ecapture?display_name=tag&include_prereleases&sort=semver)](https://github.com/gojue/ecapture/releases)
 
-### eCapture(旁观者):  CA証明書なしで SSL/TLS のテキストコンテンツをキャプチャする eBPF を使用。
+### eCapture(傍観者):  CA証明書なしで SSL/TLS のテキストコンテンツをキャプチャする eBPF を使用。
 
 > **注**
 >
@@ -16,112 +16,210 @@
 ----
 
 
-<!-- MarkdownTOC autolink="true" -->
-
-- [eCapture ユーザーマニュアル](#ecapture-ユーザーマニュアル)
-- [eCapture の仕組み](#ecapture-の仕組み)
-- [eCapture アーキテクチャ](#ecapture-アーキテクチャ)
-- [はじめに](#はじめに)
-- [eBPF とは](#ebpf-とは)
-- [コンパイル方法](#コンパイル方法)
-- [コントリビュート](#コントリビュート)
-
-<!-- /MarkdownTOC -->
+- [紹介](#紹介)
+- [早速始めましょう](#早速始めましょう)
+  - [ダウンロード](#ダウンロード)
+    - [ELF実行ファイル](#ELF実行ファイル)
+    - [Docker コンテナイメージ](#Docker コンテナイメージ)
+  - [小试し](#小试し)
+  - [モジュール紹介](#モジュール紹介)
+    - [openssl モジュール](#openssl モジュール)
+    - [Pcap モジュール](#Pcap モジュール)
+    - [keylog モジュール](#keylog モジュール)
+    - [gotls モジュール](#gotls モジュール)
+    - [その他のモジュール](#その他のモジュール)
+  - [使用デモ](#使用デモ)
+- [スターチャート成長曲線](#スターチャート成長曲線)
+- [貢献](#貢献)
+- [コンパイル](#コンパイル)
+- [WeChat公式アカウント](#WeChat公式アカウント)
 ----
 
+# 紹介
 
-# eCapture ユーザーマニュアル
+eCaptureの中国語名は**傍観者**で、「**当局者は迷宮に入りやすいが、傍観者はそれから遠くに立ってはっきりしている**」という意味です。これは、その機能である**傍路化・観察**と一致し、英語の発音にも似ています。eCaptureはeBPFの`Uprobe`/`Traffic Control`技術を用いて、ユーザースペースやカーネルスペースのデータをキャプチャし、元のプログラムを変更することなく実行できます。
 
-![](./images/ecapture-help-v0.7.4.png)
+# 早速始めましょう
 
-#  eCapture の仕組み
+## ダウンロード
 
-![](./images/how-ecapture-works.png)
+### ELF実行ファイル
 
-* SSL/TLS テキスト コンテキスト キャプチャ、openssl\libssl\boringssl\gnutls\nspr(nss) ライブラリのサポート。
-* Go TLSライブラリをサポートする平文キャプチャ、つまりGolang言語で書かれたHTTPS/TLSプログラムの暗号化通信を使用します。
-* bash audit, ホストセキュリティ監査用のbashコマンドをキャプチャ。
-* mysql クエリ SQL 監査、サポート mysqld 5.6\5.7\8.0、および mariadDB。
+> **注意**
+>
+> Linux/Androidのx86_64/aarch64 CPUアーキテクチャをサポートしています。
 
-# eCapture アーキテクチャ
-![](./images/ecapture-architecture.png)
+ダウンロード [release](https://github.com/gojue/ecapture/releases) のバイナリパッケージを直接使用できます。
 
+### Docker コンテナイメージ
 
-# はじめに
-
-## ELF バイナリファイルを使用する
-
-ELF zip ファイル[リリース](https://github.com/gojue/ecapture/releases)をダウンロードし、解凍して
-コマンド `sudo ecapture --help` で使用します。
-
-* Linux kernel version >= 4.18 is required.
-* Enable BTF [BPF Type Format (BTF)](https://www.kernel.org/doc/html/latest/bpf/btf.html)  (Optional, 2022-04-17)
-
-## docker containerised run
+> **注意**
+>
+> Linux x86_64/aarch64 のみをサポートしています。
 
 ```shell
-## イメージをプルする
+# イメージをプルする
 docker pull gojue/ecapture:latest
 # 実行
-docker run --rm --privileged=true --net=host -v ${hostファイルパス}:${コンテナ内パス} gojue/ecapture ARGS
+docker run --rm --privileged=true --net=host -v ${ホスト側のファイルパス}:${コンテナ内のパス} gojue/ecapture ARGS
 ```
 
-## コマンドラインオプション
+## 小试し
 
-> **注**
->
-> ROOT 権限が必要です。
->
-eCapture はデフォルトで `/etc/ld.so.conf` ファイルを検索し、
-`SO` ファイルのロードディレクトリを検索し、
-`openssl` シャードライブラリの場所を検索します。
+Openssl動的リンクライブラリに基づくネットワーク通信をキャプチャします。
 
-ターゲットプログラムが静的にコンパイルされる場合、プログラムパスを `--libssl` フラグの値として直接設定することができます。
-
-## 模块介绍
-eCapture 有8个模块，分别支持openssl/gnutls/nspr/boringssl/gotls等类库的TLS/SSL加密类库的明文捕获、Bash、Mysql、PostGres软件审计。
-* bash		capture bash command
-* gnutls	capture gnutls text content without CA cert for gnutls libraries.
-* gotls		Capturing plaintext communication from Golang programs encrypted with TLS/HTTPS.
-* mysqld	capture sql queries from mysqld 5.6/5.7/8.0 .
-* nss		capture nss/nspr encrypted text content without CA cert for nss/nspr libraries.
-* postgres	capture sql queries from postgres 10+.
-* tls		use to capture tls/ssl text content without CA cert. (Support openssl 1.0.x/1.1.x/3.0.x or newer).
-
-你可以通过`ecapture -h`来查看这些自命令列表。
-
-## openssl  模块
-openssl模块支持3中捕获模式
-* pcap/pcapng模式，将捕获的明文数据以pcap-NG格式存储。
-* keylog/key模式，保存TLS的握手密钥到文件中。
-* text模式，直接捕获明文数据，输出到指定文件中，或者打印到命令行。
-### Pcap 模式
-你可以通过`-m pcap`或`-m pcapng`参数来指定，需要配合`--pcapfile`、`-i`参数使用。其中`--pcapfile`参数的默认值为`ecapture_openssl.pcapng`。
 ```shell
-sudo ecapture tls -m pcap -i eth0 --pcapfile=ecapture.pcapng --port=443
-```
-将捕获的明文数据包保存为pcapng文件，可以使用`Wireshark`打开查看。
+sudo ecapture tls
+2024-09-15T11:50:28Z INF AppName="eCapture(旁观者)"
+2024-09-15T11:50:28Z INF HomePage=https://ecapture.cc
+2024-09-15T11:50:28Z INF Repository=https://github.com/gojue/ecapture
+2024-09-15T11:50:28Z INF Author="CFC4N <cfc4ncs@gmail.com>"
+2024-09-15T11:50:28Z INF Description="Capturing SSL/TLS plaintext without a CA certificate using eBPF. Supported on Linux/Android kernels for amd64/arm64."
+2024-09-15T11:50:28Z INF Version=linux_arm64:0.8.6-20240915-d87ae48:5.15.0-113-generic
+2024-09-15T11:50:28Z INF Listen=localhost:28256
+2024-09-15T11:50:28Z INF eCapture running logs logger=
+2024-09-15T11:50:28Z INF the file handler that receives the captured event eventCollector=
+2024-09-15T11:50:28Z WRN ========== module starting. ==========
+2024-09-15T11:50:28Z INF listen=localhost:28256
+2024-09-15T11:50:28Z INF https server starting...You can update the configuration file via the HTTP interface.
+2024-09-15T11:50:28Z INF Kernel Info=5.15.152 Pid=233458
+2024-09-15T11:50:28Z INF BTF bytecode mode: CORE. btfMode=0
+2024-09-15T11:50:28Z INF master key keylogger has been set. eBPFProgramType=Text keylogger=
+2024-09-15T11:50:28Z INF module initialization. isReload=false moduleName=EBPFProbeOPENSSL
+2024-09-15T11:50:28Z INF Module.Run()
+2024-09-15T11:50:28Z WRN OpenSSL/BoringSSL version not found from shared library file, used default version OpenSSL Version=linux_default_3_0
+2024-09-15T11:50:28Z INF Hook masterKey function ElfType=2 Functions=["SSL_get_wbio","SSL_in_before","SSL_do_handshake"] binrayPath=/usr/lib/aarch64-linux-gnu/libssl.so.3
+2024-09-15T11:50:28Z INF target all process.
+2024-09-15T11:50:28Z INF target all users.
+2024-09-15T11:50:28Z INF setupManagers eBPFProgramType=Text
+2024-09-15T11:50:28Z INF BPF bytecode file is matched. bpfFileName=user/bytecode/openssl_3_0_0_kern_core.o
+2024-09-15T11:50:28Z INF perfEventReader created mapSize(MB)=4
+2024-09-15T11:50:28Z INF perfEventReader created mapSize(MB)=4
+2024-09-15T11:50:28Z INF module started successfully. isReload=false moduleName=EBPFProbeOPENSSL
+2024-09-15T11:50:31Z ??? UUID:233479_233479_curl_5_1_39.156.66.10:443, Name:HTTPRequest, Type:1, Length:73
+GET / HTTP/1.1
+Host: baidu.com
+Accept: */*
+User-Agent: curl/7.81.0
 
-### keylog 模式
-你可以通过`-m keylog`或`-m key`参数来指定，需要配合`--keylogfile`参数使用，默认为`ecapture_masterkey.log`。
-捕获的openssl TLS的密钥`Master Secret`信息，将保存到`--keylogfile`中。你也可以同时开启`tcpdump`抓包，再使用`Wireshark`打开，设置`Master Secret`路径，查看明文数据包。
+
+2024-09-15T11:50:32Z ??? UUID:233479_233479_curl_5_0_39.156.66.10:443, Name:HTTPResponse, Type:3, Length:357
+HTTP/1.1 302 Moved Temporarily
+Content-Length: 161
+Connection: keep-alive
+Content-Type: text/html
+Date: Sun, 15 Sep 2024 11:50:30 GMT
+Location: http://www.baidu.com/
+Server: bfe/1.0.8.18
+
+<html>
+<head><title>302 Found</title></head>
+<body bgcolor="white">
+<center><h1>302 Found</h1></center>
+<hr><center>bfe/1.0.8.18</center>
+</body>
+</html>
+```
+
+## モジュール紹介
+eCaptureには8つのモジュールが存在し、それぞれがopenssl/gnutls/nspr/boringssl/gotlsなどのライブラリをサポートしています。これらのモジュールはTLS/SSL暗号ライブラリのプレーンテキストキャプチャや、Bash、MySQL、PostgreSQLなどのソフトウェアの監査を行えます。
+
+* bash - bashコマンドラインの入出力をキャプチャします。
+* gnutls - gnutlsライブラリに基づく暗号化通信のプレーンテキストコンテンツをキャプチャします。
+* gotls - Golang言語で書かれた、組み込みcryptライブラリに基づくTLS/HTTPS暗号化通信のプレーンテキストコンテンツをキャプチャします。
+* mysqld - MysqldのSQLクエリをキャプチャし、データベース監査シナリオに適しています。Mysqld 5.6/5.7/8.0などのバージョンをサポートしています。
+* nss - nssライブラリに基づく暗号化通信のプレーンテキストコンテンツをキャプチャします。
+* postgres - postgres 10+のデータベース監査をサポートし、クエリ文をキャプチャします。
+* tls - Openssl/Boringsslに基づく暗号化通信のプレーンテキストコンテンツをキャプチャします。Openssl 1.0.x/1.1.x/3.xおよびそれ以降のバージョン、BoringSSLのすべてのリリースバージョンをサポートしています。
+
+これらのコマンドのリストは、`ecapture -h`を実行することで参照できます。
+
+### openssl モジュール
+
+`sudo ecapture -h`を実行して詳細なヘルプドキュメントを参照してください。
+
+eCaptureはデフォルトで`/etc/ld.so.conf`ファイルを探し、SOファイルのロードディレクトリを確認し、`openssl`などの動的リンクライブラリの位置を探します。また、`--libssl`パラメータを使用して動的リンクライブラリのパスを指定することもできます。
+
+ターゲットプログラムが静的コンパイル方式を使用している場合は、`--libssl`パラメータをそのプログラムのパスに設定することができます。
+
+opensslモジュールは3つのキャプチャモードをサポートしています。
+
+- pcap/pcapngモード：キャプチャしたプレーンテキストデータをpcap-NG形式で保存します。
+- keylog/keyモード：TLSのハンドシェイクキーをファイルに保存します。
+- textモード：プレーンテキストデータを直接キャプチャし、指定されたファイルに出力するか、コマンドラインに表示します。
+
+#### Pcap モジュール
+
+TLS暗号化をサポートするTCPベースのHTTP `1.0/1.1/2.0`アプリケーション層プロトコル、およびUDPを基盤とするHTTP3の`QUIC`アプリケーション層プロトコルに対応しています。
+`-m pcap`や`-m pcapng`というパラメーターで指定することができ、`--pcapfile`や`-i`というパラメーターと組み合わせて使用する必要があります。`--pcapfile`というパラメーターのデフォルト値は`ecapture_openssl.pcapng`です。
+
+```shell
+sudo ecapture tls -m pcap -i eth0 --pcapfile=ecapture.pcapng tcp port 443
+2024-09-15T06:54:12Z INF AppName="eCapture(旁观者)"
+2024-09-15T06:54:12Z INF HomePage=https://ecapture.cc
+2024-09-15T06:54:12Z INF Repository=https://github.com/gojue/ecapture
+2024-09-15T06:54:12Z INF Author="CFC4N <cfc4ncs@gmail.com>"
+2024-09-15T06:54:12Z INF Description="Capturing SSL/TLS plaintext without a CA certificate using eBPF. Supported on Linux/Android kernels for amd64/arm64."
+2024-09-15T06:54:12Z INF Version=linux_arm64:0.8.6-20240915-d87ae48:5.15.0-113-generic
+2024-09-15T06:54:12Z INF Listen=localhost:28256
+2024-09-15T06:54:12Z INF eCapture running logs logger=
+2024-09-15T06:54:12Z INF the file handler that receives the captured event eventCollector=
+2024-09-15T06:54:12Z WRN ========== module starting. ==========
+2024-09-15T06:54:12Z INF Kernel Info=5.15.152 Pid=230440
+2024-09-15T06:54:12Z INF BTF bytecode mode: CORE. btfMode=0
+2024-09-15T06:54:12Z INF listen=localhost:28256
+2024-09-15T06:54:12Z INF module initialization. isReload=false moduleName=EBPFProbeOPENSSL
+2024-09-15T06:54:12Z INF Module.Run()
+2024-09-15T06:54:12Z INF https server starting...You can update the configuration file via the HTTP interface.
+2024-09-15T06:54:12Z WRN OpenSSL/BoringSSL version not found from shared library file, used default version OpenSSL Version=linux_default_3_0
+2024-09-15T06:54:12Z INF HOOK type:Openssl elf ElfType=2 IFindex=2 IFname=ens160 PcapFilter= binrayPath=/usr/lib/aarch64-linux-gnu/libssl.so.3
+2024-09-15T06:54:12Z INF Hook masterKey function Functions=["SSL_get_wbio","SSL_in_before","SSL_do_handshake"]
+2024-09-15T06:54:12Z INF target all process.
+2024-09-15T06:54:12Z INF target all users.
+2024-09-15T06:54:12Z INF setupManagers eBPFProgramType=PcapNG
+2024-09-15T06:54:12Z INF BPF bytecode file is matched. bpfFileName=user/bytecode/openssl_3_0_0_kern_core.o
+2024-09-15T06:54:12Z INF packets saved into pcapng file. pcapng path=/home/ecapture/ecapture.pcapng
+2024-09-15T06:54:12Z INF perfEventReader created mapSize(MB)=4
+2024-09-15T06:54:12Z INF perfEventReader created mapSize(MB)=4
+2024-09-15T06:54:12Z INF module started successfully. isReload=false moduleName=EBPFProbeOPENSSL
+2024-09-15T06:54:14Z INF packets saved into pcapng file. count=4
+2024-09-15T06:54:16Z INF non-TLSv1.3 cipher suite found CLientRandom=f08e8d784962d1693c042f9fe266345507ccfaba58b823904a357f30dbfa1e71 CipherId=0
+2024-09-15T06:54:16Z INF non-TLSv1.3 cipher suite found CLientRandom=f08e8d784962d1693c042f9fe266345507ccfaba58b823904a357f30dbfa1e71 CipherId=0
+2024-09-15T06:54:16Z INF packets saved into pcapng file. count=183
+2024-09-15T06:54:16Z INF CLIENT_RANDOM save success CLientRandom=f08e8d784962d1693c042f9fe266345507ccfaba58b823904a357f30dbfa1e71 TlsVersion=TLS1_2_VERSION bytes=176
+2024-09-15T06:54:18Z INF packets saved into pcapng file. count=65
+^C2024-09-15T06:54:18Z INF module close.
+2024-09-15T06:54:18Z INF packets saved into pcapng file. count=3
+2024-09-15T06:54:18Z INF packets saved into pcapng file. count=255
+2024-09-15T06:54:18Z INF Module closed,message recived from Context
+2024-09-15T06:54:18Z INF iModule module close
+2024-09-15T06:54:18Z INF bye bye.
+```
+
+キャプチャしたプレーンテキストデータパケットをpcapngファイルに保存し、次に`Wireshark`で開いて参照すると、プレーンテキストのネットワークパケットを見ることができます。
+
+#### keylog モジュール
+`-m keylog`や`-m key`というパラメーターを用いて指定することができ、`--keylogfile`というパラメーターと組み合わせて使用する必要があります。デフォルトでは`ecapture_masterkey.log`に保存されます。
+キャプチャされたOpenSSL TLSのキー`Master Secret`情報は、`--keylogfile`で指定されたファイルに保存されます。同時に`tcpdump`でパケットキャプチャを開始し、`Wireshark`で開く際に`Master Secret`のパスを設定して、プレーンテキストのデータパケットを確認することもできます。
+
 ```shell
 sudo ecapture tls -m keylog -keylogfile=openssl_keylog.log
 ```
 
-也可以直接使用`Wireshark`软件实时解密展示。
+また、`tshark`ソフトウェアを直接使用してリアルタイムに復号化し表示することもできます。
 ```shell
 tshark -o tls.keylog_file:ecapture_masterkey.log -Y http -T fields -e http.file_data -f "port 443" -i eth0
 ```
-### text 模式
 
-`sudo ecapture tls -m text ` 将会输出所有的明文数据包。（v0.7.0起，不再捕获SSLKEYLOG信息。）
+#### テキストモード
 
+`sudo ecapture tls -m text` コマンドはすべてのプレーンテキストデータパケットを出力します。(v0.7.0から、SSLKEYLOG情報をキャプチャしなくなりました。)
 
-## gotls 模块
-与openssl模块类似。
+### gotls モジュール
 
-### サーバーの BTF 設定を確認：
+opensslモジュールと同様です。
+
+#### 検証方法：
 
 ```shell
 cfc4n@vm-server:~$# uname -r
@@ -130,89 +228,54 @@ cfc4n@vm-server:~$# cat /boot/config-`uname -r` | grep CONFIG_DEBUG_INFO_BTF
 CONFIG_DEBUG_INFO_BTF=y
 ```
 
-Step 1:
+#### eCaptureを起動する
 ```shell
 sudo ecapture gotls --elfpath=/home/cfc4n/go_https_client --hex
 ```
 
-Step 2:
+#### プログラムの起動：
+
+そのプログラムがHTTPSリクエストをトリガーすることを確認してください。
+
 ```shell
 /home/cfc4n/go_https_client
 ```
-### more help
+
+#### より多くのヘルプ
 ```shell
 sudo ecapture gotls -h
 ```
 
-### bash コマンド
-bash コマンドをキャプチャする。
-```shell
-ps -ef | grep foo
-```
+### その他のモジュール
 
-# eBPF とは
-[eBPF](https://ebpf.io)
+eCaptureは他にも`bash`、`mysql`、`nss`、`postgres`などのモジュールをサポートしています。詳細なヘルプドキュメントは`ecapture -h`を実行することで参照できます。
 
-# コンパイル方法
+## 使用デモ
 
-Linux カーネル: >= 4.18.
+### 紹介記事
 
-## ツール
-* golang 1.21 またはそれ以降
-* clang 9.0 またはそれ以降
-* cmake 3.18.4 またはそれ以降
-* clang バックエンド: llvm 9.0 またはそれ以降
-* カーネル config:CONFIG_DEBUG_INFO_BTF=y (Optional, 2022-04-17)
+[eCapture：无需CA证书抓https明文通讯](https://mp.weixin.qq.com/s/DvTClH3JmncpkaEfnTQsRg)
 
-## コマンド
-### ubuntu
-もしUbuntu 20.04以降を使用している場合、1つのコマンドでコンパイル環境の初期化が完了します。
+### 動画：LinuxでeCaptureを使用
 
-```shell
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/gojue/ecapture/master/builder/init_env.sh)"
-```
-### other Linux
-上記の`ツールチェーンバージョン`に列挙されたソフトウェア以外に、以下のソフトウェアも必要です。自己でインストールしてください。
-* linux-tools-common
-* linux-tools-generic
-* pkgconf
-* libelf-dev
+[![eCapture User Manual](./images/ecapture-user-manual.png)](https://www.bilibili.com/video/BV1si4y1Q74a "eCapture User Manual")
 
-**リポジトリのコードをクローンし、コンパイルしてください**
-```shell
-git clone --recurse-submodules git@github.com:gojue/ecapture.git
-cd ecapture
-make
-bin/ecapture
-```
+### 動画：AndroidでeCaptureを使用
 
-## BTF なしでコンパイル
-eCapture サポート BTF をコマンド `make nocore` で無効にし、2022/04/17 にコンパイルできるようにしました。LinuxのBTFをサポートしていなくても正常に動作することができます。
-```shell
-make nocore
-bin/ecapture --help
-```
+[![eCapture User Manual](./images/ecapture-user-manual-on-android.png)](https://www.bilibili.com/video/BV1xP4y1Z7HB "eCapture for Android")
 
-## クロスコンパイル
-### 内核头文件
-要交叉编译eCapture工具，您需要安装目标体系结构的内核头文件。需要安装`linux-source`软件包。
-```shell
-kernel_ver=`uname -r | cut -d'-' -f 1`
-sudo apt-get install -y linux-source-$kernel_ver
-cd /usr/src
-sudo tar -xf linux-source-${kernel_ver}.tar.bz2
-cd /usr/src/linux-source-${kernel_ver}
-test -f .config || yes "" | sudo make oldconfig
-```
+## スターチャート成長曲線
 
-Ubuntuの `amd64` システムで `arm64` の成果物をビルドするには、`CROSS_ARCH`環境変数を設定してクロスコンパイルを実行できます。
-```shell
-CROSS_ARCH=arm64 make
-```
-## Stargazers over time
+[![星标成长曲线](https://starchart.cc/gojue/ecapture.svg)](https://starchart.cc/gojue/ecapture)
 
-[![Stargazers over time](https://starchart.cc/gojue/ecapture.svg)](https://starchart.cc/gojue/ecapture)
+# 貢献
 
+[CONTRIBUTING](./CONTRIBUTING.md)の説明を参考に、バグ、パッチ、提案などを投稿してください。大変感謝しています。
 
-# コントリビュート
-パッチの投稿やコントリビューションのワークフローの詳細は [CONTRIBUTING](./CONTRIBUTING.md) を参照してください。
+# コンパイル
+
+あなたは自己想要的機能をカスタマイズすることができます。たとえば、静的コンパイルされたOpensslライブラリをサポートするために`uprobe`のオフセットアドレスを設定することができます。コンパイル方法については、[COMPILATION](./COMPILATION_CN.md)の説明を参照してください。
+
+# WeChat公式アカウント
+![](./images/wechat_gzhh.png)
+
