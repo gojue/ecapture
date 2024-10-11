@@ -66,7 +66,7 @@ docker pull gojue/ecapture:latest
 docker run --rm --privileged=true --net=host -v ${宿主机文件路径}:${容器内路径} gojue/ecapture ARGS
 ```
 
-# 小试身手
+## 小试身手
 
 捕获基于Openssl动态链接库加密的网络通讯。
 
