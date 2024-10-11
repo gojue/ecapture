@@ -16,19 +16,20 @@ jobs:
       - name: Install Compilers
         run: |
           sudo apt-get update
-          kernel_ver=`uname -r | cut -d'-' -f 1`
-          sudo apt-get install --yes build-essential pkgconf libelf-dev llvm-14 clang-14 linux-tools-common linux-tools-generic gcc gcc-aarch64-linux-gnu linux-source-${kernel_ver}
+          sudo apt-get install --yes build-essential pkgconf libelf-dev llvm-14 clang-14 linux-tools-common linux-tools-generic gcc gcc-aarch64-linux-gnu linux-source
           for tool in "clang" "llc" "llvm-strip"
           do
             sudo rm -f /usr/bin/$tool
             sudo ln -s /usr/bin/$tool-14 /usr/bin/$tool
           done
           cd /usr/src
-          sudo tar -xf linux-source-${kernel_ver}.tar.bz2
-          cd /usr/src/linux-source-${kernel_ver}
+          source_file=$(find . -maxdepth 1 -name "*linux-source*.tar.bz2")
+          source_dir=$(echo "$source_file" | sed 's/\.tar\.bz2//g')  
+          sudo tar -xf $source_file
+          cd $source_dir
           test -f .config || sudo make oldconfig
           sudo make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- prepare V=0
-          ls -al /usr/src/linux-source-${kernel_ver}
+          ls -al /usr/src/$source_dir
         shell: bash
       - uses: actions/checkout@v4
         with:

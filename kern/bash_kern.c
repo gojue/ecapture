@@ -61,12 +61,10 @@ int uretprobe_bash_readline(struct pt_regs *ctx) {
     event.uid = uid;
     event.type = BASH_EVENT_TYPE_READLINE;
     // bpf_printk("!! uretprobe_bash_readline pid:%d",target_pid );
-    bpf_probe_read_user(&event.line, sizeof(event.line),
-                        (void *)PT_REGS_RC(ctx));
+    bpf_probe_read_user(&event.line, sizeof(event.line), (void *)PT_REGS_RC(ctx));
     bpf_get_current_comm(&event.comm, sizeof(event.comm));
     bpf_map_update_elem(&events_t, &pid, &event, BPF_ANY);
-    bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, &event,
-                          sizeof(struct event));
+    bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, &event, sizeof(struct event));
 
     return 0;
 }
@@ -93,12 +91,10 @@ int uretprobe_bash_retval(struct pt_regs *ctx) {
 #ifndef KERNEL_LESS_5_2
     // if target_errno is 128 then we target all
     if (target_errno != BASH_ERRNO_DEFAULT && target_errno != retval) {
-        if (event_p)
-        {   
+        if (event_p) {
             event_p->retval = BASH_ERRNO_DEFAULT;
             event_p->type = BASH_EVENT_TYPE_RETVAL;
-            bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, event_p,
-                                  sizeof(struct event));
+            bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, event_p, sizeof(struct event));
             bpf_map_delete_elem(&events_t, &pid);
         }
         return 0;
@@ -110,13 +106,12 @@ int uretprobe_bash_retval(struct pt_regs *ctx) {
         event_p->type = BASH_EVENT_TYPE_RETVAL;
         //        bpf_map_update_elem(&events_t, &pid, event_p, BPF_ANY);
         bpf_map_delete_elem(&events_t, &pid);
-        bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, event_p,
-                              sizeof(struct event));
+        bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, event_p, sizeof(struct event));
     }
     return 0;
 }
 
-static __always_inline int send_bash_exit_event(struct pt_regs *ctx){
+static __always_inline int send_bash_exit_event(struct pt_regs *ctx) {
     u64 pid_tgid = bpf_get_current_pid_tgid();
     u32 pid = pid_tgid >> 32;
     u64 current_uid_gid = bpf_get_current_uid_gid();
@@ -127,17 +122,12 @@ static __always_inline int send_bash_exit_event(struct pt_regs *ctx){
         .uid = uid,
     };
     bpf_get_current_comm(&event.comm, sizeof(event.comm));
-    bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, &event,
-                          sizeof(struct event));
+    bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, &event, sizeof(struct event));
     return 0;
 }
 
 SEC("uprobe/exec_builtin")
-int uprobe_exec_builtin(struct pt_regs *ctx){
-    return send_bash_exit_event(ctx);
-}
+int uprobe_exec_builtin(struct pt_regs *ctx) { return send_bash_exit_event(ctx); }
 
 SEC("uprobe/exit_builtin")
-int uprobe_exit_builtin(struct pt_regs *ctx){
-    return send_bash_exit_event(ctx);
-}
+int uprobe_exit_builtin(struct pt_regs *ctx) { return send_bash_exit_event(ctx); }
