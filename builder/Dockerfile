@@ -2,7 +2,7 @@ FROM ubuntu:22.04 as ecapture_builder
 
 # Install Compilers
 RUN apt-get update &&\
-  apt-get install --yes build-essential pkgconf libelf-dev llvm-14 clang-14 linux-tools-common linux-tools-$(uname -r) make gcc flex bison file wget &&\
+  apt-get install --yes git build-essential pkgconf libelf-dev llvm-14 clang-14 linux-tools-common linux-headers-$(uname -r) make gcc flex bison file wget linux-source &&\
   # the for-shell built-in instruction does not count as a command 
   # and the shell used to execute the script is sh by default and not bash.
   rm -f /usr/bin/clang && ln -s /usr/bin/clang-14 /usr/bin/clang &&\
@@ -29,7 +29,7 @@ ARG VERSION
 
 RUN cd /build/ecapture &&\
   make clean &&\
-  make -j $(nproc) all SNAPSHOT_VERSION=${VERSION}_docker
+  make all SNAPSHOT_VERSION=${VERSION}_docker
 
 # ecapture release image
 FROM alpine:latest as ecapture

@@ -60,17 +60,14 @@ const volatile u64 target_errno = BASH_ERRNO_DEFAULT;
 #else
 #endif
 
-
 // fix  4.19.91-27.7.al7.x86_64/source/include/linux/kernel.h:140:9: warning: 'roundup' macro redefined
 #ifndef roundup
-#define roundup(x, y) (					\
-{							\
-	typeof(y) __y = y;				\
-	(((x) + (__y - 1)) / __y) * __y;		\
-}							\
-)
+#define roundup(x, y)                    \
+    ({                                   \
+        typeof(y) __y = y;               \
+        (((x) + (__y - 1)) / __y) * __y; \
+    })
 #endif
-
 
 char __license[] SEC("license") = "Dual MIT/GPL";
 __u32 _version SEC("version") = 0xFFFFFFFE;

@@ -1,5 +1,39 @@
+# v0.8.8 (2024-10-09)
+
+## What's Changed
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v0.8.7...v0.8.8
+<hr>
+
+# v0.8.7 (2024-10-07)
+## What's Changed
+
+* feat: remove tcp packet limitation by @yuweizzz in https://github.com/gojue/ecapture/pull/619
+* kern: support openssl 3.3.2/3.2.3/3.1.7/3.0.15 by @cfc4n in https://github.com/gojue/ecapture/pull/624
+* workflows: update linux source tgz file version. by @cfc4n in https://github.com/gojue/ecapture/pull/644
+* fix the issue with retrieving the return value of the Read function in the Golang TLS module. by @cfc4n
+  in https://github.com/gojue/ecapture/pull/646
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v0.8.6...v0.8.7
+<hr>
+
 # v0.8.6 (2024-09-06)
 ## What's Changed
+
+* GitHub action codecov by @cfc4n in https://github.com/gojue/ecapture/pull/594
+* fix: fix undeclared identifier error when make in debug mode by @yuweizzz
+  in https://github.com/gojue/ecapture/pull/593
+* user: adjusted the timing of the display of the kernel version is too low by @cfc4n
+  in https://github.com/gojue/ecapture/pull/607
+* kern: support uid/pid filter in ebpf TC hook. by @cfc4n in https://github.com/gojue/ecapture/pull/606
+* fix: fallback to default version with warn by @xxxxxliil in https://github.com/gojue/ecapture/pull/613
+* chore: Use `-tags 'netgo'` in bulding process to avoid SIGSEGV because of the different version of glibc in dfferent
+  Linux distros by @Zheaoli in https://github.com/gojue/ecapture/pull/616
+
+## New Contributors
+
+* @xxxxxliil made their first contribution in https://github.com/gojue/ecapture/pull/613
+* @Zheaoli made their first contribution in https://github.com/gojue/ecapture/pull/616
 
 **Full Changelog**: https://github.com/gojue/ecapture/compare/v0.8.5...v0.8.6
 <hr>
