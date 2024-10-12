@@ -240,11 +240,11 @@ int probe_entry_SSL_write(struct pt_regs* ctx) {
         debug_bpf_printk(
             "(OPENSSL) bpf_probe_read ssl_wbio_method_ptr failed, ret: %d\n",
             ret);
-        return 0;
+        // return 0;
     }
 
     // get ssl->bio->method->type
-    u32 bio_type;
+    u32 bio_type = defaultBioType;
     ssl_wbio_method_type_ptr = (u64 *)(ssl_wbio_method_addr + BIO_METHOD_ST_TYPE);
     ret = bpf_probe_read_user(&bio_type, sizeof(bio_type),
                               ssl_wbio_method_type_ptr);
@@ -252,7 +252,7 @@ int probe_entry_SSL_write(struct pt_regs* ctx) {
         debug_bpf_printk(
             "(OPENSSL) bpf_probe_read ssl_wbio_method_type_ptr failed, ret: %d\n",
             ret);
-        return 0;
+        // return 0;
     }
     debug_bpf_printk("openssl uprobe/SSL_write bio_type: %d\n", bio_type);
 
@@ -378,11 +378,11 @@ int probe_entry_SSL_read(struct pt_regs* ctx) {
         debug_bpf_printk(
             "(OPENSSL) bpf_probe_read ssl_rbio_method_ptr failed, ret: %d\n",
             ret);
-        return 0;
+        // return 0;
     }
 
     // get ssl->bio->method->type
-    u32 bio_type;
+    u32 bio_type = defaultBioType;
     ssl_rbio_method_type_ptr = (u64 *)(ssl_rbio_method_addr + BIO_METHOD_ST_TYPE);
     ret = bpf_probe_read_user(&bio_type, sizeof(bio_type),
                               ssl_rbio_method_type_ptr);
@@ -390,7 +390,7 @@ int probe_entry_SSL_read(struct pt_regs* ctx) {
         debug_bpf_printk(
             "(OPENSSL) bpf_probe_read ssl_rbio_method_type_ptr failed, ret: %d\n",
             ret);
-        return 0;
+        // return 0;
     }
 
     debug_bpf_printk("openssl uprobe/SSL_read bio_type: %d\n", bio_type);

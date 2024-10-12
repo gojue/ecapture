@@ -74,6 +74,6 @@
 #define SSL_ST_RBIO SSL_CONNECTION_ST_RBIO
 
 #include "openssl.h"
-#include "openssl_masterkey_3.3.h"
+#include "openssl_masterkey_3.2.h"
 
 #endif
