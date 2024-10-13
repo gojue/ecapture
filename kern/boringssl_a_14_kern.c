@@ -31,6 +31,12 @@
 // bio_st->num
 #define BIO_ST_NUM 0x18
 
+// bio_st->method
+#define BIO_ST_METHOD 0x0
+
+// bio_method_st->type
+#define BIO_METHOD_ST_TYPE 0x0
+
 // ssl_cipher_st->id
 #define SSL_CIPHER_ST_ID 0x10
 

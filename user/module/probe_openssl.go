@@ -41,6 +41,10 @@ import (
 const (
 	ConnNotFound = "[ADDR_NOT_FOUND]"
 	DefaultAddr  = "0.0.0.0"
+	// OpenSSL the classes of BIOs
+	// https://github.com/openssl/openssl/blob/openssl-3.0.0/include/openssl/bio.h.in
+	BIO_TYPE_DESCRIPTOR  = 0x0100
+	BIO_TYPE_SOURCE_SINK = 0x0400
 )
 
 type Tls13MasterSecret struct {
@@ -648,12 +652,13 @@ func (m *MOpenSSLProbe) Dispatcher(eventStruct event.IEventStruct) {
 }
 
 func (m *MOpenSSLProbe) dumpSslData(eventStruct *event.SSLDataEvent) {
-	if eventStruct.Fd <= 0 {
+	// BIO_TYPE_SOURCE_SINK|BIO_TYPE_DESCRIPTOR = 0x0400|0x0100 = 1280
+	if eventStruct.Fd <= 0 && eventStruct.BioType > BIO_TYPE_SOURCE_SINK|BIO_TYPE_DESCRIPTOR {
 		m.logger.Error().Uint32("pid", eventStruct.Pid).Uint32("fd", eventStruct.Fd).Str("address", eventStruct.Addr).Msg("SSLDataEvent's fd is 0")
 		//return
 	}
 	addr := m.GetConn(eventStruct.Pid, eventStruct.Fd)
-	m.logger.Debug().Uint32("pid", eventStruct.Pid).Uint32("fd", eventStruct.Fd).Str("address", addr).Msg("SSLDataEvent")
+	m.logger.Debug().Uint32("pid", eventStruct.Pid).Uint32("bio_type", eventStruct.BioType).Uint32("fd", eventStruct.Fd).Str("address", addr).Msg("SSLDataEvent")
 	if addr == ConnNotFound {
 		eventStruct.Addr = DefaultAddr
 	} else {

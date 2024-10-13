@@ -80,6 +80,7 @@ type SSLDataEvent struct {
 	Fd        uint32            `json:"fd"`
 	Version   int32             `json:"version"`
 	Addr      string
+	BioType   uint32
 }
 
 func (se *SSLDataEvent) Decode(payload []byte) (err error) {
@@ -109,6 +110,9 @@ func (se *SSLDataEvent) Decode(payload []byte) (err error) {
 		return
 	}
 	if err = binary.Read(buf, binary.LittleEndian, &se.Version); err != nil {
+		return
+	}
+	if err = binary.Read(buf, binary.LittleEndian, &se.BioType); err != nil {
 		return
 	}
 
