@@ -66,7 +66,7 @@ docker pull gojue/ecapture:latest
 docker run --rm --privileged=true --net=host -v ${宿主机文件路径}:${容器内路径} gojue/ecapture ARGS
 ```
 
-# 小试身手
+## 小试身手
 
 捕获基于Openssl动态链接库加密的网络通讯。
 
@@ -145,7 +145,7 @@ eCapture默认查找`/etc/ld.so.conf`文件，查找SO文件的加载目录，�
 
 如果目标程序使用静态编译方式，则可以直接将`--libssl`参数设定为该程序的路径。
 
-openssl模块支持3中捕获模式
+openssl模块支持3种捕获模式
 
 - pcap/pcapng模式，将捕获的明文数据以pcap-NG格式存储。
 - keylog/key模式，保存TLS的握手密钥到文件中。
