@@ -42,6 +42,7 @@ const (
 	ConnNotFound = "[ADDR_NOT_FOUND]"
 	DefaultAddr  = "0.0.0.0"
 	// OpenSSL the classes of BIOs
+	// https://github.com/openssl/openssl/blob/openssl-3.0.0/include/openssl/bio.h.in
 	BIO_TYPE_DESCRIPTOR  = 0x0100
 	BIO_TYPE_SOURCE_SINK = 0x0400
 )
