@@ -28,14 +28,14 @@ function run() {
   declare -A sslVerMap=()
   sslVerMap["0"]="0"
   sslVerMap["1"]="0"
-  sslVerMap["2"]="0"
+  sslVerMap["2"]="2"
 
   # shellcheck disable=SC2068
   for ver in ${!sslVerMap[@]}; do
     tag="openssl-3.3.${ver}"
     val=${sslVerMap[$ver]}
     header_file="${OUTPUT_DIR}/openssl_3_3_${val}_kern.c"
-    header_define="OPENSSL_3_2_$(echo ${val} | tr "[:lower:]" "[:upper:]")_KERN_H"
+    header_define="OPENSSL_3_3_$(echo ${val} | tr "[:lower:]" "[:upper:]")_KERN_H"
 
     if [[ -f ${header_file} ]]; then
       echo "Skip ${header_file}"
@@ -61,7 +61,7 @@ function run() {
     echo -e "#define SSL_ST_WBIO SSL_CONNECTION_ST_WBIO\n" >>${header_file}
     echo -e "#define SSL_ST_RBIO SSL_CONNECTION_ST_RBIO\n" >>${header_file}
     echo -e "\n#include \"openssl.h\"" >>${header_file}
-    echo -e "#include \"openssl_masterkey_3.3.h\"" >>${header_file}
+    echo -e "#include \"openssl_masterkey_3.2.h\"" >>${header_file}
     echo -e "\n#endif" >>${header_file}
 
     # clean up
