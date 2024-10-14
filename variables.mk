@@ -197,6 +197,9 @@ TARGETS += kern/openssl_1_1_0a
 TARGETS += kern/openssl_1_0_2a
 TARGETS += kern/openssl_3_0_0
 TARGETS += kern/openssl_3_2_0
+TARGETS += kern/openssl_3_2_3
+TARGETS += kern/openssl_3_3_0
+TARGETS += kern/openssl_3_3_2
 TARGETS += kern/gotls
 
 ifeq ($(ANDROID),0)
