@@ -63,6 +63,13 @@ const (
 	eCaptureListenAddr = "localhost:28256"
 )
 
+// ZeroLog print level
+const (
+	eCaptureEventLevel        = zerolog.Level(88)
+	eCaptureEventName         = "DAT"
+	eCaptureEventConsoleColor = 35 // colorMagenta
+)
+
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:        CliName,
@@ -132,7 +139,8 @@ type eventCollectorWriter struct {
 }
 
 func (e eventCollectorWriter) Write(p []byte) (n int, err error) {
-	return e.logger.Write(p)
+	e.logger.WithLevel(eCaptureEventLevel).Msgf("%s", p)
+	return len(p), nil
 }
 
 // setModConfig set module config
@@ -144,12 +152,18 @@ func setModConfig(globalConf config.BaseConfig, modConf config.IConfig) {
 	modConf.SetBTF(globalConf.BtfMode)
 	modConf.SetPerCpuMapSize(globalConf.PerCpuMapSize)
 	modConf.SetAddrType(loggerTypeStdout)
+	modConf.SetAppName(CliName)
+	modConf.SetAppVersion(GitVersion)
 }
 
 // initLogger init logger
 func initLogger(addr string, modConfig config.IConfig) zerolog.Logger {
 	var logger zerolog.Logger
 	var err error
+	// append zerolog Global variables
+	zerolog.FormattedLevels[eCaptureEventLevel] = eCaptureEventName
+	zerolog.LevelColors[eCaptureEventLevel] = eCaptureEventConsoleColor
+
 	consoleWriter := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}
 	logger = zerolog.New(consoleWriter).With().Timestamp().Logger()
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
@@ -206,15 +220,14 @@ func runModule(modName string, modConfig config.IConfig) {
 	logger.Info().Str("Listen", globalConf.Listen).Send()
 	logger.Info().Str("logger", globalConf.LoggerAddr).Msg("eCapture running logs")
 	logger.Info().Str("eventCollector", globalConf.EventCollectorAddr).Msg("the file handler that receives the captured event")
-
 	var isReload bool
-	var reRloadConfig = make(chan config.IConfig, 10)
+	var reReloadConfig = make(chan config.IConfig, 10)
 
 	// listen http server
 	go func() {
 		logger.Info().Str("listen", globalConf.Listen).Send()
 		logger.Info().Msg("https server starting...You can update the configuration file via the HTTP interface.")
-		var ec = http.NewHttpServer(globalConf.Listen, reRloadConfig, logger)
+		var ec = http.NewHttpServer(globalConf.Listen, reReloadConfig, logger)
 		err = ec.Run()
 		if err != nil {
 			logger.Fatal().Err(err).Msg("http server start failed")
@@ -236,7 +249,7 @@ func runModule(modName string, modConfig config.IConfig) {
 
 	reload:
 		// 初始化
-		logger.Warn().Msg("========== module starting. ==========")
+		logger.Debug().Msg("========== module starting. ==========")
 		mod := modFunc()
 		ctx, cancelFun := context.WithCancel(context.TODO())
 		err = mod.Init(ctx, &logger, modConfig, ecw)
@@ -262,7 +275,7 @@ func runModule(modName string, modConfig config.IConfig) {
 				break
 			}
 			isReload = false
-		case rc, ok := <-reRloadConfig:
+		case rc, ok := <-reReloadConfig:
 			if !ok {
 				logger.Warn().Msg("reload config channel closed.")
 				isReload = false

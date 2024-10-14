@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/gojue/ecapture/user/event"
+	"github.com/rs/zerolog"
 	"io"
 	"sync"
 )
@@ -37,12 +38,15 @@ type EventProcessor struct {
 	// key为 PID+UID+COMMON等确定唯一的信息
 	workerQueue map[string]IWorker
 	// log
-	logger io.Writer
+	logger      *zerolog.Logger
+	eventLogger io.Writer
 
 	closeChan chan bool
 
 	// output model
-	isHex bool
+	isHex      bool
+	appName    string
+	appVersion string
 }
 
 func (ep *EventProcessor) GetLogger() io.Writer {
@@ -68,7 +72,7 @@ func (ep *EventProcessor) Serve() error {
 				return errors.Join(err, err1)
 			}
 		case s := <-ep.outComing:
-			_, _ = ep.GetLogger().Write([]byte(s))
+			_, _ = ep.eventLogger.Write([]byte(s))
 		case _ = <-ep.closeChan:
 			return nil
 		}
@@ -76,7 +80,7 @@ func (ep *EventProcessor) Serve() error {
 }
 
 func (ep *EventProcessor) dispatch(e event.IEventStruct) error {
-	//ep.logger.Printf("event ID:%s", e.GetUUID())
+	ep.logger.Debug().Msgf("event ID:%s", e.GetUUID())
 	var uuid = e.GetUUID()
 	found, eWorker := ep.getWorkerByUUID(uuid)
 	if !found {
@@ -150,12 +154,17 @@ func (ep *EventProcessor) Close() error {
 	return nil
 }
 
-func NewEventProcessor(logger io.Writer, isHex bool) *EventProcessor {
+// NewEventProcessor 创建事件处理器
+func NewEventProcessor(logger *zerolog.Logger, eventLogger io.Writer, isHex bool, appName, appVer string) *EventProcessor {
 	var ep *EventProcessor
 	ep = &EventProcessor{}
+	// TODO 拆分为数据、日志两个通道
 	ep.logger = logger
+	ep.eventLogger = eventLogger
 	ep.isHex = isHex
 	ep.isClosed = false
+	ep.appName = appName
+	ep.appVersion = appVer
 	ep.init()
 	return ep
 }
