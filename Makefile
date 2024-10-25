@@ -236,3 +236,13 @@ format:
 	@clang-format -i -style=$(STYLE) kern/openssl_masterkey_3.2.h
 	@clang-format -i -style=$(STYLE) kern/boringssl_masterkey.h
 	@clang-format -i -style=$(STYLE) utils/*.c
+
+
+# about string " -Wl,--no-gc-sections" in CGO_LDFLAGS, please see https://groups.google.com/g/golang-codereviews/c/ZnfJ5olFsnk.
+# if without "-Wl,--no-gc-sections", the error message is "runtime/cgo(.text): relocation target stderr not defined"
+.PHONY: gotest
+gotest:
+	CGO_CFLAGS='-O2 -g -I$(CURDIR)/lib/libpcap/ -Wl,--no-gc-sections' \
+	CGO_LDFLAGS='-O2 -g -L$(CURDIR)/lib/libpcap/ -lpcap -static' \
+	GOOS=linux GOARCH=$(GOARCH) CC=$(CMD_CC_PREFIX)$(CMD_CC) \
+	$(CMD_GO) test -v -race ./pkg/event_processor/...
