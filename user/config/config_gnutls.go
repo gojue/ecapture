@@ -20,14 +20,32 @@ import "encoding/json"
 type GnutlsConfig struct {
 	BaseConfig
 	//Curl path string `json:"curlpath"` //curl的文件路径
-	Gnutls  string `json:"gnutls"`
-	ElfType uint8  //
+	Gnutls     string `json:"gnutls"`
+	Model      string `json:"model"`
+	PcapFile   string `json:"pcapfile"`
+	KeylogFile string `json:"keylog"`
+	Ifname     string `json:"ifname"`
+	PcapFilter string `json:"pcapfilter"`
+	ElfType    uint8
 }
 
 func NewGnutlsConfig() *GnutlsConfig {
 	config := &GnutlsConfig{}
 	config.PerCpuMapSize = DefaultMapSizePerCpu
 	return config
+}
+
+func (gc *GnutlsConfig) checkModel() string {
+	var m string
+	switch gc.Model {
+	case TlsCaptureModelKeylog, TlsCaptureModelKey:
+		m = TlsCaptureModelKey
+	case TlsCaptureModelPcap, TlsCaptureModelPcapng:
+		m = TlsCaptureModelPcap
+	default:
+		m = TlsCaptureModelText
+	}
+	return m
 }
 
 func (gc *GnutlsConfig) Bytes() []byte {

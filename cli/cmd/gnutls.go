@@ -18,6 +18,8 @@
 package cmd
 
 import (
+	"strings"
+
 	"github.com/gojue/ecapture/user/config"
 	"github.com/gojue/ecapture/user/module"
 	"github.com/spf13/cobra"
@@ -35,6 +37,8 @@ ecapture gnutls
 ecapture gnutls --hex --pid=3423
 ecapture gnutls -l save.log --pid=3423
 ecapture gnutls --gnutls=/lib/x86_64-linux-gnu/libgnutls.so
+ecapture gnutls -m keylog -k ecapture_gnutls_key.og
+ecapture gnutls -m pcap --pcapfile save.pcapng -i eth0 --gnutls=/lib/x86_64-linux-gnu/libgnutls.so tcp port 443
 `,
 	Run: gnuTlsCommandFunc,
 }
@@ -42,10 +46,17 @@ ecapture gnutls --gnutls=/lib/x86_64-linux-gnu/libgnutls.so
 func init() {
 	//opensslCmd.PersistentFlags().StringVar(&gc.Curlpath, "wget", "", "wget file path, default: /usr/bin/wget. (Deprecated)")
 	gnutlsCmd.PersistentFlags().StringVar(&gc.Gnutls, "gnutls", "", "libgnutls.so file path, will automatically find it from curl default.")
+	gnutlsCmd.PersistentFlags().StringVarP(&gc.Model, "model", "m", "text", "capture model, such as : text, pcap/pcapng, key/keylog")
+	gnutlsCmd.PersistentFlags().StringVarP(&gc.KeylogFile, "keylogfile", "k", "ecapture_gnutls_key.og", "The file stores SSL/TLS keys, and eCapture captures these keys during encrypted traffic communication and saves them to the file.")
+	gnutlsCmd.PersistentFlags().StringVarP(&gc.PcapFile, "pcapfile", "w", "save.pcapng", "write the raw packets to file as pcapng format.")
+	gnutlsCmd.PersistentFlags().StringVarP(&gc.Ifname, "ifname", "i", "", "(TC Classifier) Interface name on which the probe will be attached.")
 	rootCmd.AddCommand(gnutlsCmd)
 }
 
 // gnuTlsCommandFunc executes the "bash" command.
 func gnuTlsCommandFunc(command *cobra.Command, args []string) {
+	if gc.PcapFilter == "" && len(args) != 0 {
+		gc.PcapFilter = strings.Join(args, " ")
+	}
 	runModule(module.ModuleNameGnutls, gc)
 }
