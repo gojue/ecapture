@@ -19,6 +19,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"math"
+	"os"
+	"path"
+	"path/filepath"
+	"sync"
+	"time"
+
 	"github.com/cilium/ebpf"
 	manager "github.com/gojue/ebpfmanager"
 	"github.com/gojue/ecapture/assets"
@@ -26,18 +34,22 @@ import (
 	"github.com/gojue/ecapture/user/event"
 	"github.com/rs/zerolog"
 	"golang.org/x/sys/unix"
-	"io"
-	"math"
-	"os"
-	"path"
 )
 
 type MGnutlsProbe struct {
-	Module
+	MTCProbe
 	bpfManager        *manager.Manager
 	bpfManagerOptions manager.Options
 	eventFuncMaps     map[*ebpf.Map]event.IEventStruct
 	eventMaps         []*ebpf.Map
+
+	pidConns  map[uint32]map[uint32]string
+	pidLocker sync.Locker
+
+	keyloggerFilename string
+	keylogger         *os.File
+	masterKeys        map[string]bool
+	eBPFProgramType   TlsCaptureModelType
 }
 
 // 对象初始化
@@ -50,6 +62,51 @@ func (g *MGnutlsProbe) Init(ctx context.Context, logger *zerolog.Logger, conf co
 	g.Module.SetChild(g)
 	g.eventMaps = make([]*ebpf.Map, 0, 2)
 	g.eventFuncMaps = make(map[*ebpf.Map]event.IEventStruct)
+	g.pidConns = make(map[uint32]map[uint32]string)
+	g.pidLocker = new(sync.Mutex)
+	g.masterKeys = make(map[string]bool)
+	model := g.conf.(*config.GnutlsConfig).Model
+	switch model {
+	case config.TlsCaptureModelKey, config.TlsCaptureModelKeylog:
+		g.eBPFProgramType = TlsCaptureModelTypeKeylog
+		g.keyloggerFilename = g.conf.(*config.GnutlsConfig).KeylogFile
+		file, err := os.OpenFile(g.keyloggerFilename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o600)
+		if err != nil {
+			return err
+		}
+		g.keylogger = file
+	case config.TlsCaptureModelPcap, config.TlsCaptureModelPcapng:
+		g.eBPFProgramType = TlsCaptureModelTypePcap
+		pcapFile := g.conf.(*config.GnutlsConfig).PcapFile
+		fileInfo, err := filepath.Abs(pcapFile)
+		if err != nil {
+			g.logger.Warn().Err(err).Str("pcapFile", pcapFile).Str("eBPFProgramType", g.eBPFProgramType.String()).Msg("pcapFile not found")
+			return err
+		}
+		g.tcPacketsChan = make(chan *TcPacket, 2048)
+		g.tcPackets = make([]*TcPacket, 0, 256)
+		g.pcapngFilename = fileInfo
+	case config.TlsCaptureModelText:
+		fallthrough
+	default:
+		g.eBPFProgramType = TlsCaptureModelTypeText
+	}
+
+	var ts unix.Timespec
+	err = unix.ClockGettime(unix.CLOCK_MONOTONIC, &ts)
+	if err != nil {
+		return err
+	}
+	startTime := ts.Nano()
+	bootTime := time.Now().UnixNano() - startTime
+
+	g.startTime = uint64(startTime)
+	g.bootTime = uint64(bootTime)
+
+	g.tcPacketLocker = &sync.Mutex{}
+	g.masterKeyBuffer = bytes.NewBuffer([]byte{})
+
+	g.logger.Info().Str("model", g.eBPFProgramType.String()).Str("eBPFProgramType", g.eBPFProgramType.String()).Msg("GnuTlsProbe init")
 	return nil
 }
 
@@ -61,9 +118,9 @@ func (g *MGnutlsProbe) Start() error {
 }
 
 func (g *MGnutlsProbe) start() error {
-
 	// fetch ebpf assets
-	var bpfFileName = g.geteBPFName("user/bytecode/gnutls_kern.o")
+	var err error
+	bpfFileName := g.geteBPFName("user/bytecode/gnutls_kern.o")
 	g.logger.Info().Str("bytecode filename", bpfFileName).Msg("BPF bytecode loaded")
 	byteBuf, err := assets.Asset(bpfFileName)
 	if err != nil {
@@ -72,7 +129,22 @@ func (g *MGnutlsProbe) start() error {
 	}
 
 	// setup the managers
-	err = g.setupManagers()
+	switch g.eBPFProgramType {
+	case TlsCaptureModelTypeKeylog:
+		err = g.setupManagersKeylog()
+	case TlsCaptureModelTypePcap:
+		err = g.setupManagersPcap()
+		pcapFilter := g.conf.(*config.GnutlsConfig).PcapFilter
+		if g.eBPFProgramType == TlsCaptureModelTypePcap && pcapFilter != "" {
+			ebpfFuncs := []string{tcFuncNameIngress, tcFuncNameEgress}
+			g.bpfManager.InstructionPatchers = prepareInsnPatchers(g.bpfManager,
+				ebpfFuncs, pcapFilter)
+		}
+	case TlsCaptureModelTypeText:
+		fallthrough
+	default:
+		err = g.setupManagers()
+	}
 	if err != nil {
 		return fmt.Errorf("tls(gnutls) module couldn't find binPath %v", err)
 	}
@@ -88,7 +160,16 @@ func (g *MGnutlsProbe) start() error {
 	}
 
 	// 加载map信息，map对应events decode表。
-	err = g.initDecodeFun()
+	switch g.eBPFProgramType {
+	case TlsCaptureModelTypeKeylog:
+		err = g.initDecodeFunKeylog()
+	case TlsCaptureModelTypePcap:
+		err = g.initDecodeFunPcap()
+	case TlsCaptureModelTypeText:
+		fallthrough
+	default:
+		err = g.initDecodeFunText()
+	}
 	if err != nil {
 		return err
 	}
@@ -198,7 +279,7 @@ func (g *MGnutlsProbe) DecodeFun(em *ebpf.Map) (event.IEventStruct, bool) {
 	return fun, found
 }
 
-func (g *MGnutlsProbe) initDecodeFun() error {
+func (g *MGnutlsProbe) initDecodeFunText() error {
 	//GnutlsEventsMap 与解码函数映射
 	GnutlsEventsMap, found, err := g.bpfManager.GetMap("gnutls_events")
 	if err != nil {
