@@ -9,8 +9,7 @@
 
 ### eCapture(旁观者): capture SSL/TLS text content without a CA certificate using eBPF.
 
-> **Note:**
->
+> [!IMPORTANT]  
 > Supports Linux/Android kernel versions x86_64 4.18 and above, **aarch64 5.5** and above.
 > Need ROOT permission.
 > Does not support Windows and macOS system.
@@ -49,7 +48,7 @@
 
 ### ELF binary file
 
-> **Note**
+> [!TIP]
 > support Linux/Android x86_64/aarch64.
 
 Download ELF zip file [release](https://github.com/gojue/ecapture/releases) , unzip and use by
@@ -57,7 +56,7 @@ command `sudo ecapture --help`.
 
 ### Docker image
 
-> **Note**
+> [!TIP]
 > Linux only.
 
 ```shell
@@ -179,6 +178,12 @@ Supported TLS encrypted http `1.0/1.1/2.0` over TCP, and http3 `QUIC` protocol o
 You can specify `-m pcap` or `-m pcapng` and use it in conjunction with `--pcapfile` and `-i` parameters. The default value for `--pcapfile` is `ecapture_openssl.pcapng`.
 
 ```shell
+sudo ecapture tls -m pcap -i eth0 --pcapfile=ecapture.pcapng tcp port 443
+```
+
+This command saves captured plaintext data packets as a pcapng file, which can be viewed using `Wireshark`.
+
+```shell
 sudo ecapture tls -m pcap -w ecap.pcapng -i ens160
 2024-09-15T06:54:12Z INF AppName="eCapture(旁观者)"
 2024-09-15T06:54:12Z INF HomePage=https://ecapture.cc
@@ -223,12 +228,6 @@ sudo ecapture tls -m pcap -w ecap.pcapng -i ens160
 
 Used `Wireshark` to open `ecap.pcapng` file to view the plaintext data packets.
 
-```shell
-sudo ecapture tls -m pcap -i eth0 --pcapfile=ecapture.pcapng tcp port 443
-```
-
-This command saves captured plaintext data packets as a pcapng file, which can be viewed using `Wireshark`.
-
 #### Keylog Mode
 
 You can specify `-m keylog` or `-m key` and use it in conjunction with the `--keylogfile` parameter, which defaults to `ecapture_masterkey.log`.
@@ -253,15 +252,6 @@ SSLKEYLOG information.)
 ### GoTLS Module
 
 Similar to the OpenSSL module.
-
-#### check your server BTF config：
-
-```shell
-cfc4n@vm-server:~$# uname -r
-4.18.0-305.3.1.el8.x86_64
-cfc4n@vm-server:~$# cat /boot/config-`uname -r` | grep CONFIG_DEBUG_INFO_BTF
-CONFIG_DEBUG_INFO_BTF=y
-```
 
 #### gotls command
 

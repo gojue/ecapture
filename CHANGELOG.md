@@ -1,6 +1,15 @@
-# v0.8.8 (2024-10-09)
+# v0.8.9 (2024-10-26)
 
 ## What's Changed
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v0.8.8...v0.8.9
+<hr>
+
+# v0.8.8 (2024-10-09)
+## What's Changed
+
+* Fix the bug that the arm64 version cannot work (#649) by @cfc4n in https://github.com/gojue/ecapture/pull/648
+* builder: docerk build error: header not found by @cfc4n in https://github.com/gojue/ecapture/pull/648
 
 **Full Changelog**: https://github.com/gojue/ecapture/compare/v0.8.7...v0.8.8
 <hr>
