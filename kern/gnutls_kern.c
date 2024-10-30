@@ -217,3 +217,5 @@ int probe_ret_SSL_read(struct pt_regs* ctx) {
     bpf_map_delete_elem(&active_ssl_read_args_map, &current_pid_tgid);
     return 0;
 }
+
+#include "gnutls_masterkey.h"
