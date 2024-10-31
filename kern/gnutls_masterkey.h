@@ -1,6 +1,16 @@
-#define GNUTLS_RANDOM_SIZE 32
-#define GNUTLS_MASTER_SIZE 48
-#define MAX_HASH_SIZE 64
+// Author: yuweizzz <yuwei764969238@gmail.com>.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 // Ref:
 // https://github.com/gnutls/gnutls/blob/3.7.9/lib/gnutls_int.h
@@ -71,9 +81,13 @@
 // };
 //
 
+#define GNUTLS_RANDOM_SIZE 32
+#define GNUTLS_MASTER_SIZE 48
+#define MAX_HASH_SIZE 64
+
 struct gnutls_mastersecret_st {
     u32 version;
-    /* from ssl3.0 to tls12 */
+    /* from ssl3.0 to tls1.2 */
     u8 client_random[GNUTLS_RANDOM_SIZE];
     u8 master_secret[GNUTLS_MASTER_SIZE];
 
@@ -85,6 +99,21 @@ struct gnutls_mastersecret_st {
     u8 server_traffic_secret[MAX_HASH_SIZE];
     u8 exporter_master_secret[MAX_HASH_SIZE];
 };
+
+// #define GNUTLS_MAC_SHA256 6
+// #define GNUTLS_MAC_SHA384 7
+
+#define GNUTLS_SSL3 1
+#define GNUTLS_TLS1_0 2
+#define GNUTLS_TLS1 GNUTLS_TLS1_0
+#define GNUTLS_TLS1_1 3
+#define GNUTLS_TLS1_2 4
+#define GNUTLS_TLS1_3 5
+#define GNUTLS_DTLS1_0 201
+#define GNUTLS_DTLS1_2 202
+
+// Supported version: gnutls 3.7.9/3.8.1/3.8.3
+// Release: Debian 12/ubuntu 23.10/ubuntu 24.04
 
 // gnutls_session_int->security_parameters
 #define GNUTLS_SESSION_INT_SECURITY_PARAMETERS 0x0
@@ -236,14 +265,14 @@ int uretprobe_gnutls_master_key(struct pt_regs *ctx) {
     }
     debug_bpf_printk("ssl_version: %d\n", ssl_version);
 
-    struct gnutls_mastersecret_st *mastersecret = make_event();
-    if (!mastersecret) {
-        debug_bpf_printk("gnutls uretprobe/gnutls_handshake, mastersecret is null\n");
-        return 0;
-    }
-
-    // tls 1.2
-    if (ssl_version == 4) {
+    /* from ssl3.0 to tls1.2 */
+    if (ssl_version >= GNUTLS_SSL3 && ssl_version <= GNUTLS_TLS1_2 ||
+        ssl_version >= GNUTLS_DTLS1_0 && ssl_version <= GNUTLS_DTLS1_2) {
+        struct gnutls_mastersecret_st *mastersecret = make_event();
+        if (!mastersecret) {
+            debug_bpf_printk("gnutls uretprobe/gnutls_handshake, mastersecret is null\n");
+            return 0;
+        }
         mastersecret->version = ssl_version;
         ret = bpf_probe_read_user(&mastersecret->client_random, sizeof(mastersecret->client_random),
                                   (void *)(gnutls_session_addr + SECURITY_PARAMETERS_ST_CLIENT_RANDOM));
@@ -261,7 +290,12 @@ int uretprobe_gnutls_master_key(struct pt_regs *ctx) {
     }
 
     // tls 1.3
-    if (ssl_version == 5) {
+    if (ssl_version == GNUTLS_TLS1_3) {
+        struct gnutls_mastersecret_st *mastersecret = make_event();
+        if (!mastersecret) {
+            debug_bpf_printk("gnutls uretprobe/gnutls_handshake, mastersecret is null\n");
+            return 0;
+        }
         mastersecret->version = ssl_version;
         // mac cipher id
         u64 prf_addr;

@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"math"
 	"net"
-	"bytes"
 
 	"github.com/cilium/ebpf"
 	manager "github.com/gojue/ebpfmanager"
@@ -176,76 +175,4 @@ func (m *MGnutlsProbe) initDecodeFunPcap() error {
 	// masterkeyEvent.SetModule(m)
 	m.eventFuncMaps[MasterkeyEventsMap] = masterkeyEvent
 	return nil
-}
-
-func (g *MGnutlsProbe) Dispatcher(eventStruct event.IEventStruct) {
-	// detect eventStruct type
-	switch eventStruct.(type) {
-	case *event.MasterSecretGnutlsEvent:
-		g.saveMasterSecret(eventStruct.(*event.MasterSecretGnutlsEvent))
-	case *event.TcSkbEvent:
-		err := g.dumpTcSkb(eventStruct.(*event.TcSkbEvent))
-		if err != nil {
-			g.logger.Warn().Err(err).Msg("save packet error.")
-		}
-	}
-}
-
-func (g *MGnutlsProbe) saveMasterSecret(secretEvent *event.MasterSecretGnutlsEvent) {
-	clientRandomHex := fmt.Sprintf("%02x", secretEvent.ClientRandom[0:event.GnutlsRandomSize])
-	k := fmt.Sprintf("%s-%s", "CLIENT_RANDOM", clientRandomHex)
-
-	_, f := g.masterKeys[k]
-	if f {
-		// 已存在该随机数的masterSecret，不需要重复写入
-		return
-	}
-
-	g.masterKeys[k] = true
-	buf := bytes.NewBuffer(nil)
-	// tls 1.2
-	if secretEvent.Version == 4 {
-		masterSecret := secretEvent.MasterSecret[0:event.GnutlsMasterSize]
-		buf.WriteString(fmt.Sprintf("%s %s %02x\n", "CLIENT_RANDOM", clientRandomHex, masterSecret))
-	}
-	// tls 1.3
-	if secretEvent.Version == 5 {
-		// default MAC output length: 32 -- SHA256
-		// secretEvent.CipherId == 6
-		length := 32
-		if secretEvent.CipherId == 7 {
-			// SHA384
-			length = 48
-		}
-		chSecret := secretEvent.ClientHandshakeSecret[0:length]
-		buf.WriteString(fmt.Sprintf("%s %s %02x\n", "CLIENT_HANDSHAKE_TRAFFIC_SECRET", clientRandomHex, chSecret))
-		shSecret := secretEvent.ServerHandshakeSecret[0:length]
-		buf.WriteString(fmt.Sprintf("%s %s %02x\n", "SERVER_HANDSHAKE_TRAFFIC_SECRET", clientRandomHex, shSecret))
-		emSecret := secretEvent.ExporterMasterSecret[0:length]
-		buf.WriteString(fmt.Sprintf("%s %s %02x\n", "EXPORTER_SECRET", clientRandomHex, emSecret))
-		ctSecret := secretEvent.ClientTrafficSecret[0:length]
-		buf.WriteString(fmt.Sprintf("%s %s %02x\n", "CLIENT_TRAFFIC_SECRET_0", clientRandomHex, ctSecret))
-		stSecret := secretEvent.ServerTrafficSecret[0:length]
-		buf.WriteString(fmt.Sprintf("%s %s %02x\n", "SERVER_TRAFFIC_SECRET_0", clientRandomHex, stSecret))
-	}
-
-	var e error
-	switch g.eBPFProgramType {
-	case TlsCaptureModelTypeKeylog:
-		_, e = g.keylogger.WriteString(buf.String())
-		if e != nil {
-			g.logger.Warn().Err(e).Str("CLientRandom", k).Msg("save masterSecrets to keylog error")
-			return
-		}
-		g.logger.Info().Str("TlsVersion", string(secretEvent.Version)).Str("CLientRandom", clientRandomHex).Msg("CLIENT_RANDOM save success")
-	case TlsCaptureModelTypePcap:
-		e = g.savePcapngSslKeyLog(buf.Bytes())
-		if e != nil {
-			g.logger.Warn().Err(e).Str("CLientRandom", k).Msg("save masterSecrets to pcapNG error")
-			return
-		}
-		g.logger.Info().Str("TlsVersion", string(secretEvent.Version)).Str("CLientRandom", clientRandomHex).Str("eBPFProgramType", g.eBPFProgramType.String()).Msg("CLIENT_RANDOM save success")
-	default:
-		g.logger.Warn().Uint8("eBPFProgramType", uint8(g.eBPFProgramType)).Str("CLientRandom", clientRandomHex).Msg("unhandled default case with eBPF Program type")
-	}
 }

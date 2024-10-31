@@ -298,6 +298,19 @@ func (g *MGnutlsProbe) Events() []*ebpf.Map {
 	return g.eventMaps
 }
 
+func (g *MGnutlsProbe) Dispatcher(eventStruct event.IEventStruct) {
+	// detect eventStruct type
+	switch eventStruct.(type) {
+	case *event.MasterSecretGnutlsEvent:
+		g.saveMasterSecret(eventStruct.(*event.MasterSecretGnutlsEvent))
+	case *event.TcSkbEvent:
+		err := g.dumpTcSkb(eventStruct.(*event.TcSkbEvent))
+		if err != nil {
+			g.logger.Warn().Err(err).Msg("save packet error.")
+		}
+	}
+}
+
 func init() {
 	RegisteFunc(NewGnutlsProbe)
 }
