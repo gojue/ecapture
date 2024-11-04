@@ -19,8 +19,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"os"
-	"path"
 
 	"github.com/cilium/ebpf"
 	manager "github.com/gojue/ebpfmanager"
@@ -54,20 +52,7 @@ var GnutlsVersionToString = map[int32]string{
 }
 
 func (g *MGnutlsProbe) setupManagersKeylog() error {
-	var binaryPath string
-	switch g.conf.(*config.GnutlsConfig).ElfType {
-	case config.ElfTypeSo:
-		binaryPath = g.conf.(*config.GnutlsConfig).Gnutls
-	default:
-		//如果没找到  "/lib/x86_64-linux-gnu/libgnutls.so.30"
-		binaryPath = path.Join(defaultSoPath, "libgnutls.so.30")
-	}
-	_, err := os.Stat(binaryPath)
-	if err != nil {
-		return err
-	}
-
-	g.logger.Info().Str("binaryPath", binaryPath).Uint8("elfType", g.conf.(*config.GnutlsConfig).ElfType).Msg("gnutls binary path")
+	binaryPath := g.conf.(*config.GnutlsConfig).Gnutls
 	g.bpfManager = &manager.Manager{
 		Probes: []*manager.Probe{
 			{

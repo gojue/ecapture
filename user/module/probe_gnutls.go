@@ -17,12 +17,9 @@ package module
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"io"
-	"math"
 	"os"
-	"path"
 	"path/filepath"
 	"sync"
 	"time"
@@ -50,6 +47,8 @@ type MGnutlsProbe struct {
 	keylogger         *os.File
 	masterKeys        map[string]bool
 	eBPFProgramType   TlsCaptureModelType
+	sslVersion        string
+	sslBpfFile        string
 }
 
 // 对象初始化
@@ -118,11 +117,14 @@ func (g *MGnutlsProbe) Start() error {
 }
 
 func (g *MGnutlsProbe) start() error {
+	// get gnutls sslVersion and sslBpfFile
+	err := g.detectGnutls()
+	if err != nil {
+		g.logger.Error().Err(err).Msg("detectGnutls failed")
+		return fmt.Errorf("detectGnutls failed: %v", err)
+	}
 	// fetch ebpf assets
-	var err error
-	bpfFileName := g.geteBPFName("user/bytecode/gnutls_kern.o")
-	g.logger.Info().Str("bytecode filename", bpfFileName).Msg("BPF bytecode loaded")
-	byteBuf, err := assets.Asset(bpfFileName)
+	byteBuf, err := assets.Asset(g.sslBpfFile)
 	if err != nil {
 		g.logger.Error().Err(err).Strs("bytecode files", assets.AssetNames()).Msg("couldn't find bpf bytecode file")
 		return fmt.Errorf("couldn't find asset %v", err)
@@ -143,7 +145,7 @@ func (g *MGnutlsProbe) start() error {
 	case TlsCaptureModelTypeText:
 		fallthrough
 	default:
-		err = g.setupManagers()
+		err = g.setupManagersText()
 	}
 	if err != nil {
 		return fmt.Errorf("tls(gnutls) module couldn't find binPath %v", err)
@@ -202,96 +204,9 @@ func (g *MGnutlsProbe) constantEditor() []manager.ConstantEditor {
 	return editor
 }
 
-func (g *MGnutlsProbe) setupManagers() error {
-	var binaryPath string
-	switch g.conf.(*config.GnutlsConfig).ElfType {
-	case config.ElfTypeSo:
-		binaryPath = g.conf.(*config.GnutlsConfig).Gnutls
-	default:
-		//如果没找到  "/lib/x86_64-linux-gnu/libgnutls.so.30"
-		binaryPath = path.Join(defaultSoPath, "libgnutls.so.30")
-	}
-	_, err := os.Stat(binaryPath)
-	if err != nil {
-		return err
-	}
-
-	g.logger.Info().Str("binaryPath", binaryPath).Uint8("elfType", g.conf.(*config.GnutlsConfig).ElfType).Msg("gnutls binary path")
-	g.bpfManager = &manager.Manager{
-		Probes: []*manager.Probe{
-			{
-				Section:          "uprobe/gnutls_record_send",
-				EbpfFuncName:     "probe_entry_SSL_write",
-				AttachToFuncName: "gnutls_record_send",
-				BinaryPath:       binaryPath,
-			},
-			{
-				Section:          "uretprobe/gnutls_record_send",
-				EbpfFuncName:     "probe_ret_SSL_write",
-				AttachToFuncName: "gnutls_record_send",
-				BinaryPath:       binaryPath,
-			},
-			{
-				Section:          "uprobe/gnutls_record_recv",
-				EbpfFuncName:     "probe_entry_SSL_read",
-				AttachToFuncName: "gnutls_record_recv",
-				BinaryPath:       binaryPath,
-			},
-			{
-				Section:          "uretprobe/gnutls_record_recv",
-				EbpfFuncName:     "probe_ret_SSL_read",
-				AttachToFuncName: "gnutls_record_recv",
-				BinaryPath:       binaryPath,
-			},
-		},
-
-		Maps: []*manager.Map{
-			{
-				Name: "gnutls_events",
-			},
-		},
-	}
-
-	g.bpfManagerOptions = manager.Options{
-		DefaultKProbeMaxActive: 512,
-
-		VerifierOptions: ebpf.CollectionOptions{
-			Programs: ebpf.ProgramOptions{
-				LogSize: 2097152,
-			},
-		},
-
-		RLimit: &unix.Rlimit{
-			Cur: math.MaxUint64,
-			Max: math.MaxUint64,
-		},
-	}
-
-	if g.conf.EnableGlobalVar() {
-		// 填充 RewriteContants 对应map
-		g.bpfManagerOptions.ConstantEditors = g.constantEditor()
-	}
-	return nil
-}
-
 func (g *MGnutlsProbe) DecodeFun(em *ebpf.Map) (event.IEventStruct, bool) {
 	fun, found := g.eventFuncMaps[em]
 	return fun, found
-}
-
-func (g *MGnutlsProbe) initDecodeFunText() error {
-	//GnutlsEventsMap 与解码函数映射
-	GnutlsEventsMap, found, err := g.bpfManager.GetMap("gnutls_events")
-	if err != nil {
-		return err
-	}
-	if !found {
-		return errors.New("cant found map:gnutls_events")
-	}
-	g.eventMaps = append(g.eventMaps, GnutlsEventsMap)
-	g.eventFuncMaps[GnutlsEventsMap] = &event.GnutlsDataEvent{}
-
-	return nil
 }
 
 func (g *MGnutlsProbe) Events() []*ebpf.Map {

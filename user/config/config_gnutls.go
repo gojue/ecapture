@@ -26,6 +26,7 @@ type GnutlsConfig struct {
 	KeylogFile string `json:"keylog"`
 	Ifname     string `json:"ifname"`
 	PcapFilter string `json:"pcapfilter"`
+	SslVersion string `json:"sslversion"`
 	ElfType    uint8
 }
 

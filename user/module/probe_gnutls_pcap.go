@@ -46,7 +46,7 @@ func (m *MGnutlsProbe) setupManagersPcap() error {
 
 	pcapFilter := m.conf.(*config.GnutlsConfig).PcapFilter
 	m.logger.Info().Str("binrayPath", binaryPath).Str("IFname", m.ifName).Int("IFindex", m.ifIdex).
-		Str("PcapFilter", pcapFilter).Uint8("ElfType", m.conf.(*config.GnutlsConfig).ElfType).Msg("HOOK type: Gnutls elf")
+		Str("PcapFilter", pcapFilter).Uint8("ElfType", m.conf.(*config.GnutlsConfig).ElfType).Msg("Hook type: Gnutls elf")
 	m.logger.Info().Msg("Hook masterKey function: gnutls_handshake")
 
 	// create pcapng writer
