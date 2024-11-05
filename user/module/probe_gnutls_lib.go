@@ -137,53 +137,17 @@ func (m *MGnutlsProbe) detectGnutls() error {
 	switch m.sslVersion {
 	case "3.8.7":
 		m.sslBpfFile = m.geteBPFName("user/bytecode/gnutls_3_8_7_kern.o")
-	case "3.8.6":
-		fallthrough
-	case "3.8.5":
-		fallthrough
-	case "3.8.4":
+	case "3.8.6", "3.8.5", "3.8.4":
 		m.sslBpfFile = m.geteBPFName("user/bytecode/gnutls_3_8_4_kern.o")
-	case "3.8.3":
-		fallthrough
-	case "3.8.2":
-		fallthrough
-	case "3.8.1":
-		fallthrough
-	case "3.8.0":
-		fallthrough
-	case "3.7.11":
-		fallthrough
-	case "3.7.10":
-		fallthrough
-	case "3.7.9":
-		fallthrough
-	case "3.7.8":
-		fallthrough
-	case "3.7.7":
+	case "3.8.3", "3.8.2", "3.8.1", "3.8.0", "3.7.11", "3.7.10", "3.7.9", "3.7.8", "3.7.7":
 		m.sslBpfFile = m.geteBPFName("user/bytecode/gnutls_3_7_7_kern.o")
-	case "3.7.6":
-		fallthrough
-	case "3.7.5":
-		fallthrough
-	case "3.7.4":
-		fallthrough
-	case "3.7.3":
+	case "3.7.6", "3.7.5", "3.7.4", "3.7.3":
 		m.sslBpfFile = m.geteBPFName("user/bytecode/gnutls_3_7_3_kern.o")
-	case "3.7.2":
-		fallthrough
-	case "3.7.1":
-		fallthrough
-	case "3.7.0":
+	case "3.7.2", "3.7.1", "3.7.0":
 		m.sslBpfFile = m.geteBPFName("user/bytecode/gnutls_3_7_0_kern.o")
-	case "3.6.16":
-		fallthrough
-	case "3.6.15":
-		fallthrough
-	case "3.6.14":
+	case "3.6.16", "3.6.15", "3.6.14":
 		m.sslBpfFile = m.geteBPFName("user/bytecode/gnutls_3_6_14_kern.o")
-	case "3.6.13":
-		fallthrough
-	case "3.6.12":
+	case "3.6.13", "3.6.12":
 		m.sslBpfFile = m.geteBPFName("user/bytecode/gnutls_3_6_12_kern.o")
 	default:
 		m.sslBpfFile = m.geteBPFName("user/bytecode/gnutls_3_6_12_kern.o")
