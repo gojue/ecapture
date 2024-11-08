@@ -4,6 +4,7 @@
 #include <ssl/ssl_local.h>
 #include <stddef.h>
 #include <stdio.h>
+#include <ctype.h>
 
 #define SSL_STRUCT_OFFSETS                          \
     X(ssl_st, type)                                 \
