@@ -47,7 +47,7 @@ func init() {
 	//opensslCmd.PersistentFlags().StringVar(&gc.Curlpath, "wget", "", "wget file path, default: /usr/bin/wget. (Deprecated)")
 	gnutlsCmd.PersistentFlags().StringVar(&gc.Gnutls, "gnutls", "", "libgnutls.so file path, will automatically find it from curl default.")
 	gnutlsCmd.PersistentFlags().StringVarP(&gc.Model, "model", "m", "text", "capture model, such as : text, pcap/pcapng, key/keylog")
-	gnutlsCmd.PersistentFlags().StringVarP(&gc.KeylogFile, "keylogfile", "k", "ecapture_gnutls_key.og", "The file stores SSL/TLS keys, and eCapture captures these keys during encrypted traffic communication and saves them to the file.")
+	gnutlsCmd.PersistentFlags().StringVarP(&gc.KeylogFile, "keylogfile", "k", "ecapture_gnutls_key.log", "The file stores SSL/TLS keys, and eCapture captures these keys during encrypted traffic communication and saves them to the file.")
 	gnutlsCmd.PersistentFlags().StringVarP(&gc.PcapFile, "pcapfile", "w", "save.pcapng", "write the raw packets to file as pcapng format.")
 	gnutlsCmd.PersistentFlags().StringVarP(&gc.Ifname, "ifname", "i", "", "(TC Classifier) Interface name on which the probe will be attached.")
 	gnutlsCmd.PersistentFlags().StringVar(&gc.SslVersion, "ssl_version", "", "GnuTLS version, e.g: --ssl_version=\"3.7.9\"")
