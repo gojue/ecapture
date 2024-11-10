@@ -42,9 +42,9 @@ function run() {
     echo "Generating ${header_file}"
 
     # init
-    ./bootstrap
-    ./configure
-    clang -I gnulib/lib/ -I lib/ -I . offset.c -o offset
+    ./bootstrap --skip-po --force --no-bootstrap-sync
+    ./configure --without-p11-kit --without-brotli --without-zstd --without-zlib --without-tpm
+    clang -I gnulib/lib/ -I lib/includes -I . offset.c -o offset
 
     echo -e "#ifndef ECAPTURE_${header_define}" >${header_file}
     echo -e "#define ECAPTURE_${header_define}\n" >>${header_file}
@@ -59,6 +59,19 @@ function run() {
 
   rm offset.c
 }
+
+# install deps
+apt install -y \
+  libtool \
+  gettext \
+  gperf \
+  autopoint \
+  gtk-doc-tools \
+  nettle-dev \
+  libev-dev \
+  libtasn1-6-dev \
+  libunistring-dev \
+  libunbound-dev
 
 pushd ${GNUTLS_DIR}
 (run)
