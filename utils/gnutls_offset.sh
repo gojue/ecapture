@@ -61,7 +61,7 @@ function run() {
 }
 
 # install deps
-apt install -y \
+sudo apt install -y \
   libtool \
   gettext \
   gperf \
