@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "ecapture.h"
+#include "tc.h"
 
 enum ssl_data_event_type { kSSLRead, kSSLWrite };
 

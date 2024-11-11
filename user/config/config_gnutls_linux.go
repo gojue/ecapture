@@ -58,6 +58,6 @@ func (gc *GnutlsConfig) Check() error {
 	}
 
 	gc.ElfType = ElfTypeSo
-
+	gc.Model = gc.checkModel()
 	return nil
 }
