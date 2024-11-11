@@ -21,7 +21,7 @@
   - [ダウンロード](#ダウンロード)
     - [ELF実行ファイル](#ELF実行ファイル)
     - [Docker-コンテナイメージ](#Docker-コンテナイメージ)
-  - [小试し](#小试し)
+  - [使用例](#使用例)
   - [モジュール紹介](#モジュール紹介)
     - [openssl-モジュール](#openssl-モジュール)
     - [Pcap-モジュール](#Pcap-モジュール)
@@ -38,7 +38,7 @@
 
 # 紹介
 
-eCaptureの中国語名は**傍観者**で、「**当局者は迷宮に入りやすいが、傍観者はそれから遠くに立ってはっきりしている**」という意味です。これは、その機能である**傍路化・観察**と一致し、英語の発音にも似ています。eCaptureはeBPFの`Uprobe`/`Traffic Control`技術を用いて、ユーザースペースやカーネルスペースのデータをキャプチャし、元のプログラムを変更することなく実行できます。
+eCaptureの中国語名は**傍観者**で、「**岡目八目**」という意味です。これは、その機能である**傍路化・観察**と一致し、英語の発音にも似ています。eCaptureはeBPFの`Uprobe`/`Traffic Control`技術を用いて、ユーザースペースやカーネルスペースのデータをキャプチャし、元のプログラムを変更することなく実行できます。
 
 # 早速始めましょう
 
@@ -65,7 +65,7 @@ docker pull gojue/ecapture:latest
 docker run --rm --privileged=true --net=host -v ${ホスト側のファイルパス}:${コンテナ内のパス} gojue/ecapture ARGS
 ```
 
-## 小试し
+## 使用例
 
 Openssl動的リンクライブラリに基づくネットワーク通信をキャプチャします。
 
@@ -220,7 +220,7 @@ tshark -o tls.keylog_file:ecapture_masterkey.log -Y http -T fields -e http.file_
 
 opensslモジュールと同様です。
 
-#### 検証方法：
+#### 起動環境の検証方法：
 
 ```shell
 cfc4n@vm-server:~$# uname -r
@@ -275,7 +275,7 @@ eCaptureは他にも`bash`、`mysql`、`nss`、`postgres`などのモジュー�
 
 # コンパイル
 
-あなたは自己想要的機能をカスタマイズすることができます。たとえば、静的コンパイルされたOpensslライブラリをサポートするために`uprobe`のオフセットアドレスを設定することができます。コンパイル方法については、[COMPILATION](./COMPILATION_CN.md)の説明を参照してください。
+あなたは自分で望む機能をカスタマイズすることができます。たとえば、静的コンパイルされたOpensslライブラリをサポートするために`uprobe`のオフセットアドレスを設定することができます。コンパイル方法については、[COMPILATION](./COMPILATION_CN.md)の説明を参照してください。
 
 # WeChat公式アカウント
 ![](./images/wechat_gzhh.png)
