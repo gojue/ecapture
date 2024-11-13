@@ -9,11 +9,6 @@ Source0:    %{name}-%{version}.tar.gz
 %global _missing_build_ids_terminate_build 0
 %define debug_package %{nil}
 
-BuildRequires: make
-BuildRequires: clang
-BuildRequires: golang
-BuildRequires: elfutils
-
 
 %description
 SSL/TLS plaintext capture,

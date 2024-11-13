@@ -31,24 +31,24 @@ import (
 // gnutls_protocol_t: https://github.com/gnutls/gnutls/blob/master/lib/includes/gnutls/gnutls.h.in#L822
 
 const (
-	_                             = iota
-	GNUTLS_SSL3, GNUTLS_DTLS1_0   = iota, iota + 200
-	GNUTLS_TLS1_0, GNUTLS_DTLS1_2 = iota, iota + 200
-	GNUTLS_TLS1_1                 = iota
-	GNUTLS_TLS1_2
-	GNUTLS_TLS1_3
-	GNUTLS_MAC_SHA256
-	GNUTLS_MAC_SHA384
+	_                         = iota
+	GnutlsSsl3, GnutlsDtls10  = iota, iota + 200
+	GnutlsTls10, GnutlsDtls12 = iota, iota + 200
+	GnutlsTls11               = iota
+	GnutlsTls12
+	GnutlsTls13
+	GnutlsMacSha256
+	GnutlsMacSha384
 )
 
 var GnutlsVersionToString = map[int32]string{
-	GNUTLS_SSL3:    "GNUTLS_SSL3",
-	GNUTLS_TLS1_0:  "GNUTLS_TLS1_0",
-	GNUTLS_TLS1_1:  "GNUTLS_TLS1_1",
-	GNUTLS_TLS1_2:  "GNUTLS_TLS1_2",
-	GNUTLS_TLS1_3:  "GNUTLS_TLS1_3",
-	GNUTLS_DTLS1_0: "GNUTLS_DTLS1_0",
-	GNUTLS_DTLS1_2: "GNUTLS_DTLS1_2",
+	GnutlsSsl3:   "GNUTLS_SSL3",
+	GnutlsTls10:  "GNUTLS_TLS1_0",
+	GnutlsTls11:  "GNUTLS_TLS1_1",
+	GnutlsTls12:  "GNUTLS_TLS1_2",
+	GnutlsTls13:  "GNUTLS_TLS1_3",
+	GnutlsDtls10: "GNUTLS_DTLS1_0",
+	GnutlsDtls12: "GNUTLS_DTLS1_2",
 }
 
 func (g *MGnutlsProbe) setupManagersKeylog() error {
@@ -129,12 +129,12 @@ func (g *MGnutlsProbe) saveMasterSecret(secretEvent *event.MasterSecretGnutlsEve
 	buf := bytes.NewBuffer(nil)
 	switch secretEvent.Version {
 	// tls1.3
-	case GNUTLS_TLS1_3:
+	case GnutlsTls13:
 		var length int
 		switch secretEvent.CipherId {
-		case GNUTLS_MAC_SHA384:
+		case GnutlsMacSha384:
 			length = 48
-		case GNUTLS_MAC_SHA256:
+		case GnutlsMacSha256:
 			fallthrough
 		default:
 			// default MAC output length: 32 -- SHA256
@@ -151,7 +151,7 @@ func (g *MGnutlsProbe) saveMasterSecret(secretEvent *event.MasterSecretGnutlsEve
 		stSecret := secretEvent.ServerTrafficSecret[0:length]
 		buf.WriteString(fmt.Sprintf("%s %s %02x\n", "SERVER_TRAFFIC_SECRET_0", clientRandomHex, stSecret))
 	// tls1.2
-	case GNUTLS_TLS1_2:
+	case GnutlsTls12:
 		fallthrough
 	// tls1.1, tls1.0, ssl3.0, dtls 1.0 and dtls 1.2
 	default:

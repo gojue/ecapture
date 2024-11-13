@@ -41,6 +41,7 @@
 eCapture的中文名字为**旁观者**，即「**当局者迷，旁观者清**」，与其本身功能**旁路、观察**
 契合，且发音与英文有相似之处。eCapture使用eBPF `Uprobe`/`Traffic Control`技术，实现各种用户空间/内核空间的数据捕获，无需改动原程序。
 
+
 # 快速上手
 
 ## 下载
@@ -65,6 +66,8 @@ docker run --rm --privileged=true --net=host -v ${宿主机文件路径}:${容�
 ```
 
 ## 小试身手
+
+![](./images/ecapture-help-v0.8.9.svg)
 
 捕获基于Openssl动态链接库加密的网络通讯。
 

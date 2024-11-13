@@ -67,6 +67,8 @@ docker run --rm --privileged=true --net=host -v ${ホスト側のファイルパ
 
 ## 使用例
 
+![](./images/ecapture-help-v0.8.9.svg)
+
 Openssl動的リンクライブラリに基づくネットワーク通信をキャプチャします。
 
 ```shell

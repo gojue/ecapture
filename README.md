@@ -39,8 +39,7 @@
 * bash audit, capture bash command for Host Security Audit.
 * mysql query SQL audit, support mysqld 5.6\5.7\8.0, and mariadDB.
 
-
-![](./images/ecapture-help-v0.7.4.png)
+![](./images/ecapture-help-v0.8.9.svg)
 
 # Getting started
 

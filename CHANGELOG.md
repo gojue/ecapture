@@ -192,7 +192,7 @@ eCapture支持[Pcap Filter Syntax](https://www.tcpdump.org/manpages/pcap-filter.
 ecapture tls -m pcap -i wlan0 -w save.pcapng host 192.168.1.1 and tcp port 443
 ```
 
-![](https://github.com/gojue/ecapture/blob/master/images/ecapture-help-v0.7.4.png)
+![](https://github.com/gojue/ecapture/blob/master/images/ecapture-help-v0.8.9.svg)
 
 ## What's Changed
 * Update probe_bash.go by @sancppp in https://github.com/gojue/ecapture/pull/479
