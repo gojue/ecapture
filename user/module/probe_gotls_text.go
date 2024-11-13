@@ -89,9 +89,8 @@ func (g *GoTLSProbe) setupManagersText() error {
 			EbpfFuncName:     readFn,
 			AttachToFuncName: config.GoTlsReadFunc,
 			BinaryPath:       g.path,
-			//UprobeOffset:     uint64(v),
-			UAddress: uint64(v),
-			UID:      uid,
+			UAddress:         uint64(v),
+			UID:              uid,
 		})
 	}
 	g.bpfManagerOptions = manager.Options{

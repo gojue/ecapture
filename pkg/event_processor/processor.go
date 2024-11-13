@@ -15,7 +15,6 @@
 package event_processor
 
 import (
-	"errors"
 	"fmt"
 	"github.com/gojue/ecapture/user/event"
 	"io"
@@ -64,8 +63,9 @@ func (ep *EventProcessor) Serve() error {
 		case eventStruct := <-ep.incoming:
 			err = ep.dispatch(eventStruct)
 			if err != nil {
-				err1 := ep.Close()
-				return errors.Join(err, err1)
+				//err1 := ep.Close()
+				//return errors.Join(err, err1)
+				return err
 			}
 		case s := <-ep.outComing:
 			_, _ = ep.GetLogger().Write([]byte(s))
@@ -141,6 +141,9 @@ func (ep *EventProcessor) Write(e event.IEventStruct) {
 func (ep *EventProcessor) Close() error {
 	ep.Lock()
 	defer ep.Unlock()
+	if ep.isClosed {
+		return nil
+	}
 	ep.isClosed = true
 	close(ep.closeChan)
 	close(ep.incoming)

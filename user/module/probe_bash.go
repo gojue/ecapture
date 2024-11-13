@@ -165,7 +165,7 @@ func (b *MBashProbe) setupManagers() {
 				Section:          "uretprobe/bash_readline",
 				EbpfFuncName:     "uretprobe_bash_readline",
 				AttachToFuncName: readlineFuncName,
-				//UprobeOffset: 0x8232, 	//若找不到 readline 函数，则使用offset偏移地址方式。
+				//UAddress: 0x8232, 	//若找不到 readline 函数，则使用offset偏移地址方式。
 				BinaryPath: binaryPath, // 可能是 /bin/bash 也可能是 readline.so的真实地址
 			},
 			{
