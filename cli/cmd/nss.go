@@ -40,7 +40,6 @@ ecapture nss --nspr=/lib/x86_64-linux-gnu/libnspr44.so
 }
 
 func init() {
-	//nssCmd.PersistentFlags().StringVar(&nc.Firefoxpath, "firefox", "", "firefox file path, default: /usr/lib/firefox/firefox. (Deprecated)")
 	nssCmd.PersistentFlags().StringVar(&nc.Nsprpath, "nspr", "", "libnspr44.so file path, will automatically find it from curl default.")
 	rootCmd.AddCommand(nssCmd)
 }

@@ -37,7 +37,7 @@ ecapture gnutls
 ecapture gnutls --hex --pid=3423
 ecapture gnutls -l save.log --pid=3423
 ecapture gnutls --gnutls=/lib/x86_64-linux-gnu/libgnutls.so
-ecapture gnutls -m keylog -k ecapture_gnutls_key.og --ssl_version=3.7.9
+ecapture gnutls -m keylog -k ecapture_gnutls_key.log --ssl_version=3.7.9
 ecapture gnutls -m pcap --pcapfile save.pcapng -i eth0 --gnutls=/lib/x86_64-linux-gnu/libgnutls.so tcp port 443
 `,
 	Run: gnuTlsCommandFunc,
