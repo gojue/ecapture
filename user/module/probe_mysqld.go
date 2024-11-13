@@ -136,14 +136,14 @@ func (m *MMysqldProbe) setupManagers() error {
 				Section:          "uprobe/dispatch_command_57",
 				EbpfFuncName:     "mysql57_query",
 				AttachToFuncName: attachFunc,
-				UprobeOffset:     offset,
+				UAddress:         offset,
 				BinaryPath:       binaryPath,
 			},
 			{
 				Section:          "uretprobe/dispatch_command_57",
 				EbpfFuncName:     "mysql57_query_return",
 				AttachToFuncName: attachFunc,
-				UprobeOffset:     offset,
+				UAddress:         offset,
 				BinaryPath:       binaryPath,
 			},
 		}
@@ -153,14 +153,14 @@ func (m *MMysqldProbe) setupManagers() error {
 				Section:          "uprobe/dispatch_command_57", //TODO CHANGE to mysqld80 @CFC4N
 				EbpfFuncName:     "mysql57_query",
 				AttachToFuncName: attachFunc,
-				UprobeOffset:     offset,
+				UAddress:         offset,
 				BinaryPath:       binaryPath,
 			},
 			{
 				Section:          "uretprobe/dispatch_command_57",
 				EbpfFuncName:     "mysql57_query_return",
 				AttachToFuncName: attachFunc,
-				UprobeOffset:     offset,
+				UAddress:         offset,
 				BinaryPath:       binaryPath,
 			},
 		}
@@ -170,14 +170,14 @@ func (m *MMysqldProbe) setupManagers() error {
 				Section:          "uprobe/dispatch_command",
 				EbpfFuncName:     "mysql56_query",
 				AttachToFuncName: attachFunc,
-				UprobeOffset:     offset,
+				UAddress:         offset,
 				BinaryPath:       binaryPath,
 			},
 			{
 				Section:          "uretprobe/dispatch_command",
 				EbpfFuncName:     "mysql56_query_return",
 				AttachToFuncName: attachFunc,
-				UprobeOffset:     offset,
+				UAddress:         offset,
 				BinaryPath:       binaryPath,
 			},
 		}
@@ -193,7 +193,7 @@ func (m *MMysqldProbe) setupManagers() error {
 	}
 
 	m.logger.Info().Str("binrayPath", binaryPath).Str("FunctionName", attachFunc).
-		Str("Version", versionInfo).Uint64("UprobeOffset", offset).Msg("Mysql Probe Hooked")
+		Str("Version", versionInfo).Uint64("UAddress", offset).Msg("Mysql Probe Hooked")
 	m.bpfManagerOptions = manager.Options{
 		DefaultKProbeMaxActive: 512,
 

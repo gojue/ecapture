@@ -43,8 +43,8 @@ const (
 	DefaultAddr  = "0.0.0.0"
 	// OpenSSL the classes of BIOs
 	// https://github.com/openssl/openssl/blob/openssl-3.0.0/include/openssl/bio.h.in
-	BIO_TYPE_DESCRIPTOR  = 0x0100
-	BIO_TYPE_SOURCE_SINK = 0x0400
+	BioTypeDescriptor = 0x0100
+	BioTypeSourceSink = 0x0400
 )
 
 type Tls13MasterSecret struct {
@@ -653,7 +653,7 @@ func (m *MOpenSSLProbe) Dispatcher(eventStruct event.IEventStruct) {
 
 func (m *MOpenSSLProbe) dumpSslData(eventStruct *event.SSLDataEvent) {
 	// BIO_TYPE_SOURCE_SINK|BIO_TYPE_DESCRIPTOR = 0x0400|0x0100 = 1280
-	if eventStruct.Fd <= 0 && eventStruct.BioType > BIO_TYPE_SOURCE_SINK|BIO_TYPE_DESCRIPTOR {
+	if eventStruct.Fd <= 0 && eventStruct.BioType > BioTypeSourceSink|BioTypeDescriptor {
 		m.logger.Error().Uint32("pid", eventStruct.Pid).Uint32("fd", eventStruct.Fd).Str("address", eventStruct.Addr).Msg("SSLDataEvent's fd is 0")
 		//return
 	}
