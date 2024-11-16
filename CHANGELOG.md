@@ -1,9 +1,22 @@
+# v0.8.10 (2024-11-16)
+## What's Changed
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v0.8.9...v0.8.10
+<hr>
+
 # v0.8.9 (2024-10-26)
 
 ## What's Changed
 
+* typo: 3中 --> 3种 by @CC11001100 in https://github.com/gojue/ecapture/pull/641
+* fix: SSLDataEvent's fd is 0 Error by @yuweizzz in https://github.com/gojue/ecapture/pull/642
+* fix: couldn't find bpf bytecode file error by @yuweizzz in https://github.com/gojue/ecapture/pull/650
+
+## New Contributors
+
+* @CC11001100 made their first contribution in https://github.com/gojue/ecapture/pull/641
+
 **Full Changelog**: https://github.com/gojue/ecapture/compare/v0.8.8...v0.8.9
-<hr>
 
 # v0.8.8 (2024-10-09)
 ## What's Changed
