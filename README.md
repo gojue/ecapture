@@ -37,6 +37,8 @@
 * SSL/TLS plaintext capture, support openssl\libressl\boringssl\gnutls\nspr(nss) libraries.
 * GoTLS plaintext support go tls library, which refers to encrypted communication in https/tls programs written in the golang language.
 * bash audit, capture bash command for Host Security Audit.
+* dash audit, capture dash command for Host Security Audit.
+* zsh audit, capture zsh command for Host Security Audit.
 * mysql query SQL audit, support mysqld 5.6\5.7\8.0, and mariadDB.
 
 ![](./images/ecapture-help-v0.8.9.svg)
@@ -149,6 +151,8 @@ The document has moved
 ## Modules
 The eCapture tool comprises 8 modules that respectively support plaintext capture for TLS/SSL encryption libraries like OpenSSL, GnuTLS, NSPR, BoringSSL, and GoTLS. Additionally, it facilitates software audits for Bash, MySQL, and PostgreSQL applications.
 * bash		capture bash command
+* dash    capture dash command
+* zsh     capture zsh command
 * gnutls	capture gnutls text content without CA cert for gnutls libraries.
 * gotls		Capturing plaintext communication from Golang programs encrypted with TLS/HTTPS.
 * mysqld	capture sql queries from mysqld 5.6/5.7/8.0 .

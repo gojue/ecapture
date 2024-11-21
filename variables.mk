@@ -205,6 +205,8 @@ TARGETS += kern/gotls
 
 ifeq ($(ANDROID),0)
 	TARGETS += kern/bash
+	TARGETS += kern/dash
+	TARGETS += kern/zsh
 	TARGETS += kern/gnutls_3_6_12
 	TARGETS += kern/gnutls_3_6_14
 	TARGETS += kern/gnutls_3_7_0

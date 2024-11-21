@@ -26,6 +26,8 @@ const (
 
 const (
 	ModuleNameBash     = "EBPFProbeBash"
+	ModuleNameDash     = "EBPFProbeDash"
+	ModuleNameZsh      = "EBPFProbeZsh"
 	ModuleNameMysqld   = "EBPFProbeMysqld"
 	ModuleNamePostgres = "EBPFProbePostgres"
 	ModuleNameOpenssl  = "EBPFProbeOPENSSL"
@@ -36,6 +38,8 @@ const (
 
 const (
 	BashErrnoDefault int = 128
+	DashErrnoDefault int = 128
+	ZshErrnoDefault  int = 128
 )
 
 const (
