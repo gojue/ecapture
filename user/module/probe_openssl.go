@@ -198,8 +198,71 @@ func (m *MOpenSSLProbe) getSslBpfFile(soPath, sslVersion string) error {
 		}
 	}
 
-	// 未找到对应的bpf文件，尝试从so文件中获取
-	err := m.detectOpenssl(soPath)
+	err, verString := m.detectOpenssl(soPath)
+	if errors.Is(err, ErrProbeOpensslVerNotFound) {
+		// 未找到版本号， try libcrypto.so.x
+		if strings.Contains(soPath, "libssl.so.3") {
+			m.logger.Warn().Err(err).Str("soPath", soPath).Msg("OpenSSL/BoringSSL version not found.")
+			m.logger.Warn().Msg("Try to detect libcrypto.so.3. If you have doubts")
+			m.logger.Warn().Msg("See https://github.com/gojue/ecapture/discussions/675 for more information.")
+
+			// 从 libssl.so.3 中获取 libcrypto.so.3 的路径
+			var libcryptoName = "libcrypto.so.3"
+			var imd []string
+			imd, err = getImpNeeded(soPath)
+			if err == nil {
+				for _, im := range imd {
+					// 匹配 包含 libcrypto.so 字符的动态链接库库名
+					if strings.Contains(im, "libcrypto.so") {
+						libcryptoName = im
+						break
+					}
+				}
+			}
+			soPath = strings.Replace(soPath, "libssl.so.3", libcryptoName, 1)
+			m.logger.Info().Str("soPath", soPath).Str("imported", libcryptoName).Msg("Try to detect imported libcrypto.so ")
+			err, verString = m.detectOpenssl(soPath)
+			if err != nil {
+				if !errors.Is(err, ErrProbeOpensslVerNotFound) {
+					return err
+				} else {
+					m.logger.Warn().Err(err).Str("soPath", soPath).Msg("OpenSSL(libcrypto.so.3) version not found.")
+				}
+			} else {
+				m.logger.Info().Str("soPath", soPath).Str("imported", libcryptoName).Str("version", verString).Msg("OpenSSL/BoringSSL version found from imported libcrypto.so")
+			}
+		}
+	}
+
+	if err != nil {
+		m.logger.Error().Str("soPath", soPath).Err(err).Msg("OpenSSL/BoringSSL version check failed")
+		return err
+	}
+
+	m.conf.(*config.OpensslConfig).SslVersion = verString
+	m.logger.Info().Str("origin versionKey", verString).Str("versionKeyLower", verString).Send()
+	// find the sslVersion bpfFile from sslVersionBpfMap
+
+	isAndroid := m.conf.(*config.OpensslConfig).IsAndroid
+	androidVer := m.conf.(*config.OpensslConfig).AndroidVer
+	bpfFileKey := verString
+	if isAndroid {
+		// sometimes,boringssl version always was "boringssl 1.1.1" on android. but offsets are different.
+		// see kern/boringssl_a_13_kern.c and kern/boringssl_a_14_kern.c
+		// Perhaps we can utilize the Android Version to choose a specific version of boringssl.
+		// use the corresponding bpfFile
+		bpfFileKey = fmt.Sprintf("boringssl_a_%s", androidVer)
+	}
+	bpfFile, found := m.sslVersionBpfMap[bpfFileKey]
+	if found {
+		m.sslBpfFile = bpfFile
+		m.logger.Info().Bool("Android", isAndroid).Str("library version", bpfFileKey).Msg("OpenSSL/BoringSSL version found")
+		return nil
+	}
+
+	bpfFile = m.getSoDefaultBytecode(soPath, isAndroid)
+	m.sslBpfFile = bpfFile
+	m.logger.Error().Str("sslVersion", sslVersion).Str("bpfFile", bpfFile).Msg("OpenSSL/BoringSSL version not found, used default version, if you want to use the specific version, please set the sslVersion parameter with `--ssl_version=\"openssl x.x.x\"`")
 	return err
 }
 

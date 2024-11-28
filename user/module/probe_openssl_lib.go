@@ -16,8 +16,8 @@ package module
 
 import (
 	"debug/elf"
+	"errors"
 	"fmt"
-	"github.com/gojue/ecapture/user/config"
 	"os"
 	"regexp"
 	"strings"
@@ -48,6 +48,11 @@ const (
 	SupportedOpenSSL33Version1    = 1 // openssl 3.3.0 ~ 3.3.1
 	MaxSupportedOpenSSL33Version  = 2 // openssl 3.3.2
 	SupportedOpenSSL34Version0    = 0 // openssl 3.4.0
+)
+
+var (
+	ErrProbeOpensslVerNotFound         = errors.New("OpenSSL/BoringSSL version not found")
+	ErrProbeOpensslVerBytecodeNotFound = errors.New("OpenSSL/BoringSSL version bytecode not found")
 )
 
 // initOpensslOffset initial BpfMap
@@ -147,27 +152,27 @@ func (m *MOpenSSLProbe) initOpensslOffset() {
 
 }
 
-func (m *MOpenSSLProbe) detectOpenssl(soPath string) error {
+func (m *MOpenSSLProbe) detectOpenssl(soPath string) (error, string) {
 	f, err := os.OpenFile(soPath, os.O_RDONLY, os.ModePerm)
 	if err != nil {
-		return fmt.Errorf("can not open %s, with error:%v", soPath, err)
+		return fmt.Errorf("can not open %s, with error:%v", soPath, err), ""
 	}
 	r, e := elf.NewFile(f)
 	if e != nil {
-		return fmt.Errorf("parse the ELF file  %s failed, with error:%v", soPath, err)
+		return fmt.Errorf("parse the ELF file  %s failed, with error:%v", soPath, err), ""
 	}
 
 	switch r.FileHeader.Machine {
 	case elf.EM_X86_64:
 	case elf.EM_AARCH64:
 	default:
-		return fmt.Errorf("unsupported arch library ,ELF Header Machine is :%s, must be one of EM_X86_64 and EM_AARCH64", r.FileHeader.Machine.String())
+		return fmt.Errorf("unsupported arch library ,ELF Header Machine is :%s, must be one of EM_X86_64 and EM_AARCH64", r.FileHeader.Machine.String()), ""
 	}
 
 	s := r.Section(".rodata")
 	if s == nil {
 		// not found
-		return fmt.Errorf("detect openssl version failed, cant read .rodata section from %s", soPath)
+		return fmt.Errorf("detect openssl version failed, cant read .rodata section from %s", soPath), ""
 	}
 
 	sectionOffset := int64(s.Offset)
@@ -177,12 +182,12 @@ func (m *MOpenSSLProbe) detectOpenssl(soPath string) error {
 
 	_, err = f.Seek(0, 0)
 	if err != nil {
-		return err
+		return err, ""
 	}
 
 	ret, err := f.Seek(sectionOffset, 0)
 	if ret != sectionOffset || err != nil {
-		return err
+		return err, ""
 	}
 
 	versionKey := ""
@@ -191,7 +196,7 @@ func (m *MOpenSSLProbe) detectOpenssl(soPath string) error {
 	// OpenSSL 3.2.0 23 Nov 2023
 	rex, err := regexp.Compile(`(OpenSSL\s\d\.\d\.[0-9a-z]+)`)
 	if err != nil {
-		return nil
+		return err, ""
 	}
 
 	buf := make([]byte, 1024*1024) // 1Mb
@@ -233,46 +238,55 @@ func (m *MOpenSSLProbe) detectOpenssl(soPath string) error {
 	_ = f.Close()
 	//buf = buf[:0]
 
-	var bpfFile string
-	var found bool
-	if versionKey != "" {
-		versionKeyLower := strings.ToLower(versionKey)
-		m.conf.(*config.OpensslConfig).SslVersion = versionKeyLower
-		m.logger.Info().Str("origin versionKey", versionKey).Str("versionKeyLower", versionKeyLower).Msg("OpenSSL/BoringSSL version found")
-		// find the sslVersion bpfFile from sslVersionBpfMap
-		bpfFile, found = m.sslVersionBpfMap[versionKeyLower]
-		if found {
-			m.sslBpfFile = bpfFile
-			return nil
-		}
+	if versionKey == "" {
+		return ErrProbeOpensslVerNotFound, ""
 	}
 
-	isAndroid := m.conf.(*config.OpensslConfig).IsAndroid
-	androidVer := m.conf.(*config.OpensslConfig).AndroidVer
+	versionKeyLower := strings.ToLower(versionKey)
+
+	return nil, versionKeyLower
+}
+
+func (m *MOpenSSLProbe) getSoDefaultBytecode(soPath string, isAndroid bool) string {
+	var bpfFile string
+
 	// if not found, use default
 	if isAndroid {
-		// sometimes,boringssl version always was "boringssl 1.1.1" on android. but offsets are different.
-		// see kern/boringssl_a_13_kern.c and kern/boringssl_a_14_kern.c
-		// Perhaps we can utilize the Android Version to choose a specific version of boringssl.
-		// use the corresponding bpfFile
-		bpfFildAndroid := fmt.Sprintf("boringssl_a_%s", androidVer)
-		bpfFile, found = m.sslVersionBpfMap[bpfFildAndroid]
-		if found {
-			m.sslBpfFile = bpfFile
-			m.logger.Info().Str("BoringSSL Version", androidVer).Msg("OpenSSL/BoringSSL version found")
-		} else {
-			bpfFile, _ = m.sslVersionBpfMap[AndroidDefauleFilename]
-			m.logger.Warn().Str("BoringSSL Version", AndroidDefauleFilename).Msg("OpenSSL/BoringSSL version not found, used default version")
-		}
-	} else {
-		if strings.Contains(soPath, "libssl.so.3") {
-			bpfFile, _ = m.sslVersionBpfMap[Linuxdefaulefilename30]
-			m.logger.Warn().Str("OpenSSL Version", Linuxdefaulefilename30).Msg("OpenSSL/BoringSSL version not found from shared library file, used default version")
-		} else {
-			bpfFile, _ = m.sslVersionBpfMap[Linuxdefaulefilename111]
-			m.logger.Warn().Str("OpenSSL Version", Linuxdefaulefilename111).Msg("OpenSSL/BoringSSL version not found from shared library file, used default version")
-		}
+		bpfFile, _ = m.sslVersionBpfMap[AndroidDefauleFilename]
+		m.logger.Warn().Str("BoringSSL Version", AndroidDefauleFilename).Msg("OpenSSL/BoringSSL version not found, used default version")
+		return bpfFile
 	}
-	m.sslBpfFile = bpfFile
-	return nil
+
+	if strings.Contains(soPath, "libssl.so.3") {
+		bpfFile, _ = m.sslVersionBpfMap[Linuxdefaulefilename30]
+		m.logger.Warn().Str("OpenSSL Version", Linuxdefaulefilename30).Msg("OpenSSL/BoringSSL version not found from shared library file, used default version")
+	} else {
+		bpfFile, _ = m.sslVersionBpfMap[Linuxdefaulefilename111]
+		m.logger.Warn().Str("OpenSSL Version", Linuxdefaulefilename111).Msg("OpenSSL/BoringSSL version not found from shared library file, used default version")
+	}
+	return bpfFile
+}
+
+func getImpNeeded(soPath string) ([]string, error) {
+	var importedNeeded []string
+	f, err := os.OpenFile(soPath, os.O_RDONLY, os.ModePerm)
+	if err != nil {
+		return importedNeeded, fmt.Errorf("can not open %s, with error:%v", soPath, err)
+	}
+
+	elfFile, err := elf.NewFile(f)
+	if err != nil {
+		return importedNeeded, fmt.Errorf("parse the ELF file  %s failed, with error:%v", soPath, err)
+	}
+
+	// 打印外部依赖的动态链接库
+	is, err := elfFile.DynString(elf.DT_NEEDED)
+	//is, err := elfFile.ImportedSymbols()
+	if err != nil {
+		return importedNeeded, err
+	}
+	for _, s := range is {
+		importedNeeded = append(importedNeeded, s)
+	}
+	return importedNeeded, nil
 }
