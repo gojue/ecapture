@@ -247,7 +247,7 @@ func runModule(modName string, modConfig config.IConfig) {
 
 		err = mod.Run()
 		if err != nil {
-			logger.Fatal().Err(err).Bool("isReload", isReload).Msg("module run failed, skip it.")
+			logger.Fatal().Err(err).Bool("isReload", isReload).Msg("module run failed.")
 		}
 		logger.Info().Str("moduleName", modName).Bool("isReload", isReload).Msg("module started successfully.")
 
