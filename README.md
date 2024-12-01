@@ -37,7 +37,7 @@
 * SSL/TLS plaintext capture, support openssl\libressl\boringssl\gnutls\nspr(nss) libraries.
 * GoTLS plaintext support go tls library, which refers to encrypted communication in https/tls programs written in the golang language.
 * bash audit, capture bash command for Host Security Audit.
-* mysql query SQL audit, support mysqld 5.6\5.7\8.0, and mariadDB.
+* MySQL query SQL audit, support mysqld 5.6\5.7\8.0, and MariaDB.
 
 ![](./images/ecapture-help-v0.8.9.svg)
 
