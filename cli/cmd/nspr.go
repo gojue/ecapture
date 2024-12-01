@@ -27,14 +27,14 @@ var nc = config.NewNsprConfig()
 
 // gnutlsCmd represents the openssl command
 var nssCmd = &cobra.Command{
-	Use:     "nss",
-	Aliases: []string{"nspr"},
+	Use:     "nspr",
+	Aliases: []string{"nss"},
 	Short:   "capture nss/nspr encrypted text content without CA cert for nss/nspr libraries.",
 	Long: `use eBPF uprobe/TC to capture process event data.
-ecapture nss
-ecapture nss --hex --pid=3423
-ecapture nss -l save.log --pid=3423
-ecapture nss --nspr=/lib/x86_64-linux-gnu/libnspr44.so
+ecapture nspr
+ecapture nspr --hex --pid=3423
+ecapture nspr -l save.log --pid=3423
+ecapture nspr --nspr=/lib/x86_64-linux-gnu/libnspr44.so
 `,
 	Run: nssCommandFunc,
 }

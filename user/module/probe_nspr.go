@@ -30,6 +30,7 @@ import (
 	"math"
 	"os"
 	"path"
+	"strings"
 )
 
 type MNsprProbe struct {
@@ -147,6 +148,10 @@ func (n *MNsprProbe) setupManagers() error {
 	}
 
 	n.logger.Info().Str("binrayPath", binaryPath).Uint8("ElfType", n.conf.(*config.NsprConfig).ElfType).Msg("HOOK type:nspr elf")
+	if strings.Contains(binaryPath, "libnss3.so") || strings.Contains(binaryPath, "libnss.so") {
+		n.logger.Warn().Msg("In normal circumstances, the PR_Write/PR_Read functions should be in libnspr4.so. If it fails to run, please try specifying the --nspr=/xxx/libnspr4.so path. ")
+		n.logger.Warn().Msg("For more information, please refer to https://github.com/gojue/ecapture/issues/662 .")
+	}
 	n.bpfManager = &manager.Manager{
 		Probes: []*manager.Probe{
 			{
