@@ -39,7 +39,7 @@ const (
 	CliDescription = "Capturing SSL/TLS plaintext without a CA certificate using eBPF. Supported on Linux/Android kernels for amd64/arm64."
 	CliHomepage    = "https://ecapture.cc"
 	CliAuthor      = "CFC4N <cfc4ncs@gmail.com>"
-	CliRepo        = "https://github.com/gojue/ecapture"
+	CliGithubRepo  = "https://github.com/gojue/ecapture"
 )
 
 var (
@@ -198,7 +198,7 @@ func runModule(modName string, modConfig config.IConfig) {
 	// init eCapture
 	logger.Info().Str("AppName", fmt.Sprintf("%s(%s)", CliName, CliNameZh)).Send()
 	logger.Info().Str("HomePage", CliHomepage).Send()
-	logger.Info().Str("Repository", CliRepo).Send()
+	logger.Info().Str("Repository", CliGithubRepo).Send()
 	logger.Info().Str("Author", CliAuthor).Send()
 	logger.Info().Str("Description", CliDescription).Send()
 	logger.Info().Str("Version", GitVersion).Send()
