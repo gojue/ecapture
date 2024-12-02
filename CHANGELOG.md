@@ -1,6 +1,23 @@
-# v0.8.11 (2024-12-01)
+# v0.8.12 (2024-12-02)
 
 ## What's Changed
+
+* Fix the version number string cannot be found in the dynamic library of boringssl. by @cfc4n
+  in https://github.com/gojue/ecapture/pull/679
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v0.8.11...v0.8.12
+<hr>
+
+# v0.8.11 (2024-12-01)
+## What's Changed
+
+* fix(user/module): read version from libcrypto.so by @xxxxxliil in https://github.com/gojue/ecapture/pull/661
+* fix MariaDB typo in README.md by @robertsilen in https://github.com/gojue/ecapture/pull/672
+* Add a reminder for failure when hooking libnss3.so. by @cfc4n in https://github.com/gojue/ecapture/pull/677
+
+## New Contributors
+
+* @robertsilen made their first contribution in https://github.com/gojue/ecapture/pull/672
 
 **Full Changelog**: https://github.com/gojue/ecapture/compare/v0.8.10...v0.8.11
 <hr>
