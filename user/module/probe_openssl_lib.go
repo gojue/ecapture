@@ -18,6 +18,7 @@ import (
 	"debug/elf"
 	"errors"
 	"fmt"
+	"github.com/gojue/ecapture/user/config"
 	"os"
 	"regexp"
 	"strings"
@@ -53,6 +54,9 @@ const (
 var (
 	ErrProbeOpensslVerNotFound         = errors.New("OpenSSL/BoringSSL version not found")
 	ErrProbeOpensslVerBytecodeNotFound = errors.New("OpenSSL/BoringSSL version bytecode not found")
+	OpensslNoticeVersionGuideAndroid   = "\"--ssl_version='boringssl_a_13'\" , \"--ssl_version='boringssl_a_14'\""
+	OpensslNoticeVersionGuideLinux     = "\"--ssl_version='openssl x.x.x'\", support openssl 1.0.x, 1.1.x, 3.x or newer"
+	OpensslNoticeUsedDefault           = "If you want to use the specific version, please set the sslVersion parameter with %s, or use \"ecapture tls --help\" for more help."
 )
 
 // initOpensslOffset initial BpfMap
@@ -252,17 +256,20 @@ func (m *MOpenSSLProbe) getSoDefaultBytecode(soPath string, isAndroid bool) stri
 
 	// if not found, use default
 	if isAndroid {
+		m.conf.(*config.OpensslConfig).SslVersion = AndroidDefauleFilename
 		bpfFile, _ = m.sslVersionBpfMap[AndroidDefauleFilename]
-		m.logger.Warn().Str("BoringSSL Version", AndroidDefauleFilename).Msg("OpenSSL/BoringSSL version not found, used default version")
+		//m.logger.Warn().Str("BoringSSL Version", AndroidDefauleFilename).Msg("OpenSSL/BoringSSL version not found, used default version")
 		return bpfFile
 	}
 
 	if strings.Contains(soPath, "libssl.so.3") {
+		m.conf.(*config.OpensslConfig).SslVersion = Linuxdefaulefilename30
 		bpfFile, _ = m.sslVersionBpfMap[Linuxdefaulefilename30]
-		m.logger.Warn().Str("OpenSSL Version", Linuxdefaulefilename30).Msg("OpenSSL/BoringSSL version not found from shared library file, used default version")
+		//m.logger.Warn().Str("OpenSSL Version", Linuxdefaulefilename30).Msg("OpenSSL/BoringSSL version not found from shared library file, used default version")
 	} else {
+		m.conf.(*config.OpensslConfig).SslVersion = Linuxdefaulefilename111
 		bpfFile, _ = m.sslVersionBpfMap[Linuxdefaulefilename111]
-		m.logger.Warn().Str("OpenSSL Version", Linuxdefaulefilename111).Msg("OpenSSL/BoringSSL version not found from shared library file, used default version")
+		//m.logger.Warn().Str("OpenSSL Version", Linuxdefaulefilename111).Msg("OpenSSL/BoringSSL version not found from shared library file, used default version")
 	}
 	return bpfFile
 }
