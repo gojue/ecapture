@@ -131,29 +131,27 @@ static __always_inline int capture_packets(struct __sk_buff *skb, bool is_ingres
     // packet data
     unsigned char *data_start = (void *)(long)skb->data;
     unsigned char *data_end = (void *)(long)skb->data_end;
-    if (data_start + sizeof(struct ethhdr) > data_end) {
+
+    // packet length check
+    if (data_start + sizeof(struct ethhdr) + sizeof(struct iphdr) > data_end) 
+    {
         return TC_ACT_OK;
     }
 
-    u32 data_len = (u32)skb->len;
-    uint32_t l4_hdr_off;
-
-    // Ethernet headers
-    struct ethhdr *eth = (struct ethhdr *)data_start;
-
-
-    // Simple length check
-    if ((data_start + sizeof(struct ethhdr) + sizeof(struct iphdr)) >
-        data_end) {
+    // filter L2/L3/L4 packet, include arp
+#ifndef KERNEL_LESS_5_2
+    if (!filter_pcap_l2(skb, data_start, data_end))
         return TC_ACT_OK;
-    }
+#endif
 
     struct net_id_t conn_id = {0};
     struct net_ctx_t *net_ctx = NULL;
+    // Ethernet headers
+    struct ethhdr *eth = (struct ethhdr *)data_start;
     if (eth->h_proto == bpf_htons(ETH_P_IPV6)) {
         // IPv6 packect
-        uint32_t l6_hdr_off = sizeof(struct ethhdr) + sizeof(struct ipv6hdr);
-        if (!skb_revalidate_data(skb, &data_start, &data_end, l6_hdr_off)) {
+        uint32_t l4_hdr_off = sizeof(struct ethhdr) + sizeof(struct ipv6hdr);
+        if (!skb_revalidate_data(skb, &data_start, &data_end, l4_hdr_off)) {
             return TC_ACT_OK;
         }
 
@@ -167,7 +165,7 @@ static __always_inline int capture_packets(struct __sk_buff *skb, bool is_ingres
         __builtin_memcpy(conn_id.dst_ip6, &iph->daddr, sizeof(iph->daddr));
 
         if (!skb_revalidate_data(skb, &data_start, &data_end,
-                                 l6_hdr_off + sizeof(struct tcphdr))) {
+                                 l4_hdr_off + sizeof(struct tcphdr))) {
             return TC_ACT_OK;
         }
         // udphdr
@@ -178,13 +176,7 @@ static __always_inline int capture_packets(struct __sk_buff *skb, bool is_ingres
         //  __sum16	check;
         // };
         // udp protocol reuse tcphdr
-        struct tcphdr *hdr = (struct tcphdr *)(data_start + l6_hdr_off);
-
-#ifndef KERNEL_LESS_5_2
-    if (!filter_pcap_l2(skb, data_start, data_end))
-        return TC_ACT_OK;
-#endif
-
+        struct tcphdr *hdr = (struct tcphdr *)(data_start + l4_hdr_off);
         conn_id.src_port = bpf_ntohs(hdr->source);
         conn_id.dst_port = bpf_ntohs(hdr->dest);
 
@@ -201,7 +193,7 @@ static __always_inline int capture_packets(struct __sk_buff *skb, bool is_ingres
         }
     } else if (eth->h_proto == bpf_htons(ETH_P_IP)) {
         // IPv4 packect
-        l4_hdr_off = sizeof(struct ethhdr) + sizeof(struct iphdr);
+        uint32_t l4_hdr_off = sizeof(struct ethhdr) + sizeof(struct iphdr);
         if (!skb_revalidate_data(skb, &data_start, &data_end, l4_hdr_off)) {
             return TC_ACT_OK;
         }
@@ -222,12 +214,6 @@ static __always_inline int capture_packets(struct __sk_buff *skb, bool is_ingres
         // debug_bpf_printk("!!!capture_packets src_ip4 : %d, dst_ip4 port :%d\n", conn_id.src_ip4, conn_id.dst_ip4);
         // udp protocol reuse tcphdr
         struct tcphdr *hdr = (struct tcphdr *)(data_start + l4_hdr_off);
-
-#ifndef KERNEL_LESS_5_2
-    if (!filter_pcap_l2(skb, data_start, data_end))
-        return TC_ACT_OK;
-#endif
-
         conn_id.src_port = bpf_ntohs(hdr->source);
         conn_id.dst_port = bpf_ntohs(hdr->dest);
         // debug_bpf_printk("!!!capture_packets port : %d, dest port :%d\n", conn_id.src_port, conn_id.dst_port);
