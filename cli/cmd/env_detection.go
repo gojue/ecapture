@@ -15,10 +15,14 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"runtime"
 
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/asm"
 	"github.com/gojue/ecapture/pkg/util/kernel"
+	"golang.org/x/sys/unix"
 )
 
 func detectKernel() error {
@@ -42,11 +46,37 @@ func detectKernel() error {
 
 	return nil
 }
+func detectBpfCap() error {
+	// BPF 权限检测
+	prog, err := ebpf.NewProgram(&ebpf.ProgramSpec{
+		Name: "uprobe_dummy",
+		Type: ebpf.Kprobe,
+		Instructions: asm.Instructions{
+			asm.Mov.Imm(asm.R0, 0),
+			asm.Return(),
+		},
+		License: "GPL",
+	})
+	if err != nil {
+		if errors.Is(err, unix.EPERM) {
+			return fmt.Errorf("the current user does not have CAP_BPF to load bpf programs. Please run as root or use sudo or add the --privileged=true flag for Docker.")
+		}
+
+		return fmt.Errorf("failed to create bpf program: %v", err)
+	}
+	defer prog.Close()
+
+	return nil
+}
 
 func detectEnv() error {
 	// 环境检测
 
 	if err := detectKernel(); err != nil {
+		return err
+	}
+
+	if err := detectBpfCap(); err != nil {
 		return err
 	}
 
