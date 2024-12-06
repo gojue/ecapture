@@ -19,7 +19,7 @@ GoTLS plaintext support go tls library, which refers to encrypted
 Communication in https/tls programs written in the golang language.
 
 Bash audit, capture bash command for Host Security Audit.
-
+Zsh audit, capture zsh command for Host Security Audit.
 MySQL query SQL audit, support mysqld 5.6/5.7/8.0, and mariadDB.
 
 %prep
