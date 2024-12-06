@@ -17,11 +17,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"github.com/gojue/ecapture/cli/cobrautl"
-	"github.com/gojue/ecapture/cli/http"
-	"github.com/gojue/ecapture/user/config"
-	"github.com/gojue/ecapture/user/module"
-	"github.com/rs/zerolog"
 	"io"
 	"net"
 	"os"
@@ -30,6 +25,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/gojue/ecapture/cli/cobrautl"
+	"github.com/gojue/ecapture/cli/http"
+	"github.com/gojue/ecapture/user/config"
+	"github.com/gojue/ecapture/user/module"
+	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 )
 
@@ -69,9 +69,9 @@ var rootCmd = &cobra.Command{
 	Short:      CliDescription,
 	SuggestFor: []string{"ecapture"},
 
-	Long: `eCapture(旁观者) is a tool that can capture plaintext packets 
+	Long: `eCapture(旁观者) is a tool that can capture plaintext packets
 such as HTTPS and TLS without installing a CA certificate.
-It can also capture bash commands, which is suitable for 
+It can also capture bash commands, which is suitable for
 security auditing scenarios, such as database auditing of mysqld, etc (disabled on Android).
 Support Linux(Android)  X86_64 4.18/aarch64 5.5 or newer.
 Repository: https://github.com/gojue/ecapture
@@ -88,6 +88,14 @@ docker run --rm --privileged=true --net=host -v ${HOST_PATH}:${CONTAINER_PATH} g
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	// Run: func(cmd *cobra.Command, args []string) { },
+
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		if err := detectEnv(); err != nil {
+			return err
+		}
+
+		return nil
+	},
 }
 
 func usageFunc(c *cobra.Command) error {
