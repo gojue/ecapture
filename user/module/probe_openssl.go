@@ -20,7 +20,6 @@ import (
 	"crypto"
 	"errors"
 	"fmt"
-	"github.com/rs/zerolog"
 	"io"
 	"os"
 	"path/filepath"
@@ -35,12 +34,13 @@ import (
 
 	"github.com/cilium/ebpf"
 	manager "github.com/gojue/ebpfmanager"
+	"github.com/rs/zerolog"
 	"golang.org/x/sys/unix"
 )
 
 const (
-	ConnNotFound = "[ADDR_NOT_FOUND]"
-	DefaultAddr  = "0.0.0.0"
+	ConnNotFound = "[TUPLE_NOT_FOUND]"
+	DefaultTuple = "0.0.0.0:0-0.0.0.0:0"
 	// OpenSSL the classes of BIOs
 	// https://github.com/openssl/openssl/blob/openssl-3.0.0/include/openssl/bio.h.in
 	BioTypeDescriptor = 0x0100
@@ -393,9 +393,9 @@ func (m *MOpenSSLProbe) Events() []*ebpf.Map {
 	return m.eventMaps
 }
 
-func (m *MOpenSSLProbe) AddConn(pid, fd uint32, addr string) {
+func (m *MOpenSSLProbe) AddConn(pid, fd uint32, tuple string) {
 	if fd <= 0 {
-		m.logger.Info().Uint32("pid", pid).Uint32("fd", fd).Str("address", addr).Msg("AddConn failed")
+		m.logger.Info().Uint32("pid", pid).Uint32("fd", fd).Str("tuple", tuple).Msg("AddConn failed")
 		return
 	}
 	// save
@@ -407,9 +407,9 @@ func (m *MOpenSSLProbe) AddConn(pid, fd uint32, addr string) {
 	if !f {
 		connMap = make(map[uint32]string)
 	}
-	connMap[fd] = addr
+	connMap[fd] = tuple
 	m.pidConns[pid] = connMap
-	m.logger.Debug().Uint32("pid", pid).Uint32("fd", fd).Str("address", addr).Msg("AddConn success")
+	m.logger.Debug().Uint32("pid", pid).Uint32("fd", fd).Str("tuple", tuple).Msg("AddConn success")
 	return
 }
 
@@ -441,7 +441,7 @@ func (m *MOpenSSLProbe) GetConn(pid, fd uint32) string {
 	if fd <= 0 {
 		return ConnNotFound
 	}
-	addr := ""
+	tuple := ""
 	var connMap map[uint32]string
 	var f bool
 	m.logger.Debug().Uint32("pid", pid).Uint32("fd", fd).Msg("GetConn")
@@ -451,11 +451,11 @@ func (m *MOpenSSLProbe) GetConn(pid, fd uint32) string {
 	if !f {
 		return ConnNotFound
 	}
-	addr, f = connMap[fd]
+	tuple, f = connMap[fd]
 	if !f {
 		return ConnNotFound
 	}
-	return addr
+	return tuple
 }
 
 func (m *MOpenSSLProbe) saveMasterSecret(secretEvent *event.MasterSecretEvent) {
@@ -708,7 +708,7 @@ func (m *MOpenSSLProbe) Dispatcher(eventStruct event.IEventStruct) {
 	// detect eventStruct type
 	switch eventStruct.(type) {
 	case *event.ConnDataEvent:
-		m.AddConn(eventStruct.(*event.ConnDataEvent).Pid, eventStruct.(*event.ConnDataEvent).Fd, eventStruct.(*event.ConnDataEvent).Addr)
+		m.AddConn(eventStruct.(*event.ConnDataEvent).Pid, eventStruct.(*event.ConnDataEvent).Fd, eventStruct.(*event.ConnDataEvent).Tuple)
 	case *event.MasterSecretEvent:
 		m.saveMasterSecret(eventStruct.(*event.MasterSecretEvent))
 	case *event.MasterSecretBSSLEvent:
@@ -726,15 +726,15 @@ func (m *MOpenSSLProbe) Dispatcher(eventStruct event.IEventStruct) {
 func (m *MOpenSSLProbe) dumpSslData(eventStruct *event.SSLDataEvent) {
 	// BIO_TYPE_SOURCE_SINK|BIO_TYPE_DESCRIPTOR = 0x0400|0x0100 = 1280
 	if eventStruct.Fd <= 0 && eventStruct.BioType > BioTypeSourceSink|BioTypeDescriptor {
-		m.logger.Error().Uint32("pid", eventStruct.Pid).Uint32("fd", eventStruct.Fd).Str("address", eventStruct.Addr).Msg("SSLDataEvent's fd is 0")
+		m.logger.Error().Uint32("pid", eventStruct.Pid).Uint32("fd", eventStruct.Fd).Str("tuple", eventStruct.Tuple).Msg("SSLDataEvent's fd is 0")
 		//return
 	}
-	addr := m.GetConn(eventStruct.Pid, eventStruct.Fd)
-	m.logger.Debug().Uint32("pid", eventStruct.Pid).Uint32("bio_type", eventStruct.BioType).Uint32("fd", eventStruct.Fd).Str("address", addr).Msg("SSLDataEvent")
-	if addr == ConnNotFound {
-		eventStruct.Addr = DefaultAddr
+	tuple := m.GetConn(eventStruct.Pid, eventStruct.Fd)
+	m.logger.Debug().Uint32("pid", eventStruct.Pid).Uint32("bio_type", eventStruct.BioType).Uint32("fd", eventStruct.Fd).Str("tuple", tuple).Msg("SSLDataEvent")
+	if tuple == ConnNotFound {
+		eventStruct.Tuple = DefaultTuple
 	} else {
-		eventStruct.Addr = addr
+		eventStruct.Tuple = tuple
 	}
 	// m.processor.PcapFile(eventStruct)
 	//if m.conf.GetHex() {
