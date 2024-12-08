@@ -2,15 +2,16 @@ package module
 
 import (
 	"errors"
+	"math"
+	"os"
+	"path"
+	"strings"
+
 	"github.com/cilium/ebpf"
 	manager "github.com/gojue/ebpfmanager"
 	"github.com/gojue/ecapture/user/config"
 	"github.com/gojue/ecapture/user/event"
 	"golang.org/x/sys/unix"
-	"math"
-	"os"
-	"path"
-	"strings"
 )
 
 func (m *MOpenSSLProbe) setupManagersText() error {
@@ -77,10 +78,34 @@ func (m *MOpenSSLProbe) setupManagersText() error {
 				UID:              "kprobe_sys_connect",
 			},
 			{
+				Section:          "kprobe/__sys_connect_file",
+				EbpfFuncName:     "probe_connect_file",
+				AttachToFuncName: "__sys_connect_file",
+				UID:              "kprobe_sys_connect_file",
+			},
+			{
+				Section:          "kretprobe/sys_connect",
+				EbpfFuncName:     "retprobe_connect",
+				AttachToFuncName: "__sys_connect",
+				UID:              "kretprobe_sys_connect",
+			},
+			{
 				Section:          "kprobe/sys_connect",
 				EbpfFuncName:     "probe_connect",
 				AttachToFuncName: "__sys_accept4",
 				UID:              "kprobe_sys_accept4",
+			},
+			{
+				Section:          "kretprobe/do_accept",
+				EbpfFuncName:     "retprobe_do_accept",
+				AttachToFuncName: "do_accept",
+				UID:              "kretprobe_do_accept",
+			},
+			{
+				Section:          "kretprobe/__sys_accept4",
+				EbpfFuncName:     "retprobe_accept4",
+				AttachToFuncName: "__sys_accept4",
+				UID:              "kretprobe_sys_accept4",
 			},
 
 			// --------------------------------------------------

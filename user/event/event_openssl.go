@@ -19,6 +19,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net"
+	"strings"
 )
 
 type AttachType int64
@@ -29,7 +30,6 @@ const (
 )
 
 const MaxDataSize = 1024 * 4
-const SaDataLen = 14
 
 const (
 	Ssl2Version   = 0x0002
@@ -79,7 +79,7 @@ type SSLDataEvent struct {
 	Comm      [16]byte          `json:"Comm"`
 	Fd        uint32            `json:"fd"`
 	Version   int32             `json:"version"`
-	Addr      string
+	Tuple     string
 	BioType   uint32
 }
 
@@ -123,8 +123,12 @@ func (se *SSLDataEvent) Decode(payload []byte) (err error) {
 	return nil
 }
 
+func commStr(comm []byte) string {
+	return strings.TrimSpace(CToGoString(comm))
+}
+
 func (se *SSLDataEvent) GetUUID() string {
-	return fmt.Sprintf("%d_%d_%s_%d_%d_%s", se.Pid, se.Tid, CToGoString(se.Comm[:]), se.Fd, se.DataType, se.Addr)
+	return fmt.Sprintf("%d_%d_%s_%d_%d_%s", se.Pid, se.Tid, commStr(se.Comm[:]), se.Fd, se.DataType, se.Tuple)
 }
 
 func (se *SSLDataEvent) Payload() []byte {
@@ -138,45 +142,45 @@ func (se *SSLDataEvent) PayloadLen() int {
 func (se *SSLDataEvent) StringHex() string {
 	//addr := se.module.(*module.MOpenSSLProbe).GetConn(se.Pid, se.Fd)
 	addr := "[TODO]"
-	var perfix, connInfo string
+	var prefix, connInfo string
 	switch AttachType(se.DataType) {
 	case ProbeEntry:
 		connInfo = fmt.Sprintf("%sRecived %d%s bytes from %s%s%s", COLORGREEN, se.DataLen, COLORRESET, COLORYELLOW, addr, COLORRESET)
-		perfix = COLORGREEN
+		prefix = COLORGREEN
 	case ProbeRet:
 		connInfo = fmt.Sprintf("%sSend %d%s bytes to %s%s%s", COLORPURPLE, se.DataLen, COLORRESET, COLORYELLOW, addr, COLORRESET)
-		perfix = fmt.Sprintf("%s\t", COLORPURPLE)
+		prefix = fmt.Sprintf("%s\t", COLORPURPLE)
 	default:
-		perfix = fmt.Sprintf("UNKNOW_%d", se.DataType)
+		prefix = fmt.Sprintf("UNKNOW_%d", se.DataType)
 	}
 
-	b := dumpByteSlice(se.Data[:se.DataLen], perfix)
+	b := dumpByteSlice(se.Data[:se.DataLen], prefix)
 	b.WriteString(COLORRESET)
 
 	v := TlsVersion{Version: se.Version}
-	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, %s, Version:%s, Payload:\n%s", se.Pid, CToGoString(se.Comm[:]), se.Tid, connInfo, v.String(), b.String())
+	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, %s, Version:%s, Payload:\n%s", se.Pid, commStr(se.Comm[:]), se.Tid, connInfo, v.String(), b.String())
 	return s
 }
 
 func (se *SSLDataEvent) String() string {
 	//addr := se.module.(*module.MOpenSSLProbe).GetConn(se.Pid, se.Fd)
 	addr := "[TODO]"
-	if se.Addr != "" {
-		addr = se.Addr
+	if se.Tuple != "" {
+		addr = se.Tuple
 	}
-	var perfix, connInfo string
+	var prefix, connInfo string
 	switch AttachType(se.DataType) {
 	case ProbeEntry:
 		connInfo = fmt.Sprintf("%sRecived %d%s bytes from %s%s%s", COLORGREEN, se.DataLen, COLORRESET, COLORYELLOW, addr, COLORRESET)
-		perfix = COLORGREEN
+		prefix = COLORGREEN
 	case ProbeRet:
 		connInfo = fmt.Sprintf("%sSend %d%s bytes to %s%s%s", COLORPURPLE, se.DataLen, COLORRESET, COLORYELLOW, addr, COLORRESET)
-		perfix = COLORPURPLE
+		prefix = COLORPURPLE
 	default:
 		connInfo = fmt.Sprintf("%sUNKNOW_%d%s", COLORRED, se.DataType, COLORRESET)
 	}
 	v := TlsVersion{Version: se.Version}
-	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, Version:%s, %s, Payload:\n%s%s%s", se.Pid, bytes.TrimSpace(se.Comm[:]), se.Tid, v.String(), connInfo, perfix, string(se.Data[:se.DataLen]), COLORRESET)
+	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, Version:%s, %s, Payload:\n%s%s%s", se.Pid, commStr(se.Comm[:]), se.Tid, v.String(), connInfo, prefix, string(se.Data[:se.DataLen]), COLORRESET)
 	return s
 }
 
@@ -192,22 +196,24 @@ func (se *SSLDataEvent) EventType() EventType {
 
 //  connect_events map
 /*
-uint64_t timestamp_ns;
+  uint64_t timestamp_ns;
   uint32_t pid;
   uint32_t tid;
   uint32_t fd;
-  char sa_data[SA_DATA_LEN];
+  char ports[4];
+  char addrs[8];
   char Comm[TASK_COMM_LEN];
 */
 type ConnDataEvent struct {
 	eventType   EventType
-	TimestampNs uint64          `json:"timestampNs"`
-	Pid         uint32          `json:"pid"`
-	Tid         uint32          `json:"tid"`
-	Fd          uint32          `json:"fd"`
-	SaData      [SaDataLen]byte `json:"saData"`
-	Comm        [16]byte        `json:"Comm"`
-	Addr        string          `json:"addr"`
+	TimestampNs uint64   `json:"timestampNs"`
+	Pid         uint32   `json:"pid"`
+	Tid         uint32   `json:"tid"`
+	Fd          uint32   `json:"fd"`
+	Ports       [4]byte  `json:"ports"`
+	Addrs       [8]byte  `json:"addrs"`
+	Comm        [16]byte `json:"Comm"`
+	Tuple       string   `json:"tuple"`
 }
 
 func (ce *ConnDataEvent) Decode(payload []byte) (err error) {
@@ -224,25 +230,29 @@ func (ce *ConnDataEvent) Decode(payload []byte) (err error) {
 	if err = binary.Read(buf, binary.LittleEndian, &ce.Fd); err != nil {
 		return
 	}
-	if err = binary.Read(buf, binary.LittleEndian, &ce.SaData); err != nil {
+	if err = binary.Read(buf, binary.LittleEndian, &ce.Ports); err != nil {
+		return
+	}
+	if err = binary.Read(buf, binary.LittleEndian, &ce.Addrs); err != nil {
 		return
 	}
 	if err = binary.Read(buf, binary.LittleEndian, &ce.Comm); err != nil {
 		return
 	}
-	port := binary.BigEndian.Uint16(ce.SaData[0:2])
-	ip := net.IPv4(ce.SaData[2], ce.SaData[3], ce.SaData[4], ce.SaData[5])
-	ce.Addr = fmt.Sprintf("%s:%d", ip, port)
+
+	rport, lport := binary.BigEndian.Uint16(ce.Ports[0:2]), binary.LittleEndian.Uint16(ce.Ports[2:4])
+	raddr, laddr := net.IP(ce.Addrs[0:4]), net.IP(ce.Addrs[4:8])
+	ce.Tuple = fmt.Sprintf("%s:%d-%s:%d", laddr, lport, raddr, rport)
 	return nil
 }
 
 func (ce *ConnDataEvent) StringHex() string {
-	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, FD:%d, Addr: %s", ce.Pid, bytes.TrimSpace(ce.Comm[:]), ce.Tid, ce.Fd, ce.Addr)
+	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, FD:%d, Tuple: %s", ce.Pid, commStr(ce.Comm[:]), ce.Tid, ce.Fd, ce.Tuple)
 	return s
 }
 
 func (ce *ConnDataEvent) String() string {
-	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, FD:%d, Addr: %s", ce.Pid, bytes.TrimSpace(ce.Comm[:]), ce.Tid, ce.Fd, ce.Addr)
+	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, FD:%d, Tuple: %s", ce.Pid, commStr(ce.Comm[:]), ce.Tid, ce.Fd, ce.Tuple)
 	return s
 }
 
@@ -257,13 +267,13 @@ func (ce *ConnDataEvent) EventType() EventType {
 }
 
 func (ce *ConnDataEvent) GetUUID() string {
-	return fmt.Sprintf("%d_%d_%s_%d", ce.Pid, ce.Tid, bytes.TrimSpace(ce.Comm[:]), ce.Fd)
+	return fmt.Sprintf("%d_%d_%s_%d", ce.Pid, ce.Tid, commStr(ce.Comm[:]), ce.Fd)
 }
 
 func (ce *ConnDataEvent) Payload() []byte {
-	return []byte(ce.Addr)
+	return []byte(ce.Tuple)
 }
 
 func (ce *ConnDataEvent) PayloadLen() int {
-	return len(ce.Addr)
+	return len(ce.Tuple)
 }
