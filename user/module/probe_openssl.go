@@ -209,8 +209,7 @@ func (m *MOpenSSLProbe) getSslBpfFile(soPath, sslVersion string) error {
 		// 未找到版本号， try libcrypto.so.x
 		if strings.Contains(soPath, "libssl.so.3") {
 			m.logger.Warn().Err(err).Str("soPath", soPath).Msg("OpenSSL/BoringSSL version not found.")
-			m.logger.Warn().Msg("Try to detect libcrypto.so.3. If you have doubts")
-			m.logger.Warn().Msg("See https://github.com/gojue/ecapture/discussions/675 for more information.")
+			m.logger.Warn().Msg("Try to detect libcrypto.so.3. If you have doubts, See https://github.com/gojue/ecapture/discussions/675 for more information.")
 
 			// 从 libssl.so.3 中获取 libcrypto.so.3 的路径
 			var libcryptoName = "libcrypto.so.3"

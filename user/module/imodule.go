@@ -97,11 +97,23 @@ func (m *Module) Init(ctx context.Context, logger *zerolog.Logger, conf config.I
 	m.isClosed.Store(false)
 	m.ctx = ctx
 	m.logger = logger
-	m.errChan = make(chan error)
+	m.errChan = make(chan error, 16)
 	m.isKernelLess5_2 = false //set false default
 	m.eventCollector = eventCollector
 	//var epl = epLogger{logger: logger}
 	m.processor = event_processor.NewEventProcessor(eventCollector, conf.GetHex())
+
+	go func() {
+		// 读取错误信息
+		for {
+			select {
+			case err := <-m.processor.ErrorChan():
+				m.logger.Warn().AnErr("Processor error", err).Send()
+			case <-m.ctx.Done():
+				return
+			}
+		}
+	}()
 	kv, err := kernel.HostVersion()
 	if err != nil {
 		m.logger.Warn().Err(err).Msg("Unable to detect kernel version due to an error:%v.used non-Less5_2 bytecode.")

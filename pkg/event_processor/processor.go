@@ -39,6 +39,7 @@ type EventProcessor struct {
 	logger io.Writer
 
 	closeChan chan bool
+	errChan   chan error
 
 	// output model
 	isHex bool
@@ -52,6 +53,7 @@ func (ep *EventProcessor) init() {
 	ep.incoming = make(chan event.IEventStruct, MaxIncomingChanLen)
 	ep.outComing = make(chan string, MaxIncomingChanLen)
 	ep.closeChan = make(chan bool)
+	ep.errChan = make(chan error, 16)
 	ep.workerQueue = make(map[string]IWorker, MaxParserQueueLen)
 }
 
@@ -63,9 +65,12 @@ func (ep *EventProcessor) Serve() error {
 		case eventStruct := <-ep.incoming:
 			err = ep.dispatch(eventStruct)
 			if err != nil {
-				//err1 := ep.Close()
-				//return errors.Join(err, err1)
-				return err
+				// 不返回error是合理的做法，因为个别事件处理失败不应该影响整个处理器的关闭。
+				// 但是，需要将这个错误抛给的调用着，让调用者决定是否关闭处理器
+				select {
+				case ep.errChan <- err:
+				default:
+				}
 			}
 		case s := <-ep.outComing:
 			_, _ = ep.GetLogger().Write([]byte(s))
@@ -153,6 +158,9 @@ func (ep *EventProcessor) Close() error {
 	return nil
 }
 
+func (ep *EventProcessor) ErrorChan() chan error {
+	return ep.errChan
+}
 func NewEventProcessor(logger io.Writer, isHex bool) *EventProcessor {
 	var ep *EventProcessor
 	ep = &EventProcessor{}
