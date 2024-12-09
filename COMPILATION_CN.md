@@ -133,5 +133,5 @@ CROSS_ARCH=arm64 make
 
 ## eBPF学习资料
 
-* [eBPF PDF资料精选](https://github/gojue/ebpf-slide)
+* [eBPF PDF资料精选](https://github.com/gojue/ebpf-slide)
 * [CFC4N的博客](https://www.cnxct.com)
