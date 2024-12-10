@@ -39,7 +39,6 @@
 
 #define AF_INET 2
 #define AF_INET6 10
-#define SA_DATA_LEN 14
 #define BASH_ERRNO_DEFAULT 128
 
 #define BASH_EVENT_TYPE_READLINE 0
