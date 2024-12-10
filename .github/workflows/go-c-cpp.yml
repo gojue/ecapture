@@ -13,7 +13,7 @@ jobs:
     steps:
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.21.0'
+          go-version: '1.22.10'
       - name: Install Compilers
         run: |
           sudo apt-get update
@@ -55,7 +55,7 @@ jobs:
     steps:
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.21.0'
+          go-version: '1.22.10'
       - name: Install Compilers
         run: |
           sudo apt-get update
@@ -172,9 +172,9 @@ jobs:
             uname -a
             apt-get update
             apt-get install --yes wget git build-essential pkgconf libelf-dev llvm-12 clang-12 linux-tools-generic linux-tools-common flex bison file gcc-x86-64-linux-gnu libssl-dev bc linux-source
-            wget https://go.dev/dl/go1.21.0.linux-arm64.tar.gz
+            wget https://go.dev/dl/go1.22.10.linux-arm64.tar.gz
             rm -rf /usr/local/go
-            tar -C /usr/local -xzf go1.21.0.linux-arm64.tar.gz
+            tar -C /usr/local -xzf go1.22.10.linux-arm64.tar.gz
             cd /usr/src
             source_file=$(find . -maxdepth 1 -name "*linux-source*.tar.bz2")
             source_dir=$(echo "$source_file" | sed 's/\.tar\.bz2//g')
