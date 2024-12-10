@@ -244,7 +244,6 @@ func runModule(modName string, modConfig config.IConfig) {
 
 	reload:
 		// 初始化
-		logger.Warn().Msg("========== module starting. ==========")
 		mod := modFunc()
 		ctx, cancelFun := context.WithCancel(context.TODO())
 		err = mod.Init(ctx, &logger, modConfig, ecw)

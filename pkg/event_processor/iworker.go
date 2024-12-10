@@ -39,9 +39,14 @@ type IWorker interface {
 }
 
 const (
-	MaxTickerCount = 10 // 1 Sencond/(eventWorker.ticker.C) = 10
-	MaxChanLen     = 16 // 包队列长度
+	MaxTickerCount = 10   // 1 Sencond/(eventWorker.ticker.C) = 10
+	MaxChanLen     = 1024 // 包队列长度
 	//MAX_EVENT_LEN    = 16 // 事件数组长度
+)
+
+var (
+	ErrEventWorkerIncomingFull  = errors.New("eventWorker Write failed, incoming chan is full")
+	ErrEventWorkerOutcomingFull = errors.New("eventWorker Write failed, outComing chan is full")
 )
 
 type eventWorker struct {
@@ -88,7 +93,7 @@ func (ew *eventWorker) Write(e event.IEventStruct) error {
 	select {
 	case ew.incoming <- e:
 	default:
-		err = errors.New("eventWorker Write failed, incoming chan is full")
+		err = ErrEventWorkerIncomingFull
 	}
 	return err
 }
@@ -98,7 +103,7 @@ func (ew *eventWorker) writeToChan(s string) error {
 	select {
 	case ew.outComing <- s:
 	default:
-		err = errors.New("eventWorker Write failed, outComing chan is full")
+		err = ErrEventWorkerOutcomingFull
 	}
 	return err
 }
