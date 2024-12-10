@@ -43,7 +43,8 @@ const (
 )
 
 var (
-	GitVersion = "v0.0.0_unknow"
+	// GitVersion default value, eg: linux_arm64:v0.8.10-20241116-fcddaeb:5.15.0-125-generic
+	GitVersion = "os_arch:v0.0.0-20221111-develop:default_kernel"
 	//ReleaseDate = "2022-03-16"
 )
 
@@ -221,13 +222,25 @@ func runModule(modName string, modConfig config.IConfig) {
 	// listen http server
 	go func() {
 		logger.Info().Str("listen", globalConf.Listen).Send()
-		logger.Info().Msg("https server starting...You can update the configuration file via the HTTP interface.")
+		logger.Info().Msg("https server starting...You can upgrade the configuration file via the HTTP interface.")
 		var ec = http.NewHttpServer(globalConf.Listen, reRloadConfig, logger)
 		err = ec.Run()
 		if err != nil {
 			logger.Fatal().Err(err).Msg("http server start failed")
 			return
 		}
+	}()
+
+	ctx, cancelFun := context.WithCancel(context.TODO())
+
+	// upgrade check
+	go func() {
+		tags, url, e := upgradeCheck(ctx)
+		if e != nil {
+			logger.Debug().Msgf("upgrade check failed: %v", e)
+			return
+		}
+		logger.Warn().Msgf("A new version %s is available:%s", tags, url)
 	}()
 
 	// run module
@@ -245,7 +258,6 @@ func runModule(modName string, modConfig config.IConfig) {
 	reload:
 		// 初始化
 		mod := modFunc()
-		ctx, cancelFun := context.WithCancel(context.TODO())
 		err = mod.Init(ctx, &logger, modConfig, ecw)
 		if err != nil {
 			logger.Fatal().Err(err).Bool("isReload", isReload).Msg("module initialization failed")
