@@ -215,6 +215,9 @@ type connDataEvent struct {
 	Saddr       [4]byte  `json:"saddr"`
 	Daddr       [4]byte  `json:"daddr"`
 	Comm        [16]byte `json:"Comm"`
+	Sock        uint64   `json:"sock"`
+	IsDestroy   uint8    `json:"isDestroy"`
+	Pad         [7]byte  `json:"-"`
 
 	// NOTE: do not leave padding hole in this struct.
 }

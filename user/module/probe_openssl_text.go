@@ -107,6 +107,12 @@ func (m *MOpenSSLProbe) setupManagersText() error {
 				AttachToFuncName: "__sys_accept4",
 				UID:              "kretprobe_sys_accept4",
 			},
+			{
+				Section:          "kprobe/tcp_v4_destroy_sock",
+				EbpfFuncName:     "probe_tcp_v4_destroy_sock",
+				AttachToFuncName: "tcp_v4_destroy_sock",
+				UID:              "kprobe_tcp_v4_destroy_sock",
+			},
 
 			// --------------------------------------------------
 

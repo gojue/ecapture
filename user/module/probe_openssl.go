@@ -82,9 +82,11 @@ type MOpenSSLProbe struct {
 	eventFuncMaps     map[*ebpf.Map]event.IEventStruct
 	eventMaps         []*ebpf.Map
 
-	// pid[fd:Addr]
-	pidConns  map[uint32]map[uint32]string
-	pidLocker sync.Locker
+	// pid[fd:tuple]
+	pidConns map[uint32]map[uint32]string
+	// sock:[pid,fd], for destroying conn
+	sock2pidFd map[uint64][2]uint32
+	pidLocker  sync.Locker
 
 	keyloggerFilename string
 	keylogger         *os.File
@@ -110,6 +112,7 @@ func (m *MOpenSSLProbe) Init(ctx context.Context, logger *zerolog.Logger, conf c
 	m.eventMaps = make([]*ebpf.Map, 0, 2)
 	m.eventFuncMaps = make(map[*ebpf.Map]event.IEventStruct)
 	m.pidConns = make(map[uint32]map[uint32]string)
+	m.sock2pidFd = make(map[uint64][2]uint32)
 	m.pidLocker = new(sync.Mutex)
 	m.masterKeys = make(map[string]bool)
 	m.sslVersionBpfMap = make(map[string]string)
@@ -392,7 +395,7 @@ func (m *MOpenSSLProbe) Events() []*ebpf.Map {
 	return m.eventMaps
 }
 
-func (m *MOpenSSLProbe) AddConn(pid, fd uint32, tuple string) {
+func (m *MOpenSSLProbe) AddConn(pid, fd uint32, tuple string, sock uint64) {
 	if fd <= 0 {
 		m.logger.Info().Uint32("pid", pid).Uint32("fd", fd).Str("tuple", tuple).Msg("AddConn failed")
 		return
@@ -408,8 +411,38 @@ func (m *MOpenSSLProbe) AddConn(pid, fd uint32, tuple string) {
 	}
 	connMap[fd] = tuple
 	m.pidConns[pid] = connMap
+
+	m.sock2pidFd[sock] = [2]uint32{pid, fd}
+
 	m.logger.Debug().Uint32("pid", pid).Uint32("fd", fd).Str("tuple", tuple).Msg("AddConn success")
-	return
+}
+
+func (m *MOpenSSLProbe) DestroyConn(sock uint64) {
+	m.pidLocker.Lock()
+	defer m.pidLocker.Unlock()
+
+	pidFd, ok := m.sock2pidFd[sock]
+	if !ok {
+		return
+	}
+
+	delete(m.sock2pidFd, sock)
+	pid, fd := pidFd[0], pidFd[1]
+
+	connMap, ok := m.pidConns[pid]
+	if !ok {
+		return
+	}
+
+	tuple, ok := connMap[fd]
+	if ok {
+		delete(connMap, fd)
+		if len(connMap) == 0 {
+			delete(m.pidConns, pid)
+		}
+	}
+
+	m.logger.Debug().Uint32("pid", pid).Uint32("fd", fd).Str("tuple", tuple).Msg("DestroyConn success")
 }
 
 // process exit :fd is 0 , delete all pid map
@@ -705,20 +738,24 @@ func (m *MOpenSSLProbe) mk13NullSecrets(hashLen int,
 
 func (m *MOpenSSLProbe) Dispatcher(eventStruct event.IEventStruct) {
 	// detect eventStruct type
-	switch eventStruct.(type) {
+	switch ev := eventStruct.(type) {
 	case *event.ConnDataEvent:
-		m.AddConn(eventStruct.(*event.ConnDataEvent).Pid, eventStruct.(*event.ConnDataEvent).Fd, eventStruct.(*event.ConnDataEvent).Tuple)
+		if ev.IsDestroy == 0 {
+			m.AddConn(ev.Pid, ev.Fd, ev.Tuple, ev.Sock)
+		} else {
+			m.DestroyConn(ev.Sock)
+		}
 	case *event.MasterSecretEvent:
-		m.saveMasterSecret(eventStruct.(*event.MasterSecretEvent))
+		m.saveMasterSecret(ev)
 	case *event.MasterSecretBSSLEvent:
-		m.saveMasterSecretBSSL(eventStruct.(*event.MasterSecretBSSLEvent))
+		m.saveMasterSecretBSSL(ev)
 	case *event.TcSkbEvent:
-		err := m.dumpTcSkb(eventStruct.(*event.TcSkbEvent))
+		err := m.dumpTcSkb(ev)
 		if err != nil {
 			m.logger.Error().Err(err).Msg("save packet error.")
 		}
 	case *event.SSLDataEvent:
-		m.dumpSslData(eventStruct.(*event.SSLDataEvent))
+		m.dumpSslData(ev)
 	}
 }
 
