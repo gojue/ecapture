@@ -514,6 +514,7 @@ static __inline int kretprobe_connect(struct pt_regs *ctx, int fd, struct sock *
     u64 current_uid_gid = bpf_get_current_uid_gid();
     u32 uid = current_uid_gid;
     u16 address_family = 0;
+    u16 protocol;
     u64 addrs;
     u32 ports;
 
@@ -529,6 +530,11 @@ static __inline int kretprobe_connect(struct pt_regs *ctx, int fd, struct sock *
 
     bpf_probe_read_kernel(&address_family, sizeof(address_family), &sk->__sk_common.skc_family);
     if (address_family != AF_INET) {
+        return 0;
+    }
+
+    bpf_probe_read_kernel(&protocol, sizeof(protocol), &sk->sk_protocol);
+    if (protocol != IPPROTO_TCP) {
         return 0;
     }
 
