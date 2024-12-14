@@ -48,6 +48,9 @@ struct connect_event_t {
     __be32 saddr;
     __be32 daddr;
     char comm[TASK_COMM_LEN];
+    u64 sock;
+    u8 is_destroy;
+    u8 pad[7];
 } __attribute__((packed)); // NOTE: do not leave padding hole in this struct.
 
 struct active_ssl_buf {
@@ -511,6 +514,7 @@ static __inline int kretprobe_connect(struct pt_regs *ctx, int fd, struct sock *
     u64 current_uid_gid = bpf_get_current_uid_gid();
     u32 uid = current_uid_gid;
     u16 address_family = 0;
+    u16 protocol;
     u64 addrs;
     u32 ports;
 
@@ -526,6 +530,11 @@ static __inline int kretprobe_connect(struct pt_regs *ctx, int fd, struct sock *
 
     bpf_probe_read_kernel(&address_family, sizeof(address_family), &sk->__sk_common.skc_family);
     if (address_family != AF_INET) {
+        return 0;
+    }
+
+    bpf_probe_read_kernel(&protocol, sizeof(protocol), &sk->sk_protocol);
+    if (protocol != IPPROTO_TCP) {
         return 0;
     }
 
@@ -556,6 +565,7 @@ static __inline int kretprobe_connect(struct pt_regs *ctx, int fd, struct sock *
         conn.daddr = (__be32)(addrs >> 32);
     }
     bpf_get_current_comm(&conn.comm, sizeof(conn.comm));
+    conn.sock = (u64)sk;
 
     bpf_perf_event_output(ctx, &connect_events, BPF_F_CURRENT_CPU, &conn,
                           sizeof(struct connect_event_t));
@@ -618,6 +628,20 @@ int retprobe_accept4(struct pt_regs* ctx) {
         }
     }
     return 0;
+}
+
+SEC("kprobe/tcp_v4_destroy_sock")
+int probe_tcp_v4_destroy_sock(struct pt_regs* ctx) {
+    struct sock *sk = (struct sock *)PT_REGS_PARM1(ctx);
+
+    struct connect_event_t conn;
+    conn.sock = (u64)sk;
+    conn.is_destroy = 1;
+
+    bpf_perf_event_output(ctx, &connect_events, BPF_F_CURRENT_CPU, &conn,
+                          sizeof(struct connect_event_t));
+
+    return BPF_OK;
 }
 
 
