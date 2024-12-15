@@ -1,3 +1,10 @@
+# v0.9.0 (2024-12-15)
+
+## What's Changed
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v0.8.12...v0.9.0
+<hr>
+
 # v0.8.12 (2024-12-02)
 
 ## What's Changed
