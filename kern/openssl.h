@@ -633,8 +633,9 @@ int retprobe_accept4(struct pt_regs* ctx) {
 SEC("kprobe/tcp_v4_destroy_sock")
 int probe_tcp_v4_destroy_sock(struct pt_regs* ctx) {
     struct sock *sk = (struct sock *)PT_REGS_PARM1(ctx);
-
     struct connect_event_t conn;
+
+    __builtin_memset(&conn, 0, sizeof(conn));
     conn.sock = (u64)sk;
     conn.is_destroy = 1;
 
