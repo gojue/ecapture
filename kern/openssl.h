@@ -66,7 +66,7 @@ struct active_ssl_buf {
 };
 
 struct tcp_fd_info {
-    u64 file;
+    u64 sock;
     int fd;
 };
 
@@ -474,17 +474,6 @@ static __inline struct tcp_fd_info *lookup_and_delete_fd_info(struct pt_regs *re
     return fd_info;
 }
 
-static __inline struct sock *tcp_sock_from_file(u64 ptr) {
-    struct socket *socket;
-    struct file *file;
-    struct sock *sk;
-
-    file = (struct file *)ptr;
-    bpf_probe_read_kernel(&socket, sizeof(socket), &file->private_data);
-    bpf_probe_read_kernel(&sk, sizeof(sk), &socket->sk);
-    return sk;
-}
-
 // libc : int __connect (int fd, __CONST_SOCKADDR_ARG addr, socklen_t len)
 // kernel : int __sys_connect(int fd, struct sockaddr __user *uservaddr, int addrlen)
 SEC("kprobe/sys_connect")
@@ -497,13 +486,13 @@ int probe_connect(struct pt_regs* ctx) {
     return 0;
 }
 
-SEC("kprobe/__sys_connect_file")
-int probe_connect_file(struct pt_regs* ctx) {
+SEC("kprobe/inet_stream_connect")
+int probe_inet_stream_connect(struct pt_regs* ctx) {
     struct tcp_fd_info *fd_info;
 
     fd_info = find_fd_info(ctx);
     if (fd_info) {
-        fd_info->file = (u64)(void *) PT_REGS_PARM1(ctx);
+        fd_info->sock = (u64)(void *) PT_REGS_PARM1(ctx);
     }
     return 0;
 }
@@ -514,7 +503,6 @@ static __inline int kretprobe_connect(struct pt_regs *ctx, int fd, struct sock *
     u64 current_uid_gid = bpf_get_current_uid_gid();
     u32 uid = current_uid_gid;
     u16 address_family = 0;
-    u16 protocol;
     u64 addrs;
     u32 ports;
 
@@ -530,11 +518,6 @@ static __inline int kretprobe_connect(struct pt_regs *ctx, int fd, struct sock *
 
     bpf_probe_read_kernel(&address_family, sizeof(address_family), &sk->__sk_common.skc_family);
     if (address_family != AF_INET) {
-        return 0;
-    }
-
-    bpf_probe_read_kernel(&protocol, sizeof(protocol), &sk->sk_protocol);
-    if (protocol != IPPROTO_TCP) {
         return 0;
     }
 
@@ -575,11 +558,13 @@ static __inline int kretprobe_connect(struct pt_regs *ctx, int fd, struct sock *
 SEC("kretprobe/sys_connect")
 int retprobe_connect(struct pt_regs* ctx) {
     struct tcp_fd_info *fd_info;
+    struct socket *sock;
     struct sock *sk;
 
     fd_info = lookup_and_delete_fd_info(ctx);
     if (fd_info) {
-        sk = tcp_sock_from_file(fd_info->file);
+        sock = (typeof(sock)) fd_info->sock;
+        bpf_probe_read_kernel(&sk, sizeof(sk), &sock->sk);
         if (sk) {
             return kretprobe_connect(ctx, fd_info->fd, sk, true);
         }
@@ -592,19 +577,13 @@ int retprobe_connect(struct pt_regs* ctx) {
 #define IS_ERR_VALUE(x) ((unsigned long)(void *)(x) >= (unsigned long)-MAX_ERRNO)
 #endif
 
-SEC("kretprobe/do_accept")
-int retprobe_do_accept(struct pt_regs* ctx) {
+SEC("kprobe/inet_accept")
+int probe_inet_accept(struct pt_regs* ctx) {
     struct tcp_fd_info *fd_info;
-    struct file *file;
-
-    file = (struct file *)PT_REGS_RC(ctx);
-    if (IS_ERR_VALUE(file)) {
-        return 0;
-    }
 
     fd_info = find_fd_info(ctx);
     if (fd_info) {
-        fd_info->file = (u64)file;
+        fd_info->sock = (u64)(void *) PT_REGS_PARM2(ctx);
     }
     return 0;
 }
@@ -612,6 +591,7 @@ int retprobe_do_accept(struct pt_regs* ctx) {
 SEC("kretprobe/__sys_accept4")
 int retprobe_accept4(struct pt_regs* ctx) {
     struct tcp_fd_info *fd_info;
+    struct socket *sock;
     struct sock *sk;
     int fd;
 
@@ -622,7 +602,8 @@ int retprobe_accept4(struct pt_regs* ctx) {
 
     fd_info = lookup_and_delete_fd_info(ctx);
     if (fd_info) {
-        sk = tcp_sock_from_file(fd_info->file);
+        sock = (typeof(sock))(void *) fd_info->sock;
+        bpf_probe_read_kernel(&sk, sizeof(sk), &sock->sk);
         if (sk) {
             return kretprobe_connect(ctx, fd, sk, false);
         }

@@ -78,10 +78,10 @@ func (m *MOpenSSLProbe) setupManagersText() error {
 				UID:              "kprobe_sys_connect",
 			},
 			{
-				Section:          "kprobe/__sys_connect_file",
-				EbpfFuncName:     "probe_connect_file",
-				AttachToFuncName: "__sys_connect_file",
-				UID:              "kprobe_sys_connect_file",
+				Section:          "kprobe/inet_stream_connect",
+				EbpfFuncName:     "probe_inet_stream_connect",
+				AttachToFuncName: "inet_stream_connect",
+				UID:              "kprobe_sys_inet_stream_connect",
 			},
 			{
 				Section:          "kretprobe/sys_connect",
@@ -96,10 +96,10 @@ func (m *MOpenSSLProbe) setupManagersText() error {
 				UID:              "kprobe_sys_accept4",
 			},
 			{
-				Section:          "kretprobe/do_accept",
-				EbpfFuncName:     "retprobe_do_accept",
-				AttachToFuncName: "do_accept",
-				UID:              "kretprobe_do_accept",
+				Section:          "kprobe/inet_accept",
+				EbpfFuncName:     "probe_inet_accept",
+				AttachToFuncName: "inet_accept",
+				UID:              "kprobe_inet_accept",
 			},
 			{
 				Section:          "kretprobe/__sys_accept4",
