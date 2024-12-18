@@ -1,6 +1,29 @@
+# v0.9.1 (2024-12-18)
+
+## What's Changed
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v0.9.0...v0.9.1
+<hr>
+
 # v0.9.0 (2024-12-15)
 
 ## What's Changed
+
+* fix: pcap filter not work as expected by @yuweizzz in https://github.com/gojue/ecapture/pull/680
+* feat support capture zsh command by @SenberHu in https://github.com/gojue/ecapture/pull/683
+* feat: detect CAP_BPF by @Asphaltt in https://github.com/gojue/ecapture/pull/681
+* feat: Enrich addr info with remote addr info by @Asphaltt in https://github.com/gojue/ecapture/pull/684
+* fix ecapture docker images CVE-2024-24790 by @cfc4n in https://github.com/gojue/ecapture/pull/687
+* fix #685, the Processor print "incoming chan is full",and exit. by @cfc4n
+  in https://github.com/gojue/ecapture/pull/686
+* feat: Support for new version detection feature. by @cfc4n in https://github.com/gojue/ecapture/pull/688
+* build(deps): bump golang.org/x/crypto from 0.23.0 to 0.31.0 by @dependabot
+  in https://github.com/gojue/ecapture/pull/690
+* feat: Clean map when destroy socket by @Asphaltt in https://github.com/gojue/ecapture/pull/691
+
+## New Contributors
+
+* @SenberHu made their first contribution in https://github.com/gojue/ecapture/pull/683
 
 **Full Changelog**: https://github.com/gojue/ecapture/compare/v0.8.12...v0.9.0
 <hr>
