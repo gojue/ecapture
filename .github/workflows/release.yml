@@ -4,6 +4,10 @@ on:
     tags:
       - "v*"
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
 
   build-on-ubuntu2204:
@@ -16,7 +20,17 @@ jobs:
       - name: Install Compilers
         run: |
           sudo apt-get update
-          sudo apt-get install --yes build-essential pkgconf libelf-dev llvm-14 clang-14 linux-tools-common linux-tools-generic gcc gcc-aarch64-linux-gnu linux-source
+          sudo apt-get install --yes --no-install-recommends \
+            build-essential \
+            pkgconf \
+            libelf-dev \
+            llvm-14 \
+            clang-14 \
+            linux-tools-common \
+            linux-tools-generic \
+            gcc \
+            gcc-aarch64-linux-gnu \
+            linux-source
           for tool in "clang" "llc" "llvm-strip"
           do
             sudo rm -f /usr/bin/$tool
@@ -35,22 +49,39 @@ jobs:
         with:
           submodules: 'recursive'
           fetch-depth: 0
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
       - name: authenticate
         run: |
           gh auth login --with-token <<<'${{ secrets.GITHUB_TOKEN }}'
-      - name: Build Changelog
-        id: github_release
-        uses: mikepenz/release-changelog-builder-action@v1
-        with:
-          configuration: "configuration.json"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Get Previous Tag
+        id: previoustag
+        run: |
+          PREVIOUS=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          echo "PREVIOUS_TAG=$PREVIOUS" >> $GITHUB_OUTPUT
+      - name: Generate Release Notes
+        id: release_notes
+        run: |
+          gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            /repos/${{ github.repository }}/releases/generate-notes \
+            -f tag_name=${{ github.ref_name }} \
+            -f previous_tag_name=${{ steps.previoustag.outputs.PREVIOUS_TAG }} \
+            > release_notes.json
+          echo "NOTES=$(jq -r .body release_notes.json)" >> $GITHUB_OUTPUT
       - name: Write File
         uses: DamianReeves/write-file-action@v1.2
         with:
           path: ./bin/release_notes.txt
           contents: |
-            ${{ steps.github_release.outputs.changelog }}
+            ${{ steps.release_notes.outputs.NOTES }}
           write-mode: append
       - name: Release amd64
         run: |
@@ -89,6 +120,8 @@ jobs:
           file: ./builder/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
+          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/ecapture:buildcache
+          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/ecapture:buildcache,mode=max
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/ecapture:${{ github.ref_name }}
             ${{ secrets.DOCKERHUB_USERNAME }}/ecapture:latest
