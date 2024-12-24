@@ -196,6 +196,7 @@ TARGETS += kern/openssl_1_1_1j
 TARGETS += kern/openssl_1_1_0a
 TARGETS += kern/openssl_1_0_2a
 TARGETS += kern/openssl_3_0_0
+TARGETS += kern/openssl_3_1_0
 TARGETS += kern/openssl_3_2_0
 TARGETS += kern/openssl_3_2_3
 TARGETS += kern/openssl_3_3_0
