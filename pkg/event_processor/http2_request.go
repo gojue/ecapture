@@ -27,8 +27,7 @@ import (
 	"golang.org/x/net/http2/hpack"
 )
 
-const H2Magic = "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n"
-const H2MagicLen = len(H2Magic)
+const ClientPrefaceLen = len(http2.ClientPreface)
 
 type HTTP2Request struct {
 	framer     *http2.Framer
@@ -40,9 +39,13 @@ type HTTP2Request struct {
 }
 
 func (h2r *HTTP2Request) detect(payload []byte) error {
-	data := string(payload[0:H2MagicLen])
-	if data != H2Magic {
-		return errors.New("Not match http2 magic")
+	payloadLen := len(payload)
+	if payloadLen < ClientPrefaceLen {
+		return errors.New("Payload less than http2 ClientPreface")
+	}
+	data := string(payload[0:ClientPrefaceLen])
+	if data != http2.ClientPreface {
+		return errors.New("Not match http2 ClientPreface")
 	}
 	return nil
 }
@@ -83,7 +86,7 @@ func (h2r *HTTP2Request) IsDone() bool {
 }
 
 func (h2r *HTTP2Request) Display() []byte {
-	_, err := h2r.bufReader.Discard(H2MagicLen)
+	_, err := h2r.bufReader.Discard(ClientPrefaceLen)
 	if err != nil {
 		log.Println("[http2 request] Discard HTTP2 Magic error:", err)
 		return h2r.reader.Bytes()

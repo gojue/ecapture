@@ -40,7 +40,7 @@ func TestHttp2RequestParser(t *testing.T) {
 	}
 	t.Logf("TestHttp2RequestParser: wrot body:%d", i)
 
-	_, err = h2r.bufReader.Discard(H2MagicLen)
+	_, err = h2r.bufReader.Discard(ClientPrefaceLen)
 	if err != nil {
 		t.Logf("[http2 request] Discard HTTP2 Magic error:%v", err)
 	}
