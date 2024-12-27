@@ -46,12 +46,13 @@ func TestCheckLatest(t *testing.T) {
 	//var ver = "linux_arm64:v0.8.8:5.15.0-125-generic"
 	var ver = "androidgki:v0.8.8:5.15.0-125-generic"
 	ver = "linux_arm64:v0.8.10-20241116-fcddaeb:5.15.0-125-generic"
+	ver = "linux_arm64:v0.9.1:6.5.0-1025-azure"
 	var arch = "amd64"
 	if byteToString(uname.Machine[:]) == "aarch64" {
 		arch = "arm64"
 	}
 
-	rex := regexp.MustCompile(`([^:]+):v?(\d+\.\d+\.\d+)[^:]+:[^:]+`)
+	rex := regexp.MustCompile(`([^:]*):v?(\d+\.\d+\.\d+)[^:]*:[^:]*`)
 
 	verMatch := rex.FindStringSubmatch(ver)
 	if len(verMatch) <= 2 {

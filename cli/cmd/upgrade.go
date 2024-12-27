@@ -36,7 +36,7 @@ func upgradeCheck(ctx context.Context) (string, string, error) {
 	if byteToString(uname.Machine[:]) == "aarch64" {
 		arch = "arm64"
 	}
-	rex := regexp.MustCompile(`([^:]+):v?(\d+\.\d+\.\d+)[^:]+:[^:]+`)
+	rex := regexp.MustCompile(`([^:]*):v?(\d+\.\d+\.\d+)[^:]*:[^:]*`)
 	verMatch := rex.FindStringSubmatch(GitVersion)
 	if len(verMatch) <= 2 {
 		return "", "", fmt.Errorf("error matching version: %s, verMatch:%v", GitVersion, verMatch)

@@ -49,7 +49,7 @@ define gobuild
 	CGO_CFLAGS='-O2 -g -gdwarf-4 -I$(CURDIR)/lib/libpcap/' \
 	CGO_LDFLAGS='-O2 -g -L$(CURDIR)/lib/libpcap/ -lpcap -static' \
 	GOOS=linux GOARCH=$(GOARCH) CC=$(CMD_CC_PREFIX)$(CMD_CC) \
-	$(CMD_GO) build -tags '$(TARGET_TAG),netgo' -ldflags "-w -s -X 'github.com/gojue/ecapture/cli/cmd.GitVersion=$(TARGET_TAG)_$(GOARCH):$(VERSION_NUM):$(VERSION_FLAG)' -linkmode=external -extldflags -static " -o $(OUT_BIN)
+	$(CMD_GO) build -tags '$(TARGET_TAG),netgo' -ldflags "-w -s -X 'github.com/gojue/ecapture/cli/cmd.GitVersion=$(TARGET_TAG)_$(GOARCH):$(VERSION_NUM):$(VERSION_FLAG)' -X 'github.com/gojue/ecapture/cli/cmd.ByteCodeFiles=$(BYTECODE_FILES)' -linkmode=external -extldflags -static " -o $(OUT_BIN)
 	$(CMD_FILE) $(OUT_BIN)
 endef
 
