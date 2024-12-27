@@ -46,6 +46,7 @@ var (
 	// GitVersion default value, eg: linux_arm64:v0.8.10-20241116-fcddaeb:5.15.0-125-generic
 	GitVersion = "os_arch:v0.0.0-20221111-develop:default_kernel"
 	//ReleaseDate = "2022-03-16"
+	ByteCodeFiles = "all" // Indicates the type of bytecode files built by the project, i.e., the file types under the assets/* folder. Default is "all", meaning both types are included.
 )
 
 const (
@@ -153,6 +154,15 @@ func setModConfig(globalConf config.BaseConfig, modConf config.IConfig) {
 	modConf.SetBTF(globalConf.BtfMode)
 	modConf.SetPerCpuMapSize(globalConf.PerCpuMapSize)
 	modConf.SetAddrType(loggerTypeStdout)
+
+	switch ByteCodeFiles {
+	case "core":
+		modConf.SetByteCodeFileMode(config.ByteCodeFileCore)
+	case "noncore":
+		modConf.SetByteCodeFileMode(config.ByteCodeFileNonCore)
+	default:
+		modConf.SetByteCodeFileMode(config.ByteCodeFileAll)
+	}
 }
 
 // initLogger init logger

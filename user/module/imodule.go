@@ -84,6 +84,9 @@ type Module struct {
 	// module的类型，uprobe,kprobe等
 	mType string
 
+	// bytecodeTypes
+	byteCodetype int
+
 	conf config.IConfig
 
 	processor       *event_processor.EventProcessor
@@ -166,13 +169,22 @@ func (m *Module) autoDetectBTF() {
 }
 func (m *Module) geteBPFName(filename string) string {
 	var newFilename = filename
-	// CO-RE detect first
-	if m.isCoreUsed {
+
+	switch m.conf.GetByteCodeFileMode() {
+	case config.ByteCodeFileCore:
 		newFilename = strings.Replace(newFilename, ".o", "_core.o", 1)
-	} else {
+	case config.ByteCodeFileNonCore:
 		newFilename = strings.Replace(newFilename, ".o", "_noncore.o", 1)
+	default:
+		// CO-RE detect first
+		if m.isCoreUsed {
+			newFilename = strings.Replace(newFilename, ".o", "_core.o", 1)
+		} else {
+			newFilename = strings.Replace(newFilename, ".o", "_noncore.o", 1)
+		}
 	}
-	//
+
+	// kernel version perfix
 	if m.isKernelLess5_2 {
 		newFilename = strings.Replace(newFilename, ".o", KernelLess52Prefix, 1)
 	}

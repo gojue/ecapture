@@ -223,6 +223,7 @@ build_noncore: \
 	$(TARGET_LIBPCAP) \
 	assets_noncore
 	$(call allow-override,VERSION_FLAG,$(HOST_ARCH))
+	$(call allow-override,BYTECODE_FILES,noncore)
 	$(call gobuild, $(ANDROID))
 
 # Format the code
