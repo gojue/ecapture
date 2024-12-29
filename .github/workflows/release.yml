@@ -20,7 +20,7 @@ jobs:
       - name: Install Compilers
         run: |
           sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends \
+          sudo apt-get install --yes \
             build-essential \
             pkgconf \
             libelf-dev \
