@@ -75,7 +75,9 @@ jobs:
             -f tag_name=${{ github.ref_name }} \
             -f previous_tag_name=${{ steps.previoustag.outputs.PREVIOUS_TAG }} \
             > release_notes.json
-          echo "NOTES=$(jq -r .body release_notes.json)" >> $GITHUB_OUTPUT
+          echo "NOTES<<EOF" >> $GITHUB_OUTPUT
+          jq -r .body release_notes.json >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
       - name: Write File
         uses: DamianReeves/write-file-action@v1.2
         with:
