@@ -1,3 +1,5 @@
+name: Qode Merge PR-Agent (OpenAI)
+
 on:
   pull_request:
     types: [ opened, reopened, ready_for_review ]

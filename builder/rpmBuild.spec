@@ -1,8 +1,8 @@
 Name:       ecapture
 Version:    v0.0.1
 Release:    2023%{?dist}
-Summary:    capture SSL/TLS text content without CA cert using eBPF
-License:    AGPL-3.0
+Summary:    Capture SSL/TLS plaintext content without CA certificates using eBPF
+License:    Apache-2.0
 URL:        https://ecapture.cc
 Source0:    %{name}-%{version}.tar.gz
 
@@ -12,15 +12,15 @@ Source0:    %{name}-%{version}.tar.gz
 
 %description
 SSL/TLS plaintext capture,
-support openssl/libressl/boringssl/gnutls/nspr(nss) libraries.
+supports OpenSSL, LibreSSL, BoringSSL, GnuTLS, and NSPR (NSS) libraries.
 
-GoTLS plaintext support go tls library, which refers to encrypted
+GoTLS plaintext support for the Go TLS library, which refers to encrypted
 
-Communication in https/tls programs written in the golang language.
+communication in HTTPS/TLS programs written in the Go language.
 
-Bash audit, capture bash command for Host Security Audit.
-Zsh audit, capture zsh command for Host Security Audit.
-MySQL query SQL audit, support mysqld 5.6/5.7/8.0, and mariadDB.
+Bash audit captures bash commands for Host Security Audit.
+Zsh audit captures zsh commands for Host Security Audit.
+MySQL query SQL audit supports MySQL 5.6/5.7/8.0 and MariaDB.
 
 %prep
 %setup -c
@@ -36,7 +36,7 @@ eu-strip %{buildroot}/usr/local/bin/ecapture
 
 %post
 echo "eCapture has been installed in the /usr/local/bin directory."
-echo "Please ensure that /usr/local/bin is in your \$PATH.Or used /usr/local/bin/ecapture instead."
+echo "Please ensure that /usr/local/bin is in your \$PATH, or use /usr/local/bin/ecapture directly."
 
 %files
 /usr/local/bin/ecapture
