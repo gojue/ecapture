@@ -1,6 +1,16 @@
+# v0.9.2 (2024-12-29)
+
+## What's Changed
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v0.9.1...v0.9.2
+<hr>
+
 # v0.9.1 (2024-12-18)
 
 ## What's Changed
+
+* fix: invalid indirect read from stack by @Asphaltt in https://github.com/gojue/ecapture/pull/694
+* fix: use other hooks to probe 5-tuple by @Asphaltt in https://github.com/gojue/ecapture/pull/695
 
 **Full Changelog**: https://github.com/gojue/ecapture/compare/v0.9.0...v0.9.1
 <hr>
