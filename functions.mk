@@ -22,12 +22,12 @@
 	$(CMD_TOUCH) $@ # avoid target rebuilds over and over due to inexistent file
 
 
-# golang 版本检测  1.21 以上
+# golang 版本检测  1.22 以上
 .checkver_$(CMD_GO): \
 	| .check_$(CMD_GO)
 	@if [ ${GO_VERSION_MAJ} -eq 1 ]; then
-		if [ ${GO_VERSION_MIN} -lt 21 ]; then
-			echo -n "you MUST use golang 1.21 or newer, "
+		if [ ${GO_VERSION_MIN} -lt 22 ]; then
+			echo -n "you MUST use golang 1.22 or newer, "
 			echo "your current golang version is ${GO_VERSION}"
 			exit 1
 		fi
@@ -49,7 +49,7 @@ define gobuild
 	CGO_CFLAGS='-O2 -g -gdwarf-4 -I$(CURDIR)/lib/libpcap/' \
 	CGO_LDFLAGS='-O2 -g -L$(CURDIR)/lib/libpcap/ -lpcap -static' \
 	GOOS=linux GOARCH=$(GOARCH) CC=$(CMD_CC_PREFIX)$(CMD_CC) \
-	$(CMD_GO) build -tags '$(TARGET_TAG),netgo' -ldflags "-w -s -X 'github.com/gojue/ecapture/cli/cmd.GitVersion=$(TARGET_TAG)_$(GOARCH):$(VERSION_NUM):$(VERSION_FLAG)' -X 'github.com/gojue/ecapture/cli/cmd.ByteCodeFiles=$(BYTECODE_FILES)' -linkmode=external -extldflags -static " -o $(OUT_BIN)
+	$(CMD_GO) build -trimpath -buildmode=pie -mod=readonly -tags '$(TARGET_TAG),netgo' -ldflags "-w -s -X 'github.com/gojue/ecapture/cli/cmd.GitVersion=$(TARGET_TAG)_$(GOARCH):$(VERSION_NUM):$(VERSION_FLAG)' -X 'github.com/gojue/ecapture/cli/cmd.ByteCodeFiles=$(BYTECODE_FILES)' -linkmode=external -extldflags -static " -o $(OUT_BIN)
 	$(CMD_FILE) $(OUT_BIN)
 endef
 

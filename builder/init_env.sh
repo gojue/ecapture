@@ -67,9 +67,11 @@ echo "GOBIN_ZIP:${GOBIN_ZIP}"
 cd ~ || exit
 
 uname -a
-sudo apt-get update
-# 环境安装
-sudo apt-get install --yes build-essential pkgconf libelf-dev llvm${CLANG_NUM} clang${CLANG_NUM} linux-tools-common linux-tools-generic ${CROSS_COMPILE_DEB} libssl-dev flex bison bc linux-source
+sudo apt-get update || { echo "apt-get update failed"; exit 1; }
+# 环境安装，添加错误检查
+sudo apt-get -y install build-essential pkgconf libelf-dev llvm${CLANG_NUM} \
+    clang${CLANG_NUM} linux-tools-common linux-tools-generic ${CROSS_COMPILE_DEB} \
+    libssl-dev flex bison bc linux-source || { echo "apt-get install failed"; exit 1; }
 for tool in "clang" "llc" "llvm-strip"
 do
   sudo rm -f /usr/bin/$tool
