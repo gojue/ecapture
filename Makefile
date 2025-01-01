@@ -112,9 +112,7 @@ clean:
 	$(CMD_RM) -f assets/ebpf_probe.go
 	$(CMD_RM) -f bin/ecapture
 	$(CMD_RM) -f .check*
-	@if [ -e ./lib/libpcap/Makefile ] ; then \
-		cd ./lib/libpcap && make clean
-	fi
+	if test -e "./lib/libpcap/Makefile"; then $(MAKE) -C ./lib/libpcap clean; fi
 
 .PHONY: $(KERN_OBJECTS)
 $(KERN_OBJECTS): %.o: %.c \
@@ -126,14 +124,14 @@ $(KERN_OBJECTS): %.o: %.c \
 		$(BPFHEADER) \
 		-target bpfel -c $< -o $(subst kern/,user/bytecode/,$(subst .o,_core.o,$@)) \
 		-fno-ident -fdebug-compilation-dir . -g -D__BPF_TARGET_MISSING="GCC error \"The eBPF is using target specific macros, please provide -target\"" \
-		-MD -MP
+		-MD -MP || exit 1
 	$(CMD_CLANG) -D__TARGET_ARCH_$(LINUX_ARCH) \
 		$(EXTRA_CFLAGS) \
 		$(BPFHEADER) \
 		-DKERNEL_LESS_5_2 \
 		-target bpfel -c $< -o $(subst kern/,user/bytecode/,$(subst .c,_core$(KERNEL_LESS_5_2_PREFIX),$<)) \
 		-fno-ident -fdebug-compilation-dir . -g -D__BPF_TARGET_MISSING="GCC error \"The eBPF is using target specific macros, please provide -target\"" \
-		-MD -MP
+		-MD -MP || exit 1
 
 .PHONY: autogen
 autogen: .checkver_$(CMD_BPFTOOL)
@@ -164,7 +162,7 @@ $(KERN_OBJECTS_NOCORE): %.nocore: %.c \
 			-o - |$(CMD_LLC) \
 			-march=bpf \
 			-filetype=obj \
-			-o $(subst kern/,user/bytecode/,$(subst .c,_noncore.o,$<))
+			-o $(subst kern/,user/bytecode/,$(subst .c,_noncore.o,$<)) || exit 1
 	$(CMD_CLANG) \
 			$(EXTRA_CFLAGS_NOCORE) \
 			$(BPFHEADER) \
@@ -180,13 +178,10 @@ $(KERN_OBJECTS_NOCORE): %.nocore: %.c \
 			-o - |$(CMD_LLC) \
 			-march=bpf \
 			-filetype=obj \
-			-o $(subst kern/,user/bytecode/,$(subst .c,_noncore$(KERNEL_LESS_5_2_PREFIX),$<))
+			-o $(subst kern/,user/bytecode/,$(subst .c,_noncore$(KERNEL_LESS_5_2_PREFIX),$<)) || exit 1
 
 .PHONY: assets
-assets: \
-	.checkver_$(CMD_GO) \
-	ebpf \
-	ebpf_noncore
+assets: .checkver_$(CMD_GO) ebpf ebpf_noncore
 	$(CMD_GO) run github.com/shuLhan/go-bindata/cmd/go-bindata $(IGNORE_LESS52) -pkg assets -o "assets/ebpf_probe.go" $(wildcard ./user/bytecode/*.o)
 
 .PHONY: assets_noncore
@@ -205,14 +200,10 @@ $(TARGET_LIBPCAP):
 			--without-dpdk --without-dag --without-septel --without-snf \
 			--without-gcc --with-pcap=linux \
 			--without-turbocap --host=$(LIBPCAP_ARCH) && \
-	CC=$(CMD_CC_PREFIX)$(CMD_CC) AR=$(CMD_AR_PREFIX)$(CMD_AR) make
+	CC=$(CMD_CC_PREFIX)$(CMD_CC) AR=$(CMD_AR_PREFIX)$(CMD_AR) make || exit 1
 
 .PHONY: build
-build: \
-	.checkver_$(CMD_GO) \
-	$(TARGET_LIBPCAP) \
-	assets \
-	assets_noncore
+build: .checkver_$(CMD_GO) $(TARGET_LIBPCAP) assets assets_noncore
 	$(call allow-override,VERSION_FLAG,$(UNAME_R))
 	$(call gobuild, $(ANDROID))
 
