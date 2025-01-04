@@ -52,7 +52,9 @@ func detectBpfCap() error {
 		return fmt.Errorf("failed to get the capabilities of the current process: %v", err)
 	}
 
-	haveBpfCap := data[0].Permitted&unix.CAP_BPF != 0
+	capBpfMask := uint32(1 << (unix.CAP_BPF - 32))
+	capSysAdminMask := uint32(1 << unix.CAP_SYS_ADMIN)
+	haveBpfCap := (data[1].Permitted&capBpfMask != 0) || (data[0].Permitted&capSysAdminMask != 0)
 	if !haveBpfCap {
 		return fmt.Errorf("the current user does not have CAP_BPF to load bpf programs. Please run as root or use sudo or add the --privileged=true flag for Docker.")
 	}
