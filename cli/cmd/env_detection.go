@@ -31,11 +31,11 @@ func detectKernel() error {
 	switch runtime.GOARCH {
 	case "amd64":
 		if kv < kernel.VersionCode(4, 18, 0) {
-			return fmt.Errorf("the Linux/Android Kernel version %v (x86_64) is not supported. Requires a version greater than 4.18.", kv)
+			return fmt.Errorf("the Linux/Android Kernel version %v (x86_64) is not supported. Requires a version greater than 4.18", kv)
 		}
 	case "arm64":
 		if kv < kernel.VersionCode(5, 5, 0) {
-			return fmt.Errorf("the Linux/Android Kernel version %v (aarch64) is not supported. Requires a version greater than 5.5.", kv)
+			return fmt.Errorf("the Linux/Android Kernel version %v (aarch64) is not supported. Requires a version greater than 5.5", kv)
 		}
 	default:
 		return fmt.Errorf("unsupported CPU arch:%v", runtime.GOARCH)
@@ -56,7 +56,7 @@ func detectBpfCap() error {
 	capSysAdminMask := uint32(1 << unix.CAP_SYS_ADMIN)
 	haveBpfCap := (data[1].Permitted&capBpfMask != 0) || (data[0].Permitted&capSysAdminMask != 0)
 	if !haveBpfCap {
-		return fmt.Errorf("the current user does not have CAP_BPF to load bpf programs. Please run as root or use sudo or add the --privileged=true flag for Docker.")
+		return fmt.Errorf("the current user does not have CAP_BPF to load bpf programs. Please run as root or use sudo or add the --privileged=true flag for Docker")
 	}
 
 	return nil

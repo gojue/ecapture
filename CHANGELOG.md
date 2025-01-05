@@ -2,6 +2,21 @@
 
 ## What's Changed
 
+* Limit github action serialization and increase CI caching function by @cfc4n
+  in https://github.com/gojue/ecapture/pull/698
+* fix : add openssl_3_1_0 target by @cuijing90 in https://github.com/gojue/ecapture/pull/704
+* performance: use first h2 frame header detect instead of read first frame from whole payload by @yuweizzz
+  in https://github.com/gojue/ecapture/pull/705
+* fix #697, When building in nocore mode, use only non-core bytecode les by default. by @cfc4n
+  in https://github.com/gojue/ecapture/pull/708
+* fix: check CAP_BPF by capget syscall by @Asphaltt in https://github.com/gojue/ecapture/pull/707
+* fixed the issue of missing cross-compilation environment. by @cfc4n in https://github.com/gojue/ecapture/pull/709
+* fix(ci): fix github action release notes generation by @cfc4n in https://github.com/gojue/ecapture/pull/710
+
+## New Contributors
+
+* @cuijing90 made their first contribution in https://github.com/gojue/ecapture/pull/704
+
 **Full Changelog**: https://github.com/gojue/ecapture/compare/v0.9.1...v0.9.2
 <hr>
 
