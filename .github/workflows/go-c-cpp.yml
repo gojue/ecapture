@@ -110,114 +110,61 @@ jobs:
         run: go test -v -race ./...
 
   build-on-ubuntu2204-arm64:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-22.04-arm
     name: build on ubuntu-22.04 arm64
-    # Run steps on a matrix of 3 arch/distro combinations
-    strategy:
-      matrix:
-        include:
-          - arch: aarch64
-            distro: ubuntu22.04
     steps:
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22.10'
+      - name: Install Compilers
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes build-essential pkgconf libelf-dev llvm-14 clang-14 flex bison linux-tools-common linux-tools-generic gcc gcc-x86-64-linux-gnu libssl-dev linux-source
+          for tool in "clang" "llc" "llvm-strip"
+          do
+            sudo rm -f /usr/bin/$tool
+            sudo ln -s /usr/bin/$tool-14 /usr/bin/$tool
+          done
+          cd /usr/src
+          source_file=$(find . -maxdepth 1 -name "*linux-source*.tar.bz2")
+          source_dir=$(echo "$source_file" | sed 's/\.tar\.bz2//g')  
+          sudo tar -xf $source_file
+          cd $source_dir
+          test -f .config || sudo make oldconfig
+          sudo make ARCH=x86 CROSS_COMPILE=x86_64-linux-gnu- prepare V=0 > /dev/null
+          ls -al /usr/src/$source_dir
+        shell: bash
       - uses: actions/checkout@v4
         with:
           submodules: 'recursive'
           fetch-depth: 0
-          set-safe-directory: '/source_code'
-      - name: Branch Name
+      - name: Build CO-RE
         run: |
-          echo running on branch ${{ github.ref_name }}
-          echo checkout directory ${GITHUB_WORKSPACE}
-          echo PWD directory ${PWD}
-      - name: Write File
-        uses: DamianReeves/write-file-action@v1.2
+          make clean
+          make env
+          DEBUG=1 make -j8
+          cd ./lib/libpcap/ && sudo make install
+          cd $GITHUB_WORKSPACE
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
         with:
-          path: ./bin/release_notes.txt
-          contents: |
-            "just for CI"
-          write-mode: append
-      - uses: uraimo/run-on-arch-action@v2
-        name: Build artifact
-        id: build
-        with:
-          arch: ${{ matrix.arch }}
-          distro: ${{ matrix.distro }}
-
-          # Not required, but speeds up builds
-          githubToken: ${{ github.token }}
-
-          # Create an artifacts directory
-          setup: |
-            mkdir -p "${PWD}/artifacts"
-
-          # Mount the artifacts directory as /artifacts in the container
-          dockerRunArgs: |
-            --volume "${PWD}/artifacts:/artifacts"
-            --volume "${GITHUB_WORKSPACE}:/source_code"
-
-          # Pass some environment variables to the container
-          env: | # YAML, but pipe character is necessary
-            artifact_name: ecapture-${{ github.ref_name }}
-
-          # The shell to run commands with in the container
-          shell: /bin/sh
-
-          # Install some dependencies in the container. This speeds up builds if
-          # you are also using githubToken. Any dependencies installed here will
-          # be part of the container image that gets cached, so subsequent
-          # builds don't have to re-install them. The image layer is cached
-          # publicly in your project's package repository, so it is vital that
-          # no secrets are present in the container state or logs.
-          install: |
-            uname -a
-            apt-get update
-            apt-get install --yes wget git build-essential pkgconf libelf-dev llvm-12 clang-12 linux-tools-generic linux-tools-common flex bison file gcc-x86-64-linux-gnu libssl-dev bc linux-source
-            wget https://go.dev/dl/go1.22.10.linux-arm64.tar.gz
-            rm -rf /usr/local/go
-            tar -C /usr/local -xzf go1.22.10.linux-arm64.tar.gz
-            cd /usr/src
-            source_file=$(find . -maxdepth 1 -name "*linux-source*.tar.bz2")
-            source_dir=$(echo "$source_file" | sed 's/\.tar\.bz2//g')
-            tar -xf $source_file
-            cd $source_dir
-            test -f .config || make oldconfig > /dev/null
-            make ARCH=x86 CROSS_COMPILE=x86_64-linux-gnu- prepare V=0 > /dev/null
-            make prepare V=0 > /dev/null
-            ls -al /usr/src/$source_dir
-          # Produce a binary artifact and place it in the mounted volume
-          run: |
-            uname -a
-            date
-            export PATH=/usr/local/go/bin:$PATH:/usr/local/bin
-            echo $PATH
-            for tool in "clang" "llc" "llvm-strip"
-            do
-            rm -f /usr/bin/$tool
-            ln -s /usr/bin/$tool-12 /usr/bin/$tool
-            done
-            clang --version
-            which bpftool
-            echo "cat /proc/1/cgroup:"
-            cat /proc/1/cgroup
-            echo "cat /proc/1/sched:"
-            cat /proc/1/sched
-            cd /usr/src
-            source_file=$(find . -maxdepth 1 -name "*linux-source*.tar.bz2")
-            source_dir=$(echo "$source_file" | sed 's/\.tar\.bz2//g')
-            git config --global --add safe.directory /source_code
-            cd /source_code
-            echo "-------------------start: Build CO-RE Linux (include non-CO-RE)-------------------"
-            KERN_HEADERS=/usr/src/$source_dir make env
-            make clean
-            KERN_HEADERS=/usr/src/$source_dir make
-            bin/ecapture -v
-            echo "-------------------start: Build non-CO-RE (Cross-Compilation) Linux -------------------"
-            make clean
-            KERN_HEADERS=/usr/src/$source_dir CROSS_ARCH=amd64 make env
-            KERN_HEADERS=/usr/src/$source_dir CROSS_ARCH=amd64 make nocore -j8
-            file bin/ecapture
-      - name: Show the artifact
-        # Items placed in /artifacts in the container will be in
-        # ${PWD}/artifacts on the host.
+          args: --disable-all -E errcheck -E staticcheck
+          skip-cache: true
+          problem-matchers: true
+      - name: Build non-CO-RE
         run: |
-          ls -al "${PWD}/artifacts"
+          make clean
+          make env
+          make nocore
+      - name: Build CO-RE (Cross-Compilation)
+        run: |
+          make clean
+          CROSS_ARCH=amd64 make env
+          CROSS_ARCH=amd64 make -j8
+      - name: Build non-CO-RE (Cross-Compilation/Android)
+        run: |
+          make clean
+          CROSS_ARCH=amd64 make env
+          ANDROID=1 CROSS_ARCH=amd64 make nocore -j8
+      - name: Test
+        run: go test -v -race ./...
