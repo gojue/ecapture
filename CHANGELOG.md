@@ -1,8 +1,15 @@
+# v0.9.3 (2025-01-18)
+
+## What's Changed
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v0.9.2...v0.9.3
+<hr>
+
 # v0.9.2 (2024-12-29)
 
 ## What's Changed
 
-* Limit github action serialization and increase CI caching function by @cfc4n
+* Limit GitHub action serialization and increase CI caching function by @cfc4n
   in https://github.com/gojue/ecapture/pull/698
 * fix : add openssl_3_1_0 target by @cuijing90 in https://github.com/gojue/ecapture/pull/704
 * performance: use first h2 frame header detect instead of read first frame from whole payload by @yuweizzz
