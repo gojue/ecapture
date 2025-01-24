@@ -18,22 +18,23 @@ import (
 	"debug/elf"
 	"errors"
 	"fmt"
-	"github.com/gojue/ecapture/user/config"
 	"os"
 	"regexp"
 	"strings"
+
+	"github.com/gojue/ecapture/user/config"
 )
 
 const (
-	Linuxdefaulefilename102 = "linux_default_1_0_2"
-	Linuxdefaulefilename110 = "linux_default_1_1_0"
-	Linuxdefaulefilename111 = "linux_default_1_1_1"
-	Linuxdefaulefilename30  = "linux_default_3_0"
-	Linuxdefaulefilename31  = "linux_default_3_0"
-	Linuxdefaulefilename320 = "linux_default_3_2"
-	Linuxdefaulefilename330 = "linux_default_3_3"
-	Linuxdefaulefilename340 = "linux_default_3_4"
-	AndroidDefauleFilename  = "android_default"
+	LinuxDefaultFilename102 = "linux_default_1_0_2"
+	LinuxDefaultFilename110 = "linux_default_1_1_0"
+	LinuxDefaultFilename111 = "linux_default_1_1_1"
+	LinuxDefaultFilename30  = "linux_default_3_0"
+	LinuxDefaultFilename31  = "linux_default_3_0"
+	LinuxDefaultFilename320 = "linux_default_3_2"
+	LinuxDefaultFilename330 = "linux_default_3_3"
+	LinuxdDfaultFilename340 = "linux_default_3_4"
+	AndroidDefaultFilename  = "android_default"
 
 	OpenSslVersionLen = 30 // openssl version string length
 )
@@ -63,26 +64,27 @@ var (
 func (m *MOpenSSLProbe) initOpensslOffset() {
 	m.sslVersionBpfMap = map[string]string{
 		// openssl 1.0.2*
-		Linuxdefaulefilename102: "openssl_1_0_2a_kern.o",
+		LinuxDefaultFilename102: "openssl_1_0_2a_kern.o",
 
 		// openssl 1.1.0*
-		Linuxdefaulefilename110: "openssl_1_1_0a_kern.o",
+		LinuxDefaultFilename110: "openssl_1_1_0a_kern.o",
 
 		// openssl 1.1.1*
-		Linuxdefaulefilename111: "openssl_1_1_1j_kern.o",
+		LinuxDefaultFilename111: "openssl_1_1_1j_kern.o",
 
 		// openssl 3.0.* and openssl 3.1.*
-		Linuxdefaulefilename30: "openssl_3_0_0_kern.o",
+		LinuxDefaultFilename30: "openssl_3_0_0_kern.o",
 
 		// openssl 3.2.*
-		Linuxdefaulefilename320: "openssl_3_2_0_kern.o",
+		LinuxDefaultFilename320: "openssl_3_2_0_kern.o",
 
 		// boringssl
 		// git repo: https://android.googlesource.com/platform/external/boringssl/+/refs/heads/android12-release
 		"boringssl 1.1.1":      "boringssl_a_13_kern.o",
 		"boringssl_a_13":       "boringssl_a_13_kern.o",
 		"boringssl_a_14":       "boringssl_a_14_kern.o",
-		AndroidDefauleFilename: "boringssl_a_13_kern.o",
+		"boringssl_a_15":       "boringssl_a_15_kern.o",
+		AndroidDefaultFilename: "boringssl_a_13_kern.o",
 
 		// non-Android boringssl
 		// "boringssl na" is a special version for non-android
@@ -253,22 +255,34 @@ func (m *MOpenSSLProbe) detectOpenssl(soPath string) (error, string) {
 
 func (m *MOpenSSLProbe) getSoDefaultBytecode(soPath string, isAndroid bool) string {
 	var bpfFile string
-
+	var found bool
 	// if not found, use default
 	if isAndroid {
-		m.conf.(*config.OpensslConfig).SslVersion = AndroidDefauleFilename
-		bpfFile, _ = m.sslVersionBpfMap[AndroidDefauleFilename]
+		m.conf.(*config.OpensslConfig).SslVersion = AndroidDefaultFilename
+		androidVer := m.conf.(*config.OpensslConfig).AndroidVer
+		if androidVer != "" {
+			bpfFileKey := fmt.Sprintf("boringssl_a_%s", androidVer)
+			bpfFile, found = m.sslVersionBpfMap[bpfFileKey]
+			if found {
+				return bpfFile
+			}
+		}
+		bpfFile, found = m.sslVersionBpfMap[AndroidDefaultFilename]
+		if !found {
+			m.logger.Warn().Str("BoringSSL Version", AndroidDefaultFilename).Msg("Can not find Default BoringSSL version")
+			return ""
+		}
 		//m.logger.Warn().Str("BoringSSL Version", AndroidDefauleFilename).Msg("OpenSSL/BoringSSL version not found, used default version")
 		return bpfFile
 	}
 
 	if strings.Contains(soPath, "libssl.so.3") {
-		m.conf.(*config.OpensslConfig).SslVersion = Linuxdefaulefilename30
-		bpfFile, _ = m.sslVersionBpfMap[Linuxdefaulefilename30]
+		m.conf.(*config.OpensslConfig).SslVersion = LinuxDefaultFilename30
+		bpfFile, _ = m.sslVersionBpfMap[LinuxDefaultFilename30]
 		//m.logger.Warn().Str("OpenSSL Version", Linuxdefaulefilename30).Msg("OpenSSL/BoringSSL version not found from shared library file, used default version")
 	} else {
-		m.conf.(*config.OpensslConfig).SslVersion = Linuxdefaulefilename111
-		bpfFile, _ = m.sslVersionBpfMap[Linuxdefaulefilename111]
+		m.conf.(*config.OpensslConfig).SslVersion = LinuxDefaultFilename111
+		bpfFile, _ = m.sslVersionBpfMap[LinuxDefaultFilename111]
 		//m.logger.Warn().Str("OpenSSL Version", Linuxdefaulefilename111).Msg("OpenSSL/BoringSSL version not found from shared library file, used default version")
 	}
 	return bpfFile

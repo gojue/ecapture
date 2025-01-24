@@ -29,6 +29,7 @@ function run() {
   # this repo is different from https://boringssl.googlesource.com/boringssl
   sslVerMap["1"]="13" # android13-release
   sslVerMap["2"]="14" # android14-release
+  sslVerMap["3"]="15" # android15-release
 
   # shellcheck disable=SC2068
   # shellcheck disable=SC2034
