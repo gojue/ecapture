@@ -141,6 +141,11 @@ func (ew *eventWorker) writeEvent(e event.IEventStruct) {
 // 解析类型，输出
 func (ew *eventWorker) parserEvents() []byte {
 	ew.status = ProcessStateProcessing
+	tsize := int(ew.processor.truncateSize)
+	if tsize > 0 && ew.payload.Len() > tsize {
+		ew.payload.Truncate(tsize)
+		_ = ew.writeToChan(fmt.Sprintf("Events truncated, size: %d bytes\n", tsize))
+	}
 	parser := NewParser(ew.payload.Bytes())
 	ew.parser = parser
 	n, e := ew.parser.Write(ew.payload.Bytes())
