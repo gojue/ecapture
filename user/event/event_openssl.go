@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"golang.org/x/sys/unix"
 	"net/netip"
 	"strings"
 	"unsafe"
@@ -197,25 +198,32 @@ func (se *SSLDataEvent) EventType() EventType {
 
 //  connect_events map
 /*
-  uint64_t timestamp_ns;
-  uint32_t pid;
-  uint32_t tid;
-  uint32_t fd;
-  char ports[4];
-  char addrs[8];
-  char Comm[TASK_COMM_LEN];
+   unsigned __int128 saddr;
+   unsigned __int128 daddr;
+   char comm[TASK_COMM_LEN];
+   u64 timestamp_ns;
+   u64 sock;
+   u32 pid;
+   u32 tid;
+   u32 fd;
+   u16 family;
+   u16 sport;
+   u16 dport;
+   u8 is_destroy;
+   u8 pad[7];
 */
 type connDataEvent struct {
+	Saddr       [16]byte `json:"saddr"`
+	Daddr       [16]byte `json:"daddr"`
+	Comm        [16]byte `json:"Comm"`
 	TimestampNs uint64   `json:"timestampNs"`
+	Sock        uint64   `json:"sock"`
 	Pid         uint32   `json:"pid"`
 	Tid         uint32   `json:"tid"`
 	Fd          uint32   `json:"fd"`
+	Family      uint16   `json:"family"`
 	Sport       uint16   `json:"sport"`
 	Dport       uint16   `json:"dport"`
-	Saddr       [4]byte  `json:"saddr"`
-	Daddr       [4]byte  `json:"daddr"`
-	Comm        [16]byte `json:"Comm"`
-	Sock        uint64   `json:"sock"`
 	IsDestroy   uint8    `json:"isDestroy"`
 	Pad         [7]byte  `json:"-"`
 
@@ -231,9 +239,15 @@ func (ce *ConnDataEvent) Decode(payload []byte) (err error) {
 	data := unsafe.Slice((*byte)(unsafe.Pointer(&ce.connDataEvent)), int(unsafe.Sizeof(ce.connDataEvent)))
 	copy(data, payload)
 
-	saddr, daddr := netip.AddrFrom4(ce.Saddr), netip.AddrFrom4(ce.Daddr)
-	ce.Tuple = fmt.Sprintf("%s:%d-%s:%d", saddr, ce.Sport, daddr, ce.Dport)
-	return nil
+        if ce.Family == unix.AF_INET {
+            saddr, daddr := netip.AddrFrom4([4]byte(ce.Saddr[:4])), netip.AddrFrom4([4]byte(ce.Saddr[:4]))
+            ce.Tuple = fmt.Sprintf("%s:%d-%s:%d", saddr, ce.Sport, daddr, ce.Dport)
+        } else {
+            saddr, daddr := netip.AddrFrom16(ce.Saddr), netip.AddrFrom16(ce.Daddr)
+            ce.Tuple = fmt.Sprintf("[%s]:%d-[%s]:%d", saddr, ce.Sport, daddr, ce.Dport)
+        }
+
+        return nil
 }
 
 func (ce *ConnDataEvent) StringHex() string {

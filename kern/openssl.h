@@ -39,16 +39,17 @@ struct ssl_data_event_t {
 };
 
 struct connect_event_t {
+    unsigned __int128 saddr;
+    unsigned __int128 daddr;
+    char comm[TASK_COMM_LEN];
     u64 timestamp_ns;
+    u64 sock;
     u32 pid;
     u32 tid;
     u32 fd;
+    u16 family;
     u16 sport;
     u16 dport;
-    __be32 saddr;
-    __be32 daddr;
-    char comm[TASK_COMM_LEN];
-    u64 sock;
     u8 is_destroy;
     u8 pad[7];
 } __attribute__((packed)); // NOTE: do not leave padding hole in this struct.
@@ -503,7 +504,8 @@ static __inline int kretprobe_connect(struct pt_regs *ctx, int fd, struct sock *
     u64 current_uid_gid = bpf_get_current_uid_gid();
     u32 uid = current_uid_gid;
     u16 address_family = 0;
-    u64 addrs;
+    unsigned __int128 saddr;
+    unsigned __int128 daddr;
     u32 ports;
 
 #ifndef KERNEL_LESS_5_2
@@ -517,18 +519,25 @@ static __inline int kretprobe_connect(struct pt_regs *ctx, int fd, struct sock *
 #endif
 
     bpf_probe_read_kernel(&address_family, sizeof(address_family), &sk->__sk_common.skc_family);
-    if (address_family != AF_INET) {
+    debug_bpf_printk("@ sockaddr FM :%d\n", address_family);
+
+    if (address_family == AF_INET) {
+        u64 addrs;
+        bpf_probe_read_kernel(&addrs, sizeof(addrs), &sk->__sk_common.skc_addrpair);
+        saddr = (__be32)(addrs >> 32);
+        daddr = (__be32)addrs;
+    } else if (address_family == AF_INET6) {
+        bpf_probe_read_kernel(&saddr, sizeof(saddr), &sk->__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr32);
+        bpf_probe_read_kernel(&daddr, sizeof(daddr), &sk->__sk_common.skc_v6_daddr.in6_u.u6_addr32);
+    } else {
         return 0;
     }
 
     // if the connection hasn't been established yet, the ports or addrs are 0.
-    bpf_probe_read_kernel(&addrs, sizeof(addrs), &sk->__sk_common.skc_addrpair);
     bpf_probe_read_kernel(&ports, sizeof(ports), &sk->__sk_common.skc_portpair);
-    if (ports == 0 || addrs == 0) {
+    if (ports == 0 || saddr == 0 || daddr == 0) {
         return 0;
     }
-
-    debug_bpf_printk("@ sockaddr FM :%d\n", address_family);
 
     struct connect_event_t conn;
     __builtin_memset(&conn, 0, sizeof(conn));
@@ -536,16 +545,17 @@ static __inline int kretprobe_connect(struct pt_regs *ctx, int fd, struct sock *
     conn.pid = pid;
     conn.tid = current_pid_tgid;
     conn.fd = fd;
+    conn.family = address_family;
     if (active) {
         conn.dport = bpf_ntohs((u16)ports);
         conn.sport = ports >> 16;
-        conn.daddr = (__be32)addrs;
-        conn.saddr = (__be32)(addrs >> 32);
+        conn.saddr = saddr;
+        conn.daddr = daddr;
     } else {
         conn.sport = bpf_ntohs((u16)ports);
         conn.dport = ports >> 16;
-        conn.saddr = (__be32)addrs;
-        conn.daddr = (__be32)(addrs >> 32);
+        conn.saddr = daddr;
+        conn.daddr = saddr;
     }
     bpf_get_current_comm(&conn.comm, sizeof(conn.comm));
     conn.sock = (u64)sk;
