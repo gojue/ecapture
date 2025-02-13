@@ -92,6 +92,7 @@ func (h2r *HTTP2Request) Display() []byte {
 		return h2r.reader.Bytes()
 	}
 	var encoding string
+	var dataFrameStreamID uint32
 	dataBuf := bytes.NewBuffer(nil)
 	frameBuf := bytes.NewBufferString("")
 	for {
@@ -104,7 +105,7 @@ func (h2r *HTTP2Request) Display() []byte {
 		}
 		switch f := f.(type) {
 		case *http2.MetaHeadersFrame:
-			frameBuf.WriteString(fmt.Sprintf("\nFrame Type\t=>\tHEADERS\n"))
+			frameBuf.WriteString(fmt.Sprintf("\nFrame Type\t=>\tHEADERS\nFrame StreamID\t=>\t%d\n", f.StreamID))
 			for _, header := range f.Fields {
 				frameBuf.WriteString(fmt.Sprintf("%s\n", header.String()))
 				if header.Name == "content-encoding" {
@@ -112,18 +113,19 @@ func (h2r *HTTP2Request) Display() []byte {
 				}
 			}
 		case *http2.DataFrame:
+			dataFrameStreamID = f.StreamID
 			_, err := dataBuf.Write(f.Data())
 			if err != nil {
 				log.Println("[http2 request] Write HTTP2 Data Frame buffuer error:", err)
 			}
 		default:
 			fh := f.Header()
-			frameBuf.WriteString(fmt.Sprintf("\nFrame Type\t=>\t%s\n", fh.Type.String()))
+			frameBuf.WriteString(fmt.Sprintf("\nFrame Type\t=>\t%s\nFrame StreamID\t=>\t%d\n", fh.Type.String(), fh.StreamID))
 		}
 	}
 	// merge data frame
 	if dataBuf.Len() > 0 {
-		frameBuf.WriteString(fmt.Sprintf("\nFrame Type\t=>\tDATA\n"))
+		frameBuf.WriteString(fmt.Sprintf("\nFrame Type\t=>\tDATA\nFrame StreamID\t=>\t%d\n", dataFrameStreamID))
 		payload := dataBuf.Bytes()
 		switch encoding {
 		case "gzip":
