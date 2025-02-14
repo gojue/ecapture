@@ -240,7 +240,7 @@ func (ce *ConnDataEvent) Decode(payload []byte) (err error) {
 	copy(data, payload)
 
         if ce.Family == unix.AF_INET {
-            saddr, daddr := netip.AddrFrom4([4]byte(ce.Saddr[:4])), netip.AddrFrom4([4]byte(ce.Saddr[:4]))
+            saddr, daddr := netip.AddrFrom4([4]byte(ce.Saddr[:4])), netip.AddrFrom4([4]byte(ce.Daddr[:4]))
             ce.Tuple = fmt.Sprintf("%s:%d-%s:%d", saddr, ce.Sport, daddr, ce.Dport)
         } else {
             saddr, daddr := netip.AddrFrom16(ce.Saddr), netip.AddrFrom16(ce.Daddr)
