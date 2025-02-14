@@ -104,7 +104,8 @@ func (m *Module) Init(ctx context.Context, logger *zerolog.Logger, conf config.I
 	m.isKernelLess5_2 = false //set false default
 	m.eventCollector = eventCollector
 	//var epl = epLogger{logger: logger}
-	m.processor = event_processor.NewEventProcessor(eventCollector, conf.GetHex())
+	tsize := conf.GetTruncateSize()
+	m.processor = event_processor.NewEventProcessor(eventCollector, conf.GetHex(), tsize)
 
 	go func() {
 		// 读取错误信息
@@ -129,6 +130,7 @@ func (m *Module) Init(ctx context.Context, logger *zerolog.Logger, conf config.I
 	}
 
 	logger.Info().Int("Pid", os.Getpid()).Str("Kernel Info", kv.String()).Send()
+	logger.Info().Int("TruncateSize", int(tsize)).Str("Unit", "bytes").Send()
 
 	if conf.GetBTF() == config.BTFModeAutoDetect {
 		// 如果是自动检测模式

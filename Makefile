@@ -228,3 +228,7 @@ format:
 	@clang-format -i -style=$(STYLE) kern/openssl_masterkey_3.2.h
 	@clang-format -i -style=$(STYLE) kern/boringssl_masterkey.h
 	@clang-format -i -style=$(STYLE) utils/*.c
+
+.PHONY: test
+test:
+	go test -v -race ./...
