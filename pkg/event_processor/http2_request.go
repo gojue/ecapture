@@ -91,9 +91,8 @@ func (h2r *HTTP2Request) Display() []byte {
 		log.Println("[http2 request] Discard HTTP2 Magic error:", err)
 		return h2r.reader.Bytes()
 	}
-	var encoding string
-	var dataFrameStreamID uint32
-	dataBuf := bytes.NewBuffer(nil)
+	encodingMap := make(map[uint32]string)
+	dataBufMap := make(map[uint32]*bytes.Buffer)
 	frameBuf := bytes.NewBufferString("")
 	for {
 		f, err := h2r.framer.ReadFrame()
@@ -105,46 +104,58 @@ func (h2r *HTTP2Request) Display() []byte {
 		}
 		switch f := f.(type) {
 		case *http2.MetaHeadersFrame:
-			frameBuf.WriteString(fmt.Sprintf("\nFrame Type\t=>\tHEADERS\nFrame StreamID\t=>\t%d\n", f.StreamID))
+			streamID := f.StreamID
+			frameBuf.WriteString(fmt.Sprintf("\nFrame Type\t=>\tHEADERS\nFrame StreamID\t=>\t%d\n", streamID))
 			for _, header := range f.Fields {
 				frameBuf.WriteString(fmt.Sprintf("%s\n", header.String()))
 				if header.Name == "content-encoding" {
-					encoding = header.Value
+					encodingMap[streamID] = header.Value
 				}
 			}
 		case *http2.DataFrame:
-			dataFrameStreamID = f.StreamID
-			_, err := dataBuf.Write(f.Data())
-			if err != nil {
-				log.Println("[http2 request] Write HTTP2 Data Frame buffuer error:", err)
+			streamID := f.StreamID
+			frameBuf.WriteString(fmt.Sprintf("\nFrame Type\t=>\tDATA\nFrame StreamID\t=>\t%d\n", streamID))
+			payload := f.Data()
+			switch encodingMap[streamID] {
+			case "gzip":
+				h2r.packerType = PacketTypeGzip
+				frameBuf.WriteString("Partial entity body with gzip encoding ... \n")
+				if dataBufMap[streamID] == nil {
+					dataBufMap[streamID] = bytes.NewBuffer(nil) 
+				}
+				_, err := dataBufMap[streamID].Write(payload)
+				if err != nil {
+					log.Println("[http2 request] Write HTTP2 Data Frame buffuer error:", err)
+				}
+			default:
+				h2r.packerType = PacketTypeNull
+				frameBuf.Write(payload)
+				frameBuf.WriteString("\n")
 			}
 		default:
 			fh := f.Header()
 			frameBuf.WriteString(fmt.Sprintf("\nFrame Type\t=>\t%s\nFrame StreamID\t=>\t%d\n", fh.Type.String(), fh.StreamID))
 		}
 	}
-	// merge data frame
-	if dataBuf.Len() > 0 {
-		frameBuf.WriteString(fmt.Sprintf("\nFrame Type\t=>\tDATA\nFrame StreamID\t=>\t%d\n", dataFrameStreamID))
-		payload := dataBuf.Bytes()
-		switch encoding {
-		case "gzip":
+	// merge data frame with encoding
+	for id, buf := range dataBufMap {
+		if buf.Len() > 0 && encodingMap[id] == "gzip" {
+			payload := buf.Bytes()
 			reader, err := gzip.NewReader(bytes.NewReader(payload))
 			if err != nil {
 				log.Println("[http2 request] Create gzip reader error:", err)
-				break
+				continue
 			}
+			defer reader.Close()
 			payload, err = io.ReadAll(reader)
 			if err != nil {
 				log.Println("[http2 request] Uncompress gzip data error:", err)
-				break
+				continue
 			}
-			h2r.packerType = PacketTypeGzip
-			defer reader.Close()
-		default:
-			h2r.packerType = PacketTypeNull
+			frameBuf.WriteString(fmt.Sprintf("\nMerged Data Frame, StreamID\t=>\t%d\n\n", id))
+			frameBuf.Write(payload)
+			frameBuf.WriteString("\n")
 		}
-		frameBuf.Write(payload)
 	}
 	return frameBuf.Bytes()
 }
