@@ -1,6 +1,21 @@
-# v0.9.3 (2025-01-18)
+# v0.9.4 (2025-02-16)
 
 ## What's Changed
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v0.9.3...v0.9.4
+<hr>
+
+# v0.9.3 (2025-01-18)
+## What's Changed
+
+* fix(make): improve error handling and clean target logic in Makefile by @cfc4n
+  in https://github.com/gojue/ecapture/pull/713
+* fix: incorrect CAP_BPF check method by @hengyoush in https://github.com/gojue/ecapture/pull/715
+* feat(ci): update GitHub Action runners with Linux arm64 host by @cfc4n in https://github.com/gojue/ecapture/pull/722
+
+## New Contributors
+
+* @hengyoush made their first contribution in https://github.com/gojue/ecapture/pull/715
 
 **Full Changelog**: https://github.com/gojue/ecapture/compare/v0.9.2...v0.9.3
 <hr>
