@@ -27,7 +27,16 @@
 
 #define TASK_COMM_LEN 16
 #define PATH_MAX_LEN 256
-#define MAX_DATA_SIZE_OPENSSL 1024 * 4
+
+/* 
+ * RFC 5246 : https://datatracker.ietf.org/doc/html/rfc5246#section-6.2
+ * length
+ *    The length (in bytes) of the following TLSPlaintext.fragment.  The length MUST NOT exceed 2^14.
+ * 
+ * OpenSSL : SSL3_RT_MAX_PLAIN_LENGTH (16384). These functions will only accept a value in the range 512 - SSL3_RT_MAX_PLAIN_LENGTH.
+ * https://docs.openssl.org/1.1.1/man3/SSL_CTX_set_split_send_fragment/#description
+*/
+#define MAX_DATA_SIZE_OPENSSL 1024 * 16
 #define MAX_DATA_SIZE_MYSQL 256
 #define MAX_DATA_SIZE_POSTGRES 256
 #define MAX_DATA_SIZE_BASH 256

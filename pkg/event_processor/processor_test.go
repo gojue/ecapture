@@ -25,7 +25,7 @@ type SSLDataEventTmp struct {
 	Comm      [16]byte   `json:"Comm"`
 	Fd        uint32     `json:"Fd"`
 	Version   int32      `json:"Version"`
-	Data      [4096]byte `json:"Data"`
+	Data      [16384]byte `json:"Data"`
 }
 
 func TestEventProcessor_Serve(t *testing.T) {
