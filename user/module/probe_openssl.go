@@ -445,27 +445,14 @@ func (m *MOpenSSLProbe) DestroyConn(sock uint64) {
 	m.logger.Debug().Uint32("pid", pid).Uint32("fd", fd).Str("tuple", tuple).Msg("DestroyConn success")
 }
 
-// process exit :fd is 0 , delete all pid map
-// fd exit :pid > 0, fd > 0, delete fd value
-// TODO add fd * pid exit event hook
-func (m *MOpenSSLProbe) DelConn(pid, fd uint32) {
-	// delete from map
-	if pid == 0 {
-		return
-	}
-	m.pidLocker.Lock()
-	defer m.pidLocker.Unlock()
-	if fd == 0 {
-		delete(m.pidConns, pid)
-	}
-	var connMap map[uint32]string
-	var f bool
-	connMap, f = m.pidConns[pid]
-	if !f {
-		return
-	}
-	delete(connMap, fd)
-	m.pidConns[pid] = connMap
+// DelConn process exit :fd is 0 , delete all pid map
+func (m *MOpenSSLProbe) DelConn(sock uint64) {
+	// deleteKeyAfterDelay 延迟3秒，删除指定键，
+	// 延迟时间必需要大于event Processor的事件处理器合并事件的间隔。
+	// 其次晚点删除，对业务影响上应该不大。
+	time.AfterFunc(3*time.Second, func() {
+		m.DestroyConn(sock)
+	})
 	return
 }
 
@@ -743,7 +730,7 @@ func (m *MOpenSSLProbe) Dispatcher(eventStruct event.IEventStruct) {
 		if ev.IsDestroy == 0 {
 			m.AddConn(ev.Pid, ev.Fd, ev.Tuple, ev.Sock)
 		} else {
-			m.DestroyConn(ev.Sock)
+			m.DelConn(ev.Sock)
 		}
 	case *event.MasterSecretEvent:
 		m.saveMasterSecret(ev)
