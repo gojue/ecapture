@@ -31,7 +31,7 @@ const (
 	ProbeRet
 )
 
-const MaxDataSize = 1024 * 4
+const MaxDataSize = 1024 * 16	// fix: https://github.com/gojue/ecapture/issues/740
 
 const (
 	Ssl2Version   = 0x0002
