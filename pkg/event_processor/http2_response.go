@@ -90,7 +90,6 @@ func (h2r *HTTP2Response) Init() {
 	h2r.reader = bytes.NewBuffer(nil)
 	h2r.bufReader = bufio.NewReader(h2r.reader)
 	h2r.framer = http2.NewFramer(nil, h2r.bufReader)
-	h2r.framer.ReadMetaHeaders = hpack.NewDecoder(0, nil)
 }
 
 func (h2r *HTTP2Response) Write(b []byte) (int, error) {
@@ -125,6 +124,7 @@ func (h2r *HTTP2Response) Display() []byte {
 	encodingMap := make(map[uint32]string)
 	dataBufMap := make(map[uint32]*bytes.Buffer)
 	frameBuf := bytes.NewBufferString("")
+	hdec := hpack.NewDecoder(4096, nil)
 	for {
 		f, err := h2r.framer.ReadFrame()
 		if err != nil {
@@ -134,14 +134,22 @@ func (h2r *HTTP2Response) Display() []byte {
 			break
 		}
 		switch f := f.(type) {
-		case *http2.MetaHeadersFrame:
+		case *http2.HeadersFrame:
 			streamID := f.StreamID
 			frameBuf.WriteString(fmt.Sprintf("\nFrame Type\t=>\tHEADERS\nFrame StreamID\t=>\t%d\n", streamID))
-			for _, header := range f.Fields {
-				frameBuf.WriteString(fmt.Sprintf("%s\n", header.String()))
-				if header.Name == "content-encoding" {
-					encodingMap[streamID] = header.Value
+			if f.HeadersEnded() {
+				fields, err := hdec.DecodeFull(f.HeaderBlockFragment())
+				for _, header := range fields {
+					frameBuf.WriteString(fmt.Sprintf("%s\n", header.String()))
+					if header.Name == "content-encoding" {
+						encodingMap[streamID] = header.Value
+					}
 				}
+				if err != nil {
+					frameBuf.WriteString("Incorrect HPACK context, Please use PCAP mode to get correct header fields ...\n")
+				}
+			} else {
+				frameBuf.WriteString("Not Supported HEADERS Frame with CONTINUATION frames\n")
 			}
 		case *http2.DataFrame:
 			streamID := f.StreamID
@@ -152,7 +160,7 @@ func (h2r *HTTP2Response) Display() []byte {
 				h2r.packerType = PacketTypeGzip
 				frameBuf.WriteString("Partial entity body with gzip encoding ... \n")
 				if dataBufMap[streamID] == nil {
-					dataBufMap[streamID] = bytes.NewBuffer(nil) 
+					dataBufMap[streamID] = bytes.NewBuffer(nil)
 				}
 				_, err := dataBufMap[streamID].Write(payload)
 				if err != nil {
