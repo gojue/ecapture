@@ -63,6 +63,9 @@ type IConfig interface {
 	EnableGlobalVar() bool
 	// Bytes serializes the configuration to JSON bytes
 	Bytes() []byte
+	// Set/Get TruncateSize
+	SetTruncateSize(uint64)
+	GetTruncateSize() uint64
 }
 
 // TLS capture mode constants defining different output formats
@@ -90,9 +93,10 @@ const (
 
 // BaseConfig implements the IConfig interface and holds the basic configuration settings
 type BaseConfig struct {
-	Pid    uint64 `json:"pid"`    // Process ID to monitor
-	Uid    uint64 `json:"uid"`    // User ID to monitor
-	Listen string `json:"listen"` // Listen address for the server (default: 127.0.0.1:28256)
+	Pid          uint64 `json:"pid"`           // Process ID to monitor
+	Uid          uint64 `json:"uid"`           // User ID to monitor
+	Listen       string `json:"listen"`        // Listen address for the server (default: 127.0.0.1:28256)
+	TruncateSize uint64 `json:"truncate_size"` // truncate size in text mode
 
 	// eBPF map configuration
 	PerCpuMapSize      int    `json:"per_cpu_map_size"`     // Size of eBPF map per CPU core
@@ -171,6 +175,14 @@ func (c *BaseConfig) GetPerCpuMapSize() int {
 
 func (c *BaseConfig) SetPerCpuMapSize(size int) {
 	c.PerCpuMapSize = size * os.Getpagesize()
+}
+
+func (c *BaseConfig) SetTruncateSize(TruncateSize uint64) {
+	c.TruncateSize = TruncateSize
+}
+
+func (c *BaseConfig) GetTruncateSize() uint64 {
+	return c.TruncateSize
 }
 
 func (c *BaseConfig) EnableGlobalVar() bool {

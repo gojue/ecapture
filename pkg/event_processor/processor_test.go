@@ -39,7 +39,8 @@ func TestEventProcessor_Serve(t *testing.T) {
 		t.Fatal(e)
 	}
 	logger.SetOutput(f)
-	ep := NewEventProcessor(f, true)
+	// no truncate
+	ep := NewEventProcessor(f, true, 0)
 	go func() {
 		var err error
 		err = ep.Serve()
@@ -108,3 +109,83 @@ func TestEventProcessor_Serve(t *testing.T) {
 	//t.Log(string(bufString))
 	t.Log("done")
 }
+
+func Test_Truncated_EventProcessor_Serve(t *testing.T) {
+
+	logger := log.Default()
+	//var buf bytes.Buffer
+	//logger.SetOutput(&buf)
+	var output = "./output_truncated.log"
+	f, e := os.Create(output)
+	if e != nil {
+		t.Fatal(e)
+	}
+	logger.SetOutput(f)
+
+	// truncate 1000 bytes
+	ep := NewEventProcessor(f, true, 1000)
+	go func() {
+		var err error
+		err = ep.Serve()
+		if err != nil {
+			//log.Fatalf(err.Error())
+			t.Error(err)
+			return
+		}
+	}()
+
+	lines := []string{
+		// short, no truncated
+		`{"DataType":0,"Timestamp":952253597324253,"Pid":469929,"Tid":469929,"DataLen":308,"Comm":[119,103,101,116,0,0,0,0,0,0,0,0,0,0,0,0],"Fd":3,"Version":771}`,
+		// long, should truncated
+		`{"DataType":0,"Timestamp":952282712204824,"Pid":469953,"Tid":469953,"DataLen":4096,"Comm":[99,117,114,108,0,0,0,0,0,0,0,0,0,0,0,0],"Fd":5,"Version":771}`,
+	}
+
+	for _, line := range lines {
+		if line == "" {
+			continue
+		}
+		var eventSSL SSLDataEventTmp
+		err := json.Unmarshal([]byte(line), &eventSSL)
+		if err != nil {
+			t.Fatalf("json unmarshal error: %s, body:%v", err.Error(), line)
+		}
+		payloadFile := fmt.Sprintf("testdata/%d.bin", eventSSL.Timestamp)
+		b, e := os.ReadFile(payloadFile)
+		if e != nil {
+			t.Fatalf("read payload file error: %s, file:%s", e.Error(), payloadFile)
+		}
+		copy(eventSSL.Data[:], b)
+		ep.Write(&BaseEvent{DataLen: eventSSL.DataLen, Data: eventSSL.Data, DataType: eventSSL.DataType, Timestamp: eventSSL.Timestamp, Pid: eventSSL.Pid, Tid: eventSSL.Tid, Comm: eventSSL.Comm, Fd: eventSSL.Fd, Version: eventSSL.Version})
+	}
+
+	tick := time.NewTicker(time.Second * 10)
+	<-tick.C
+
+	err := ep.Close()
+	logger.SetOutput(io.Discard)
+	bufString, e := os.ReadFile(output)
+	if e != nil {
+		t.Fatal(e)
+	}
+
+	lines = strings.Split(string(bufString), "\n")
+	ok := true
+	for _, line := range lines {
+		// truncated once
+		if strings.Contains(line, "Events truncated, size:") {
+			t.Log(line)
+		}
+	}
+
+	if err != nil {
+		t.Fatalf("close error: %s", err.Error())
+	}
+
+	if !ok {
+		t.Fatalf("some errors occurred")
+	}
+	//t.Log(string(bufString))
+	t.Log("done")
+}
+
