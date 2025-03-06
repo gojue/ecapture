@@ -105,7 +105,7 @@ func (h2r *HTTP2Request) Display() []byte {
 		switch f := f.(type) {
 		case *http2.HeadersFrame:
 			streamID := f.StreamID
-			frameBuf.WriteString(fmt.Sprintf("\nFrame Type\t=>\tHEADERS\nFrame StreamID\t=>\t%d\n", streamID))
+			frameBuf.WriteString(fmt.Sprintf("\nFrame Type\t=>\tHEADERS\nFrame StreamID\t=>\t%d\nFrame Length\t=>\t%d\n", streamID, f.Length))
 			if f.HeadersEnded() {
 				fields, err := hdec.DecodeFull(f.HeaderBlockFragment())
 				for _, header := range fields {
@@ -122,7 +122,7 @@ func (h2r *HTTP2Request) Display() []byte {
 			}
 		case *http2.DataFrame:
 			streamID := f.StreamID
-			frameBuf.WriteString(fmt.Sprintf("\nFrame Type\t=>\tDATA\nFrame StreamID\t=>\t%d\n", streamID))
+			frameBuf.WriteString(fmt.Sprintf("\nFrame Type\t=>\tDATA\nFrame StreamID\t=>\t%d\nFrame Length\t=>\t%d\n", streamID, f.Length))
 			payload := f.Data()
 			switch encodingMap[streamID] {
 			case "gzip":
@@ -160,7 +160,7 @@ func (h2r *HTTP2Request) Display() []byte {
 				log.Println("[http2 request] Uncompress gzip data error:", err)
 				continue
 			}
-			frameBuf.WriteString(fmt.Sprintf("\nMerged Data Frame, StreamID\t=>\t%d\n\n", id))
+			frameBuf.WriteString(fmt.Sprintf("\nMerged Data Frame, StreamID\t=>\t%d\nMerged Data Frame, Final Length\t=>\t%d\n\n", id, len(payload)))
 			frameBuf.Write(payload)
 			frameBuf.WriteString("\n")
 		}
