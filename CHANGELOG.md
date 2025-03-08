@@ -1,6 +1,21 @@
+# v0.9.5 (2025-03-08)
+## What's Changed
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v0.9.4...v0.9.5
+<hr>
+
 # v0.9.4 (2025-02-16)
 
 ## What's Changed
+
+* feat(boringssl): add support Android15 BoringSSL by @cfc4n in https://github.com/gojue/ecapture/pull/723
+* feat: support ipv6 4-tuple  (#724) by @chilli13 in https://github.com/gojue/ecapture/pull/728
+* improve: include a stream id field when parse http2 event by @yuweizzz in https://github.com/gojue/ecapture/pull/734
+* tuple: bugfix for tuple ipv4 dst ip info by @chilli13 in https://github.com/gojue/ecapture/pull/735
+
+## New Contributors
+
+* @chilli13 made their first contribution in https://github.com/gojue/ecapture/pull/728
 
 **Full Changelog**: https://github.com/gojue/ecapture/compare/v0.9.3...v0.9.4
 <hr>
