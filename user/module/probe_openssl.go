@@ -75,6 +75,11 @@ func (t TlsCaptureModelType) String() string {
 	return "UnknowTlsCaptureModel"
 }
 
+type ConnInfo struct {
+	tuple string
+	sock  uint64
+}
+
 type MOpenSSLProbe struct {
 	MTCProbe
 	bpfManager        *manager.Manager
@@ -82,8 +87,8 @@ type MOpenSSLProbe struct {
 	eventFuncMaps     map[*ebpf.Map]event.IEventStruct
 	eventMaps         []*ebpf.Map
 
-	// pid[fd:tuple]
-	pidConns map[uint32]map[uint32]string
+	// pid[fd:(tuple,sock)]
+	pidConns map[uint32]map[uint32]ConnInfo
 	// sock:[pid,fd], for destroying conn
 	sock2pidFd map[uint64][2]uint32
 	pidLocker  sync.Locker
@@ -111,7 +116,7 @@ func (m *MOpenSSLProbe) Init(ctx context.Context, logger *zerolog.Logger, conf c
 	m.Module.SetChild(m)
 	m.eventMaps = make([]*ebpf.Map, 0, 2)
 	m.eventFuncMaps = make(map[*ebpf.Map]event.IEventStruct)
-	m.pidConns = make(map[uint32]map[uint32]string)
+	m.pidConns = make(map[uint32]map[uint32]ConnInfo)
 	m.sock2pidFd = make(map[uint64][2]uint32)
 	m.pidLocker = new(sync.Mutex)
 	m.masterKeys = make(map[string]bool)
@@ -401,20 +406,18 @@ func (m *MOpenSSLProbe) AddConn(pid, fd uint32, tuple string, sock uint64) {
 		return
 	}
 	// save
-	var connMap map[uint32]string
-	var f bool
 	m.pidLocker.Lock()
 	defer m.pidLocker.Unlock()
-	connMap, f = m.pidConns[pid]
+	connMap, f := m.pidConns[pid]
 	if !f {
-		connMap = make(map[uint32]string)
+		connMap = make(map[uint32]ConnInfo)
 	}
-	connMap[fd] = tuple
+	connMap[fd] = ConnInfo{tuple: tuple, sock: sock}
 	m.pidConns[pid] = connMap
 
 	m.sock2pidFd[sock] = [2]uint32{pid, fd}
 
-	m.logger.Debug().Uint32("pid", pid).Uint32("fd", fd).Str("tuple", tuple).Msg("AddConn success")
+	m.logger.Debug().Uint32("pid", pid).Uint32("fd", fd).Uint64("sock", sock).Str("tuple", tuple).Msg("AddConn success")
 }
 
 func (m *MOpenSSLProbe) DestroyConn(sock uint64) {
@@ -434,15 +437,20 @@ func (m *MOpenSSLProbe) DestroyConn(sock uint64) {
 		return
 	}
 
-	tuple, ok := connMap[fd]
+	connInfo, ok := connMap[fd]
 	if ok {
+		//add sock consistency check to void tuple miss
+		if connInfo.sock != sock {
+			m.logger.Debug().Uint32("fd", fd).Uint64("sock", sock).Uint64("storedSock", connInfo.sock).Msg("DestroyConn skip")
+			return
+		}
 		delete(connMap, fd)
 		if len(connMap) == 0 {
 			delete(m.pidConns, pid)
 		}
 	}
 
-	m.logger.Debug().Uint32("pid", pid).Uint32("fd", fd).Str("tuple", tuple).Msg("DestroyConn success")
+	m.logger.Debug().Uint32("pid", pid).Uint32("fd", fd).Uint64("sock", sock).Str("tuple", connInfo.tuple).Msg("DestroyConn success")
 }
 
 // DelConn process exit :fd is 0 , delete all pid map
@@ -460,21 +468,18 @@ func (m *MOpenSSLProbe) GetConn(pid, fd uint32) string {
 	if fd <= 0 {
 		return ConnNotFound
 	}
-	tuple := ""
-	var connMap map[uint32]string
-	var f bool
 	m.logger.Debug().Uint32("pid", pid).Uint32("fd", fd).Msg("GetConn")
 	m.pidLocker.Lock()
 	defer m.pidLocker.Unlock()
-	connMap, f = m.pidConns[pid]
+	connMap, f := m.pidConns[pid]
 	if !f {
 		return ConnNotFound
 	}
-	tuple, f = connMap[fd]
+	connInfo, f := connMap[fd]
 	if !f {
 		return ConnNotFound
 	}
-	return tuple
+	return connInfo.tuple
 }
 
 func (m *MOpenSSLProbe) saveMasterSecret(secretEvent *event.MasterSecretEvent) {
