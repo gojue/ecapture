@@ -1,5 +1,112 @@
+# v1.0.0 Stable Versions (2025-03-25)
+
+## 🚀 eCapture Features Overview
+
+eCapture is a powerful network traffic capture and decryption tool focusing on TLS/SSL protocol transparency and
+analysis. It supports multiple protocols and architectures, providing efficient and flexible capture and decryption
+capabilities.
+
+---
+
+### Core Features
+
+1. **Multi-Protocol Support**
+
+- Supports TLS, gnutls, nss, openssl, and other encryption protocols, compatible with different versions of SSL/TLS
+  implementations.
+
+2. **Smart Packet Capture**
+
+- Based on eBPF technology, enabling efficient network data capture and protocol parsing. Supports IPv4, IPv6 dual-stack
+  and 4-tuple filtering.
+
+3. **Master Key Capture**
+
+- Supports TLS 1.2 and 1.3 protocol master key capture. Integrates with Wireshark for decryption, allowing direct
+  viewing of encrypted traffic in plain text.
+
+4. **Modular Architecture**
+
+- Modular design allows for easy extension and flexible configuration of different protocol modules.
+
+5. **Cross-Platform Support**
+
+- Supports Linux, Android, and other platforms, compatible with ARM64 and x86 architectures, adapting to different
+  environments.
+
+---
+
+### Features
+
+- **Automation**  
+  Automatically detects SSL/TLS library versions, intelligently identifies CO-RE and non-CO-RE modes, optimizes memory
+  usage.
+
+- **Flexible Configuration**  
+  Supports custom filters, log files, decryption modes (keylog, pcap, text), and multiple output formats.
+
+- **High Performance**  
+  High-efficiency data processing based on eBPF, supports large-scale concurrent captures and long-term packet
+  capturing.
+
+- **Strong Compatibility**  
+  Supports multiple SSL/TLS library versions, including openssl 1.1.1, 3.0.x, boringssl, etc.
+
+- **Extensibility**  
+  Provides Wireshark plugin support for easy data analysis and visualization.
+
+---
+
+### Technical Advantages
+
+- **eBPF Engine**  
+  Utilizes advanced eBPF technology to improve capture and decryption efficiency, reducing system resource usage.
+
+- **Modular Architecture**  
+  Core functionality is modularized for easy extension and maintenance.
+
+- **Intelligence**  
+  Automatically detects the runtime environment and intelligently adapts to different protocols and architectures.
+
+---
+
+### Application Scenarios
+
+1. **Network Debugging**  
+   Real-time capture and decryption of TLS/SSL traffic to assist in development and debugging.
+
+2. **Security Analysis**  
+   Analyze encrypted communications to identify potential security vulnerabilities.
+
+3. **Protocol Research**  
+   Study TLS/SSL protocol implementations and analyze traffic characteristics.
+
+4. **Monitoring and Auditing**  
+   Monitor network communications, record, and audit sensitive operations.
+
+### Links
+
+1. [eCapture旁观者](https://ecapture.cc)
+2. [eCapture Github](https://github.com/gojue/ecapture)
+3. 微信公众号
+   ![ecapture-wechat](./images/wechat_gzhh.png)
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v0.9.5...v1.0.0
+<hr>
+
 # v0.9.5 (2025-03-08)
+
 ## What's Changed
+
+* fix: incorrect stream id in http2 protocol data frame by @yuweizzz in https://github.com/gojue/ecapture/pull/737
+* Fix: #740, the bug of incomplete SSL data for excessively long lengths. by @cfc4n
+  in https://github.com/gojue/ecapture/pull/742
+* improve: provide opts to set the truncate size in text mode to reduce memory cost by @yuweizzz
+  in https://github.com/gojue/ecapture/pull/731
+* improve: handle COMPRESSION_ERROR to reduce the error log displayed by @yuweizzz
+  in https://github.com/gojue/ecapture/pull/745
+* fix: #739 the tuple to be unreachable. by @cfc4n in https://github.com/gojue/ecapture/pull/741
+* improve: add frame length by @yuweizzz in https://github.com/gojue/ecapture/pull/748
 
 **Full Changelog**: https://github.com/gojue/ecapture/compare/v0.9.4...v0.9.5
 <hr>
