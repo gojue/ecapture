@@ -160,7 +160,7 @@ func (h2r *HTTP2Request) Display() []byte {
 				log.Println("[http2 request] Uncompress gzip data error:", err)
 				continue
 			}
-			frameBuf.WriteString(fmt.Sprintf("\nMerged Data Frame, StreamID\t=>\t%d\nMerged Data Frame, Final Length\t=>\t%d\n\n", id, len(payload)))
+			frameBuf.WriteString(fmt.Sprintf("\nMerged Data Frame, StreamID\t=>\t%d\nMerged Data Frame, Final Length\t=>\t%d\n", id, len(payload)))
 			frameBuf.Write(payload)
 			frameBuf.WriteString("\n")
 		}
