@@ -17,11 +17,11 @@ jobs:
       - name: Install Compilers
         run: |
           sudo apt-get update
-          sudo apt-get install --yes build-essential pkgconf libelf-dev llvm-9 clang-9 linux-tools-common linux-tools-generic gcc gcc-aarch64-linux-gnu libssl-dev
+          sudo apt-get install --yes build-essential pkgconf libelf-dev llvm-10 clang-10 linux-tools-common linux-tools-generic gcc gcc-aarch64-linux-gnu libssl-dev
           for tool in "clang" "llc" "llvm-strip"
           do
             sudo rm -f /usr/bin/$tool
-            sudo ln -s /usr/bin/$tool-9 /usr/bin/$tool
+            sudo ln -s /usr/bin/$tool-10 /usr/bin/$tool
           done
         shell: bash
       - uses: actions/checkout@v4
