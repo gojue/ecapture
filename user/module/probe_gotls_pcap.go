@@ -43,12 +43,6 @@ func (g *GoTLSProbe) setupManagersPcap() error {
 		return err
 	}
 
-	// loopback devices are special, some tc probes should be skipped
-	isNetIfaceLo := interf.Flags&net.FlagLoopback == net.FlagLoopback
-	skipLoopback := true // TODO: detect loopback devices via aquasecrity/tracee/pkg/ebpf/probes/probe.go line 322
-	if isNetIfaceLo && skipLoopback {
-		return fmt.Errorf("%s\t%s is a loopback interface, skip it", g.Name(), g.ifName)
-	}
 	g.ifIdex = interf.Index
 
 	pcapFilter := g.conf.(*config.GoTLSConfig).PcapFilter
