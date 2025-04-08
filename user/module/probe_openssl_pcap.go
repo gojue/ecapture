@@ -46,12 +46,6 @@ func (m *MOpenSSLProbe) setupManagersPcap() error {
 		return fmt.Errorf("InterfaceByName: %s , failed: %v", m.ifName, err)
 	}
 
-	// loopback devices are special, some tc probes should be skipped
-	isNetIfaceLo := interf.Flags&net.FlagLoopback == net.FlagLoopback
-	skipLoopback := true // TODO: detect loopback devices via aquasecrity/tracee/pkg/ebpf/probes/probe.go line 322
-	if isNetIfaceLo && skipLoopback {
-		return fmt.Errorf("%s\t%s is a loopback interface, skip it", m.Name(), m.ifName)
-	}
 	m.ifIdex = interf.Index
 
 	sslVersion = m.conf.(*config.OpensslConfig).SslVersion
@@ -97,15 +91,6 @@ func (m *MOpenSSLProbe) setupManagersPcap() error {
 
 	m.bpfManager = &manager.Manager{
 		Probes: []*manager.Probe{
-			// customize deleteed TC filter
-			// tc filter del dev eth0 ingress
-			// tc filter del dev eth0 egress
-			// loopback devices are special, some tc probes should be skipped
-			// TODO: detect loopback devices via aquasecrity/tracee/pkg/ebpf/probes/probe.go line 322
-			// isNetIfaceLo := netIface.Flags&net.FlagLoopback == net.FlagLoopback
-			//	if isNetIfaceLo && p.skipLoopback {
-			//		return nil
-			//	}
 			{
 				Section:          "classifier/egress",
 				EbpfFuncName:     tcFuncNameEgress,
