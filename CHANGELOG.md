@@ -1,3 +1,14 @@
+# v1.0.1 (2025-04-08)
+
+## What's Changed
+
+* fix: update clang version to 10 in installation scripts by @cfc4n in https://github.com/gojue/ecapture/pull/758
+* refactor: support loopback interface, remove loopback device checks from pcap probe files by @cfc4n
+  in https://github.com/gojue/ecapture/pull/762
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v1.0.0...v1.0.1
+<hr>
+
 # v1.0.0 Stable Versions (2025-03-25)
 
 ## 🚀 eCapture Features Overview
