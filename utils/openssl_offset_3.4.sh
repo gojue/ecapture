@@ -27,7 +27,7 @@ function run() {
   cp -f ${PROJECT_ROOT_DIR}/utils/openssl_3_2_0_offset.c ${OPENSSL_DIR}/offset.c
   declare -A sslVerMap=()
   sslVerMap["0"]="0"
-#  sslVerMap["1"]="0"
+  sslVerMap["1"]="1"
 #  sslVerMap["2"]="2"
 
   # shellcheck disable=SC2068
