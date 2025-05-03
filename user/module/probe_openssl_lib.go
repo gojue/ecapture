@@ -44,8 +44,10 @@ const (
 	MaxSupportedOpenSSL110Version = 'l'
 	MaxSupportedOpenSSL111Version = 'w'
 	MaxSupportedOpenSSL30Version  = 15
-	MaxSupportedOpenSSL31Version  = 7
+	MaxSupportedOpenSSL31Version  = 8
 	SupportedOpenSSL32Version2    = 2 // openssl 3.2.0 ~ 3.2.2
+	SupportedOpenSSL32Version3    = 3 // openssl 3.2.3
+	SupportedOpenSSL32Version4    = 4 // openssl 3.2.4
 	MaxSupportedOpenSSL32Version  = 3 // openssl 3.2.3 ~ newer
 	SupportedOpenSSL33Version1    = 1 // openssl 3.3.0 ~ 3.3.1
 	SupportedOpenSSL33Version2    = 2 // openssl 3.3.2
@@ -117,7 +119,7 @@ func (m *MOpenSSLProbe) initOpensslOffset() {
 		m.sslVersionBpfMap[fmt.Sprintf("openssl 3.0.%d", ch)] = "openssl_3_0_0_kern.o"
 	}
 
-	// openssl 3.1.0 - 3.1.4
+	// openssl 3.1.0 - 3.1.8
 	for ch := 0; ch <= MaxSupportedOpenSSL31Version; ch++ {
 		// The OpenSSL 3.0 series is the same as the 3.1 series of offsets
 		m.sslVersionBpfMap[fmt.Sprintf("openssl 3.1.%d", ch)] = "openssl_3_1_0_kern.o"
@@ -128,10 +130,10 @@ func (m *MOpenSSLProbe) initOpensslOffset() {
 		m.sslVersionBpfMap[fmt.Sprintf("openssl 3.2.%d", ch)] = "openssl_3_2_0_kern.o"
 	}
 
-	// openssl 3.2.3 - newer
-	for ch := 3; ch <= MaxSupportedOpenSSL32Version; ch++ {
-		m.sslVersionBpfMap[fmt.Sprintf("openssl 3.2.%d", ch)] = "openssl_3_2_3_kern.o"
-	}
+	// openssl 3.2.3
+	m.sslVersionBpfMap[fmt.Sprintf("openssl 3.2.%d", SupportedOpenSSL32Version3)] = "openssl_3_2_3_kern.o"
+	// openssl 3.2.4
+	m.sslVersionBpfMap[fmt.Sprintf("openssl 3.2.%d", SupportedOpenSSL32Version4)] = "openssl_3_2_4_kern.o"
 
 	// openssl 3.3.0 - 3.3.1
 	for ch := 0; ch <= SupportedOpenSSL33Version1; ch++ {

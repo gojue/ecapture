@@ -201,6 +201,7 @@ TARGETS += kern/openssl_3_0_0
 TARGETS += kern/openssl_3_1_0
 TARGETS += kern/openssl_3_2_0
 TARGETS += kern/openssl_3_2_3
+TARGETS += kern/openssl_3_2_4
 TARGETS += kern/openssl_3_3_0
 TARGETS += kern/openssl_3_3_2
 TARGETS += kern/openssl_3_3_3
