@@ -1,3 +1,12 @@
+# v1.0.2 (2025-05-03)
+
+## What's Changed
+
+* ffeat: add support for OpenSSL 3.2.4/3.3.3 and 3.4.1 by @cfc4n in https://github.com/gojue/ecapture/pull/769
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v1.0.1...v1.0.2
+<hr>
+
 # v1.0.1 (2025-04-08)
 
 ## What's Changed
