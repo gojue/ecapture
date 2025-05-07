@@ -33,6 +33,8 @@ type EventProcessor struct {
 	incoming chan event.IEventStruct
 	// send to output
 	outComing chan string
+	// destroyConn sock
+	destroyConn chan uint64
 	// key为 PID+UID+COMMON等确定唯一的信息
 	workerQueue map[string]IWorker
 	// log
@@ -53,6 +55,7 @@ func (ep *EventProcessor) GetLogger() io.Writer {
 func (ep *EventProcessor) init() {
 	ep.incoming = make(chan event.IEventStruct, MaxIncomingChanLen)
 	ep.outComing = make(chan string, MaxIncomingChanLen)
+	ep.destroyConn = make(chan uint64, MaxIncomingChanLen)
 	ep.closeChan = make(chan bool)
 	ep.errChan = make(chan error, 16)
 	ep.workerQueue = make(map[string]IWorker, MaxParserQueueLen)
@@ -73,9 +76,12 @@ func (ep *EventProcessor) Serve() error {
 				default:
 				}
 			}
+		case sock := <-ep.destroyConn:
+			ep.destroyWorkers(sock)
 		case s := <-ep.outComing:
 			_, _ = ep.GetLogger().Write([]byte(s))
 		case _ = <-ep.closeChan:
+			ep.clearAllWorkers()
 			return nil
 		}
 	}
@@ -87,7 +93,7 @@ func (ep *EventProcessor) dispatch(e event.IEventStruct) error {
 	found, eWorker := ep.getWorkerByUUID(uuid)
 	if !found {
 		// ADD a new eventWorker into queue
-		eWorker = NewEventWorker(e.GetUUID(), ep)
+		eWorker = NewEventWorker(uuid, ep)
 		ep.addWorkerByUUID(eWorker)
 	}
 
@@ -104,6 +110,20 @@ func (ep *EventProcessor) dispatch(e event.IEventStruct) error {
 //func (this *EventProcessor) Incoming() chan user.IEventStruct {
 //	return this.incoming
 //}
+
+func (ep *EventProcessor) destroyWorkers(sock uint64) {
+	if sock <= 0 {
+		return
+	}
+
+	for _, ew := range ep.workerQueue {
+		if sock == ew.GetSock() {
+			ew.Done()
+			ep.delWorkerByUUID(ew)
+		}
+	}
+	return
+}
 
 func (ep *EventProcessor) getWorkerByUUID(uuid string) (bool, IWorker) {
 	ep.Lock()
@@ -132,6 +152,12 @@ func (ep *EventProcessor) delWorkerByUUID(worker IWorker) {
 	delete(ep.workerQueue, worker.GetUUID())
 }
 
+func (ep *EventProcessor) clearAllWorkers() {
+	ep.Lock()
+	defer ep.Unlock()
+	ep.workerQueue = make(map[string]IWorker)
+}
+
 // Write event
 // 外部调用者调用该方法
 func (ep *EventProcessor) Write(e event.IEventStruct) {
@@ -140,6 +166,16 @@ func (ep *EventProcessor) Write(e event.IEventStruct) {
 	}
 	select {
 	case ep.incoming <- e:
+		return
+	}
+}
+
+func (ep *EventProcessor) WriteDestroyConn(s uint64) {
+	if ep.isClosed {
+		return
+	}
+	select {
+	case ep.destroyConn <- s:
 		return
 	}
 }
