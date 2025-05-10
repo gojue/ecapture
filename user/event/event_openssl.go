@@ -31,7 +31,7 @@ const (
 	ProbeRet
 )
 
-const MaxDataSize = 1024 * 16	// fix: https://github.com/gojue/ecapture/issues/740
+const MaxDataSize = 1024 * 16 // fix: https://github.com/gojue/ecapture/issues/740
 
 const (
 	Ssl2Version   = 0x0002
@@ -142,47 +142,51 @@ func (se *SSLDataEvent) PayloadLen() int {
 }
 
 func (se *SSLDataEvent) StringHex() string {
-	//addr := se.module.(*module.MOpenSSLProbe).GetConn(se.Pid, se.Fd)
-	addr := "[TODO]"
-	var prefix, connInfo string
+	var prefix string
 	switch AttachType(se.DataType) {
 	case ProbeEntry:
-		connInfo = fmt.Sprintf("%sRecived %d%s bytes from %s%s%s", COLORGREEN, se.DataLen, COLORRESET, COLORYELLOW, addr, COLORRESET)
 		prefix = COLORGREEN
 	case ProbeRet:
-		connInfo = fmt.Sprintf("%sSend %d%s bytes to %s%s%s", COLORPURPLE, se.DataLen, COLORRESET, COLORYELLOW, addr, COLORRESET)
-		prefix = fmt.Sprintf("%s\t", COLORPURPLE)
+		prefix = COLORPURPLE
 	default:
-		prefix = fmt.Sprintf("UNKNOW_%d", se.DataType)
 	}
 
 	b := dumpByteSlice(se.Data[:se.DataLen], prefix)
 	b.WriteString(COLORRESET)
 
-	v := TlsVersion{Version: se.Version}
-	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, %s, Version:%s, Payload:\n%s", se.Pid, commStr(se.Comm[:]), se.Tid, connInfo, v.String(), b.String())
+	s := fmt.Sprintf("%s, Payload:\n%s", se.BaseInfo(), b.String())
 	return s
 }
 
 func (se *SSLDataEvent) String() string {
-	//addr := se.module.(*module.MOpenSSLProbe).GetConn(se.Pid, se.Fd)
+	var prefix string
+	switch AttachType(se.DataType) {
+	case ProbeEntry:
+		prefix = COLORGREEN
+	case ProbeRet:
+		prefix = COLORPURPLE
+	default:
+	}
+	s := fmt.Sprintf("%s, Payload:\n%s%s%s", se.BaseInfo(), prefix, string(se.Data[:se.DataLen]), COLORRESET)
+	return s
+}
+
+func (se *SSLDataEvent) BaseInfo() string {
 	addr := "[TODO]"
 	if se.Tuple != "" {
 		addr = se.Tuple
 	}
-	var prefix, connInfo string
+	var connInfo string
 	switch AttachType(se.DataType) {
 	case ProbeEntry:
 		connInfo = fmt.Sprintf("%sRecived %d%s bytes from %s%s%s", COLORGREEN, se.DataLen, COLORRESET, COLORYELLOW, addr, COLORRESET)
-		prefix = COLORGREEN
 	case ProbeRet:
 		connInfo = fmt.Sprintf("%sSend %d%s bytes to %s%s%s", COLORPURPLE, se.DataLen, COLORRESET, COLORYELLOW, addr, COLORRESET)
-		prefix = COLORPURPLE
 	default:
 		connInfo = fmt.Sprintf("%sUNKNOW_%d%s", COLORRED, se.DataType, COLORRESET)
 	}
 	v := TlsVersion{Version: se.Version}
-	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, Version:%s, %s, Payload:\n%s%s%s", se.Pid, commStr(se.Comm[:]), se.Tid, v.String(), connInfo, prefix, string(se.Data[:se.DataLen]), COLORRESET)
+	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, Version:%s, %s", se.Pid, commStr(se.Comm[:]), se.Tid, v.String(), connInfo)
 	return s
 }
 
@@ -196,22 +200,6 @@ func (se *SSLDataEvent) EventType() EventType {
 	return se.eventType
 }
 
-//  connect_events map
-/*
-   unsigned __int128 saddr;
-   unsigned __int128 daddr;
-   char comm[TASK_COMM_LEN];
-   u64 timestamp_ns;
-   u64 sock;
-   u32 pid;
-   u32 tid;
-   u32 fd;
-   u16 family;
-   u16 sport;
-   u16 dport;
-   u8 is_destroy;
-   u8 pad[7];
-*/
 type connDataEvent struct {
 	Saddr       [16]byte `json:"saddr"`
 	Daddr       [16]byte `json:"daddr"`
@@ -239,15 +227,15 @@ func (ce *ConnDataEvent) Decode(payload []byte) (err error) {
 	data := unsafe.Slice((*byte)(unsafe.Pointer(&ce.connDataEvent)), int(unsafe.Sizeof(ce.connDataEvent)))
 	copy(data, payload)
 
-        if ce.Family == unix.AF_INET {
-            saddr, daddr := netip.AddrFrom4([4]byte(ce.Saddr[:4])), netip.AddrFrom4([4]byte(ce.Daddr[:4]))
-            ce.Tuple = fmt.Sprintf("%s:%d-%s:%d", saddr, ce.Sport, daddr, ce.Dport)
-        } else {
-            saddr, daddr := netip.AddrFrom16(ce.Saddr), netip.AddrFrom16(ce.Daddr)
-            ce.Tuple = fmt.Sprintf("[%s]:%d-[%s]:%d", saddr, ce.Sport, daddr, ce.Dport)
-        }
+	if ce.Family == unix.AF_INET {
+		saddr, daddr := netip.AddrFrom4([4]byte(ce.Saddr[:4])), netip.AddrFrom4([4]byte(ce.Daddr[:4]))
+		ce.Tuple = fmt.Sprintf("%s:%d-%s:%d", saddr, ce.Sport, daddr, ce.Dport)
+	} else {
+		saddr, daddr := netip.AddrFrom16(ce.Saddr), netip.AddrFrom16(ce.Daddr)
+		ce.Tuple = fmt.Sprintf("[%s]:%d-[%s]:%d", saddr, ce.Sport, daddr, ce.Dport)
+	}
 
-        return nil
+	return nil
 }
 
 func (ce *ConnDataEvent) StringHex() string {
