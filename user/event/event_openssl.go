@@ -67,7 +67,7 @@ func (t TlsVersion) String() string {
 	case Dtls12Version:
 		return "DTLS1_2_VERSION"
 	}
-	return fmt.Sprintf("TLS_VERSION_UNKNOW_%d", t.Version)
+	return fmt.Sprintf("TLS_VERSION_UNKNOWN_%d", t.Version)
 }
 
 type SSLDataEvent struct {
@@ -179,11 +179,11 @@ func (se *SSLDataEvent) BaseInfo() string {
 	var connInfo string
 	switch AttachType(se.DataType) {
 	case ProbeEntry:
-		connInfo = fmt.Sprintf("%sRecived %d%s bytes from %s%s%s", COLORGREEN, se.DataLen, COLORRESET, COLORYELLOW, addr, COLORRESET)
+		connInfo = fmt.Sprintf("%sReceived %d%s bytes from %s%s%s", COLORGREEN, se.DataLen, COLORRESET, COLORYELLOW, addr, COLORRESET)
 	case ProbeRet:
 		connInfo = fmt.Sprintf("%sSend %d%s bytes to %s%s%s", COLORPURPLE, se.DataLen, COLORRESET, COLORYELLOW, addr, COLORRESET)
 	default:
-		connInfo = fmt.Sprintf("%sUNKNOW_%d%s", COLORRED, se.DataType, COLORRESET)
+		connInfo = fmt.Sprintf("%sUNKNOWN_%d%s", COLORRED, se.DataType, COLORRESET)
 	}
 	v := TlsVersion{Version: se.Version}
 	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, Version:%s, %s", se.Pid, commStr(se.Comm[:]), se.Tid, v.String(), connInfo)
