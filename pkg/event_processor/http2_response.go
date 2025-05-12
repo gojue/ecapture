@@ -50,6 +50,7 @@ type HTTP2Response struct {
 	isInit     bool
 	reader     *bytes.Buffer
 	bufReader  *bufio.Reader
+	hdec       *hpack.Decoder
 }
 
 func (h2r *HTTP2Response) detect(payload []byte) error {
@@ -90,6 +91,13 @@ func (h2r *HTTP2Response) Init() {
 	h2r.reader = bytes.NewBuffer(nil)
 	h2r.bufReader = bufio.NewReader(h2r.reader)
 	h2r.framer = http2.NewFramer(nil, h2r.bufReader)
+	/*
+		one tuple connect should shared the same dynamic table
+		https://datatracker.ietf.org/doc/html/rfc7541#section-2.2
+	*/
+	if h2r.hdec == nil {
+		h2r.hdec = hpack.NewDecoder(4096, nil)
+	}
 }
 
 func (h2r *HTTP2Response) Write(b []byte) (int, error) {
@@ -124,7 +132,6 @@ func (h2r *HTTP2Response) Display() []byte {
 	encodingMap := make(map[uint32]string)
 	dataBufMap := make(map[uint32]*bytes.Buffer)
 	frameBuf := bytes.NewBufferString("")
-	hdec := hpack.NewDecoder(4096, nil)
 	for {
 		f, err := h2r.framer.ReadFrame()
 		if err != nil {
@@ -138,7 +145,7 @@ func (h2r *HTTP2Response) Display() []byte {
 			streamID := f.StreamID
 			frameBuf.WriteString(fmt.Sprintf("\nFrame Type\t=>\tHEADERS\nFrame StreamID\t=>\t%d\nFrame Length\t=>\t%d\n", streamID, f.Length))
 			if f.HeadersEnded() {
-				fields, err := hdec.DecodeFull(f.HeaderBlockFragment())
+				fields, err := h2r.hdec.DecodeFull(f.HeaderBlockFragment())
 				for _, header := range fields {
 					frameBuf.WriteString(fmt.Sprintf("%s\n", header.String()))
 					if header.Name == "content-encoding" {
@@ -146,10 +153,10 @@ func (h2r *HTTP2Response) Display() []byte {
 					}
 				}
 				if err != nil {
-					frameBuf.WriteString("Incorrect HPACK context, Please use PCAP mode to get correct header fields ...\n")
+					frameBuf.WriteString("[http2 response] Incorrect HPACK context, Please use PCAP mode to get correct header fields ...\n")
 				}
 			} else {
-				frameBuf.WriteString("Not Supported HEADERS Frame with CONTINUATION frames\n")
+				frameBuf.WriteString("[http2 response] Not Supported HEADERS Frame with CONTINUATION frames\n")
 			}
 		case *http2.DataFrame:
 			streamID := f.StreamID

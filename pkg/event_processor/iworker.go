@@ -20,6 +20,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/gojue/ecapture/user/event"
+	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 )
@@ -33,9 +35,11 @@ type IWorker interface {
 	// 收包
 	Write(event.IEventStruct) error
 	GetUUID() string
+	GetSock() uint64
 	IfUsed() bool
 	Get()
 	Put()
+	Done()
 }
 
 const (
@@ -58,10 +62,12 @@ type eventWorker struct {
 	ticker      *time.Ticker
 	tickerCount uint8
 	UUID        string
+	Sock        uint64
 	processor   *EventProcessor
 	parser      IParser
 	payload     *bytes.Buffer
 	used        atomic.Bool
+	done        chan struct{}
 }
 
 func NewEventWorker(uuid string, processor *EventProcessor) IWorker {
@@ -73,19 +79,41 @@ func NewEventWorker(uuid string, processor *EventProcessor) IWorker {
 	return eWorker
 }
 
+func getSock(uuid string) uint64 {
+	//uuid: Pid_Tid_Comm_Fd_DataType_Tuple_Sock
+	uuidFileCount := 7
+	parts := strings.SplitN(uuid, "_", uuidFileCount)
+	if len(parts) != uuidFileCount {
+		return 0
+	}
+
+	sock, err := strconv.ParseUint(parts[uuidFileCount-1], 10, 64)
+	if err != nil {
+		return 0
+	}
+	return sock
+}
+
 func (ew *eventWorker) init(uuid string, processor *EventProcessor) {
 	ew.ticker = time.NewTicker(time.Millisecond * 100)
 	ew.incoming = make(chan event.IEventStruct, MaxChanLen)
 	ew.outComing = processor.outComing
 	ew.status = ProcessStateInit
 	ew.UUID = uuid
+	ew.Sock = getSock(uuid)
 	ew.processor = processor
 	ew.payload = bytes.NewBuffer(nil)
 	ew.payload.Reset()
+	ew.done = make(chan struct{})
+	ew.parser = nil
 }
 
 func (ew *eventWorker) GetUUID() string {
 	return ew.UUID
+}
+
+func (ew *eventWorker) GetSock() uint64 {
+	return ew.Sock
 }
 
 func (ew *eventWorker) Write(e event.IEventStruct) error {
@@ -122,9 +150,13 @@ func (ew *eventWorker) Display() error {
 	}
 
 	//iWorker只负责写入，不应该打印。
-	e := ew.writeToChan(fmt.Sprintf("UUID:%s, Name:%s, Type:%d, Length:%d\n%s\n", ew.UUID, ew.parser.Name(), ew.parser.ParserType(), len(b), b))
+	//uuid: Pid_Tid_Comm_Fd_DataType_Tuple_Sock
+	uuid := ew.UUID
+	uuidOutput := uuid[:strings.LastIndex(uuid, "_")]
+	e := ew.writeToChan(fmt.Sprintf("UUID:%s, Name:%s, Type:%d, Length:%d\n%s\n", uuidOutput, ew.parser.Name(), ew.parser.ParserType(), len(b), b))
 	//ew.parser.Reset()
 	// 设定状态、重置包类型
+	ew.payload.Reset()
 	ew.status = ProcessStateInit
 	ew.packetType = PacketTypeNull
 	return e
@@ -133,7 +165,6 @@ func (ew *eventWorker) Display() error {
 func (ew *eventWorker) writeEvent(e event.IEventStruct) {
 	if ew.status != ProcessStateInit {
 		_ = ew.writeToChan("write events failed, unknow eventWorker status")
-		return
 	}
 	ew.payload.Write(e.Payload())
 }
@@ -146,8 +177,9 @@ func (ew *eventWorker) parserEvents() []byte {
 		ew.payload.Truncate(tsize)
 		_ = ew.writeToChan(fmt.Sprintf("Events truncated, size: %d bytes\n", tsize))
 	}
-	parser := NewParser(ew.payload.Bytes())
-	ew.parser = parser
+	if ew.parser == nil {
+		ew.parser = NewParser(ew.payload.Bytes())
+	}
 	n, e := ew.parser.Write(ew.payload.Bytes())
 	if e != nil {
 		_ = ew.writeToChan(fmt.Sprintf("ew.parser write payload %d bytes, error:%v", n, e))
@@ -156,58 +188,71 @@ func (ew *eventWorker) parserEvents() []byte {
 	return ew.parser.Display()
 }
 
-func (ew *eventWorker) Run() {
+func drainAndClose(ew *eventWorker) {
+	/*
+		When returned from drainAndClose(), there are two possibilities:
+		1) no routine can touch it.
+		2) one routine can still touch ew because getWorkerByUUID()
+		*happen before* drainAndClose()
+
+		When no routine can touch it (i.e.,ew.IfUsed == false),
+		we just drain the ew.incoming and return.
+
+		When one routine can touch it (i.e.,ew.IfUsed == true), we ensure
+		that we only return after the routine can not touch it
+		(i.e.,ew.IfUsed == false). At this point, we can ensure that no
+		other routine will touch it and send events through the ew.incoming.
+		So, we return.
+	*/
 	for {
 		select {
+		case e := <-ew.incoming:
+			ew.writeEvent(e)
+		default:
+			if ew.IfUsed() {
+				time.Sleep(10 * time.Millisecond)
+				continue
+			}
+			ew.Close()
+			return
+		}
+	}
+}
+
+func (ew *eventWorker) Run() {
+	restartFlag := false
+	for {
+		select {
+		case <-ew.done:
+			ew.ticker.Stop()
+			return
 		case <-ew.ticker.C:
 			// 输出包
 			if ew.tickerCount > MaxTickerCount {
-				//ew.processor.GetLogger().Printf("eventWorker TickerCount > %d, event closed.", MaxTickerCount)
-				ew.processor.delWorkerByUUID(ew)
-
-				/*
-					When returned from delWorkerByUUID(), there are two possibilities:
-					1) no routine can touch it.
-					2) one routine can still touch ew because getWorkerByUUID()
-					*happen before* delWorkerByUUID()
-
-					When no routine can touch it (i.e.,ew.IfUsed == false),
-					we just drain the ew.incoming and return.
-
-					When one routine can touch it (i.e.,ew.IfUsed == true), we ensure
-					that we only return after the routine can not touch it
-					(i.e.,ew.IfUsed == false). At this point, we can ensure that no
-					other routine will touch it and send events through the ew.incoming.
-					So, we return.
-
-					Because eworker has been deleted from workqueue after delWorkerByUUID()
-					(ordered by a workqueue lock), at this point, we can ensure that
-					no ew will not be touched even **in the future**. So the return is
-					safe.
-
-				*/
-				for {
-					select {
-					case e := <-ew.incoming:
-						ew.writeEvent(e)
-					default:
-						if ew.IfUsed() {
-							time.Sleep(10 * time.Millisecond)
-							continue
-						}
-						ew.Close()
-						return
-					}
+				drainAndClose(ew)
+				if ew.GetSock() == 0 {
+					/*
+					   sock == 0 means get tuple failed when deal ssl_data
+					   eWork should not be shared between events uuid is 0.
+					*/
+					ew.processor.delWorkerByUUID(ew)
+					return
+				} else {
+					restartFlag = true
+					continue
 				}
 			}
 			ew.tickerCount++
 		case e := <-ew.incoming:
+			if restartFlag {
+				ew.ticker = time.NewTicker(time.Millisecond * 100)
+				restartFlag = false
+			}
 			// reset tickerCount
 			ew.tickerCount = 0
 			ew.writeEvent(e)
 		}
 	}
-
 }
 
 func (ew *eventWorker) Close() {
@@ -227,10 +272,13 @@ func (ew *eventWorker) Put() {
 	if !ew.used.CompareAndSwap(true, false) {
 		panic("unexpected behavior and incorrect usage for eventWorker")
 	}
-
 }
 
 func (ew *eventWorker) IfUsed() bool {
 
 	return ew.used.Load()
+}
+
+func (ew *eventWorker) Done() {
+	close(ew.done)
 }
