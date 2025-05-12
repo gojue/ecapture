@@ -12,6 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// if vmlinux.h not defined
+#ifndef IPPROTO_ICMPV6
+#define IPPROTO_ICMPV6 58
+#endif
+
 #define TC_PACKET_MIN_SIZE 36
 #define SOCKET_ALLOW 1
 #define READ_KERN(ptr)                                                  \
@@ -156,7 +161,7 @@ static __always_inline int capture_packets(struct __sk_buff *skb, bool is_ingres
         }
 
         struct ipv6hdr *iph = (struct ipv6hdr *)(data_start + sizeof(struct ethhdr));
-        if (iph->nexthdr != IPPROTO_TCP && iph->nexthdr != IPPROTO_UDP) {
+        if (iph->nexthdr != IPPROTO_TCP && iph->nexthdr != IPPROTO_UDP && iph->nexthdr != IPPROTO_ICMPV6) {
             return TC_ACT_OK;
         }
 
@@ -200,7 +205,7 @@ static __always_inline int capture_packets(struct __sk_buff *skb, bool is_ingres
         // IP headers
         struct iphdr *iph = (struct iphdr *)(data_start + sizeof(struct ethhdr));
         // filter out non-TCP packets
-        if (iph->protocol != IPPROTO_TCP && iph->protocol != IPPROTO_UDP) {
+        if (iph->protocol != IPPROTO_TCP && iph->protocol != IPPROTO_UDP && iph->protocol != IPPROTO_ICMP) {
             return TC_ACT_OK;
         }
 
