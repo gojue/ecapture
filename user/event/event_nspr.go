@@ -66,13 +66,13 @@ func (ne *NsprDataEvent) StringHex() string {
 	var perfix, packetType string
 	switch AttachType(ne.DataType) {
 	case ProbeEntry:
-		packetType = fmt.Sprintf("%sRecived%s", COLORGREEN, COLORRESET)
+		packetType = fmt.Sprintf("%sReceived%s", COLORGREEN, COLORRESET)
 		perfix = COLORGREEN
 	case ProbeRet:
 		packetType = fmt.Sprintf("%sSend%s", COLORPURPLE, COLORRESET)
 		perfix = fmt.Sprintf("%s\t", COLORPURPLE)
 	default:
-		perfix = fmt.Sprintf("UNKNOW_%d", ne.DataType)
+		perfix = fmt.Sprintf("UNKNOWN_%d", ne.DataType)
 	}
 
 	var b *bytes.Buffer
@@ -96,13 +96,13 @@ func (ne *NsprDataEvent) String() string {
 	var perfix, packetType string
 	switch AttachType(ne.DataType) {
 	case ProbeEntry:
-		packetType = fmt.Sprintf("%sRecived%s", COLORGREEN, COLORRESET)
+		packetType = fmt.Sprintf("%sReceived%s", COLORGREEN, COLORRESET)
 		perfix = COLORGREEN
 	case ProbeRet:
 		packetType = fmt.Sprintf("%sSend%s", COLORPURPLE, COLORRESET)
 		perfix = COLORPURPLE
 	default:
-		packetType = fmt.Sprintf("%sUNKNOW_%d%s", COLORRED, ne.DataType, COLORRESET)
+		packetType = fmt.Sprintf("%sUNKNOWN_%d%s", COLORRED, ne.DataType, COLORRESET)
 	}
 
 	var b *bytes.Buffer

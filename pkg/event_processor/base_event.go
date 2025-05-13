@@ -70,7 +70,7 @@ func (t tlsVersion) String() string {
 	case Dtls12Version:
 		return "DTLS1_2_VERSION"
 	}
-	return fmt.Sprintf("TLS_VERSION_UNKNOW_%d", t.version)
+	return fmt.Sprintf("TLS_VERSION_UNKNOWN_%d", t.version)
 }
 
 type BaseEvent struct {
@@ -140,7 +140,7 @@ func (be *BaseEvent) StringHex() string {
 	case ProbeRet:
 		connInfo = fmt.Sprintf("Send %d bytes", be.DataLen)
 	default:
-		prefix = fmt.Sprintf("UNKNOW_%d", be.DataType)
+		prefix = fmt.Sprintf("UNKNOWN_%d", be.DataType)
 	}
 
 	b := dumpByteSlice(be.Data[:be.DataLen], prefix)
@@ -159,7 +159,7 @@ func (be *BaseEvent) String() string {
 	case ProbeRet:
 		connInfo = fmt.Sprintf("Send %d bytes", be.DataLen)
 	default:
-		connInfo = fmt.Sprintf("UNKNOW_%d", be.DataType)
+		connInfo = fmt.Sprintf("UNKNOWN_%d", be.DataType)
 	}
 	v := tlsVersion{version: be.Version}
 	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, Version:%s, %s, Payload:\n%s", be.Pid, bytes.TrimSpace(be.Comm[:]), be.Tid, v.String(), connInfo, string(be.Data[:be.DataLen]))

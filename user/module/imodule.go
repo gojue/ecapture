@@ -254,10 +254,10 @@ func (m *Module) run() {
 			//err := m.child.Close()
 			//if err != nil {
 			//}
-			m.logger.Info().Msg("Module closed,message recived from Context")
+			m.logger.Info().Msg("Module closed,message Received from Context")
 			return
 		case err := <-m.errChan:
-			m.logger.Warn().AnErr("Module closed,message recived from errChan", err).Send()
+			m.logger.Warn().AnErr("Module closed,message Received from errChan", err).Send()
 			return
 		}
 	}
