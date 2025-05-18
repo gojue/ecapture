@@ -254,7 +254,7 @@ func (b *MBashProbe) Dispatcher(eventStruct event.IEventStruct) {
 func (b *MBashProbe) handleLine(be *event.BashEvent) {
 	switch be.BashType {
 	case BashEventTypeReadline:
-		newline := unix.ByteSliceToString((be.Line[:]))
+		newline := unix.ByteSliceToString(be.Line[:])
 		line := b.lineMap[be.GetUUID()]
 		if line != "" {
 			line += "\n" + newline

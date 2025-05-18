@@ -9,15 +9,15 @@ require (
 	github.com/gin-gonic/gin v1.10.0
 	github.com/gojue/ebpfmanager v0.4.6
 	github.com/google/gopacket v1.1.19
-	github.com/jschwinger233/elibpcap v1.0.0
-	github.com/rs/zerolog v1.33.0
+	github.com/jschwinger233/elibpcap v1.0.2
+	github.com/rs/zerolog v1.34.0
 	github.com/shuLhan/go-bindata v4.0.0+incompatible
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/pflag v1.0.6
-	golang.org/x/arch v0.16.0
-	golang.org/x/crypto v0.37.0
-	golang.org/x/net v0.39.0
-	golang.org/x/sys v0.32.0
+	golang.org/x/arch v0.17.0
+	golang.org/x/crypto v0.38.0
+	golang.org/x/net v0.40.0
+	golang.org/x/sys v0.33.0
 )
 
 require (
@@ -51,11 +51,10 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.12 // indirect
-	github.com/vishvananda/netlink v1.3.0 // indirect
+	github.com/vishvananda/netlink v1.3.1 // indirect
 	github.com/vishvananda/netns v0.0.5 // indirect
-	golang.org/x/exp v0.0.0-20250408133849-7e4ce0ab07d0 // indirect
-	golang.org/x/sync v0.13.0 // indirect
-	golang.org/x/text v0.24.0 // indirect
+	golang.org/x/sync v0.14.0 // indirect
+	golang.org/x/text v0.25.0 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
