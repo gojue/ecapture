@@ -67,13 +67,13 @@ func (ge *GnutlsDataEvent) StringHex() string {
 	var perfix, packetType string
 	switch AttachType(ge.DataType) {
 	case ProbeEntry:
-		packetType = fmt.Sprintf("%sRecived%s", COLORGREEN, COLORRESET)
+		packetType = fmt.Sprintf("%sReceived%s", COLORGREEN, COLORRESET)
 		perfix = COLORGREEN
 	case ProbeRet:
 		packetType = fmt.Sprintf("%sSend%s", COLORPURPLE, COLORRESET)
 		perfix = fmt.Sprintf("%s\t", COLORPURPLE)
 	default:
-		perfix = fmt.Sprintf("UNKNOW_%d", ge.DataType)
+		perfix = fmt.Sprintf("UNKNOWN_%d", ge.DataType)
 	}
 
 	b := dumpByteSlice(ge.Data[:ge.DataLen], perfix)
@@ -86,13 +86,13 @@ func (ge *GnutlsDataEvent) String() string {
 	var perfix, packetType string
 	switch AttachType(ge.DataType) {
 	case ProbeEntry:
-		packetType = fmt.Sprintf("%sRecived%s", COLORGREEN, COLORRESET)
+		packetType = fmt.Sprintf("%sReceived%s", COLORGREEN, COLORRESET)
 		perfix = COLORGREEN
 	case ProbeRet:
 		packetType = fmt.Sprintf("%sSend%s", COLORPURPLE, COLORRESET)
 		perfix = COLORPURPLE
 	default:
-		packetType = fmt.Sprintf("%sUNKNOW_%d%s", COLORRED, ge.DataType, COLORRESET)
+		packetType = fmt.Sprintf("%sUNKNOWN_%d%s", COLORRED, ge.DataType, COLORRESET)
 	}
 	s := fmt.Sprintf(" PID:%d, Comm:%s, TID:%d, TYPE:%s, DataLen:%d bytes, Payload:\n%s%s%s", ge.Pid, ge.Comm, ge.Tid, packetType, ge.DataLen, perfix, string(ge.Data[:ge.DataLen]), COLORRESET)
 	return s

@@ -764,12 +764,8 @@ func (m *MOpenSSLProbe) dumpSslData(eventStruct *event.SSLDataEvent) {
 	} else {
 		eventStruct.Tuple = tuple
 	}
-	// m.processor.PcapFile(eventStruct)
-	//if m.conf.GetHex() {
-	//	m.logger.Println(eventStruct.StringHex())
-	//} else {
-	//	m.logger.Println(eventStruct.String())
-	//}
+
+	m.logger.Info().Msg(eventStruct.BaseInfo())
 	m.processor.Write(eventStruct)
 }
 
