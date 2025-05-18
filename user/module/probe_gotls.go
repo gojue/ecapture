@@ -36,7 +36,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-var NotGoCompiledBin = errors.New("it is not a program compiled in the Go language")
+var ErrNotGoCompiledBin = errors.New("it is not a program compiled in the Go language")
 
 // GoTLSProbe represents a probe for Go SSL
 type GoTLSProbe struct {
@@ -60,7 +60,7 @@ func (g *GoTLSProbe) Init(ctx context.Context, l *zerolog.Logger, cfg config.ICo
 		return e
 	}
 	g.conf = cfg
-	g.Module.SetChild(g)
+	g.SetChild(g)
 
 	g.eventMaps = make([]*ebpf.Map, 0, 2)
 	g.eventFuncMaps = make(map[*ebpf.Map]event.IEventStruct)
@@ -69,7 +69,7 @@ func (g *GoTLSProbe) Init(ctx context.Context, l *zerolog.Logger, cfg config.ICo
 	g.path = cfg.(*config.GoTLSConfig).Path
 	ver, err := proc.ExtraceGoVersion(g.path)
 	if err != nil {
-		return fmt.Errorf("%s, error:%v", NotGoCompiledBin, err)
+		return fmt.Errorf("%s, error:%v", ErrNotGoCompiledBin, err)
 	}
 
 	// supported at 1.17 via https://github.com/golang/go/issues/40724
