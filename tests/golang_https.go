@@ -43,7 +43,7 @@ func GetHttp(url string) (body []byte, err error) {
 		return nil, e
 	}
 
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	body, err = io.ReadAll(resp.Body)
 	return body, err
 }

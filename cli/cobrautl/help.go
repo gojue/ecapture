@@ -93,7 +93,7 @@ GLOBAL OPTIONS:
 {{end}}
 `[1:]
 
-	commandUsageTemplate = template.Must(template.New("command_usage").Funcs(templFuncs).Parse(strings.Replace(commandUsage, "\\\n", "", -1)))
+	commandUsageTemplate = template.Must(template.New("command_usage").Funcs(templFuncs).Parse(strings.ReplaceAll(commandUsage, "\\\n", "")))
 }
 
 func ecaptureFlagUsages(flagSet *pflag.FlagSet) string {

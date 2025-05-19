@@ -197,7 +197,7 @@ func (m *MOpenSSLProbe) detectOpenssl(soPath string) (string, error) {
 	sectionOffset := int64(s.Offset)
 	sectionSize := s.Size
 
-	r.Close()
+	_ = r.Close()
 
 	_, err = f.Seek(0, 0)
 	if err != nil {

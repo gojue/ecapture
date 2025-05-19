@@ -104,7 +104,7 @@ func (mc *MysqldConfig) Check() error {
 
 	//如果没找到，则报错。
 	if funcName == "" {
-		return errors.New(fmt.Sprintf("cant match mysql query function to hook with mysqld file::%s", mc.Mysqldpath))
+		return fmt.Errorf("cant match mysql query function to hook with mysqld file::%s", mc.Mysqldpath)
 	}
 
 	mc.Version = MysqldType56

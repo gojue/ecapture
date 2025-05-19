@@ -108,9 +108,8 @@ func (bc *BashConfig) checkElf() error {
 			bc.Bashpath = soPath
 			bc.ElfType = ElfTypeSo
 		}
-
 	} else {
-		return errors.New("cant found $SHELL path.")
+		return errors.New("cant found $SHELL path")
 	}
 	return nil
 }

@@ -141,6 +141,8 @@ func (ep *EventProcessor) Write(e event.IEventStruct) {
 	select {
 	case ep.incoming <- e:
 		return
+	default:
+		// 如果队列满了，丢弃事件
 	}
 }
 

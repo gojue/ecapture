@@ -58,22 +58,18 @@ func (hs HttpServer) Run() error {
 
 func (hs *HttpServer) Tls(c *gin.Context) {
 	hs.decodeConf(new(config.OpensslConfig), c, module.ModuleNameOpenssl)
-	return
 }
 
 func (hs *HttpServer) Gnutls(c *gin.Context) {
 	hs.decodeConf(new(config.GnutlsConfig), c, module.ModuleNameGnutls)
-	return
 }
 
 func (hs *HttpServer) Gotls(c *gin.Context) {
 	hs.decodeConf(new(config.GoTLSConfig), c, module.ModuleNameGotls)
-	return
 }
 
 func (hs *HttpServer) Nss(c *gin.Context) {
 	hs.decodeConf(new(config.NsprConfig), c, module.ModuleNameNspr)
-	return
 }
 
 func (hs *HttpServer) decodeConf(ic config.IConfig, c *gin.Context, modName string) {

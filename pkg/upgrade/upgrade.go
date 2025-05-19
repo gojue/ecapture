@@ -92,7 +92,7 @@ func makeGithubRequest(ctx context.Context, ua, url string, output interface{}) 
 		return fmt.Errorf("API request failed, statusCOde: %s", response.Status)
 	}
 
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	data, err := io.ReadAll(response.Body)
 	if err != nil {
