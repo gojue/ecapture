@@ -168,7 +168,7 @@ func (g *GoTLSProbe) start() error {
 	}
 	// start the bootstrap manager
 	if err = g.bpfManager.Start(); err != nil {
-		return fmt.Errorf("couldn't start bootstrap manager %v .", err)
+		return fmt.Errorf("couldn't start bootstrap manager %v ", err)
 	}
 
 	// 加载map信息，map对应events decode表。
@@ -193,12 +193,12 @@ func (g *GoTLSProbe) constantEditor() []manager.ConstantEditor {
 	editor := []manager.ConstantEditor{
 		{
 			Name:  "target_pid",
-			Value: uint64(g.conf.GetPid()),
+			Value: g.conf.GetPid(),
 			// FailOnMissing: true,
 		},
 		{
 			Name:  "target_uid",
-			Value: uint64(g.conf.GetUid()),
+			Value: g.conf.GetUid(),
 		},
 	}
 
@@ -227,7 +227,7 @@ func (g *GoTLSProbe) DecodeFun(m *ebpf.Map) (event.IEventStruct, bool) {
 func (g *GoTLSProbe) Close() error {
 	g.logger.Info().Msg("module close.")
 	if err := g.bpfManager.Stop(manager.CleanAll); err != nil {
-		return fmt.Errorf("couldn't stop manager %v .", err)
+		return fmt.Errorf("couldn't stop manager %v ", err)
 	}
 	return g.Module.Close()
 }

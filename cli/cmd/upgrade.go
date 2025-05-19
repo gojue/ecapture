@@ -25,7 +25,7 @@ func upgradeCheck(ctx context.Context) (string, string, error) {
 	var uname unix.Utsname
 	err := unix.Uname(&uname)
 	if err != nil {
-		return "", "", fmt.Errorf("Error getting uname: %v", err)
+		return "", "", fmt.Errorf("error getting uname: %v", err)
 	}
 	var useragent = fmt.Sprintf("eCapture Cli (%s %s %s)",
 		byteToString(uname.Sysname[:]), // 系统名称

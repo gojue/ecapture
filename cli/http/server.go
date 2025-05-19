@@ -112,5 +112,4 @@ func (hs *HttpServer) decodeConf(ic config.IConfig, c *gin.Context, modName stri
 		})
 	}
 	hs.logger.Info().RawJSON("config", ic.Bytes()).Msg("config send to channel.")
-	return
 }

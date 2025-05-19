@@ -139,22 +139,23 @@ func (g *MGnutlsProbe) saveMasterSecret(secretEvent *event.MasterSecretGnutlsEve
 			length = 32
 		}
 		chSecret := secretEvent.ClientHandshakeSecret[0:length]
-		buf.WriteString(fmt.Sprintf("%s %s %02x\n", "CLIENT_HANDSHAKE_TRAFFIC_SECRET", clientRandomHex, chSecret))
+		_, _ = fmt.Fprintf(buf, "%s %s %02x\n", "CLIENT_HANDSHAKE_TRAFFIC_SECRET", clientRandomHex, chSecret)
 		shSecret := secretEvent.ServerHandshakeSecret[0:length]
 		buf.WriteString(fmt.Sprintf("%s %s %02x\n", "SERVER_HANDSHAKE_TRAFFIC_SECRET", clientRandomHex, shSecret))
+		_, _ = fmt.Fprintf(buf, "%s %s %02x\n", "SERVER_HANDSHAKE_TRAFFIC_SECRET", clientRandomHex, shSecret)
 		emSecret := secretEvent.ExporterMasterSecret[0:length]
-		buf.WriteString(fmt.Sprintf("%s %s %02x\n", "EXPORTER_SECRET", clientRandomHex, emSecret))
+		_, _ = fmt.Fprintf(buf, "%s %s %02x\n", "EXPORTER_SECRET", clientRandomHex, emSecret)
 		ctSecret := secretEvent.ClientTrafficSecret[0:length]
-		buf.WriteString(fmt.Sprintf("%s %s %02x\n", "CLIENT_TRAFFIC_SECRET_0", clientRandomHex, ctSecret))
+		_, _ = fmt.Fprintf(buf, "%s %s %02x\n", "CLIENT_TRAFFIC_SECRET_0", clientRandomHex, ctSecret)
 		stSecret := secretEvent.ServerTrafficSecret[0:length]
-		buf.WriteString(fmt.Sprintf("%s %s %02x\n", "SERVER_TRAFFIC_SECRET_0", clientRandomHex, stSecret))
+		_, _ = fmt.Fprintf(buf, "%s %s %02x\n", "SERVER_TRAFFIC_SECRET_0", clientRandomHex, stSecret)
 	// tls1.2
 	case GnutlsTls12:
 		fallthrough
 	// tls1.1, tls1.0, ssl3.0, dtls 1.0 and dtls 1.2
 	default:
 		masterSecret := secretEvent.MasterSecret[0:event.GnutlsMasterSize]
-		buf.WriteString(fmt.Sprintf("%s %s %02x\n", "CLIENT_RANDOM", clientRandomHex, masterSecret))
+		_, _ = fmt.Fprintf(buf, "%s %s %02x\n", "CLIENT_RANDOM", clientRandomHex, masterSecret)
 	}
 
 	var e error
