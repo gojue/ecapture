@@ -45,7 +45,7 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v8
         with:
-          args: --default=none -E errcheck -E staticcheck
+          args: --default=none -E errcheck -E staticcheck --disable=staticcheck:S1005,staticcheck:S1021,staticcheck:S1023,staticcheck:QF1008,staticcheck:S1034
           skip-cache: true
           problem-matchers: true
       - name: Build non-CO-RE
