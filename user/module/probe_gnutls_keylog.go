@@ -107,9 +107,7 @@ func (m *MGnutlsProbe) initDecodeFunKeylog() error {
 	}
 	m.eventMaps = append(m.eventMaps, MasterkeyEventsMap)
 
-	var masterkeyEvent event.IEventStruct
-
-	masterkeyEvent = &event.MasterSecretGnutlsEvent{}
+	var masterkeyEvent = &event.MasterSecretGnutlsEvent{}
 
 	m.eventFuncMaps[MasterkeyEventsMap] = masterkeyEvent
 	return nil

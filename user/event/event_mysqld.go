@@ -44,9 +44,9 @@ const (
 	DispatchCommandWouldblock      = 2
 )
 
-type dispatch_command_return int8
+type dispatchCommandReturn int8
 
-func (d dispatch_command_return) String() string {
+func (d dispatchCommandReturn) String() string {
 	var retStr string
 	switch d {
 	case DispatchCommandCloseConnection:
@@ -71,7 +71,7 @@ type MysqldEvent struct {
 	Alllen    uint64                   `json:"Alllen"`
 	Len       uint64                   `json:"Len"`
 	Comm      [16]uint8                `json:"Comm"`
-	Retval    dispatch_command_return  `json:"retval"`
+	Retval    dispatchCommandReturn    `json:"retval"`
 }
 
 func (me *MysqldEvent) Decode(payload []byte) (err error) {

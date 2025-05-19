@@ -113,10 +113,7 @@ func (g *GoTLSProbe) initDecodeFunKeylog() error {
 	}
 	g.eventMaps = append(g.eventMaps, MasterkeyEventsMap)
 
-	var masterkeyEvent event.IEventStruct
-
-	// goTLS Event struct
-	masterkeyEvent = &event.MasterSecretGotlsEvent{}
+	var masterkeyEvent = &event.MasterSecretGotlsEvent{}
 
 	g.eventFuncMaps[MasterkeyEventsMap] = masterkeyEvent
 	return nil

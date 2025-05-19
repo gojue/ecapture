@@ -353,7 +353,7 @@ func (gc *GoTLSConfig) findRetOffsetsPie(lfunc string) ([]int, error) {
 		}
 		return offsets, nil
 	}
-	return offsets, errors.New("cant found gotls symbol offsets.")
+	return offsets, errors.New("cant found gotls symbol offsets")
 }
 
 func (gc *GoTLSConfig) findPieSymbolAddr(lfunc string) (uint64, error) {

@@ -53,7 +53,7 @@ func (b *MBashProbe) Init(ctx context.Context, logger *zerolog.Logger, conf conf
 		return err
 	}
 	b.conf = conf
-	b.Module.SetChild(b)
+	b.SetChild(b)
 	b.eventMaps = make([]*ebpf.Map, 0, 2)
 	b.eventFuncMaps = make(map[*ebpf.Map]event.IEventStruct)
 	b.lineMap = make(map[string]string)

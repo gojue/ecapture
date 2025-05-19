@@ -78,9 +78,9 @@ func (ne *NsprDataEvent) StringHex() string {
 	var b *bytes.Buffer
 	var s string
 	// firefox 进程的通讯线程名为 Socket Thread
-	var fire_thread = strings.TrimSpace(fmt.Sprintf("%s", ne.Comm[:13]))
+	var fireThread = strings.TrimSpace(fmt.Sprintf("%s", ne.Comm[:13]))
 	// disable filter default
-	if false && strings.Compare(fire_thread, "Socket Thread") != 0 {
+	if false && strings.Compare(fireThread, "Socket Thread") != 0 {
 		b = bytes.NewBufferString(fmt.Sprintf("%s[ignore]%s", COLORBLUE, COLORRESET))
 		s = fmt.Sprintf("PID:%d, Comm:%s, Type:%s, TID:%d, DataLen:%d bytes, Payload:%s", ne.Pid, ne.Comm, packetType, ne.Tid, ne.DataLen, b.String())
 	} else {

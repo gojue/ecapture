@@ -36,7 +36,7 @@ const (
 ref: http://blog.tremily.us/posts/rpath/
 */
 var (
-	default_so_paths = []string{
+	defaultSoPaths = []string{
 		"/lib",
 		"/usr/lib",
 		"/usr/lib64",
@@ -50,7 +50,7 @@ var (
 func GetDynLibDirs() []string {
 	dirs, err := ParseDynLibConf(LdLoadPath)
 	if err != nil {
-		return default_so_paths
+		return defaultSoPaths
 	}
 	return append(dirs, "/lib64", "/usr/lib64")
 }

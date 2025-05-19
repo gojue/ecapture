@@ -30,12 +30,12 @@ const GnuTLSVersionLen = 32
 func readelf(binaryPath string) (string, error) {
 	f, err := os.OpenFile(binaryPath, os.O_RDONLY, os.ModePerm)
 	if err != nil {
-		return "", fmt.Errorf("Can not open %s, with error: %v", binaryPath, err)
+		return "", fmt.Errorf("can not open %s, with error: %v", binaryPath, err)
 	}
 	defer func() { _ = f.Close() }()
 	r, err := elf.NewFile(f)
 	if err != nil {
-		return "", fmt.Errorf("Parse the ELF file %s failed, with error: %v", binaryPath, err)
+		return "", fmt.Errorf("parse the ELF file %s failed, with error: %v", binaryPath, err)
 	}
 	defer func() { _ = r.Close() }()
 
@@ -44,14 +44,14 @@ func readelf(binaryPath string) (string, error) {
 	case elf.EM_AARCH64:
 	default:
 		return "", fmt.Errorf(
-			"Unsupported arch library, ELF Header Machine is: %s, must be one of EM_X86_64 and EM_AARCH64",
+			"unsupported arch library, ELF Header Machine is: %s, must be one of EM_X86_64 and EM_AARCH64",
 			r.FileHeader.Machine.String())
 	}
 
 	s := r.Section(".rodata")
 	if s == nil {
 		// .rodata not found
-		return "", fmt.Errorf("Detect GnuTLS version failed, cant read .rodata section from %s", binaryPath)
+		return "", fmt.Errorf("detect GnuTLS version failed, cant read .rodata section from %s", binaryPath)
 	}
 
 	sectionOffset := int64(s.Offset)
@@ -99,7 +99,7 @@ func readelf(binaryPath string) (string, error) {
 		}
 		clear(buf)
 	}
-	return "", fmt.Errorf("Unknown error")
+	return "", fmt.Errorf("unknown error")
 }
 
 func (m *MGnutlsProbe) detectGnutls() error {

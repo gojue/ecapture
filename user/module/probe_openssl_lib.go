@@ -319,8 +319,6 @@ func getImpNeeded(soPath string) ([]string, error) {
 	if err != nil {
 		return importedNeeded, err
 	}
-	for _, s := range is {
-		importedNeeded = append(importedNeeded, s)
-	}
+	importedNeeded = append(importedNeeded, is...)
 	return importedNeeded, nil
 }

@@ -24,9 +24,6 @@ import (
 	"net/http/httputil"
 )
 
-// length of \r\n\r\n
-const HTTP_NEW_LINE_LENGTH = 4
-
 type HTTPResponse struct {
 	response     *http.Response
 	packerType   PacketType
