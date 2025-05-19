@@ -153,7 +153,7 @@ func (hr *HTTPResponse) Display() []byte {
 		// gzip uncompressed success
 		// hr.response.ContentLength = int64(len(raw))
 		hr.packerType = PacketTypeGzip
-		defer reader.Close()
+		defer func() { _ = reader.Close() }()
 	default:
 		//reader = hr.response.Body
 		hr.packerType = PacketTypeNull

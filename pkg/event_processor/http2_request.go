@@ -154,7 +154,7 @@ func (h2r *HTTP2Request) Display() []byte {
 				log.Println("[http2 request] Create gzip reader error:", err)
 				continue
 			}
-			defer reader.Close()
+			defer func() { _ = reader.Close() }()
 			payload, err = io.ReadAll(reader)
 			if err != nil {
 				log.Println("[http2 request] Uncompress gzip data error:", err)

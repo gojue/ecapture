@@ -32,12 +32,12 @@ func readelf(binaryPath string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("Can not open %s, with error: %v", binaryPath, err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	r, err := elf.NewFile(f)
 	if err != nil {
 		return "", fmt.Errorf("Parse the ELF file %s failed, with error: %v", binaryPath, err)
 	}
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 
 	switch r.FileHeader.Machine {
 	case elf.EM_X86_64:

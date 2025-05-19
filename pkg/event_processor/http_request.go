@@ -138,7 +138,7 @@ func (hr *HTTPRequest) Display() []byte {
 		// hr.request.Body = io.NopCloser(bytes.NewReader(gbuf))
 		// hr.request.ContentLength = int64(len(gbuf))
 		hr.packerType = PacketTypeGzip
-		defer reader.Close()
+		defer func() { _ = reader.Close() }()
 	default:
 		hr.packerType = PacketTypeNull
 	}

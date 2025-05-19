@@ -73,7 +73,7 @@ func ParseDynLibConf(pattern string) (dirs []string, err error) {
 		if err != nil {
 			return dirs, err
 		}
-		defer fd.Close()
+		defer func() { _ = fd.Close() }()
 
 		sc := bufio.NewScanner(fd)
 		for sc.Scan() {

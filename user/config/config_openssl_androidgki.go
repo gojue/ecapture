@@ -54,7 +54,7 @@ func (oc *OpensslConfig) Check() error {
 	if err != nil {
 		return nil
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	//  detect android version (use Android version?), and set AndroidVer
 	sc := bufio.NewScanner(f)
