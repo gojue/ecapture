@@ -22,8 +22,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	"errors"
 )
 
 func GlobMany(targets []string, onErr func(string, error)) []string {
@@ -73,7 +71,7 @@ func ParseDynLibConf(pattern string) (dirs []string, err error) {
 		if err != nil {
 			return dirs, err
 		}
-		defer fd.Close()
+		defer func() { _ = fd.Close() }()
 
 		sc := bufio.NewScanner(fd)
 		for sc.Scan() {
@@ -96,7 +94,7 @@ func ParseDynLibConf(pattern string) (dirs []string, err error) {
 		}
 	}
 	if len(dirs) <= 0 {
-		err = errors.New(fmt.Sprintf("read keylogger :%s error .", pattern))
+		err = fmt.Errorf("read keylogger :%s error ", pattern)
 	}
 	return dirs, err
 }
@@ -125,7 +123,7 @@ func getDynPathByElf(elfName, soName string) (string, error) {
 
 	// if not found soName from elfName
 	if len(realSoName) == 0 {
-		return "", errors.New(fmt.Sprintf("cant found so lib from %s", elfName))
+		return "", fmt.Errorf("cant found so lib from %s", elfName)
 	}
 	return realSoName, nil
 }
@@ -158,7 +156,7 @@ func recurseDynStrings(dynSym []string, searchPath []string, soName string) stri
 		}
 
 		if fd == nil {
-			log.Fatal(fmt.Sprintf("cant found lib so:%s in dirs:%v", el, searchPath))
+			log.Fatalf("cant found lib so:%s in dirs:%v", el, searchPath)
 		}
 
 		bint, err := elf.NewFile(fd)

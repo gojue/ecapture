@@ -24,9 +24,6 @@ import (
 	"net/http/httputil"
 )
 
-// length of \r\n\r\n
-const HTTP_NEW_LINE_LENGTH = 4
-
 type HTTPResponse struct {
 	response     *http.Response
 	packerType   PacketType
@@ -153,7 +150,7 @@ func (hr *HTTPResponse) Display() []byte {
 		// gzip uncompressed success
 		// hr.response.ContentLength = int64(len(raw))
 		hr.packerType = PacketTypeGzip
-		defer reader.Close()
+		defer func() { _ = reader.Close() }()
 	default:
 		//reader = hr.response.Body
 		hr.packerType = PacketTypeNull

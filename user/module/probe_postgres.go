@@ -21,15 +21,17 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/gojue/ecapture/assets"
-	"github.com/gojue/ecapture/user/config"
-	"github.com/gojue/ecapture/user/event"
-	"github.com/rs/zerolog"
 	"io"
 	"math"
 	"os"
 
+	"github.com/gojue/ecapture/assets"
+	"github.com/gojue/ecapture/user/config"
+	"github.com/gojue/ecapture/user/event"
+	"github.com/rs/zerolog"
+
 	"errors"
+
 	"github.com/cilium/ebpf"
 	manager "github.com/gojue/ebpfmanager"
 	"golang.org/x/sys/unix"
@@ -141,7 +143,7 @@ func (p *MPostgresProbe) setupManagers() error {
 
 		VerifierOptions: ebpf.CollectionOptions{
 			Programs: ebpf.ProgramOptions{
-				LogSize: 2097152,
+				LogSizeStart: 2097152,
 			},
 		},
 

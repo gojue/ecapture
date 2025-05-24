@@ -4,10 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/gojue/ecapture/pkg/upgrade"
-	"golang.org/x/sys/unix"
 	"regexp"
 	"strings"
+
+	"github.com/gojue/ecapture/pkg/upgrade"
+	"golang.org/x/sys/unix"
 )
 
 const urlReleases = "https://api.github.com/repos/gojue"
@@ -25,7 +26,7 @@ func upgradeCheck(ctx context.Context) (string, string, error) {
 	var uname unix.Utsname
 	err := unix.Uname(&uname)
 	if err != nil {
-		return "", "", fmt.Errorf("Error getting uname: %v", err)
+		return "", "", fmt.Errorf("error getting uname: %v", err)
 	}
 	var useragent = fmt.Sprintf("eCapture Cli (%s %s %s)",
 		byteToString(uname.Sysname[:]), // 系统名称

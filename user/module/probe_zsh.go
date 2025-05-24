@@ -53,7 +53,7 @@ func (b *MZshProbe) Init(ctx context.Context, logger *zerolog.Logger, conf confi
 		return err
 	}
 	b.conf = conf
-	b.Module.SetChild(b)
+	b.SetChild(b)
 	b.eventMaps = make([]*ebpf.Map, 0, 2)
 	b.eventFuncMaps = make(map[*ebpf.Map]event.IEventStruct)
 	return nil
@@ -150,8 +150,8 @@ func (b *MZshProbe) setupManagers() {
 		binaryPath = "/bin/zsh"
 	}
 
-	var readlineFuncName string // 将默认hook函数改为readline_internal_teardown说明：https://github.com/gojue/ecapture/pull/479
-	readlineFuncName = b.conf.(*config.ZshConfig).ReadlineFuncName
+	// 将默认hook函数改为readline_internal_teardown说明：https://github.com/gojue/ecapture/pull/479
+	var readlineFuncName = b.conf.(*config.ZshConfig).ReadlineFuncName
 
 	b.logger.Info().Str("binaryPath", binaryPath).Str("readlineFuncName", readlineFuncName).
 		Str("execute_command", readlineFuncName).Str("exit_builtin", readlineFuncName).
@@ -178,7 +178,7 @@ func (b *MZshProbe) setupManagers() {
 
 		VerifierOptions: ebpf.CollectionOptions{
 			Programs: ebpf.ProgramOptions{
-				LogSize: 2097152,
+				LogSizeStart: 2097152,
 			},
 		},
 

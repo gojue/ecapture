@@ -23,7 +23,7 @@ import (
 	"github.com/jschwinger233/elibpcap"
 )
 
-var eOverflow = errors.New("pcapNG channel overflow")
+var errOverflow = errors.New("pcapNG channel overflow")
 
 // packets of TC probe
 type TcPacket struct {
@@ -94,7 +94,7 @@ func (t *MTCProbe) dumpTcSkb(tcEvent *event.TcSkbEvent) error {
 	var payload []byte
 	payload = tcEvent.Payload()
 	if tcEvent.Pid > 0 {
-		err, p := t.writePid(tcEvent)
+		p, err := t.writePid(tcEvent)
 		if err == nil {
 			payload = p
 			//t.logger.Debug().Uint32("pid", tcEvent.Pid).Str("comm", fmt.Sprintf("%s", tcEvent.Comm)).Str("cmdline", fmt.Sprintf("%s", tcEvent.Cmdline)).Msg("dumpTcSkb")
@@ -103,7 +103,7 @@ func (t *MTCProbe) dumpTcSkb(tcEvent *event.TcSkbEvent) error {
 	return t.writePacket(uint32(len(payload)), time.Unix(0, int64(timeStamp)), payload)
 }
 
-func (t *MTCProbe) writePid(tcEvent *event.TcSkbEvent) (error, []byte) {
+func (t *MTCProbe) writePid(tcEvent *event.TcSkbEvent) ([]byte, error) {
 	ethPacket := gopacket.NewPacket(
 		tcEvent.Payload(),
 		layers.LayerTypeEthernet,
@@ -130,7 +130,7 @@ func (t *MTCProbe) writePid(tcEvent *event.TcSkbEvent) (error, []byte) {
 	var err error
 	pt, err = metadata.Pack()
 	if err != nil {
-		return err, []byte{}
+		return []byte{}, err
 	}
 	newEtherLayer := &ethernet.EthernetWithTrailer{
 		SrcMAC:       oldEthLayer.SrcMAC,
@@ -142,9 +142,9 @@ func (t *MTCProbe) writePid(tcEvent *event.TcSkbEvent) (error, []byte) {
 	buffer := gopacket.NewSerializeBuffer()
 	err = gopacket.SerializeLayers(buffer, gopacket.SerializeOptions{false, false}, newEtherLayer, gopacket.Payload(remainder))
 	if err != nil {
-		return err, []byte{}
+		return []byte{}, err
 	}
-	return nil, buffer.Bytes()
+	return buffer.Bytes(), nil
 }
 
 // save pcapng file ,merge master key into pcapng file TODO
@@ -251,7 +251,7 @@ func (t *MTCProbe) writePacket(dataLen uint32, timeStamp time.Time, packetBytes 
 	case t.tcPacketsChan <- packet:
 		return nil
 	default:
-		return eOverflow
+		return errOverflow
 	}
 }
 

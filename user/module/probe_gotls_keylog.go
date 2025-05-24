@@ -17,13 +17,14 @@ package module
 import (
 	"errors"
 	"fmt"
+	"math"
+	"strings"
+
 	"github.com/cilium/ebpf"
 	manager "github.com/gojue/ebpfmanager"
 	"github.com/gojue/ecapture/user/config"
 	"github.com/gojue/ecapture/user/event"
 	"golang.org/x/sys/unix"
-	"math"
-	"strings"
 )
 
 func (g *GoTLSProbe) setupManagersKeylog() error {
@@ -85,7 +86,7 @@ func (g *GoTLSProbe) setupManagersKeylog() error {
 
 		VerifierOptions: ebpf.CollectionOptions{
 			Programs: ebpf.ProgramOptions{
-				LogSize: 2097152,
+				LogSizeStart: 2097152,
 			},
 		},
 
@@ -113,10 +114,7 @@ func (g *GoTLSProbe) initDecodeFunKeylog() error {
 	}
 	g.eventMaps = append(g.eventMaps, MasterkeyEventsMap)
 
-	var masterkeyEvent event.IEventStruct
-
-	// goTLS Event struct
-	masterkeyEvent = &event.MasterSecretGotlsEvent{}
+	var masterkeyEvent = &event.MasterSecretGotlsEvent{}
 
 	g.eventFuncMaps[MasterkeyEventsMap] = masterkeyEvent
 	return nil

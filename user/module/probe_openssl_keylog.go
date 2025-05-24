@@ -17,14 +17,15 @@ package module
 import (
 	"errors"
 	"fmt"
+	"math"
+	"path"
+	"strings"
+
 	"github.com/cilium/ebpf"
 	manager "github.com/gojue/ebpfmanager"
 	"github.com/gojue/ecapture/user/config"
 	"github.com/gojue/ecapture/user/event"
 	"golang.org/x/sys/unix"
-	"math"
-	"path"
-	"strings"
 )
 
 func (m *MOpenSSLProbe) setupManagersKeylog() error {
@@ -75,7 +76,7 @@ func (m *MOpenSSLProbe) setupManagersKeylog() error {
 
 		VerifierOptions: ebpf.CollectionOptions{
 			Programs: ebpf.ProgramOptions{
-				LogSize: 2097152,
+				LogSizeStart: 2097152,
 			},
 		},
 

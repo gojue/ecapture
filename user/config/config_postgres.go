@@ -40,7 +40,7 @@ func NewPostgresConfig() *PostgresConfig {
 func (pc *PostgresConfig) Check() error {
 
 	if pc.PostgresPath == "" || len(strings.TrimSpace(pc.PostgresPath)) <= 0 {
-		return errors.New("Postgres path cant be null.")
+		return errors.New("postgres path cant be null")
 	}
 
 	_, e := os.Stat(pc.PostgresPath)
