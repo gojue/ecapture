@@ -22,6 +22,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"math"
+	"os"
+
 	"github.com/cilium/ebpf"
 	manager "github.com/gojue/ebpfmanager"
 	"github.com/gojue/ecapture/assets"
@@ -29,9 +33,6 @@ import (
 	"github.com/gojue/ecapture/user/event"
 	"github.com/rs/zerolog"
 	"golang.org/x/sys/unix"
-	"io"
-	"math"
-	"os"
 )
 
 type MMysqldProbe struct {

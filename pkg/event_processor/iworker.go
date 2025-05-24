@@ -19,9 +19,10 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/gojue/ecapture/user/event"
 	"sync/atomic"
 	"time"
+
+	"github.com/gojue/ecapture/user/event"
 )
 
 type IWorker interface {

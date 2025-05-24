@@ -15,11 +15,12 @@
 package http
 
 import (
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 	"github.com/gojue/ecapture/user/config"
 	"github.com/gojue/ecapture/user/module"
 	"github.com/rs/zerolog"
-	"net/http"
 )
 
 type HttpServer struct {

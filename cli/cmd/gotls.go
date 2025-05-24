@@ -15,9 +15,10 @@
 package cmd
 
 import (
+	"strings"
+
 	"github.com/gojue/ecapture/user/config"
 	"github.com/gojue/ecapture/user/module"
-	"strings"
 
 	"github.com/spf13/cobra"
 )

@@ -16,9 +16,10 @@ package event_processor
 
 import (
 	"fmt"
-	"github.com/gojue/ecapture/user/event"
 	"io"
 	"sync"
+
+	"github.com/gojue/ecapture/user/event"
 )
 
 const (

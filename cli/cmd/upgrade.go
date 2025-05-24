@@ -4,10 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/gojue/ecapture/pkg/upgrade"
-	"golang.org/x/sys/unix"
 	"regexp"
 	"strings"
+
+	"github.com/gojue/ecapture/pkg/upgrade"
+	"golang.org/x/sys/unix"
 )
 
 const urlReleases = "https://api.github.com/repos/gojue"

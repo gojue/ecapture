@@ -19,12 +19,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/rs/zerolog"
 	"io"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/rs/zerolog"
 
 	"github.com/gojue/ecapture/assets"
 	"github.com/gojue/ecapture/pkg/proc"

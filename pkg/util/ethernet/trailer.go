@@ -3,9 +3,10 @@ package ethernet
 import (
 	"encoding/binary"
 	"fmt"
+	"net"
+
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
-	"net"
 )
 
 // EthernetBroadcast is the broadcast MAC address used by Ethernet.

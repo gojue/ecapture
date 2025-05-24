@@ -16,9 +16,10 @@ package ebpf
 
 import (
 	"fmt"
-	"golang.org/x/sys/unix"
 	"os"
 	"strings"
+
+	"golang.org/x/sys/unix"
 )
 
 const (
