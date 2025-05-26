@@ -55,7 +55,7 @@ type HTTP2Response struct {
 func (h2r *HTTP2Response) detect(payload []byte) error {
 	payloadLen := len(payload)
 	if payloadLen < frameHeaderLen {
-		return errors.New("Payload less than http2 frame Header")
+		return errors.New("payload less than http2 frame Header")
 	}
 	// https://httpwg.org/specs/rfc7540.html#FrameHeader
 	// All frames begin with a fixed 9-octet header followed by a variable-length payload.
@@ -74,7 +74,7 @@ func (h2r *HTTP2Response) detect(payload []byte) error {
 	currentFrameType := http2.FrameType(data[3])
 	// Frame type in http2.FrameType
 	if currentFrameType > http2.FrameContinuation {
-		return errors.New("Invalid frame type")
+		return errors.New("invalid frame type")
 	}
 	// R: A reserved 1-bit field.
 	// The semantics of this bit are undefined, and the bit MUST remain unset (0x0) when
@@ -83,7 +83,7 @@ func (h2r *HTTP2Response) detect(payload []byte) error {
 	if reservedBit == 0 {
 		return nil
 	}
-	return errors.New("Invalid reserved bit in frame header")
+	return errors.New("invalid reserved bit in frame header")
 }
 
 func (h2r *HTTP2Response) Init() {
@@ -185,7 +185,7 @@ func (h2r *HTTP2Response) Display() []byte {
 				log.Println("[http2 response] Create gzip reader error:", err)
 				continue
 			}
-			defer reader.Close()
+			defer func() { _ = reader.Close() }()
 			payload, err = io.ReadAll(reader)
 			if err != nil {
 				log.Println("[http2 response] Uncompress gzip data error:", err)

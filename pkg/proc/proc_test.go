@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-const ELF_BUILD_BY_CGO = "go_elf"
+const ElfBuildByCgo = "go_elf"
 
 func TestExtraceGoVersion(t *testing.T) {
 	path := fmt.Sprintf("/proc/%d/exe", os.Getppid())
@@ -63,7 +63,7 @@ func TestExtraceGoVersionGccgo(t *testing.T) {
 		t.Fatalf("go build failed:%v", e)
 	}
 
-	p1 := filepath.Join(p, ELF_BUILD_BY_CGO)
+	p1 := filepath.Join(p, ElfBuildByCgo)
 	ver, err := ExtraceGoVersion(p1)
 	t.Logf("Extrace GoVersion from CGO ELF :%s", p1)
 	if err != nil {

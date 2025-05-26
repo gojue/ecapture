@@ -206,7 +206,7 @@ func (m *MOpenSSLProbe) getSslBpfFile(soPath, sslVersion string) error {
 		}
 	}
 
-	err, verString := m.detectOpenssl(soPath)
+	verString, err := m.detectOpenssl(soPath)
 
 	if err != nil && !errors.Is(err, ErrProbeOpensslVerNotFound) {
 		m.logger.Error().Str("soPath", soPath).Err(err).Msg("OpenSSL/BoringSSL version check failed")
@@ -234,7 +234,7 @@ func (m *MOpenSSLProbe) getSslBpfFile(soPath, sslVersion string) error {
 			}
 			soPath = strings.Replace(soPath, "libssl.so.3", libcryptoName, 1)
 			m.logger.Info().Str("soPath", soPath).Str("imported", libcryptoName).Msg("Try to detect imported libcrypto.so ")
-			err, verString = m.detectOpenssl(soPath)
+			verString, err = m.detectOpenssl(soPath)
 			if err != nil && !errors.Is(err, ErrProbeOpensslVerNotFound) {
 				m.logger.Warn().Err(err).Str("soPath", soPath).Str("imported", libcryptoName).Msgf("OpenSSL(libcrypto.so.3) version not found.%s", fmt.Sprintf(OpensslNoticeUsedDefault, OpensslNoticeVersionGuideLinux))
 				return err
@@ -461,7 +461,6 @@ func (m *MOpenSSLProbe) DelConn(sock uint64) {
 	time.AfterFunc(3*time.Second, func() {
 		m.DestroyConn(sock)
 	})
-	return
 }
 
 func (m *MOpenSSLProbe) GetConn(pid, fd uint32) string {

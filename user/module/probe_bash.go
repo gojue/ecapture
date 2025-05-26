@@ -19,12 +19,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"math"
+
 	"github.com/gojue/ecapture/assets"
 	"github.com/gojue/ecapture/user/config"
 	"github.com/gojue/ecapture/user/event"
 	"github.com/rs/zerolog"
-	"io"
-	"math"
 
 	"github.com/cilium/ebpf"
 	manager "github.com/gojue/ebpfmanager"
@@ -53,7 +54,7 @@ func (b *MBashProbe) Init(ctx context.Context, logger *zerolog.Logger, conf conf
 		return err
 	}
 	b.conf = conf
-	b.Module.SetChild(b)
+	b.SetChild(b)
 	b.eventMaps = make([]*ebpf.Map, 0, 2)
 	b.eventFuncMaps = make(map[*ebpf.Map]event.IEventStruct)
 	b.lineMap = make(map[string]string)
@@ -200,7 +201,7 @@ func (b *MBashProbe) setupManagers() {
 
 		VerifierOptions: ebpf.CollectionOptions{
 			Programs: ebpf.ProgramOptions{
-				LogSize: 2097152,
+				LogSizeStart: 2097152,
 			},
 		},
 

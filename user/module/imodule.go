@@ -249,7 +249,7 @@ func (m *Module) Stop() error {
 func (m *Module) run() {
 	for {
 		select {
-		case _ = <-m.ctx.Done():
+		case <-m.ctx.Done():
 			// 由最上层Context的cancel函数关闭后调用 close().
 			//err := m.child.Close()
 			//if err != nil {
@@ -266,11 +266,8 @@ func (m *Module) run() {
 func (m *Module) readEvents() error {
 	var errChan = make(chan error, 8)
 	go func() {
-		for {
-			select {
-			case err := <-errChan:
-				m.logger.Error().AnErr("readEvents error", err).Send()
-			}
+		for err := range errChan {
+			m.logger.Error().AnErr("readEvents error", err).Send()
 		}
 	}()
 
@@ -301,7 +298,7 @@ func (m *Module) perfEventReader(errChan chan error, em *ebpf.Map) {
 		for {
 			//判断ctx是不是结束
 			select {
-			case _ = <-m.ctx.Done():
+			case <-m.ctx.Done():
 				m.logger.Info().Msg("perfEventReader received close signal from context.Done().")
 				return
 			default:
@@ -321,15 +318,15 @@ func (m *Module) perfEventReader(errChan chan error, em *ebpf.Map) {
 				continue
 			}
 
-			var event event.IEventStruct
-			event, err = m.child.Decode(em, record.RawSample)
+			var evt event.IEventStruct
+			evt, err = m.child.Decode(em, record.RawSample)
 			if err != nil {
 				m.logger.Warn().Err(err).Msg("m.child.decode error")
 				continue
 			}
 
 			// 上报数据
-			m.Dispatcher(event)
+			m.Dispatcher(evt)
 		}
 	}()
 }
@@ -345,7 +342,7 @@ func (m *Module) ringbufEventReader(errChan chan error, em *ebpf.Map) {
 		for {
 			//判断ctx是不是结束
 			select {
-			case _ = <-m.ctx.Done():
+			case <-m.ctx.Done():
 				m.logger.Info().Msg("ringbufEventReader received close signal from context.Done().")
 				return
 			default:

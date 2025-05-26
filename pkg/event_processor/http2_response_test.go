@@ -15,10 +15,11 @@
 package event_processor
 
 import (
-	"golang.org/x/net/http2"
 	"io"
 	"os"
 	"testing"
+
+	"golang.org/x/net/http2"
 )
 
 func TestHttp2ResponseParser(t *testing.T) {

@@ -17,10 +17,11 @@ package upgrade
 import (
 	"context"
 	"fmt"
-	"golang.org/x/sys/unix"
 	"regexp"
 	"strings"
 	"testing"
+
+	"golang.org/x/sys/unix"
 )
 
 const urlReleases = "https://api.github.com/repos/gojue"

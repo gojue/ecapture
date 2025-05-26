@@ -22,12 +22,12 @@
 	$(CMD_TOUCH) $@ # avoid target rebuilds over and over due to inexistent file
 
 
-# golang 版本检测  1.22 以上
+# golang 版本检测  1.24 以上
 .checkver_$(CMD_GO): \
 	| .check_$(CMD_GO)
 	@if [ ${GO_VERSION_MAJ} -eq 1 ]; then
-		if [ ${GO_VERSION_MIN} -lt 22 ]; then
-			echo -n "you MUST use golang 1.22 or newer, "
+		if [ ${GO_VERSION_MIN} -lt 24 ]; then
+			echo -n "you MUST use golang 1.24 or newer, "
 			echo "your current golang version is ${GO_VERSION}"
 			exit 1
 		fi

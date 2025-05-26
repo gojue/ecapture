@@ -1,13 +1,11 @@
 module github.com/gojue/ecapture
 
-go 1.23.0
-
-toolchain go1.24.1
+go 1.24.3
 
 require (
-	github.com/cilium/ebpf v0.12.3
+	github.com/cilium/ebpf v0.18.0
 	github.com/gin-gonic/gin v1.10.0
-	github.com/gojue/ebpfmanager v0.4.6
+	github.com/gojue/ebpfmanager v0.5.0
 	github.com/google/gopacket v1.1.19
 	github.com/jschwinger233/elibpcap v1.0.2
 	github.com/rs/zerolog v1.34.0

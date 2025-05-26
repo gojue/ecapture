@@ -18,10 +18,11 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"golang.org/x/sys/unix"
 	"net/netip"
 	"strings"
 	"unsafe"
+
+	"golang.org/x/sys/unix"
 )
 
 type AttachType int64

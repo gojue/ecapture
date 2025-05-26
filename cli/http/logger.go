@@ -15,8 +15,9 @@
 package http
 
 import (
-	"github.com/rs/zerolog"
 	"strings"
+
+	"github.com/rs/zerolog"
 )
 
 type ErrLogger struct {
