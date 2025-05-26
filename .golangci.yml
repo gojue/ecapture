@@ -51,28 +51,27 @@ linters:
         - "-SA4031"
         - "-S1000"
 
+exclusions:
+  paths:
+    - test/
+    - tests/
+    - bin/
+    - utils/
+  rules:
+    - path: (.+)\.go
+      linters:
+        - gofmt
+        - goimports
+        - errcheck
+        - staticcheck
 
-issues:
-  exclude-rules:
-    paths:
-      - test/
-      - tests/
-      - bin/
-      - utils/
-    rules:
-      - path: (.+)\.go
-        linters:
-          - gofmt
-          - goimports
-          - errcheck
-          - staticcheck
+formatters:
+  enable:
+    - gofmt
+    - goimports
 
-  formatters:
-    enable:
-      - gofmt
-      - goimports
-    settings:
-      gofmt:
-        rewrite-rules:
-          - pattern: 'interface{}'
-            replacement: 'any'
+settings:
+  gofmt:
+    rewrite-rules:
+      - pattern: 'interface{}'
+        replacement: 'any'
