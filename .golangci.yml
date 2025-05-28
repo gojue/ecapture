@@ -24,6 +24,8 @@ linters:
     - errorlint
 
   settings:
+    errorlint:
+      asserts: false
     staticcheck:
       checks:
         # Invalid regular expression.
@@ -54,13 +56,6 @@ linters:
       - tests/
       - bin/
       - utils/
-    rules:
-      - path: (.+)\.go
-        linters:
-          - gofmt
-          - goimports
-          - errcheck
-          - staticcheck
 
 formatters:
   enable:

@@ -308,7 +308,7 @@ func runModule(modName string, modConfig config.IConfig) {
 		}
 		cancelFun()
 		// clean up
-		mod.Close()
+		err = mod.Close()
 		if err != nil {
 			logger.Warn().Err(err).Msg("module close failed")
 		}
