@@ -117,7 +117,9 @@ func (ew *eventWorker) CheckLifeCycleState(uuid string) LifeCycleState {
 
 // 导出方法，用于发送信号量
 func (ew *eventWorker) CloseEventWorker() {
-	close(ew.closeChan)
+	if ew.closeChan != nil {
+		close(ew.closeChan)
+	}
 }
 
 func (ew *eventWorker) GetLifeCycleState() LifeCycleState {
