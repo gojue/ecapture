@@ -34,11 +34,11 @@ func TestHttp2ResponseParser(t *testing.T) {
 	h2r.Init()
 	err = h2r.detect(httpBody)
 	if err != nil {
-		t.Fatalf("TestHttp2ResponseParser: detect http response failed: %w", err)
+		t.Fatalf("TestHttp2ResponseParser: detect http response failed: %s", err.Error())
 	}
 	i, err := h2r.Write(httpBody)
 	if err != nil {
-		t.Errorf("TestHttp2ResponseParser: write http response failed: %w", err)
+		t.Errorf("TestHttp2ResponseParser: write http response failed: %s", err.Error())
 	}
 	t.Logf("TestHttp2ResponseParser: wrot body:%d", i)
 
@@ -48,7 +48,7 @@ func TestHttp2ResponseParser(t *testing.T) {
 		f, err := h2r.framer.ReadFrame()
 		if err != nil {
 			if !errors.Is(err, io.EOF) {
-				t.Fatalf("[http2 response] read http2 response frame error:%w", err)
+				t.Fatalf("[http2 response] read http2 response frame error:%s", err.Error())
 			}
 			break
 		}

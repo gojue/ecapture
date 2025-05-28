@@ -34,7 +34,7 @@ func TestCheckLatest(t *testing.T) {
 	// 调用 uname 系统调用
 	err := unix.Uname(&uname)
 	if err != nil {
-		t.Logf("Upgrader: Error getting uname: %w", err)
+		t.Logf("Upgrader: Error getting uname: %s", err.Error())
 		return
 	}
 
@@ -67,13 +67,13 @@ func TestCheckLatest(t *testing.T) {
 
 	githubResp, err := GetLatestVersion(useragent, fmt.Sprintf("%s%s?ver=%s", urlReleasesCN, apiReleases, ver), context.Background())
 	if err != nil {
-		t.Fatalf("Error getting latest version: %w", err)
+		t.Fatalf("Error getting latest version: %s", err.Error())
 	}
 
 	t.Logf("Latest version: %v", githubResp.TagName)
 	comp, err := CheckVersion(verMatch[2], githubResp.TagName)
 	if err != nil {
-		t.Fatalf("Error checking version: %w", err)
+		t.Fatalf("Error checking version: %s", err.Error())
 	}
 	t.Logf("Version comparison: %v", comp)
 

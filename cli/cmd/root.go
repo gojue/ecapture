@@ -252,7 +252,7 @@ func runModule(modName string, modConfig config.IConfig) {
 	go func() {
 		tags, url, e := upgradeCheck(ctx)
 		if e != nil {
-			logger.Debug().Msgf("upgrade check failed: %w", e)
+			logger.Debug().Msgf("upgrade check failed: %s", e.Error())
 			return
 		}
 		logger.Warn().Msgf("A new version %s is available:%s", tags, url)

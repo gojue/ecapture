@@ -24,7 +24,7 @@ func main() {
 	if e == nil {
 		fmt.Printf("response body: %s\n\n", b)
 	} else {
-		fmt.Printf("error :%w", e)
+		fmt.Printf("error :%s", e.Error())
 	}
 }
 

@@ -34,24 +34,24 @@ func TestHttp2RequestParser(t *testing.T) {
 	h2r.Init()
 	err = h2r.detect(httpBody)
 	if err != nil {
-		t.Fatalf("TestHttp2RequestParser: detect http request failed: %w", err)
+		t.Fatalf("TestHttp2RequestParser: detect http request failed: %s", err.Error())
 	}
 	i, e := h2r.Write(httpBody)
 	if e != nil {
-		t.Errorf("TestHttp2RequestParser: write http request failed: %w", e)
+		t.Errorf("TestHttp2RequestParser: write http request failed: %s", e.Error())
 	}
 	t.Logf("TestHttp2RequestParser: wrot body:%d", i)
 
 	_, err = h2r.bufReader.Discard(ClientPrefaceLen)
 	if err != nil {
-		t.Logf("[http2 request] Discard HTTP2 Magic error:%w", err)
+		t.Logf("[http2 request] Discard HTTP2 Magic error:%s", err.Error())
 	}
 	var frameTypes = make([]string, 0)
 	for {
 		f, err := h2r.framer.ReadFrame()
 		if err != nil {
 			if !errors.Is(err, io.EOF) {
-				t.Fatalf("[http2 response] read http2 response frame error:%w", err)
+				t.Fatalf("[http2 response] read http2 response frame error:%s", err.Error())
 			}
 			break
 		}

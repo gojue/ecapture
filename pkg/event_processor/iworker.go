@@ -155,7 +155,7 @@ func (ew *eventWorker) parserEvents() []byte {
 	ew.parser = parser
 	n, e := ew.parser.Write(ew.payload.Bytes())
 	if e != nil {
-		_ = ew.writeToChan(fmt.Sprintf("ew.parser write payload %d bytes, error:%w", n, e))
+		_ = ew.writeToChan(fmt.Sprintf("ew.parser write payload %d bytes, error:%s", n, e.Error()))
 	}
 	ew.status = ProcessStateDone
 	return ew.parser.Display()
