@@ -7,8 +7,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/gojue/ecapture/pkg/upgrade"
 	"golang.org/x/sys/unix"
+
+	"github.com/gojue/ecapture/pkg/upgrade"
 )
 
 const urlReleases = "https://api.github.com/repos/gojue"

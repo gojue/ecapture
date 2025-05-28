@@ -18,9 +18,10 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog"
+
 	"github.com/gojue/ecapture/user/config"
 	"github.com/gojue/ecapture/user/module"
-	"github.com/rs/zerolog"
 )
 
 type HttpServer struct {

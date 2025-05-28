@@ -20,9 +20,10 @@ import (
 
 	"github.com/cilium/ebpf"
 	manager "github.com/gojue/ebpfmanager"
+	"golang.org/x/sys/unix"
+
 	"github.com/gojue/ecapture/user/config"
 	"github.com/gojue/ecapture/user/event"
-	"golang.org/x/sys/unix"
 )
 
 func (m *MGnutlsProbe) setupManagersText() error {

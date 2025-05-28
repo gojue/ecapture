@@ -22,9 +22,10 @@ import (
 
 	"github.com/cilium/ebpf"
 	manager "github.com/gojue/ebpfmanager"
+	"golang.org/x/sys/unix"
+
 	"github.com/gojue/ecapture/user/config"
 	"github.com/gojue/ecapture/user/event"
-	"golang.org/x/sys/unix"
 )
 
 // gnutls_mac_algorithm_t: https://github.com/gnutls/gnutls/blob/master/lib/includes/gnutls/gnutls.h.in#L365

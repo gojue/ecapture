@@ -25,12 +25,13 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/rs/zerolog"
+	"github.com/spf13/cobra"
+
 	"github.com/gojue/ecapture/cli/cobrautl"
 	"github.com/gojue/ecapture/cli/http"
 	"github.com/gojue/ecapture/user/config"
 	"github.com/gojue/ecapture/user/module"
-	"github.com/rs/zerolog"
-	"github.com/spf13/cobra"
 )
 
 const (

@@ -26,12 +26,13 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/perf"
 	"github.com/cilium/ebpf/ringbuf"
+	"github.com/rs/zerolog"
+
 	"github.com/gojue/ecapture/pkg/event_processor"
 	ebpfenv "github.com/gojue/ecapture/pkg/util/ebpf"
 	"github.com/gojue/ecapture/pkg/util/kernel"
 	"github.com/gojue/ecapture/user/config"
 	"github.com/gojue/ecapture/user/event"
-	"github.com/rs/zerolog"
 )
 
 type IModule interface {

@@ -18,8 +18,9 @@ import (
 	"fmt"
 	"runtime"
 
-	"github.com/gojue/ecapture/pkg/util/kernel"
 	"golang.org/x/sys/unix"
+
+	"github.com/gojue/ecapture/pkg/util/kernel"
 )
 
 func detectKernel() error {

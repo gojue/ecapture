@@ -27,7 +27,6 @@ const (
 	RespSendToChanFailed
 )
 
-// Resp -
 type Resp struct {
 	Code       Status      `json:"code"`
 	ModuleType string      `json:"module_type"` // config.ModuleType

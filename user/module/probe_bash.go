@@ -22,10 +22,11 @@ import (
 	"io"
 	"math"
 
+	"github.com/rs/zerolog"
+
 	"github.com/gojue/ecapture/assets"
 	"github.com/gojue/ecapture/user/config"
 	"github.com/gojue/ecapture/user/event"
-	"github.com/rs/zerolog"
 
 	"github.com/cilium/ebpf"
 	manager "github.com/gojue/ebpfmanager"
