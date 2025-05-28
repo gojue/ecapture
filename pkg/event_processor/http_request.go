@@ -18,6 +18,7 @@ import (
 	"bufio"
 	"bytes"
 	"compress/gzip"
+	"errors"
 	"io"
 	"log"
 	"net/http"
@@ -107,10 +108,10 @@ func (hr *HTTPRequest) Display() []byte {
 	}
 	rawData, err := io.ReadAll(hr.request.Body)
 	rawLength := int64(len(rawData))
-	switch err {
-	case nil:
+	switch {
+	case err == nil:
 		// Passed
-	case io.ErrUnexpectedEOF:
+	case errors.Is(err, io.ErrUnexpectedEOF):
 		if rawLength > 0 && hr.request.ContentLength > rawLength {
 			log.Println("[http request] Truncated request body")
 		}

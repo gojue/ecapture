@@ -80,17 +80,17 @@ func (p *MPostgresProbe) start() error {
 	// setup the managers
 	err = p.setupManagers()
 	if err != nil {
-		return fmt.Errorf("postgres module couldn't find binPath %v.", err)
+		return fmt.Errorf("postgres module couldn't find binPath %w", err)
 	}
 
 	// initialize the bootstrap manager
 	if err := p.bpfManager.InitWithOptions(bytes.NewReader(byteBuf), p.bpfManagerOptions); err != nil {
-		return fmt.Errorf("couldn't init manager %v.", err)
+		return fmt.Errorf("couldn't init manager %w", err)
 	}
 
 	// start the bootstrap manager
 	if err := p.bpfManager.Start(); err != nil {
-		return fmt.Errorf("couldn't start bootstrap manager %v.", err)
+		return fmt.Errorf("couldn't start bootstrap manager %w", err)
 	}
 
 	// 加载map信息，map对应events decode表。
@@ -104,7 +104,7 @@ func (p *MPostgresProbe) start() error {
 
 func (p *MPostgresProbe) Close() error {
 	if err := p.bpfManager.Stop(manager.CleanAll); err != nil {
-		return fmt.Errorf("couldn't stop manager %v.", err)
+		return fmt.Errorf("couldn't stop manager %w", err)
 	}
 	return p.Module.Close()
 }

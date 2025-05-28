@@ -18,6 +18,7 @@ import (
 	"bufio"
 	"bytes"
 	"compress/gzip"
+	"errors"
 	"io"
 	"log"
 	"net/http"
@@ -114,10 +115,10 @@ func (hr *HTTPResponse) Reset() {
 func (hr *HTTPResponse) Display() []byte {
 	rawData, err := io.ReadAll(hr.response.Body)
 	rawLength := int64(len(rawData))
-	switch err {
-	case nil:
+	switch {
+	case err == nil:
 		// Passed
-	case io.ErrUnexpectedEOF:
+	case errors.Is(err, io.ErrUnexpectedEOF):
 		// If the server declared the Content-Length, Body is a LimitedReader
 		// Raw data length smaller than "Content-Length" will cause UnexpectedEOF error
 		// e.g. Head Method response with "Content-Length" header, raw data length is 0

@@ -43,7 +43,7 @@ func (m *MOpenSSLProbe) setupManagersPcap() error {
 	m.ifName = ifname
 	interf, err := net.InterfaceByName(m.ifName)
 	if err != nil {
-		return fmt.Errorf("InterfaceByName: %s , failed: %v", m.ifName, err)
+		return fmt.Errorf("InterfaceByName: %s , failed: %w", m.ifName, err)
 	}
 
 	m.ifIdex = interf.Index

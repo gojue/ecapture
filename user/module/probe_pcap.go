@@ -178,7 +178,7 @@ func (t *MTCProbe) savePcapng() (i int, err error) {
 func (t *MTCProbe) createPcapng(netIfs []net.Interface) error {
 	pcapFile, err := os.OpenFile(t.pcapngFilename, os.O_TRUNC|os.O_WRONLY|os.O_CREATE, 0o644)
 	if err != nil {
-		return fmt.Errorf("error creating pcap file: %v", err)
+		return fmt.Errorf("error creating pcap file: %w", err)
 	}
 
 	// TODO : write Application "ecapture.lua" to decode PID/Comm info.

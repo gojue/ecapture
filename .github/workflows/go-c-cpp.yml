@@ -35,6 +35,12 @@ jobs:
         with:
           submodules: 'recursive'
           fetch-depth: 0
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: v2.1
+          skip-cache: true
+          problem-matchers: true
       - name: Build CO-RE
         run: |
           make clean
@@ -42,12 +48,6 @@ jobs:
           DEBUG=1 make -j8
           cd ./lib/libpcap/ && sudo make install
           cd $GITHUB_WORKSPACE
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v8
-        with:
-          version: v2.1
-          skip-cache: true
-          problem-matchers: true
       - name: Build non-CO-RE
         run: |
           make clean
@@ -95,6 +95,12 @@ jobs:
         with:
           submodules: 'recursive'
           fetch-depth: 0
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: v2.1
+          skip-cache: true
+          problem-matchers: true
       - name: Build CO-RE
         run: |
           make clean
@@ -102,12 +108,6 @@ jobs:
           DEBUG=1 make -j8
           cd ./lib/libpcap/ && sudo make install
           cd $GITHUB_WORKSPACE
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v8
-        with:
-          version: v2.1
-          skip-cache: true
-          problem-matchers: true
       - name: Build non-CO-RE
         run: |
           make clean

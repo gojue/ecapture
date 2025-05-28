@@ -21,12 +21,9 @@ linters:
   enable:
     - errcheck
     - staticcheck
+    - errorlint
 
   settings:
-    errorlint:
-      asserts: false
-    lll:
-      line-length: 140
     staticcheck:
       checks:
         # Invalid regular expression.
@@ -51,27 +48,35 @@ linters:
         - "-SA4031"
         - "-S1000"
 
-exclusions:
-  paths:
-    - test/
-    - tests/
-    - bin/
-    - utils/
-  rules:
-    - path: (.+)\.go
-      linters:
-        - gofmt
-        - goimports
-        - errcheck
-        - staticcheck
+  exclusions:
+    paths:
+      - test/
+      - tests/
+      - bin/
+      - utils/
+    rules:
+      - path: (.+)\.go
+        linters:
+          - gofmt
+          - goimports
+          - errcheck
+          - staticcheck
 
 formatters:
   enable:
     - gofmt
     - goimports
-
-settings:
-  gofmt:
-    rewrite-rules:
-      - pattern: 'interface{}'
-        replacement: 'any'
+  settings:
+    gofmt:
+      rewrite-rules:
+        - pattern: 'interface{}'
+          replacement: 'any'
+    goimports:
+      local-prefixes:
+        - github.com/gojue/ecapture
+  exclusions:
+    paths:
+      - test/
+      - tests/
+      - bin/
+      - utils/

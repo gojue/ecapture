@@ -128,7 +128,7 @@ func (h2r *HTTP2Response) Display() []byte {
 	for {
 		f, err := h2r.framer.ReadFrame()
 		if err != nil {
-			if err != io.EOF {
+			if !errors.Is(err, io.EOF) {
 				log.Println("[http2 response] Dump HTTP2 Frame error:", err)
 			}
 			break

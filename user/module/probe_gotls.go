@@ -70,7 +70,7 @@ func (g *GoTLSProbe) Init(ctx context.Context, l *zerolog.Logger, cfg config.ICo
 	g.path = cfg.(*config.GoTLSConfig).Path
 	ver, err := proc.ExtraceGoVersion(g.path)
 	if err != nil {
-		return fmt.Errorf("%s, error:%v", ErrNotGoCompiledBin, err)
+		return fmt.Errorf("%w, error:%w", ErrNotGoCompiledBin, err)
 	}
 
 	// supported at 1.17 via https://github.com/golang/go/issues/40724
@@ -165,11 +165,11 @@ func (g *GoTLSProbe) start() error {
 		if errors.As(err, &ve) {
 			g.logger.Warn().Err(ve).Msg("couldn't verify bpf prog")
 		}
-		return fmt.Errorf("couldn't init manager %v", err)
+		return fmt.Errorf("couldn't init manager %w", err)
 	}
 	// start the bootstrap manager
 	if err = g.bpfManager.Start(); err != nil {
-		return fmt.Errorf("couldn't start bootstrap manager %v ", err)
+		return fmt.Errorf("couldn't start bootstrap manager %w ", err)
 	}
 
 	// 加载map信息，map对应events decode表。
@@ -228,7 +228,7 @@ func (g *GoTLSProbe) DecodeFun(m *ebpf.Map) (event.IEventStruct, bool) {
 func (g *GoTLSProbe) Close() error {
 	g.logger.Info().Msg("module close.")
 	if err := g.bpfManager.Stop(manager.CleanAll); err != nil {
-		return fmt.Errorf("couldn't stop manager %v ", err)
+		return fmt.Errorf("couldn't stop manager %w ", err)
 	}
 	return g.Module.Close()
 }

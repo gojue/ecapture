@@ -96,7 +96,7 @@ func (ep *EventProcessor) dispatch(e event.IEventStruct) error {
 	eWorker.Put() // never touch eWorker again
 	if err != nil {
 		//...
-		//ep.GetLogger().Write("write event failed , error:%v", err)
+		//ep.GetLogger().Write("write event failed , error:%w", err)
 		return err
 	}
 	return nil

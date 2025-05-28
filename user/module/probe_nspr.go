@@ -70,23 +70,23 @@ func (n *MNsprProbe) start() error {
 	byteBuf, err := assets.Asset(bpfFileName)
 	if err != nil {
 		n.logger.Error().Err(err).Strs("bytecode files", assets.AssetNames()).Msg("couldn't find bpf bytecode file")
-		return fmt.Errorf("couldn't find asset %v .", err)
+		return fmt.Errorf("couldn't find asset %w .", err)
 	}
 
 	// setup the managers
 	err = n.setupManagers()
 	if err != nil {
-		return fmt.Errorf("tls module couldn't find binPath %v ", err)
+		return fmt.Errorf("tls module couldn't find binPath %w ", err)
 	}
 
 	// initialize the bootstrap manager
 	if err = n.bpfManager.InitWithOptions(bytes.NewReader(byteBuf), n.bpfManagerOptions); err != nil {
-		return fmt.Errorf("couldn't init manager %v ", err)
+		return fmt.Errorf("couldn't init manager %w ", err)
 	}
 
 	// start the bootstrap manager
 	if err := n.bpfManager.Start(); err != nil {
-		return fmt.Errorf("couldn't start bootstrap manager %v ", err)
+		return fmt.Errorf("couldn't start bootstrap manager %w ", err)
 	}
 
 	// 加载map信息，map对应events decode表。
@@ -100,7 +100,7 @@ func (n *MNsprProbe) start() error {
 
 func (n *MNsprProbe) Close() error {
 	if err := n.bpfManager.Stop(manager.CleanAll); err != nil {
-		return fmt.Errorf("couldn't stop manager %v ", err)
+		return fmt.Errorf("couldn't stop manager %w ", err)
 	}
 	return n.Module.Close()
 }

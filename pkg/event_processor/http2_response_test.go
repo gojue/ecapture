@@ -15,6 +15,7 @@
 package event_processor
 
 import (
+	"errors"
 	"io"
 	"os"
 	"testing"
@@ -33,11 +34,11 @@ func TestHttp2ResponseParser(t *testing.T) {
 	h2r.Init()
 	err = h2r.detect(httpBody)
 	if err != nil {
-		t.Fatalf("TestHttp2ResponseParser: detect http response failed: %v", err)
+		t.Fatalf("TestHttp2ResponseParser: detect http response failed: %w", err)
 	}
 	i, err := h2r.Write(httpBody)
 	if err != nil {
-		t.Errorf("TestHttp2ResponseParser: write http response failed: %v", err)
+		t.Errorf("TestHttp2ResponseParser: write http response failed: %w", err)
 	}
 	t.Logf("TestHttp2ResponseParser: wrot body:%d", i)
 
@@ -46,8 +47,8 @@ func TestHttp2ResponseParser(t *testing.T) {
 	for {
 		f, err := h2r.framer.ReadFrame()
 		if err != nil {
-			if err != io.EOF {
-				t.Fatalf("[http2 response] read http2 response frame error:%v", err)
+			if !errors.Is(err, io.EOF) {
+				t.Fatalf("[http2 response] read http2 response frame error:%w", err)
 			}
 			break
 		}

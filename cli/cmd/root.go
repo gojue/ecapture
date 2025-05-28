@@ -252,7 +252,7 @@ func runModule(modName string, modConfig config.IConfig) {
 	go func() {
 		tags, url, e := upgradeCheck(ctx)
 		if e != nil {
-			logger.Debug().Msgf("upgrade check failed: %v", e)
+			logger.Debug().Msgf("upgrade check failed: %w", e)
 			return
 		}
 		logger.Warn().Msgf("A new version %s is available:%s", tags, url)
@@ -308,7 +308,7 @@ func runModule(modName string, modConfig config.IConfig) {
 		}
 		cancelFun()
 		// clean up
-		err = mod.Close()
+		mod.Close()
 		if err != nil {
 			logger.Warn().Err(err).Msg("module close failed")
 		}

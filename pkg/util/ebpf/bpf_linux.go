@@ -74,7 +74,7 @@ func GetSystemConfig() (map[string]string, error) {
 	}
 
 	if !found {
-		return nil, fmt.Errorf("KernelConfig not found. with error: %v", err)
+		return nil, fmt.Errorf("KernelConfig not found. with error: %w", err)
 	}
 	return KernelConfig, nil
 }

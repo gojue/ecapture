@@ -15,6 +15,7 @@
 package event_processor
 
 import (
+	"errors"
 	"io"
 	"os"
 	"testing"
@@ -33,24 +34,24 @@ func TestHttp2RequestParser(t *testing.T) {
 	h2r.Init()
 	err = h2r.detect(httpBody)
 	if err != nil {
-		t.Fatalf("TestHttp2RequestParser: detect http request failed: %v", err)
+		t.Fatalf("TestHttp2RequestParser: detect http request failed: %w", err)
 	}
 	i, e := h2r.Write(httpBody)
 	if e != nil {
-		t.Errorf("TestHttp2RequestParser: write http request failed: %v", e)
+		t.Errorf("TestHttp2RequestParser: write http request failed: %w", e)
 	}
 	t.Logf("TestHttp2RequestParser: wrot body:%d", i)
 
 	_, err = h2r.bufReader.Discard(ClientPrefaceLen)
 	if err != nil {
-		t.Logf("[http2 request] Discard HTTP2 Magic error:%v", err)
+		t.Logf("[http2 request] Discard HTTP2 Magic error:%w", err)
 	}
 	var frameTypes = make([]string, 0)
 	for {
 		f, err := h2r.framer.ReadFrame()
 		if err != nil {
-			if err != io.EOF {
-				t.Fatalf("[http2 response] read http2 response frame error:%v", err)
+			if !errors.Is(err, io.EOF) {
+				t.Fatalf("[http2 response] read http2 response frame error:%w", err)
 			}
 			break
 		}

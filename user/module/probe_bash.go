@@ -77,7 +77,7 @@ func (b *MBashProbe) start() error {
 
 	if err != nil {
 		b.logger.Error().Err(err).Strs("bytecode files", assets.AssetNames()).Msg("couldn't find bpf bytecode file")
-		return fmt.Errorf("couldn't find asset %v", err)
+		return fmt.Errorf("couldn't find asset %w", err)
 	}
 
 	// setup the managers
@@ -85,12 +85,12 @@ func (b *MBashProbe) start() error {
 
 	// initialize the bootstrap manager
 	if err = b.bpfManager.InitWithOptions(bytes.NewReader(byteBuf), b.bpfManagerOptions); err != nil {
-		return fmt.Errorf("couldn't init manager %v ", err)
+		return fmt.Errorf("couldn't init manager %w", err)
 	}
 
 	// start the bootstrap manager
 	if err = b.bpfManager.Start(); err != nil {
-		return fmt.Errorf("couldn't start bootstrap manager %v ", err)
+		return fmt.Errorf("couldn't start bootstrap manager %w", err)
 	}
 
 	// 加载map信息，map对应events decode表。
@@ -104,7 +104,7 @@ func (b *MBashProbe) start() error {
 
 func (b *MBashProbe) Close() error {
 	if err := b.bpfManager.Stop(manager.CleanAll); err != nil {
-		return fmt.Errorf("couldn't stop manager %v ", err)
+		return fmt.Errorf("couldn't stop manager %w", err)
 	}
 	return b.Module.Close()
 }

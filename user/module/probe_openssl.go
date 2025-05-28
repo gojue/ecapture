@@ -318,7 +318,7 @@ func (m *MOpenSSLProbe) start() error {
 	byteBuf, err := assets.Asset(bpfFileName)
 	if err != nil {
 		m.logger.Error().Err(err).Strs("bytecode files", assets.AssetNames()).Msg("couldn't find bpf bytecode file")
-		return fmt.Errorf("%s\tcouldn't find asset %v .", m.Name(), err)
+		return fmt.Errorf("%s\tcouldn't find asset %w .", m.Name(), err)
 	}
 
 	// initialize the bootstrap manager
@@ -327,12 +327,12 @@ func (m *MOpenSSLProbe) start() error {
 		if errors.As(err, &ve) {
 			m.logger.Error().Err(ve).Msg("couldn't verify bpf prog")
 		}
-		return fmt.Errorf("couldn't init manager xxx %v", err)
+		return fmt.Errorf("couldn't init manager xxx %w", err)
 	}
 
 	// start the bootstrap manager
 	if err = m.bpfManager.Start(); err != nil {
-		return fmt.Errorf("couldn't start bootstrap manager %v .", err)
+		return fmt.Errorf("couldn't start bootstrap manager %w .", err)
 	}
 
 	// 加载map信息，map对应events decode表。
@@ -357,7 +357,7 @@ func (m *MOpenSSLProbe) start() error {
 func (m *MOpenSSLProbe) Close() error {
 	m.logger.Info().Msg("module close.")
 	if err := m.bpfManager.Stop(manager.CleanAll); err != nil {
-		return fmt.Errorf("couldn't stop manager %v .", err)
+		return fmt.Errorf("couldn't stop manager %w .", err)
 	}
 	return m.Module.Close()
 }

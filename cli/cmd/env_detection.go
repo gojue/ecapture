@@ -26,7 +26,7 @@ func detectKernel() error {
 	// 系统内核版本检测
 	kv, err := kernel.HostVersion()
 	if err != nil {
-		return fmt.Errorf("failed to get the host kernel version: %v", err)
+		return fmt.Errorf("failed to get the host kernel version: %w", err)
 	}
 	switch runtime.GOARCH {
 	case "amd64":
@@ -49,7 +49,7 @@ func detectBpfCap() error {
 	var data [2]unix.CapUserData // why 2? pls check https://github.com/golang/go/issues/44312
 	err := unix.Capget(&hdr, &data[0])
 	if err != nil {
-		return fmt.Errorf("failed to get the capabilities of the current process: %v", err)
+		return fmt.Errorf("failed to get the capabilities of the current process: %w", err)
 	}
 
 	capBpfMask := uint32(1 << (unix.CAP_BPF - 32))

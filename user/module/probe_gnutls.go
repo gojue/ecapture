@@ -121,13 +121,13 @@ func (g *MGnutlsProbe) start() error {
 	err := g.detectGnutls()
 	if err != nil {
 		g.logger.Error().Err(err).Msg("detectGnutls failed")
-		return fmt.Errorf("detectGnutls failed: %v", err)
+		return fmt.Errorf("detectGnutls failed: %w", err)
 	}
 	// fetch ebpf assets
 	byteBuf, err := assets.Asset(g.sslBpfFile)
 	if err != nil {
 		g.logger.Error().Err(err).Strs("bytecode files", assets.AssetNames()).Msg("couldn't find bpf bytecode file")
-		return fmt.Errorf("couldn't find asset %v", err)
+		return fmt.Errorf("couldn't find asset %w", err)
 	}
 
 	// setup the managers
@@ -148,17 +148,17 @@ func (g *MGnutlsProbe) start() error {
 		err = g.setupManagersText()
 	}
 	if err != nil {
-		return fmt.Errorf("tls(gnutls) module couldn't find binPath %v", err)
+		return fmt.Errorf("tls(gnutls) module couldn't find binPath %w", err)
 	}
 
 	// initialize the bootstrap manager
 	if err = g.bpfManager.InitWithOptions(bytes.NewReader(byteBuf), g.bpfManagerOptions); err != nil {
-		return fmt.Errorf("couldn't init manager %v", err)
+		return fmt.Errorf("couldn't init manager %w", err)
 	}
 
 	// start the bootstrap manager
 	if err = g.bpfManager.Start(); err != nil {
-		return fmt.Errorf("couldn't start bootstrap manager %v", err)
+		return fmt.Errorf("couldn't start bootstrap manager %w", err)
 	}
 
 	// 加载map信息，map对应events decode表。
@@ -181,7 +181,7 @@ func (g *MGnutlsProbe) start() error {
 
 func (g *MGnutlsProbe) Close() error {
 	if err := g.bpfManager.Stop(manager.CleanAll); err != nil {
-		return fmt.Errorf("couldn't stop manager %v", err)
+		return fmt.Errorf("couldn't stop manager %w", err)
 	}
 	return g.Module.Close()
 }

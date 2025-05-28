@@ -229,7 +229,7 @@ func (m *Module) Run() error {
 	go func() {
 		err := m.processor.Serve()
 		if err != nil {
-			m.errChan <- fmt.Errorf("%s\tprocessor.Serve error:%v.", m.child.Name(), err)
+			m.errChan <- fmt.Errorf("%s\tprocessor.Serve error:%w", m.child.Name(), err)
 			return
 		}
 	}()
@@ -290,7 +290,7 @@ func (m *Module) perfEventReader(errChan chan error, em *ebpf.Map) {
 	m.logger.Info().Int("mapSize(MB)", m.conf.GetPerCpuMapSize()/1024/1024).Msg("perfEventReader created")
 	rd, err := perf.NewReader(em, m.conf.GetPerCpuMapSize())
 	if err != nil {
-		errChan <- fmt.Errorf("creating %s reader dns: %s", em.String(), err)
+		errChan <- fmt.Errorf("creating %s reader dns: %s", em.String(), err.Error())
 		return
 	}
 	m.reader = append(m.reader, rd)
@@ -309,7 +309,7 @@ func (m *Module) perfEventReader(errChan chan error, em *ebpf.Map) {
 				if errors.Is(err, perf.ErrClosed) {
 					return
 				}
-				errChan <- fmt.Errorf("%s\treading from perf event reader: %s", m.child.Name(), err)
+				errChan <- fmt.Errorf("%s\treading from perf event reader: %s", m.child.Name(), err.Error())
 				return
 			}
 
@@ -334,7 +334,7 @@ func (m *Module) perfEventReader(errChan chan error, em *ebpf.Map) {
 func (m *Module) ringbufEventReader(errChan chan error, em *ebpf.Map) {
 	rd, err := ringbuf.NewReader(em)
 	if err != nil {
-		errChan <- fmt.Errorf("%s\tcreating %s reader dns: %s", m.child.Name(), em.String(), err)
+		errChan <- fmt.Errorf("%s\tcreating %s reader dns: %s", m.child.Name(), em.String(), err.Error())
 		return
 	}
 	m.reader = append(m.reader, rd)
@@ -354,7 +354,7 @@ func (m *Module) ringbufEventReader(errChan chan error, em *ebpf.Map) {
 					m.logger.Warn().Msg("ringbufEventReader received close signal from ringbuf reader.")
 					return
 				}
-				errChan <- fmt.Errorf("%s\treading from ringbuf reader: %s", m.child.Name(), err)
+				errChan <- fmt.Errorf("%s\treading from ringbuf reader: %s", m.child.Name(), err.Error())
 				return
 			}
 

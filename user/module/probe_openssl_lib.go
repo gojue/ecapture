@@ -174,11 +174,11 @@ func (m *MOpenSSLProbe) initOpensslOffset() {
 func (m *MOpenSSLProbe) detectOpenssl(soPath string) (string, error) {
 	f, err := os.OpenFile(soPath, os.O_RDONLY, os.ModePerm)
 	if err != nil {
-		return "", fmt.Errorf("can not open %s, with error:%v", soPath, err)
+		return "", fmt.Errorf("can not open %s, with error:%w", soPath, err)
 	}
 	r, e := elf.NewFile(f)
 	if e != nil {
-		return "", fmt.Errorf("parse the ELF file  %s failed, with error:%v", soPath, err)
+		return "", fmt.Errorf("parse the ELF file  %s failed, with error:%w", soPath, err)
 	}
 
 	switch r.FileHeader.Machine {
@@ -305,12 +305,12 @@ func getImpNeeded(soPath string) ([]string, error) {
 	var importedNeeded []string
 	f, err := os.OpenFile(soPath, os.O_RDONLY, os.ModePerm)
 	if err != nil {
-		return importedNeeded, fmt.Errorf("can not open %s, with error:%v", soPath, err)
+		return importedNeeded, fmt.Errorf("can not open %s, with error:%w", soPath, err)
 	}
 
 	elfFile, err := elf.NewFile(f)
 	if err != nil {
-		return importedNeeded, fmt.Errorf("parse the ELF file  %s failed, with error:%v", soPath, err)
+		return importedNeeded, fmt.Errorf("parse the ELF file  %s failed, with error:%w", soPath, err)
 	}
 
 	// 打印外部依赖的动态链接库

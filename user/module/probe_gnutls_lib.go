@@ -30,12 +30,12 @@ const GnuTLSVersionLen = 32
 func readelf(binaryPath string) (string, error) {
 	f, err := os.OpenFile(binaryPath, os.O_RDONLY, os.ModePerm)
 	if err != nil {
-		return "", fmt.Errorf("can not open %s, with error: %v", binaryPath, err)
+		return "", fmt.Errorf("can not open %s, with error: %w", binaryPath, err)
 	}
 	defer func() { _ = f.Close() }()
 	r, err := elf.NewFile(f)
 	if err != nil {
-		return "", fmt.Errorf("parse the ELF file %s failed, with error: %v", binaryPath, err)
+		return "", fmt.Errorf("parse the ELF file %s failed, with error: %w", binaryPath, err)
 	}
 	defer func() { _ = r.Close() }()
 
