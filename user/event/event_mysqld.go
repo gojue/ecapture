@@ -44,9 +44,9 @@ const (
 	DispatchCommandWouldblock      = 2
 )
 
-type dispatch_command_return int8
+type dispatchCommandReturn int8
 
-func (d dispatch_command_return) String() string {
+func (d dispatchCommandReturn) String() string {
 	var retStr string
 	switch d {
 	case DispatchCommandCloseConnection:
@@ -71,7 +71,7 @@ type MysqldEvent struct {
 	Alllen    uint64                   `json:"Alllen"`
 	Len       uint64                   `json:"Len"`
 	Comm      [16]uint8                `json:"Comm"`
-	Retval    dispatch_command_return  `json:"retval"`
+	Retval    dispatchCommandReturn    `json:"retval"`
 }
 
 func (me *MysqldEvent) Decode(payload []byte) (err error) {
@@ -107,12 +107,12 @@ func (me *MysqldEvent) Decode(payload []byte) (err error) {
 }
 
 func (me *MysqldEvent) String() string {
-	s := fmt.Sprintf(" PID:%d, Comm:%s, Time:%d,  length:(%d/%d),  return:%s, Line:%s", me.Pid, me.Comm, me.Timestamp, me.Len, me.Alllen, me.Retval, unix.ByteSliceToString((me.Query[:])))
+	s := fmt.Sprintf(" PID:%d, Comm:%s, Time:%d,  length:(%d/%d),  return:%s, Line:%s", me.Pid, me.Comm, me.Timestamp, me.Len, me.Alllen, me.Retval, unix.ByteSliceToString(me.Query[:]))
 	return s
 }
 
 func (me *MysqldEvent) StringHex() string {
-	s := fmt.Sprintf(" PID:%d, Comm:%s, Time:%d,  length:(%d/%d),  return:%s, Line:%s", me.Pid, me.Comm, me.Timestamp, me.Len, me.Alllen, me.Retval, unix.ByteSliceToString((me.Query[:])))
+	s := fmt.Sprintf(" PID:%d, Comm:%s, Time:%d,  length:(%d/%d),  return:%s, Line:%s", me.Pid, me.Comm, me.Timestamp, me.Len, me.Alllen, me.Retval, unix.ByteSliceToString(me.Query[:]))
 	return s
 }
 

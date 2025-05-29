@@ -21,15 +21,18 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/gojue/ecapture/assets"
-	"github.com/gojue/ecapture/user/config"
-	"github.com/gojue/ecapture/user/event"
-	"github.com/rs/zerolog"
 	"io"
 	"math"
 	"os"
 
+	"github.com/rs/zerolog"
+
+	"github.com/gojue/ecapture/assets"
+	"github.com/gojue/ecapture/user/config"
+	"github.com/gojue/ecapture/user/event"
+
 	"errors"
+
 	"github.com/cilium/ebpf"
 	manager "github.com/gojue/ebpfmanager"
 	"golang.org/x/sys/unix"
@@ -78,17 +81,17 @@ func (p *MPostgresProbe) start() error {
 	// setup the managers
 	err = p.setupManagers()
 	if err != nil {
-		return fmt.Errorf("postgres module couldn't find binPath %v.", err)
+		return fmt.Errorf("postgres module couldn't find binPath %w", err)
 	}
 
 	// initialize the bootstrap manager
 	if err := p.bpfManager.InitWithOptions(bytes.NewReader(byteBuf), p.bpfManagerOptions); err != nil {
-		return fmt.Errorf("couldn't init manager %v.", err)
+		return fmt.Errorf("couldn't init manager %w", err)
 	}
 
 	// start the bootstrap manager
 	if err := p.bpfManager.Start(); err != nil {
-		return fmt.Errorf("couldn't start bootstrap manager %v.", err)
+		return fmt.Errorf("couldn't start bootstrap manager %w", err)
 	}
 
 	// 加载map信息，map对应events decode表。
@@ -102,7 +105,7 @@ func (p *MPostgresProbe) start() error {
 
 func (p *MPostgresProbe) Close() error {
 	if err := p.bpfManager.Stop(manager.CleanAll); err != nil {
-		return fmt.Errorf("couldn't stop manager %v.", err)
+		return fmt.Errorf("couldn't stop manager %w", err)
 	}
 	return p.Module.Close()
 }
@@ -141,7 +144,7 @@ func (p *MPostgresProbe) setupManagers() error {
 
 		VerifierOptions: ebpf.CollectionOptions{
 			Programs: ebpf.ProgramOptions{
-				LogSize: 2097152,
+				LogSizeStart: 2097152,
 			},
 		},
 

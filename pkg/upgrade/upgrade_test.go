@@ -17,10 +17,11 @@ package upgrade
 import (
 	"context"
 	"fmt"
-	"golang.org/x/sys/unix"
 	"regexp"
 	"strings"
 	"testing"
+
+	"golang.org/x/sys/unix"
 )
 
 const urlReleases = "https://api.github.com/repos/gojue"
@@ -33,7 +34,7 @@ func TestCheckLatest(t *testing.T) {
 	// 调用 uname 系统调用
 	err := unix.Uname(&uname)
 	if err != nil {
-		t.Logf("Upgrader: Error getting uname: %v", err)
+		t.Logf("Upgrader: Error getting uname: %s", err.Error())
 		return
 	}
 
@@ -66,13 +67,13 @@ func TestCheckLatest(t *testing.T) {
 
 	githubResp, err := GetLatestVersion(useragent, fmt.Sprintf("%s%s?ver=%s", urlReleasesCN, apiReleases, ver), context.Background())
 	if err != nil {
-		t.Fatalf("Error getting latest version: %v", err)
+		t.Fatalf("Error getting latest version: %s", err.Error())
 	}
 
 	t.Logf("Latest version: %v", githubResp.TagName)
 	comp, err := CheckVersion(verMatch[2], githubResp.TagName)
 	if err != nil {
-		t.Fatalf("Error checking version: %v", err)
+		t.Fatalf("Error checking version: %s", err.Error())
 	}
 	t.Logf("Version comparison: %v", comp)
 

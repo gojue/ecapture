@@ -41,11 +41,11 @@ type HTTP2Request struct {
 func (h2r *HTTP2Request) detect(payload []byte) error {
 	payloadLen := len(payload)
 	if payloadLen < ClientPrefaceLen {
-		return errors.New("Payload less than http2 ClientPreface")
+		return errors.New("payload less than http2 ClientPreface")
 	}
 	data := string(payload[0:ClientPrefaceLen])
 	if data != http2.ClientPreface {
-		return errors.New("Not match http2 ClientPreface")
+		return errors.New("not match http2 ClientPreface")
 	}
 	return nil
 }
@@ -97,7 +97,7 @@ func (h2r *HTTP2Request) Display() []byte {
 	for {
 		f, err := h2r.framer.ReadFrame()
 		if err != nil {
-			if err != io.EOF {
+			if !errors.Is(err, io.EOF) {
 				log.Println("[http2 request] Dump HTTP2 Frame error:", err)
 			}
 			break
@@ -154,7 +154,7 @@ func (h2r *HTTP2Request) Display() []byte {
 				log.Println("[http2 request] Create gzip reader error:", err)
 				continue
 			}
-			defer reader.Close()
+			defer func() { _ = reader.Close() }()
 			payload, err = io.ReadAll(reader)
 			if err != nil {
 				log.Println("[http2 request] Uncompress gzip data error:", err)

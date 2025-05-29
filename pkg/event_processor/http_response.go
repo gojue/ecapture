@@ -18,14 +18,12 @@ import (
 	"bufio"
 	"bytes"
 	"compress/gzip"
+	"errors"
 	"io"
 	"log"
 	"net/http"
 	"net/http/httputil"
 )
-
-// length of \r\n\r\n
-const HTTP_NEW_LINE_LENGTH = 4
 
 type HTTPResponse struct {
 	response     *http.Response
@@ -117,10 +115,10 @@ func (hr *HTTPResponse) Reset() {
 func (hr *HTTPResponse) Display() []byte {
 	rawData, err := io.ReadAll(hr.response.Body)
 	rawLength := int64(len(rawData))
-	switch err {
-	case nil:
+	switch {
+	case err == nil:
 		// Passed
-	case io.ErrUnexpectedEOF:
+	case errors.Is(err, io.ErrUnexpectedEOF):
 		// If the server declared the Content-Length, Body is a LimitedReader
 		// Raw data length smaller than "Content-Length" will cause UnexpectedEOF error
 		// e.g. Head Method response with "Content-Length" header, raw data length is 0
@@ -153,7 +151,7 @@ func (hr *HTTPResponse) Display() []byte {
 		// gzip uncompressed success
 		// hr.response.ContentLength = int64(len(raw))
 		hr.packerType = PacketTypeGzip
-		defer reader.Close()
+		defer func() { _ = reader.Close() }()
 	default:
 		//reader = hr.response.Body
 		hr.packerType = PacketTypeNull

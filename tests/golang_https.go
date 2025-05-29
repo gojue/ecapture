@@ -24,7 +24,7 @@ func main() {
 	if e == nil {
 		fmt.Printf("response body: %s\n\n", b)
 	} else {
-		fmt.Printf("error :%v", e)
+		fmt.Printf("error :%s", e.Error())
 	}
 }
 
@@ -33,7 +33,7 @@ func GetHttp(url string) (body []byte, err error) {
 	if err != nil {
 		panic(err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	c := &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true, KeyLogWriter: f},
@@ -43,7 +43,7 @@ func GetHttp(url string) (body []byte, err error) {
 		return nil, e
 	}
 
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	body, err = io.ReadAll(resp.Body)
 	return body, err
 }

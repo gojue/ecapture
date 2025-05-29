@@ -19,9 +19,10 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/gojue/ecapture/user/event"
 	"sync/atomic"
 	"time"
+
+	"github.com/gojue/ecapture/user/event"
 )
 
 type IWorker interface {
@@ -140,6 +141,7 @@ func (ew *eventWorker) writeEvent(e event.IEventStruct) {
 	//terminal write when reach the truncate size
 	if tsize > 0 && ew.payload.Len() >= tsize {
 		ew.payload.Truncate(tsize)
+		_ = ew.writeToChan(fmt.Sprintf("Events truncated, size: %d bytes\n", tsize))
 		return
 	}
 
@@ -153,7 +155,7 @@ func (ew *eventWorker) parserEvents() []byte {
 	ew.parser = parser
 	n, e := ew.parser.Write(ew.payload.Bytes())
 	if e != nil {
-		_ = ew.writeToChan(fmt.Sprintf("ew.parser write payload %d bytes, error:%v", n, e))
+		_ = ew.writeToChan(fmt.Sprintf("ew.parser write payload %d bytes, error:%s", n, e.Error()))
 	}
 	ew.status = ProcessStateDone
 	return ew.parser.Display()

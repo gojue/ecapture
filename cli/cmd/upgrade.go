@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/gojue/ecapture/pkg/upgrade"
-	"golang.org/x/sys/unix"
 	"regexp"
 	"strings"
+
+	"golang.org/x/sys/unix"
+
+	"github.com/gojue/ecapture/pkg/upgrade"
 )
 
 const urlReleases = "https://api.github.com/repos/gojue"
@@ -25,7 +27,7 @@ func upgradeCheck(ctx context.Context) (string, string, error) {
 	var uname unix.Utsname
 	err := unix.Uname(&uname)
 	if err != nil {
-		return "", "", fmt.Errorf("Error getting uname: %v", err)
+		return "", "", fmt.Errorf("error getting uname: %w", err)
 	}
 	var useragent = fmt.Sprintf("eCapture Cli (%s %s %s)",
 		byteToString(uname.Sysname[:]), // 系统名称
@@ -47,12 +49,12 @@ func upgradeCheck(ctx context.Context) (string, string, error) {
 	}
 	githubResp, err := upgrade.GetLatestVersion(useragent, fmt.Sprintf("%s%s?ver=%s", urlReleasesCN, apiReleases, GitVersion), ctx)
 	if err != nil {
-		return "", "", fmt.Errorf("error getting latest version: %v", err)
+		return "", "", fmt.Errorf("error getting latest version: %w", err)
 	}
 
 	comp, err := upgrade.CheckVersion(verMatch[2], githubResp.TagName)
 	if err != nil {
-		return "", "", fmt.Errorf("error checking version: %v", err)
+		return "", "", fmt.Errorf("error checking version: %w", err)
 	}
 
 	if comp >= 0 {

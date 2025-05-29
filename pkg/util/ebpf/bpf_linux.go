@@ -54,10 +54,10 @@ func GetSystemConfig() (map[string]string, error) {
 	}
 
 	var err error
-	for _, system_config_path := range configPaths {
-		var bootConf = system_config_path
-		if strings.Index(system_config_path, "%s") != -1 {
-			bootConf = fmt.Sprintf(system_config_path, i.Release)
+	for _, systemConfigPath := range configPaths {
+		var bootConf = systemConfigPath
+		if strings.Contains(systemConfigPath, "%s") {
+			bootConf = fmt.Sprintf(systemConfigPath, i.Release)
 		}
 
 		KernelConfig, e = getLinuxConfig(bootConf)
@@ -74,7 +74,7 @@ func GetSystemConfig() (map[string]string, error) {
 	}
 
 	if !found {
-		return nil, fmt.Errorf("KernelConfig not found. with error: %v", err)
+		return nil, fmt.Errorf("KernelConfig not found. with error: %w", err)
 	}
 	return KernelConfig, nil
 }
@@ -87,7 +87,7 @@ func getLinuxConfig(filename string) (map[string]string, error) {
 	if err != nil {
 		return KernelConfig, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	// check if the file is gzipped
 	var magic []byte

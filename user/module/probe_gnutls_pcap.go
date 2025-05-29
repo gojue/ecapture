@@ -22,9 +22,10 @@ import (
 
 	"github.com/cilium/ebpf"
 	manager "github.com/gojue/ebpfmanager"
+	"golang.org/x/sys/unix"
+
 	"github.com/gojue/ecapture/user/config"
 	"github.com/gojue/ecapture/user/event"
-	"golang.org/x/sys/unix"
 )
 
 func (m *MGnutlsProbe) setupManagersPcap() error {
@@ -33,7 +34,7 @@ func (m *MGnutlsProbe) setupManagersPcap() error {
 	m.ifName = ifname
 	interf, err := net.InterfaceByName(m.ifName)
 	if err != nil {
-		return fmt.Errorf("InterfaceByName: %s , failed: %v", m.ifName, err)
+		return fmt.Errorf("InterfaceByName: %s , failed: %w", m.ifName, err)
 	}
 
 	m.ifIdex = interf.Index
@@ -116,7 +117,7 @@ func (m *MGnutlsProbe) setupManagersPcap() error {
 
 		VerifierOptions: ebpf.CollectionOptions{
 			Programs: ebpf.ProgramOptions{
-				LogSize: 2097152,
+				LogSizeStart: 2097152,
 			},
 		},
 

@@ -50,7 +50,7 @@ func getAndroidConfig(filename string) (map[string]string, error) {
 	if err != nil {
 		return KernelConfig, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	// check if the file is gzipped
 	var magic []byte

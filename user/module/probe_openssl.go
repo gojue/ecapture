@@ -206,7 +206,7 @@ func (m *MOpenSSLProbe) getSslBpfFile(soPath, sslVersion string) error {
 		}
 	}
 
-	err, verString := m.detectOpenssl(soPath)
+	verString, err := m.detectOpenssl(soPath)
 
 	if err != nil && !errors.Is(err, ErrProbeOpensslVerNotFound) {
 		m.logger.Error().Str("soPath", soPath).Err(err).Msg("OpenSSL/BoringSSL version check failed")
@@ -234,7 +234,7 @@ func (m *MOpenSSLProbe) getSslBpfFile(soPath, sslVersion string) error {
 			}
 			soPath = strings.Replace(soPath, "libssl.so.3", libcryptoName, 1)
 			m.logger.Info().Str("soPath", soPath).Str("imported", libcryptoName).Msg("Try to detect imported libcrypto.so ")
-			err, verString = m.detectOpenssl(soPath)
+			verString, err = m.detectOpenssl(soPath)
 			if err != nil && !errors.Is(err, ErrProbeOpensslVerNotFound) {
 				m.logger.Warn().Err(err).Str("soPath", soPath).Str("imported", libcryptoName).Msgf("OpenSSL(libcrypto.so.3) version not found.%s", fmt.Sprintf(OpensslNoticeUsedDefault, OpensslNoticeVersionGuideLinux))
 				return err
@@ -318,7 +318,7 @@ func (m *MOpenSSLProbe) start() error {
 	byteBuf, err := assets.Asset(bpfFileName)
 	if err != nil {
 		m.logger.Error().Err(err).Strs("bytecode files", assets.AssetNames()).Msg("couldn't find bpf bytecode file")
-		return fmt.Errorf("%s\tcouldn't find asset %v .", m.Name(), err)
+		return fmt.Errorf("%s\tcouldn't find asset %w .", m.Name(), err)
 	}
 
 	// initialize the bootstrap manager
@@ -327,12 +327,12 @@ func (m *MOpenSSLProbe) start() error {
 		if errors.As(err, &ve) {
 			m.logger.Error().Err(ve).Msg("couldn't verify bpf prog")
 		}
-		return fmt.Errorf("couldn't init manager xxx %v", err)
+		return fmt.Errorf("couldn't init manager xxx %w", err)
 	}
 
 	// start the bootstrap manager
 	if err = m.bpfManager.Start(); err != nil {
-		return fmt.Errorf("couldn't start bootstrap manager %v .", err)
+		return fmt.Errorf("couldn't start bootstrap manager %w .", err)
 	}
 
 	// 加载map信息，map对应events decode表。
@@ -357,7 +357,7 @@ func (m *MOpenSSLProbe) start() error {
 func (m *MOpenSSLProbe) Close() error {
 	m.logger.Info().Msg("module close.")
 	if err := m.bpfManager.Stop(manager.CleanAll); err != nil {
-		return fmt.Errorf("couldn't stop manager %v .", err)
+		return fmt.Errorf("couldn't stop manager %w .", err)
 	}
 	return m.Module.Close()
 }
@@ -461,7 +461,6 @@ func (m *MOpenSSLProbe) DelConn(sock uint64) {
 	time.AfterFunc(3*time.Second, func() {
 		m.DestroyConn(sock)
 	})
-	return
 }
 
 func (m *MOpenSSLProbe) GetConn(pid, fd uint32) string {

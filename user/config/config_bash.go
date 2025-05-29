@@ -53,7 +53,7 @@ func (bc *BashConfig) Check() error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	symbols, err := file.DynamicSymbols()
 	if err != nil {
@@ -108,9 +108,8 @@ func (bc *BashConfig) checkElf() error {
 			bc.Bashpath = soPath
 			bc.ElfType = ElfTypeSo
 		}
-
 	} else {
-		return errors.New("cant found $SHELL path.")
+		return errors.New("cant found $SHELL path")
 	}
 	return nil
 }

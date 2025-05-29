@@ -25,12 +25,13 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/rs/zerolog"
+	"github.com/spf13/cobra"
+
 	"github.com/gojue/ecapture/cli/cobrautl"
 	"github.com/gojue/ecapture/cli/http"
 	"github.com/gojue/ecapture/user/config"
 	"github.com/gojue/ecapture/user/module"
-	"github.com/rs/zerolog"
-	"github.com/spf13/cobra"
 )
 
 const (
@@ -252,7 +253,7 @@ func runModule(modName string, modConfig config.IConfig) {
 	go func() {
 		tags, url, e := upgradeCheck(ctx)
 		if e != nil {
-			logger.Debug().Msgf("upgrade check failed: %v", e)
+			logger.Debug().Msgf("upgrade check failed: %s", e.Error())
 			return
 		}
 		logger.Warn().Msgf("A new version %s is available:%s", tags, url)
