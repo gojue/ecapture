@@ -26,10 +26,10 @@ import (
 
 type HttpServer struct {
 	//
-	loadTime   int64       // 加载时间，防止短时间内多次加载
-	loadStat   int8        // 加载状态，重启完成后，进行再次加载
-	ModuleType string      //当前加载模块
-	modConfig  interface{} //模块配置
+	loadTime   int64  // 加载时间，防止短时间内多次加载
+	loadStat   int8   // 加载状态，重启完成后，进行再次加载
+	ModuleType string //当前加载模块
+	modConfig  any    //模块配置
 	confChan   chan config.IConfig
 	ge         *gin.Engine
 	addr       string

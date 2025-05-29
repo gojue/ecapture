@@ -70,7 +70,7 @@ func CheckVersion(localVer, remoteVer string) (int, error) {
 }
 
 // makeGithubRequest 执行一个 HTTP GET 请求到 GitHub API
-func makeGithubRequest(ctx context.Context, ua, url string, output interface{}) error {
+func makeGithubRequest(ctx context.Context, ua, url string, output any) error {
 	transport := &http.Transport{Proxy: http.ProxyFromEnvironment}
 
 	client := &http.Client{
