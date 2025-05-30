@@ -149,11 +149,12 @@ func (t *MTCProbe) writePid(tcEvent *event.TcSkbEvent) ([]byte, error) {
 
 // save pcapng file ,merge master key into pcapng file TODO
 func (t *MTCProbe) savePcapng() (i int, err error) {
-	err = t.pcapWriter.WriteDecryptionSecretsBlock(pcapgo.DSB_SECRETS_TYPE_TLS, t.masterKeyBuffer.Bytes())
-	if err != nil {
-		return
+	if t.masterKeyBuffer.Len() > 0 {
+		err = t.pcapWriter.WriteDecryptionSecretsBlock(pcapgo.DSB_SECRETS_TYPE_TLS, t.masterKeyBuffer.Bytes())
+		if err != nil {
+			return
+		}
 	}
-
 	// reset master key buffer, fix issue #542
 	t.masterKeyBuffer.Reset()
 	t.tcPacketLocker.Lock()
