@@ -22,9 +22,10 @@ import (
 
 	"github.com/cilium/ebpf"
 	manager "github.com/gojue/ebpfmanager"
+	"golang.org/x/sys/unix"
+
 	"github.com/gojue/ecapture/user/config"
 	"github.com/gojue/ecapture/user/event"
-	"golang.org/x/sys/unix"
 )
 
 // gnutls_mac_algorithm_t: https://github.com/gnutls/gnutls/blob/master/lib/includes/gnutls/gnutls.h.in#L365
@@ -80,7 +81,7 @@ func (g *MGnutlsProbe) setupManagersKeylog() error {
 		DefaultKProbeMaxActive: 512,
 		VerifierOptions: ebpf.CollectionOptions{
 			Programs: ebpf.ProgramOptions{
-				LogSize: 2097152,
+				LogSizeStart: 2097152,
 			},
 		},
 
@@ -107,9 +108,7 @@ func (m *MGnutlsProbe) initDecodeFunKeylog() error {
 	}
 	m.eventMaps = append(m.eventMaps, MasterkeyEventsMap)
 
-	var masterkeyEvent event.IEventStruct
-
-	masterkeyEvent = &event.MasterSecretGnutlsEvent{}
+	var masterkeyEvent = &event.MasterSecretGnutlsEvent{}
 
 	m.eventFuncMaps[MasterkeyEventsMap] = masterkeyEvent
 	return nil
@@ -141,22 +140,23 @@ func (g *MGnutlsProbe) saveMasterSecret(secretEvent *event.MasterSecretGnutlsEve
 			length = 32
 		}
 		chSecret := secretEvent.ClientHandshakeSecret[0:length]
-		buf.WriteString(fmt.Sprintf("%s %s %02x\n", "CLIENT_HANDSHAKE_TRAFFIC_SECRET", clientRandomHex, chSecret))
+		_, _ = fmt.Fprintf(buf, "%s %s %02x\n", "CLIENT_HANDSHAKE_TRAFFIC_SECRET", clientRandomHex, chSecret)
 		shSecret := secretEvent.ServerHandshakeSecret[0:length]
 		buf.WriteString(fmt.Sprintf("%s %s %02x\n", "SERVER_HANDSHAKE_TRAFFIC_SECRET", clientRandomHex, shSecret))
+		_, _ = fmt.Fprintf(buf, "%s %s %02x\n", "SERVER_HANDSHAKE_TRAFFIC_SECRET", clientRandomHex, shSecret)
 		emSecret := secretEvent.ExporterMasterSecret[0:length]
-		buf.WriteString(fmt.Sprintf("%s %s %02x\n", "EXPORTER_SECRET", clientRandomHex, emSecret))
+		_, _ = fmt.Fprintf(buf, "%s %s %02x\n", "EXPORTER_SECRET", clientRandomHex, emSecret)
 		ctSecret := secretEvent.ClientTrafficSecret[0:length]
-		buf.WriteString(fmt.Sprintf("%s %s %02x\n", "CLIENT_TRAFFIC_SECRET_0", clientRandomHex, ctSecret))
+		_, _ = fmt.Fprintf(buf, "%s %s %02x\n", "CLIENT_TRAFFIC_SECRET_0", clientRandomHex, ctSecret)
 		stSecret := secretEvent.ServerTrafficSecret[0:length]
-		buf.WriteString(fmt.Sprintf("%s %s %02x\n", "SERVER_TRAFFIC_SECRET_0", clientRandomHex, stSecret))
+		_, _ = fmt.Fprintf(buf, "%s %s %02x\n", "SERVER_TRAFFIC_SECRET_0", clientRandomHex, stSecret)
 	// tls1.2
 	case GnutlsTls12:
 		fallthrough
 	// tls1.1, tls1.0, ssl3.0, dtls 1.0 and dtls 1.2
 	default:
 		masterSecret := secretEvent.MasterSecret[0:event.GnutlsMasterSize]
-		buf.WriteString(fmt.Sprintf("%s %s %02x\n", "CLIENT_RANDOM", clientRandomHex, masterSecret))
+		_, _ = fmt.Fprintf(buf, "%s %s %02x\n", "CLIENT_RANDOM", clientRandomHex, masterSecret)
 	}
 
 	var e error

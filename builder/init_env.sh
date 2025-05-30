@@ -60,7 +60,7 @@ if [[ ${UNAME_M} =~ "x86_64" ]];then
     echo "unsupported arch ${UNAME_M}";
 fi
 
-GOBIN_ZIP="go1.22.10.linux-${ARCH}.tar.gz"
+GOBIN_ZIP="go1.24.3.linux-${ARCH}.tar.gz"
 echo "GOBIN_ZIP:${GOBIN_ZIP}"
 
 

@@ -16,9 +16,10 @@ package event_processor
 
 import (
 	"fmt"
-	"github.com/gojue/ecapture/user/event"
 	"io"
 	"sync"
+
+	"github.com/gojue/ecapture/user/event"
 )
 
 const (
@@ -95,7 +96,7 @@ func (ep *EventProcessor) dispatch(e event.IEventStruct) error {
 	eWorker.Put() // never touch eWorker again
 	if err != nil {
 		//...
-		//ep.GetLogger().Write("write event failed , error:%v", err)
+		//ep.GetLogger().Write("write event failed , error:%w", err)
 		return err
 	}
 	return nil
@@ -141,6 +142,8 @@ func (ep *EventProcessor) Write(e event.IEventStruct) {
 	select {
 	case ep.incoming <- e:
 		return
+	default:
+		// 如果队列满了，丢弃事件
 	}
 }
 

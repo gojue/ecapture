@@ -20,9 +20,10 @@ package cmd
 import (
 	"strings"
 
+	"github.com/spf13/cobra"
+
 	"github.com/gojue/ecapture/user/config"
 	"github.com/gojue/ecapture/user/module"
-	"github.com/spf13/cobra"
 )
 
 var gc = config.NewGnutlsConfig()

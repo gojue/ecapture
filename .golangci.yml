@@ -1,0 +1,77 @@
+# This configuration file is not a recommendation.
+#
+# We intentionally use a limited set of linters.
+# This configuration file is used with different version of golangci-lint to avoid regressions:
+# the linters can change between version,
+# their configuration may be not compatible or their reports can be different,
+# and this can break some of our tests.
+# Also, some linters are not relevant for the project (e.g. linters related to SQL).
+#
+# We have specific constraints, so we use a specific configuration.
+#
+# See the file `.golangci.reference.yml` to have a list of all available configuration options.
+
+version: "2"
+
+linters:
+  default: none
+  # This list of linters is not a recommendation (same thing for all this configuration file).
+  # We intentionally use a limited set of linters.
+  # See the comment on top of this file.
+  enable:
+    - errcheck
+    - staticcheck
+    - errorlint
+
+  settings:
+    errorlint:
+      asserts: false
+    staticcheck:
+      checks:
+        # Invalid regular expression.
+        # https://staticcheck.dev/docs/checks/#SA1000
+        - all
+        - "-ST1000"
+        - "-ST1005"
+        - "-ST1003"
+        - "-ST1021"
+        - "-ST1023"
+        - "-QF1012"
+        - "-QF1008"
+        - "-S1005"
+        - "-S1021"
+        - "-S1025"
+        - "-ST1020"
+        - "-ST1016"
+        - "-ST1022"
+        - "-QF1011"
+        - "-S1034"
+        - "-S1023"
+        - "-SA4031"
+        - "-S1000"
+
+  exclusions:
+    paths:
+      - test/
+      - tests/
+      - bin/
+      - utils/
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    gofmt:
+      rewrite-rules:
+        - pattern: 'interface{}'
+          replacement: 'any'
+    goimports:
+      local-prefixes:
+        - github.com/gojue/ecapture
+  exclusions:
+    paths:
+      - test/
+      - tests/
+      - bin/
+      - utils/

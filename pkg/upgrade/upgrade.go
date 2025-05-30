@@ -69,7 +69,8 @@ func CheckVersion(localVer, remoteVer string) (int, error) {
 	return comparison, nil
 }
 
-func makeGithubRequest(ctx context.Context, ua, url string, output interface{}) error {
+// makeGithubRequest 执行一个 HTTP GET 请求到 GitHub API
+func makeGithubRequest(ctx context.Context, ua, url string, output any) error {
 	transport := &http.Transport{Proxy: http.ProxyFromEnvironment}
 
 	client := &http.Client{
@@ -92,7 +93,7 @@ func makeGithubRequest(ctx context.Context, ua, url string, output interface{}) 
 		return fmt.Errorf("API request failed, statusCOde: %s", response.Status)
 	}
 
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	data, err := io.ReadAll(response.Body)
 	if err != nil {

@@ -48,7 +48,8 @@ func dumpByteSlice(b []byte, perfix string) *bytes.Buffer {
 		// 序号列
 		if i%ChunkSize == 0 {
 			bb.WriteString(perfix)
-			bb.WriteString(fmt.Sprintf("%04d", i))
+			//bb.WriteString(fmt.Sprintf("%04d", i))
+			_, _ = fmt.Fprintf(bb, "%04d", i)
 		}
 
 		// 长度的一半，则输出4个空格
@@ -59,7 +60,8 @@ func dumpByteSlice(b []byte, perfix string) *bytes.Buffer {
 		}
 
 		if i < len(b) {
-			bb.WriteString(fmt.Sprintf(" %02X", b[i]))
+			//bb.WriteString(fmt.Sprintf(" %02X", b[i]))
+			_, _ = fmt.Fprintf(bb, " %02X", b[i])
 		} else {
 			bb.WriteString("  ")
 		}

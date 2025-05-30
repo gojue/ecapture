@@ -102,7 +102,7 @@ func parseDebianVersion(str string) (uint32, error) {
 func currentVersionDebian() (uint32, error) {
 	procVersion, err := os.ReadFile("/proc/version")
 	if err != nil {
-		return 0, fmt.Errorf("error reading /proc/version: %s", err)
+		return 0, fmt.Errorf("error reading /proc/version: %w", err)
 	}
 
 	return parseDebianVersion(string(procVersion))

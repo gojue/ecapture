@@ -19,6 +19,7 @@ package http
 
 import (
 	"github.com/gin-gonic/gin"
+
 	"github.com/gojue/ecapture/user/config"
 	"github.com/gojue/ecapture/user/module"
 )

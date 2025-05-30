@@ -26,12 +26,13 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/perf"
 	"github.com/cilium/ebpf/ringbuf"
+	"github.com/rs/zerolog"
+
 	"github.com/gojue/ecapture/pkg/event_processor"
 	ebpfenv "github.com/gojue/ecapture/pkg/util/ebpf"
 	"github.com/gojue/ecapture/pkg/util/kernel"
 	"github.com/gojue/ecapture/user/config"
 	"github.com/gojue/ecapture/user/event"
-	"github.com/rs/zerolog"
 )
 
 type IModule interface {
@@ -229,7 +230,7 @@ func (m *Module) Run() error {
 	go func() {
 		err := m.processor.Serve()
 		if err != nil {
-			m.errChan <- fmt.Errorf("%s\tprocessor.Serve error:%v.", m.child.Name(), err)
+			m.errChan <- fmt.Errorf("%s\tprocessor.Serve error:%w", m.child.Name(), err)
 			return
 		}
 	}()
@@ -249,7 +250,7 @@ func (m *Module) Stop() error {
 func (m *Module) run() {
 	for {
 		select {
-		case _ = <-m.ctx.Done():
+		case <-m.ctx.Done():
 			// 由最上层Context的cancel函数关闭后调用 close().
 			//err := m.child.Close()
 			//if err != nil {
@@ -266,11 +267,8 @@ func (m *Module) run() {
 func (m *Module) readEvents() error {
 	var errChan = make(chan error, 8)
 	go func() {
-		for {
-			select {
-			case err := <-errChan:
-				m.logger.Error().AnErr("readEvents error", err).Send()
-			}
+		for err := range errChan {
+			m.logger.Error().AnErr("readEvents error", err).Send()
 		}
 	}()
 
@@ -293,7 +291,7 @@ func (m *Module) perfEventReader(errChan chan error, em *ebpf.Map) {
 	m.logger.Info().Int("mapSize(MB)", m.conf.GetPerCpuMapSize()/1024/1024).Msg("perfEventReader created")
 	rd, err := perf.NewReader(em, m.conf.GetPerCpuMapSize())
 	if err != nil {
-		errChan <- fmt.Errorf("creating %s reader dns: %s", em.String(), err)
+		errChan <- fmt.Errorf("creating %s reader dns: %s", em.String(), err.Error())
 		return
 	}
 	m.reader = append(m.reader, rd)
@@ -301,7 +299,7 @@ func (m *Module) perfEventReader(errChan chan error, em *ebpf.Map) {
 		for {
 			//判断ctx是不是结束
 			select {
-			case _ = <-m.ctx.Done():
+			case <-m.ctx.Done():
 				m.logger.Info().Msg("perfEventReader received close signal from context.Done().")
 				return
 			default:
@@ -312,7 +310,7 @@ func (m *Module) perfEventReader(errChan chan error, em *ebpf.Map) {
 				if errors.Is(err, perf.ErrClosed) {
 					return
 				}
-				errChan <- fmt.Errorf("%s\treading from perf event reader: %s", m.child.Name(), err)
+				errChan <- fmt.Errorf("%s\treading from perf event reader: %s", m.child.Name(), err.Error())
 				return
 			}
 
@@ -321,15 +319,15 @@ func (m *Module) perfEventReader(errChan chan error, em *ebpf.Map) {
 				continue
 			}
 
-			var event event.IEventStruct
-			event, err = m.child.Decode(em, record.RawSample)
+			var evt event.IEventStruct
+			evt, err = m.child.Decode(em, record.RawSample)
 			if err != nil {
 				m.logger.Warn().Err(err).Msg("m.child.decode error")
 				continue
 			}
 
 			// 上报数据
-			m.Dispatcher(event)
+			m.Dispatcher(evt)
 		}
 	}()
 }
@@ -337,7 +335,7 @@ func (m *Module) perfEventReader(errChan chan error, em *ebpf.Map) {
 func (m *Module) ringbufEventReader(errChan chan error, em *ebpf.Map) {
 	rd, err := ringbuf.NewReader(em)
 	if err != nil {
-		errChan <- fmt.Errorf("%s\tcreating %s reader dns: %s", m.child.Name(), em.String(), err)
+		errChan <- fmt.Errorf("%s\tcreating %s reader dns: %s", m.child.Name(), em.String(), err.Error())
 		return
 	}
 	m.reader = append(m.reader, rd)
@@ -345,7 +343,7 @@ func (m *Module) ringbufEventReader(errChan chan error, em *ebpf.Map) {
 		for {
 			//判断ctx是不是结束
 			select {
-			case _ = <-m.ctx.Done():
+			case <-m.ctx.Done():
 				m.logger.Info().Msg("ringbufEventReader received close signal from context.Done().")
 				return
 			default:
@@ -357,7 +355,7 @@ func (m *Module) ringbufEventReader(errChan chan error, em *ebpf.Map) {
 					m.logger.Warn().Msg("ringbufEventReader received close signal from ringbuf reader.")
 					return
 				}
-				errChan <- fmt.Errorf("%s\treading from ringbuf reader: %s", m.child.Name(), err)
+				errChan <- fmt.Errorf("%s\treading from ringbuf reader: %s", m.child.Name(), err.Error())
 				return
 			}
 

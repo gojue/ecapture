@@ -19,12 +19,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"math"
+
+	"github.com/rs/zerolog"
+
 	"github.com/gojue/ecapture/assets"
 	"github.com/gojue/ecapture/user/config"
 	"github.com/gojue/ecapture/user/event"
-	"github.com/rs/zerolog"
-	"io"
-	"math"
 
 	"github.com/cilium/ebpf"
 	manager "github.com/gojue/ebpfmanager"
@@ -53,7 +55,7 @@ func (b *MBashProbe) Init(ctx context.Context, logger *zerolog.Logger, conf conf
 		return err
 	}
 	b.conf = conf
-	b.Module.SetChild(b)
+	b.SetChild(b)
 	b.eventMaps = make([]*ebpf.Map, 0, 2)
 	b.eventFuncMaps = make(map[*ebpf.Map]event.IEventStruct)
 	b.lineMap = make(map[string]string)
@@ -76,7 +78,7 @@ func (b *MBashProbe) start() error {
 
 	if err != nil {
 		b.logger.Error().Err(err).Strs("bytecode files", assets.AssetNames()).Msg("couldn't find bpf bytecode file")
-		return fmt.Errorf("couldn't find asset %v", err)
+		return fmt.Errorf("couldn't find asset %w", err)
 	}
 
 	// setup the managers
@@ -84,12 +86,12 @@ func (b *MBashProbe) start() error {
 
 	// initialize the bootstrap manager
 	if err = b.bpfManager.InitWithOptions(bytes.NewReader(byteBuf), b.bpfManagerOptions); err != nil {
-		return fmt.Errorf("couldn't init manager %v ", err)
+		return fmt.Errorf("couldn't init manager %w", err)
 	}
 
 	// start the bootstrap manager
 	if err = b.bpfManager.Start(); err != nil {
-		return fmt.Errorf("couldn't start bootstrap manager %v ", err)
+		return fmt.Errorf("couldn't start bootstrap manager %w", err)
 	}
 
 	// 加载map信息，map对应events decode表。
@@ -103,7 +105,7 @@ func (b *MBashProbe) start() error {
 
 func (b *MBashProbe) Close() error {
 	if err := b.bpfManager.Stop(manager.CleanAll); err != nil {
-		return fmt.Errorf("couldn't stop manager %v ", err)
+		return fmt.Errorf("couldn't stop manager %w", err)
 	}
 	return b.Module.Close()
 }
@@ -200,7 +202,7 @@ func (b *MBashProbe) setupManagers() {
 
 		VerifierOptions: ebpf.CollectionOptions{
 			Programs: ebpf.ProgramOptions{
-				LogSize: 2097152,
+				LogSizeStart: 2097152,
 			},
 		},
 
@@ -254,7 +256,7 @@ func (b *MBashProbe) Dispatcher(eventStruct event.IEventStruct) {
 func (b *MBashProbe) handleLine(be *event.BashEvent) {
 	switch be.BashType {
 	case BashEventTypeReadline:
-		newline := unix.ByteSliceToString((be.Line[:]))
+		newline := unix.ByteSliceToString(be.Line[:])
 		line := b.lineMap[be.GetUUID()]
 		if line != "" {
 			line += "\n" + newline

@@ -24,10 +24,11 @@ import (
 	"io"
 	"math"
 
+	"github.com/rs/zerolog"
+
 	"github.com/gojue/ecapture/assets"
 	"github.com/gojue/ecapture/user/config"
 	"github.com/gojue/ecapture/user/event"
-	"github.com/rs/zerolog"
 
 	"github.com/cilium/ebpf"
 	manager "github.com/gojue/ebpfmanager"
@@ -53,7 +54,7 @@ func (b *MZshProbe) Init(ctx context.Context, logger *zerolog.Logger, conf confi
 		return err
 	}
 	b.conf = conf
-	b.Module.SetChild(b)
+	b.SetChild(b)
 	b.eventMaps = make([]*ebpf.Map, 0, 2)
 	b.eventFuncMaps = make(map[*ebpf.Map]event.IEventStruct)
 	return nil
@@ -75,7 +76,7 @@ func (b *MZshProbe) start() error {
 
 	if err != nil {
 		b.logger.Error().Err(err).Strs("bytecode files", assets.AssetNames()).Msg("couldn't find bpf bytecode file")
-		return fmt.Errorf("couldn't find asset %v", err)
+		return fmt.Errorf("couldn't find asset %w", err)
 	}
 
 	// setup the managers
@@ -83,12 +84,12 @@ func (b *MZshProbe) start() error {
 
 	// initialize the bootstrap manager
 	if err = b.bpfManager.InitWithOptions(bytes.NewReader(byteBuf), b.bpfManagerOptions); err != nil {
-		return fmt.Errorf("couldn't init manager %v ", err)
+		return fmt.Errorf("couldn't init manager %w ", err)
 	}
 
 	// start the bootstrap manager
 	if err = b.bpfManager.Start(); err != nil {
-		return fmt.Errorf("couldn't start bootstrap manager %v ", err)
+		return fmt.Errorf("couldn't start bootstrap manager %w ", err)
 	}
 
 	// 加载map信息，map对应events decode表。
@@ -102,7 +103,7 @@ func (b *MZshProbe) start() error {
 
 func (b *MZshProbe) Close() error {
 	if err := b.bpfManager.Stop(manager.CleanAll); err != nil {
-		return fmt.Errorf("couldn't stop manager %v ", err)
+		return fmt.Errorf("couldn't stop manager %w ", err)
 	}
 	return b.Module.Close()
 }
@@ -150,8 +151,8 @@ func (b *MZshProbe) setupManagers() {
 		binaryPath = "/bin/zsh"
 	}
 
-	var readlineFuncName string // 将默认hook函数改为readline_internal_teardown说明：https://github.com/gojue/ecapture/pull/479
-	readlineFuncName = b.conf.(*config.ZshConfig).ReadlineFuncName
+	// 将默认hook函数改为readline_internal_teardown说明：https://github.com/gojue/ecapture/pull/479
+	var readlineFuncName = b.conf.(*config.ZshConfig).ReadlineFuncName
 
 	b.logger.Info().Str("binaryPath", binaryPath).Str("readlineFuncName", readlineFuncName).
 		Str("execute_command", readlineFuncName).Str("exit_builtin", readlineFuncName).
@@ -178,7 +179,7 @@ func (b *MZshProbe) setupManagers() {
 
 		VerifierOptions: ebpf.CollectionOptions{
 			Programs: ebpf.ProgramOptions{
-				LogSize: 2097152,
+				LogSizeStart: 2097152,
 			},
 		},
 

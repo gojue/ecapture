@@ -171,42 +171,42 @@ func (m *MOpenSSLProbe) initOpensslOffset() {
 	}
 }
 
-func (m *MOpenSSLProbe) detectOpenssl(soPath string) (error, string) {
+func (m *MOpenSSLProbe) detectOpenssl(soPath string) (string, error) {
 	f, err := os.OpenFile(soPath, os.O_RDONLY, os.ModePerm)
 	if err != nil {
-		return fmt.Errorf("can not open %s, with error:%v", soPath, err), ""
+		return "", fmt.Errorf("can not open %s, with error:%w", soPath, err)
 	}
 	r, e := elf.NewFile(f)
 	if e != nil {
-		return fmt.Errorf("parse the ELF file  %s failed, with error:%v", soPath, err), ""
+		return "", fmt.Errorf("parse the ELF file  %s failed, with error:%w", soPath, err)
 	}
 
 	switch r.FileHeader.Machine {
 	case elf.EM_X86_64:
 	case elf.EM_AARCH64:
 	default:
-		return fmt.Errorf("unsupported arch library ,ELF Header Machine is :%s, must be one of EM_X86_64 and EM_AARCH64", r.FileHeader.Machine.String()), ""
+		return "", fmt.Errorf("unsupported arch library ,ELF Header Machine is :%s, must be one of EM_X86_64 and EM_AARCH64", r.FileHeader.Machine.String())
 	}
 
 	s := r.Section(".rodata")
 	if s == nil {
 		// not found
-		return fmt.Errorf("detect openssl version failed, cant read .rodata section from %s", soPath), ""
+		return "", fmt.Errorf("detect openssl version failed, cant read .rodata section from %s", soPath)
 	}
 
 	sectionOffset := int64(s.Offset)
 	sectionSize := s.Size
 
-	r.Close()
+	_ = r.Close()
 
 	_, err = f.Seek(0, 0)
 	if err != nil {
-		return err, ""
+		return "", err
 	}
 
 	ret, err := f.Seek(sectionOffset, 0)
 	if ret != sectionOffset || err != nil {
-		return err, ""
+		return "", err
 	}
 
 	versionKey := ""
@@ -215,7 +215,7 @@ func (m *MOpenSSLProbe) detectOpenssl(soPath string) (error, string) {
 	// OpenSSL 3.2.0 23 Nov 2023
 	rex, err := regexp.Compile(`(OpenSSL\s\d\.\d\.[0-9a-z]+)`)
 	if err != nil {
-		return err, ""
+		return "", err
 	}
 
 	buf := make([]byte, 1024*1024) // 1Mb
@@ -258,12 +258,12 @@ func (m *MOpenSSLProbe) detectOpenssl(soPath string) (error, string) {
 	//buf = buf[:0]
 
 	if versionKey == "" {
-		return ErrProbeOpensslVerNotFound, ""
+		return "", ErrProbeOpensslVerNotFound
 	}
 
 	versionKeyLower := strings.ToLower(versionKey)
 
-	return nil, versionKeyLower
+	return versionKeyLower, nil
 }
 
 func (m *MOpenSSLProbe) getSoDefaultBytecode(soPath string, isAndroid bool) string {
@@ -305,12 +305,12 @@ func getImpNeeded(soPath string) ([]string, error) {
 	var importedNeeded []string
 	f, err := os.OpenFile(soPath, os.O_RDONLY, os.ModePerm)
 	if err != nil {
-		return importedNeeded, fmt.Errorf("can not open %s, with error:%v", soPath, err)
+		return importedNeeded, fmt.Errorf("can not open %s, with error:%w", soPath, err)
 	}
 
 	elfFile, err := elf.NewFile(f)
 	if err != nil {
-		return importedNeeded, fmt.Errorf("parse the ELF file  %s failed, with error:%v", soPath, err)
+		return importedNeeded, fmt.Errorf("parse the ELF file  %s failed, with error:%w", soPath, err)
 	}
 
 	// 打印外部依赖的动态链接库
@@ -319,8 +319,6 @@ func getImpNeeded(soPath string) ([]string, error) {
 	if err != nil {
 		return importedNeeded, err
 	}
-	for _, s := range is {
-		importedNeeded = append(importedNeeded, s)
-	}
+	importedNeeded = append(importedNeeded, is...)
 	return importedNeeded, nil
 }

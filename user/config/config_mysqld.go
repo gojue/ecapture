@@ -37,7 +37,7 @@ const (
 	MysqldType80
 )
 
-// 最终使用mysqld参数
+// MysqldConfig 最终使用mysqld参数
 type MysqldConfig struct {
 	BaseConfig
 	Mysqldpath  string     `json:"mysqldPath"` //curl的文件路径
@@ -58,7 +58,7 @@ func (mc *MysqldConfig) Check() error {
 
 	// 如果readline 配置，且存在，则直接返回。
 	if mc.Mysqldpath == "" || len(strings.TrimSpace(mc.Mysqldpath)) <= 0 {
-		return errors.New("Mysqld path cant be null.")
+		return errors.New("mysqld path cant be null")
 	}
 
 	_, e := os.Stat(mc.Mysqldpath)
@@ -104,7 +104,7 @@ func (mc *MysqldConfig) Check() error {
 
 	//如果没找到，则报错。
 	if funcName == "" {
-		return errors.New(fmt.Sprintf("cant match mysql query function to hook with mysqld file::%s", mc.Mysqldpath))
+		return fmt.Errorf("cant match mysql query function to hook with mysqld file::%s", mc.Mysqldpath)
 	}
 
 	mc.Version = MysqldType56
@@ -146,7 +146,7 @@ func getMysqlVer(buf []byte) (MysqldType, string) {
 			continue
 		}
 
-		// mysqld-Version must be less then 50
+		// mysqld-Version must be less than 50
 		//// mysqld-5.7
 		l := len(slice[i])
 		if l > 15 || l < 8 {

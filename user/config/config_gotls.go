@@ -35,7 +35,7 @@ const (
 )
 
 var (
-	ErrorGoBINNotFound            = errors.New("The executable program (compiled by Golang) was not found")
+	ErrorGoBinNotFound            = errors.New("the executable program (compiled by Golang) was not found")
 	ErrorSymbolEmpty              = errors.New("symbol is empty")
 	ErrorSymbolNotFound           = errors.New("symbol not found")
 	ErrorSymbolNotFoundFromTable  = errors.New("symbol not found from table")
@@ -102,7 +102,7 @@ func NewGoTLSConfig() *GoTLSConfig {
 func (gc *GoTLSConfig) Check() error {
 	var err error
 	if gc.Path == "" {
-		return ErrorGoBINNotFound
+		return ErrorGoBinNotFound
 	}
 
 	_, err = gc.checkModel()
@@ -126,18 +126,19 @@ func (gc *GoTLSConfig) Check() error {
 		return err
 	}
 
-	var goElfArch string
-	switch goElf.FileHeader.Machine.String() {
+	var goElfArch, machineStr string
+	machineStr = goElf.FileHeader.Machine.String()
+	switch machineStr {
 	case elf.EM_AARCH64.String():
 		goElfArch = "arm64"
 	case elf.EM_X86_64.String():
 		goElfArch = "amd64"
 	default:
-		goElfArch = "unsupport_arch"
+		goElfArch = "unsupported_arch"
 	}
 
 	if goElfArch != runtime.GOARCH {
-		err = fmt.Errorf("Go Application not match, want:%s, have:%s", runtime.GOARCH, goElfArch)
+		err = fmt.Errorf("go Application not match, want:%s, have:%s", runtime.GOARCH, goElfArch)
 		return err
 	}
 	switch goElfArch {
@@ -235,8 +236,7 @@ func (gc *GoTLSConfig) findRetOffsets(symbolName string) ([]int, error) {
 	end := start + symbol.Size
 
 	var offsets []int
-	var instHex []byte
-	instHex = elfText[start:end]
+	var instHex = elfText[start:end]
 	offsets, _ = gc.decodeInstruction(instHex)
 	if len(offsets) == 0 {
 		return offsets, ErrorNoRetFound
@@ -270,7 +270,7 @@ func (gc *GoTLSConfig) checkModel() (string, error) {
 	case TlsCaptureModelPcap, TlsCaptureModelPcapng:
 		m = TlsCaptureModelPcap
 		if gc.Ifname == "" {
-			return "", errors.New("'pcap' model used, please used -i flag to set ifname value.")
+			return "", errors.New("'pcap' model used, please used -i flag to set ifname value")
 		}
 	default:
 		m = TlsCaptureModelText
@@ -353,7 +353,7 @@ func (gc *GoTLSConfig) findRetOffsetsPie(lfunc string) ([]int, error) {
 		}
 		return offsets, nil
 	}
-	return offsets, errors.New("cant found gotls symbol offsets.")
+	return offsets, errors.New("cant found gotls symbol offsets")
 }
 
 func (gc *GoTLSConfig) findPieSymbolAddr(lfunc string) (uint64, error) {

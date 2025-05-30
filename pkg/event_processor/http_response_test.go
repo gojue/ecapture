@@ -39,11 +39,11 @@ Set-Cookie: BDORZ=27315; max-age=86400; domain=.baidu.com; path=/
 	hr.Init()
 	err := hr.detect(httpBody)
 	if err != nil {
-		t.Errorf("detect http response failed: %v", err)
+		t.Errorf("detect http response failed: %s", err.Error())
 	}
 	i, e := hr.Write(httpBody)
 	if e != nil {
-		t.Errorf("write http response failed: %v", e)
+		t.Errorf("write http response failed: %s", e.Error())
 	}
 	t.Logf("wrot:%d", i)
 	if hr.response.Proto != "HTTP/1.1" {

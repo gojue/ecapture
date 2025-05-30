@@ -15,19 +15,21 @@
 package http
 
 import (
+	"net/http"
+
 	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog"
+
 	"github.com/gojue/ecapture/user/config"
 	"github.com/gojue/ecapture/user/module"
-	"github.com/rs/zerolog"
-	"net/http"
 )
 
 type HttpServer struct {
 	//
-	loadTime   int64       // 加载时间，防止短时间内多次加载
-	loadStat   int8        // 加载状态，重启完成后，进行再次加载
-	ModuleType string      //当前加载模块
-	modConfig  interface{} //模块配置
+	loadTime   int64  // 加载时间，防止短时间内多次加载
+	loadStat   int8   // 加载状态，重启完成后，进行再次加载
+	ModuleType string //当前加载模块
+	modConfig  any    //模块配置
 	confChan   chan config.IConfig
 	ge         *gin.Engine
 	addr       string
@@ -58,22 +60,18 @@ func (hs HttpServer) Run() error {
 
 func (hs *HttpServer) Tls(c *gin.Context) {
 	hs.decodeConf(new(config.OpensslConfig), c, module.ModuleNameOpenssl)
-	return
 }
 
 func (hs *HttpServer) Gnutls(c *gin.Context) {
 	hs.decodeConf(new(config.GnutlsConfig), c, module.ModuleNameGnutls)
-	return
 }
 
 func (hs *HttpServer) Gotls(c *gin.Context) {
 	hs.decodeConf(new(config.GoTLSConfig), c, module.ModuleNameGotls)
-	return
 }
 
 func (hs *HttpServer) Nss(c *gin.Context) {
 	hs.decodeConf(new(config.NsprConfig), c, module.ModuleNameNspr)
-	return
 }
 
 func (hs *HttpServer) decodeConf(ic config.IConfig, c *gin.Context, modName string) {
@@ -116,5 +114,4 @@ func (hs *HttpServer) decodeConf(ic config.IConfig, c *gin.Context, modName stri
 		})
 	}
 	hs.logger.Info().RawJSON("config", ic.Bytes()).Msg("config send to channel.")
-	return
 }
