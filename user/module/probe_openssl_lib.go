@@ -54,6 +54,8 @@ const (
 	MaxSupportedOpenSSL33Version  = 3 // openssl 3.3.3
 	SupportedOpenSSL34Version0    = 0 // openssl 3.4.0
 	MaxSupportedOpenSSL34Version  = 1 // openssl 3.4.1
+	SupportedOpenSSL35Version0    = 0 // openssl 3.5.0
+	MaxSupportedOpenSSL35Version  = 0 // openssl 3.5.1
 )
 
 var (
@@ -158,6 +160,11 @@ func (m *MOpenSSLProbe) initOpensslOffset() {
 	// openssl 3.4.1
 	for ch := 1; ch <= MaxSupportedOpenSSL34Version; ch++ {
 		m.sslVersionBpfMap[fmt.Sprintf("openssl 3.4.%d", ch)] = "openssl_3_4_1_kern.o"
+	}
+
+	// openssl 3.5.0
+	for ch := 0; ch <= SupportedOpenSSL35Version0; ch++ {
+		m.sslVersionBpfMap[fmt.Sprintf("openssl 3.5.%d", ch)] = "openssl_3_5_0_kern.o"
 	}
 
 	// openssl 1.1.0a - 1.1.0l
