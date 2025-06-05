@@ -41,9 +41,8 @@ type IWorker interface {
 }
 
 const (
-	MaxTickerCount   = 10   // 1 Sencond/(eventWorker.ticker.C) = 10
-	MaxChanLen       = 1024 // 包队列长度
-	UUIDSSLDataCount = 7    // SSLDataEvent修改之后UUID将有7个要素 uuid: Pid_Tid_Comm_Fd_DataType_Tuple_Sock
+	MaxTickerCount = 10   // 1 Sencond/(eventWorker.ticker.C) = 10
+	MaxChanLen     = 1024 // 包队列长度
 	//MAX_EVENT_LEN    = 16 // 事件数组长度
 )
 
@@ -107,12 +106,13 @@ func (ew *eventWorker) GetUUID() string {
 	return ew.UUID
 }
 
-// 沿用了使用UUID要素数量来判断是否是SSLDataEvent的逻辑
+// 对UUID使用前缀判断，只有"sock"前缀的可以返回LifeCycleStateSocket生命周期
 func (ew *eventWorker) CheckLifeCycleState(uuid string) LifeCycleState {
-	if len(strings.Split(uuid, "_")) != UUIDSSLDataCount {
+	if strings.HasPrefix(uuid, event.SocketLifecycleUUIDPrefix) {
+		return LifeCycleStateSocket
+	} else {
 		return LifeCycleStateDefault
 	}
-	return LifeCycleStateSocket
 }
 
 // 导出方法，用于发送信号量

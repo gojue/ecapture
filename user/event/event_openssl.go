@@ -30,6 +30,7 @@ type AttachType int64
 const (
 	ProbeEntry AttachType = iota
 	ProbeRet
+	SocketLifecycleUUIDPrefix = "sock"
 )
 
 const MaxDataSize = 1024 * 16 // fix: https://github.com/gojue/ecapture/issues/740
@@ -260,7 +261,8 @@ func (ce *ConnDataEvent) EventType() EventType {
 }
 
 func (ce *ConnDataEvent) GetUUID() string {
-	return fmt.Sprintf("%d_%d_%s_%d", ce.Pid, ce.Tid, commStr(ce.Comm[:]), ce.Fd)
+	return fmt.Sprintf("%s:%d_%d_%s_%d", SocketLifecycleUUIDPrefix, ce.Pid, ce.Tid, commStr(ce.Comm[:]), ce.Fd)
+	// sock prefix shows that the lifecycle is bind with a socket
 }
 
 func (ce *ConnDataEvent) Payload() []byte {
