@@ -90,7 +90,7 @@ func (te *TcSkbEvent) EventType() EventType {
 }
 
 func (te *TcSkbEvent) GetUUID() string {
-	return fmt.Sprintf("%d-%d-%s", te.Pid, te.Ifindex, te.Comm)
+	return fmt.Sprintf("%d_%d_%s", te.Pid, te.Ifindex, te.Comm)
 }
 
 func (te *TcSkbEvent) Payload() []byte {
