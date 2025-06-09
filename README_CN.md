@@ -279,3 +279,9 @@ eCapture 还支持其他模块，如`bash`、`mysql`、`nss`、`postgres`等，�
 
 # 微信公众号
 ![](./images/wechat_gzhh.png)
+
+## 感谢
+
+本项目获得 [JetBrains IDE](https://www.jetbrains.com) 许可证的支持。感谢 JetBrains 对开源社区的贡献。
+
+![JetBrains 徽标](https://resources.jetbrains.com/storage/products/company/brand/logos/jetbrains.svg)

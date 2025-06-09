@@ -293,3 +293,10 @@ See [CONTRIBUTING](./CONTRIBUTING.md) for details on submitting patches and the 
 # Compilation
 
 See [COMPILATION](./COMPILATION.md) for details on compiling the eCapture source code.
+
+## Acknowledgements
+
+This project is supported by a [JetBrains IDE](https://www.jetbrains.com) license. We thank JetBrains for their
+contributions to the open-source community.
+
+![JetBrains logo](https://resources.jetbrains.com/storage/products/company/brand/logos/jetbrains.svg)
