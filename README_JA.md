@@ -283,3 +283,8 @@ eCaptureは他にも`bash`、`mysql`、`nss`、`postgres`などのモジュー�
 # WeChat公式アカウント
 ![](./images/wechat_gzhh.png)
 
+## 謝辞
+
+このプロジェクトは [JetBrains IDE](https://www.jetbrains.com) ライセンスの支援を受けています。オープンソースコミュニティへの貢献に感謝します。
+
+![JetBrains ロゴ](https://resources.jetbrains.com/storage/products/company/brand/logos/jetbrains.svg)
