@@ -20,6 +20,7 @@
     X(ssl_session_st, cipher)                       \
     X(ssl_session_st, cipher_id)                    \
     X(ssl_cipher_st, id)                            \
+    X(ssl_connection_st, early_secret)              \
     X(ssl_connection_st, handshake_secret)          \
     X(ssl_connection_st, handshake_traffic_hash)    \
     X(ssl_connection_st, client_app_traffic_secret) \

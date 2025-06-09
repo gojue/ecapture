@@ -40,6 +40,9 @@
 // ssl_cipher_st->id
 #define SSL_CIPHER_ST_ID 0x18
 
+// ssl_connection_st->early_secret
+#define SSL_CONNECTION_ST_EARLY_SECRET 0x4fc
+
 // ssl_connection_st->handshake_secret
 #define SSL_CONNECTION_ST_HANDSHAKE_SECRET 0x53c
 

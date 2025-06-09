@@ -30,6 +30,7 @@ struct mastersecret_t {
 
     // TLS 1.3
     u32 cipher_id;
+    u8 early_secret[EVP_MAX_MD_SIZE];
     u8 handshake_secret[EVP_MAX_MD_SIZE];
     u8 handshake_traffic_hash[EVP_MAX_MD_SIZE];
     u8 client_app_traffic_secret[EVP_MAX_MD_SIZE];
