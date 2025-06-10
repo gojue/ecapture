@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -73,6 +74,7 @@ type eventWorker struct {
 	payload          *bytes.Buffer
 	used             atomic.Bool
 	closeChan        chan struct{} // 外部可以通过调用close(closeChan)来告知该eventWorker需要被关闭，起到信号量的作用，LifeCycleStateDefault的情况下应该是nil
+	closeOnce        sync.Once     // 保证关闭操作只执行一次
 	ewLifeCycleState LifeCycleState
 }
 
@@ -118,7 +120,9 @@ func (ew *eventWorker) CheckLifeCycleState(uuid string) LifeCycleState {
 // 导出方法，用于发送信号量
 func (ew *eventWorker) CloseEventWorker() {
 	if ew.closeChan != nil {
-		close(ew.closeChan)
+		ew.closeOnce.Do(func() {
+			close(ew.closeChan)
+		})
 	}
 }
 
