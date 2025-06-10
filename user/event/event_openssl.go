@@ -260,7 +260,11 @@ func (ce *ConnDataEvent) EventType() EventType {
 }
 
 func (ce *ConnDataEvent) GetUUID() string {
+	// 临时沿用旧版 UUID 逻辑，新特性尚在开发中。
 	return fmt.Sprintf("%d_%d_%s_%d", ce.Pid, ce.Tid, commStr(ce.Comm[:]), ce.Fd)
+
+	// TODO: 新版 UUID 逻辑待启用。新格式增加了 socket 前缀，用于标识与套接字的绑定。
+	// return fmt.Sprintf("%s:%d_%d_%s_%d", SocketLifecycleUUIDPrefix, ce.Pid, ce.Tid, commStr(ce.Comm[:]), ce.Fd)
 }
 
 func (ce *ConnDataEvent) Payload() []byte {

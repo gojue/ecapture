@@ -19,6 +19,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -45,6 +47,14 @@ const (
 	//MAX_EVENT_LEN    = 16 // 事件数组长度
 )
 
+// eventWorker有两种生命周期，一种由自己的定时器决定，另一种由外部Socket的生命周期决定
+type LifeCycleState uint8
+
+const (
+	LifeCycleStateDefault LifeCycleState = iota
+	LifeCycleStateSocket
+)
+
 var (
 	ErrEventWorkerIncomingFull  = errors.New("eventWorker Write failed, incoming chan is full")
 	ErrEventWorkerOutcomingFull = errors.New("eventWorker Write failed, outComing chan is full")
@@ -53,16 +63,19 @@ var (
 type eventWorker struct {
 	incoming chan event.IEventStruct
 	//events      []user.IEventStruct
-	outComing   chan string
-	status      ProcessStatus
-	packetType  PacketType
-	ticker      *time.Ticker
-	tickerCount uint8
-	UUID        string
-	processor   *EventProcessor
-	parser      IParser
-	payload     *bytes.Buffer
-	used        atomic.Bool
+	outComing        chan string
+	status           ProcessStatus
+	packetType       PacketType
+	ticker           *time.Ticker
+	tickerCount      uint8
+	UUID             string
+	processor        *EventProcessor
+	parser           IParser
+	payload          *bytes.Buffer
+	used             atomic.Bool
+	closeChan        chan struct{} // 外部可以通过调用close(closeChan)来告知该eventWorker需要被关闭，起到信号量的作用，LifeCycleStateDefault的情况下应该是nil
+	closeOnce        sync.Once     // 保证关闭操作只执行一次
+	ewLifeCycleState LifeCycleState
 }
 
 func NewEventWorker(uuid string, processor *EventProcessor) IWorker {
@@ -83,10 +96,38 @@ func (ew *eventWorker) init(uuid string, processor *EventProcessor) {
 	ew.processor = processor
 	ew.payload = bytes.NewBuffer(nil)
 	ew.payload.Reset()
+	ew.ewLifeCycleState = ew.CheckLifeCycleState(uuid)
+	if ew.ewLifeCycleState != LifeCycleStateDefault {
+		ew.closeChan = make(chan struct{})
+	} else {
+		ew.closeChan = nil
+	}
 }
 
 func (ew *eventWorker) GetUUID() string {
 	return ew.UUID
+}
+
+// 对UUID使用前缀判断，只有"sock"前缀的可以返回LifeCycleStateSocket生命周期
+func (ew *eventWorker) CheckLifeCycleState(uuid string) LifeCycleState {
+	if strings.HasPrefix(uuid, event.SocketLifecycleUUIDPrefix) {
+		return LifeCycleStateSocket
+	} else {
+		return LifeCycleStateDefault
+	}
+}
+
+// 导出方法，用于发送信号量
+func (ew *eventWorker) CloseEventWorker() {
+	if ew.closeChan != nil {
+		ew.closeOnce.Do(func() {
+			close(ew.closeChan)
+		})
+	}
+}
+
+func (ew *eventWorker) GetLifeCycleState() LifeCycleState {
+	return ew.ewLifeCycleState
 }
 
 func (ew *eventWorker) Write(e event.IEventStruct) error {
@@ -167,52 +208,60 @@ func (ew *eventWorker) Run() {
 		case <-ew.ticker.C:
 			// 输出包
 			if ew.tickerCount > MaxTickerCount {
-				//ew.processor.GetLogger().Printf("eventWorker TickerCount > %d, event closed.", MaxTickerCount)
-				ew.processor.delWorkerByUUID(ew)
-
-				/*
-					When returned from delWorkerByUUID(), there are two possibilities:
-					1) no routine can touch it.
-					2) one routine can still touch ew because getWorkerByUUID()
-					*happen before* delWorkerByUUID()
-
-					When no routine can touch it (i.e.,ew.IfUsed == false),
-					we just drain the ew.incoming and return.
-
-					When one routine can touch it (i.e.,ew.IfUsed == true), we ensure
-					that we only return after the routine can not touch it
-					(i.e.,ew.IfUsed == false). At this point, we can ensure that no
-					other routine will touch it and send events through the ew.incoming.
-					So, we return.
-
-					Because eworker has been deleted from workqueue after delWorkerByUUID()
-					(ordered by a workqueue lock), at this point, we can ensure that
-					no ew will not be touched even **in the future**. So the return is
-					safe.
-
-				*/
-				for {
-					select {
-					case e := <-ew.incoming:
-						ew.writeEvent(e)
-					default:
-						if ew.IfUsed() {
-							time.Sleep(10 * time.Millisecond)
-							continue
-						}
-						ew.Close()
-						return
-					}
+				// 生命周期和外部sock绑定，在这里无视定时器规则
+				if ew.ewLifeCycleState == LifeCycleStateSocket {
+					ew.tickerCount = 0
+					continue
 				}
+				ew.processor.delWorkerByUUID(ew)
+				ew.drainAndClose()
+				return
 			}
 			ew.tickerCount++
 		case e := <-ew.incoming:
 			// reset tickerCount
 			ew.tickerCount = 0
 			ew.writeEvent(e)
+
+		// LifeCycleStateDefault情况下是nil，永远不会触发
+		case <-ew.closeChan:
+			ew.processor.delWorkerByUUID(ew)
+			ew.drainAndClose()
+			return
 		}
 	}
 
+}
+
+func (ew *eventWorker) drainAndClose() {
+	/*
+		When returned from drainAndClose(), there are two possibilities:
+		1) no routine can touch it.
+		2) one routine can still touch ew because getWorkerByUUID()
+		*happen before* drainAndClose()
+
+		When no routine can touch it (i.e.,ew.IfUsed == false),
+		we just drain the ew.incoming and return.
+
+		When one routine can touch it (i.e.,ew.IfUsed == true), we ensure
+		that we only return after the routine can not touch it
+		(i.e.,ew.IfUsed == false). At this point, we can ensure that no
+		other routine will touch it and send events through the ew.incoming.
+		So, we return.
+	*/
+	for {
+		select {
+		case e := <-ew.incoming:
+			ew.writeEvent(e)
+		default:
+			if ew.IfUsed() {
+				time.Sleep(10 * time.Millisecond)
+				continue
+			}
+			ew.Close()
+			return
+		}
+	}
 }
 
 func (ew *eventWorker) Close() {
