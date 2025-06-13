@@ -1,6 +1,24 @@
+# v1.2.0 (2025-06-14)
+
+## What's Changed
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v1.1.0...v1.2.0
+<hr>
+
 # v1.1.0 (2025-05-30)
 
 ## What's Changed
+
+* feat: allow capture icmp protocol by @yuweizzz in https://github.com/gojue/ecapture/pull/779
+* opt: redesign the truncate effect logic to reduce memory cost in text mode #718 by @chilli13
+  in https://github.com/gojue/ecapture/pull/775
+* fix: clean up SSLDataEvent string methods and improve logging #776 by @cfc4n
+  in https://github.com/gojue/ecapture/pull/777
+* fix: improve logging for truncated events and update string formatting by @cfc4n
+  in https://github.com/gojue/ecapture/pull/780
+* feat: support openssl version 3.5.0 #783 by @chilli13 in https://github.com/gojue/ecapture/pull/787
+* fix: avoid writing empty decryption secrets block in savePcapng method by @cfc4n
+  in https://github.com/gojue/ecapture/pull/786
 
 **Full Changelog**: https://github.com/gojue/ecapture/compare/v1.0.2...v1.1.0
 <hr>
