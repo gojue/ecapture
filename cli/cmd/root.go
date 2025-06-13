@@ -30,6 +30,7 @@ import (
 
 	"github.com/gojue/ecapture/cli/cobrautl"
 	"github.com/gojue/ecapture/cli/http"
+	"github.com/gojue/ecapture/pkg/util/roratelog"
 	"github.com/gojue/ecapture/user/config"
 	"github.com/gojue/ecapture/user/module"
 )
@@ -48,6 +49,8 @@ var (
 	GitVersion = "os_arch:v0.0.0-20221111-develop:default_kernel"
 	//ReleaseDate = "2022-03-16"
 	ByteCodeFiles = "all" // Indicates the type of bytecode files built by the project, i.e., the file types under the assets/* folder. Default is "all", meaning both types are included.
+	rorateSize    = uint16(0)
+	rorateTime    = uint16(0)
 )
 
 const (
@@ -137,7 +140,8 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&globalConf.EventCollectorAddr, "eventaddr", "", "the server address that receives the captured event. --eventaddr tcp://127.0.0.1:8090, default: same as logaddr")
 	rootCmd.PersistentFlags().StringVar(&globalConf.Listen, "listen", eCaptureListenAddr, "listen on this address for http server, default: 127.0.0.1:28256")
 	rootCmd.PersistentFlags().Uint64VarP(&globalConf.TruncateSize, "tsize", "t", defaultTruncateSize, "the truncate size in text mode, default: 0 (B), no truncate")
-
+	rootCmd.PersistentFlags().Uint16Var(&rorateSize, "eventroratesize", 0, "the rorate size(MB) of the event collector file, 1M~65535M, only works for eventaddr server is file. --eventaddr=tls.log --eventroratesize=1 --eventroratetime=30")
+	rootCmd.PersistentFlags().Uint16Var(&rorateTime, "eventroratetime", 0, "the rorate time(s) of the event collector file, 1s~65535s, only works for eventaddr server is file. --eventaddr=tls.log --eventroratesize=1 --eventroratetime=30")
 	rootCmd.SilenceUsage = true
 }
 
@@ -172,7 +176,7 @@ func setModConfig(globalConf config.BaseConfig, modConf config.IConfig) {
 }
 
 // initLogger init logger
-func initLogger(addr string, modConfig config.IConfig) zerolog.Logger {
+func initLogger(addr string, modConfig config.IConfig, isRorate bool) zerolog.Logger {
 	var logger zerolog.Logger
 	var err error
 	consoleWriter := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}
@@ -192,12 +196,24 @@ func initLogger(addr string, modConfig config.IConfig) zerolog.Logger {
 			//modConfig.SetLoggerTCPAddr(address)
 			writer = conn
 		} else {
-			var f *os.File
-			f, err = os.Create(addr)
 			modConfig.SetAddrType(loggerTypeFile)
 			//modConfig.SetLoggerTCPAddr("")
-			writer = f
+			isLogRate := isRorate && (rorateSize > 0 || rorateTime > 0)
+			if isLogRate {
+				logFile := &roratelog.Logger{
+					Filename:    addr,
+					MaxSize:     int(rorateSize), // MB
+					MaxInterval: time.Duration(rorateTime) * time.Second,
+					LocalTime:   true,
+				}
+				writer = logFile
+			} else {
+				var f *os.File
+				f, err = os.Create(addr)
+				writer = f
+			}
 		}
+
 		if err == nil && writer != nil {
 			multi := zerolog.MultiLevelWriter(consoleWriter, writer)
 			logger = zerolog.New(multi).With().Timestamp().Logger()
@@ -212,12 +228,12 @@ func initLogger(addr string, modConfig config.IConfig) zerolog.Logger {
 func runModule(modName string, modConfig config.IConfig) {
 	var err error
 	setModConfig(globalConf, modConfig)
-	var logger = initLogger(globalConf.LoggerAddr, modConfig)
+	var logger = initLogger(globalConf.LoggerAddr, modConfig, false)
 	var eventCollector zerolog.Logger
 	if globalConf.EventCollectorAddr == "" {
 		eventCollector = logger
 	} else {
-		eventCollector = initLogger(globalConf.EventCollectorAddr, modConfig)
+		eventCollector = initLogger(globalConf.EventCollectorAddr, modConfig, true)
 	}
 	var ecw = eventCollectorWriter{logger: &eventCollector}
 	// init eCapture
