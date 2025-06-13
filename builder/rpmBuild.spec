@@ -1,6 +1,6 @@
 Name:       ecapture
-Version:    v0.0.1
-Release:    2023%{?dist}
+Version:    v1.1.0
+Release:    2025%{?dist}
 Summary:    Capture SSL/TLS plaintext content without CA certificates using eBPF
 License:    Apache-2.0
 URL:        https://ecapture.cc
@@ -11,16 +11,24 @@ Source0:    %{name}-%{version}.tar.gz
 
 
 %description
-SSL/TLS plaintext capture,
-supports OpenSSL, LibreSSL, BoringSSL, GnuTLS, and NSPR (NSS) libraries.
+eCapture is a powerful network traffic capture and decryption tool based on eBPF technology, focusing on TLS/SSL protocol transparency and analysis. This tool supports multiple protocols and architectures, providing efficient and flexible capture and decryption capabilities.
 
-GoTLS plaintext support for the Go TLS library, which refers to encrypted
+Key features include:
+- Multi-Protocol Support: Compatible with TLS, gnutls, nss, openssl, and other encryption protocols across different versions of SSL/TLS implementations
+- Smart Packet Capture: Efficient network data capture and protocol parsing based on eBPF technology, supporting IPv4/IPv6 dual-stack and 4-tuple filtering
+- Master Key Capture: Supports TLS 1.0/1.1/1.2 and 1.3 protocol master key capture, integrates with Wireshark for decryption to view encrypted traffic in plain text
+- Modular Architecture: Easy extension and flexible configuration of different protocol modules
+- Cross-Platform Support: Compatible with Linux, Android, and other platforms, supporting ARM64 and x86 architectures
 
-communication in HTTPS/TLS programs written in the Go language.
+Technical advantages:
+- Automatic detection of SSL/TLS library versions, intelligent identification of CO-RE and non-CO-RE modes
+- Support for custom filters, log files, decryption modes, and multiple output formats
+- High-efficiency data processing based on eBPF, supporting large-scale concurrent captures and long-term packet capturing
+- Wireshark plugin support for easy data analysis and visualization
 
-Bash audit captures bash commands for Host Security Audit.
-Zsh audit captures zsh commands for Host Security Audit.
-MySQL query SQL audit supports MySQL 5.6/5.7/8.0 and MariaDB.
+Application scenarios: Network debugging, security analysis, protocol research, monitoring and auditing.
+
+For more information, visit: https://ecapture.cc or https://github.com/gojue/ecapture
 
 %prep
 %setup -c
@@ -42,14 +50,14 @@ echo "Please ensure that /usr/local/bin is in your \$PATH, or use /usr/local/bin
 /usr/local/bin/ecapture
 
 %changelog
-* Sat Dec 30 2023 CFC4N <cfc4ncs@gmail.com> - 0.7.0-1
-- Split `nss/gnutls/openssl` into three separate submodules. Corresponding to the `./ecapture nss`, `./ecapture gnutls`, `ecapture tls` commands.
-- Support `keylog` mode, equivalent to the functionality of the `SSLKEYLOGFILE` environment variable. Captures SSL/TLS communication keys directly without the need for changes in the target process.
-- Refactor the mode parameters supported by the `openssl`(aka tls) module using the `-m`parameter, with values `text`, `pcap`,`keylog`.
-  - `pcap` mode: Set with `-m pcap` or `-m pcapng` parameters. When using this mode, it is necessary to specify `--pcapfile` and `-i` parameters. The default value for the `--pcapfile` parameter is `ecapture_openssl.pcapng`.
-  - `keylog` mode: Set with `-m keylog` or `-m key` parameters. When using this mode, it is necessary to specify `--keylogfile`, defaulting to `ecapture_masterkey.log`.
-  - `text` mode: Default mode when `-m` parameter is unspecified. Outputs all plaintext packets in text form. (As of v0.7.0, no longer captures communication keys, please use `keylog` mode instead.)
-- Refactor the mode parameters supported by the `gotls` module, similar to the `openssl` module, without further details.
-- Optimize the memory size of eBPF Map, specify with the `--mapsize` parameter, defaulting to 5120 KB.
-- Remove the `-w` parameter, use `--pcapfile` parameter instead.
-- Change `log-addr` parameter to `logaddr`, with unchanged functionality.
+* Tue Mar 25 2025 CFC4N <cfc4ncs@gmail.com> - 1.0.0
+- Initial stable release
+- Added support for multiple encryption protocols including TLS, gnutls, nss, and openssl
+- Implemented smart packet capture based on eBPF technology
+- Added support for TLS 1.2 and 1.3 protocol master key capture
+- Completed modular architecture design for easy extension
+- Added cross-platform support for Linux, Android, and other platforms
+- Ensured compatibility with ARM64 and x86 architectures
+- Added Wireshark plugin support
+- Implemented automatic detection of SSL/TLS library versions
+- Added support for custom filters, log files, and multiple output formats
