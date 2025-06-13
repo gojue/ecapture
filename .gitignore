@@ -28,3 +28,4 @@
 bin/*
 /.check*
 /deps/*
+/assets/probe.go

@@ -42,6 +42,7 @@ type MasterSecretEvent struct {
 
 	// TLS 1.3
 	CipherId               uint32             `json:"cipherId"`               // Cipher ID
+	EarlyTrafficSecret     [EvpMaxMdSize]byte `json:"earlyTrafficSecret"`     // CLIENT_EARLY_TRAFFIC_SECRET
 	HandshakeSecret        [EvpMaxMdSize]byte `json:"handshakeSecret"`        // Handshake Secret
 	HandshakeTrafficHash   [EvpMaxMdSize]byte `json:"handshakeTrafficHash"`   // Handshake Traffic Hash
 	ClientAppTrafficSecret [EvpMaxMdSize]byte `json:"clientAppTrafficSecret"` // Client App Traffic Secret
@@ -62,6 +63,9 @@ func (mse *MasterSecretEvent) Decode(payload []byte) (err error) {
 		return
 	}
 	if err = binary.Read(buf, binary.LittleEndian, &mse.CipherId); err != nil {
+		return
+	}
+	if err = binary.Read(buf, binary.LittleEndian, &mse.EarlyTrafficSecret); err != nil {
 		return
 	}
 	if err = binary.Read(buf, binary.LittleEndian, &mse.HandshakeSecret); err != nil {

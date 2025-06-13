@@ -47,6 +47,7 @@
 #define BIO_METHOD_ST_TYPE 0x0
 
 // openssl 1.1.0 does not support TLS 1.3, set 0 default
+#define SSL_ST_EARLY_SECRET 0
 #define SSL_ST_HANDSHAKE_SECRET 0
 #define SSL_ST_HANDSHAKE_TRAFFIC_HASH 0
 #define SSL_ST_CLIENT_APP_TRAFFIC_SECRET 0

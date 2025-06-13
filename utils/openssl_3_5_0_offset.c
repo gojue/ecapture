@@ -1,11 +1,11 @@
 // clang -I include/ -I . offset.c -o offset
 #include <crypto/bio/bio_local.h>
+#include <ctype.h>
 #include <openssl/crypto.h>
 #include <ssl/quic/quic_local.h>
 #include <ssl/ssl_local.h>
 #include <stddef.h>
 #include <stdio.h>
-#include <ctype.h>
 
 #define SSL_STRUCT_OFFSETS                          \
     X(ssl_st, type)                                 \

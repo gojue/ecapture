@@ -37,8 +37,8 @@ int uretprobe_zsh_zleentry(struct pt_regs *ctx) {
     event.pid = pid;
     event.uid = uid;
     event.type = ZSH_EVENT_TYPE_READLINE;
-    bpf_get_current_comm(&event.comm, sizeof(event.comm));   
-    bpf_probe_read_user(&event.line, sizeof(event.line),(void *)PT_REGS_RC(ctx));
+    bpf_get_current_comm(&event.comm, sizeof(event.comm));
+    bpf_probe_read_user(&event.line, sizeof(event.line), (void *)PT_REGS_RC(ctx));
     bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, &event, sizeof(struct event));
     return 0;
 }
