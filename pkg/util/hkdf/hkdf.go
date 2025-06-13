@@ -36,7 +36,7 @@ import (
 
 const (
 	ResumptionBinderLabel         = "res binder"
-	ClientEarlySecretLabel = "c e traffic"
+	ClientEarlySecretLabel        = "c e traffic"
 	ClientHandshakeTrafficLabel   = "c hs traffic"
 	ServerHandshakeTrafficLabel   = "s hs traffic"
 	ClientApplicationTrafficLabel = "c ap traffic"
