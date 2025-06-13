@@ -35,7 +35,7 @@ CMD_ECHO ?= echo
 
 KERNEL_LESS_5_2_PREFIX ?= _less52.o
 BYTECODE_FILES ?= all
-STYLE    ?= "{BasedOnStyle: Google, IndentWidth: 4, TabWidth: 4, UseTab: Never, ColumnLimit: 120}"
+STYLE    ?= "{BasedOnStyle: Google, IndentWidth: 4, TabWidth: 4, UseTab: Never, ColumnLimit: 120, AlignAfterOpenBracket: DontAlign, BinPackArguments: true, BreakStringLiterals: false}"
 IGNORE_LESS52 ?=
 AUTOGENCMD ?=
 BPFHEADER := -I ./kern
@@ -277,10 +277,6 @@ RPM_SOURCE0 = $(ECAPTURE_NAME)-$(TAG).tar.gz
 #
 
 OUTPUT_DIR = ./bin
-#TAR_DIR = ecapture-$(DEB_VERSION)-linux-$(GOARCH)
-#TAR_DIR_NOCORE = ecapture-$(DEB_VERSION)-linux-$(GOARCH)-nocore
-#TAR_DIR_ANDROID = ecapture-$(DEB_VERSION)-android-$(GOARCH)
-#TAR_DIR_ANDROID_NOCORE = ecapture-$(DEB_VERSION)-android-$(GOARCH)-nocore
 
 # from CLI args.
 RELEASE_NOTES ?= release_notes.txt
@@ -300,8 +296,4 @@ BUILD_DIR = build
 # Create a release snapshot
 #
 
-#OUT_ARCHIVE := $(OUTPUT_DIR)/$(TAR_DIR).tar.gz
-#OUT_ARCHIVE_NOCORE := $(OUTPUT_DIR)/$(TAR_DIR_NOCORE).tar.gz
-#OUT_ARCHIVE_ANDROID := $(OUTPUT_DIR)/$(TAR_DIR_ANDROID).tar.gz
-#OUT_ARCHIVE_ANDROID_NOCORE := $(OUTPUT_DIR)/$(TAR_DIR_ANDROID_NOCORE).tar.gz
 OUT_CHECKSUMS := checksum-$(DEB_VERSION).txt

@@ -1,8 +1,8 @@
 #ifndef ECAPTURE_OPENSSL_3_0_0_KERN_H
 #define ECAPTURE_OPENSSL_3_0_0_KERN_H
 
-/* OPENSSL_VERSION_TEXT: OpenSSL 3.1.7 3 Sep 2024 */
-/* OPENSSL_VERSION_NUMBER: 806355056 */
+/* OPENSSL_VERSION_TEXT: OpenSSL 3.1.8 11 Feb 2025 */
+/* OPENSSL_VERSION_NUMBER: 806355072 */
 
 // ssl_st->version
 #define SSL_ST_VERSION 0x0
@@ -36,6 +36,9 @@
 
 // ssl_cipher_st->id
 #define SSL_CIPHER_ST_ID 0x18
+
+// ssl_st->early_secret
+#define SSL_ST_EARLY_SECRET 0x544
 
 // ssl_st->handshake_secret
 #define SSL_ST_HANDSHAKE_SECRET 0x584

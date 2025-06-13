@@ -219,8 +219,8 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
         return 0;
     }
 
-    ret = bpf_probe_read_kernel(&mastersecret->client_random, sizeof(mastersecret->client_random),
-                                (void *)&ssl3_stat.client_random);
+    ret = bpf_probe_read_kernel(
+        &mastersecret->client_random, sizeof(mastersecret->client_random), (void *)&ssl3_stat.client_random);
     if (ret) {
         debug_bpf_printk("bpf_probe_read_kernel ssl3_stat.client_random failed, ret :%d\n", ret);
         return 0;
@@ -249,7 +249,6 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
     u16 client_version;
     u64 *ssl_hs_cv_ptr = (u64 *)(ssl_hs_st_addr + BSSL__SSL_HANDSHAKE_CLIENT_VERSION);
     ret = bpf_probe_read_user(&client_version, sizeof(client_version), ssl_hs_cv_ptr);
-    //    if (ret || client_version == 0) {
     if (ret) {
         debug_bpf_printk("bpf_probe_read ssl_hs_st_ptr failed, ret :%d, client_version:%d\n", ret, hash_len);
         return 0;
@@ -263,16 +262,10 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
         return 0;
     }
 
-    // ssl_client_hs_state_t::ssl3_hs_state=5
-    // tls13_server_hs_state_t::state13_read_second_client_flight
-    //    if (ssl3_hs_state.state == 5 && ssl3_hs_state.tls13_state < 8) {
-    //        return 0;
-    //    }
     ///////////// debug info  /////////
 
     debug_bpf_printk("client_version:%d, state:%d, tls13_state:%d\n", client_version, ssl3_hs_state.state,
-                     ssl3_hs_state.tls13_state);
-    //    debug_bpf_printk("openssl uprobe/SSL_write masterKey PID :%d\n", pid);
+        ssl3_hs_state.tls13_state);
     debug_bpf_printk("TLS version :%d, hash_len:%d, \n", mastersecret->version, hash_len);
     // 判断当前tls链接状态
     // handshake->handshake_finalized = hs_st_addr + BSSL__SSL_HANDSHAKE_HINTS +
@@ -281,9 +274,7 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
     ret = bpf_probe_read_user(&all_bool, sizeof(all_bool), hs_ptr_ab);
     if (ret) {
         debug_bpf_printk(
-            "bpf_probe_read BSSL__SSL_HANDSHAKE_HINTS failed, ret "
-            ":%d, ssl_hs_st_ptr:%lx\n",
-            ret, ssl_hs_st_addr);
+            "bpf_probe_read BSSL__SSL_HANDSHAKE_HINTS failed, ret:%d, ssl_hs_st_ptr:%lx\n", ret, ssl_hs_st_addr);
         return 0;
     }
     debug_bpf_printk("SSL_HANDSHAKE_ALLBOOL:%d, ssl_hs_st_addr:%lx\n", all_bool, ssl_hs_st_addr);
@@ -308,10 +299,7 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
         ret = bpf_probe_read_user(&secret_length, sizeof(secret_length), ms_len_ptr);
         if (ret) {
             debug_bpf_printk(
-                "bpf_probe_read SSL_SESSION_ST_SECRET_LENGTH failed, "
-                "ms_len_ptr:%llx, ret "
-                ":%d\n",
-                ms_len_ptr, ret);
+                "bpf_probe_read SSL_SESSION_ST_SECRET_LENGTH failed, ms_len_ptr:%llx, ret :%d\n", ms_len_ptr, ret);
             return 0;
         }
         mastersecret->hash_len = secret_length;
@@ -320,18 +308,15 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
         u64 *ms_ptr = (u64 *)(ssl_session_st_addr + SSL_SESSION_ST_SECRET);
         ret = bpf_probe_read_user(&mastersecret->secret_, sizeof(mastersecret->secret_), ms_ptr);
         if (ret) {
-            debug_bpf_printk(
-                "bpf_probe_read SSL_SESSION_ST_SECRET failed, ms_ptr:%llx, ret "
-                ":%d\n",
-                ms_ptr, ret);
+            debug_bpf_printk("bpf_probe_read SSL_SESSION_ST_SECRET failed, ms_ptr:%llx, ret:%d\n", ms_ptr, ret);
             return 0;
         }
 
-        debug_bpf_printk("master_key: %x %x %x\n", mastersecret->secret_[0], mastersecret->secret_[1],
-                         mastersecret->secret_[2]);
+        debug_bpf_printk(
+            "master_key: %x %x %x\n", mastersecret->secret_[0], mastersecret->secret_[1], mastersecret->secret_[2]);
 
-        bpf_perf_event_output(ctx, &mastersecret_events, BPF_F_CURRENT_CPU, mastersecret,
-                              sizeof(struct mastersecret_bssl_t));
+        bpf_perf_event_output(
+            ctx, &mastersecret_events, BPF_F_CURRENT_CPU, mastersecret, sizeof(struct mastersecret_bssl_t));
         return 0;
     }
 
@@ -341,64 +326,57 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
         return 0;
     }
 
-    void *hs_ptr_tls13 = (void *)(ssl_hs_st_addr + SSL_HANDSHAKE_CLIENT_HANDSHAKE_SECRET_);
-    ret = bpf_probe_read_user(&mastersecret->client_handshake_secret_, sizeof(mastersecret->client_handshake_secret_),
-                              (void *)hs_ptr_tls13);
+    //////////////////// TLS 1.3 master secret ////////////////////////
+
+    void *es_ptr_tls13 = (void *)(ssl_hs_st_addr + SSL_HANDSHAKE_EARLY_TRAFFIC_SECRET_);
+    ret = bpf_probe_read_user(
+        &mastersecret->early_traffic_secret_, sizeof(mastersecret->early_traffic_secret_), (void *)es_ptr_tls13);
     if (ret) {
-        debug_bpf_printk(
-            "bpf_probe_read SSL_HANDSHAKE_CLIENT_HANDSHAKE_SECRET_ failed, ret "
-            ":%d\n",
-            ret);
+        debug_bpf_printk("bpf_probe_read SSL_HANDSHAKE_EARLY_TRAFFIC_SECRET_ failed, ret:%d\n", ret);
+        // if ret != 0 , ignore this error.
+    }
+
+    void *hs_ptr_tls13 = (void *)(ssl_hs_st_addr + SSL_HANDSHAKE_CLIENT_HANDSHAKE_SECRET_);
+    ret = bpf_probe_read_user(
+        &mastersecret->client_handshake_secret_, sizeof(mastersecret->client_handshake_secret_), (void *)hs_ptr_tls13);
+    if (ret) {
+        debug_bpf_printk("bpf_probe_read SSL_HANDSHAKE_CLIENT_HANDSHAKE_SECRET_ failed, ret :%d\n", ret);
         return 0;
     }
 
-    //////////////////// TLS 1.3 master secret ////////////////////////
-
     void *hth_ptr_tls13 = (void *)(ssl_hs_st_addr + SSL_HANDSHAKE_SERVER_HANDSHAKE_SECRET_);
-    ret = bpf_probe_read_user(&mastersecret->server_handshake_secret_, sizeof(mastersecret->server_handshake_secret_),
-                              (void *)hth_ptr_tls13);
+    ret = bpf_probe_read_user(
+        &mastersecret->server_handshake_secret_, sizeof(mastersecret->server_handshake_secret_), (void *)hth_ptr_tls13);
     if (ret) {
-        debug_bpf_printk(
-            "bpf_probe_read SSL_HANDSHAKE_SERVER_TRAFFIC_SECRET_0_ failed, ret "
-            ":%d\n",
-            ret);
+        debug_bpf_printk("bpf_probe_read SSL_HANDSHAKE_SERVER_TRAFFIC_SECRET_0_ failed, ret:%d\n", ret);
         return 0;
     }
 
     void *cats_ptr_tls13 = (void *)(ssl_hs_st_addr + SSL_HANDSHAKE_CLIENT_TRAFFIC_SECRET_0_);
     ret = bpf_probe_read_user(&mastersecret->client_traffic_secret_0_, sizeof(mastersecret->client_traffic_secret_0_),
-                              (void *)cats_ptr_tls13);
+        (void *)cats_ptr_tls13);
     if (ret) {
-        debug_bpf_printk(
-            "bpf_probe_read SSL_HANDSHAKE_CLIENT_TRAFFIC_SECRET_0_ failed, ret "
-            ":%d\n",
-            ret);
+        debug_bpf_printk("bpf_probe_read SSL_HANDSHAKE_CLIENT_TRAFFIC_SECRET_0_ failed, ret:%d\n", ret);
         return 0;
     }
 
     void *sats_ptr_tls13 = (void *)(ssl_hs_st_addr + SSL_HANDSHAKE_SERVER_TRAFFIC_SECRET_0_);
     ret = bpf_probe_read_user(&mastersecret->server_traffic_secret_0_, sizeof(mastersecret->server_traffic_secret_0_),
-                              (void *)sats_ptr_tls13);
+        (void *)sats_ptr_tls13);
     if (ret) {
-        debug_bpf_printk(
-            "bpf_probe_read SSL_HANDSHAKE_SERVER_TRAFFIC_SECRET_0_ failed, ret "
-            ":%d\n",
-            ret);
+        debug_bpf_printk("bpf_probe_read SSL_HANDSHAKE_SERVER_TRAFFIC_SECRET_0_ failed, ret :%d\n", ret);
         return 0;
     }
 
     void *ems_ptr_tls13 = (void *)(s3_address + BSSL__SSL3_STATE_EXPORTER_SECRET);
-    ret = bpf_probe_read_user(&mastersecret->exporter_secret, sizeof(mastersecret->exporter_secret),
-                              (void *)ems_ptr_tls13);
+    ret = bpf_probe_read_user(
+        &mastersecret->exporter_secret, sizeof(mastersecret->exporter_secret), (void *)ems_ptr_tls13);
     if (ret) {
-        debug_bpf_printk(
-            "bpf_probe_read SSL_HANDSHAKE_EXPECTED_CLIENT_FINISHED_ failed, "
-            "ret :%d\n",
-            ret);
+        debug_bpf_printk("bpf_probe_read SSL_HANDSHAKE_EXPECTED_CLIENT_FINISHED_ failed, ret :%d\n", ret);
         return 0;
     }
 
-    bpf_perf_event_output(ctx, &mastersecret_events, BPF_F_CURRENT_CPU, mastersecret,
-                          sizeof(struct mastersecret_bssl_t));
+    bpf_perf_event_output(
+        ctx, &mastersecret_events, BPF_F_CURRENT_CPU, mastersecret, sizeof(struct mastersecret_bssl_t));
     return 0;
 }

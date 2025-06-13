@@ -61,9 +61,9 @@ function run() {
     echo -e "#define SSL_ST_VERSION SSL_CONNECTION_ST_VERSION\n" >>${header_file}
     echo -e "#define SSL_ST_WBIO SSL_CONNECTION_ST_WBIO\n" >>${header_file}
     echo -e "#define SSL_ST_RBIO SSL_CONNECTION_ST_RBIO\n" >>${header_file}
-    echo -e "\n#include \"openssl.h\"" >>${header_file}
+    echo -e "#include \"openssl.h\"" >>${header_file}
     echo -e "#include \"openssl_masterkey_3.2.h\"" >>${header_file}
-    echo -e "\n#endif" >>${header_file}
+    echo -e "#endif" >>${header_file}
 
     # clean up
     make clean

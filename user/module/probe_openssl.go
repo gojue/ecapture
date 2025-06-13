@@ -534,6 +534,12 @@ func (m *MOpenSSLProbe) saveMasterSecret(secretEvent *event.MasterSecretEvent) {
 		}
 		m.masterKeys[k] = true
 
+		if !m.mk12NullSecrets(length, secretEvent.EarlyTrafficSecret[:]) {
+			b.WriteString(fmt.Sprintf("%s %02x %02x\n",
+				hkdf.KeyLogLabelClientEarlyTafficSecret, secretEvent.ClientRandom, secretEvent.EarlyTrafficSecret[:length]))
+			return
+		}
+
 		b.WriteString(fmt.Sprintf("%s %02x %02x\n",
 			hkdf.KeyLogLabelServerHandshake, secretEvent.ClientRandom, serverHandshakeSecret))
 
@@ -639,14 +645,14 @@ func (m *MOpenSSLProbe) saveMasterSecretBSSL(secretEvent *event.MasterSecretBSSL
 }
 
 func (m *MOpenSSLProbe) bSSLEvent12NullSecrets(e *event.MasterSecretBSSLEvent) bool {
-	return m.mk12NullSecrets(int(e.HashLen), e.Secret)
+	return m.mk12NullSecrets(int(e.HashLen), e.Secret[:])
 }
 
 func (m *MOpenSSLProbe) oSSLEvent12NullSecrets(hashLen int, e *event.MasterSecretEvent) bool {
-	return m.mk12NullSecrets(hashLen, e.MasterKey)
+	return m.mk12NullSecrets(hashLen, e.MasterKey[:])
 }
 
-func (m *MOpenSSLProbe) mk12NullSecrets(hashLen int, secret [48]byte) bool {
+func (m *MOpenSSLProbe) mk12NullSecrets(hashLen int, secret []byte) bool {
 	isNull := true
 	for i := 0; i < hashLen; i++ {
 		if hashLen > len(secret) {
