@@ -31,8 +31,6 @@
 #define GO_PARAM6(x) BPF_CORE_READ((x), r8)
 #define GO_PARAM7(x) BPF_CORE_READ((x), r9)
 #define GO_PARAM8(x) BPF_CORE_READ((x), r10)
-#define GO_PARAM9(x) BPF_CORE_READ((x), r11)
-#define GOROUTINE(x) BPF_CORE_READ((x), r14)
 #define GO_SP(x) BPF_CORE_READ((x), sp)
 #elif defined(__TARGET_ARCH_arm64)
 #define GO_PARAM1(x) PT_REGS_PARM1_CORE(x)
@@ -40,11 +38,9 @@
 #define GO_PARAM3(x) PT_REGS_PARM3_CORE(x)
 #define GO_PARAM4(x) PT_REGS_PARM4_CORE(x)
 #define GO_PARAM5(x) PT_REGS_PARM5_CORE(x)
-#define GO_PARAM6(x) BPF_CORE_READ(((PT_REGS_ARM64 *)(x)), regs[5])
-#define GO_PARAM7(x) BPF_CORE_READ(((PT_REGS_ARM64 *)(x)), regs[6])
-#define GO_PARAM8(x) BPF_CORE_READ(((PT_REGS_ARM64 *)(x)), regs[7])
-#define GO_PARAM9(x) BPF_CORE_READ(((PT_REGS_ARM64 *)(x)), regs[8])
-#define GOROUTINE(x) BPF_CORE_READ(((PT_REGS_ARM64 *)(x)), regs[28])
+#define GO_PARAM6(x) PT_REGS_PARM6_CORE(x)
+#define GO_PARAM7(x) PT_REGS_PARM7_CORE(x)
+#define GO_PARAM8(x) PT_REGS_PARM8_CORE(x)
 #define GO_SP(x) PT_REGS_SP_CORE(x)
 #endif
 
@@ -60,19 +56,16 @@
 #define GO_PARAM7(x) ((x)->r9)
 #define GO_PARAM8(x) ((x)->r10)
 #define GO_PARAM9(x) ((x)->r11)
-#define GOROUTINE(x) ((x)->r14)
 #define GO_SP(x) ((x)->sp)
 #elif defined(__aarch64__)
 #define GO_PARAM1(x) PT_REGS_PARM1(x)
 #define GO_PARAM2(x) PT_REGS_PARM2(x)
 #define GO_PARAM3(x) PT_REGS_PARM3(x)
 #define GO_PARAM4(x) PT_REGS_PARM4(x)
-#define GO_PARAM5(x) (((PT_REGS_ARM64 *)(x))->regs[4])
-#define GO_PARAM6(x) (((PT_REGS_ARM64 *)(x))->regs[5])
-#define GO_PARAM7(x) (((PT_REGS_ARM64 *)(x))->regs[6])
-#define GO_PARAM8(x) (((PT_REGS_ARM64 *)(x))->regs[7])
-#define GO_PARAM9(x) (((PT_REGS_ARM64 *)(x))->regs[8])
-#define GOROUTINE(x) (((PT_REGS_ARM64 *)(x))->regs[28])
+#define GO_PARAM5(x) PT_REGS_PARM5(x)
+#define GO_PARAM6(x) PT_REGS_PARM6(x)
+#define GO_PARAM7(x) PT_REGS_PARM7(x)
+#define GO_PARAM8(x) PT_REGS_PARM8(x)
 #define GO_SP(x) PT_REGS_SP(x)
 #endif
 
@@ -96,8 +89,6 @@ void* go_get_argument_by_reg(struct pt_regs *ctx, int index) {
             return (void*)GO_PARAM7(ctx);
         case 8:
             return (void*)GO_PARAM8(ctx);
-        case 9:
-            return (void*)GO_PARAM9(ctx);
         default:
             return NULL;
     }

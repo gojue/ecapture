@@ -22,6 +22,7 @@
 #include "bpf/bpf_helpers.h"
 #include "bpf/bpf_tracing.h"
 #include "bpf/bpf_endian.h"
+#include "core_fixes.bpf.h"
 
 #else
 //CO:RE is disabled
@@ -49,7 +50,6 @@
 #include <linux/socket.h>
 #include <net/sock.h>
 #include <bpf/bpf_core_read.h>
-
 /*
  * The code in the bpf directory is the same as that in the bpf directory of the Linux kernel source code.
  * move from bpf/bpf_helpers.h to ecapture.h
