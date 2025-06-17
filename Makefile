@@ -154,6 +154,7 @@ $(KERN_OBJECTS_NOCORE): %.nocore: %.c \
 			-I $(KERN_SRC_PATH)/arch/$(LINUX_ARCH)/include \
 			-I $(KERN_BUILD_PATH)/arch/$(LINUX_ARCH)/include/generated \
 			-I $(KERN_SRC_PATH)/include \
+			-I $(KERN_SRC_PATH)/include/linux \
 			-I $(KERN_SRC_PATH)/arch/$(LINUX_ARCH)/include/uapi \
 			-I $(KERN_BUILD_PATH)/arch/$(LINUX_ARCH)/include/generated/uapi \
 			-I $(KERN_SRC_PATH)/include/uapi \
@@ -169,6 +170,7 @@ $(KERN_OBJECTS_NOCORE): %.nocore: %.c \
 			-I $(KERN_SRC_PATH)/arch/$(LINUX_ARCH)/include \
 			-I $(KERN_BUILD_PATH)/arch/$(LINUX_ARCH)/include/generated \
 			-I $(KERN_SRC_PATH)/include \
+			-I $(KERN_SRC_PATH)/include/linux \
 			-I $(KERN_SRC_PATH)/arch/$(LINUX_ARCH)/include/uapi \
 			-I $(KERN_BUILD_PATH)/arch/$(LINUX_ARCH)/include/generated/uapi \
 			-I $(KERN_SRC_PATH)/include/uapi \

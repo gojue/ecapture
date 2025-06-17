@@ -259,6 +259,7 @@ EXTRA_CFLAGS_NOCORE ?= -emit-llvm -O2 -S\
 	-Wno-deprecated-declarations \
 	-Wno-compare-distinct-pointer-types \
 	-Wno-address-of-packed-member \
+	-Wno-unknown-attributes \
 	-fno-stack-protector \
 	-fno-jump-tables \
 	-fno-unwind-tables \
