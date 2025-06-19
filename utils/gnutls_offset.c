@@ -13,6 +13,7 @@
     X(mac_entry_st, id)                                      \
     X(gnutls_session_int, security_parameters.client_random) \
     X(gnutls_session_int, security_parameters.master_secret) \
+    X(gnutls_session_int, key.proto.tls13.e_ckey)            \
     X(gnutls_session_int, key.proto.tls13.hs_ckey)           \
     X(gnutls_session_int, key.proto.tls13.hs_skey)           \
     X(gnutls_session_int, key.proto.tls13.ap_ckey)           \

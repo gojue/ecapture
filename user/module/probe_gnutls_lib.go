@@ -135,7 +135,7 @@ func (m *MGnutlsProbe) detectGnutls() error {
 
 	m.logger.Info().Str("binaryPath", binaryPath).Uint8("elfType", m.conf.(*config.GnutlsConfig).ElfType).Msg("GnuTLS binary path")
 	switch m.sslVersion {
-	case "3.8.7":
+	case "3.8.9", "3.8.8", "3.8.7":
 		m.sslBpfFile = m.geteBPFName("user/bytecode/gnutls_3_8_7_kern.o")
 	case "3.8.6", "3.8.5", "3.8.4":
 		m.sslBpfFile = m.geteBPFName("user/bytecode/gnutls_3_8_4_kern.o")
@@ -145,9 +145,9 @@ func (m *MGnutlsProbe) detectGnutls() error {
 		m.sslBpfFile = m.geteBPFName("user/bytecode/gnutls_3_7_3_kern.o")
 	case "3.7.2", "3.7.1", "3.7.0":
 		m.sslBpfFile = m.geteBPFName("user/bytecode/gnutls_3_7_0_kern.o")
-	case "3.6.16", "3.6.15", "3.6.14":
-		m.sslBpfFile = m.geteBPFName("user/bytecode/gnutls_3_6_14_kern.o")
-	case "3.6.13", "3.6.12":
+	case "3.6.16", "3.6.15", "3.6.14", "3.6.13":
+		m.sslBpfFile = m.geteBPFName("user/bytecode/gnutls_3_6_13_kern.o")
+	case "3.6.12":
 		m.sslBpfFile = m.geteBPFName("user/bytecode/gnutls_3_6_12_kern.o")
 	default:
 		m.sslBpfFile = m.geteBPFName("user/bytecode/gnutls_3_6_12_kern.o")
