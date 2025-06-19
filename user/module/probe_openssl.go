@@ -537,7 +537,6 @@ func (m *MOpenSSLProbe) saveMasterSecret(secretEvent *event.MasterSecretEvent) {
 		if !m.mk12NullSecrets(length, secretEvent.EarlyTrafficSecret[:]) {
 			b.WriteString(fmt.Sprintf("%s %02x %02x\n",
 				hkdf.KeyLogLabelClientEarlyTafficSecret, secretEvent.ClientRandom, secretEvent.EarlyTrafficSecret[:length]))
-			return
 		}
 
 		b.WriteString(fmt.Sprintf("%s %02x %02x\n",
