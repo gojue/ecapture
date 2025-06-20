@@ -84,6 +84,7 @@ type SSLDataEvent struct {
 	Version   int32             `json:"version"`
 	Tuple     string
 	BioType   uint32
+	Sock      uint64
 }
 
 func (se *SSLDataEvent) Decode(payload []byte) (err error) {
@@ -131,7 +132,8 @@ func commStr(comm []byte) string {
 }
 
 func (se *SSLDataEvent) GetUUID() string {
-	return fmt.Sprintf("%d_%d_%s_%d_%d_%s", se.Pid, se.Tid, commStr(se.Comm[:]), se.Fd, se.DataType, se.Tuple)
+	//uuid: sock:Pid_Tid_Comm_Fd_DataType_Tuple_Sock
+	return fmt.Sprintf("%s%d_%d_%s_%d_%d_%s_%d", SocketLifecycleUUIDPrefix, se.Pid, se.Tid, commStr(se.Comm[:]), se.Fd, se.DataType, se.Tuple, se.Sock)
 }
 
 func (se *SSLDataEvent) Payload() []byte {

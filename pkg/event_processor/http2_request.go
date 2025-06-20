@@ -36,9 +36,17 @@ type HTTP2Request struct {
 	isInit     bool
 	reader     *bytes.Buffer
 	bufReader  *bufio.Reader
+	hdec       *hpack.Decoder
 }
 
 func (h2r *HTTP2Request) detect(payload []byte) error {
+	/*
+		https://datatracker.ietf.org/doc/html/rfc7540#section-3.5
+		Defect: Currently, the detect method only checks the HTTP/2 connection Preface (Client Preface).
+		        It is assumed that the first packet of the connection preface will definitely be obtained.
+		        However, after the HTTP/2 protocol establishes a connection, subsequent frames are no longer included.
+		        If the Preface connection is not detected, subsequent messages will be recognized as HttpRequest.
+	*/
 	payloadLen := len(payload)
 	if payloadLen < ClientPrefaceLen {
 		return errors.New("payload less than http2 ClientPreface")
@@ -54,6 +62,13 @@ func (h2r *HTTP2Request) Init() {
 	h2r.reader = bytes.NewBuffer(nil)
 	h2r.bufReader = bufio.NewReader(h2r.reader)
 	h2r.framer = http2.NewFramer(nil, h2r.bufReader)
+	/*
+		one tuple connect should share the same dynamic table
+		https://datatracker.ietf.org/doc/html/rfc7541#section-2.2
+	*/
+	if h2r.hdec == nil {
+		h2r.hdec = hpack.NewDecoder(4096, nil)
+	}
 }
 
 func (h2r *HTTP2Request) Write(b []byte) (int, error) {
@@ -85,15 +100,20 @@ func (h2r *HTTP2Request) IsDone() bool {
 }
 
 func (h2r *HTTP2Request) Display() []byte {
-	_, err := h2r.bufReader.Discard(ClientPrefaceLen)
-	if err != nil {
-		log.Println("[http2 request] Discard HTTP2 Magic error:", err)
-		return h2r.reader.Bytes()
+	payloadLen := len(h2r.reader.String())
+	if payloadLen >= ClientPrefaceLen {
+		data := h2r.reader.String()[0:ClientPrefaceLen]
+		if data == http2.ClientPreface {
+			_, err := h2r.bufReader.Discard(ClientPrefaceLen)
+			if err != nil {
+				log.Println("[http2 request] Discard HTTP2 Magic error:", err)
+				return h2r.reader.Bytes()
+			}
+		}
 	}
 	encodingMap := make(map[uint32]string)
 	dataBufMap := make(map[uint32]*bytes.Buffer)
 	frameBuf := bytes.NewBufferString("")
-	hdec := hpack.NewDecoder(4096, nil)
 	for {
 		f, err := h2r.framer.ReadFrame()
 		if err != nil {
@@ -107,7 +127,7 @@ func (h2r *HTTP2Request) Display() []byte {
 			streamID := f.StreamID
 			frameBuf.WriteString(fmt.Sprintf("\nFrame Type\t=>\tHEADERS\nFrame StreamID\t=>\t%d\nFrame Length\t=>\t%d\n", streamID, f.Length))
 			if f.HeadersEnded() {
-				fields, err := hdec.DecodeFull(f.HeaderBlockFragment())
+				fields, err := h2r.hdec.DecodeFull(f.HeaderBlockFragment())
 				for _, header := range fields {
 					frameBuf.WriteString(fmt.Sprintf("%s\n", header.String()))
 					if header.Name == "content-encoding" {
@@ -115,10 +135,10 @@ func (h2r *HTTP2Request) Display() []byte {
 					}
 				}
 				if err != nil {
-					frameBuf.WriteString("Incorrect HPACK context, Please use PCAP mode to get correct header fields ...\n")
+					frameBuf.WriteString("[http2 request] Incorrect HPACK context, Please use PCAP mode to get correct header fields ...\n")
 				}
 			} else {
-				frameBuf.WriteString("Not Supported HEADERS Frame with CONTINUATION frames\n")
+				frameBuf.WriteString("[http2 request] Not Supported HEADERS Frame with CONTINUATION frames\n")
 			}
 		case *http2.DataFrame:
 			streamID := f.StreamID
