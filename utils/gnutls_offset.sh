@@ -25,9 +25,12 @@ fi
 function run() {
   git fetch --tags
   cp -f ${PROJECT_ROOT_DIR}/utils/gnutls_offset.c ${GNUTLS_DIR}/offset.c
+  # 3.6.{12 ~ 16}
+  # 3.7.{0 ~ 11}
+  # 3.8.{0 ~ 9}
   main_version="3.8"
 
-  for ver in $(seq 7 8); do
+  for ver in $(seq 0 9); do
     tag="${main_version}.${ver}"
     underline_tag=$(echo $tag | tr "." "_")
     header_file="${OUTPUT_DIR}/gnutls_${underline_tag}_kern.c"
@@ -37,14 +40,14 @@ function run() {
       echo "Skip ${header_file}"
       continue
     fi
-    echo "git checkout ${tag}"
-    git checkout ${tag}
+    echo "git checkout -f ${tag}"
+    git checkout -f ${tag}
     echo "Generating ${header_file}"
 
     # init
     ./bootstrap --skip-po --force --no-bootstrap-sync
-    ./configure --without-p11-kit --without-brotli --without-zstd --without-zlib --without-tpm
-    clang -I gnulib/lib/ -I lib/includes -I . offset.c -o offset
+    ./configure --without-p11-kit --without-brotli --without-zstd --without-zlib --without-tpm --disable-doc --disable-tests
+    clang -I gnulib/lib -I lib -I lib/includes -I . offset.c -o offset
 
     echo -e "#ifndef ECAPTURE_${header_define}" >${header_file}
     echo -e "#define ECAPTURE_${header_define}\n" >>${header_file}

@@ -61,6 +61,7 @@
 //         struct {
 //             // ignore
 //             // ...
+//             uint8_t e_ckey[MAX_HASH_SIZE]; /* client_early_traffic_secret */
 //             uint8_t hs_ckey[MAX_HASH_SIZE]; /* client_hs_traffic_secret */
 //             uint8_t hs_skey[MAX_HASH_SIZE]; /* server_hs_traffic_secret */
 //             uint8_t ap_ckey[MAX_HASH_SIZE]; /* client_ap_traffic_secret */
@@ -93,6 +94,7 @@ struct gnutls_mastersecret_st {
 
     /* tls1.3 */
     u32 cipher_id;
+    u8 client_early_traffic_secret[MAX_HASH_SIZE];
     u8 client_handshake_secret[MAX_HASH_SIZE];
     u8 server_handshake_secret[MAX_HASH_SIZE];
     u8 client_traffic_secret[MAX_HASH_SIZE];
@@ -278,6 +280,12 @@ int uretprobe_gnutls_master_key(struct pt_regs *ctx) {
                                   (void *)(gnutls_session_addr + GNUTLS_SESSION_INT_SECURITY_PARAMETERS_CLIENT_RANDOM));
         if (ret) {
             debug_bpf_printk("gnutls uretprobe/gnutls_handshake, get client_random failed, ret: %d\n", ret);
+            return 0;
+        }
+        ret = bpf_probe_read_user(&mastersecret->client_early_traffic_secret, sizeof(mastersecret->client_early_traffic_secret),
+                                  (void *)(gnutls_session_addr + GNUTLS_SESSION_INT_KEY_PROTO_TLS13_E_CKEY));
+        if (ret) {
+            debug_bpf_printk("gnutls uretprobe/gnutls_handshake, get client_early_traffic_secret failed, ret: %d\n", ret);
             return 0;
         }
         ret = bpf_probe_read_user(&mastersecret->client_handshake_secret, sizeof(mastersecret->client_handshake_secret),

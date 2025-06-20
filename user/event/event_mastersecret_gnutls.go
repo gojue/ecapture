@@ -28,17 +28,18 @@ const (
 
 // mastersecret_gnutls_events
 type MasterSecretGnutlsEvent struct {
-	eventType             EventType
-	Version               int32                   `json:"version"`
-	ClientRandom          [GnutlsRandomSize]byte  `json:"clientRandom"`
-	MasterSecret          [GnutlsMasterSize]byte  `json:"masterSecret"`
-	CipherId              int32                   `json:"cipherId"` // PRF MAC
-	ClientHandshakeSecret [GnutlsMaxHashSize]byte `json:"clientHandshakeSecret"`
-	ServerHandshakeSecret [GnutlsMaxHashSize]byte `json:"serverHandshakeSecret"`
-	ClientTrafficSecret   [GnutlsMaxHashSize]byte `json:"clientTrafficSecret"`
-	ServerTrafficSecret   [GnutlsMaxHashSize]byte `json:"serverTrafficSecret"`
-	ExporterMasterSecret  [GnutlsMaxHashSize]byte `json:"exporterMasterSecret"`
-	payload               string
+	eventType                EventType
+	Version                  int32                   `json:"version"`
+	ClientRandom             [GnutlsRandomSize]byte  `json:"clientRandom"`
+	MasterSecret             [GnutlsMasterSize]byte  `json:"masterSecret"`
+	CipherId                 int32                   `json:"cipherId"` // PRF MAC
+	ClientEarlyTrafficSecret [GnutlsMaxHashSize]byte `json:"clientEarlyTrafficSecret"`
+	ClientHandshakeSecret    [GnutlsMaxHashSize]byte `json:"clientHandshakeSecret"`
+	ServerHandshakeSecret    [GnutlsMaxHashSize]byte `json:"serverHandshakeSecret"`
+	ClientTrafficSecret      [GnutlsMaxHashSize]byte `json:"clientTrafficSecret"`
+	ServerTrafficSecret      [GnutlsMaxHashSize]byte `json:"serverTrafficSecret"`
+	ExporterMasterSecret     [GnutlsMaxHashSize]byte `json:"exporterMasterSecret"`
+	payload                  string
 }
 
 func (mse *MasterSecretGnutlsEvent) Decode(payload []byte) (err error) {
@@ -53,6 +54,9 @@ func (mse *MasterSecretGnutlsEvent) Decode(payload []byte) (err error) {
 		return
 	}
 	if err = binary.Read(buf, binary.LittleEndian, &mse.CipherId); err != nil {
+		return
+	}
+	if err = binary.Read(buf, binary.LittleEndian, &mse.ClientEarlyTrafficSecret); err != nil {
 		return
 	}
 	if err = binary.Read(buf, binary.LittleEndian, &mse.ClientHandshakeSecret); err != nil {

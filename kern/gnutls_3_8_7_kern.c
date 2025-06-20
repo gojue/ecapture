@@ -1,7 +1,7 @@
 #ifndef ECAPTURE_GNUTLS_3_8_7_KERN_H
 #define ECAPTURE_GNUTLS_3_8_7_KERN_H
 
-// version 3.8.7
+// version 3.8.7, 3.8.8, 3.8.9
 
 // gnutls_session_int->security_parameters
 #define GNUTLS_SESSION_INT_SECURITY_PARAMETERS 0x0
@@ -17,6 +17,9 @@
 
 // gnutls_session_int->security_parameters.master_secret
 #define GNUTLS_SESSION_INT_SECURITY_PARAMETERS_MASTER_SECRET 0x20
+
+// gnutls_session_int->key.proto.tls13.e_ckey
+#define GNUTLS_SESSION_INT_KEY_PROTO_TLS13_E_CKEY 0x1994
 
 // gnutls_session_int->key.proto.tls13.hs_ckey
 #define GNUTLS_SESSION_INT_KEY_PROTO_TLS13_HS_CKEY 0x19d4
@@ -38,6 +41,7 @@
 
 // version_entry_st->id
 #define VERSION_ENTRY_ST_ID 0x8
+
 
 #include "gnutls.h"
 #include "gnutls_masterkey.h"
