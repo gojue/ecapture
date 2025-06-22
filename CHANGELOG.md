@@ -1,9 +1,26 @@
+# v1.3.0 (2025-06-22)
+
+## What's Changed
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v1.2.0...v1.3.0
+<hr>
+
 # v1.2.0 (2025-06-14)
 
 ## What's Changed
 
-**Full Changelog**: https://github.com/gojue/ecapture/compare/v1.1.0...v1.2.0
-<hr>
+* feat: add JetBrains logo and acknowledgements to README files by @cfc4n in https://github.com/gojue/ecapture/pull/793
+* feat: Implement dual lifecycle management for eventWorker by @zenyanle in https://github.com/gojue/ecapture/pull/785
+* rorate: add eventroratesize, eventroratetime to support file rorate #720 by @chilli13
+  in https://github.com/gojue/ecapture/pull/794
+* feat: define early_secret in SSL structures for enhanced security by @cfc4n
+  in https://github.com/gojue/ecapture/pull/792
+
+## New Contributors
+
+* @zenyanle made their first contribution in https://github.com/gojue/ecapture/pull/785
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v1.1.0...v1.2.0<hr>
 
 # v1.1.0 (2025-05-30)
 
