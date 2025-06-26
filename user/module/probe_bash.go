@@ -145,20 +145,36 @@ func (b *MBashProbe) constantEditor() []manager.ConstantEditor {
 }
 
 func (b *MBashProbe) setupManagers() {
-	var binaryPath string
+	var bashPath string
+	var soPath string
+	var readlinePath string
+	/*
+		有两种情况
+		1.bash动态链接了readline.so，readlinePath会选择soPath
+		2.bash没有动态链接readline.so，这种情况下直接hook bash即可
+	*/
 	switch b.conf.(*config.BashConfig).ElfType {
 	case config.ElfTypeBin:
-		binaryPath = b.conf.(*config.BashConfig).Bashpath
+		bashPath = b.conf.(*config.BashConfig).Bashpath
 	case config.ElfTypeSo:
-		binaryPath = b.conf.(*config.BashConfig).Readline
+		bashPath = b.conf.(*config.BashConfig).Bashpath
+		soPath = b.conf.(*config.BashConfig).Readline
 	default:
-		binaryPath = "/bin/bash"
+		bashPath = "/bin/bash"
+	}
+
+	// 如果soPath不存在 readlinePath自动选择bash路径
+	if soPath != "" {
+		readlinePath = soPath
+	} else {
+		readlinePath = bashPath
 	}
 
 	var readlineFuncName string // 将默认hook函数改为readline_internal_teardown说明：https://github.com/gojue/ecapture/pull/479
 	readlineFuncName = b.conf.(*config.BashConfig).ReadlineFuncName
 
-	b.logger.Info().Str("binaryPath", binaryPath).Str("readlineFuncName", readlineFuncName).
+	b.logger.Info().Str("bashPath", bashPath).Str("readlineFuncName", readlineFuncName).
+		Str("readlinePath", readlinePath).Str("readlineFuncName", readlineFuncName).
 		Str("execute_command", readlineFuncName).Str("exit_builtin", readlineFuncName).
 		Str("exec_builtin", readlineFuncName).Msg("Hook Info")
 	b.bpfManager = &manager.Manager{
@@ -168,25 +184,25 @@ func (b *MBashProbe) setupManagers() {
 				EbpfFuncName:     "uretprobe_bash_readline",
 				AttachToFuncName: readlineFuncName,
 				//UAddress: 0x8232, 	//若找不到 readline 函数，则使用offset偏移地址方式。
-				BinaryPath: binaryPath, // 可能是 /bin/bash 也可能是 readline.so的真实地址
+				BinaryPath: readlinePath, // 可能是 bash 也可能是 readline.so的真实地址，这里根据判断的情况赋值
 			},
 			{
 				Section:          "uretprobe/bash_retval",
 				EbpfFuncName:     "uretprobe_bash_retval",
 				AttachToFuncName: "execute_command",
-				BinaryPath:       binaryPath, // 可能是 /bin/bash 也可能是 readline.so的真实地址
+				BinaryPath:       bashPath, // 这个以及下面的BinaryPath都应该是实际的bash路径，readline.so不含有相关函数
 			},
 			{
 				Section:          "uprobe/exec_builtin",
 				EbpfFuncName:     "uprobe_exec_builtin",
 				AttachToFuncName: "exec_builtin",
-				BinaryPath:       binaryPath,
+				BinaryPath:       bashPath,
 			},
 			{
 				Section:          "uprobe/exit_builtin",
 				EbpfFuncName:     "uprobe_exit_builtin",
 				AttachToFuncName: "exit_builtin",
-				BinaryPath:       binaryPath,
+				BinaryPath:       bashPath,
 			},
 		},
 
