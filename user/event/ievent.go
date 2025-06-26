@@ -27,7 +27,7 @@ const (
 	EventTypeEventProcessor
 )
 
-const SocketLifecycleUUIDPrefix = "sock"
+const SocketLifecycleUUIDPrefix = "sock:"
 
 type IEventStruct interface {
 	Decode(payload []byte) (err error)
