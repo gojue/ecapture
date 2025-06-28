@@ -22,6 +22,8 @@ import (
 	"strings"
 )
 
+const fallbackBashPath = "/bin/bash"
+
 // BashConfig Bashpath 与 readline 两个参数，使用时二选一
 type BashConfig struct {
 	BaseConfig
@@ -34,11 +36,16 @@ type BashConfig struct {
 
 func NewBashConfig() *BashConfig {
 	config := &BashConfig{}
+
 	config.PerCpuMapSize = DefaultMapSizePerCpu
 	return config
 }
 
 func (bc *BashConfig) Check() error {
+	err := bc.checkElf()
+	if err != nil {
+		return err
+	}
 	var binaryPath string
 	switch bc.ElfType {
 	case ElfTypeBin:
@@ -99,17 +106,26 @@ func (bc *BashConfig) checkElf() error {
 
 	//如果没配置，则自动查找。
 	bash, b := os.LookupEnv("SHELL")
-	if b {
+	if b && strings.Contains(bash, "bash") {
+		bc.Bashpath = bash
 		soPath, e := getDynPathByElf(bash, "libreadline.so")
 		if e != nil {
-			bc.Bashpath = bash
 			bc.ElfType = ElfTypeBin
 		} else {
-			bc.Bashpath = soPath
+			bc.Readline = soPath
+			bc.ElfType = ElfTypeSo
+		}
+	} else if _, err := os.Stat(fallbackBashPath); err == nil {
+		bc.Bashpath = fallbackBashPath
+		soPath, e := getDynPathByElf(fallbackBashPath, "libreadline.so")
+		if e != nil {
+			bc.ElfType = ElfTypeBin
+		} else {
+			bc.Readline = soPath
 			bc.ElfType = ElfTypeSo
 		}
 	} else {
-		return errors.New("cant found $SHELL path")
+		return errors.New("cant find valid bash path in $PATH and /bin/bash")
 	}
 	return nil
 }
