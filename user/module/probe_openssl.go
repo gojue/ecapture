@@ -424,6 +424,10 @@ func (m *MOpenSSLProbe) DestroyConn(sock uint64) {
 	m.pidLocker.Lock()
 	defer m.pidLocker.Unlock()
 
+	if sock > 0 {
+		m.processor.WriteDestroyConn(sock)
+	}
+
 	pidFd, ok := m.sock2pidFd[sock]
 	if !ok {
 		return
@@ -441,16 +445,15 @@ func (m *MOpenSSLProbe) DestroyConn(sock uint64) {
 	if ok {
 		//add sock consistency check to void tuple miss
 		if connInfo.sock != sock {
-			m.logger.Debug().Uint32("fd", fd).Uint64("sock", sock).Uint64("storedSock", connInfo.sock).Msg("DestroyConn skip")
+			m.logger.Debug().Uint32("pid", pid).Uint32("fd", fd).Uint64("sock", sock).Uint64("storedSock", connInfo.sock).Msg("DestroyConn skip")
 			return
 		}
 		delete(connMap, fd)
 		if len(connMap) == 0 {
 			delete(m.pidConns, pid)
 		}
+		m.logger.Debug().Uint32("pid", pid).Uint32("fd", fd).Uint64("sock", sock).Str("tuple", connInfo.tuple).Msg("DestroyConn success")
 	}
-
-	m.logger.Debug().Uint32("pid", pid).Uint32("fd", fd).Uint64("sock", sock).Str("tuple", connInfo.tuple).Msg("DestroyConn success")
 }
 
 // DelConn process exit :fd is 0 , delete all pid map
@@ -463,22 +466,22 @@ func (m *MOpenSSLProbe) DelConn(sock uint64) {
 	})
 }
 
-func (m *MOpenSSLProbe) GetConn(pid, fd uint32) string {
+func (m *MOpenSSLProbe) GetConn(pid, fd uint32) *ConnInfo {
 	if fd <= 0 {
-		return ConnNotFound
+		return nil
 	}
 	m.logger.Debug().Uint32("pid", pid).Uint32("fd", fd).Msg("GetConn")
 	m.pidLocker.Lock()
 	defer m.pidLocker.Unlock()
 	connMap, f := m.pidConns[pid]
 	if !f {
-		return ConnNotFound
+		return nil
 	}
 	connInfo, f := connMap[fd]
 	if !f {
-		return ConnNotFound
+		return nil
 	}
-	return connInfo.tuple
+	return &connInfo
 }
 
 func (m *MOpenSSLProbe) saveMasterSecret(secretEvent *event.MasterSecretEvent) {
@@ -761,12 +764,15 @@ func (m *MOpenSSLProbe) dumpSslData(eventStruct *event.SSLDataEvent) {
 		m.logger.Error().Uint32("pid", eventStruct.Pid).Uint32("fd", eventStruct.Fd).Str("tuple", eventStruct.Tuple).Msg("SSLDataEvent's fd is 0")
 		//return
 	}
-	tuple := m.GetConn(eventStruct.Pid, eventStruct.Fd)
-	m.logger.Debug().Uint32("pid", eventStruct.Pid).Uint32("bio_type", eventStruct.BioType).Uint32("fd", eventStruct.Fd).Str("tuple", tuple).Msg("SSLDataEvent")
-	if tuple == ConnNotFound {
+	connInfo := m.GetConn(eventStruct.Pid, eventStruct.Fd)
+	if connInfo == nil {
 		eventStruct.Tuple = DefaultTuple
+		eventStruct.Sock = 0
 	} else {
-		eventStruct.Tuple = tuple
+		m.logger.Debug().Uint32("pid", eventStruct.Pid).Uint32("bio_type", eventStruct.BioType).Uint32("fd", eventStruct.Fd).
+			Uint64("sock", connInfo.sock).Str("tuple", connInfo.tuple).Msg("SSLDataEvent")
+		eventStruct.Tuple = connInfo.tuple
+		eventStruct.Sock = connInfo.sock
 	}
 
 	m.logger.Info().Msg(eventStruct.BaseInfo())

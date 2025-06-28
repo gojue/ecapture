@@ -19,6 +19,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -36,9 +37,11 @@ type IWorker interface {
 	// 收包
 	Write(event.IEventStruct) error
 	GetUUID() string
+	GetDestroyUUID() uint64
 	IfUsed() bool
 	Get()
 	Put()
+	CloseEventWorker()
 }
 
 const (
@@ -52,7 +55,7 @@ type LifeCycleState uint8
 
 const (
 	LifeCycleStateDefault LifeCycleState = iota
-	LifeCycleStateSocket
+	LifeCycleStateSock
 )
 
 var (
@@ -69,6 +72,8 @@ type eventWorker struct {
 	ticker           *time.Ticker
 	tickerCount      uint8
 	UUID             string
+	uuidOutput       string
+	DestroyUUID      uint64
 	processor        *EventProcessor
 	parser           IParser
 	payload          *bytes.Buffer
@@ -87,6 +92,31 @@ func NewEventWorker(uuid string, processor *EventProcessor) IWorker {
 	return eWorker
 }
 
+func (ew *eventWorker) uuidParse(uuid string) {
+	ew.uuidOutput = uuid
+	ew.DestroyUUID = 0
+	ew.ewLifeCycleState = LifeCycleStateDefault
+	ew.closeChan = nil
+
+	if !strings.HasPrefix(uuid, event.SocketLifecycleUUIDPrefix) {
+		return
+	}
+
+	//uuid: sock:Pid_Tid_Comm_Fd_DataType_Tuple_Sock
+	parts := strings.Split(uuid, "_")
+	sock, err := strconv.ParseUint(parts[len(parts)-1], 10, 64)
+	if err != nil || sock <= 0 {
+		return
+	}
+
+	core := strings.TrimPrefix(uuid, event.SocketLifecycleUUIDPrefix)
+	ew.uuidOutput = core[:strings.LastIndex(core, "_")]
+	ew.DestroyUUID = sock
+	ew.ewLifeCycleState = LifeCycleStateSock
+	ew.closeChan = make(chan struct{})
+	return
+}
+
 func (ew *eventWorker) init(uuid string, processor *EventProcessor) {
 	ew.ticker = time.NewTicker(time.Millisecond * 100)
 	ew.incoming = make(chan event.IEventStruct, MaxChanLen)
@@ -96,28 +126,14 @@ func (ew *eventWorker) init(uuid string, processor *EventProcessor) {
 	ew.processor = processor
 	ew.payload = bytes.NewBuffer(nil)
 	ew.payload.Reset()
-	ew.ewLifeCycleState = ew.CheckLifeCycleState(uuid)
-	if ew.ewLifeCycleState != LifeCycleStateDefault {
-		ew.closeChan = make(chan struct{})
-	} else {
-		ew.closeChan = nil
-	}
+	ew.parser = nil
+	ew.uuidParse(uuid)
 }
 
 func (ew *eventWorker) GetUUID() string {
 	return ew.UUID
 }
 
-// 对UUID使用前缀判断，只有"sock"前缀的可以返回LifeCycleStateSocket生命周期
-func (ew *eventWorker) CheckLifeCycleState(uuid string) LifeCycleState {
-	if strings.HasPrefix(uuid, event.SocketLifecycleUUIDPrefix) {
-		return LifeCycleStateSocket
-	} else {
-		return LifeCycleStateDefault
-	}
-}
-
-// 导出方法，用于发送信号量
 func (ew *eventWorker) CloseEventWorker() {
 	if ew.closeChan != nil {
 		ew.closeOnce.Do(func() {
@@ -126,8 +142,8 @@ func (ew *eventWorker) CloseEventWorker() {
 	}
 }
 
-func (ew *eventWorker) GetLifeCycleState() LifeCycleState {
-	return ew.ewLifeCycleState
+func (ew *eventWorker) GetDestroyUUID() uint64 {
+	return ew.DestroyUUID
 }
 
 func (ew *eventWorker) Write(e event.IEventStruct) error {
@@ -154,7 +170,13 @@ func (ew *eventWorker) writeToChan(s string) error {
 func (ew *eventWorker) Display() error {
 	//  输出包内容
 	b := ew.parserEvents()
-	defer ew.parser.Reset()
+	defer func() {
+		// 设定状态、重置包类型
+		ew.parser.Reset()
+		ew.payload.Reset()
+		ew.status = ProcessStateInit
+		ew.packetType = PacketTypeNull
+	}()
 	if len(b) <= 0 {
 		return nil
 	}
@@ -164,17 +186,13 @@ func (ew *eventWorker) Display() error {
 	}
 
 	//iWorker只负责写入，不应该打印。
-	e := ew.writeToChan(fmt.Sprintf("UUID:%s, Name:%s, Type:%d, Length:%d\n%s\n", ew.UUID, ew.parser.Name(), ew.parser.ParserType(), len(b), b))
-	//ew.parser.Reset()
-	// 设定状态、重置包类型
-	ew.status = ProcessStateInit
-	ew.packetType = PacketTypeNull
+	e := ew.writeToChan(fmt.Sprintf("UUID:%s, Name:%s, Type:%d, Length:%d\n%s\n", ew.uuidOutput, ew.parser.Name(), ew.parser.ParserType(), len(b), b))
 	return e
 }
 
 func (ew *eventWorker) writeEvent(e event.IEventStruct) {
-	if ew.status != ProcessStateInit {
-		_ = ew.writeToChan("write events failed, unknow eventWorker status")
+	if ew.status != ProcessStateInit && ew.ewLifeCycleState == LifeCycleStateDefault {
+		_ = ew.writeToChan(fmt.Sprintf("write events failed, unknow eventWorker status: %d", ew.status))
 		return
 	}
 
@@ -192,45 +210,62 @@ func (ew *eventWorker) writeEvent(e event.IEventStruct) {
 // 解析类型，输出
 func (ew *eventWorker) parserEvents() []byte {
 	ew.status = ProcessStateProcessing
-	parser := NewParser(ew.payload.Bytes())
-	ew.parser = parser
+	//LifeCycleStateSock ew shared the same parser during the running time
+	if ew.parser == nil {
+		ew.parser = NewParser(ew.payload.Bytes())
+	}
 	n, e := ew.parser.Write(ew.payload.Bytes())
 	if e != nil {
-		_ = ew.writeToChan(fmt.Sprintf("ew.parser write payload %d bytes, error:%s", n, e.Error()))
+		_ = ew.writeToChan(fmt.Sprintf("ew.parser uuid: %s type %d write payload %d bytes, error:%s", ew.UUID, ew.parser.ParserType(), n, e.Error()))
 	}
 	ew.status = ProcessStateDone
 	return ew.parser.Display()
 }
 
 func (ew *eventWorker) Run() {
+	/*
+		This function is the main event loop of the eventWorker.
+		It receives events through the `incoming` channel and processes them by calling `writeEvent()`.
+		It uses a `ticker` to periodically detect idle states, if no events arrive for a long time,
+		it triggers lifecycle management logic.
+
+		The lifecycle manager supports two modes:
+		1. LifeCycleStateSock: The worker runs continuously until the associated socket is destory.
+		   After each `drainAndClose`, a new ticker is started to monitor further activity.
+		2. LifeCycleStateDefault: The worker performs `delWorkerByUUID` and `drainAndClose` after a single timeout
+	*/
+	tickerRestartFlag := false
 	for {
 		select {
 		case <-ew.ticker.C:
 			// 输出包
 			if ew.tickerCount > MaxTickerCount {
-				// 生命周期和外部sock绑定，在这里无视定时器规则
-				if ew.ewLifeCycleState == LifeCycleStateSocket {
+				if ew.ewLifeCycleState == LifeCycleStateSock {
+					ew.drainAndClose()
 					ew.tickerCount = 0
+					tickerRestartFlag = true
 					continue
+				} else {
+					ew.processor.delWorkerByUUID(ew)
+					ew.drainAndClose()
+					return
 				}
-				ew.processor.delWorkerByUUID(ew)
-				ew.drainAndClose()
-				return
 			}
 			ew.tickerCount++
 		case e := <-ew.incoming:
-			// reset tickerCount
+			if tickerRestartFlag {
+				ew.ticker = time.NewTicker(time.Millisecond * 100)
+				tickerRestartFlag = false
+			}
 			ew.tickerCount = 0
 			ew.writeEvent(e)
-
-		// LifeCycleStateDefault情况下是nil，永远不会触发
+		// LifeCycleStateDefault ew will never touch it as its closeChan is nil
 		case <-ew.closeChan:
 			ew.processor.delWorkerByUUID(ew)
 			ew.drainAndClose()
 			return
 		}
 	}
-
 }
 
 func (ew *eventWorker) drainAndClose() {
@@ -238,7 +273,7 @@ func (ew *eventWorker) drainAndClose() {
 		When returned from drainAndClose(), there are two possibilities:
 		1) no routine can touch it.
 		2) one routine can still touch ew because getWorkerByUUID()
-		*happen before* drainAndClose()
+		*happen before* drainAndClose() for LifeCycleStateDefault ew
 
 		When no routine can touch it (i.e.,ew.IfUsed == false),
 		we just drain the ew.incoming and return.
@@ -281,10 +316,8 @@ func (ew *eventWorker) Put() {
 	if !ew.used.CompareAndSwap(true, false) {
 		panic("unexpected behavior and incorrect usage for eventWorker")
 	}
-
 }
 
 func (ew *eventWorker) IfUsed() bool {
-
 	return ew.used.Load()
 }
