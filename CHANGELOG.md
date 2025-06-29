@@ -1,6 +1,18 @@
+# v1.3.1 (2025-06-29)
+
+## What's Changed
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v1.3.0...v1.3.1
+<hr>
+
 # v1.3.0 (2025-06-22)
 
 ## What's Changed
+
+* feat: enhance BPF core read macros and add new utility functions by @cfc4n
+  in https://github.com/gojue/ecapture/pull/797
+* feat: support gnutls early secret by @yuweizzz in https://github.com/gojue/ecapture/pull/801
+* fix: keylog lost in openssl by @yuweizzz in https://github.com/gojue/ecapture/pull/802
 
 **Full Changelog**: https://github.com/gojue/ecapture/compare/v1.2.0...v1.3.0
 <hr>
