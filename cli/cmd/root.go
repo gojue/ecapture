@@ -217,7 +217,7 @@ func initLogger(addr string, modConfig config.IConfig, isRorate bool) (zerolog.L
 			var wsConn = ws.NewClient()
 			err = wsConn.Dial(addr, "", "http://localhost")
 			if err != nil {
-				return zerolog.Logger{}, fmt.Errorf("failed to connect to WebSocket server: %w", err.Error())
+				return zerolog.Logger{}, fmt.Errorf("failed to connect to WebSocket server: %s", err.Error())
 			}
 			//defer conn.Close()
 			modConfig.SetAddrType(loggerTypeWebsocket)
