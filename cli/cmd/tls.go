@@ -44,7 +44,7 @@ docker pull gojue/ecapture
 docker run --rm --privileged=true --net=host -v /etc:/etc -v /usr:/usr -v ${PWD}:/output gojue/ecapture tls -m pcap -i wlp3s0 --pcapfile=/output/ecapture.pcapng tcp port 443
 `,
 	Example: "ecapture tls -m pcap -i wlan0 -w save.pcapng host 192.168.1.1 and tcp port 443",
-	Run:     openSSLCommandFunc,
+	RunE:    openSSLCommandFunc,
 }
 
 func init() {
@@ -59,9 +59,9 @@ func init() {
 }
 
 // openSSLCommandFunc executes the "bash" command.
-func openSSLCommandFunc(command *cobra.Command, args []string) {
+func openSSLCommandFunc(command *cobra.Command, args []string) error {
 	if oc.PcapFilter == "" && len(args) != 0 {
 		oc.PcapFilter = strings.Join(args, " ")
 	}
-	runModule(module.ModuleNameOpenssl, oc)
+	return runModule(module.ModuleNameOpenssl, oc)
 }

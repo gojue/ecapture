@@ -32,7 +32,7 @@ var zshCmd = &cobra.Command{
 	Short: "capture zsh command",
 	Long: `eCapture capture zsh commands for zsh security audit, 
 Auto find the zsh of the current env as the capture target.`,
-	Run: zshCommandFunc,
+	RunE: zshCommandFunc,
 }
 
 func init() {
@@ -52,6 +52,6 @@ func init() {
 }
 
 // zshCommandFunc executes the "zsh" command.
-func zshCommandFunc(command *cobra.Command, args []string) {
-	runModule(module.ModuleNameZsh, zc)
+func zshCommandFunc(command *cobra.Command, args []string) error {
+	return runModule(module.ModuleNameZsh, zc)
 }

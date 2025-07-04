@@ -41,7 +41,7 @@ ecapture gnutls --gnutls=/lib/x86_64-linux-gnu/libgnutls.so
 ecapture gnutls -m keylog -k ecapture_gnutls_key.log --ssl_version=3.7.9
 ecapture gnutls -m pcap --pcapfile save.pcapng -i eth0 --gnutls=/lib/x86_64-linux-gnu/libgnutls.so tcp port 443
 `,
-	Run: gnuTlsCommandFunc,
+	RunE: gnuTlsCommandFunc,
 }
 
 func init() {
@@ -56,9 +56,9 @@ func init() {
 }
 
 // gnuTlsCommandFunc executes the "bash" command.
-func gnuTlsCommandFunc(command *cobra.Command, args []string) {
+func gnuTlsCommandFunc(command *cobra.Command, args []string) error {
 	if gc.PcapFilter == "" && len(args) != 0 {
 		gc.PcapFilter = strings.Join(args, " ")
 	}
-	runModule(module.ModuleNameGnutls, gc)
+	return runModule(module.ModuleNameGnutls, gc)
 }

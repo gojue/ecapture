@@ -33,7 +33,7 @@ var mysqldCmd = &cobra.Command{
 	Long: ` only support mysqld 5.6/5.7/8.0 and mariadDB 10.5+.
 
 other version coming soon`,
-	Run: mysqldCommandFunc,
+	RunE: mysqldCommandFunc,
 }
 
 func init() {
@@ -44,6 +44,6 @@ func init() {
 }
 
 // mysqldCommandFunc executes the "mysqld" command.
-func mysqldCommandFunc(command *cobra.Command, args []string) {
-	runModule(module.ModuleNameMysqld, myc)
+func mysqldCommandFunc(command *cobra.Command, args []string) error {
+	return runModule(module.ModuleNameMysqld, myc)
 }
