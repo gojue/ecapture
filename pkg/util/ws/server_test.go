@@ -16,11 +16,12 @@ package ws
 
 import (
 	"encoding/base64"
-	"golang.org/x/net/websocket"
 	"net/http/httptest"
 	"sync"
 	"testing"
 	"time"
+
+	"golang.org/x/net/websocket"
 )
 
 func TestServer_HandleWebSocket(t *testing.T) {
@@ -44,7 +45,9 @@ func TestServer_HandleWebSocket(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to dial: %v", err)
 	}
-	defer conn.Close()
+	defer func() {
+		_ = conn.Close()
+	}()
 
 	// 发送base64编码的数据
 	testData := "hello world"
@@ -76,7 +79,10 @@ func TestServer_Start(t *testing.T) {
 
 	// 测试启动服务器（这里只验证不会panic）
 	go func() {
-		server.Start()
+		err := server.Start()
+		if err != nil {
+			t.Errorf("Failed to start server: %v", err)
+		}
 	}()
 
 	// 给服务器一点时间启动

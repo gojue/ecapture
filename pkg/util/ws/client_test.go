@@ -16,15 +16,18 @@ package ws
 
 import (
 	"encoding/base64"
-	"golang.org/x/net/websocket"
 	"net/http/httptest"
 	"testing"
+
+	"golang.org/x/net/websocket"
 )
 
 func TestClient_Write(t *testing.T) {
 	// 创建测试服务器
 	server := httptest.NewServer(websocket.Handler(func(ws *websocket.Conn) {
-		defer ws.Close()
+		defer func() {
+			_ = ws.Close()
+		}()
 		var message string
 		err := websocket.Message.Receive(ws, &message)
 		if err != nil {
@@ -53,7 +56,9 @@ func TestClient_Write(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to dial: %v", err)
 	}
-	defer client.Close()
+	defer func() {
+		_ = client.Close()
+	}()
 
 	// 测试Write方法
 	testData := []byte("test data")

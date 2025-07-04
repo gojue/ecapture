@@ -16,6 +16,7 @@ package ws
 
 import (
 	"encoding/base64"
+
 	"golang.org/x/net/websocket"
 )
 

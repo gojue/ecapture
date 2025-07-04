@@ -17,8 +17,9 @@ package ws
 import (
 	"encoding/base64"
 	"fmt"
-	"golang.org/x/net/websocket"
 	"net/http"
+
+	"golang.org/x/net/websocket"
 )
 
 // Server 是一个简单的WebSocket服务器，接收base64编码的消息并调用处理函数
@@ -49,7 +50,9 @@ func (s *Server) Start() error {
 }
 
 func (s *Server) handleWebSocket(ws *websocket.Conn) {
-	defer ws.Close()
+	defer func() {
+		_ = ws.Close()
+	}()
 
 	for {
 		var message string
