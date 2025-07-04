@@ -36,7 +36,7 @@ ecapture gotls --elfpath=/home/cfc4n/go_https_client --hex --pid=3423
 ecapture gotls -m keylog -k /tmp/ecap_gotls_key.log --elfpath=/home/cfc4n/go_https_client -l save.log --pid=3423
 ecapture gotls -m pcap --pcapfile=save_android.pcapng -i wlan0 --elfpath=/home/cfc4n/go_https_client tcp port 443
 `,
-	Run: goTLSCommandFunc,
+	RunE: goTLSCommandFunc,
 }
 
 func init() {
@@ -49,10 +49,10 @@ func init() {
 }
 
 // goTLSCommandFunc executes the "bash" command.
-func goTLSCommandFunc(command *cobra.Command, args []string) {
+func goTLSCommandFunc(command *cobra.Command, args []string) error {
 	if goc.PcapFilter == "" && len(args) != 0 {
 		goc.PcapFilter = strings.Join(args, " ")
 	}
 
-	runModule(module.ModuleNameGotls, goc)
+	return runModule(module.ModuleNameGotls, goc)
 }

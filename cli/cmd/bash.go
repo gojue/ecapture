@@ -29,7 +29,7 @@ var bashCmd = &cobra.Command{
 	Short: "capture bash command",
 	Long: `eCapture capture bash commands for bash security audit, 
 Auto find the bash of the current env as the capture target.`,
-	Run: bashCommandFunc,
+	RunE: bashCommandFunc,
 }
 
 func init() {
@@ -50,6 +50,6 @@ func init() {
 }
 
 // bashCommandFunc executes the "bash" command.
-func bashCommandFunc(command *cobra.Command, args []string) {
-	runModule(module.ModuleNameBash, bc)
+func bashCommandFunc(command *cobra.Command, args []string) error {
+	return runModule(module.ModuleNameBash, bc)
 }
