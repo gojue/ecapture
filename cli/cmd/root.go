@@ -66,7 +66,7 @@ const (
 	loggerTypeStdout    = 0
 	loggerTypeFile      = 1
 	loggerTypeTcp       = 2
-	loggerTypeWebsocket = 2
+	loggerTypeWebsocket = 3
 )
 
 // ListenPort1 or ListenPort2 are the default ports for the http server.
@@ -220,7 +220,7 @@ func initLogger(addr string, modConfig config.IConfig, isRorate bool) (zerolog.L
 				return zerolog.Logger{}, fmt.Errorf("failed to connect to WebSocket server: %v", err)
 			}
 			//defer conn.Close()
-
+			modConfig.SetAddrType(loggerTypeWebsocket)
 			writer = wsConn
 		} else {
 			modConfig.SetAddrType(loggerTypeFile)

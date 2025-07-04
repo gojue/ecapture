@@ -30,7 +30,7 @@ var pgc = config.NewPostgresConfig()
 var postgresCmd = &cobra.Command{
 	Use:   "postgres",
 	Short: "capture sql queries from postgres 10+.",
-	RunE: postgresCommandFunc,
+	RunE:  postgresCommandFunc,
 }
 
 func init() {
