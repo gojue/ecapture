@@ -37,7 +37,7 @@ ecapture nspr --hex --pid=3423
 ecapture nspr -l save.log --pid=3423
 ecapture nspr --nspr=/lib/x86_64-linux-gnu/libnspr44.so
 `,
-	Run: nssCommandFunc,
+	RunE: nssCommandFunc,
 }
 
 func init() {
@@ -46,6 +46,6 @@ func init() {
 }
 
 // nssCommandFunc executes the "bash" command.
-func nssCommandFunc(command *cobra.Command, args []string) {
-	runModule(module.ModuleNameNspr, nc)
+func nssCommandFunc(command *cobra.Command, args []string) error {
+	return runModule(module.ModuleNameNspr, nc)
 }
