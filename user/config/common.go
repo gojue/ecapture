@@ -83,7 +83,13 @@ func ParseDynLibConf(pattern string) (dirs []string, err error) {
 			// found "include" directive?
 			words := strings.Fields(line)
 			if strings.ToLower(words[0]) == "include" {
-				subdirs, err := ParseDynLibConf(words[1])
+				includePattern := words[1]
+
+				if !filepath.IsAbs(includePattern) {
+					configDir := filepath.Dir(configFile)
+					includePattern = filepath.Join(configDir, includePattern)
+				}
+				subdirs, err := ParseDynLibConf(includePattern)
 				if err != nil && !os.IsNotExist(err) {
 					return dirs, err
 				}
