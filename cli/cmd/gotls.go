@@ -25,7 +25,7 @@ import (
 
 var goc = config.NewGoTLSConfig()
 
-// gotlsCmd represents the openssl command
+// gotlsCmd represents the gotls command
 var gotlsCmd = &cobra.Command{
 	Use:     "gotls",
 	Aliases: []string{"tlsgo"},
@@ -48,7 +48,7 @@ func init() {
 	rootCmd.AddCommand(gotlsCmd)
 }
 
-// goTLSCommandFunc executes the "bash" command.
+// goTLSCommandFunc executes the "gotls" command.
 func goTLSCommandFunc(command *cobra.Command, args []string) error {
 	if goc.PcapFilter == "" && len(args) != 0 {
 		goc.PcapFilter = strings.Join(args, " ")

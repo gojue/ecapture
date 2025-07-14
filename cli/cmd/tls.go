@@ -58,7 +58,7 @@ func init() {
 	rootCmd.AddCommand(opensslCmd)
 }
 
-// openSSLCommandFunc executes the "bash" command.
+// openSSLCommandFunc executes the "tls" command.
 func openSSLCommandFunc(command *cobra.Command, args []string) error {
 	if oc.PcapFilter == "" && len(args) != 0 {
 		oc.PcapFilter = strings.Join(args, " ")

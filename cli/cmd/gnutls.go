@@ -28,7 +28,7 @@ import (
 
 var gc = config.NewGnutlsConfig()
 
-// gnutlsCmd represents the openssl command
+// gnutlsCmd represents the gnutls command
 var gnutlsCmd = &cobra.Command{
 	Use:     "gnutls",
 	Aliases: []string{"gnu"},
@@ -55,7 +55,7 @@ func init() {
 	rootCmd.AddCommand(gnutlsCmd)
 }
 
-// gnuTlsCommandFunc executes the "bash" command.
+// gnuTlsCommandFunc executes the "gnutls" command.
 func gnuTlsCommandFunc(command *cobra.Command, args []string) error {
 	if gc.PcapFilter == "" && len(args) != 0 {
 		gc.PcapFilter = strings.Join(args, " ")

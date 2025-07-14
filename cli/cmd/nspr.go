@@ -26,7 +26,7 @@ import (
 
 var nc = config.NewNsprConfig()
 
-// gnutlsCmd represents the openssl command
+// nssCmd represents the nspr command
 var nssCmd = &cobra.Command{
 	Use:     "nspr",
 	Aliases: []string{"nss"},
@@ -45,7 +45,7 @@ func init() {
 	rootCmd.AddCommand(nssCmd)
 }
 
-// nssCommandFunc executes the "bash" command.
+// nssCommandFunc executes the "nspr" command.
 func nssCommandFunc(command *cobra.Command, args []string) error {
 	return runModule(module.ModuleNameNspr, nc)
 }
