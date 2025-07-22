@@ -15,7 +15,6 @@
 package ws
 
 import (
-	"encoding/base64"
 	"fmt"
 	"net/http"
 
@@ -24,9 +23,12 @@ import (
 
 // Server 是一个简单的WebSocket服务器，接收base64编码的消息并调用处理函数
 type Server struct {
-	addr    string
-	handler func([]byte)
+	addr        string
+	readHandler func([]byte)
+	writeChan   chan []byte
 }
+
+const WriteChanLength = 1024 * 4
 
 /*
 	server := NewServer(":8080", func(data []byte) {
@@ -39,8 +41,9 @@ server.Start()
 // NewServer 创建一个新的WebSocket服务器实例
 func NewServer(addr string, handler func([]byte)) *Server {
 	return &Server{
-		addr:    addr,
-		handler: handler,
+		addr:        addr,
+		readHandler: handler,
+		writeChan:   make(chan []byte, WriteChanLength),
 	}
 }
 
@@ -49,29 +52,56 @@ func (s *Server) Start() error {
 	return http.ListenAndServe(s.addr, nil)
 }
 
+// Write 向WebSocket连接发送数据
+func (s *Server) Write(data []byte) error {
+	if data == nil {
+		return nil // 如果数据为nil，直接返回
+	}
+
+	select {
+	case s.writeChan <- data:
+		return nil // 成功写入数据到通道
+	default:
+		return fmt.Errorf("write channel is full") // 如果通道已满，返回错误
+	}
+}
+
+// handleWebSocket 处理WebSocket连接
 func (s *Server) handleWebSocket(ws *websocket.Conn) {
 	defer func() {
 		_ = ws.Close()
 	}()
 
-	for {
-		var message string
-		err := websocket.Message.Receive(ws, &message)
-		if err != nil {
-			fmt.Printf("WebSocket receive error: %v\n", err)
-			break
-		}
+	go func() {
+		for {
+			var data []byte
+			err := websocket.Message.Receive(ws, &data)
+			if err != nil {
+				fmt.Printf("WebSocket receive error: %v\n", err)
+				break
+			}
 
-		// 解码base64消息
-		data, err := base64.StdEncoding.DecodeString(message)
-		if err != nil {
-			fmt.Printf("Base64 decode error: %v\n", err)
-			continue
+			// 调用处理函数
+			if s.readHandler != nil {
+				s.readHandler(data)
+			}
 		}
+	}()
 
-		// 调用处理函数
-		if s.handler != nil {
-			s.handler(data)
+	go func() {
+		for range s.writeChan {
+			// 从写入通道中读取数据
+			data := <-s.writeChan
+			if data == nil {
+				continue // 如果数据为nil，跳过
+			}
+
+			// 发送数据到WebSocket连接
+			err := websocket.Message.Send(ws, data)
+			if err != nil {
+				fmt.Printf("WebSocket write error: %v\n", err)
+				break
+			}
 		}
-	}
+	}()
 }
