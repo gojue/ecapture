@@ -15,33 +15,58 @@
 package ecaptureq
 
 import (
+	"context"
+	"fmt"
 	"github.com/gojue/ecapture/pkg/util/ws"
 	"github.com/rs/zerolog"
+	"golang.org/x/net/websocket"
+	"time"
 )
 
-const LogBuffLen = 100
+const LogBuffLen = 128
 
 type Server struct {
 	addr    string
 	logbuff []string
 	handler func([]byte)
+	hub     *Hub
 	ws      *ws.Server
-	logger  *zerolog.Logger
+	logger  zerolog.Logger
+	ctx     context.Context
 }
 
 // NewServer 创建一个新的服务器实例
-func NewServer(addr string, logger *zerolog.Logger) *Server {
-	return &Server{
+func NewServer(addr string, logger zerolog.Logger) *Server {
+	s := &Server{
 		addr:    addr,
 		logbuff: make([]string, 0, LogBuffLen),
 		logger:  logger,
+		hub:     newHub(),
+		ctx:     context.Background(),
 	}
+	server := ws.NewServer(s.addr, s.handleWebSocket)
+	s.ws = server
+	go func() {
+		s.hub.run()
+	}()
+
+	return s
 }
 
 // Start 启动服务器
 func (s *Server) Start() error {
-	server := ws.NewServer(s.addr, s.handler)
-	s.ws = server
+	// 启动心跳广播goroutine ，测试用
+	go func() {
+		ticker := time.NewTicker(5 * time.Second)
+		var i = 0
+		defer ticker.Stop()
+		for range ticker.C {
+			s.logger.Debug().Msg("heartbeat tick")
+			s.Write([]byte(fmt.Sprintf("heartbeat: %d", i)))
+			i++
+		}
+	}()
+
 	err := s.ws.Start()
 	if err != nil {
 		return err
@@ -49,22 +74,51 @@ func (s *Server) Start() error {
 	return nil
 }
 
-func (s *Server) Write(data []byte) error {
-	pd := new(PacketData)
-	err := pd.Decode(data)
-	if err != nil {
-		return err
-	}
-	err = s.ws.Write(data)
-	return err
+func (s *Server) handleWebSocket(conn *websocket.Conn) {
+	s.logger.Info().Msgf("New WebSocket connection from %s", conn.RemoteAddr())
+	defer func() {
+		s.logger.Info().Msgf("WebSocket connection closed from %s", conn.RemoteAddr())
+	}()
+
+	client := &Client{hub: s.hub, conn: conn, send: make(chan []byte, 256), logger: s.logger}
+	client.hub.register <- client
+
+	// 为新连接的客户端发送预存储的日志数据
+	s.sendLogBuff(client)
+
+	// Allow collection of memory referenced by the caller by doing all work in
+	// new goroutines.
+	go client.writePump()
+	go client.readPump()
+	<-s.ctx.Done()
 }
 
-func (s *Server) Read(data []byte) error {
-	pd := new(PacketData)
-	err := pd.Decode(data)
-	if err != nil {
-		return err
+func (s *Server) sendLogBuff(c *Client) {
+	for _, log := range s.logbuff {
+		c.send <- []byte(log)
 	}
-	s.logger.Info().Msg(string(data))
-	return nil
+}
+
+func (s *Server) Write(data []byte) (int, error) {
+	if s.ws == nil {
+		return 0, fmt.Errorf("websocket server not initialized")
+	}
+	if s.hub == nil {
+		return 0, fmt.Errorf("hub not initialized")
+	}
+	s.hub.broadcastMessage(data)
+	return len(data), nil
+}
+
+func (s *Server) WriteLog(data []byte) {
+	if len(s.logbuff) >= LogBuffLen {
+		return
+	}
+	s.logbuff = append(s.logbuff, string(data))
+	s.Write(data)
+}
+
+func (s *Server) Close() {
+	s.ctx.Done()
+	s.logger.Info().Msg("Server closed")
 }

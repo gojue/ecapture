@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/gojue/ecapture/pkg/ecaptureq"
 	"io"
 	"net"
 	"net/url"
@@ -63,10 +64,11 @@ const (
 )
 
 const (
-	loggerTypeStdout    = 0
-	loggerTypeFile      = 1
-	loggerTypeTcp       = 2
-	loggerTypeWebsocket = 3
+	loggerTypeStdout              = 0
+	loggerTypeFile                = 1
+	loggerTypeTcp                 = 2
+	loggerTypeWebsocket           = 3
+	loggerTypeWebsocketServerMode = 4 // Websocket server mode, used for event collector
 )
 
 // ListenPort1 or ListenPort2 are the default ports for the http server.
@@ -142,7 +144,8 @@ func init() {
 	rootCmd.PersistentFlags().Uint64VarP(&globalConf.Uid, "uid", "u", defaultUid, "if uid is 0 then we target all users")
 	rootCmd.PersistentFlags().StringVarP(&globalConf.LoggerAddr, "logaddr", "l", "", "send logs to this server. -l /tmp/ecapture.log or -l ws://127.0.0.1:8090/ecapture or -l tcp://127.0.0.1:8080")
 	rootCmd.PersistentFlags().StringVar(&globalConf.EventCollectorAddr, "eventaddr", "", "the server address that receives the captured event. --eventaddr ws://127.0.0.1:8090/ecapture or tcp://127.0.0.1:8090, default: same as logaddr")
-	rootCmd.PersistentFlags().StringVar(&globalConf.Listen, "listen", eCaptureListenAddr, "listen on this address for http server, default: 127.0.0.1:28256")
+	rootCmd.PersistentFlags().BoolVar(&globalConf.LogEventSendMode, "lemode", false, "Log and event sending mode: true: local listening server, waiting for clients to connect before sending events and logs; false: send directly to the remote server.")
+	rootCmd.PersistentFlags().StringVar(&globalConf.Listen, "listen", eCaptureListenAddr, "Listens on a port, receives HTTP requests, and is used to update the runtime configuration, default: 127.0.0.1:28256")
 	rootCmd.PersistentFlags().Uint64VarP(&globalConf.TruncateSize, "tsize", "t", defaultTruncateSize, "the truncate size in text mode, default: 0 (B), no truncate")
 	rootCmd.PersistentFlags().Uint16Var(&rorateSize, "eventroratesize", 0, "the rorate size(MB) of the event collector file, 1M~65535M, only works for eventaddr server is file. --eventaddr=tls.log --eventroratesize=1 --eventroratetime=30")
 	rootCmd.PersistentFlags().Uint16Var(&rorateTime, "eventroratetime", 0, "the rorate time(s) of the event collector file, 1s~65535s, only works for eventaddr server is file. --eventaddr=tls.log --eventroratesize=1 --eventroratetime=30")
@@ -213,15 +216,30 @@ func initLogger(addr string, modConfig config.IConfig, isRorate bool) (zerolog.L
 				return zerolog.Logger{}, errors.New("URL scheme must be 'ws' or 'wss'")
 			}
 
-			// 连接到WebSocket服务器
-			var wsConn = ws.NewClient()
-			err = wsConn.Dial(addr, "", "http://localhost")
-			if err != nil {
-				return zerolog.Logger{}, fmt.Errorf("failed to connect to WebSocket server: %s", err.Error())
+			if modConfig.GetLogEventSendMode() {
+				// 如果是事件收集器模式，使用WebSocket服务器模式
+				modConfig.SetAddrType(loggerTypeWebsocketServerMode)
+				// 创建 WebSocket服务器
+				es := ecaptureq.NewServer(parsedURL.Host, logger)
+				logger.Info().Str("addr", addr).Str("parsedURL", parsedURL.Host).Msg("Starting WebSocket server")
+				go func() {
+					err := es.Start()
+					if err != nil {
+						logger.Error().Msg("Failed to start server")
+						return
+					}
+				}()
+				writer = es
+			} else {
+				modConfig.SetAddrType(loggerTypeWebsocket)
+				// 连接到WebSocket服务器
+				var wsConn = ws.NewClient()
+				err = wsConn.Dial(addr, "", "http://localhost")
+				if err != nil {
+					return zerolog.Logger{}, fmt.Errorf("failed to connect to WebSocket server: %s", err.Error())
+				}
+				writer = wsConn
 			}
-			//defer conn.Close()
-			modConfig.SetAddrType(loggerTypeWebsocket)
-			writer = wsConn
 		} else {
 			modConfig.SetAddrType(loggerTypeFile)
 			//modConfig.SetLoggerTCPAddr("")
@@ -255,6 +273,9 @@ func initLogger(addr string, modConfig config.IConfig, isRorate bool) (zerolog.L
 // runModule run module
 func runModule(modName string, modConfig config.IConfig) error {
 	setModConfig(globalConf, modConfig)
+	if globalConf.LogEventSendMode {
+		modConfig.SetLogEventSendMode(true)
+	}
 	logger, err := initLogger(globalConf.LoggerAddr, modConfig, false)
 	if err != nil {
 		return err
