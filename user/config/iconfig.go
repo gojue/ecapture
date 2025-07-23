@@ -110,7 +110,7 @@ type BaseConfig struct {
 	LoggerAddr         string `json:"logger_addr"`          // Address for logger output
 	LoggerType         uint8  `json:"logger_type"`          // Logger type (0:stdout, 1:file, 2:tcp)
 	EventCollectorAddr string `json:"event_collector_addr"` // Address of the event collector server
-	LogEventSendMode bool `json:"log_event_send_mode"`      // 日志和事件的发送模式，true: 本地监听server，等待客户端来连接，再发送事件和日志；false: 直接发送到远程服务器
+	LogEventSendMode   bool   `json:"log_event_send_mode"`  // 日志和事件的发送模式，true: 本地监听server，等待客户端来连接，再发送事件和日志；false: 直接发送到远程服务器
 }
 
 func (c *BaseConfig) GetPid() uint64 {
