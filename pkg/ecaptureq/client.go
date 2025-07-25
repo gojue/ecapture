@@ -16,8 +16,9 @@ package ecaptureq
 
 import (
 	"bytes"
-	"github.com/rs/zerolog"
+	"fmt"
 	"golang.org/x/net/websocket"
+	"io"
 	"time"
 )
 
@@ -50,7 +51,7 @@ type Client struct {
 	// Buffered channel of outbound messages.
 	send chan []byte
 
-	logger zerolog.Logger
+	logger io.Writer
 }
 
 // readPump pumps messages from the websocket connection to the hub.
@@ -63,20 +64,20 @@ func (c *Client) readPump() {
 		c.hub.unregister <- c
 		c.conn.Close()
 	}()
-	c.logger.Debug().Msgf("WebSocket connection info %s, origin:%s", c.conn.LocalAddr().String(), c.conn.RemoteAddr().String())
+	_, _ = c.logger.Write([]byte("readPump: starting to read messages from WebSocket connection\n"))
 	for {
 		var data []byte
 		// 检查连接状态
 		if c.conn == nil {
-			c.logger.Error().Msg("WebSocket connection is nil")
+			_, _ = c.logger.Write([]byte("readPump: WebSocket connection is nil\n"))
 			break
 		}
 		err := websocket.Message.Receive(c.conn, &data)
 		if err != nil {
-			c.logger.Error().Err(err).Msg("readPump: error receiving message")
+			_, _ = c.logger.Write([]byte("readPump: error receiving message\n"))
 			break
 		}
-		c.logger.Info().Msgf("Client:%s:%s, readPump: %s", c.conn.LocalAddr().String(), c.conn.RemoteAddr().String(), string(data))
+		_, _ = c.logger.Write([]byte(fmt.Sprintf("Client:%s:%s, readPump: %s", c.conn.LocalAddr().String(), c.conn.RemoteAddr().String(), string(data))))
 	}
 }
 
@@ -96,17 +97,20 @@ func (c *Client) writePump() {
 		case message, ok := <-c.send:
 			if !ok {
 				// The hub closed the channel.
-				c.logger.Error().Msg("writePump: sender channel closed")
+				_, _ = c.logger.Write([]byte("writePump: sender channel closed\n"))
 				return
 			}
 			err := websocket.Message.Send(c.conn, string(message))
 			if err != nil {
-				c.logger.Error().Err(err).Msg("writePump: error sending message")
+				_, _ = c.logger.Write([]byte("writePump: error sending message\n"))
 				return
 			}
-			c.logger.Debug().Msgf("Client:%s:%s, writePump: %s", c.conn.LocalAddr().String(), c.conn.RemoteAddr().String(), string(bytes.TrimSpace(message)))
+			_, _ = c.logger.Write([]byte(fmt.Sprintf("Client:%s:%s, writePump: %s\n", c.conn.LocalAddr().String(), c.conn.RemoteAddr().String(), string(bytes.TrimSpace(message)))))
 		case <-ticker.C:
-			websocket.Message.Send(c.conn, newline)
+			err := websocket.Message.Send(c.conn, newline)
+			if err != nil {
+				_, _ = c.logger.Write([]byte("writePump: error sending message\n"))
+			}
 		}
 	}
 }

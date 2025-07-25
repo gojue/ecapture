@@ -16,6 +16,29 @@ package ecaptureq
 
 import "encoding/json"
 
+type eqMessageType uint8
+
+const (
+	LogTypeHeartBeat  eqMessageType = 0
+	LogTypeProcessLog eqMessageType = 1
+	LogTypeEvent      eqMessageType = 2
+)
+
+type eqMessage struct {
+	LogType eqMessageType `json:"log_type"`
+	Payload []byte        `json:"payload"`
+}
+
+// Encode 将 eqMessage 编码为 JSON 字节流
+func (m *eqMessage) Encode() ([]byte, error) {
+	return json.Marshal(m)
+}
+
+// Decode 从 JSON 字节流解码为 eqMessage
+func (m *eqMessage) Decode(data []byte) error {
+	return json.Unmarshal(data, m)
+}
+
 // PacketData 结构体与您 Rust 项目中的 core::models::PacketData 完全对应。
 // 我们使用 `json:"..."` 标签来确保生成的 JSON 字段名与前端期望的一致。
 type PacketData struct {

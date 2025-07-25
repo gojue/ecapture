@@ -51,6 +51,7 @@ type IConfig interface {
 	SetDebug(bool)
 	// SetAddrType sets the logger output type
 	SetAddrType(uint8)
+	GetAddrType() uint8
 	// SetEventCollectorAddr sets the address for the event collector
 	SetEventCollectorAddr(string)
 	// GetEventCollectorAddr returns the event collector address
@@ -66,9 +67,6 @@ type IConfig interface {
 	// Set/Get TruncateSize
 	SetTruncateSize(uint64)
 	GetTruncateSize() uint64
-
-	GetLogEventSendMode() bool
-	SetLogEventSendMode(bool)
 }
 
 // TLS capture mode constants defining different output formats
@@ -110,7 +108,7 @@ type BaseConfig struct {
 	LoggerAddr         string `json:"logger_addr"`          // Address for logger output
 	LoggerType         uint8  `json:"logger_type"`          // Logger type (0:stdout, 1:file, 2:tcp)
 	EventCollectorAddr string `json:"event_collector_addr"` // Address of the event collector server
-	LogEventSendMode   bool   `json:"log_event_send_mode"`  // 日志和事件的发送模式，true: 本地监听server，等待客户端来连接，再发送事件和日志；false: 直接发送到远程服务器
+	EcaptureQ          string `json:"ecapture_q"`           // ecaptureQ 模式，本地监听Server，等待Q连接
 }
 
 func (c *BaseConfig) GetPid() uint64 {
@@ -147,6 +145,10 @@ func (c *BaseConfig) GetEventCollectorAddr() string {
 
 func (c *BaseConfig) SetAddrType(t uint8) {
 	c.LoggerType = t
+}
+
+func (c *BaseConfig) GetAddrType() uint8 {
+	return c.LoggerType
 }
 
 func (c *BaseConfig) SetDebug(b bool) {
@@ -187,14 +189,6 @@ func (c *BaseConfig) SetTruncateSize(TruncateSize uint64) {
 
 func (c *BaseConfig) GetTruncateSize() uint64 {
 	return c.TruncateSize
-}
-
-func (c *BaseConfig) GetLogEventSendMode() bool {
-	return c.LogEventSendMode
-}
-
-func (c *BaseConfig) SetLogEventSendMode(b bool) {
-	c.LogEventSendMode = b
 }
 
 func (c *BaseConfig) EnableGlobalVar() bool {

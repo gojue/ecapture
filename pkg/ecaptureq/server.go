@@ -18,29 +18,30 @@ import (
 	"context"
 	"fmt"
 	"github.com/gojue/ecapture/pkg/util/ws"
-	"github.com/rs/zerolog"
 	"golang.org/x/net/websocket"
+	"io"
 	"time"
 )
 
 const LogBuffLen = 128
 
 type Server struct {
-	addr    string
-	logbuff []string
-	handler func([]byte)
-	hub     *Hub
-	ws      *ws.Server
-	logger  zerolog.Logger
-	ctx     context.Context
+	addr           string
+	logbuff        []string
+	handler        func([]byte)
+	hub            *Hub
+	ws             *ws.Server
+	logger         io.Writer
+	ctx            context.Context
+	heartBeatCount int
 }
 
 // NewServer 创建一个新的服务器实例
-func NewServer(addr string, logger zerolog.Logger) *Server {
+func NewServer(addr string, logWriter io.Writer) *Server {
 	s := &Server{
 		addr:    addr,
 		logbuff: make([]string, 0, LogBuffLen),
-		logger:  logger,
+		logger: logWriter,
 		hub:     newHub(),
 		ctx:     context.Background(),
 	}
@@ -61,8 +62,11 @@ func (s *Server) Start() error {
 		var i = 0
 		defer ticker.Stop()
 		for range ticker.C {
-			s.logger.Debug().Msg("heartbeat tick")
-			s.Write([]byte(fmt.Sprintf("heartbeat: %d", i)))
+			err := s.Heartbeat()
+			if err != nil {
+				_, _ = s.logger.Write([]byte(fmt.Sprintf("Error writing heartbeat: %v\n", err)))
+				return
+			}
 			i++
 		}
 	}()
@@ -75,9 +79,9 @@ func (s *Server) Start() error {
 }
 
 func (s *Server) handleWebSocket(conn *websocket.Conn) {
-	s.logger.Info().Msgf("New WebSocket connection from %s", conn.RemoteAddr())
+	_, _ = s.logger.Write([]byte(fmt.Sprintf("New WebSocket connection from %s", conn.RemoteAddr())))
 	defer func() {
-		s.logger.Info().Msgf("WebSocket connection closed from %s", conn.RemoteAddr())
+		_, _ = s.logger.Write([]byte(fmt.Sprintf("Closing WebSocket connection from %s", conn.RemoteAddr())))
 	}()
 
 	client := &Client{hub: s.hub, conn: conn, send: make(chan []byte, 256), logger: s.logger}
@@ -99,26 +103,48 @@ func (s *Server) sendLogBuff(c *Client) {
 	}
 }
 
-func (s *Server) Write(data []byte) (int, error) {
+func (s *Server) write(data []byte, logType eqMessageType) (int, error) {
 	if s.ws == nil {
 		return 0, fmt.Errorf("websocket server not initialized")
 	}
 	if s.hub == nil {
 		return 0, fmt.Errorf("hub not initialized")
 	}
-	s.hub.broadcastMessage(data)
+
+	hb := new(eqMessage)
+	hb.LogType = LogTypeHeartBeat
+	hb.Payload = data
+	payload, err := hb.Encode()
+	if err != nil {
+		return 0, err
+	}
+
+	s.hub.broadcastMessage(payload)
 	return len(data), nil
 }
 
-func (s *Server) WriteLog(data []byte) {
+// WriteLog writes data to the WebSocket server.
+func (s *Server) WriteLog(data []byte) (n int, e error) {
 	if len(s.logbuff) >= LogBuffLen {
 		return
 	}
 	s.logbuff = append(s.logbuff, string(data))
-	s.Write(data)
+	return s.write(data, LogTypeProcessLog)
+}
+
+// WriteEvent writes an event to the WebSocket server.
+func (s *Server) WriteEvent(data []byte) (n int, e error) {
+	return s.write(data, LogTypeEvent)
+}
+
+func (s *Server) Heartbeat() error {
+	// 发送心跳包
+	heartbeatData := []byte(fmt.Sprintf("heartbeat:%d", s.heartBeatCount))
+	_, err := s.write(heartbeatData, LogTypeHeartBeat)
+	s.heartBeatCount++
+	return err
 }
 
 func (s *Server) Close() {
 	s.ctx.Done()
-	s.logger.Info().Msg("Server closed")
 }
