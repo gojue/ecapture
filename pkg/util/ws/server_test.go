@@ -30,10 +30,7 @@ func TestServer_HandleWebSocket(t *testing.T) {
 	wg.Add(1)
 
 	// 创建服务器
-	server := NewServer(":0", func(data []byte) {
-		receivedData = data
-		wg.Done()
-	})
+	server := NewServer(":0", wsHandler)
 
 	// 创建测试服务器
 	testServer := httptest.NewServer(websocket.Handler(server.handleWebSocket))
@@ -87,4 +84,26 @@ func TestServer_Start(t *testing.T) {
 
 	// 给服务器一点时间启动
 	time.Sleep(100 * time.Millisecond)
+}
+
+func wsHandler(conn *websocket.Conn) {
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				_ = conn.Close()
+			}
+		}()
+
+		for {
+			var msg string
+			if err := websocket.Message.Receive(conn, &msg); err != nil {
+				return
+			}
+			if msg == "ping" {
+				if err := websocket.Message.Send(conn, "pong"); err != nil {
+					return
+				}
+			}
+		}
+	}()
 }

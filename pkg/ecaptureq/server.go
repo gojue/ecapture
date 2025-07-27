@@ -56,7 +56,6 @@ func NewServer(addr string, logWriter io.Writer) *Server {
 
 // Start 启动服务器
 func (s *Server) Start() error {
-	// 启动心跳广播goroutine ，测试用
 	go func() {
 		ticker := time.NewTicker(30 * time.Second)
 		var i = 0
@@ -125,18 +124,18 @@ func (s *Server) write(data []byte, logType eqMessageType) (int, error) {
 
 // WriteLog writes data to the WebSocket server.
 func (s *Server) WriteLog(data []byte) (n int, e error) {
-	if len(s.logbuff) >= LogBuffLen {
-		return
-	}
-	hb := new(eqMessage)
-	hb.LogType = LogTypeProcessLog
-	hb.Payload = data
-	payload, err := hb.Encode()
-	if err != nil {
-		return 0, err
+
+	// 如果程序初始化的日志缓冲区已满，则不再添加新的日志
+	if len(s.logbuff) <= LogBuffLen {
+		hb := new(eqMessage)
+		hb.LogType = LogTypeProcessLog
+		hb.Payload = data
+		payload, err := hb.Encode()
+		if err == nil {
+			s.logbuff = append(s.logbuff, string(payload))
+		}
 	}
 
-	s.logbuff = append(s.logbuff, string(payload))
 	return s.write(data, LogTypeProcessLog)
 }
 
