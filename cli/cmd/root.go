@@ -18,7 +18,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/gojue/ecapture/pkg/ecaptureq"
 	"io"
 	"net"
 	"net/url"
@@ -27,6 +26,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/gojue/ecapture/pkg/ecaptureq"
 
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
@@ -264,18 +265,16 @@ func runModule(modName string, modConfig config.IConfig) error {
 		if err != nil {
 			return err
 		}
-		// TODO 将logger的内容写入到es 里， 要区分 log 和 event两个不同的logger
 		es := ecaptureq.NewServer(parsedURL.Host, os.Stdout)
 		go func() {
 			err := es.Start()
 			if err != nil {
-				fmt.Println(fmt.Sprintf("eCaptureQ addr listen failed:%s", err.Error()))
+				fmt.Println(fmt.Sprintf("eCaptureQ addr listen failed:%s\n", err.Error()))
 				return
 			}
 		}()
 
 		consoleWriter := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}
-		logger = zerolog.New(consoleWriter).With().Timestamp().Logger()
 		zerolog.SetGlobalLevel(zerolog.InfoLevel)
 		if modConfig.GetDebug() {
 			zerolog.SetGlobalLevel(zerolog.DebugLevel)
