@@ -77,7 +77,7 @@ func (c *Client) readPump() {
 			_, _ = c.logger.Write([]byte("readPump: error receiving message\n"))
 			break
 		}
-		_, _ = c.logger.Write([]byte(fmt.Sprintf("Client:%s:%s, readPump: %s", c.conn.LocalAddr().String(), c.conn.RemoteAddr().String(), string(data))))
+		_, _ = c.logger.Write([]byte(fmt.Sprintf("Client:%s:%s, readPump: %s\n", c.conn.LocalAddr().String(), c.conn.RemoteAddr().String(), string(data))))
 	}
 }
 

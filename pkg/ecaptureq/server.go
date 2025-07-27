@@ -41,7 +41,7 @@ func NewServer(addr string, logWriter io.Writer) *Server {
 	s := &Server{
 		addr:    addr,
 		logbuff: make([]string, 0, LogBuffLen),
-		logger: logWriter,
+		logger:  logWriter,
 		hub:     newHub(),
 		ctx:     context.Background(),
 	}
@@ -58,7 +58,7 @@ func NewServer(addr string, logWriter io.Writer) *Server {
 func (s *Server) Start() error {
 	// 启动心跳广播goroutine ，测试用
 	go func() {
-		ticker := time.NewTicker(5 * time.Second)
+		ticker := time.NewTicker(30 * time.Second)
 		var i = 0
 		defer ticker.Stop()
 		for range ticker.C {
@@ -112,7 +112,7 @@ func (s *Server) write(data []byte, logType eqMessageType) (int, error) {
 	}
 
 	hb := new(eqMessage)
-	hb.LogType = LogTypeHeartBeat
+	hb.LogType = logType
 	hb.Payload = data
 	payload, err := hb.Encode()
 	if err != nil {
@@ -128,7 +128,15 @@ func (s *Server) WriteLog(data []byte) (n int, e error) {
 	if len(s.logbuff) >= LogBuffLen {
 		return
 	}
-	s.logbuff = append(s.logbuff, string(data))
+	hb := new(eqMessage)
+	hb.LogType = LogTypeProcessLog
+	hb.Payload = data
+	payload, err := hb.Encode()
+	if err != nil {
+		return 0, err
+	}
+
+	s.logbuff = append(s.logbuff, string(payload))
 	return s.write(data, LogTypeProcessLog)
 }
 
