@@ -16,6 +16,7 @@ package event_processor
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -186,13 +187,21 @@ func (ew *eventWorker) Display() error {
 	}
 
 	//iWorker只负责写入，不应该打印。
-	e := ew.writeToChan(fmt.Sprintf("UUID:%s, Name:%s, Type:%d, Length:%d\n%s\n", ew.uuidOutput, ew.parser.Name(), ew.parser.ParserType(), len(b), b))
+	eb := new(event.Base)
+	eb.Type = uint32(ew.parser.ParserType())
+	eb.UUID = ew.uuidOutput
+	eb.PayloadBase64 = base64.StdEncoding.EncodeToString(b[:])
+	payload, err := eb.Encode()
+	if err != nil {
+		return err
+	}
+	e := ew.writeToChan(string(payload))
 	return e
 }
 
 func (ew *eventWorker) writeEvent(e event.IEventStruct) {
 	if ew.status != ProcessStateInit && ew.ewLifeCycleState == LifeCycleStateDefault {
-		_ = ew.writeToChan(fmt.Sprintf("write events failed, unknow eventWorker status: %d", ew.status))
+		ew.Log(fmt.Sprintf("write events failed, unknow eventWorker status: %d", ew.status))
 		return
 	}
 
@@ -200,7 +209,7 @@ func (ew *eventWorker) writeEvent(e event.IEventStruct) {
 	//terminal write when reach the truncate size
 	if tsize > 0 && ew.payload.Len() >= tsize {
 		ew.payload.Truncate(tsize)
-		_ = ew.writeToChan(fmt.Sprintf("Events truncated, size: %d bytes\n", tsize))
+		ew.Log(fmt.Sprintf("Events truncated, size: %d bytes\n", tsize))
 		return
 	}
 
@@ -216,7 +225,7 @@ func (ew *eventWorker) parserEvents() []byte {
 	}
 	n, e := ew.parser.Write(ew.payload.Bytes())
 	if e != nil {
-		_ = ew.writeToChan(fmt.Sprintf("ew.parser uuid: %s type %d write payload %d bytes, error:%s", ew.UUID, ew.parser.ParserType(), n, e.Error()))
+		ew.Log(fmt.Sprintf("ew.parser uuid: %s type %d write payload %d bytes, error:%s", ew.UUID, ew.parser.ParserType(), n, e.Error()))
 	}
 	ew.status = ProcessStateDone
 	return ew.parser.Display()
@@ -320,4 +329,9 @@ func (ew *eventWorker) Put() {
 
 func (ew *eventWorker) IfUsed() bool {
 	return ew.used.Load()
+}
+
+// Log is a simple logging function for eventWorker. 临时输出。 TODO : 需要重新设计
+func (ew *eventWorker) Log(payload string) {
+	fmt.Println("eventWorker: ", payload)
 }

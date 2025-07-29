@@ -39,31 +39,6 @@ func (m *eqMessage) Decode(data []byte) error {
 	return json.Unmarshal(data, m)
 }
 
-// PacketData 结构体与您 Rust 项目中的 core::models::PacketData 完全对应。
-// 我们使用 `json:"..."` 标签来确保生成的 JSON 字段名与前端期望的一致。
-type PacketData struct {
-	Timestamp     int64  `json:"timestamp"`
-	SrcIP         string `json:"src_ip"`
-	SrcPort       uint32 `json:"src_port"`
-	DstIP         string `json:"dst_ip"`
-	DstPort       uint32 `json:"dst_port"`
-	PID           int32  `json:"pid"`
-	PName         string `json:"pname"`
-	Type          string `json:"type"` // 对应 Rust 的 `r#type`
-	Length        uint32 `json:"length"`
-	PayloadBase64 string `json:"payload_base64"`
-}
-
-// Encode 将 PacketData 编码为 JSON 字节流
-func (p *PacketData) Encode() ([]byte, error) {
-	return json.Marshal(p)
-}
-
-// Decode 从 JSON 字节流解码为 PacketData
-func (p *PacketData) Decode(data []byte) error {
-	return json.Unmarshal(data, p)
-}
-
 type HeartbeatMessage struct {
 	Timestamp int64  `json:"timestamp"`
 	Count     int32  `json:"count"`
