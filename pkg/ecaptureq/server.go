@@ -97,7 +97,6 @@ func (s *Server) handleWebSocket(conn *websocket.Conn) {
 
 func (s *Server) sendLogBuff(c *Client) {
 	for _, log := range s.logbuff {
-		fmt.Println("sendLogBuff: ", log)
 		c.send <- []byte(log)
 	}
 }
@@ -126,7 +125,6 @@ func (s *Server) write(data []byte, logType eqMessageType) (int, error) {
 func (s *Server) WriteLog(data []byte) (n int, e error) {
 	// 如果程序初始化的日志缓冲区已满，则不再添加新的日志
 	if len(s.logbuff) <= LogBuffLen {
-		fmt.Println(string(data))
 		hb := new(eqMessage)
 		hb.LogType = LogTypeProcessLog
 		hb.Payload = data
