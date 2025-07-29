@@ -245,7 +245,7 @@ static __always_inline int gotls_mastersecret(struct pt_regs *ctx, bool is_regis
     }
 
     debug_bpf_printk("gotls_mastersecret read mastersecret label:%s\n", mastersecret_gotls.label);
-    ret = bpf_probe_read_user_str(
+    ret = bpf_probe_read_user(
         &mastersecret_gotls.client_random, sizeof(mastersecret_gotls.client_random), (void *)cr_ptr);
     if (ret < 0) {
         debug_bpf_printk(
@@ -255,7 +255,7 @@ static __always_inline int gotls_mastersecret(struct pt_regs *ctx, bool is_regis
         return 0;
     }
 
-    ret = bpf_probe_read_user_str(&mastersecret_gotls.secret_, sizeof(mastersecret_gotls.secret_), (void *)secret_ptr);
+    ret = bpf_probe_read_user(&mastersecret_gotls.secret_, sizeof(mastersecret_gotls.secret_), (void *)secret_ptr);
     if (ret < 0) {
         debug_bpf_printk(
             "gotls_mastersecret read mastersecret secret_ failed, ret:%d, "
