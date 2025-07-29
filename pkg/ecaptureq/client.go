@@ -17,23 +17,9 @@ package ecaptureq
 import (
 	"bytes"
 	"fmt"
-	"golang.org/x/net/websocket"
 	"io"
-	"time"
-)
 
-const (
-	// Time allowed to write a message to the peer.
-	writeWait = 10 * time.Second
-
-	// Time allowed to read the next pong message from the peer.
-	pongWait = 60 * time.Second
-
-	// Send pings to peer with this period. Must be less than pongWait.
-	pingPeriod = (pongWait * 9) / 10
-
-	// Maximum message size allowed from peer.
-	maxMessageSize = 512
+	"golang.org/x/net/websocket"
 )
 
 var (
@@ -87,9 +73,7 @@ func (c *Client) readPump() {
 // application ensures that there is at most one writer to a connection by
 // executing all writes from this goroutine.
 func (c *Client) writePump() {
-	ticker := time.NewTicker(pingPeriod)
 	defer func() {
-		ticker.Stop()
 		_ = c.conn.Close()
 	}()
 	for {
@@ -106,11 +90,6 @@ func (c *Client) writePump() {
 				return
 			}
 			_, _ = c.logger.Write([]byte(fmt.Sprintf("Client:%s:%s, writePump: %s\n", c.conn.LocalAddr().String(), c.conn.RemoteAddr().String(), string(bytes.TrimSpace(message)))))
-		case <-ticker.C:
-			err := websocket.Message.Send(c.conn, newline)
-			if err != nil {
-				_, _ = c.logger.Write([]byte("writePump: error sending message\n"))
-			}
 		}
 	}
 }

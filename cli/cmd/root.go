@@ -270,6 +270,7 @@ func runModule(modName string, modConfig config.IConfig) error {
 			err := es.Start()
 			if err != nil {
 				fmt.Println(fmt.Sprintf("eCaptureQ addr listen failed:%s\n", err.Error()))
+				os.Exit(1)
 				return
 			}
 		}()
@@ -284,7 +285,6 @@ func runModule(modName string, modConfig config.IConfig) error {
 		multi := zerolog.MultiLevelWriter(consoleWriter, eqWriter)
 		logger = zerolog.New(multi).With().Timestamp().Logger()
 
-		// TODO  多写
 		eqeWriter := ecaptureQEventWriter{es: es}
 		multiEvent := zerolog.MultiLevelWriter(consoleWriter, eqeWriter)
 		ecw = zerolog.New(multiEvent).With().Timestamp().Logger()
@@ -311,8 +311,8 @@ func runModule(modName string, modConfig config.IConfig) error {
 	logger.Info().Str("Author", CliAuthor).Send()
 	logger.Info().Str("Description", CliDescription).Send()
 	logger.Info().Str("Version", GitVersion).Send()
-
 	logger.Info().Str("Listen", globalConf.Listen).Send()
+	logger.Info().Str("Listen for eCaptureQ", globalConf.EcaptureQ).Send()
 	logger.Info().Str("logger", globalConf.LoggerAddr).Msg("eCapture running logs")
 	logger.Info().Str("eventCollector", globalConf.EventCollectorAddr).Msg("the file handler that receives the captured event")
 

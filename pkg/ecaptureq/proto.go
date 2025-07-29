@@ -25,8 +25,8 @@ const (
 )
 
 type eqMessage struct {
-	LogType eqMessageType `json:"log_type"`
-	Payload []byte        `json:"payload"`
+	LogType eqMessageType   `json:"log_type"`
+	Payload json.RawMessage `json:"payload"`
 }
 
 // Encode 将 eqMessage 编码为 JSON 字节流
@@ -62,4 +62,10 @@ func (p *PacketData) Encode() ([]byte, error) {
 // Decode 从 JSON 字节流解码为 PacketData
 func (p *PacketData) Decode(data []byte) error {
 	return json.Unmarshal(data, p)
+}
+
+type HeartbeatMessage struct {
+	Timestamp int64  `json:"timestamp"`
+	Count     int32  `json:"count"`
+	Message   string `json:"message"`
 }

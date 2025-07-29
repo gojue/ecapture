@@ -16,11 +16,13 @@ package ecaptureq
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"github.com/gojue/ecapture/pkg/util/ws"
-	"golang.org/x/net/websocket"
 	"io"
 	"time"
+
+	"github.com/gojue/ecapture/pkg/util/ws"
+	"golang.org/x/net/websocket"
 )
 
 const LogBuffLen = 128
@@ -71,10 +73,7 @@ func (s *Server) Start() error {
 	}()
 
 	err := s.ws.Start()
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 func (s *Server) handleWebSocket(conn *websocket.Conn) {
@@ -98,6 +97,7 @@ func (s *Server) handleWebSocket(conn *websocket.Conn) {
 
 func (s *Server) sendLogBuff(c *Client) {
 	for _, log := range s.logbuff {
+		fmt.Println("sendLogBuff: ", log)
 		c.send <- []byte(log)
 	}
 }
@@ -124,9 +124,9 @@ func (s *Server) write(data []byte, logType eqMessageType) (int, error) {
 
 // WriteLog writes data to the WebSocket server.
 func (s *Server) WriteLog(data []byte) (n int, e error) {
-
 	// 如果程序初始化的日志缓冲区已满，则不再添加新的日志
 	if len(s.logbuff) <= LogBuffLen {
+		fmt.Println(string(data))
 		hb := new(eqMessage)
 		hb.LogType = LogTypeProcessLog
 		hb.Payload = data
@@ -135,7 +135,6 @@ func (s *Server) WriteLog(data []byte) (n int, e error) {
 			s.logbuff = append(s.logbuff, string(payload))
 		}
 	}
-
 	return s.write(data, LogTypeProcessLog)
 }
 
@@ -146,8 +145,15 @@ func (s *Server) WriteEvent(data []byte) (n int, e error) {
 
 func (s *Server) Heartbeat() error {
 	// 发送心跳包
-	heartbeatData := []byte(fmt.Sprintf("heartbeat:%d", s.heartBeatCount))
-	_, err := s.write(heartbeatData, LogTypeHeartBeat)
+	hbm := new(HeartbeatMessage)
+	hbm.Message = fmt.Sprintf("heartbeat:%d", s.heartBeatCount)
+	hbm.Timestamp = time.Now().Unix()
+	hbm.Count = int32(s.heartBeatCount)
+	payload, err := json.Marshal(hbm)
+	if err != nil {
+		return fmt.Errorf("failed to marshal heartbeat message: %w", err)
+	}
+	_, err = s.write(payload, LogTypeHeartBeat)
 	s.heartBeatCount++
 	return err
 }
