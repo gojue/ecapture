@@ -3,6 +3,7 @@ package event
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/binary"
 	"fmt"
 )
@@ -45,7 +46,17 @@ func (ge *GoTLSEvent) Decode(payload []byte) error {
 
 func (ge *GoTLSEvent) String() string {
 	s := fmt.Sprintf("PID: %d, Comm: %s, TID: %d, PayloadType:%d, Payload: %s\n", ge.Pid, string(ge.Comm[:]), ge.Tid, ge.inner.PayloadType, string(ge.Data[:ge.Len]))
-	return s
+	eb := new(Base)
+	eb.UUID = ge.GetUUID()
+	eb.PID = int32(ge.Pid)
+	eb.PName = string(ge.Comm[:])
+	eb.Type = uint32(ge.inner.PayloadType)
+	eb.PayloadBase64 = base64.StdEncoding.EncodeToString(ge.Data[:])
+	p, e := eb.Encode()
+	if e != nil {
+		return s
+	}
+	return string(p)
 }
 
 func (ge *GoTLSEvent) StringHex() string {
