@@ -16,26 +16,22 @@ package ecaptureq
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
-	"time"
-
 	"github.com/gojue/ecapture/pkg/util/ws"
 	"golang.org/x/net/websocket"
+	"io"
 )
 
 const LogBuffLen = 128
 
 type Server struct {
-	addr           string
-	logbuff        []string
-	handler        func([]byte)
-	hub            *Hub
-	ws             *ws.Server
-	logger         io.Writer
-	ctx            context.Context
-	heartBeatCount int
+	addr    string
+	logbuff []string
+	handler func([]byte)
+	hub     *Hub
+	ws      *ws.Server
+	logger  io.Writer
+	ctx     context.Context
 }
 
 // NewServer 创建一个新的服务器实例
@@ -58,20 +54,6 @@ func NewServer(addr string, logWriter io.Writer) *Server {
 
 // Start 启动服务器
 func (s *Server) Start() error {
-	go func() {
-		ticker := time.NewTicker(30 * time.Second)
-		var i = 0
-		defer ticker.Stop()
-		for range ticker.C {
-			err := s.Heartbeat()
-			if err != nil {
-				_, _ = s.logger.Write([]byte(fmt.Sprintf("Error writing heartbeat: %v\n", err)))
-				return
-			}
-			i++
-		}
-	}()
-
 	err := s.ws.Start()
 	return err
 }
@@ -139,21 +121,6 @@ func (s *Server) WriteLog(data []byte) (n int, e error) {
 // WriteEvent writes an event to the WebSocket server.
 func (s *Server) WriteEvent(data []byte) (n int, e error) {
 	return s.write(data, LogTypeEvent)
-}
-
-func (s *Server) Heartbeat() error {
-	// 发送心跳包
-	hbm := new(HeartbeatMessage)
-	hbm.Message = fmt.Sprintf("heartbeat:%d", s.heartBeatCount)
-	hbm.Timestamp = time.Now().Unix()
-	hbm.Count = int32(s.heartBeatCount)
-	payload, err := json.Marshal(hbm)
-	if err != nil {
-		return fmt.Errorf("failed to marshal heartbeat message: %w", err)
-	}
-	_, err = s.write(payload, LogTypeHeartBeat)
-	s.heartBeatCount++
-	return err
 }
 
 func (s *Server) Close() {

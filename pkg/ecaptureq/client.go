@@ -16,8 +16,10 @@ package ecaptureq
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
+	"time"
 
 	"golang.org/x/net/websocket"
 )
@@ -38,6 +40,10 @@ type Client struct {
 	send chan []byte
 
 	logger io.Writer
+
+	heartBeatCount int
+
+	hbTimer *time.Ticker
 }
 
 // readPump pumps messages from the websocket connection to the hub.
@@ -73,7 +79,9 @@ func (c *Client) readPump() {
 // application ensures that there is at most one writer to a connection by
 // executing all writes from this goroutine.
 func (c *Client) writePump() {
+	c.hbTimer = time.NewTicker(60 * time.Second)
 	defer func() {
+		c.hbTimer.Stop()
 		_ = c.conn.Close()
 	}()
 	for {
@@ -90,6 +98,35 @@ func (c *Client) writePump() {
 				return
 			}
 			_, _ = c.logger.Write([]byte(fmt.Sprintf("Client:%s:%s, writePump: %s\n", c.conn.LocalAddr().String(), c.conn.RemoteAddr().String(), string(bytes.TrimSpace(message)))))
+		case <-c.hbTimer.C:
+			err := c.Heartbeat()
+			if err != nil {
+				_, _ = c.logger.Write([]byte(fmt.Sprintf("writePump: error sending heartbeat: %v\n", err)))
+			}
 		}
+
 	}
+}
+
+func (c *Client) Heartbeat() error {
+	// 发送心跳包
+	hbm := new(HeartbeatMessage)
+	hbm.Message = fmt.Sprintf("heartbeat:%d", c.heartBeatCount)
+	hbm.Timestamp = time.Now().Unix()
+	hbm.Count = int32(c.heartBeatCount)
+	payload, err := json.Marshal(hbm)
+	if err != nil {
+		return fmt.Errorf("failed to marshal heartbeat message: %w", err)
+	}
+
+	hb := new(eqMessage)
+	hb.LogType = LogTypeHeartBeat
+	hb.Payload = payload
+	hbp, err := hb.Encode()
+	if err != nil {
+		return err
+	}
+	c.send <- hbp
+	c.heartBeatCount++
+	return err
 }
