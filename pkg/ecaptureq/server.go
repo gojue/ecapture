@@ -17,9 +17,10 @@ package ecaptureq
 import (
 	"context"
 	"fmt"
+	"io"
+
 	"github.com/gojue/ecapture/pkg/util/ws"
 	"golang.org/x/net/websocket"
-	"io"
 )
 
 const LogBuffLen = 128

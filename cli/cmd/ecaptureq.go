@@ -17,6 +17,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+
 	"github.com/gojue/ecapture/pkg/ecaptureq"
 )
 
@@ -37,7 +38,7 @@ func (eew ecaptureQEventWriter) Write(data []byte) (n int, e error) {
 	// 检查是否包含message键
 	b, message, err := checkMessageKeyWithMap(data)
 	if err != nil {
-		return 0, fmt.Errorf("check message failed: %v", err)
+		return 0, fmt.Errorf("check message failed: %w", err)
 	}
 	if b {
 		return eew.es.WriteEvent([]byte(message))
@@ -50,7 +51,7 @@ func checkMessageKeyWithMap(jsonData []byte) (bool, string, error) {
 
 	// 解码JSON到map
 	if err := json.Unmarshal(jsonData, &data); err != nil {
-		return false, "", fmt.Errorf("JSON解码失败: %v", err)
+		return false, "", fmt.Errorf("JSON解码失败: %w", err)
 	}
 
 	// 检查是否存在message键
@@ -60,7 +61,7 @@ func checkMessageKeyWithMap(jsonData []byte) (bool, string, error) {
 			return true, msgStr, nil
 		}
 		// 如果不是字符串类型，返回其字符串表示
-		return true, fmt.Sprintf("%v"), nil
+		return true, "", nil
 	}
 
 	return false, "", nil
