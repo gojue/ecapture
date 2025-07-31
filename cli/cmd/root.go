@@ -269,7 +269,7 @@ func runModule(modName string, modConfig config.IConfig) error {
 		go func() {
 			err := es.Start()
 			if err != nil {
-				fmt.Println(fmt.Sprintf("eCaptureQ addr listen failed:%s\n", err.Error()))
+				fmt.Printf("eCaptureQ addr listen failed:%s\n", err.Error())
 				os.Exit(1)
 				return
 			}
