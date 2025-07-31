@@ -19,8 +19,9 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/gojue/ecapture/pkg/util/ws"
 	"golang.org/x/net/websocket"
+
+	"github.com/gojue/ecapture/pkg/util/ws"
 )
 
 const LogBuffLen = 128

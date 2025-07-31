@@ -47,7 +47,7 @@ func (eew ecaptureQEventWriter) Write(data []byte) (n int, e error) {
 }
 
 func checkMessageKeyWithMap(jsonData []byte) (bool, string, error) {
-	var data map[string]interface{}
+	var data map[string]any
 
 	// 解码JSON到map
 	if err := json.Unmarshal(jsonData, &data); err != nil {
