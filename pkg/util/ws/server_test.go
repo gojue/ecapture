@@ -72,7 +72,7 @@ func TestServer_HandleWebSocket(t *testing.T) {
 }
 
 func TestServer_Start(t *testing.T) {
-	server := NewServer(":0", nil)
+	server := NewServer(":0", wsHandler)
 
 	// 测试启动服务器（这里只验证不会panic）
 	go func() {
