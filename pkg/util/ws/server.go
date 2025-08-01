@@ -39,6 +39,8 @@ func (s *Server) Start() error {
 	if s.handleWebSocket == nil {
 		return fmt.Errorf("handleWebSocket function is not set")
 	}
-	http.Handle("/", websocket.Handler(s.handleWebSocket))
-	return http.ListenAndServe(s.addr, nil)
+
+	mux := http.NewServeMux()
+	mux.Handle("/", websocket.Handler(s.handleWebSocket))
+	return http.ListenAndServe(s.addr, mux)
 }
