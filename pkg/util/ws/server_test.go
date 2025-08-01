@@ -15,7 +15,8 @@
 package ws
 
 import (
-	"encoding/base64"
+	"context"
+	"fmt"
 	"net/http/httptest"
 	"sync"
 	"testing"
@@ -25,22 +26,29 @@ import (
 )
 
 func TestServer_HandleWebSocket(t *testing.T) {
-	var receivedData []byte
+	var receivedData string
 	var wg sync.WaitGroup
 	wg.Add(1)
 
+	wsUrl := "ws://127.0.0.1:28257"
 	// 创建服务器
-	server := NewServer(":0", func(data []byte) {
-		receivedData = data
-		wg.Done()
-	})
+	server := NewServer("127.0.0.1:28257", wsHandler)
+	go func() {
+		err := server.Start()
+		if err != nil {
+			t.Errorf("Failed to start server: %v", err)
+		}
+	}()
+
+	time.Sleep(1 * time.Second) // 等待服务器启动
 
 	// 创建测试服务器
 	testServer := httptest.NewServer(websocket.Handler(server.handleWebSocket))
 	defer testServer.Close()
 
 	// 创建客户端连接
-	url := "ws" + testServer.URL[4:] + "/"
+	url := wsUrl
+	fmt.Println("Connecting to WebSocket at:", url)
 	conn, err := websocket.Dial(url, "", "http://localhost/")
 	if err != nil {
 		t.Fatalf("Failed to dial: %v", err)
@@ -50,12 +58,19 @@ func TestServer_HandleWebSocket(t *testing.T) {
 	}()
 
 	// 发送base64编码的数据
-	testData := "hello world"
-	encodedData := base64.StdEncoding.EncodeToString([]byte(testData))
-	err = websocket.Message.Send(conn, encodedData)
+	err = websocket.Message.Send(conn, "ping")
 	if err != nil {
 		t.Fatalf("Failed to send message: %v", err)
 	}
+
+	go func() {
+		err = websocket.Message.Receive(conn, &receivedData)
+		if err != nil {
+			t.Error("Failed to receive message:", err)
+		}
+		t.Logf("Received data: %s", receivedData)
+		wg.Done()
+	}()
 
 	// 等待数据处理
 	done := make(chan bool)
@@ -66,16 +81,16 @@ func TestServer_HandleWebSocket(t *testing.T) {
 
 	select {
 	case <-done:
-		if string(receivedData) != testData {
-			t.Errorf("Expected %s, got %s", testData, string(receivedData))
+		if receivedData != "pong" {
+			t.Errorf("Expected %s, got %s", "pong", receivedData)
 		}
-	case <-time.After(5 * time.Second):
+	case <-time.After(3 * time.Second):
 		t.Error("Timeout waiting for data processing")
 	}
 }
 
 func TestServer_Start(t *testing.T) {
-	server := NewServer(":0", nil)
+	server := NewServer(":0", wsHandler)
 
 	// 测试启动服务器（这里只验证不会panic）
 	go func() {
@@ -87,4 +102,32 @@ func TestServer_Start(t *testing.T) {
 
 	// 给服务器一点时间启动
 	time.Sleep(100 * time.Millisecond)
+}
+
+func wsHandler(conn *websocket.Conn) {
+	ctx := context.Background()
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				_ = conn.Close()
+			}
+		}()
+
+		for {
+			var msg string
+			if err := websocket.Message.Receive(conn, &msg); err != nil {
+				return
+			}
+			if msg == "ping" {
+				if err := websocket.Message.Send(conn, "pong"); err != nil {
+					fmt.Println(err)
+					return
+				}
+			} else {
+				fmt.Println("Received message:", msg)
+			}
+		}
+	}()
+
+	<-ctx.Done()
 }

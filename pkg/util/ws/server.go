@@ -15,7 +15,6 @@
 package ws
 
 import (
-	"encoding/base64"
 	"fmt"
 	"net/http"
 
@@ -24,54 +23,24 @@ import (
 
 // Server 是一个简单的WebSocket服务器，接收base64编码的消息并调用处理函数
 type Server struct {
-	addr    string
-	handler func([]byte)
+	addr            string
+	handleWebSocket func(*websocket.Conn)
 }
 
-/*
-	server := NewServer(":8080", func(data []byte) {
-	    fmt.Printf("Received: %s\n", string(data))
-	})
-
-server.Start()
-*/
-
 // NewServer 创建一个新的WebSocket服务器实例
-func NewServer(addr string, handler func([]byte)) *Server {
+func NewServer(addr string, handler func(conn *websocket.Conn)) *Server {
 	return &Server{
-		addr:    addr,
-		handler: handler,
+		addr:            addr,
+		handleWebSocket: handler,
 	}
 }
 
 func (s *Server) Start() error {
-	http.Handle("/", websocket.Handler(s.handleWebSocket))
-	return http.ListenAndServe(s.addr, nil)
-}
-
-func (s *Server) handleWebSocket(ws *websocket.Conn) {
-	defer func() {
-		_ = ws.Close()
-	}()
-
-	for {
-		var message string
-		err := websocket.Message.Receive(ws, &message)
-		if err != nil {
-			fmt.Printf("WebSocket receive error: %v\n", err)
-			break
-		}
-
-		// 解码base64消息
-		data, err := base64.StdEncoding.DecodeString(message)
-		if err != nil {
-			fmt.Printf("Base64 decode error: %v\n", err)
-			continue
-		}
-
-		// 调用处理函数
-		if s.handler != nil {
-			s.handler(data)
-		}
+	if s.handleWebSocket == nil {
+		return fmt.Errorf("handleWebSocket function is not set")
 	}
+
+	mux := http.NewServeMux()
+	mux.Handle("/", websocket.Handler(s.handleWebSocket))
+	return http.ListenAndServe(s.addr, mux)
 }

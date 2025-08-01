@@ -51,6 +51,7 @@ type IConfig interface {
 	SetDebug(bool)
 	// SetAddrType sets the logger output type
 	SetAddrType(uint8)
+	GetAddrType() uint8
 	// SetEventCollectorAddr sets the address for the event collector
 	SetEventCollectorAddr(string)
 	// GetEventCollectorAddr returns the event collector address
@@ -107,6 +108,7 @@ type BaseConfig struct {
 	LoggerAddr         string `json:"logger_addr"`          // Address for logger output
 	LoggerType         uint8  `json:"logger_type"`          // Logger type (0:stdout, 1:file, 2:tcp)
 	EventCollectorAddr string `json:"event_collector_addr"` // Address of the event collector server
+	EcaptureQ          string `json:"ecapture_q"`           // ecaptureQ 模式，本地监听Server，等待Q连接
 }
 
 func (c *BaseConfig) GetPid() uint64 {
@@ -143,6 +145,10 @@ func (c *BaseConfig) GetEventCollectorAddr() string {
 
 func (c *BaseConfig) SetAddrType(t uint8) {
 	c.LoggerType = t
+}
+
+func (c *BaseConfig) GetAddrType() uint8 {
+	return c.LoggerType
 }
 
 func (c *BaseConfig) SetDebug(b bool) {
