@@ -46,12 +46,7 @@ func (ge *GoTLSEvent) Decode(payload []byte) error {
 
 func (ge *GoTLSEvent) String() string {
 	s := fmt.Sprintf("PID: %d, Comm: %s, TID: %d, PayloadType:%d, Payload: %s\n", ge.Pid, string(ge.Comm[:]), ge.Tid, ge.inner.PayloadType, string(ge.Data[:ge.Len]))
-	eb := new(Base)
-	eb.UUID = ge.GetUUID()
-	eb.PID = int32(ge.Pid)
-	eb.PName = string(ge.Comm[:])
-	eb.Type = uint32(ge.inner.PayloadType)
-	eb.PayloadBase64 = base64.StdEncoding.EncodeToString(ge.Data[:])
+	eb := ge.Base()
 	p, e := eb.Encode()
 	if e != nil {
 		return s
@@ -67,12 +62,28 @@ func (ge *GoTLSEvent) StringHex() string {
 	return s
 }
 
+func (ge *GoTLSEvent) Base() Base {
+	return Base{
+		Timestamp:     int64(ge.TimestampNS),
+		UUID:          ge.GetUUID(),
+		SrcIP:         "127.0.0.1", // GoTLS events do not have SrcIP
+		SrcPort:       0,           // GoTLS events do not have SrcPort
+		DstIP:         "127.0.0.1", // GoTLS events do not have DstIP
+		DstPort:       0,           // GoTLS events do not have DstPort
+		PID:           int64(ge.Pid),
+		PName:         string(ge.Comm[:]),
+		Type:          uint32(ge.inner.PayloadType),
+		Length:        uint32(ge.Len),
+		PayloadBase64: base64.StdEncoding.EncodeToString(ge.Data[:ge.Len]),
+	}
+}
+
 func (ge *GoTLSEvent) Clone() IEventStruct {
 	return &GoTLSEvent{}
 }
 
-func (ge *GoTLSEvent) EventType() EventType {
-	return EventTypeOutput
+func (ge *GoTLSEvent) EventType() Type {
+	return TypeOutput
 }
 
 func (ge *GoTLSEvent) GetUUID() string {

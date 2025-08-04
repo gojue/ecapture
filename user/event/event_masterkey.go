@@ -33,7 +33,7 @@ const (
 	    u8 master_key[MASTER_SECRET_MAX_LEN];
 */
 type MasterSecretEvent struct {
-	eventType EventType
+	eventType Type
 	Version   int32 `json:"version"` // TLS Version
 
 	// TLS 1.2 or older
@@ -49,6 +49,7 @@ type MasterSecretEvent struct {
 	ServerAppTrafficSecret [EvpMaxMdSize]byte `json:"serverAppTrafficSecret"` // Server App Traffic Secret
 	ExporterMasterSecret   [EvpMaxMdSize]byte `json:"exporterMasterSecret"`   // Exporter Master Secret
 	payload                string
+	base Base
 }
 
 func (mse *MasterSecretEvent) Decode(payload []byte) (err error) {
@@ -105,11 +106,19 @@ func (mse *MasterSecretEvent) String() string {
 
 func (mse *MasterSecretEvent) Clone() IEventStruct {
 	event := new(MasterSecretEvent)
-	event.eventType = EventTypeModuleData
+	event.eventType = TypeModuleData
 	return event
 }
 
-func (mse *MasterSecretEvent) EventType() EventType {
+func (mse *MasterSecretEvent) Base() Base {
+	mse.base = Base{
+		Timestamp: 0, // Timestamp is not set in this event
+		UUID:      mse.GetUUID(),
+	}
+	return mse.base
+}
+
+func (mse *MasterSecretEvent) EventType() Type {
 	return mse.eventType
 }
 
@@ -127,7 +136,7 @@ func (mse *MasterSecretEvent) PayloadLen() int {
 
 // MasterSecretBSSLEvent for BoringSSL  TLS 1.3
 type MasterSecretBSSLEvent struct {
-	eventType EventType
+	eventType Type
 	Version   int32 `json:"version"` // TLS Version
 
 	// TLS 1.2 or older
@@ -143,6 +152,7 @@ type MasterSecretBSSLEvent struct {
 	ServerTrafficSecret0  [EvpMaxMdSize]byte `json:"serverTrafficSecret0"`  // SERVER_TRAFFIC_SECRET_0
 	ExporterSecret        [EvpMaxMdSize]byte `json:"exporterSecret"`        // EXPORTER_SECRET
 	payload               string
+	base Base
 }
 
 func (msbe *MasterSecretBSSLEvent) Decode(payload []byte) (err error) {
@@ -199,11 +209,19 @@ func (msbe *MasterSecretBSSLEvent) String() string {
 
 func (msbe *MasterSecretBSSLEvent) Clone() IEventStruct {
 	event := new(MasterSecretBSSLEvent)
-	event.eventType = EventTypeModuleData
+	event.eventType = TypeModuleData
 	return event
 }
 
-func (msbe *MasterSecretBSSLEvent) EventType() EventType {
+func (msbe *MasterSecretBSSLEvent) Base() Base {
+	msbe.base = Base{
+		Timestamp: 0, // Timestamp is not set in this event
+		UUID:      msbe.GetUUID(),
+	}
+	return msbe.base
+}
+
+func (msbe *MasterSecretBSSLEvent) EventType() Type {
 	return msbe.eventType
 }
 

@@ -22,7 +22,7 @@ import (
 )
 
 type NsprDataEvent struct {
-	eventType EventType
+	eventType Type
 	DataType  int64             `json:"dataType"`
 	Timestamp uint64            `json:"timestamp"`
 	Pid       uint32            `json:"pid"`
@@ -30,6 +30,7 @@ type NsprDataEvent struct {
 	Data      [MaxDataSize]byte `json:"data"`
 	DataLen   int32             `json:"dataLen"`
 	Comm      [16]byte          `json:"Comm"`
+	base      Base
 }
 
 func (ne *NsprDataEvent) Decode(payload []byte) (err error) {
@@ -119,11 +120,25 @@ func (ne *NsprDataEvent) String() string {
 
 func (ne *NsprDataEvent) Clone() IEventStruct {
 	event := new(NsprDataEvent)
-	event.eventType = EventTypeEventProcessor
+	event.eventType = TypeEventProcessor
 	return event
 }
 
-func (ne *NsprDataEvent) EventType() EventType {
+func (ne *NsprDataEvent) Base() Base {
+	ne.base = Base{
+		Timestamp: int64(ne.Timestamp),
+		UUID:      ne.GetUUID(),
+		SrcIP:     "127.0.0.1", // Nspr events do not have SrcIP
+		SrcPort:   0,           // Nspr events do not have SrcPort
+		DstIP:     "127.0.0.1", // Nspr events do not have DstIP
+		DstPort:   0,           // Nspr events do not have DstPort
+		PID:       int64(ne.Pid),
+		PName:     string(ne.Comm[:]),
+	}
+	return ne.base
+}
+
+func (ne *NsprDataEvent) EventType() Type {
 	return ne.eventType
 }
 

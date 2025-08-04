@@ -14,17 +14,17 @@
 
 package event
 
-type EventType uint8
+type Type uint8
 
 const (
-	// EventTypeOutput upload to server or write to logfile.
-	EventTypeOutput EventType = iota
+	// TypeOutput upload to server or write to logfile.
+	TypeOutput Type = iota
 
-	// EventTypeModuleData set as module cache data
-	EventTypeModuleData
+	// TypeModuleData set as module cache data
+	TypeModuleData
 
-	// EventTypeEventProcessor display by event_processor.
-	EventTypeEventProcessor
+	// TypeEventProcessor display by event_processor.
+	TypeEventProcessor
 )
 
 const SocketLifecycleUUIDPrefix = "sock:"
@@ -36,6 +36,7 @@ type IEventStruct interface {
 	String() string
 	StringHex() string
 	Clone() IEventStruct
-	EventType() EventType
+	EventType() Type
 	GetUUID() string
+	Base() Base
 }

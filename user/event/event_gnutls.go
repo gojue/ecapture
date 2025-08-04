@@ -21,7 +21,7 @@ import (
 )
 
 type GnutlsDataEvent struct {
-	eventType EventType
+	eventType Type
 	DataType  int64             `json:"dataType"`
 	Timestamp uint64            `json:"timestamp"`
 	Pid       uint32            `json:"pid"`
@@ -29,6 +29,7 @@ type GnutlsDataEvent struct {
 	Data      [MaxDataSize]byte `json:"data"`
 	DataLen   int32             `json:"data_len"`
 	Comm      [16]byte          `json:"Comm"`
+	base      Base
 }
 
 func (ge *GnutlsDataEvent) Decode(payload []byte) (err error) {
@@ -100,11 +101,26 @@ func (ge *GnutlsDataEvent) String() string {
 
 func (ge *GnutlsDataEvent) Clone() IEventStruct {
 	event := new(GnutlsDataEvent)
-	event.eventType = EventTypeEventProcessor
+	event.eventType = TypeEventProcessor
 	return event
 }
 
-func (ge *GnutlsDataEvent) EventType() EventType {
+func (ge *GnutlsDataEvent) Base() Base {
+	ge.base = Base{
+		Timestamp: int64(ge.Timestamp),
+		UUID:      ge.GetUUID(),
+		SrcIP:     "127.0.0.1", // Gnutls events do not have SrcIP
+		SrcPort:   0,           // Gnutls events do not have SrcPort
+		DstIP:     "127.0.0.1", // Gnutls events do not have DstIP
+		DstPort:   0,           // Gnutls events do not have DstPort
+		PID:       int64(ge.Pid),
+		PName:     string(ge.Comm[:]),
+		Type:      uint32(ge.DataType),
+	}
+	return ge.base
+}
+
+func (ge *GnutlsDataEvent) EventType() Type {
 	return ge.eventType
 }
 

@@ -396,7 +396,7 @@ func (m *Module) Dispatcher(e event.IEventStruct) {
 	}
 	// If Hex mode is enabled, data in hex format is directly printed for event processor and output events
 	if m.conf.GetHex() {
-		if e.EventType() == event.EventTypeEventProcessor || e.EventType() == event.EventTypeOutput {
+		if e.EventType() == event.TypeEventProcessor || e.EventType() == event.TypeOutput {
 			s := e.StringHex()
 			if s == "" {
 				return
@@ -410,16 +410,16 @@ func (m *Module) Dispatcher(e event.IEventStruct) {
 	// If Hex mode is not enabled, or if the event_processor and output events are not enabled,
 	// they will be handled according to multiple branches of the switch
 	switch e.EventType() {
-	case event.EventTypeOutput:
+	case event.TypeOutput:
 		s := e.String()
 		if s == "" {
 			return
 		}
 		//m.logger.Info().Msg(s)
 		_, _ = m.eventCollector.Write([]byte(s))
-	case event.EventTypeEventProcessor:
+	case event.TypeEventProcessor:
 		m.processor.Write(e)
-	case event.EventTypeModuleData:
+	case event.TypeModuleData:
 		// Save to cache
 		m.child.Dispatcher(e)
 	default:

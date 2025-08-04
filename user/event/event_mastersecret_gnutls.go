@@ -28,7 +28,7 @@ const (
 
 // mastersecret_gnutls_events
 type MasterSecretGnutlsEvent struct {
-	eventType                EventType
+	eventType Type
 	Version                  int32                   `json:"version"`
 	ClientRandom             [GnutlsRandomSize]byte  `json:"clientRandom"`
 	MasterSecret             [GnutlsMasterSize]byte  `json:"masterSecret"`
@@ -40,6 +40,7 @@ type MasterSecretGnutlsEvent struct {
 	ServerTrafficSecret      [GnutlsMaxHashSize]byte `json:"serverTrafficSecret"`
 	ExporterMasterSecret     [GnutlsMaxHashSize]byte `json:"exporterMasterSecret"`
 	payload                  string
+	base      Base
 }
 
 func (mse *MasterSecretGnutlsEvent) Decode(payload []byte) (err error) {
@@ -90,11 +91,19 @@ func (mse *MasterSecretGnutlsEvent) String() string {
 
 func (mse *MasterSecretGnutlsEvent) Clone() IEventStruct {
 	event := new(MasterSecretGnutlsEvent)
-	event.eventType = EventTypeModuleData
+	event.eventType = TypeModuleData
 	return event
 }
 
-func (mse *MasterSecretGnutlsEvent) EventType() EventType {
+func (mse *MasterSecretGnutlsEvent) Base() Base {
+	mse.base = Base{
+		Timestamp: 0, // Timestamp is not set in this event
+		UUID:      mse.GetUUID(),
+	}
+	return mse.base
+}
+
+func (mse *MasterSecretGnutlsEvent) EventType() Type {
 	return mse.eventType
 }
 

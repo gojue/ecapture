@@ -24,9 +24,9 @@ type Base struct {
 	SrcPort       uint32 `json:"src_port"`
 	DstIP         string `json:"dst_ip"`
 	DstPort       uint32 `json:"dst_port"`
-	PID           int32  `json:"pid"`
+	PID  int64  `json:"pid"`
 	PName         string `json:"pname"`
-	Type          uint32 `json:"type"` //
+	Type uint32 `json:"type"` // 事件类型
 	Length        uint32 `json:"length"`
 	PayloadBase64 string `json:"payload_base64"`
 }

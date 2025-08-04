@@ -34,7 +34,7 @@ char Comm[TASK_COMM_LEN];
 const PostgresMaxDataSize = 256
 
 type PostgresEvent struct {
-	eventType EventType
+	eventType Type
 	Pid       uint64                     `json:"pid"`
 	Timestamp uint64                     `json:"timestamp"`
 	Query     [PostgresMaxDataSize]uint8 `json:"Query"`
@@ -74,11 +74,15 @@ func (pe *PostgresEvent) StringHex() string {
 
 func (pe *PostgresEvent) Clone() IEventStruct {
 	event := new(PostgresEvent)
-	event.eventType = EventTypeOutput
+	event.eventType = TypeOutput
 	return event
 }
 
-func (pe *PostgresEvent) EventType() EventType {
+func (pe *PostgresEvent) Base() Base {
+	return Base{}
+}
+
+func (pe *PostgresEvent) EventType() Type {
 	return pe.eventType
 }
 

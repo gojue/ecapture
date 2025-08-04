@@ -37,7 +37,7 @@ import (
 const MaxDataSizeZsh = 256
 
 type ZshEvent struct {
-	eventType EventType
+	eventType Type
 	ZshType   uint32                `json:"zsh_type"`
 	Pid       uint32                `json:"pid"`
 	Uid       uint32                `json:"uid"`
@@ -77,11 +77,15 @@ func (be *ZshEvent) StringHex() string {
 
 func (be *ZshEvent) Clone() IEventStruct {
 	event := new(ZshEvent)
-	event.eventType = EventTypeModuleData
+	event.eventType = TypeModuleData
 	return event
 }
 
-func (be *ZshEvent) EventType() EventType {
+func (pe *ZshEvent) Base() Base {
+	return Base{}
+}
+
+func (be *ZshEvent) EventType() Type {
 	return be.eventType
 }
 
