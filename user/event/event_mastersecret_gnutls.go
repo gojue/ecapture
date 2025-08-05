@@ -28,7 +28,7 @@ const (
 
 // mastersecret_gnutls_events
 type MasterSecretGnutlsEvent struct {
-	eventType Type
+	eventType                Type
 	Version                  int32                   `json:"version"`
 	ClientRandom             [GnutlsRandomSize]byte  `json:"clientRandom"`
 	MasterSecret             [GnutlsMasterSize]byte  `json:"masterSecret"`
@@ -40,7 +40,7 @@ type MasterSecretGnutlsEvent struct {
 	ServerTrafficSecret      [GnutlsMaxHashSize]byte `json:"serverTrafficSecret"`
 	ExporterMasterSecret     [GnutlsMaxHashSize]byte `json:"exporterMasterSecret"`
 	payload                  string
-	base      Base
+	base                     Base
 }
 
 func (mse *MasterSecretGnutlsEvent) Decode(payload []byte) (err error) {

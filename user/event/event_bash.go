@@ -33,14 +33,14 @@ import (
 const MaxDataSizeBash = 256
 
 type BashEvent struct {
-	eventType Type
+	eventType   Type
 	BashType    uint32                 `json:"bash_type"`
 	Pid         uint32                 `json:"pid"`
 	Uid         uint32                 `json:"uid"`
 	Line        [MaxDataSizeBash]uint8 `json:"line"`
 	ReturnValue uint32                 `json:"ret_val"`
 	Comm        [16]byte               `json:"Comm"`
-	base      Base
+	base        Base
 	AllLines    string
 }
 

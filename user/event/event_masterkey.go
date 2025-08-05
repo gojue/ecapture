@@ -49,7 +49,7 @@ type MasterSecretEvent struct {
 	ServerAppTrafficSecret [EvpMaxMdSize]byte `json:"serverAppTrafficSecret"` // Server App Traffic Secret
 	ExporterMasterSecret   [EvpMaxMdSize]byte `json:"exporterMasterSecret"`   // Exporter Master Secret
 	payload                string
-	base Base
+	base                   Base
 }
 
 func (mse *MasterSecretEvent) Decode(payload []byte) (err error) {
@@ -152,7 +152,7 @@ type MasterSecretBSSLEvent struct {
 	ServerTrafficSecret0  [EvpMaxMdSize]byte `json:"serverTrafficSecret0"`  // SERVER_TRAFFIC_SECRET_0
 	ExporterSecret        [EvpMaxMdSize]byte `json:"exporterSecret"`        // EXPORTER_SECRET
 	payload               string
-	base Base
+	base                  Base
 }
 
 func (msbe *MasterSecretBSSLEvent) Decode(payload []byte) (err error) {

@@ -19,6 +19,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net/netip"
+	"strconv"
 	"strings"
 	"unsafe"
 
@@ -208,6 +209,26 @@ func (se *SSLDataEvent) Base() Base {
 		PName:     commStr(se.Comm[:]),
 	}
 
+	ips := strings.Split(se.Tuple, "-")
+	if len(ips) == 2 {
+		srcParts := strings.Split(ips[0], ":")
+		destParts := strings.Split(ips[1], ":")
+
+		if len(srcParts) == 2 && len(destParts) == 2 {
+			se.base.SrcIP = srcParts[0]
+			se.base.DstIP = destParts[0]
+			srcPort, err := strconv.Atoi(srcParts[1])
+			if err == nil {
+				se.base.SrcPort = uint32(srcPort)
+			}
+
+			dstPort, err := strconv.Atoi(destParts[1])
+			if err == nil {
+				se.base.DstPort = uint32(dstPort)
+			}
+		}
+	}
+
 	return se.base
 }
 
@@ -236,7 +257,7 @@ type ConnDataEvent struct {
 	eventType Type
 	connDataEvent
 	Tuple string `json:"tuple"`
-	base Base
+	base  Base
 }
 
 func (ce *ConnDataEvent) Decode(payload []byte) (err error) {
