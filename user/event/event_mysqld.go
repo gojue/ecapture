@@ -64,7 +64,7 @@ func (d dispatchCommandReturn) String() string {
 }
 
 type MysqldEvent struct {
-	eventType EventType
+	eventType Type
 	Pid       uint64                   `json:"pid"`
 	Timestamp uint64                   `json:"timestamp"`
 	Query     [MysqldMaxDataSize]uint8 `json:"Query"`
@@ -72,6 +72,7 @@ type MysqldEvent struct {
 	Len       uint64                   `json:"Len"`
 	Comm      [16]uint8                `json:"Comm"`
 	Retval    dispatchCommandReturn    `json:"retval"`
+	base      Base
 }
 
 func (me *MysqldEvent) Decode(payload []byte) (err error) {
@@ -118,11 +119,21 @@ func (me *MysqldEvent) StringHex() string {
 
 func (me *MysqldEvent) Clone() IEventStruct {
 	event := new(MysqldEvent)
-	event.eventType = EventTypeOutput
+	event.eventType = TypeOutput
 	return event
 }
 
-func (me *MysqldEvent) EventType() EventType {
+func (me *MysqldEvent) Base() Base {
+	me.base = Base{
+		Timestamp: int64(me.Timestamp),
+		UUID:      me.GetUUID(),
+		PID:       int64(me.Pid),
+		PName:     string(me.Comm[:]),
+	}
+	return me.base
+}
+
+func (me *MysqldEvent) EventType() Type {
 	return me.eventType
 }
 

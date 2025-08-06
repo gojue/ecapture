@@ -19,6 +19,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net/netip"
+	"strconv"
 	"strings"
 	"unsafe"
 
@@ -72,7 +73,7 @@ func (t TlsVersion) String() string {
 }
 
 type SSLDataEvent struct {
-	eventType EventType
+	eventType Type
 	DataType  int64             `json:"dataType"`
 	Timestamp uint64            `json:"timestamp"`
 	Pid       uint32            `json:"pid"`
@@ -85,6 +86,7 @@ type SSLDataEvent struct {
 	Tuple     string
 	BioType   uint32
 	Sock      uint64
+	base      Base
 }
 
 func (se *SSLDataEvent) Decode(payload []byte) (err error) {
@@ -195,11 +197,42 @@ func (se *SSLDataEvent) BaseInfo() string {
 
 func (se *SSLDataEvent) Clone() IEventStruct {
 	event := new(SSLDataEvent)
-	event.eventType = EventTypeModuleData //EventTypeEventProcessor
+	event.eventType = TypeModuleData //TypeEventProcessor
 	return event
 }
 
-func (se *SSLDataEvent) EventType() EventType {
+func (se *SSLDataEvent) Base() Base {
+	se.base = Base{
+		Timestamp: int64(se.Timestamp),
+		UUID:      se.GetUUID(),
+		PID:       int64(se.Pid),
+		PName:     commStr(se.Comm[:]),
+	}
+
+	ips := strings.Split(se.Tuple, "-")
+	if len(ips) == 2 {
+		srcParts := strings.Split(ips[0], ":")
+		destParts := strings.Split(ips[1], ":")
+
+		if len(srcParts) == 2 && len(destParts) == 2 {
+			se.base.SrcIP = srcParts[0]
+			se.base.DstIP = destParts[0]
+			srcPort, err := strconv.ParseInt(srcParts[1], 10, 32)
+			if err == nil {
+				se.base.SrcPort = uint32(srcPort)
+			}
+
+			dstPort, err := strconv.ParseInt(destParts[1], 10, 32)
+			if err == nil {
+				se.base.DstPort = uint32(dstPort)
+			}
+		}
+	}
+
+	return se.base
+}
+
+func (se *SSLDataEvent) EventType() Type {
 	return se.eventType
 }
 
@@ -221,9 +254,10 @@ type connDataEvent struct {
 	// NOTE: do not leave padding hole in this struct.
 }
 type ConnDataEvent struct {
-	eventType EventType
+	eventType Type
 	connDataEvent
 	Tuple string `json:"tuple"`
+	base  Base
 }
 
 func (ce *ConnDataEvent) Decode(payload []byte) (err error) {
@@ -253,11 +287,11 @@ func (ce *ConnDataEvent) String() string {
 
 func (ce *ConnDataEvent) Clone() IEventStruct {
 	event := new(ConnDataEvent)
-	event.eventType = EventTypeModuleData
+	event.eventType = TypeModuleData
 	return event
 }
 
-func (ce *ConnDataEvent) EventType() EventType {
+func (ce *ConnDataEvent) EventType() Type {
 	return ce.eventType
 }
 
@@ -267,6 +301,17 @@ func (ce *ConnDataEvent) GetUUID() string {
 
 	// TODO: 新版 UUID 逻辑待启用。新格式增加了 socket 前缀，用于标识与套接字的绑定。
 	// return fmt.Sprintf("%s:%d_%d_%s_%d", SocketLifecycleUUIDPrefix, ce.Pid, ce.Tid, commStr(ce.Comm[:]), ce.Fd)
+}
+
+func (ce *ConnDataEvent) Base() Base {
+	ce.base = Base{
+		Timestamp: int64(ce.TimestampNs),
+		UUID:      ce.GetUUID(),
+		PID:       int64(ce.Pid),
+		PName:     commStr(ce.Comm[:]),
+	}
+
+	return ce.base
 }
 
 func (ce *ConnDataEvent) Payload() []byte {

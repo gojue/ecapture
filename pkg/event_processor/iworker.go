@@ -67,6 +67,7 @@ var (
 type eventWorker struct {
 	incoming chan event.IEventStruct
 	//events      []user.IEventStruct
+	originEvent      event.IEventStruct
 	outComing        chan string
 	status           ProcessStatus
 	packetType       PacketType
@@ -188,6 +189,8 @@ func (ew *eventWorker) Display() error {
 
 	//iWorker只负责写入，不应该打印。
 	eb := new(event.Base)
+	oeb := ew.originEvent.Base()
+	eb = &oeb
 	eb.Type = uint32(ew.parser.ParserType())
 	eb.UUID = ew.uuidOutput
 	eb.PayloadBase64 = base64.StdEncoding.EncodeToString(b[:])
@@ -212,7 +215,7 @@ func (ew *eventWorker) writeEvent(e event.IEventStruct) {
 		ew.Log(fmt.Sprintf("Events truncated, size: %d bytes\n", tsize))
 		return
 	}
-
+	ew.originEvent = e
 	ew.payload.Write(e.Payload())
 }
 

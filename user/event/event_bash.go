@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"time"
 )
 
 /*
@@ -32,13 +33,14 @@ import (
 const MaxDataSizeBash = 256
 
 type BashEvent struct {
-	eventType   EventType
+	eventType   Type
 	BashType    uint32                 `json:"bash_type"`
 	Pid         uint32                 `json:"pid"`
 	Uid         uint32                 `json:"uid"`
 	Line        [MaxDataSizeBash]uint8 `json:"line"`
 	ReturnValue uint32                 `json:"ret_val"`
 	Comm        [16]byte               `json:"Comm"`
+	base        Base
 	AllLines    string
 }
 
@@ -77,11 +79,26 @@ func (be *BashEvent) StringHex() string {
 
 func (be *BashEvent) Clone() IEventStruct {
 	event := new(BashEvent)
-	event.eventType = EventTypeModuleData
+	event.eventType = TypeModuleData
 	return event
 }
 
-func (be *BashEvent) EventType() EventType {
+func (be *BashEvent) Base() Base {
+	be.base = Base{
+		Timestamp: time.Now().Unix(),
+		UUID:      be.GetUUID(),
+		SrcIP:     "127.0.0.1", // Bash events do not have SrcIP
+		SrcPort:   0,           // Bash events do not have SrcPort
+		DstIP:     "127.0.0.1", // Bash events do not have DstIP
+		DstPort:   0,           // Bash events do not have DstPort
+		PID:       int64(be.Pid),
+		PName:     string(be.Comm[:]),
+		Type:      0,
+	}
+	return be.base
+}
+
+func (be *BashEvent) EventType() Type {
 	return be.eventType
 }
 

@@ -74,7 +74,7 @@ func (t tlsVersion) String() string {
 }
 
 type BaseEvent struct {
-	eventType event.EventType
+	eventType event.Type
 	DataType  int64
 	Timestamp uint64
 	Pid       uint32
@@ -168,11 +168,20 @@ func (be *BaseEvent) String() string {
 
 func (be *BaseEvent) Clone() event.IEventStruct {
 	e := new(BaseEvent)
-	e.eventType = event.EventTypeOutput
+	e.eventType = event.TypeOutput
 	return e
 }
 
-func (be *BaseEvent) EventType() event.EventType {
+func (be *BaseEvent) Base() event.Base {
+	return event.Base{
+		Timestamp: int64(be.Timestamp),
+		UUID:      be.GetUUID(),
+		PID:       int64(be.Pid),
+		PName:     CToGoString(be.Comm[:]),
+	}
+}
+
+func (be *BaseEvent) EventType() event.Type {
 	return be.eventType
 }
 

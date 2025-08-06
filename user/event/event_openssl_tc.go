@@ -26,7 +26,7 @@ const (
 )
 
 type TcSkbEvent struct {
-	eventType EventType
+	eventType Type
 	Ts        uint64            `json:"ts"`
 	Pid       uint32            `json:"pid"`
 	Comm      [TaskCommLen]byte `json:"Comm"`
@@ -34,6 +34,7 @@ type TcSkbEvent struct {
 	Len       uint32            `json:"len"`
 	Ifindex   uint32            `json:"ifindex"`
 	payload   []byte
+	base      Base
 }
 
 func (te *TcSkbEvent) Decode(payload []byte) (err error) {
@@ -81,11 +82,19 @@ func (te *TcSkbEvent) String() string {
 
 func (te *TcSkbEvent) Clone() IEventStruct {
 	event := new(TcSkbEvent)
-	event.eventType = EventTypeModuleData
+	event.eventType = TypeModuleData
 	return event
 }
 
-func (te *TcSkbEvent) EventType() EventType {
+func (te *TcSkbEvent) Base() Base {
+	te.base = Base{
+		Timestamp: int64(te.Ts),
+		UUID:      te.GetUUID(),
+	}
+	return te.base
+}
+
+func (te *TcSkbEvent) EventType() Type {
 	return te.eventType
 }
 

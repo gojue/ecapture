@@ -28,7 +28,7 @@ const (
 )
 
 type MasterSecretGotlsEvent struct {
-	eventType       EventType
+	eventType       Type
 	Label           [MasterSecretKeyLen]byte `json:"label"` // label name
 	LabelLen        uint8                    `json:"labelLen"`
 	ClientRandom    [EvpMaxMdSize]byte       `json:"clientRandom"` // Client Random
@@ -36,6 +36,7 @@ type MasterSecretGotlsEvent struct {
 	MasterSecret    [EvpMaxMdSize]byte       `json:"masterSecret"` // Master Secret
 	MasterSecretLen uint8                    `json:"masterSecretLen"`
 	payload         string
+	base            Base
 }
 
 func (mge *MasterSecretGotlsEvent) Decode(payload []byte) (err error) {
@@ -83,11 +84,19 @@ func (mge *MasterSecretGotlsEvent) String() string {
 
 func (mge *MasterSecretGotlsEvent) Clone() IEventStruct {
 	event := new(MasterSecretGotlsEvent)
-	event.eventType = EventTypeModuleData
+	event.eventType = TypeModuleData
 	return event
 }
 
-func (mge *MasterSecretGotlsEvent) EventType() EventType {
+func (mge *MasterSecretGotlsEvent) Base() Base {
+	mge.base = Base{
+		Timestamp: 0, // Timestamp is not set in this event
+		UUID:      mge.GetUUID(),
+	}
+	return mge.base
+}
+
+func (mge *MasterSecretGotlsEvent) EventType() Type {
 	return mge.eventType
 }
 
