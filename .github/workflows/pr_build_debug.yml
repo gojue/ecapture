@@ -11,16 +11,16 @@ concurrency:
 jobs:
   build-debug-artifacts:
     runs-on: ubuntu-22.04
-    name: Build Debug Artifacts (amd64/arm64)
+    name: Build Debug Artifacts
     strategy:
       matrix:
         file:
-          - ecapture-*-debug-android-arm64.tar.gz
-          - ecapture-*-debug-android-amd64.tar.gz
-          - ecapture-*-debug-linux-arm64.tar.gz
-          - ecapture-*-debug-linux-amd64.tar.gz
-          - ecapture_*-debug_linux_arm64.deb
-          - ecapture_*-debug_linux_amd64.deb
+          - ecapture-v0.0.0-pr-${{ github.event.number || 'dev' }}-debug-android-arm64.tar.gz
+          - ecapture-v0.0.0-pr-${{ github.event.number || 'dev' }}-debug-android-amd64.tar.gz
+          - ecapture-v0.0.0-pr-${{ github.event.number || 'dev' }}-debug-linux-arm64.tar.gz
+          - ecapture-v0.0.0-pr-${{ github.event.number || 'dev' }}-debug-linux-amd64.tar.gz
+          - ecapture_v0.0.0-pr-${{ github.event.number || 'dev' }}-debug_linux_arm64.deb
+          - ecapture_v0.0.0-pr-${{ github.event.number || 'dev' }}-debug_linux_amd64.deb
     steps:
       - uses: actions/setup-go@v5
         with:
