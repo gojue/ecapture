@@ -217,12 +217,12 @@ func (se *SSLDataEvent) Base() Base {
 		if len(srcParts) == 2 && len(destParts) == 2 {
 			se.base.SrcIP = srcParts[0]
 			se.base.DstIP = destParts[0]
-			srcPort, err := strconv.Atoi(srcParts[1])
+			srcPort, err := strconv.ParseInt(srcParts[1], 10, 32)
 			if err == nil {
 				se.base.SrcPort = uint32(srcPort)
 			}
 
-			dstPort, err := strconv.Atoi(destParts[1])
+			dstPort, err := strconv.ParseInt(destParts[1], 10, 32)
 			if err == nil {
 				se.base.DstPort = uint32(dstPort)
 			}
