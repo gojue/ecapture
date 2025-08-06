@@ -12,6 +12,15 @@ jobs:
   build-debug-artifacts:
     runs-on: ubuntu-22.04
     name: Build Debug Artifacts (amd64/arm64)
+    strategy:
+      matrix:
+        file:
+          - ecapture-*-debug-android-arm64.tar.gz
+          - ecapture-*-debug-android-amd64.tar.gz
+          - ecapture-*-debug-linux-arm64.tar.gz
+          - ecapture-*-debug-linux-amd64.tar.gz
+          - ecapture_*-debug_linux_arm64.deb
+          - ecapture_*-debug_linux_amd64.deb
     steps:
       - uses: actions/setup-go@v5
         with:
@@ -69,9 +78,9 @@ jobs:
       - name: Upload Debug Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ecapture-debug-binaries-pr-${{ github.event.number || 'dev' }}
-          path: |
-            dist/ecapture*
+          name: ${{ github.event.number || 'dev' }} ${{ matrix.file }}
+          path: dist/${{ matrix.file }}
+
           retention-days: 30
 
       - name: List Built Artifacts
