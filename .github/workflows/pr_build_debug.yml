@@ -78,10 +78,10 @@ jobs:
       - name: Upload Debug Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.event.number || 'dev' }} ${{ matrix.file }}
+          name: ${{ matrix.file }}
           path: dist/${{ matrix.file }}
 
-          retention-days: 30
+          retention-days: 7
 
       - name: List Built Artifacts
         run: |
@@ -107,5 +107,5 @@ jobs:
               📦 Download Links:
               - [PR ${prNumber} Debug Binary](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId})
 
-              ⏰ Files will be retained for 30 days, please download and test promptly.`
+              ⏰ Files will be retained for 7 days, please download and test promptly.`
             });
