@@ -301,8 +301,8 @@ func runModule(modName string, modConfig config.IConfig) error {
 			if err != nil {
 				return err
 			}
-			ecw = eventCollectorWriter{logger: &eventCollector}
 		}
+		ecw = eventCollectorWriter{logger: &eventCollector}
 	}
 
 	// init eCapture

@@ -367,50 +367,51 @@ int probe_entry_SSL_read(struct pt_regs* ctx) {
     u64 *ssl_ver_ptr, *ssl_rbio_ptr, *ssl_rbio_num_ptr;
     u64 ssl_version, ssl_rbio_addr, ssl_rbio_num_addr;
     int ret;
-
-    ssl_ver_ptr = (u64 *)(ssl + SSL_ST_VERSION);
+    u32 fd = 0;
+    u32 bio_type = 0;
+    ssl_ver_ptr = (u64 *)((uintptr_t)ssl + SSL_ST_VERSION);
     ret = bpf_probe_read_user(&ssl_version, sizeof(ssl_version),
-                              ssl_ver_ptr);
+                              (void *)ssl_ver_ptr);
     if (ret) {
         debug_bpf_printk(
             "(OPENSSL) bpf_probe_read ssl_ver_ptr failed, ret: %d\n",
             ret);
-        return 0;
-    }
+//        return 0;
+    } else {
+    //  In BoringSSL, the ssl_st->s3->hs object is mainly used; ssl_st->version may be null
+        ssl_rbio_ptr = (u64 *)(ssl + SSL_ST_RBIO);
+            ret = bpf_probe_read_user(&ssl_rbio_addr, sizeof(ssl_rbio_addr),
+                                      ssl_rbio_ptr);
+            if (ret) {
+                debug_bpf_printk(
+                    "(OPENSSL) bpf_probe_read ssl_rbio_ptr failed, ret: %d\n",
+                    ret);
+        //        return 0;
+            }
+            // get ssl->bio->method->type
+            bio_type = process_BIO_type(ssl_rbio_addr);
 
-    ssl_rbio_ptr = (u64 *)(ssl + SSL_ST_RBIO);
-    ret = bpf_probe_read_user(&ssl_rbio_addr, sizeof(ssl_rbio_addr),
-                              ssl_rbio_ptr);
-    if (ret) {
-        debug_bpf_printk(
-            "(OPENSSL) bpf_probe_read ssl_rbio_ptr failed, ret: %d\n",
-            ret);
-        return 0;
+            // get fd ssl->rbio->num
+            ssl_rbio_num_ptr = (u64 *)(ssl_rbio_addr + BIO_ST_NUM);
+            ret = bpf_probe_read_user(&ssl_rbio_num_addr, sizeof(ssl_rbio_num_addr),
+                                      ssl_rbio_num_ptr);
+            if (ret) {
+                debug_bpf_printk(
+                    "(OPENSSL) bpf_probe_read ssl_rbio_num_ptr failed, ret: %d\n",
+                    ret);
+        //        return 0;
+            }
+            fd = (u32)ssl_rbio_num_addr;
+            if (fd == 0) {
+                u64 ssl_addr = (u64)ssl;
+                u64 *fd_ptr = bpf_map_lookup_elem(&ssl_st_fd, &ssl_addr);
+                if (fd_ptr) {
+                    fd = (u64)*fd_ptr;
+                } else {
+                }
+            }
+            debug_bpf_printk("openssl uprobe/SSL_read fd: %d, version: %d\n", fd, ssl_version);
     }
-
-    // get ssl->bio->method->type
-    u32 bio_type = process_BIO_type(ssl_rbio_addr);
-
-    // get fd ssl->rbio->num
-    ssl_rbio_num_ptr = (u64 *)(ssl_rbio_addr + BIO_ST_NUM);
-    ret = bpf_probe_read_user(&ssl_rbio_num_addr, sizeof(ssl_rbio_num_addr),
-                              ssl_rbio_num_ptr);
-    if (ret) {
-        debug_bpf_printk(
-            "(OPENSSL) bpf_probe_read ssl_rbio_num_ptr failed, ret: %d\n",
-            ret);
-        return 0;
-    }
-    u32 fd = (u32)ssl_rbio_num_addr;
-    if (fd == 0) {
-        u64 ssl_addr = (u64)ssl;
-        u64 *fd_ptr = bpf_map_lookup_elem(&ssl_st_fd, &ssl_addr);
-        if (fd_ptr) {
-            fd = (u64)*fd_ptr;
-        } else {
-        }
-    }
-    debug_bpf_printk("openssl uprobe/SSL_read fd: %d, version: %d\n", fd, ssl_version);
 
     const char* buf = (const char*)PT_REGS_PARM2(ctx);
     struct active_ssl_buf active_ssl_buf_t;
