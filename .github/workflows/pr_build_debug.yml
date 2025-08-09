@@ -14,19 +14,15 @@ jobs:
     name: Build Debug Artifacts
     strategy:
       matrix:
-        file:
-          - ecapture-v0.0.0-pr-${{ github.event.number || 'dev' }}-debug-android-arm64.tar.gz
-          - ecapture-v0.0.0-pr-${{ github.event.number || 'dev' }}-debug-android-amd64.tar.gz
-          - ecapture-v0.0.0-pr-${{ github.event.number || 'dev' }}-debug-linux-arm64.tar.gz
-          - ecapture-v0.0.0-pr-${{ github.event.number || 'dev' }}-debug-linux-amd64.tar.gz
-          - ecapture_v0.0.0-pr-${{ github.event.number || 'dev' }}-debug_linux_arm64.deb
-          - ecapture_v0.0.0-pr-${{ github.event.number || 'dev' }}-debug_linux_amd64.deb
+        os: [ android, linux ]
+        arch: [ arm64, amd64 ]
     steps:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.24.3'
 
       - name: Install Compilers
+        shell: bash
         run: |
           sudo apt-get update
           sudo apt-get install --yes \
@@ -52,7 +48,6 @@ jobs:
           cd $source_dir
           test -f .config || sudo make oldconfig
           sudo make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- prepare V=0
-        shell: bash
 
       - uses: actions/checkout@v4
         with:
@@ -60,27 +55,26 @@ jobs:
           fetch-depth: 0
 
       - name: Build Debug amd64
+        if: matrix.arch == 'amd64'
         run: |
           make clean
           make env
           DEBUG=1 make -f builder/Makefile.release release SNAPSHOT_VERSION=v0.0.0-pr-${{ github.event.number || 'dev' }}-debug
           cp bin/ecapture-*.tar.gz dist/
-          cp bin/ecapture*.deb dist/
 
       - name: Build Debug arm64
+        if: matrix.arch == 'arm64'
         run: |
           make clean
           make env
           DEBUG=1 CROSS_ARCH=arm64 make -f builder/Makefile.release release SNAPSHOT_VERSION=v0.0.0-pr-${{ github.event.number || 'dev' }}-debug
           cp bin/ecapture-*.tar.gz dist/
-          cp bin/ecapture*.deb dist/
 
       - name: Upload Debug Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.file }}
-          path: dist/${{ matrix.file }}
-
+          name: ecapture-v0.0.0-pr-${{ github.event.number || 'dev' }}-debug-${{ matrix.os }}-${{ matrix.arch }}.tar.gz
+          path: dist/ecapture-v0.0.0-pr-${{ github.event.number || 'dev' }}-debug-${{ matrix.os }}-${{ matrix.arch }}.tar.gz
           retention-days: 7
 
       - name: List Built Artifacts
@@ -90,8 +84,12 @@ jobs:
           echo "Artifact sizes:"
           du -h dist/*
 
+  comment-pr:
+    runs-on: ubuntu-22.04
+    name: Comment PR with Download Links
+    needs: build-debug-artifacts
+    steps:
       - name: Comment PR with Download Links
-        if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
           script: |
@@ -103,9 +101,9 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: `🔧 **Debug Build Complete**
-
+            
               📦 Download Links:
               - [PR ${prNumber} Debug Binary](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId})
-
+            
               ⏰ Files will be retained for 7 days, please download and test promptly.`
             });
