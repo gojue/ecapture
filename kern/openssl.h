@@ -367,8 +367,9 @@ int probe_entry_SSL_read(struct pt_regs* ctx) {
     u64 *ssl_ver_ptr, *ssl_rbio_ptr, *ssl_rbio_num_ptr;
     u64 ssl_version, ssl_rbio_addr, ssl_rbio_num_addr;
     int ret;
-
-    ssl_ver_ptr = (u64 *)(ssl + SSL_ST_VERSION);
+    u32 fd = 0;
+    u32 bio_type = 0;
+    ssl_ver_ptr = (u64 *)((uintptr_t)ssl + SSL_ST_VERSION);
     ret = bpf_probe_read_user(&ssl_version, sizeof(ssl_version),
                               (void *)ssl_ver_ptr);
     if (ret) {
@@ -388,7 +389,7 @@ int probe_entry_SSL_read(struct pt_regs* ctx) {
         //        return 0;
             }
             // get ssl->bio->method->type
-            u32 bio_type = process_BIO_type(ssl_rbio_addr);
+            bio_type = process_BIO_type(ssl_rbio_addr);
 
             // get fd ssl->rbio->num
             ssl_rbio_num_ptr = (u64 *)(ssl_rbio_addr + BIO_ST_NUM);
@@ -400,7 +401,7 @@ int probe_entry_SSL_read(struct pt_regs* ctx) {
                     ret);
         //        return 0;
             }
-            u32 fd = (u32)ssl_rbio_num_addr;
+            fd = (u32)ssl_rbio_num_addr;
             if (fd == 0) {
                 u64 ssl_addr = (u64)ssl;
                 u64 *fd_ptr = bpf_map_lookup_elem(&ssl_st_fd, &ssl_addr);
