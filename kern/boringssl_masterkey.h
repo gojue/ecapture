@@ -200,7 +200,7 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
     int ret = bpf_probe_read_user(&version, sizeof(version), (void *)ssl_version_ptr);
     if (ret) {
         debug_bpf_printk("bpf_probe_read tls_version failed, ret :%d\n", ret);
-//        return 0; // 在BoringSSL中，version可能为0，主要是使用了ssl->s3->hs对象
+//        return 0; // In BoringSSL, version may be 0, mainly because the ssl->s3->hs object is used
     }
     mastersecret->version = version & 0xFFFF;  //  uint16_t version;
 

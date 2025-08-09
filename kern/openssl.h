@@ -378,7 +378,7 @@ int probe_entry_SSL_read(struct pt_regs* ctx) {
             ret);
 //        return 0;
     } else {
-    //  在BoringSSL中，主要使用ssl_st->s3->hs对象， ssl_st->version 可能为空
+    //  In BoringSSL, the ssl_st->s3->hs object is mainly used; ssl_st->version may be null
         ssl_rbio_ptr = (u64 *)(ssl + SSL_ST_RBIO);
             ret = bpf_probe_read_user(&ssl_rbio_addr, sizeof(ssl_rbio_addr),
                                       ssl_rbio_ptr);
