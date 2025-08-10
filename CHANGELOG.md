@@ -1,6 +1,17 @@
+# v1.4.0 (2025-08-11)
+
+## What's Changed
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v1.3.1...v1.4.0
+<hr>
+
 # v1.3.1 (2025-06-29)
 
 ## What's Changed
+
+* fix: share same hpack decoder for one tuple connect #744 by @chilli13 in https://github.com/gojue/ecapture/pull/798
+* fix: Improve bash path detection and correct probe attachment by @zenyanle
+  in https://github.com/gojue/ecapture/pull/805
 
 **Full Changelog**: https://github.com/gojue/ecapture/compare/v1.3.0...v1.3.1
 <hr>
