@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/gojue/ecapture/user/config"
@@ -273,7 +274,7 @@ func (m *MOpenSSLProbe) detectOpenssl(soPath string) (string, error) {
 	return versionKeyLower, nil
 }
 
-func (m *MOpenSSLProbe) getSoDefaultBytecode(soPath string, isAndroid bool) string {
+func (m *MOpenSSLProbe) autoDetectBytecode(ver, soPath string, isAndroid bool) string {
 	var bpfFile string
 	var found bool
 	// if not found, use default
@@ -292,19 +293,19 @@ func (m *MOpenSSLProbe) getSoDefaultBytecode(soPath string, isAndroid bool) stri
 			m.logger.Warn().Str("BoringSSL Version", AndroidDefaultFilename).Msg("Can not find Default BoringSSL version")
 			return ""
 		}
-		//m.logger.Warn().Str("BoringSSL Version", AndroidDefauleFilename).Msg("OpenSSL/BoringSSL version not found, used default version")
+		m.logger.Warn().Msgf("OpenSSL/BoringSSL version not found, Automatically selected.%s", fmt.Sprintf(OpensslNoticeUsedDefault, OpensslNoticeVersionGuideAndroid))
 		return bpfFile
 	}
 
-	if strings.Contains(soPath, "libssl.so.3") {
-		m.conf.(*config.OpensslConfig).SslVersion = LinuxDefaultFilename30
-		bpfFile, _ = m.sslVersionBpfMap[LinuxDefaultFilename30]
-		//m.logger.Warn().Str("OpenSSL Version", Linuxdefaulefilename30).Msg("OpenSSL/BoringSSL version not found from shared library file, used default version")
+	// auto downgrade openssl version
+	var isDowngrade bool
+	bpfFile, isDowngrade = m.downgradeOpensslVersion(ver, soPath)
+	if isDowngrade {
+		m.logger.Error().Str("OpenSSL Version", ver).Str("bpfFile", bpfFile).Msgf("OpenSSL/BoringSSL version not found, used downgrade version. %s", fmt.Sprintf(OpensslNoticeUsedDefault, OpensslNoticeVersionGuideLinux))
 	} else {
-		m.conf.(*config.OpensslConfig).SslVersion = LinuxDefaultFilename111
-		bpfFile, _ = m.sslVersionBpfMap[LinuxDefaultFilename111]
-		//m.logger.Warn().Str("OpenSSL Version", Linuxdefaulefilename111).Msg("OpenSSL/BoringSSL version not found from shared library file, used default version")
+		m.logger.Error().Str("OpenSSL Version", ver).Str("bpfFile", bpfFile).Msgf("OpenSSL/BoringSSL version not found, used default version. %s", fmt.Sprintf(OpensslNoticeUsedDefault, OpensslNoticeVersionGuideLinux))
 	}
+
 	return bpfFile
 }
 
@@ -328,4 +329,34 @@ func getImpNeeded(soPath string) ([]string, error) {
 	}
 	importedNeeded = append(importedNeeded, is...)
 	return importedNeeded, nil
+}
+
+func (m *MOpenSSLProbe) downgradeOpensslVersion(ver string, soPath string) (string, bool) {
+	var candidates []string
+	// 未找到时，逐步截取ver查找最相近的
+	for i := len(ver) - 1; i > 0; i-- {
+		prefix := ver[:i]
+
+		// 找到所有匹配前缀的key
+		for libKey := range m.sslVersionBpfMap {
+			if strings.HasPrefix(libKey, prefix) && libKey <= ver {
+				candidates = append(candidates, libKey)
+			}
+		}
+
+		if len(candidates) > 0 {
+			// 按ASCII顺序排序，取最大的
+			sort.Strings(candidates)
+			return m.sslVersionBpfMap[candidates[len(candidates)-1]], true
+		}
+	}
+	var bpfFile string
+	if strings.Contains(soPath, "libssl.so.3") {
+		m.conf.(*config.OpensslConfig).SslVersion = LinuxDefaultFilename30
+		bpfFile, _ = m.sslVersionBpfMap[LinuxDefaultFilename30]
+	} else {
+		m.conf.(*config.OpensslConfig).SslVersion = LinuxDefaultFilename111
+		bpfFile, _ = m.sslVersionBpfMap[LinuxDefaultFilename111]
+	}
+	return bpfFile, false
 }

@@ -196,13 +196,11 @@ func (m *MOpenSSLProbe) getSslBpfFile(soPath, sslVersion string) error {
 	}()
 
 	if sslVersion != "" {
-		m.logger.Info().Str("sslVersion", sslVersion).Msg("OpenSSL/BoringSSL version found")
 		bpfFile, found := m.sslVersionBpfMap[sslVersion]
 		if found {
+			m.logger.Info().Str("sslVersion", sslVersion).Msg("OpenSSL/BoringSSL version found")
 			m.sslBpfFile = bpfFile
 			return nil
-		} else {
-			m.logger.Error().Msg("Can't found OpenSSL/BoringSSL bpf bytecode file. auto detected.")
 		}
 	}
 
@@ -248,6 +246,7 @@ func (m *MOpenSSLProbe) getSslBpfFile(soPath, sslVersion string) error {
 	var bpfFileKey, bpfFile string
 	isAndroid := m.conf.(*config.OpensslConfig).IsAndroid
 	androidVer := m.conf.(*config.OpensslConfig).AndroidVer
+	bpfFileKey = sslVersion
 	if verString != "" {
 		m.conf.(*config.OpensslConfig).SslVersion = verString
 		m.logger.Info().Str("origin versionKey", verString).Str("versionKeyLower", verString).Send()
@@ -271,14 +270,10 @@ func (m *MOpenSSLProbe) getSslBpfFile(soPath, sslVersion string) error {
 		}
 	}
 
-	bpfFile = m.getSoDefaultBytecode(soPath, isAndroid)
+	bpfFile = m.autoDetectBytecode(bpfFileKey, soPath, isAndroid)
 	m.sslBpfFile = bpfFile
-	if isAndroid {
-		m.logger.Error().Msgf("OpenSSL/BoringSSL version not found, used default version.%s", fmt.Sprintf(OpensslNoticeUsedDefault, OpensslNoticeVersionGuideAndroid))
-	} else {
-		m.logger.Error().Msgf("OpenSSL/BoringSSL version not found, used default version.%s", fmt.Sprintf(OpensslNoticeUsedDefault, OpensslNoticeVersionGuideLinux))
-	}
-	m.logger.Error().Str("sslVersion", m.conf.(*config.OpensslConfig).SslVersion).Str("bpfFile", bpfFile).Send()
+
+	m.logger.Warn().Str("sslVersion", m.conf.(*config.OpensslConfig).SslVersion).Str("bpfFile", bpfFile).Send()
 	return nil
 }
 
