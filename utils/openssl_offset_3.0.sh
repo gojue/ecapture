@@ -41,6 +41,8 @@ function run() {
   sslVerMap["13"]="0"
   sslVerMap["14"]="0"
   sslVerMap["15"]="0"
+  sslVerMap["16"]="1"
+  sslVerMap["17"]="2"
 
   # shellcheck disable=SC2068
   for ver in ${!sslVerMap[@]}; do
