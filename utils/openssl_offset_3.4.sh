@@ -28,7 +28,7 @@ function run() {
   declare -A sslVerMap=()
   sslVerMap["0"]="0"
   sslVerMap["1"]="1"
-#  sslVerMap["2"]="2"
+  sslVerMap["2"]="2"
 
   # shellcheck disable=SC2068
   for ver in ${!sslVerMap[@]}; do
