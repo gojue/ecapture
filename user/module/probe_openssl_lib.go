@@ -21,6 +21,7 @@ import (
 	"os"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/gojue/ecapture/user/config"
@@ -339,7 +340,7 @@ func (m *MOpenSSLProbe) downgradeOpensslVersion(ver string, soPath string) (stri
 
 		// 找到所有匹配前缀的key
 		for libKey := range m.sslVersionBpfMap {
-			if strings.HasPrefix(libKey, prefix) && libKey <= ver {
+			if strings.HasPrefix(libKey, prefix) && isVersionLessOrEqual(libKey, ver) {
 				candidates = append(candidates, libKey)
 			}
 		}
@@ -359,4 +360,83 @@ func (m *MOpenSSLProbe) downgradeOpensslVersion(ver string, soPath string) (stri
 		bpfFile, _ = m.sslVersionBpfMap[LinuxDefaultFilename111]
 	}
 	return bpfFile, false
+}
+
+// isVersionLessOrEqual 比较两个版本号字符串，返回 v1 <= v2
+func isVersionLessOrEqual(v1, v2 string) bool {
+	// 提取版本号部分，去掉 "openssl " 前缀
+	version1 := strings.TrimPrefix(v1, "openssl ")
+	version2 := strings.TrimPrefix(v2, "openssl ")
+
+	// 按点分割版本号
+	parts1 := strings.Split(version1, ".")
+	parts2 := strings.Split(version2, ".")
+
+	// 比较每个部分
+	maxLen := len(parts1)
+	if len(parts2) > maxLen {
+		maxLen = len(parts2)
+	}
+
+	for i := 0; i < maxLen; i++ {
+		var p1Str, p2Str string
+		if i < len(parts1) {
+			p1Str = parts1[i]
+		} else {
+			p1Str = "0"
+		}
+		if i < len(parts2) {
+			p2Str = parts2[i]
+		} else {
+			p2Str = "0"
+		}
+
+		// 分别提取数字和字母部分
+		num1, suffix1 := extractVersionPart(p1Str)
+		num2, suffix2 := extractVersionPart(p2Str)
+
+		// 先比较数字部分
+		if num1 < num2 {
+			return true
+		}
+		if num1 > num2 {
+			return false
+		}
+
+		// 数字相等时比较字母后缀
+		if suffix1 < suffix2 {
+			return true
+		}
+		if suffix1 > suffix2 {
+			return false
+		}
+	}
+
+	return true // 相等时返回 true
+}
+
+// extractVersionPart 从版本号部分中提取数字和字母后缀
+func extractVersionPart(s string) (int, string) {
+	var numStr strings.Builder
+	var suffix string
+
+	// 提取开头的数字部分
+	i := 0
+	for i < len(s) && s[i] >= '0' && s[i] <= '9' {
+		numStr.WriteByte(s[i])
+		i++
+	}
+
+	// 剩余部分作为后缀
+	if i < len(s) {
+		suffix = s[i:]
+	}
+
+	num := 0
+	if numStr.Len() > 0 {
+		// 忽略转换错误，因为我们已经确保了是数字
+		num, _ = strconv.Atoi(numStr.String())
+	}
+
+	return num, suffix
 }
