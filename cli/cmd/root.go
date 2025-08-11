@@ -37,6 +37,7 @@ import (
 	"github.com/gojue/ecapture/pkg/util/roratelog"
 	"github.com/gojue/ecapture/pkg/util/ws"
 	"github.com/gojue/ecapture/user/config"
+	"github.com/gojue/ecapture/user/event"
 	"github.com/gojue/ecapture/user/module"
 )
 
@@ -152,15 +153,6 @@ func init() {
 	rootCmd.SilenceUsage = true
 }
 
-// eventCollector
-type eventCollectorWriter struct {
-	logger *zerolog.Logger
-}
-
-func (e eventCollectorWriter) Write(p []byte) (n int, err error) {
-	return e.logger.Write(p)
-}
-
 // setModConfig set module config
 func setModConfig(globalConf config.BaseConfig, modConf config.IConfig) {
 	modConf.SetPid(globalConf.Pid)
@@ -274,7 +266,7 @@ func runModule(modName string, modConfig config.IConfig) error {
 				return
 			}
 		}()
-
+		// log writer
 		consoleWriter := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}
 		zerolog.SetGlobalLevel(zerolog.InfoLevel)
 		if modConfig.GetDebug() {
@@ -285,6 +277,7 @@ func runModule(modName string, modConfig config.IConfig) error {
 		multi := zerolog.MultiLevelWriter(consoleWriter, eqWriter)
 		logger = zerolog.New(multi).With().Timestamp().Logger()
 
+		// event Writer
 		evConsoleWriter := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339, NoColor: true}
 		eqeWriter := ecaptureQEventWriter{es: es}
 		multiEvent := zerolog.MultiLevelWriter(evConsoleWriter, eqeWriter)
@@ -302,7 +295,7 @@ func runModule(modName string, modConfig config.IConfig) error {
 				return err
 			}
 		}
-		ecw = eventCollectorWriter{logger: &eventCollector}
+		ecw = event.NewCollectorWriter(&eventCollector)
 	}
 
 	// init eCapture
