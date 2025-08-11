@@ -187,19 +187,28 @@ func (ew *eventWorker) Display() error {
 		b = []byte(hex.Dump(b))
 	}
 
-	//iWorker只负责写入，不应该打印。
 	eb := new(event.Base)
 	oeb := ew.originEvent.Base()
 	eb = &oeb
 	eb.Type = uint32(ew.parser.ParserType())
 	eb.UUID = ew.uuidOutput
 	eb.PayloadBase64 = base64.StdEncoding.EncodeToString(b[:])
-	payload, err := eb.Encode()
-	if err != nil {
-		return err
+
+	//iWorker只负责写入，不应该打印。
+	var err error
+	_, ok := ew.processor.logger.(event.CollectorWriter)
+	if ok {
+		// 直接写入日志
+		err = ew.writeToChan(fmt.Sprintf("PID:%d, Comm:%s, Src:%s:%d, Dest:%s:%d,\n%s", eb.PID, eb.PName, eb.SrcIP, eb.SrcPort, eb.DstIP, eb.DstPort, b))
+	} else {
+		var payload []byte
+		payload, err = eb.Encode()
+		if err != nil {
+			return err
+		}
+		err = ew.writeToChan(string(payload))
 	}
-	e := ew.writeToChan(string(payload))
-	return e
+	return err
 }
 
 func (ew *eventWorker) writeEvent(e event.IEventStruct) {

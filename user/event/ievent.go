@@ -14,6 +14,12 @@
 
 package event
 
+import (
+	"github.com/rs/zerolog"
+	"os"
+	"time"
+)
+
 type Type uint8
 
 const (
@@ -39,4 +45,22 @@ type IEventStruct interface {
 	EventType() Type
 	GetUUID() string
 	Base() Base
+}
+
+// CollectorWriter is a custom writer that uses zerolog for event logging.
+type CollectorWriter struct {
+	logger *zerolog.Logger
+}
+
+func (e CollectorWriter) Write(p []byte) (n int, err error) {
+	return e.logger.Write(p)
+}
+
+func NewCollectorWriter(logger *zerolog.Logger) CollectorWriter {
+	if logger == nil {
+		consoleWriter := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}
+		lg := zerolog.New(consoleWriter).With().Timestamp().Logger()
+		logger = &lg
+	}
+	return CollectorWriter{logger: logger}
 }
