@@ -12,7 +12,7 @@ RUN apt-get update &&\
 # Install golang
 ARG TARGETARCH
 RUN if [ "$TARGETARCH" = "arm64" ] || [ "$TARGETARCH" = "amd64" ]; then\
-  wget -O go.tar.gz https://golang.google.cn/dl/go1.24.3.linux-${TARGETARCH}.tar.gz; \
+  wget -O go.tar.gz https://golang.google.cn/dl/go1.24.6.linux-${TARGETARCH}.tar.gz; \
   else \
   echo "unsupport arch" && /bin/false ; \
   fi && \
