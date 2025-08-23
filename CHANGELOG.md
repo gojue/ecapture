@@ -1,6 +1,37 @@
+# v1.4.1 (2025-08-23)
+
+## What's Changed
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v1.4.0...v1.4.1
+<hr>
+
 # v1.4.0 (2025-08-11)
 
 ## What's Changed
+
+* feat: implement WebSocket client and server for log transmission by @cfc4n
+  in https://github.com/gojue/ecapture/pull/806
+* Fix: Correctly resolve relative paths in /etc/ld.so.conf by @foxayy in https://github.com/gojue/ecapture/pull/808
+* fix: missing trailing bytes for some keys in gotls keylog by @yhlooo in https://github.com/gojue/ecapture/pull/812
+* feat: add WebSocket server and PacketData structure for log handling by @cfc4n
+  in https://github.com/gojue/ecapture/pull/810
+* feat: refactor event types to use unified Type structure across events by @cfc4n
+  in https://github.com/gojue/ecapture/pull/814
+* feat: add GitHub Actions workflow for PR debug builds and artifact uploads by @cfc4n
+  in https://github.com/gojue/ecapture/pull/815
+* fix: update GitHub Actions workflow for PR debug builds and artifact uploads by @cfc4n
+  in https://github.com/gojue/ecapture/pull/817
+* fix: correct return statements and improve error handling in BoringSSL by @cfc4n
+  in https://github.com/gojue/ecapture/pull/816
+* feat: implement OpenSSL version downgrade logic and improve logging by @cfc4n
+  in https://github.com/gojue/ecapture/pull/819
+* feat: update OpenSSL version offsets for 3.0, 3.2, 3.3, 3.4, and 3.5 by @cfc4n
+  in https://github.com/gojue/ecapture/pull/820
+
+## New Contributors
+
+* @foxayy made their first contribution in https://github.com/gojue/ecapture/pull/808
+* @yhlooo made their first contribution in https://github.com/gojue/ecapture/pull/812
 
 **Full Changelog**: https://github.com/gojue/ecapture/compare/v1.3.1...v1.4.0
 <hr>
