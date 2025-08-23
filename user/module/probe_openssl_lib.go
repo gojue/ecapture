@@ -125,6 +125,7 @@ func (m *MOpenSSLProbe) initOpensslOffset() {
 	}
 
 	// support openssl 3.0.12
+	// 2025-08-23  3.0.12 is a special version, the offset is different from 3.0.0 - 3.0.11, and 3.0.13 - 3.0.17, so we need to special support it
 	m.sslVersionBpfMap[fmt.Sprintf("openssl 3.0.%d", SupportedOpenSSL30Version12)] = "openssl_3_0_12_kern.o"
 
 	// openssl 3.1.0 - 3.1.8

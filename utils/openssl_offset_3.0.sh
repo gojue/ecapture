@@ -37,12 +37,12 @@ function run() {
   sslVerMap["9"]="0"
   sslVerMap["10"]="0"
   sslVerMap["11"]="0"
-  sslVerMap["12"]="0"
+  sslVerMap["12"]="12"  # 3.0.12 is different from 3.0.0 ~ 3.0.11 and 3.0.13 ~ 3.0.17  2025-08-23
   sslVerMap["13"]="0"
   sslVerMap["14"]="0"
   sslVerMap["15"]="0"
-  sslVerMap["16"]="1"
-  sslVerMap["17"]="2"
+  sslVerMap["16"]="0"
+  sslVerMap["17"]="0"
 
   # shellcheck disable=SC2068
   for ver in ${!sslVerMap[@]}; do
