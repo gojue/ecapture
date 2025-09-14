@@ -66,6 +66,20 @@ docker pull gojue/ecapture:latest
 docker run --rm --privileged=true --net=host -v ${ホスト側のファイルパス}:${コンテナ内のパス} gojue/ecapture ARGS
 ```
 
+### eCaptureQ インターフェースプログラム
+
+[eCapture](https://github.com/gojue/ecaptureq) のクロスプラットフォーム対応のグラフィカルインターフェースクライアントであり、eBPF
+TLS
+パケットキャプチャ機能を視覚的に表現します。Rust + Tauri + React 技術スタックで構築され、リアルタイムでレスポンシブなインターフェースを提供し、CA
+証明書なしで暗号化されたトラフィックを簡単に分析できます。複雑な eBPF パケットキャプチャ技術をシンプルで使いやすくします。次の2つのモードをサポートしています。
+
+* 統合モード：Linux/Android 一体型で実行
+* リモートモード：Windows/macOS/Linux クライアントからリモートの eCapture サービスに接続
+
+#### ビデオデモ
+
+https://github.com/user-attachments/assets/c8b7a84d-58eb-4fdb-9843-f775c97bdbfb
+
 ## 使用例
 
 ![](./images/ecapture-help-v0.8.9.svg)

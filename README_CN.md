@@ -66,6 +66,22 @@ docker pull gojue/ecapture:latest
 docker run --rm --privileged=true --net=host -v ${宿主机文件路径}:${容器内路径} gojue/ecapture ARGS
 ```
 
+### eCaptureQ 界面程序
+
+[eCaptureQ](https://github.com/gojue/ecaptureq)是 eCapture 的跨平台图形界面客户端，将 eBPF TLS 抓包能力可视化呈现。采用
+Rust + Tauri + React
+技术栈构建，提供实时响应式界面，无需 CA 证书即可轻松分析加密流量。让复杂的 eBPF 抓包技术变得简单易用。 支持两种模式：
+
+*
+* 集成模式：Linux/Android 一体化运行
+* 远程模式：Windows/macOS/Linux 客户端连接远程 eCapture 服务
+
+#### 视频演示
+
+https://github.com/user-attachments/assets/c8b7a84d-58eb-4fdb-9843-f775c97bdbfb
+
+🔗 [GitHub 仓库](https://github.com/gojue/ecaptureq)
+
 ## 小试身手
 
 ![](./images/ecapture-help-v0.8.9.svg)
