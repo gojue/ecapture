@@ -68,7 +68,8 @@ docker run --rm --privileged=true --net=host -v ${ホスト側のファイルパ
 
 ### eCaptureQ インターフェースプログラム
 
-**eCaptureQ** は eCapture のクロスプラットフォーム対応のグラフィカルインターフェースクライアントであり、eBPF TLS
+[eCapture](https://github.com/gojue/ecaptureq) のクロスプラットフォーム対応のグラフィカルインターフェースクライアントであり、eBPF
+TLS
 パケットキャプチャ機能を視覚的に表現します。Rust + Tauri + React 技術スタックで構築され、リアルタイムでレスポンシブなインターフェースを提供し、CA
 証明書なしで暗号化されたトラフィックを簡単に分析できます。複雑な eBPF パケットキャプチャ技術をシンプルで使いやすくします。次の2つのモードをサポートしています。
 
@@ -78,8 +79,6 @@ docker run --rm --privileged=true --net=host -v ${ホスト側のファイルパ
 #### ビデオデモ
 
 https://github.com/user-attachments/assets/c8b7a84d-58eb-4fdb-9843-f775c97bdbfb
-
-🔗 [GitHub リポジトリ](https://github.com/gojue/ecaptureq)
 
 ## 使用例
 

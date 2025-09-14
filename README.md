@@ -71,7 +71,8 @@ see [Docker Hub](https://hub.docker.com/r/gojue/ecapture) for more information.
 
 ### eCaptureQ GUI Application
 
-**eCaptureQ** is a cross-platform graphical user interface client for eCapture, visualizing eBPF TLS capture
+[eCaptureQ](https://github.com/gojue/ecaptureq) is a cross-platform graphical user interface client for eCapture,
+visualizing eBPF TLS capture
 capabilities. Built using the Rust + Tauri + React technology stack, it provides a real-time, responsive interface,
 enabling easy analysis of encrypted traffic without the need for CA certificates. It simplifies complex eBPF capture
 techniques, making them easy to use. Supports two modes:
