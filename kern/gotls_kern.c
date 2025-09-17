@@ -65,14 +65,7 @@ struct {
 } events SEC(".maps");
 
 struct {
-    __uint(type, BPF_MAP_TYPE_LRU_HASH);
-    __type(key, u64);
-    __type(value, struct go_tls_event);
-    __uint(max_entries, 2048);
-} gte_context SEC(".maps");
-
-struct {
-    __uint(type, BPF_MAP_TYPE_ARRAY);
+    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
     __type(key, u32);
     __type(value, struct go_tls_event);
     __uint(max_entries, 1);
@@ -89,8 +82,8 @@ static __always_inline struct go_tls_event *get_gotls_event() {
     event->tid = (__u32)id;
     event->event_type = GOTLS_EVENT_TYPE_WRITE;
     bpf_get_current_comm(event->comm, sizeof(event->comm));
-    bpf_map_update_elem(&gte_context, &id, event, BPF_ANY);
-    return bpf_map_lookup_elem(&gte_context, &id);
+
+    return event;
 }
 
 static __always_inline int gotls_write(struct pt_regs *ctx, bool is_register_abi) {
