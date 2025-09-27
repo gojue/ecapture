@@ -4,6 +4,11 @@ on:
     branches: [ master, main ]
     types: [ opened, synchronize, reopened ]
 
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -100,7 +105,7 @@ jobs:
               issue_number: prNumber,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `🔧 **Debug Build Complete**
+              body: `🔧 **Debug Build Complete (PR ${prNumber}, RunID ${runId})**
             
               📦 Download Links:
               - [PR ${prNumber} Debug Binary](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId})
