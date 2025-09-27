@@ -96,6 +96,29 @@ func (g *GoTLSProbe) Init(ctx context.Context, l *zerolog.Logger, cfg config.ICo
 			return err
 		}
 		g.pcapngFilename = fileInfo
+
+		// Setup rotation configuration
+		rotationIntervalStr := g.conf.(*config.GoTLSConfig).RotationInterval
+		pcapngDir := g.conf.(*config.GoTLSConfig).PcapngDirectory
+		
+		if rotationIntervalStr != "" && pcapngDir != "" {
+			// Parse rotation interval
+			duration, err := time.ParseDuration(rotationIntervalStr)
+			if err != nil {
+				g.logger.Warn().Err(err).Str("rotationInterval", rotationIntervalStr).Msg("invalid rotation interval, rotation disabled")
+			} else {
+				g.rotationInterval = duration
+				g.pcapngDirectory = pcapngDir
+				
+				// Create the directory if it doesn't exist
+				err = os.MkdirAll(pcapngDir, 0755)
+				if err != nil {
+					g.logger.Warn().Err(err).Str("pcapngDirectory", pcapngDir).Msg("failed to create pcapng directory, rotation disabled")
+					g.rotationInterval = 0
+					g.pcapngDirectory = ""
+				}
+			}
+		}
 	case config.TlsCaptureModelText:
 		fallthrough
 	default:

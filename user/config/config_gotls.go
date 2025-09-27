@@ -76,12 +76,14 @@ type FuncOffsets struct {
 // GoTLSConfig represents configuration for Go SSL probe
 type GoTLSConfig struct {
 	BaseConfig
-	Path                  string    `json:"path"`       // golang application path to binary built with Go toolchain.
-	PcapFile              string    `json:"pcapFile"`   // pcapFile  the  raw  packets  to file rather than parsing and printing them out.
-	KeylogFile            string    `json:"keylogFile"` // keylogFile  The file stores SSL/TLS keys, and eCapture captures these keys during encrypted traffic communication and saves them to the file.
-	Model                 string    `json:"model"`      // model  such as : text, pcapng/pcap, key/keylog.
-	Ifname                string    `json:"ifName"`     // (TC Classifier) Interface name on which the probe will be attached.
-	PcapFilter            string    `json:"pcapFilter"` // pcap filter
+	Path                  string    `json:"path"`             // golang application path to binary built with Go toolchain.
+	PcapFile              string    `json:"pcapFile"`         // pcapFile  the  raw  packets  to file rather than parsing and printing them out.
+	KeylogFile            string    `json:"keylogFile"`       // keylogFile  The file stores SSL/TLS keys, and eCapture captures these keys during encrypted traffic communication and saves them to the file.
+	Model                 string    `json:"model"`            // model  such as : text, pcapng/pcap, key/keylog.
+	Ifname                string    `json:"ifName"`           // (TC Classifier) Interface name on which the probe will be attached.
+	PcapFilter            string    `json:"pcapFilter"`       // pcap filter
+	PcapngDirectory       string    `json:"pcapngdirectory"`  // directory to store rotated pcapng files
+	RotationInterval      string    `json:"rotationinterval"` // rotation interval duration (e.g., "1m", "5s", "1h")
 	goElfArch             string    //
 	goElf                 *elf.File //
 	Buildinfo             *buildinfo.BuildInfo

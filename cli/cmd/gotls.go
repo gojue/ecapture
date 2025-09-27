@@ -35,6 +35,9 @@ ecapture gotls
 ecapture gotls --elfpath=/home/cfc4n/go_https_client --hex --pid=3423
 ecapture gotls -m keylog -k /tmp/ecap_gotls_key.log --elfpath=/home/cfc4n/go_https_client -l save.log --pid=3423
 ecapture gotls -m pcap --pcapfile=save_android.pcapng -i wlan0 --elfpath=/home/cfc4n/go_https_client tcp port 443
+
+Continuous pcapng export (rotation):
+ecapture gotls -m pcap --pcapng_dir ./captures --rotation_interval 1m -i wlan0 --elfpath=/home/cfc4n/go_https_client tcp port 443
 `,
 	RunE: goTLSCommandFunc,
 }
@@ -45,6 +48,8 @@ func init() {
 	gotlsCmd.PersistentFlags().StringVarP(&goc.Model, "model", "m", "text", "capture model, such as : text, pcap/pcapng, key/keylog")
 	gotlsCmd.PersistentFlags().StringVarP(&goc.KeylogFile, "keylogfile", "k", "ecapture_gotls_key.log", "The file stores SSL/TLS keys, and eCapture captures these keys during encrypted traffic communication and saves them to the file.")
 	gotlsCmd.PersistentFlags().StringVarP(&goc.Ifname, "ifname", "i", "", "(TC Classifier) Interface name on which the probe will be attached.")
+	gotlsCmd.PersistentFlags().StringVar(&goc.PcapngDirectory, "pcapng_dir", "", "directory to store rotated pcapng files (enables continuous export)")
+	gotlsCmd.PersistentFlags().StringVar(&goc.RotationInterval, "rotation_interval", "", "rotation interval (e.g., \"30s\", \"5m\", \"1h\") - requires pcapng_dir")
 	rootCmd.AddCommand(gotlsCmd)
 }
 

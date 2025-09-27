@@ -39,6 +39,9 @@ ecapture tls --libssl=/lib/x86_64-linux-gnu/libssl.so.1.1
 ecapture tls -m keylog --pcapfile save_3_0_5.pcapng --ssl_version="openssl 3.0.5" --libssl=/lib/x86_64-linux-gnu/libssl.so.3
 ecapture tls -m pcap --pcapfile save_android.pcapng -i wlan0 --libssl=/apex/com.android.conscrypt/lib64/libssl.so --ssl_version="boringssl 1.1.1" tcp port 443
 
+Continuous pcapng export (rotation):
+ecapture tls -m pcap -i wlan0 --pcapng_dir ./captures --rotation_interval 1m host 192.168.1.1 and tcp port 443
+
 Docker usage:
 docker pull gojue/ecapture
 docker run --rm --privileged=true --net=host -v /etc:/etc -v /usr:/usr -v ${PWD}:/output gojue/ecapture tls -m pcap -i wlp3s0 --pcapfile=/output/ecapture.pcapng tcp port 443

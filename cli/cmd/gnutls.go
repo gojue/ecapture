@@ -40,6 +40,9 @@ ecapture gnutls -l save.log --pid=3423
 ecapture gnutls --gnutls=/lib/x86_64-linux-gnu/libgnutls.so
 ecapture gnutls -m keylog -k ecapture_gnutls_key.log --ssl_version=3.7.9
 ecapture gnutls -m pcap --pcapfile save.pcapng -i eth0 --gnutls=/lib/x86_64-linux-gnu/libgnutls.so tcp port 443
+
+Continuous pcapng export (rotation):
+ecapture gnutls -m pcap -i eth0 --pcapng_dir ./captures --rotation_interval 1m --gnutls=/lib/x86_64-linux-gnu/libgnutls.so tcp port 443
 `,
 	RunE: gnuTlsCommandFunc,
 }
