@@ -1,6 +1,20 @@
+# v1.4.2 (2025-09-27)
+
+## What's Changed
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v1.4.1...v1.4.2
+<hr>
+
 # v1.4.1 (2025-08-23)
 
 ## What's Changed
+* fix: refactor event logging to use new CollectorWriter and improve error handling by @cfc4n in https://github.com/gojue/ecapture/pull/821
+* typo: comment in cmd packages by @webfrogs in https://github.com/gojue/ecapture/pull/827
+* bugfix: support keylog mode for OpenSSL 3.0.12 by @foxayy in https://github.com/gojue/ecapture/pull/826
+* feat: update Go version to 1.24.6 across multiple configuration files by @cfc4n in https://github.com/gojue/ecapture/pull/828
+
+## New Contributors
+* @webfrogs made their first contribution in https://github.com/gojue/ecapture/pull/827
 
 **Full Changelog**: https://github.com/gojue/ecapture/compare/v1.4.0...v1.4.1
 <hr>
