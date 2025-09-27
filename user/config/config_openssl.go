@@ -39,17 +39,19 @@ const (
 type OpensslConfig struct {
 	BaseConfig
 	// Curlpath   string `json:"curlPath"` //curl的文件路径
-	Openssl    string `json:"openssl"`
-	Model      string `json:"model"`      // eCapture Openssl capture model. text:pcap:keylog
-	PcapFile   string `json:"pcapfile"`   // pcapFile  the  raw  packets  to file rather than parsing and printing them out.
-	KeylogFile string `json:"keylog"`     // Keylog  The file stores SSL/TLS keys, and eCapture captures these keys during encrypted traffic communication and saves them to the file.
-	Ifname     string `json:"ifname"`     // (TC Classifier) Interface name on which the probe will be attached.
-	PcapFilter string `json:"pcapfilter"` // pcap filter
-	SslVersion string `json:"sslversion"` // openssl version like 1.1.1a/1.1.1f/boringssl_1.1.1
-	CGroupPath string `json:"cgrouppath"` // cgroup path, used for filter process
-	ElfType    uint8  //
-	IsAndroid  bool   //	is Android OS ?
-	AndroidVer string // Android OS version
+	Openssl           string `json:"openssl"`
+	Model             string `json:"model"`             // eCapture Openssl capture model. text:pcap:keylog
+	PcapFile          string `json:"pcapfile"`          // pcapFile  the  raw  packets  to file rather than parsing and printing them out.
+	KeylogFile        string `json:"keylog"`            // Keylog  The file stores SSL/TLS keys, and eCapture captures these keys during encrypted traffic communication and saves them to the file.
+	Ifname            string `json:"ifname"`            // (TC Classifier) Interface name on which the probe will be attached.
+	PcapFilter        string `json:"pcapfilter"`        // pcap filter
+	SslVersion        string `json:"sslversion"`        // openssl version like 1.1.1a/1.1.1f/boringssl_1.1.1
+	CGroupPath        string `json:"cgrouppath"`        // cgroup path, used for filter process
+	PcapngDirectory   string `json:"pcapngdirectory"`   // directory to store rotated pcapng files
+	RotationInterval  string `json:"rotationinterval"`  // rotation interval duration (e.g., "1m", "5s", "1h")
+	ElfType           uint8  //
+	IsAndroid         bool   //	is Android OS ?
+	AndroidVer        string // Android OS version
 }
 
 func NewOpensslConfig() *OpensslConfig {

@@ -8,6 +8,7 @@ import (
 	"math"
 	"net"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -77,16 +78,18 @@ func (NetCaptureData) GetSizeBytes() uint32 {
 
 type MTCProbe struct {
 	Module
-	pcapngFilename  string
-	ifIdex          int
-	ifName          string
-	pcapWriter      *pcapgo.NgWriter
-	startTime       uint64
-	bootTime        uint64
-	tcPackets       []*TcPacket
-	masterKeyBuffer *bytes.Buffer
-	tcPacketLocker  *sync.Mutex
-	tcPacketsChan   chan *TcPacket
+	pcapngFilename    string
+	pcapngDirectory   string
+	rotationInterval  time.Duration
+	ifIdex            int
+	ifName            string
+	pcapWriter        *pcapgo.NgWriter
+	startTime         uint64
+	bootTime          uint64
+	tcPackets         []*TcPacket
+	masterKeyBuffer   *bytes.Buffer
+	tcPacketLocker    *sync.Mutex
+	tcPacketsChan     chan *TcPacket
 }
 
 func (t *MTCProbe) dumpTcSkb(tcEvent *event.TcSkbEvent) error {
@@ -174,6 +177,37 @@ func (t *MTCProbe) savePcapng() (i int, err error) {
 	}
 	err = t.pcapWriter.Flush()
 	return
+}
+
+// rotateFile creates a new pcapng file for rotation
+func (t *MTCProbe) rotateFile() error {
+	if t.pcapWriter != nil {
+		// Flush any remaining data before closing
+		err := t.pcapWriter.Flush()
+		if err != nil {
+			t.logger.Warn().Err(err).Msg("failed to flush before rotation")
+		}
+		// Close the current writer (this will close the underlying file)
+		// Note: pcapgo.NgWriter doesn't have a Close method, but the file will be closed
+		// when we create a new one by opening with O_TRUNC
+	}
+
+	// Generate new filename with timestamp
+	timestamp := time.Now().Format("2006-01-02T15-04-05")
+	originalFile := filepath.Base(t.pcapngFilename)
+	baseFilename := strings.TrimSuffix(originalFile, ".pcapng")
+	newFilename := fmt.Sprintf("%s/%s-%s.pcapng", t.pcapngDirectory, baseFilename, timestamp)
+	
+	t.pcapngFilename = newFilename
+
+	// Get network interfaces for the new file
+	netIfs, err := net.Interfaces()
+	if err != nil {
+		return fmt.Errorf("failed to get network interfaces: %w", err)
+	}
+
+	// Create new pcapng file
+	return t.createPcapng(netIfs)
 }
 
 func (t *MTCProbe) createPcapng(netIfs []net.Interface) error {
@@ -264,7 +298,16 @@ func (t *MTCProbe) savePcapngSslKeyLog(sslKeyLog []byte) (err error) {
 // ServePcap is used to serve pcapng file
 func (t *MTCProbe) ServePcap() {
 	ti := time.NewTicker(2 * time.Second)
-	t.logger.Info().Str("pcapng path", t.pcapngFilename).Msg("packets saved into pcapng file.")
+	var rotationTicker *time.Ticker
+
+	// Setup rotation ticker if rotation is enabled
+	if t.rotationInterval > 0 && t.pcapngDirectory != "" {
+		rotationTicker = time.NewTicker(t.rotationInterval)
+		t.logger.Info().Str("pcapng directory", t.pcapngDirectory).Dur("rotation", t.rotationInterval).Msg("packets saved into pcapng files with rotation.")
+	} else {
+		t.logger.Info().Str("pcapng path", t.pcapngFilename).Msg("packets saved into pcapng file.")
+	}
+
 	var allCount int
 	defer func() {
 		if allCount == 0 {
@@ -273,12 +316,43 @@ func (t *MTCProbe) ServePcap() {
 			t.logger.Info().Int("count", allCount).Msg("packets saved into pcapng file.")
 		}
 		ti.Stop()
+		if rotationTicker != nil {
+			rotationTicker.Stop()
+		}
 	}()
 
 	var i int
+
+	// Create a channel that's either the rotation ticker or nil
+	var rotationChan <-chan time.Time
+	if rotationTicker != nil {
+		rotationChan = rotationTicker.C
+	}
+
 	for {
 		select {
+		case _ = <-rotationChan:
+			// This case is ignored when rotationChan is nil
+			t.logger.Info().Msg("rotation timer triggered")
+			if len(t.tcPackets) > 0 {
+				n, e := t.savePcapng()
+				if e != nil {
+					t.logger.Warn().Err(e).Msg("save pcapng before rotation failed")
+				} else {
+					t.logger.Info().Int("count", n).Msg("packets saved before rotation")
+					allCount += n
+				}
+				// Reset packets after saving
+				i = 0
+				t.tcPackets = t.tcPackets[:0]
+			}
+			// Rotate to new file
+			err := t.rotateFile()
+			if err != nil {
+				t.logger.Error().Err(err).Msg("failed to rotate pcap file")
+			}
 		case _ = <-ti.C:
+
 			if i == 0 || len(t.tcPackets) == 0 {
 				continue
 			}

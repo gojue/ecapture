@@ -20,14 +20,16 @@ import "encoding/json"
 type GnutlsConfig struct {
 	BaseConfig
 	//Curl path string `json:"curlpath"` //curl的文件路径
-	Gnutls     string `json:"gnutls"`
-	Model      string `json:"model"`
-	PcapFile   string `json:"pcapfile"`
-	KeylogFile string `json:"keylog"`
-	Ifname     string `json:"ifname"`
-	PcapFilter string `json:"pcapfilter"`
-	SslVersion string `json:"sslversion"`
-	ElfType    uint8
+	Gnutls            string `json:"gnutls"`
+	Model             string `json:"model"`
+	PcapFile          string `json:"pcapfile"`
+	KeylogFile        string `json:"keylog"`
+	Ifname            string `json:"ifname"`
+	PcapFilter        string `json:"pcapfilter"`
+	SslVersion        string `json:"sslversion"`
+	PcapngDirectory   string `json:"pcapngdirectory"`
+	RotationInterval  string `json:"rotationinterval"`
+	ElfType           uint8
 }
 
 func NewGnutlsConfig() *GnutlsConfig {

@@ -52,6 +52,8 @@ func init() {
 	gnutlsCmd.PersistentFlags().StringVarP(&gc.PcapFile, "pcapfile", "w", "save.pcapng", "write the raw packets to file as pcapng format.")
 	gnutlsCmd.PersistentFlags().StringVarP(&gc.Ifname, "ifname", "i", "", "(TC Classifier) Interface name on which the probe will be attached.")
 	gnutlsCmd.PersistentFlags().StringVar(&gc.SslVersion, "ssl_version", "", "GnuTLS version, e.g: --ssl_version=\"3.7.9\"")
+	gnutlsCmd.PersistentFlags().StringVar(&gc.PcapngDirectory, "pcapng_dir", "", "directory to store rotated pcapng files (enables continuous export)")
+	gnutlsCmd.PersistentFlags().StringVar(&gc.RotationInterval, "rotation_interval", "", "rotation interval (e.g., \"30s\", \"5m\", \"1h\") - requires pcapng_dir")
 	rootCmd.AddCommand(gnutlsCmd)
 }
 

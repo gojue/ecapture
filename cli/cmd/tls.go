@@ -55,6 +55,8 @@ func init() {
 	opensslCmd.PersistentFlags().StringVarP(&oc.PcapFile, "pcapfile", "w", "save.pcapng", "write the raw packets to file as pcapng format.")
 	opensslCmd.PersistentFlags().StringVarP(&oc.Ifname, "ifname", "i", "", "(TC Classifier) Interface name on which the probe will be attached.")
 	opensslCmd.PersistentFlags().StringVar(&oc.SslVersion, "ssl_version", "", "openssl/boringssl version， e.g: --ssl_version=\"openssl 1.1.1g\" or  --ssl_version=\"boringssl 1.1.1\".")
+	opensslCmd.PersistentFlags().StringVar(&oc.PcapngDirectory, "pcapng_dir", "", "directory to store rotated pcapng files (enables continuous export)")
+	opensslCmd.PersistentFlags().StringVar(&oc.RotationInterval, "rotation_interval", "", "rotation interval (e.g., \"30s\", \"5m\", \"1h\") - requires pcapng_dir")
 	rootCmd.AddCommand(opensslCmd)
 }
 

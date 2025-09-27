@@ -146,6 +146,29 @@ func (m *MOpenSSLProbe) Init(ctx context.Context, logger *zerolog.Logger, conf c
 		m.tcPacketsChan = make(chan *TcPacket, 2048)
 		m.tcPackets = make([]*TcPacket, 0, 256)
 		m.pcapngFilename = fileInfo
+
+		// Setup rotation configuration
+		rotationIntervalStr := m.conf.(*config.OpensslConfig).RotationInterval
+		pcapngDir := m.conf.(*config.OpensslConfig).PcapngDirectory
+		
+		if rotationIntervalStr != "" && pcapngDir != "" {
+			// Parse rotation interval
+			duration, err := time.ParseDuration(rotationIntervalStr)
+			if err != nil {
+				m.logger.Warn().Err(err).Str("rotationInterval", rotationIntervalStr).Msg("invalid rotation interval, rotation disabled")
+			} else {
+				m.rotationInterval = duration
+				m.pcapngDirectory = pcapngDir
+				
+				// Create the directory if it doesn't exist
+				err = os.MkdirAll(pcapngDir, 0755)
+				if err != nil {
+					m.logger.Warn().Err(err).Str("pcapngDirectory", pcapngDir).Msg("failed to create pcapng directory, rotation disabled")
+					m.rotationInterval = 0
+					m.pcapngDirectory = ""
+				}
+			}
+		}
 	case config.TlsCaptureModelText:
 		fallthrough
 	default:

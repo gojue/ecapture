@@ -86,6 +86,29 @@ func (g *MGnutlsProbe) Init(ctx context.Context, logger *zerolog.Logger, conf co
 		g.tcPacketsChan = make(chan *TcPacket, 2048)
 		g.tcPackets = make([]*TcPacket, 0, 256)
 		g.pcapngFilename = fileInfo
+
+		// Setup rotation configuration
+		rotationIntervalStr := g.conf.(*config.GnutlsConfig).RotationInterval
+		pcapngDir := g.conf.(*config.GnutlsConfig).PcapngDirectory
+		
+		if rotationIntervalStr != "" && pcapngDir != "" {
+			// Parse rotation interval
+			duration, err := time.ParseDuration(rotationIntervalStr)
+			if err != nil {
+				g.logger.Warn().Err(err).Str("rotationInterval", rotationIntervalStr).Msg("invalid rotation interval, rotation disabled")
+			} else {
+				g.rotationInterval = duration
+				g.pcapngDirectory = pcapngDir
+				
+				// Create the directory if it doesn't exist
+				err = os.MkdirAll(pcapngDir, 0755)
+				if err != nil {
+					g.logger.Warn().Err(err).Str("pcapngDirectory", pcapngDir).Msg("failed to create pcapng directory, rotation disabled")
+					g.rotationInterval = 0
+					g.pcapngDirectory = ""
+				}
+			}
+		}
 	case config.TlsCaptureModelText:
 		fallthrough
 	default:
