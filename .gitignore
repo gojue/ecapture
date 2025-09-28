@@ -30,3 +30,4 @@ bin/*
 /deps/*
 /assets/probe.go
 assets/doc.go
+ecapture-test
