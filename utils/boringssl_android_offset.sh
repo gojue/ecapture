@@ -30,6 +30,7 @@ function run() {
   sslVerMap["1"]="13" # android13-release
   sslVerMap["2"]="14" # android14-release
   sslVerMap["3"]="15" # android15-release
+  sslVerMap["4"]="16" # android16-release (when available)
 
   # shellcheck disable=SC2068
   # shellcheck disable=SC2034

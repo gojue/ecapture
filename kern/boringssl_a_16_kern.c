@@ -3,6 +3,8 @@
 
 /* OPENSSL_VERSION_TEXT: OpenSSL 1.1.1 (compatible; BoringSSL) */
 /* OPENSSL_VERSION_NUMBER: 269488255 */
+/* NOTE: These offsets are based on Android 15 as baseline. */
+/* For actual Android 16 offsets, run: utils/boringssl_android_offset.sh */
 
 // ssl_st->version
 #define SSL_ST_VERSION 0x10
