@@ -21,9 +21,12 @@
  ***********************************************************/
 
 enum ssl_data_event_type { kSSLRead, kSSLWrite };
+
+#ifndef KERNEL_LESS_5_2
 const u32 invalidFD = 0;
 // BIO_TYPE_NONE
 const u32 defaultBioType = 0;
+#endif
 
 struct ssl_data_event_t {
     enum ssl_data_event_type type;
@@ -151,8 +154,13 @@ static __inline struct ssl_data_event_t* create_ssl_data_event(
     event->timestamp_ns = bpf_ktime_get_ns();
     event->pid = current_pid_tgid >> 32;
     event->tid = current_pid_tgid & kMask32b;
+#ifndef KERNEL_LESS_5_2
     event->fd = invalidFD;
     event->bio_type = defaultBioType;
+#else
+    event->fd = 0;
+    event->bio_type = 0;
+#endif
 
     return event;
 }
@@ -204,7 +212,11 @@ static u32 process_BIO_type(u64 ssl_bio_addr) {
         debug_bpf_printk(
             "(OPENSSL) process_BIO_type: bpf_probe_read ssl_bio_method_ptr failed, ret: %d\n",
             ret);
+#ifndef KERNEL_LESS_5_2
         return defaultBioType;
+#else
+        return 0;
+#endif
     }
 
     // get ssl->bio->method->type
@@ -215,7 +227,11 @@ static u32 process_BIO_type(u64 ssl_bio_addr) {
         debug_bpf_printk(
             "(OPENSSL) process_BIO_type: bpf_probe_read ssl_bio_method_type_ptr failed, ret: %d\n",
             ret);
+#ifndef KERNEL_LESS_5_2
         return defaultBioType;
+#else
+        return 0;
+#endif
     }
 
     debug_bpf_printk("openssl process_BIO_type bio_type: %d\n", bio_type);
