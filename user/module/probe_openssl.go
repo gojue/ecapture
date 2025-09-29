@@ -183,8 +183,8 @@ func (m *MOpenSSLProbe) getSslBpfFile(soPath, sslVersion string) error {
 			// For BoringSSL, use multiple hook functions to ensure complete coverage
 			// SSL_in_init alone may miss some encryption operations, especially for request packets
 			m.masterHookFuncs = []string{
-				MasterKeyHookFuncBoringSSL,  // SSL_in_init
-				"SSL_do_handshake",           // Additional function to capture missed operations
+				MasterKeyHookFuncBoringSSL, // SSL_in_init
+				"SSL_do_handshake",         // Additional function to capture missed operations
 			}
 		}
 		// TODO detect sslVersion less then 1.1.0 ,  ref # https://github.com/gojue/ecapture/issues/518
