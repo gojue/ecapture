@@ -19,6 +19,7 @@ import (
 	"encoding/binary"
 	"fmt"
 
+	pb "github.com/gojue/ecapture/protobuf/gen/v1"
 	"github.com/gojue/ecapture/user/event"
 )
 
@@ -179,6 +180,10 @@ func (be *BaseEvent) Base() event.Base {
 		PID:       int64(be.Pid),
 		PName:     CToGoString(be.Comm[:]),
 	}
+}
+
+func (be *BaseEvent) ToProtobufEvent() *pb.Event {
+	return nil
 }
 
 func (be *BaseEvent) EventType() event.Type {

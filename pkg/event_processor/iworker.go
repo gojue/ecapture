@@ -188,17 +188,15 @@ func (ew *eventWorker) Display() error {
 		b = []byte(hex.Dump(b))
 	}
 
-	eb := new(event.Base)
-	oeb := ew.originEvent.Base()
-	eb = &oeb
-	eb.Type = uint32(ew.parser.ParserType())
-	eb.UUID = ew.uuidOutput
-	//eb.PayloadBase64 = base64.StdEncoding.EncodeToString(b[:])
-
 	//iWorker只负责写入，不应该打印。
 	var err error
 	_, ok := ew.processor.logger.(event.CollectorWriter)
 	if ok {
+		eb := new(event.Base)
+		oeb := ew.originEvent.Base()
+		eb = &oeb
+		eb.Type = uint32(ew.parser.ParserType())
+		eb.UUID = ew.uuidOutput
 		var buf bytes.Buffer
 		_, err = fmt.Fprintf(&buf, "PID:%d, Comm:%s, Src:%s:%d, Dest:%s:%d,\n%s", eb.PID, eb.PName, eb.SrcIP, eb.SrcPort, eb.DstIP, eb.DstPort, b)
 		if err != nil {
@@ -210,7 +208,7 @@ func (ew *eventWorker) Display() error {
 	} else {
 		le := new(pb.LogEntry)
 		le.LogType = pb.LogType_LOG_TYPE_EVENT
-		le.Payload = &pb.LogEntry_EventPayload{EventPayload: &pb.Event{}}
+		le.Payload = &pb.LogEntry_EventPayload{EventPayload: ew.originEvent.ToProtobufEvent()}
 		encodedData, err := proto.Marshal(le)
 		if err != nil {
 			return err

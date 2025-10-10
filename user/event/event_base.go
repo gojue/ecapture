@@ -18,22 +18,22 @@ import "encoding/json"
 
 // Base 结构体与eCaptureQ 保持一致
 type Base struct {
-	Timestamp int64  `json:"timestamp"`
-	UUID      string `json:"uuid"`
-	SrcIP     string `json:"src_ip"`
-	SrcPort   uint32 `json:"src_port"`
-	DstIP     string `json:"dst_ip"`
-	DstPort   uint32 `json:"dst_port"`
-	PID       int64  `json:"pid"`
-	PName     string `json:"pname"`
-	Type      uint32 `json:"type"` // 事件类型
-	Length    uint32 `json:"length"`
-	Payload   []byte `json:"payload"`
+	Timestamp     int64  `json:"timestamp"`
+	UUID          string `json:"uuid"`
+	SrcIP         string `json:"src_ip"`
+	SrcPort       uint32 `json:"src_port"`
+	DstIP         string `json:"dst_ip"`
+	DstPort       uint32 `json:"dst_port"`
+	PID           int64  `json:"pid"`
+	PName         string `json:"pname"`
+	Type          uint32 `json:"type"` // 事件类型
+	Length        uint32 `json:"length"`
+	PayloadBase64 string `json:"payload"`
 }
 
 // Encode 将 PacketData 编码为 JSON 字节流
 func (b *Base) Encode() ([]byte, error) {
-	b.Length = uint32(len(b.Payload))
+	b.Length = uint32(len(b.PayloadBase64))
 	return json.Marshal(b)
 }
 

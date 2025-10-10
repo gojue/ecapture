@@ -18,6 +18,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+
+	pb "github.com/gojue/ecapture/protobuf/gen/v1"
 )
 
 type GnutlsDataEvent struct {
@@ -118,6 +120,22 @@ func (ge *GnutlsDataEvent) Base() Base {
 		Type:      uint32(ge.DataType),
 	}
 	return ge.base
+}
+
+func (ge *GnutlsDataEvent) ToProtobufEvent() *pb.Event {
+	return &pb.Event{
+		Timestamp: int64(ge.Timestamp),
+		Uuid:      ge.GetUUID(),
+		SrcIp:     "127.0.0.1", // Gnutls events do not have SrcIP
+		SrcPort:   0,           // Gnutls events do not have SrcPort
+		DstIp:     "127.0.0.1", // Gnutls events do not have DstIP
+		DstPort:   0,           // Gnutls events do not have DstPort
+		Pid:       int64(ge.Pid),
+		Pname:     string(ge.Comm[:]),
+		Type:      uint32(ge.DataType),
+		Length:    uint32(ge.DataLen),
+		Payload:   ge.Data[:ge.DataLen],
+	}
 }
 
 func (ge *GnutlsDataEvent) EventType() Type {

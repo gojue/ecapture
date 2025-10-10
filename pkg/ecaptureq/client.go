@@ -15,13 +15,13 @@
 package ecaptureq
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
 	"time"
 
+	pb "github.com/gojue/ecapture/protobuf/gen/v1"
 	"golang.org/x/net/websocket"
+	"google.golang.org/protobuf/proto"
 )
 
 var (
@@ -69,7 +69,7 @@ func (c *Client) readPump() {
 			_, _ = c.logger.Write([]byte("readPump: error receiving message\n"))
 			break
 		}
-		_, _ = c.logger.Write([]byte(fmt.Sprintf("Client:%s:%s, readPump: %s\n", c.conn.LocalAddr().String(), c.conn.RemoteAddr().String(), string(data))))
+		//_, _ = c.logger.Write([]byte(fmt.Sprintf("Client:%s:%s, readPump: %s\n", c.conn.LocalAddr().String(), c.conn.RemoteAddr().String(), string(data))))
 	}
 }
 
@@ -97,7 +97,7 @@ func (c *Client) writePump() {
 				_, _ = c.logger.Write([]byte("writePump: error sending message\n"))
 				return
 			}
-			_, _ = c.logger.Write([]byte(fmt.Sprintf("Client:%s:%s, writePump: %s\n", c.conn.LocalAddr().String(), c.conn.RemoteAddr().String(), string(bytes.TrimSpace(message)))))
+			//_, _ = c.logger.Write([]byte(fmt.Sprintf("Client:%s:%s, writePump: %s\n", c.conn.LocalAddr().String(), c.conn.RemoteAddr().String(), string(bytes.TrimSpace(message)))))
 		case <-c.hbTimer.C:
 			err := c.Heartbeat()
 			if err != nil {
@@ -109,24 +109,19 @@ func (c *Client) writePump() {
 }
 
 func (c *Client) Heartbeat() error {
-	// 发送心跳包
-	hbm := new(HeartbeatMessage)
-	hbm.Message = fmt.Sprintf("heartbeat:%d", c.heartBeatCount)
-	hbm.Timestamp = time.Now().Unix()
-	hbm.Count = int32(c.heartBeatCount)
-	payload, err := json.Marshal(hbm)
-	if err != nil {
-		return fmt.Errorf("failed to marshal heartbeat message: %w", err)
-	}
+	hb := new(pb.Heartbeat)
+	hb.Message = fmt.Sprintf("heartbeat:%d", c.heartBeatCount)
+	hb.Timestamp = time.Now().Unix()
+	hb.Count = int64(c.heartBeatCount)
 
-	hb := new(eqMessage)
-	hb.LogType = LogTypeHeartBeat
-	hb.Payload = payload
-	hbp, err := hb.Encode()
+	le := new(pb.LogEntry)
+	le.LogType = pb.LogType_LOG_TYPE_HEARTBEAT
+	le.Payload = &pb.LogEntry_HeartbeatPayload{HeartbeatPayload: hb}
+	encodedData, err := proto.Marshal(le)
 	if err != nil {
 		return err
 	}
-	c.send <- hbp
+	c.send <- encodedData
 	c.heartBeatCount++
 	return err
 }

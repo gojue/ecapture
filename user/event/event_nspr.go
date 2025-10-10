@@ -19,6 +19,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	"strings"
+
+	pb "github.com/gojue/ecapture/protobuf/gen/v1"
 )
 
 type NsprDataEvent struct {
@@ -136,6 +138,22 @@ func (ne *NsprDataEvent) Base() Base {
 		PName:     string(ne.Comm[:]),
 	}
 	return ne.base
+}
+
+func (ne *NsprDataEvent) ToProtobufEvent() *pb.Event {
+	return &pb.Event{
+		Timestamp: int64(ne.Timestamp),
+		Uuid:      ne.GetUUID(),
+		SrcIp:     "127.0.0.1", // Nspr events do not have SrcIP
+		SrcPort:   0,           // Nspr events do not have SrcPort
+		DstIp:     "127.0.0.1", // Nspr events do not have DstIP
+		DstPort:   0,           // Nspr events do not have DstPort
+		Pid:       int64(ne.Pid),
+		Pname:     string(ne.Comm[:]),
+		Type:      uint32(ne.DataType),
+		Length:    uint32(ne.DataLen),
+		Payload:   ne.Data[:ne.DataLen],
+	}
 }
 
 func (ne *NsprDataEvent) EventType() Type {

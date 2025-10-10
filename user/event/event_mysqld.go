@@ -22,6 +22,7 @@ import (
 	"encoding/binary"
 	"fmt"
 
+	pb "github.com/gojue/ecapture/protobuf/gen/v1"
 	"golang.org/x/sys/unix"
 )
 
@@ -131,6 +132,22 @@ func (me *MysqldEvent) Base() Base {
 		PName:     string(me.Comm[:]),
 	}
 	return me.base
+}
+
+func (me *MysqldEvent) ToProtobufEvent() *pb.Event {
+	return &pb.Event{
+		Timestamp: int64(me.Timestamp),
+		Uuid:      me.GetUUID(),
+		SrcIp:     "127.0.0.1", // Mysqld events do not have SrcIP
+		SrcPort:   0,           // Mysqld events do not have SrcPort
+		DstIp:     "127.0.0.1", // Mysqld events do not have DstIP
+		DstPort:   0,           // Mysqld events do not have DstPort
+		Pid:       int64(me.Pid),
+		Pname:     string(me.Comm[:]),
+		Type:      uint32(me.Retval),
+		Length:    uint32(me.Len),
+		Payload:   me.Query[:me.Len],
+	}
 }
 
 func (me *MysqldEvent) EventType() Type {

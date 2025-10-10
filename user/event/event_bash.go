@@ -19,6 +19,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	"time"
+
+	pb "github.com/gojue/ecapture/protobuf/gen/v1"
 )
 
 /*
@@ -96,6 +98,22 @@ func (be *BashEvent) Base() Base {
 		Type:      0,
 	}
 	return be.base
+}
+
+func (be *BashEvent) ToProtobufEvent() *pb.Event {
+	return &pb.Event{
+		Timestamp: time.Now().Unix(),
+		Uuid:      be.GetUUID(),
+		SrcIp:     "127.0.0.1", // Bash events do not have SrcIP
+		SrcPort:   0,           // Bash events do not have SrcPort
+		DstIp:     "127.0.0.1", // Bash events do not have DstIP
+		DstPort:   0,           // Bash events do not have DstPort
+		Pid:       int64(be.Pid),
+		Pname:     string(be.Comm[:]),
+		Type:      be.BashType,
+		Length:    uint32(len(be.AllLines)),
+		Payload:   []byte(be.AllLines),
+	}
 }
 
 func (be *BashEvent) EventType() Type {

@@ -18,6 +18,7 @@ import (
 	"os"
 	"time"
 
+	pb "github.com/gojue/ecapture/protobuf/gen/v1"
 	"github.com/rs/zerolog"
 )
 
@@ -46,6 +47,7 @@ type IEventStruct interface {
 	EventType() Type
 	GetUUID() string
 	Base() Base
+	ToProtobufEvent() *pb.Event
 }
 
 // CollectorWriter is a custom writer that uses zerolog for event logging.
