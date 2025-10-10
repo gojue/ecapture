@@ -19,11 +19,11 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/gojue/ecapture/pkg/util/ws"
 	pb "github.com/gojue/ecapture/protobuf/gen/v1"
+
 	"golang.org/x/net/websocket"
 	"google.golang.org/protobuf/proto"
-
-	"github.com/gojue/ecapture/pkg/util/ws"
 )
 
 const LogBuffLen = 128

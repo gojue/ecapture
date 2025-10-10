@@ -27,6 +27,7 @@ import (
 
 	pb "github.com/gojue/ecapture/protobuf/gen/v1"
 	"github.com/gojue/ecapture/user/event"
+
 	"google.golang.org/protobuf/proto"
 )
 
@@ -202,7 +203,7 @@ func (ew *eventWorker) Display() error {
 		if err != nil {
 			return err
 		}
-		err = ew.writeToChan(buf.Bytes())
+		return ew.writeToChan(buf.Bytes())
 		// 直接写入日志
 		// err = ew.writeToChan(fmt.Sprintf("PID:%d, Comm:%s, Src:%s:%d, Dest:%s:%d,\n%s", eb.PID, eb.PName, eb.SrcIP, eb.SrcPort, eb.DstIP, eb.DstPort, b))
 	} else {
@@ -215,7 +216,6 @@ func (ew *eventWorker) Display() error {
 		}
 		return ew.writeToChan(encodedData)
 	}
-	return nil
 }
 
 func (ew *eventWorker) writeEvent(e event.IEventStruct) {

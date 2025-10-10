@@ -19,6 +19,7 @@ import (
 	"time"
 
 	pb "github.com/gojue/ecapture/protobuf/gen/v1"
+
 	"github.com/rs/zerolog"
 )
 
