@@ -213,9 +213,9 @@ func (ew *eventWorker) Display() error {
 		if err != nil {
 			return err
 		}
-		err = ew.writeToChan(encodedData)
+		return ew.writeToChan(encodedData)
 	}
-	return err
+	return nil
 }
 
 func (ew *eventWorker) writeEvent(e event.IEventStruct) {
