@@ -19,7 +19,9 @@ import (
 	"fmt"
 	"io"
 
+	pb "github.com/gojue/ecapture/protobuf/gen/v1"
 	"golang.org/x/net/websocket"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/gojue/ecapture/pkg/util/ws"
 )
@@ -28,7 +30,7 @@ const LogBuffLen = 128
 
 type Server struct {
 	addr    string
-	logbuff []string
+	logbuff [][]byte
 	handler func([]byte)
 	hub     *Hub
 	ws      *ws.Server
@@ -40,7 +42,7 @@ type Server struct {
 func NewServer(addr string, logWriter io.Writer) *Server {
 	s := &Server{
 		addr:    addr,
-		logbuff: make([]string, 0, LogBuffLen),
+		logbuff: make([][]byte, 0, LogBuffLen),
 		logger:  logWriter,
 		hub:     newHub(),
 		ctx:     context.Background(),
@@ -81,48 +83,32 @@ func (s *Server) handleWebSocket(conn *websocket.Conn) {
 
 func (s *Server) sendLogBuff(c *Client) {
 	for _, log := range s.logbuff {
-		c.send <- []byte(log)
+		c.send <- log
 	}
-}
-
-func (s *Server) write(data []byte, logType eqMessageType) (int, error) {
-	if s.ws == nil {
-		return 0, fmt.Errorf("websocket server not initialized")
-	}
-	if s.hub == nil {
-		return 0, fmt.Errorf("hub not initialized")
-	}
-
-	hb := new(eqMessage)
-	hb.LogType = logType
-	hb.Payload = data
-	payload, err := hb.Encode()
-	if err != nil {
-		return 0, err
-	}
-
-	s.hub.broadcastMessage(payload)
-	return len(data), nil
 }
 
 // WriteLog writes data to the WebSocket server.
 func (s *Server) WriteLog(data []byte) (n int, e error) {
+	le := new(pb.LogEntry)
+	le.LogType = pb.LogType_LOG_TYPE_PROCESS_LOG
+	le.Payload = &pb.LogEntry_RunLog{RunLog: string(data)}
+	encodedData, err := proto.Marshal(le)
 	// 如果程序初始化的日志缓冲区已满，则不再添加新的日志
 	if len(s.logbuff) <= LogBuffLen {
-		hb := new(eqMessage)
-		hb.LogType = LogTypeProcessLog
-		hb.Payload = data
-		payload, err := hb.Encode()
 		if err == nil {
-			s.logbuff = append(s.logbuff, string(payload))
+			s.logbuff = append(s.logbuff, encodedData)
 		}
+		return len(data), nil
 	}
-	return s.write(data, LogTypeProcessLog)
+	s.hub.broadcastMessage(encodedData)
+	return len(data), nil
 }
 
 // WriteEvent writes an event to the WebSocket server.
 func (s *Server) WriteEvent(data []byte) (n int, e error) {
-	return s.write(data, LogTypeEvent)
+
+	s.hub.broadcastMessage(data)
+	return len(data), nil
 }
 
 func (s *Server) Close() {

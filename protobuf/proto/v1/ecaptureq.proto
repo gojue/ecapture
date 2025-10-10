@@ -1,0 +1,44 @@
+syntax = "proto3";
+
+package event;
+
+option go_package = "./pb";
+
+enum LogType {
+  LOG_TYPE_HEARTBEAT = 0;
+  LOG_TYPE_PROCESS_LOG = 1;
+  LOG_TYPE_EVENT = 2;
+}
+
+// Base 消息定义
+message Event {
+  int64 timestamp = 1;
+  string uuid = 2;
+  string src_ip = 3;
+  uint32 src_port = 4;
+  string dst_ip = 5;
+  uint32 dst_port = 6;
+  int64 pid = 7;
+  string pname = 8;
+  uint32 type = 9;
+  uint32 length = 10;
+  bytes payload = 11;
+}
+
+message Heartbeat {
+  int64 timestamp = 1;
+  int64 count = 2;
+  string message = 3;
+}
+
+
+
+message LogEntry {
+  LogType log_type = 1;
+
+  oneof payload {
+    Event event_payload = 2;
+    Heartbeat heartbeat_payload = 3;
+    string run_log = 4;
+  }
+}

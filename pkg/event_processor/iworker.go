@@ -16,7 +16,6 @@ package event_processor
 
 import (
 	"bytes"
-	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -26,7 +25,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	pb "github.com/gojue/ecapture/protobuf/gen/v1"
 	"github.com/gojue/ecapture/user/event"
+	"google.golang.org/protobuf/proto"
 )
 
 type IWorker interface {
@@ -68,7 +69,7 @@ type eventWorker struct {
 	incoming chan event.IEventStruct
 	//events      []user.IEventStruct
 	originEvent      event.IEventStruct
-	outComing        chan string
+	outComing        chan []byte
 	status           ProcessStatus
 	packetType       PacketType
 	ticker           *time.Ticker
@@ -158,10 +159,10 @@ func (ew *eventWorker) Write(e event.IEventStruct) error {
 	return err
 }
 
-func (ew *eventWorker) writeToChan(s string) error {
+func (ew *eventWorker) writeToChan(b []byte) error {
 	var err error
 	select {
-	case ew.outComing <- s:
+	case ew.outComing <- b:
 	default:
 		err = ErrEventWorkerOutcomingFull
 	}
@@ -192,21 +193,29 @@ func (ew *eventWorker) Display() error {
 	eb = &oeb
 	eb.Type = uint32(ew.parser.ParserType())
 	eb.UUID = ew.uuidOutput
-	eb.PayloadBase64 = base64.StdEncoding.EncodeToString(b[:])
+	//eb.PayloadBase64 = base64.StdEncoding.EncodeToString(b[:])
 
 	//iWorker只负责写入，不应该打印。
 	var err error
 	_, ok := ew.processor.logger.(event.CollectorWriter)
 	if ok {
-		// 直接写入日志
-		err = ew.writeToChan(fmt.Sprintf("PID:%d, Comm:%s, Src:%s:%d, Dest:%s:%d,\n%s", eb.PID, eb.PName, eb.SrcIP, eb.SrcPort, eb.DstIP, eb.DstPort, b))
-	} else {
-		var payload []byte
-		payload, err = eb.Encode()
+		var buf bytes.Buffer
+		_, err = fmt.Fprintf(&buf, "PID:%d, Comm:%s, Src:%s:%d, Dest:%s:%d,\n%s", eb.PID, eb.PName, eb.SrcIP, eb.SrcPort, eb.DstIP, eb.DstPort, b)
 		if err != nil {
 			return err
 		}
-		err = ew.writeToChan(string(payload))
+		err = ew.writeToChan(buf.Bytes())
+		// 直接写入日志
+		// err = ew.writeToChan(fmt.Sprintf("PID:%d, Comm:%s, Src:%s:%d, Dest:%s:%d,\n%s", eb.PID, eb.PName, eb.SrcIP, eb.SrcPort, eb.DstIP, eb.DstPort, b))
+	} else {
+		le := new(pb.LogEntry)
+		le.LogType = pb.LogType_LOG_TYPE_EVENT
+		le.Payload = &pb.LogEntry_EventPayload{EventPayload: &pb.Event{}}
+		encodedData, err := proto.Marshal(le)
+		if err != nil {
+			return err
+		}
+		err = ew.writeToChan(encodedData)
 	}
 	return err
 }
