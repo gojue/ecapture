@@ -58,7 +58,7 @@ func (ne *NsprDataEvent) Decode(payload []byte) (err error) {
 	}
 	decodedKtime, err := DecodeKtime(int64(ne.Timestamp), true)
 	if err == nil {
-		ne.Timestamp = uint64(uint64(decodedKtime.UnixNano()))
+		ne.Timestamp = uint64(decodedKtime.UnixNano())
 	}
 	return nil
 }

@@ -38,7 +38,7 @@ func (ge *GoTLSEvent) Decode(payload []byte) error {
 	}
 	decodedKtime, err := DecodeKtime(int64(ge.TimestampNS), true)
 	if err == nil {
-		ge.TimestampNS = uint64(uint64(decodedKtime.UnixNano()))
+		ge.TimestampNS = uint64(decodedKtime.UnixNano())
 	}
 
 	return err
