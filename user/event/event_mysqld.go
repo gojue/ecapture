@@ -101,7 +101,7 @@ func (me *MysqldEvent) Decode(payload []byte) (err error) {
 
 	decodedKtime, err := DecodeKtime(int64(me.Timestamp), true)
 	if err == nil {
-		me.Timestamp = uint64(decodedKtime.Unix())
+		me.Timestamp = uint64(uint64(decodedKtime.UnixNano()))
 	}
 
 	return nil

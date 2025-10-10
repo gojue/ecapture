@@ -57,7 +57,7 @@ func (pe *PostgresEvent) Decode(payload []byte) (err error) {
 	}
 	decodedKtime, err := DecodeKtime(int64(pe.Timestamp), true)
 	if err == nil {
-		pe.Timestamp = uint64(decodedKtime.Unix())
+		pe.Timestamp = uint64(uint64(decodedKtime.UnixNano()))
 	}
 	return nil
 }

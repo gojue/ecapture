@@ -58,7 +58,7 @@ func (ge *GnutlsDataEvent) Decode(payload []byte) (err error) {
 
 	decodedKtime, err := DecodeKtime(int64(ge.Timestamp), true)
 	if err == nil {
-		ge.Timestamp = uint64(decodedKtime.Unix())
+		ge.Timestamp = uint64(uint64(decodedKtime.UnixNano()))
 	}
 
 	return nil
