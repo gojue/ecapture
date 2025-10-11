@@ -14,7 +14,6 @@
 ## 编译
 
 ```bash
-cd /home/hugo/zenyanle_ecap/ecapture/utils/protobuf_visualizer
 go build -o pb_debugger pb_debugger.go
 ```
 
