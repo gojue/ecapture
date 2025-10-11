@@ -240,9 +240,6 @@ func (se *SSLDataEvent) ToProtobufEvent() *pb.Event {
 		Uuid:      se.GetUUID(),
 		Pid:       int64(se.Pid),
 		Pname:     commStr(se.Comm[:]),
-		Type:      uint32(se.DataType),
-		Length:    uint32(se.DataLen),
-		Payload:   se.Data[:se.DataLen],
 	}
 
 	// Parse tuple for IP addresses and ports

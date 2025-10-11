@@ -209,7 +209,12 @@ func (ew *eventWorker) Display() error {
 	} else {
 		le := new(pb.LogEntry)
 		le.LogType = pb.LogType_LOG_TYPE_EVENT
-		le.Payload = &pb.LogEntry_EventPayload{EventPayload: ew.originEvent.ToProtobufEvent()}
+		ep := ew.originEvent.ToProtobufEvent()
+		ep.Uuid = ew.uuidOutput
+		ep.Type = uint32(ew.parser.ParserType())
+		ep.Payload = b
+		ep.Length = uint32(len(b))
+		le.Payload = &pb.LogEntry_EventPayload{EventPayload: ep}
 		encodedData, err := proto.Marshal(le)
 		if err != nil {
 			return err
