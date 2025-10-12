@@ -1,6 +1,17 @@
+# v1.4.3 (2025-10-12)
+
+## What's Changed
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v1.4.2...v1.4.3
+<hr>
+
 # v1.4.2 (2025-09-27)
 
 ## What's Changed
+* feat: add eCaptureQ GUI application documentation in English, Chinese… by @cfc4n in https://github.com/gojue/ecapture/pull/836
+* kern/gotls_kern: refactored event creation logic by @h0x0er in https://github.com/gojue/ecapture/pull/839
+* feat: enhance PR build debug workflow with permissions and detailed completion message by @cfc4n in https://github.com/gojue/ecapture/pull/843
+
 
 **Full Changelog**: https://github.com/gojue/ecapture/compare/v1.4.1...v1.4.2
 <hr>
