@@ -1,9 +1,16 @@
 # v1.4.3 (2025-10-12)
 
 ## What's Changed
+* fix: resolve kernel 4.19 compatibility issue with .rodata maps in eBPF bytecode by @Copilot in https://github.com/gojue/ecapture/pull/846
+* bugfix: keep nanoseconds precision for timestamps by @h0x0er in https://github.com/gojue/ecapture/pull/850
+* Refactor: Migrate Agent-Server Communication Protocol to Protobuf by @zenyanle in https://github.com/gojue/ecapture/pull/851
+* bugfix: update permissions and improve error handling in PR comment workflow by @cfc4n in https://github.com/gojue/ecapture/pull/853
+* feat: update eCapture logo and enhance eCaptureQ GUI application section in README files by @cfc4n in https://github.com/gojue/ecapture/pull/854
 
-**Full Changelog**: https://github.com/gojue/ecapture/compare/v1.4.2...v1.4.3
-<hr>
+## New Contributors
+* @Copilot made their first contribution in https://github.com/gojue/ecapture/pull/846
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v1.4.2...v1.4.3<hr>
 
 # v1.4.2 (2025-09-27)
 
