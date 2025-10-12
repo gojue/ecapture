@@ -93,7 +93,7 @@ func (c *Client) writePump() {
 				_, _ = c.logger.Write([]byte("writePump: sender channel closed\n"))
 				return
 			}
-			err := websocket.Message.Send(c.conn, string(message))
+			err := websocket.Message.Send(c.conn, message)
 			if err != nil {
 				_, _ = c.logger.Write([]byte("writePump: error sending message\n"))
 				return
