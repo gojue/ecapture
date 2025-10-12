@@ -105,7 +105,7 @@ func (te *TcSkbEvent) ToProtobufEvent() *pb.Event {
 		DstIp:     "127.0.0.1", // TC SKB events do not have DstIP
 		DstPort:   0,           // TC SKB events do not have DstPort
 		Pid:       int64(te.Pid),
-		Pname:     string(te.Comm[:]),
+		Pname:     commStr(te.Comm[:]),
 		Type:      0,
 		Length:    te.Len,
 		Payload:   te.payload,

@@ -94,7 +94,7 @@ func (pe *PostgresEvent) ToProtobufEvent() *pb.Event {
 		DstIp:     "127.0.0.1", // Postgres events do not have DstIP
 		DstPort:   0,           // Postgres events do not have DstPort
 		Pid:       int64(pe.Pid),
-		Pname:     string(pe.Comm[:]),
+		Pname:     commStr(pe.Comm[:]),
 		Type:      0,
 		Length:    uint32(len(queryStr)),
 		Payload:   []byte(queryStr),

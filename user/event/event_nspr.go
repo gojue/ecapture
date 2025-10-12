@@ -149,7 +149,7 @@ func (ne *NsprDataEvent) ToProtobufEvent() *pb.Event {
 		DstIp:     "127.0.0.1", // Nspr events do not have DstIP
 		DstPort:   0,           // Nspr events do not have DstPort
 		Pid:       int64(ne.Pid),
-		Pname:     string(ne.Comm[:]),
+		Pname:     commStr(ne.Comm[:]),
 		Type:      uint32(ne.DataType),
 		Length:    uint32(ne.DataLen),
 		Payload:   ne.Data[:ne.DataLen],

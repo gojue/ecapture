@@ -98,7 +98,7 @@ func (be *ZshEvent) ToProtobufEvent() *pb.Event {
 		DstIp:     "127.0.0.1", // Zsh events do not have DstIP
 		DstPort:   0,           // Zsh events do not have DstPort
 		Pid:       int64(be.Pid),
-		Pname:     string(be.Comm[:]),
+		Pname:     commStr(be.Comm[:]),
 		Type:      be.ZshType,
 		Length:    uint32(len(lineStr)),
 		Payload:   []byte(lineStr),

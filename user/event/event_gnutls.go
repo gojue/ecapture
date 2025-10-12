@@ -131,7 +131,7 @@ func (ge *GnutlsDataEvent) ToProtobufEvent() *pb.Event {
 		DstIp:     "127.0.0.1", // Gnutls events do not have DstIP
 		DstPort:   0,           // Gnutls events do not have DstPort
 		Pid:       int64(ge.Pid),
-		Pname:     string(ge.Comm[:]),
+		Pname:     commStr(ge.Comm[:]),
 		Type:      uint32(ge.DataType),
 		Length:    uint32(ge.DataLen),
 		Payload:   ge.Data[:ge.DataLen],

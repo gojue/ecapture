@@ -109,7 +109,7 @@ func (be *BashEvent) ToProtobufEvent() *pb.Event {
 		DstIp:     "127.0.0.1", // Bash events do not have DstIP
 		DstPort:   0,           // Bash events do not have DstPort
 		Pid:       int64(be.Pid),
-		Pname:     string(be.Comm[:]),
+		Pname:     commStr(be.Comm[:]),
 		Type:      be.BashType,
 		Length:    uint32(len(be.AllLines)),
 		Payload:   []byte(be.AllLines),

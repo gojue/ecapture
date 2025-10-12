@@ -144,7 +144,7 @@ func (me *MysqldEvent) ToProtobufEvent() *pb.Event {
 		DstIp:     "127.0.0.1", // Mysqld events do not have DstIP
 		DstPort:   0,           // Mysqld events do not have DstPort
 		Pid:       int64(me.Pid),
-		Pname:     string(me.Comm[:]),
+		Pname:     commStr(me.Comm[:]),
 		Type:      uint32(me.Retval),
 		Length:    uint32(me.Len),
 		Payload:   me.Query[:me.Len],
