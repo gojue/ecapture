@@ -21,6 +21,9 @@ import (
 	"encoding/binary"
 	"fmt"
 	"strings"
+	"time"
+
+	pb "github.com/gojue/ecapture/protobuf/gen/v1"
 
 	"golang.org/x/sys/unix"
 )
@@ -83,6 +86,23 @@ func (be *ZshEvent) Clone() IEventStruct {
 
 func (pe *ZshEvent) Base() Base {
 	return Base{}
+}
+
+func (be *ZshEvent) ToProtobufEvent() *pb.Event {
+	lineStr := strings.TrimSuffix(unix.ByteSliceToString(be.Line[:]), "\n")
+	return &pb.Event{
+		Timestamp: time.Now().Unix(),
+		Uuid:      be.GetUUID(),
+		SrcIp:     "127.0.0.1", // Zsh events do not have SrcIP
+		SrcPort:   0,           // Zsh events do not have SrcPort
+		DstIp:     "127.0.0.1", // Zsh events do not have DstIP
+		DstPort:   0,           // Zsh events do not have DstPort
+		Pid:       int64(be.Pid),
+		Pname:     commStr(be.Comm[:]),
+		Type:      be.ZshType,
+		Length:    uint32(len(lineStr)),
+		Payload:   []byte(lineStr),
+	}
 }
 
 func (be *ZshEvent) EventType() Type {

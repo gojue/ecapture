@@ -18,6 +18,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+
+	pb "github.com/gojue/ecapture/protobuf/gen/v1"
 )
 
 // openssl_mastersecret_events
@@ -116,6 +118,22 @@ func (mse *MasterSecretEvent) Base() Base {
 		UUID:      mse.GetUUID(),
 	}
 	return mse.base
+}
+
+func (mse *MasterSecretEvent) ToProtobufEvent() *pb.Event {
+	return &pb.Event{
+		Timestamp: 0, // Timestamp is not set in this event
+		Uuid:      mse.GetUUID(),
+		SrcIp:     "127.0.0.1", // MasterSecret events do not have SrcIP
+		SrcPort:   0,           // MasterSecret events do not have SrcPort
+		DstIp:     "127.0.0.1", // MasterSecret events do not have DstIP
+		DstPort:   0,           // MasterSecret events do not have DstPort
+		Pid:       0,           // MasterSecret events do not have PID
+		Pname:     "",          // MasterSecret events do not have process name
+		Type:      uint32(mse.Version),
+		Length:    uint32(len(mse.payload)),
+		Payload:   []byte(mse.payload),
+	}
 }
 
 func (mse *MasterSecretEvent) EventType() Type {
@@ -219,6 +237,22 @@ func (msbe *MasterSecretBSSLEvent) Base() Base {
 		UUID:      msbe.GetUUID(),
 	}
 	return msbe.base
+}
+
+func (msbe *MasterSecretBSSLEvent) ToProtobufEvent() *pb.Event {
+	return &pb.Event{
+		Timestamp: 0, // Timestamp is not set in this event
+		Uuid:      msbe.GetUUID(),
+		SrcIp:     "127.0.0.1", // MasterSecretBSSL events do not have SrcIP
+		SrcPort:   0,           // MasterSecretBSSL events do not have SrcPort
+		DstIp:     "127.0.0.1", // MasterSecretBSSL events do not have DstIP
+		DstPort:   0,           // MasterSecretBSSL events do not have DstPort
+		Pid:       0,           // MasterSecretBSSL events do not have PID
+		Pname:     "",          // MasterSecretBSSL events do not have process name
+		Type:      uint32(msbe.Version),
+		Length:    uint32(len(msbe.payload)),
+		Payload:   []byte(msbe.payload),
+	}
 }
 
 func (msbe *MasterSecretBSSLEvent) EventType() Type {

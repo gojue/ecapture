@@ -22,6 +22,8 @@ import (
 	"encoding/binary"
 	"fmt"
 
+	pb "github.com/gojue/ecapture/protobuf/gen/v1"
+
 	"golang.org/x/sys/unix"
 )
 
@@ -80,6 +82,23 @@ func (pe *PostgresEvent) Clone() IEventStruct {
 
 func (pe *PostgresEvent) Base() Base {
 	return Base{}
+}
+
+func (pe *PostgresEvent) ToProtobufEvent() *pb.Event {
+	queryStr := unix.ByteSliceToString(pe.Query[:])
+	return &pb.Event{
+		Timestamp: int64(pe.Timestamp),
+		Uuid:      pe.GetUUID(),
+		SrcIp:     "127.0.0.1", // Postgres events do not have SrcIP
+		SrcPort:   0,           // Postgres events do not have SrcPort
+		DstIp:     "127.0.0.1", // Postgres events do not have DstIP
+		DstPort:   0,           // Postgres events do not have DstPort
+		Pid:       int64(pe.Pid),
+		Pname:     commStr(pe.Comm[:]),
+		Type:      0,
+		Length:    uint32(len(queryStr)),
+		Payload:   []byte(queryStr),
+	}
 }
 
 func (pe *PostgresEvent) EventType() Type {

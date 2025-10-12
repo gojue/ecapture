@@ -33,7 +33,7 @@ type EventProcessor struct {
 	// 收包，来自调用者发来的新事件
 	incoming chan event.IEventStruct
 	// send to output
-	outComing chan string
+	outComing chan []byte
 	// destroyConn sock
 	destroyConn chan uint64
 	// key为 PID+UID+COMMON等确定唯一的信息
@@ -55,7 +55,7 @@ func (ep *EventProcessor) GetLogger() io.Writer {
 
 func (ep *EventProcessor) init() {
 	ep.incoming = make(chan event.IEventStruct, MaxIncomingChanLen)
-	ep.outComing = make(chan string, MaxIncomingChanLen)
+	ep.outComing = make(chan []byte, MaxIncomingChanLen)
 	ep.destroyConn = make(chan uint64, MaxIncomingChanLen)
 	ep.closeChan = make(chan bool)
 	ep.errChan = make(chan error, 16)
@@ -80,7 +80,7 @@ func (ep *EventProcessor) Serve() error {
 		case destroyUUID := <-ep.destroyConn:
 			ep.destroyWorkers(destroyUUID)
 		case s := <-ep.outComing:
-			_, _ = ep.GetLogger().Write([]byte(s))
+			_, _ = ep.GetLogger().Write(s)
 		case _ = <-ep.closeChan:
 			ep.clearAllWorkers()
 			return nil

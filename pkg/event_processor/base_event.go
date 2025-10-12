@@ -19,6 +19,7 @@ import (
 	"encoding/binary"
 	"fmt"
 
+	pb "github.com/gojue/ecapture/protobuf/gen/v1"
 	"github.com/gojue/ecapture/user/event"
 )
 
@@ -178,6 +179,17 @@ func (be *BaseEvent) Base() event.Base {
 		UUID:      be.GetUUID(),
 		PID:       int64(be.Pid),
 		PName:     CToGoString(be.Comm[:]),
+	}
+}
+
+func (be *BaseEvent) ToProtobufEvent() *pb.Event {
+	// Convert BaseEvent to protobuf Event. Some fields (IPs/ports) are not available at this layer
+	// and will remain zero values. Display() will fill Type/Length/Payload accordingly.
+	return &pb.Event{
+		Timestamp: int64(be.Timestamp),
+		Uuid:      be.GetUUID(),
+		Pid:       int64(be.Pid),
+		Pname:     CToGoString(be.Comm[:]),
 	}
 }
 

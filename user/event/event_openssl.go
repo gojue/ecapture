@@ -23,6 +23,8 @@ import (
 	"strings"
 	"unsafe"
 
+	pb "github.com/gojue/ecapture/protobuf/gen/v1"
+
 	"golang.org/x/sys/unix"
 )
 
@@ -232,6 +234,37 @@ func (se *SSLDataEvent) Base() Base {
 	return se.base
 }
 
+func (se *SSLDataEvent) ToProtobufEvent() *pb.Event {
+	event := &pb.Event{
+		Timestamp: int64(se.Timestamp),
+		Uuid:      se.GetUUID(),
+		Pid:       int64(se.Pid),
+		Pname:     commStr(se.Comm[:]),
+	}
+
+	// Parse tuple for IP addresses and ports
+	ips := strings.Split(se.Tuple, "-")
+	if len(ips) == 2 {
+		srcParts := strings.Split(ips[0], ":")
+		destParts := strings.Split(ips[1], ":")
+
+		if len(srcParts) == 2 && len(destParts) == 2 {
+			event.SrcIp = srcParts[0]
+			event.DstIp = destParts[0]
+
+			if srcPort, err := strconv.ParseUint(srcParts[1], 10, 32); err == nil {
+				event.SrcPort = uint32(srcPort)
+			}
+
+			if dstPort, err := strconv.ParseUint(destParts[1], 10, 32); err == nil {
+				event.DstPort = uint32(dstPort)
+			}
+		}
+	}
+
+	return event
+}
+
 func (se *SSLDataEvent) EventType() Type {
 	return se.eventType
 }
@@ -312,6 +345,40 @@ func (ce *ConnDataEvent) Base() Base {
 	}
 
 	return ce.base
+}
+
+func (ce *ConnDataEvent) ToProtobufEvent() *pb.Event {
+	event := &pb.Event{
+		Timestamp: int64(ce.TimestampNs),
+		Uuid:      ce.GetUUID(),
+		Pid:       int64(ce.Pid),
+		Pname:     commStr(ce.Comm[:]),
+		Type:      0,
+		Length:    uint32(len(ce.Tuple)),
+		Payload:   []byte(ce.Tuple),
+	}
+
+	// Parse tuple for IP addresses and ports
+	ips := strings.Split(ce.Tuple, "-")
+	if len(ips) == 2 {
+		srcParts := strings.Split(ips[0], ":")
+		destParts := strings.Split(ips[1], ":")
+
+		if len(srcParts) == 2 && len(destParts) == 2 {
+			event.SrcIp = srcParts[0]
+			event.DstIp = destParts[0]
+
+			if srcPort, err := strconv.ParseUint(srcParts[1], 10, 32); err == nil {
+				event.SrcPort = uint32(srcPort)
+			}
+
+			if dstPort, err := strconv.ParseUint(destParts[1], 10, 32); err == nil {
+				event.DstPort = uint32(dstPort)
+			}
+		}
+	}
+
+	return event
 }
 
 func (ce *ConnDataEvent) Payload() []byte {

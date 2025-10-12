@@ -18,6 +18,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+
+	pb "github.com/gojue/ecapture/protobuf/gen/v1"
 )
 
 const (
@@ -101,6 +103,22 @@ func (mse *MasterSecretGnutlsEvent) Base() Base {
 		UUID:      mse.GetUUID(),
 	}
 	return mse.base
+}
+
+func (mse *MasterSecretGnutlsEvent) ToProtobufEvent() *pb.Event {
+	return &pb.Event{
+		Timestamp: 0, // Timestamp is not set in this event
+		Uuid:      mse.GetUUID(),
+		SrcIp:     "127.0.0.1", // MasterSecretGnutls events do not have SrcIP
+		SrcPort:   0,           // MasterSecretGnutls events do not have SrcPort
+		DstIp:     "127.0.0.1", // MasterSecretGnutls events do not have DstIP
+		DstPort:   0,           // MasterSecretGnutls events do not have DstPort
+		Pid:       0,           // MasterSecretGnutls events do not have PID
+		Pname:     "",          // MasterSecretGnutls events do not have process name
+		Type:      uint32(mse.Version),
+		Length:    uint32(len(mse.payload)),
+		Payload:   []byte(mse.payload),
+	}
 }
 
 func (mse *MasterSecretGnutlsEvent) EventType() Type {

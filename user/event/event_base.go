@@ -28,7 +28,7 @@ type Base struct {
 	PName         string `json:"pname"`
 	Type          uint32 `json:"type"` // 事件类型
 	Length        uint32 `json:"length"`
-	PayloadBase64 string `json:"payload_base64"`
+	PayloadBase64 string `json:"payload"`
 }
 
 // Encode 将 PacketData 编码为 JSON 字节流

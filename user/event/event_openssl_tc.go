@@ -18,6 +18,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+
+	pb "github.com/gojue/ecapture/protobuf/gen/v1"
 )
 
 const (
@@ -92,6 +94,22 @@ func (te *TcSkbEvent) Base() Base {
 		UUID:      te.GetUUID(),
 	}
 	return te.base
+}
+
+func (te *TcSkbEvent) ToProtobufEvent() *pb.Event {
+	return &pb.Event{
+		Timestamp: int64(te.Ts),
+		Uuid:      te.GetUUID(),
+		SrcIp:     "127.0.0.1", // TC SKB events do not have SrcIP
+		SrcPort:   0,           // TC SKB events do not have SrcPort
+		DstIp:     "127.0.0.1", // TC SKB events do not have DstIP
+		DstPort:   0,           // TC SKB events do not have DstPort
+		Pid:       int64(te.Pid),
+		Pname:     commStr(te.Comm[:]),
+		Type:      0,
+		Length:    te.Len,
+		Payload:   te.payload,
+	}
 }
 
 func (te *TcSkbEvent) EventType() Type {

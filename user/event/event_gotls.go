@@ -6,6 +6,8 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"fmt"
+
+	pb "github.com/gojue/ecapture/protobuf/gen/v1"
 )
 
 type inner struct {
@@ -75,6 +77,22 @@ func (ge *GoTLSEvent) Base() Base {
 		Type:          uint32(ge.inner.PayloadType),
 		Length:        uint32(ge.Len),
 		PayloadBase64: base64.StdEncoding.EncodeToString(ge.Data[:ge.Len]),
+	}
+}
+
+func (ge *GoTLSEvent) ToProtobufEvent() *pb.Event {
+	return &pb.Event{
+		Timestamp: int64(ge.TimestampNS),
+		Uuid:      ge.GetUUID(),
+		SrcIp:     "127.0.0.1", // GoTLS events do not have SrcIP
+		SrcPort:   0,           // GoTLS events do not have SrcPort
+		DstIp:     "127.0.0.1", // GoTLS events do not have DstIP
+		DstPort:   0,           // GoTLS events do not have DstPort
+		Pid:       int64(ge.Pid),
+		Pname:     commStr(ge.Comm[:]),
+		Type:      uint32(ge.inner.PayloadType),
+		Length:    uint32(ge.Len),
+		Payload:   ge.Data[:ge.Len],
 	}
 }
 

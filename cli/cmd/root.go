@@ -277,11 +277,7 @@ func runModule(modName string, modConfig config.IConfig) error {
 		multi := zerolog.MultiLevelWriter(consoleWriter, eqWriter)
 		logger = zerolog.New(multi).With().Timestamp().Logger()
 
-		// event Writer
-		evConsoleWriter := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339, NoColor: true}
-		eqeWriter := ecaptureQEventWriter{es: es}
-		multiEvent := zerolog.MultiLevelWriter(evConsoleWriter, eqeWriter)
-		ecw = zerolog.New(multiEvent).With().Timestamp().Logger()
+		ecw = ecaptureQEventWriter{es: es}
 	} else {
 		logger, err = initLogger(globalConf.LoggerAddr, modConfig, false)
 		if err != nil {

@@ -15,9 +15,6 @@
 package cmd
 
 import (
-	"encoding/json"
-	"fmt"
-
 	"github.com/gojue/ecapture/pkg/ecaptureq"
 )
 
@@ -35,34 +32,5 @@ type ecaptureQEventWriter struct {
 }
 
 func (eew ecaptureQEventWriter) Write(data []byte) (n int, e error) {
-	// 检查是否包含message键
-	b, message, err := checkMessageKeyWithMap(data)
-	if err != nil {
-		return 0, fmt.Errorf("check message failed: %w", err)
-	}
-	if b {
-		return eew.es.WriteEvent([]byte(message))
-	}
 	return eew.es.WriteEvent(data)
-}
-
-func checkMessageKeyWithMap(jsonData []byte) (bool, string, error) {
-	var data map[string]any
-
-	// 解码JSON到map
-	if err := json.Unmarshal(jsonData, &data); err != nil {
-		return false, "", fmt.Errorf("JSON解码失败: %w", err)
-	}
-
-	// 检查是否存在message键
-	if message, exists := data["message"]; exists {
-		// 尝试将message转换为字符串
-		if msgStr, ok := message.(string); ok {
-			return true, msgStr, nil
-		}
-		// 如果不是字符串类型，返回其字符串表示
-		return true, "", nil
-	}
-
-	return false, "", nil
 }
