@@ -57,8 +57,8 @@ const (
 	MaxSupportedOpenSSL33Version  = 4 // openssl 3.3.4
 	SupportedOpenSSL34Version0    = 0 // openssl 3.4.0
 	MaxSupportedOpenSSL34Version  = 2 // openssl 3.4.2
-	SupportedOpenSSL35Version0    = 2 // openssl 3.5.2
-	MaxSupportedOpenSSL35Version  = 0 // openssl 3.5.1
+	SupportedOpenSSL35Version0    = 4 // openssl 3.5.0 ~ 3.5.4
+	MaxSupportedOpenSSL35Version  = 4 // openssl 3.5.4
 )
 
 var (
