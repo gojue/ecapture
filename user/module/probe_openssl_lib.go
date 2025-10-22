@@ -64,7 +64,7 @@ const (
 var (
 	ErrProbeOpensslVerNotFound         = errors.New("OpenSSL/BoringSSL version not found")
 	ErrProbeOpensslVerBytecodeNotFound = errors.New("OpenSSL/BoringSSL version bytecode not found")
-	OpensslNoticeVersionGuideAndroid   = "\"--ssl_version='boringssl_a_13'\" , \"--ssl_version='boringssl_a_14'\""
+	OpensslNoticeVersionGuideAndroid   = "\"--ssl_version='boringssl_a_13'\" , \"--ssl_version='boringssl_a_14'\" , \"--ssl_version='boringssl_a_15'\" , \"--ssl_version='boringssl_a_16'\""
 	OpensslNoticeVersionGuideLinux     = "\"--ssl_version='openssl x.x.x'\", support openssl 1.0.x, 1.1.x, 3.x or newer"
 	OpensslNoticeUsedDefault           = "If you want to use the specific version, please set the sslVersion parameter with %s, or use \"ecapture tls --help\" for more help."
 )
@@ -93,6 +93,7 @@ func (m *MOpenSSLProbe) initOpensslOffset() {
 		"boringssl_a_13":       "boringssl_a_13_kern.o",
 		"boringssl_a_14":       "boringssl_a_14_kern.o",
 		"boringssl_a_15":       "boringssl_a_15_kern.o",
+		"boringssl_a_16":       "boringssl_a_16_kern.o",
 		AndroidDefaultFilename: "boringssl_a_13_kern.o",
 
 		// non-Android boringssl
