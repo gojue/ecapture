@@ -123,6 +123,9 @@ func (m *MOpenSSLProbe) setupManagersPcap() error {
 			{
 				Name: "skb_events",
 			},
+			{
+				Name: "skb_events_ringbuf",
+			},
 		},
 	}
 
@@ -170,6 +173,15 @@ func (m *MOpenSSLProbe) initDecodeFunPcap() error {
 	sslEvent := &event.TcSkbEvent{}
 	// sslEvent.SetModule(m)
 	m.eventFuncMaps[SkbEventsMap] = sslEvent
+
+	// Try to get Ring Buffer map (optional - for better performance)
+	SkbEventsRingbufMap, found, err := m.bpfManager.GetMap("skb_events_ringbuf")
+	if err == nil && found {
+		m.eventMaps = append(m.eventMaps, SkbEventsRingbufMap)
+		ringbufEvent := &event.TcSkbEvent{}
+		m.eventFuncMaps[SkbEventsRingbufMap] = ringbufEvent
+		m.logger.Info().Msg("Ring buffer map available, using it for better packet capture performance")
+	}
 
 	MasterkeyEventsMap, found, err := m.bpfManager.GetMap("mastersecret_events")
 	if err != nil {
