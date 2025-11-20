@@ -288,13 +288,44 @@ func (m *Module) readEvents() error {
 }
 
 func (m *Module) perfEventReader(errChan chan error, em *ebpf.Map) {
-	m.logger.Info().Int("mapSize(MB)", m.conf.GetPerCpuMapSize()/1024/1024).Msg("perfEventReader created")
-	rd, err := perf.NewReader(em, m.conf.GetPerCpuMapSize())
+	// Start with 64 pages per CPU (matching ptcpdump) for better performance
+	pageSize := os.Getpagesize()
+	perCPUBuffer := pageSize * 64 // ~256KB with 4KB pages
+	
+	// Calculate max event size based on packet size
+	maxPacketSize := 65535         // Max IP packet size
+	eventHeaderSize := 36          // TC_PACKET_MIN_SIZE
+	eventSize := eventHeaderSize + maxPacketSize
+	
+	// Dynamically adjust buffer if event is too large
+	if eventSize >= perCPUBuffer {
+		multiplier := 1 + (eventSize / perCPUBuffer)
+		perCPUBuffer = perCPUBuffer * multiplier
+		m.logger.Info().
+			Int("eventSize", eventSize).
+			Int("multiplier", multiplier).
+			Int("adjustedBuffer", perCPUBuffer).
+			Msg("Adjusted perf buffer size for large packets")
+	}
+	
+	// Use configured size if it's larger than our calculated size
+	configuredSize := m.conf.GetPerCpuMapSize()
+	if configuredSize > perCPUBuffer {
+		perCPUBuffer = configuredSize
+	}
+	
+	m.logger.Info().Int("mapSize(MB)", perCPUBuffer/1024/1024).Msg("perfEventReader created")
+	rd, err := perf.NewReader(em, perCPUBuffer)
 	if err != nil {
 		errChan <- fmt.Errorf("creating %s reader dns: %s", em.String(), err.Error())
 		return
 	}
 	m.reader = append(m.reader, rd)
+	
+	// Packet loss statistics tracking
+	var lostPackets uint64 = 0
+	var receivedPackets uint64 = 0
+	
 	go func() {
 		for {
 			//判断ctx是不是结束
@@ -315,10 +346,19 @@ func (m *Module) perfEventReader(errChan chan error, em *ebpf.Map) {
 			}
 
 			if record.LostSamples != 0 {
-				m.logger.Warn().Uint64("lostSamples", record.LostSamples).Msg("perf event ring buffer full, dropped samples")
+				lostPackets += record.LostSamples
+				lossRate := float64(lostPackets) / float64(lostPackets+receivedPackets) * 100
+				m.logger.Warn().
+					Uint64("lostSamples", record.LostSamples).
+					Uint64("totalLost", lostPackets).
+					Uint64("received", receivedPackets).
+					Float64("lossRate", lossRate).
+					Msg("Packet loss detected in perf buffer")
 				continue
 			}
 
+			receivedPackets++
+			
 			var evt event.IEventStruct
 			evt, err = m.child.Decode(em, record.RawSample)
 			if err != nil {
