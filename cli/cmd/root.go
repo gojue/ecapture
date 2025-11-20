@@ -178,8 +178,7 @@ func setModConfig(globalConf config.BaseConfig, modConf config.IConfig) {
 func initLogger(addr string, modConfig config.IConfig, isRorate bool) (zerolog.Logger, error) {
 	var logger zerolog.Logger
 	var err error
-	// Use Stderr for console output to avoid interfering with stdout when used for pcap data
-	consoleWriter := zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.RFC3339}
+	consoleWriter := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}
 	logger = zerolog.New(consoleWriter).With().Timestamp().Logger()
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	if modConfig.GetDebug() {
@@ -267,8 +266,8 @@ func runModule(modName string, modConfig config.IConfig) error {
 				return
 			}
 		}()
-		// log writer - use Stderr to avoid interfering with stdout when used for pcap data
-		consoleWriter := zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.RFC3339}
+		// log writer
+		consoleWriter := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}
 		zerolog.SetGlobalLevel(zerolog.InfoLevel)
 		if modConfig.GetDebug() {
 			zerolog.SetGlobalLevel(zerolog.DebugLevel)

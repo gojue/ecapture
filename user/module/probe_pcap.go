@@ -87,7 +87,6 @@ type MTCProbe struct {
 	masterKeyBuffer *bytes.Buffer
 	tcPacketLocker  *sync.Mutex
 	tcPacketsChan   chan *TcPacket
-	isStdout        bool // true if writing to stdout
 }
 
 func (t *MTCProbe) dumpTcSkb(tcEvent *event.TcSkbEvent) error {
@@ -178,19 +177,9 @@ func (t *MTCProbe) savePcapng() (i int, err error) {
 }
 
 func (t *MTCProbe) createPcapng(netIfs []net.Interface) error {
-	var pcapFile *os.File
-	var err error
-	
-	// Check if output should go to stdout
-	if t.pcapngFilename == "-" || t.pcapngFilename == "stdout" {
-		pcapFile = os.Stdout
-		t.isStdout = true
-	} else {
-		pcapFile, err = os.OpenFile(t.pcapngFilename, os.O_TRUNC|os.O_WRONLY|os.O_CREATE, 0o644)
-		if err != nil {
-			return fmt.Errorf("error creating pcap file: %w", err)
-		}
-		t.isStdout = false
+	pcapFile, err := os.OpenFile(t.pcapngFilename, os.O_TRUNC|os.O_WRONLY|os.O_CREATE, 0o644)
+	if err != nil {
+		return fmt.Errorf("error creating pcap file: %w", err)
 	}
 
 	// TODO : write Application "ecapture.lua" to decode PID/Comm info.
@@ -274,26 +263,14 @@ func (t *MTCProbe) savePcapngSslKeyLog(sslKeyLog []byte) (err error) {
 
 // ServePcap is used to serve pcapng file
 func (t *MTCProbe) ServePcap() {
-	// For stdout, use more aggressive flushing interval
-	flushInterval := 2 * time.Second
-	if t.isStdout {
-		flushInterval = 100 * time.Millisecond
-	}
-	ti := time.NewTicker(flushInterval)
-	
-	// Only log to stderr when writing to stdout to avoid polluting the pcap stream
-	if !t.isStdout {
-		t.logger.Info().Str("pcapng path", t.pcapngFilename).Msg("packets saved into pcapng file.")
-	}
-	
+	ti := time.NewTicker(2 * time.Second)
+	t.logger.Info().Str("pcapng path", t.pcapngFilename).Msg("packets saved into pcapng file.")
 	var allCount int
 	defer func() {
-		if !t.isStdout {
-			if allCount == 0 {
-				t.logger.Warn().Msg("nothing captured, please check your network interface, see \"ecapture tls -h\" for more information.")
-			} else {
-				t.logger.Info().Int("count", allCount).Msg("packets saved into pcapng file.")
-			}
+		if allCount == 0 {
+			t.logger.Warn().Msg("nothing captured, please check your network interface, see \"ecapture tls -h\" for more information.")
+		} else {
+			t.logger.Info().Int("count", allCount).Msg("packets saved into pcapng file.")
 		}
 		ti.Stop()
 	}()
@@ -309,9 +286,7 @@ func (t *MTCProbe) ServePcap() {
 			if e != nil {
 				t.logger.Warn().Err(e).Int("count", i).Msg("save pcapng err, maybe some packets lost.")
 			} else {
-				if !t.isStdout {
-					t.logger.Info().Int("count", n).Msg("packets saved into pcapng file.")
-				}
+				t.logger.Info().Int("count", n).Msg("packets saved into pcapng file.")
 				allCount += n
 			}
 
@@ -333,9 +308,7 @@ func (t *MTCProbe) ServePcap() {
 			if e != nil {
 				t.logger.Info().Err(e).Int("count", i).Msg("save pcapng err, maybe some packets lost.")
 			} else {
-				if !t.isStdout {
-					t.logger.Info().Int("count", n).Msg("packets saved into pcapng file.")
-				}
+				t.logger.Info().Int("count", n).Msg("packets saved into pcapng file.")
 				allCount += n
 			}
 			return
