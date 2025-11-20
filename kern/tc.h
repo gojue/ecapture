@@ -263,6 +263,9 @@ static __always_inline int capture_packets(struct __sk_buff *skb, bool is_ingres
     event.len = skb->len;
     event.ifindex = skb->ifindex;
 
+    u64 flags = BPF_F_CURRENT_CPU;
+    flags |= (u64)skb->len << 32;
+
     // via aquasecurity/tracee    tracee.bpf.c tc_probe
     // if net_packet event not chosen, send minimal data only:
     //     timestamp (u64)      8 bytes
@@ -271,33 +274,7 @@ static __always_inline int capture_packets(struct __sk_buff *skb, bool is_ingres
     //     packet len (u32)     4 bytes
     //     ifindex (u32)        4 bytes
     size_t pkt_size = TC_PACKET_MIN_SIZE;
-
-    // Try Ring Buffer first for better performance (lock-free, less packet loss)
-    // Fallback to Perf Buffer for backward compatibility
-    struct skb_data_event_t *ringbuf_event = bpf_ringbuf_reserve(&skb_events_ringbuf, pkt_size + skb->len, 0);
-    if (ringbuf_event) {
-        // Ring Buffer available - use it for better performance
-        ringbuf_event->ts = event.ts;
-        ringbuf_event->pid = event.pid;
-        __builtin_memcpy(ringbuf_event->comm, event.comm, TASK_COMM_LEN);
-        ringbuf_event->len = event.len;
-        ringbuf_event->ifindex = event.ifindex;
-        
-        // Copy packet data after the header
-        u64 flags = 0;
-        flags |= (u64)skb->len << 32;
-        long ret = bpf_skb_load_bytes(skb, 0, (void *)(ringbuf_event + 1), skb->len);
-        if (ret >= 0) {
-            bpf_ringbuf_submit(ringbuf_event, flags);
-        } else {
-            bpf_ringbuf_discard(ringbuf_event, 0);
-        }
-    } else {
-        // Ring Buffer not available or full - fallback to Perf Buffer
-        u64 flags = BPF_F_CURRENT_CPU;
-        flags |= (u64)skb->len << 32;
-        bpf_perf_event_output(skb, &skb_events, flags, &event, pkt_size);
-    }
+    bpf_perf_event_output(skb, &skb_events, flags, &event, pkt_size);
 
     //    debug_bpf_printk("new packet captured on egress/ingress (TC),
     //    length:%d\n", data_len);
