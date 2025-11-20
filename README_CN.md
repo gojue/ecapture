@@ -157,6 +157,8 @@ openssl模块支持3种捕获模式
 
 支持了TLS加密的基于TCP的http `1.0/1.1/2.0`应用层协议, 以及基于UDP的 http3 `QUIC`应用层协议。
 你可以通过`-m pcap`或`-m pcapng`参数来指定，需要配合`--pcapfile`、`-i`参数使用。其中`--pcapfile`参数的默认值为`ecapture_openssl.pcapng`。
+
+##### 保存到文件
 ```shell
 sudo ecapture tls -m pcap -i eth0 --pcapfile=ecapture.pcapng tcp port 443
 2024-09-15T06:54:12Z INF AppName="eCapture(旁观者)"
@@ -201,6 +203,22 @@ sudo ecapture tls -m pcap -i eth0 --pcapfile=ecapture.pcapng tcp port 443
 ```
 
 将捕获的明文数据包保存为pcapng文件，再使用`Wireshark`打开查看，之后就可以看到明文的网络包了。
+
+##### 实时流式传输到Wireshark
+
+通过指定 `-w -` 可以将pcap数据输出到标准输出，实现实时流式传输到Wireshark或其他工具：
+
+```shell
+sudo ecapture tls -m pcap -w - -i eth0 | wireshark -k -i -
+```
+
+或者通过SSH传输到远程Wireshark：
+
+```shell
+sudo ecapture tls -m pcap -w - -i eth0 | ssh user@remote-host "wireshark -k -i -"
+```
+
+此功能适用于 `tls`、`gotls` 和 `gnutls` 模块。
 
 #### keylog 模式
 你可以通过`-m keylog`或`-m key`参数来指定，需要配合`--keylogfile`参数使用，默认为`ecapture_masterkey.log`。

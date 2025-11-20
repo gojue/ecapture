@@ -185,6 +185,22 @@ sudo ecapture tls -m pcap -i eth0 --pcapfile=ecapture.pcapng tcp port 443
 
 This command saves captured plaintext data packets as a pcapng file, which can be viewed using `Wireshark`.
 
+##### Real-time Streaming to Wireshark
+
+You can output pcap data to stdout by specifying `-w -`, enabling real-time streaming to Wireshark or other tools:
+
+```shell
+sudo ecapture tls -m pcap -w - -i eth0 | wireshark -k -i -
+```
+
+Or pipe to a remote Wireshark instance:
+
+```shell
+sudo ecapture tls -m pcap -w - -i eth0 | ssh user@remote-host "wireshark -k -i -"
+```
+
+This feature works with `tls`, `gotls`, and `gnutls` modules.
+
 ```shell
 sudo ecapture tls -m pcap -w ecap.pcapng -i ens160
 2024-09-15T06:54:12Z INF AppName="eCapture(旁观者)"
