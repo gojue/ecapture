@@ -76,12 +76,6 @@ struct {
     __uint(max_entries, 10240);
 } network_map SEC(".maps");
 
-// Ring Buffer for packet capture (32MB, matching ptcpdump for better performance)
-struct {
-    __uint(type, BPF_MAP_TYPE_RINGBUF);
-    __uint(max_entries, 1 << 25);  // 32MB
-} skb_events_ringbuf SEC(".maps");
-
 ////////////////////// General helper functions //////////////////////
 
 static __always_inline void get_proc_cmdline(struct task_struct *task, char *cmdline, int size)
