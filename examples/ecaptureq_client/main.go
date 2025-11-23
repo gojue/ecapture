@@ -29,6 +29,12 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+const (
+	// printableThreshold is the minimum ratio of displayable characters
+	// required to consider data as printable text
+	printableThreshold = 0.9
+)
+
 var (
 	serverURL = flag.String("server", "ws://127.0.0.1:28257/", "WebSocket server URL")
 	verbose   = flag.Bool("verbose", false, "Enable verbose logging")
@@ -189,7 +195,8 @@ func handleEvent(logEntry *pb.LogEntry) {
 	fmt.Println()
 }
 
-// isPrintable checks if the byte slice contains mostly printable ASCII characters
+// isPrintable checks if the byte slice contains mostly displayable characters
+// including printable ASCII and common whitespace characters
 func isPrintable(data []byte) bool {
 	if len(data) == 0 {
 		return false
@@ -202,8 +209,8 @@ func isPrintable(data []byte) bool {
 		}
 	}
 
-	// Consider it printable if more than 90% of characters are printable
-	return float64(printableCount)/float64(len(data)) > 0.9
+	// Consider it printable if more than the threshold of characters are displayable
+	return float64(printableCount)/float64(len(data)) > printableThreshold
 }
 
 // printHexDump prints data in hex dump format
