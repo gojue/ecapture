@@ -76,14 +76,9 @@ struct {
     __uint(max_entries, 10240);
 } network_map SEC(".maps");
 
-// Ring Buffer for packet capture (32MB, matching ptcpdump for better performance)
-// Ring buffer is only available in kernel 5.8+, so we conditionally compile it
-#ifndef KERNEL_LESS_5_2
-struct {
-    __uint(type, BPF_MAP_TYPE_RINGBUF);
-    __uint(max_entries, 1 << 25);  // 32MB
-} skb_events_ringbuf SEC(".maps");
-#endif
+// Note: Ring buffer support requires kernel 5.8+ and proper build system support
+// Currently using optimized perf buffer (64 pages per CPU) as the primary solution
+// Ring buffer can be added in the future with KERNEL_LESS_5_8 build flag
 
 ////////////////////// General helper functions //////////////////////
 
@@ -266,6 +261,9 @@ static __always_inline int capture_packets(struct __sk_buff *skb, bool is_ingres
     event.len = skb->len;
     event.ifindex = skb->ifindex;
 
+    u64 flags = BPF_F_CURRENT_CPU;
+    flags |= (u64)skb->len << 32;
+
     // via aquasecurity/tracee    tracee.bpf.c tc_probe
     // if net_packet event not chosen, send minimal data only:
     //     timestamp (u64)      8 bytes
@@ -274,37 +272,10 @@ static __always_inline int capture_packets(struct __sk_buff *skb, bool is_ingres
     //     packet len (u32)     4 bytes
     //     ifindex (u32)        4 bytes
     size_t pkt_size = TC_PACKET_MIN_SIZE;
-
-#ifndef KERNEL_LESS_5_2
-    // Try Ring Buffer first for better performance (lock-free, less packet loss)
-    // Ring buffer is only available in kernel 5.8+
-    // Fallback to Perf Buffer for backward compatibility or if ring buffer unavailable
-    struct skb_data_event_t *ringbuf_event = bpf_ringbuf_reserve(&skb_events_ringbuf, pkt_size + skb->len, 0);
-    if (ringbuf_event) {
-        // Ring Buffer available - use it for better performance
-        ringbuf_event->ts = event.ts;
-        ringbuf_event->pid = event.pid;
-        __builtin_memcpy(ringbuf_event->comm, event.comm, TASK_COMM_LEN);
-        ringbuf_event->len = event.len;
-        ringbuf_event->ifindex = event.ifindex;
-        
-        // Copy packet data after the header
-        u64 flags = 0;
-        flags |= (u64)skb->len << 32;
-        long ret = bpf_skb_load_bytes(skb, 0, (void *)(ringbuf_event + 1), skb->len);
-        if (ret >= 0) {
-            bpf_ringbuf_submit(ringbuf_event, flags);
-        } else {
-            bpf_ringbuf_discard(ringbuf_event, 0);
-        }
-    } else
-#endif
-    {
-        // Use Perf Buffer for kernel < 5.8 or when Ring Buffer not available/full
-        u64 flags = BPF_F_CURRENT_CPU;
-        flags |= (u64)skb->len << 32;
-        bpf_perf_event_output(skb, &skb_events, flags, &event, pkt_size);
-    }
+    
+    // Use optimized Perf Buffer with dynamic sizing (64 pages per CPU, ~256KB)
+    // Ring buffer support requires kernel 5.8+ and would need KERNEL_LESS_5_8 build flag
+    bpf_perf_event_output(skb, &skb_events, flags, &event, pkt_size);
 
     //    debug_bpf_printk("new packet captured on egress/ingress (TC),
     //    length:%d\n", data_len);

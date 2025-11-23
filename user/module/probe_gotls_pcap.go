@@ -114,9 +114,6 @@ func (g *GoTLSProbe) setupManagersPcap() error {
 			{
 				Name: "skb_events",
 			},
-			{
-				Name: "skb_events_ringbuf",
-			},
 		},
 	}
 
@@ -155,15 +152,6 @@ func (g *GoTLSProbe) initDecodeFunPcap() error {
 	sslEvent := &event.TcSkbEvent{}
 	// sslEvent.SetModule(g)
 	g.eventFuncMaps[SkbEventsMap] = sslEvent
-
-	// Try to get Ring Buffer map (optional - for better performance)
-	SkbEventsRingbufMap, found, err := g.bpfManager.GetMap("skb_events_ringbuf")
-	if err == nil && found {
-		g.eventMaps = append(g.eventMaps, SkbEventsRingbufMap)
-		ringbufEvent := &event.TcSkbEvent{}
-		g.eventFuncMaps[SkbEventsRingbufMap] = ringbufEvent
-		g.logger.Info().Msg("Ring buffer map available, using it for better packet capture performance")
-	}
 
 	// master secrets map at ebpf code
 	MasterkeyEventsMap, found, err := g.bpfManager.GetMap("mastersecret_go_events")
