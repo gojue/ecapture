@@ -77,10 +77,13 @@ struct {
 } network_map SEC(".maps");
 
 // Ring Buffer for packet capture (32MB, matching ptcpdump for better performance)
+// Ring buffer is only available in kernel 5.8+, so we conditionally compile it
+#ifndef KERNEL_LESS_5_2
 struct {
     __uint(type, BPF_MAP_TYPE_RINGBUF);
     __uint(max_entries, 1 << 25);  // 32MB
 } skb_events_ringbuf SEC(".maps");
+#endif
 
 ////////////////////// General helper functions //////////////////////
 
@@ -272,8 +275,10 @@ static __always_inline int capture_packets(struct __sk_buff *skb, bool is_ingres
     //     ifindex (u32)        4 bytes
     size_t pkt_size = TC_PACKET_MIN_SIZE;
 
+#ifndef KERNEL_LESS_5_2
     // Try Ring Buffer first for better performance (lock-free, less packet loss)
-    // Fallback to Perf Buffer for backward compatibility
+    // Ring buffer is only available in kernel 5.8+
+    // Fallback to Perf Buffer for backward compatibility or if ring buffer unavailable
     struct skb_data_event_t *ringbuf_event = bpf_ringbuf_reserve(&skb_events_ringbuf, pkt_size + skb->len, 0);
     if (ringbuf_event) {
         // Ring Buffer available - use it for better performance
@@ -292,8 +297,10 @@ static __always_inline int capture_packets(struct __sk_buff *skb, bool is_ingres
         } else {
             bpf_ringbuf_discard(ringbuf_event, 0);
         }
-    } else {
-        // Ring Buffer not available or full - fallback to Perf Buffer
+    } else
+#endif
+    {
+        // Use Perf Buffer for kernel < 5.8 or when Ring Buffer not available/full
         u64 flags = BPF_F_CURRENT_CPU;
         flags |= (u64)skb->len << 32;
         bpf_perf_event_output(skb, &skb_events, flags, &event, pkt_size);
