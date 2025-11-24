@@ -29,3 +29,6 @@ bin/*
 /.check*
 /deps/*
 /assets/probe.go
+
+# Example binaries
+/examples/ecaptureq_client/ecaptureq_client
