@@ -280,6 +280,12 @@ https://github.com/user-attachments/assets/c8b7a84d-58eb-4fdb-9843-f775c97bdbfb
 
 🔗 [GitHub 仓库](https://github.com/gojue/ecaptureq)
 
+### Protobuf 协议说明
+
+关于 eCapture/eCaptureQ 使用的 Protobuf 日志模式的详细信息，请参见：
+
+- [protobuf/PROTOCOLS_CN.md](./protobuf/PROTOCOLS_CN.md)
+
 ## 星标成长曲线
 
 [![星标成长曲线](https://starchart.cc/gojue/ecapture.svg)](https://starchart.cc/gojue/ecapture)
