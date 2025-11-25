@@ -283,6 +283,12 @@ TLS
 
 https://github.com/user-attachments/assets/c8b7a84d-58eb-4fdb-9843-f775c97bdbfb
 
+### Protobuf プロトコル
+
+eCapture / eCaptureQ が出力する Protobuf ログのスキーマ詳細については、次のドキュメントを参照してください（英語）：
+
+- [protobuf/PROTOCOLS.md](./protobuf/PROTOCOLS.md)
+
 ## スターチャート成長曲線
 
 [![星标成长曲线](https://starchart.cc/gojue/ecapture.svg)](https://starchart.cc/gojue/ecapture)

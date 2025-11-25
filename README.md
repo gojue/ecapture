@@ -301,6 +301,12 @@ https://github.com/user-attachments/assets/c8b7a84d-58eb-4fdb-9843-f775c97bdbfb
 
 🔗 [GitHub Repository](https://github.com/gojue/ecaptureq)
 
+### Protobuf Protocols
+
+For details of the Protobuf log schema used by eCapture/eCaptureQ, see:
+
+- [protobuf/PROTOCOLS.md](./protobuf/PROTOCOLS.md)
+
 ## Stargazers over time
 [![Stargazers over time](https://starchart.cc/gojue/ecapture.svg)](https://starchart.cc/gojue/ecapture)
 
