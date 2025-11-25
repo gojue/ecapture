@@ -59,3 +59,40 @@ eCapture 捕获到的单条事件（数据包/会话片段）的统一表示，�
   - `Event event_payload`：当 `log_type = LOG_TYPE_EVENT` 时，承载事件数据。
   - `Heartbeat heartbeat_payload`：当 `log_type = LOG_TYPE_HEARTBEAT` 时，承载心跳信息。
   - `string run_log`：当 `log_type = LOG_TYPE_PROCESS_LOG` 时，承载普通运行日志字符串。
+
+## 集成示例
+
+此客户端可作为将 eCapture 集成到其他系统的参考：
+
+```go
+import (
+  pb "github.com/gojue/ecapture/protobuf/gen/v1"
+  "golang.org/x/net/websocket"
+  "google.golang.org/protobuf/proto"
+)
+
+// Connect (连接)
+ws, err := websocket.Dial("ws://127.0.0.1:28257/", "", "http://localhost/")
+if err != nil {
+  // Handle error (处理错误)
+}
+defer ws.Close()
+
+// Receive messages (接收消息)
+for {
+  var msgData []byte
+  err := websocket.Message.Receive(ws, &msgData)
+  if err != nil {
+    break
+  }
+  
+  var logEntry pb.LogEntry
+  err = proto.Unmarshal(msgData, &logEntry)
+  if err != nil {
+    continue
+  }
+  
+  // Process logEntry based on logEntry.LogType
+  // 根据 logEntry.LogType 处理日志条目
+}
+```

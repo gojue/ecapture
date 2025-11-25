@@ -59,3 +59,39 @@ Top-level log encapsulation structure, uniformly carrying different types of bus
   - `Event event_payload`: Carries event data when `log_type = LOG_TYPE_EVENT`.
   - `Heartbeat heartbeat_payload`: Carries heartbeat information when `log_type = LOG_TYPE_HEARTBEAT`.
   - `string run_log`: Carries a standard execution log string when `log_type = LOG_TYPE_PROCESS_LOG`.
+
+## Integration Example
+
+This client can be used as a reference for integrating eCapture into other systems:
+
+```go
+import (
+	pb "github.com/gojue/ecapture/protobuf/gen/v1"
+	"golang.org/x/net/websocket"
+	"google.golang.org/protobuf/proto"
+)
+
+// Connect
+ws, err := websocket.Dial("ws://127.0.0.1:28257/", "", "http://localhost/")
+if err != nil {
+	// Handle error
+}
+defer ws.Close()
+
+// Receive messages
+for {
+	var msgData []byte
+	err := websocket.Message.Receive(ws, &msgData)
+	if err != nil {
+		break
+	}
+	
+	var logEntry pb.LogEntry
+	err = proto.Unmarshal(msgData, &logEntry)
+	if err != nil {
+		continue
+	}
+	
+	// Process logEntry based on logEntry.LogType
+}
+```
