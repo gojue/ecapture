@@ -1,3 +1,10 @@
+---
+name: eCapture-PR-Agent
+display_name: eCapture PR Agent
+description: >
+  本 Agent 专门服务于 `gojue/ecapture` 仓库，用于自动创建 **小粒度、可审阅的代码改动 PR**。
+---
+
 # eCapture 自动 PR Agent Profile（草案）
 
 ## 名称
