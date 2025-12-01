@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/gojue/ecapture/pkg/util/ws"
 	pb "github.com/gojue/ecapture/protobuf/gen/v1"
@@ -29,23 +30,25 @@ import (
 const LogBuffLen = 128
 
 type Server struct {
-	addr    string
-	logbuff [][]byte
-	handler func([]byte)
-	hub     *Hub
-	ws      *ws.Server
-	logger  io.Writer
-	ctx     context.Context
+	addr              string
+	logbuff           [][]byte
+	handler           func([]byte)
+	hub               *Hub
+	ws                *ws.Server
+	logger            io.Writer
+	ctx               context.Context
+	heartbeatInterval time.Duration
 }
 
 // NewServer 创建一个新的服务器实例
-func NewServer(addr string, logWriter io.Writer) *Server {
+func NewServer(addr string, logWriter io.Writer, heartbeatInterval int) *Server {
 	s := &Server{
-		addr:    addr,
-		logbuff: make([][]byte, 0, LogBuffLen),
-		logger:  logWriter,
-		hub:     newHub(),
-		ctx:     context.Background(),
+		addr:              addr,
+		logbuff:           make([][]byte, 0, LogBuffLen),
+		logger:            logWriter,
+		hub:               newHub(),
+		ctx:               context.Background(),
+		heartbeatInterval: time.Duration(heartbeatInterval) * time.Second,
 	}
 	server := ws.NewServer(s.addr, s.handleWebSocket)
 	s.ws = server
@@ -68,7 +71,7 @@ func (s *Server) handleWebSocket(conn *websocket.Conn) {
 		_, _ = s.logger.Write([]byte(fmt.Sprintf("Closing WebSocket connection from %s", conn.RemoteAddr())))
 	}()
 
-	client := &Client{hub: s.hub, conn: conn, send: make(chan []byte, 256), logger: s.logger}
+	client := &Client{hub: s.hub, conn: conn, send: make(chan []byte, 256), logger: s.logger, heartbeatInterval: s.heartbeatInterval}
 	client.hub.register <- client
 
 	// 为新连接的客户端发送预存储的日志数据

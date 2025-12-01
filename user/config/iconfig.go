@@ -100,15 +100,16 @@ type BaseConfig struct {
 	TruncateSize uint64 `json:"truncate_size"` // truncate size in text mode
 
 	// eBPF map configuration
-	PerCpuMapSize      int    `json:"per_cpu_map_size"`     // Size of eBPF map per CPU core
-	IsHex              bool   `json:"is_hex"`               // Whether to display output in hexadecimal
-	Debug              bool   `json:"debug"`                // Enable debug mode
-	BtfMode            uint8  `json:"btf_mode"`             // BTF mode selection
-	ByteCodeFileMode   uint8  `json:"byte_code_file_mode"`  // assets/* include bytecode file type
-	LoggerAddr         string `json:"logger_addr"`          // Address for logger output
-	LoggerType         uint8  `json:"logger_type"`          // Logger type (0:stdout, 1:file, 2:tcp)
-	EventCollectorAddr string `json:"event_collector_addr"` // Address of the event collector server
-	EcaptureQ          string `json:"ecapture_q"`           // ecaptureQ 模式，本地监听Server，等待Q连接
+	PerCpuMapSize              int    `json:"per_cpu_map_size"`             // Size of eBPF map per CPU core
+	IsHex                      bool   `json:"is_hex"`                       // Whether to display output in hexadecimal
+	Debug                      bool   `json:"debug"`                        // Enable debug mode
+	BtfMode                    uint8  `json:"btf_mode"`                     // BTF mode selection
+	ByteCodeFileMode           uint8  `json:"byte_code_file_mode"`          // assets/* include bytecode file type
+	LoggerAddr                 string `json:"logger_addr"`                  // Address for logger output
+	LoggerType                 uint8  `json:"logger_type"`                  // Logger type (0:stdout, 1:file, 2:tcp)
+	EventCollectorAddr         string `json:"event_collector_addr"`         // Address of the event collector server
+	EcaptureQ                  string `json:"ecapture_q"`                   // ecaptureQ websocket server
+	EcaptureQHeartbeatInterval int    `json:"ecaptureq_heartbeat_interval"` // ecaptureQ heartbeat interval
 }
 
 func (c *BaseConfig) GetPid() uint64 {

@@ -146,6 +146,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&globalConf.LoggerAddr, "logaddr", "l", "", "send logs to this server. -l /tmp/ecapture.log or -l ws://127.0.0.1:8090/ecapture or -l tcp://127.0.0.1:8080")
 	rootCmd.PersistentFlags().StringVar(&globalConf.EventCollectorAddr, "eventaddr", "", "the server address that receives the captured event. --eventaddr ws://127.0.0.1:8090/ecapture or tcp://127.0.0.1:8090, default: same as logaddr")
 	rootCmd.PersistentFlags().StringVar(&globalConf.EcaptureQ, "ecaptureq", "", "listening server, waiting for clients to connect before sending events and logs; false: send directly to the remote server.")
+	rootCmd.PersistentFlags().IntVar(&globalConf.EcaptureQHeartbeatInterval, "ecaptureq-heartbeat-interval", 20, "modify the heartbeat interval of the websocket server (in seconds).")
 	rootCmd.PersistentFlags().StringVar(&globalConf.Listen, "listen", configUpdateAddr, "Listens on a port, receives HTTP requests, and is used to update the runtime configuration, default: 127.0.0.1:28256")
 	rootCmd.PersistentFlags().Uint64VarP(&globalConf.TruncateSize, "tsize", "t", defaultTruncateSize, "the truncate size in text mode, default: 0 (B), no truncate")
 	rootCmd.PersistentFlags().Uint16Var(&rorateSize, "eventroratesize", 0, "the rorate size(MB) of the event collector file, 1M~65535M, only works for eventaddr server is file. --eventaddr=tls.log --eventroratesize=1 --eventroratetime=30")
@@ -257,7 +258,7 @@ func runModule(modName string, modConfig config.IConfig) error {
 		if err != nil {
 			return err
 		}
-		es := ecaptureq.NewServer(parsedURL.Host, os.Stdout)
+		es := ecaptureq.NewServer(parsedURL.Host, os.Stdout, globalConf.EcaptureQHeartbeatInterval)
 		go func() {
 			err := es.Start()
 			if err != nil {
