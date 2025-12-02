@@ -137,6 +137,14 @@ func (g *MGnutlsProbe) start() error {
 		err = g.setupManagersKeylog()
 	case TlsCaptureModelTypePcap:
 		err = g.setupManagersPcap()
+		if err == nil {
+			pcapFilter := g.conf.(*config.GnutlsConfig).PcapFilter
+			if pcapFilter != "" {
+				ebpfFuncs := []string{tcFuncNameIngress, tcFuncNameEgress}
+				g.bpfManager.InstructionPatchers = prepareInsnPatchers(g.bpfManager,
+					ebpfFuncs, pcapFilter)
+			}
+		}
 	case TlsCaptureModelTypeText:
 		fallthrough
 	default:
@@ -144,13 +152,6 @@ func (g *MGnutlsProbe) start() error {
 	}
 	if err != nil {
 		return fmt.Errorf("tls(gnutls) module couldn't find binPath %w", err)
-	}
-
-	pcapFilter := g.conf.(*config.GnutlsConfig).PcapFilter
-	if g.eBPFProgramType == TlsCaptureModelTypePcap && pcapFilter != "" {
-		ebpfFuncs := []string{tcFuncNameIngress, tcFuncNameEgress}
-		g.bpfManager.InstructionPatchers = prepareInsnPatchers(g.bpfManager,
-			ebpfFuncs, pcapFilter)
 	}
 
 	// initialize the bootstrap manager
