@@ -137,8 +137,11 @@ func (g *MGnutlsProbe) start() error {
 		err = g.setupManagersKeylog()
 	case TlsCaptureModelTypePcap:
 		err = g.setupManagersPcap()
+		if err != nil {
+			return fmt.Errorf("tls(gnutls) setupManagersPcap failed: %w, please check your startup parameters", err)
+		}
 		pcapFilter := g.conf.(*config.GnutlsConfig).PcapFilter
-		if g.eBPFProgramType == TlsCaptureModelTypePcap && pcapFilter != "" {
+		if pcapFilter != "" {
 			ebpfFuncs := []string{tcFuncNameIngress, tcFuncNameEgress}
 			g.bpfManager.InstructionPatchers = prepareInsnPatchers(g.bpfManager,
 				ebpfFuncs, pcapFilter)
