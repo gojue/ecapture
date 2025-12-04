@@ -34,6 +34,8 @@ const (
 
 	// TypeEventProcessor display by event_processor.
 	TypeEventProcessor
+
+	TypeGoTls
 )
 
 const SocketLifecycleUUIDPrefix = "sock:"

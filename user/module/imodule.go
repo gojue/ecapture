@@ -26,7 +26,9 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/perf"
 	"github.com/cilium/ebpf/ringbuf"
+	pb "github.com/gojue/ecapture/protobuf/gen/v1"
 	"github.com/rs/zerolog"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/gojue/ecapture/pkg/event_processor"
 	ebpfenv "github.com/gojue/ecapture/pkg/util/ebpf"
@@ -422,6 +424,27 @@ func (m *Module) Dispatcher(e event.IEventStruct) {
 	case event.TypeModuleData:
 		// Save to cache
 		m.child.Dispatcher(e)
+	case event.TypeGoTls:
+		_, ok := m.eventCollector.(event.CollectorWriter)
+		if ok {
+			s := e.String()
+			if s == "" {
+				return
+			}
+			//m.logger.Info().Msg(s)
+			_, _ = m.eventCollector.Write([]byte(s))
+		} else {
+			le := new(pb.LogEntry)
+			le.LogType = pb.LogType_LOG_TYPE_EVENT
+			ep := e.ToProtobufEvent()
+			le.Payload = &pb.LogEntry_EventPayload{EventPayload: ep}
+			encodedData, err := proto.Marshal(le)
+			if err != nil {
+				m.logger.Error().Err(errors.New("protobuf marshall error")).Msg("error doing protobuf marshall for gotls")
+			}
+			_, _ = m.eventCollector.Write(encodedData)
+		}
+
 	default:
 		m.logger.Warn().Uint8("eventType", uint8(e.EventType())).Msg("unknown event type")
 	}
