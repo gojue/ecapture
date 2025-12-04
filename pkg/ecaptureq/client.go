@@ -80,11 +80,18 @@ func (c *Client) readPump() {
 // application ensures that there is at most one writer to a connection by
 // executing all writes from this goroutine.
 func (c *Client) writePump() {
-	c.hbTimer = time.NewTicker(60 * time.Second)
+	c.hbTimer = time.NewTicker(15 * time.Second)
 	defer func() {
 		c.hbTimer.Stop()
 		_ = c.conn.Close()
 	}()
+
+	// heartbeat when client connected
+	err := c.Heartbeat()
+	if err != nil {
+		_, _ = c.logger.Write([]byte(fmt.Sprintf("writePump: error sending heartbeat: %v\n", err)))
+	}
+
 	for {
 		select {
 		case message, ok := <-c.send:
