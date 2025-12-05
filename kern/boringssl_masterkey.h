@@ -311,10 +311,8 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
 #endif
 
         if (SSL_SESSION_ST_SECRET_LENGTH == 0xFF) {
-            // not set offset yet.
             // in Android16, BoringSSL droped SECRET_LENGTH field.
             mastersecret->hash_len = BORINGSSL_SSL_MAX_MASTER_KEY_LENGTH;
-            debug_bpf_printk(" secret_length:%d\n", secret_length);
         } else {
             s32 secret_length;
             u64 *ms_len_ptr = (u64 *)(ssl_session_st_addr + SSL_SESSION_ST_SECRET_LENGTH);
@@ -325,9 +323,8 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
                 return 0;
             }
             mastersecret->hash_len = secret_length;
-            debug_bpf_printk(" secret_length:%d\n", secret_length);
         }
-
+        debug_bpf_printk(" secret_length:%d\n", mastersecret->hash_len);
 
         u64 *ms_ptr = (u64 *)(ssl_session_st_addr + SSL_SESSION_ST_SECRET);
         ret = bpf_probe_read_user(&mastersecret->secret_, sizeof(mastersecret->secret_), ms_ptr);
