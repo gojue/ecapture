@@ -311,7 +311,7 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
 #endif
 
         if (SSL_SESSION_ST_SECRET_LENGTH == 0xFF) {
-            // in Android16, BoringSSL droped SECRET_LENGTH field.
+            // In Android16, BoringSSL droped SECRET_LENGTH field.
             mastersecret->hash_len = BORINGSSL_SSL_MAX_MASTER_KEY_LENGTH;
         } else {
             s32 secret_length;

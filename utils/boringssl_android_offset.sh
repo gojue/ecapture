@@ -30,7 +30,7 @@ function run() {
   sslVerMap["1"]="13" # android13-release
   sslVerMap["2"]="14" # android14-release
   sslVerMap["3"]="15" # android15-release
-  sslVerMap["4"]="16" # android15-release
+  sslVerMap["4"]="16" # android16-release
 
   # shellcheck disable=SC2068
   # shellcheck disable=SC2034
@@ -48,9 +48,9 @@ function run() {
     git checkout ${tag}
     echo "Android Version: ${val}, Generating ${header_file}"
 
-    # 判断 $ver变量是不是大于16的数字
-    if (( val > 15 )); then
-        echo "Android version val greater than 16, remove some offsets"
+    # Check if the $val variable is greater than 15
+    if ( val > 15 ); then
+        echo "Android version val greater than 15, remove some offsets"
         sed -i '/X(ssl_st, version)/d' offset.c
         sed -i 's/X(ssl_session_st, secret_length)/X(ssl_session_st, ssl_version)/g' offset.c
     fi
