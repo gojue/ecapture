@@ -30,6 +30,7 @@ function run() {
   sslVerMap["1"]="13" # android13-release
   sslVerMap["2"]="14" # android14-release
   sslVerMap["3"]="15" # android15-release
+  sslVerMap["4"]="16" # android16-release
 
   # shellcheck disable=SC2068
   # shellcheck disable=SC2034
@@ -45,13 +46,20 @@ function run() {
       continue
     fi
     git checkout ${tag}
-    echo "Generating ${header_file}"
+    echo "Android Version: ${val}, Generating ${header_file}"
 
+    # Check if the $val variable is greater than 15
+    if ( val > 15 ); then
+        echo "Android version val greater than 15, remove some offsets"
+        sed -i '/X(ssl_st, version)/d' offset.c
+        sed -i 's/X(ssl_session_st, secret_length)/X(ssl_session_st, ssl_version)/g' offset.c
+    fi
     g++ -Wno-write-strings -Wno-invalid-offsetof -I include/ -I . -I ./src/ offset.c -o offset
 
     echo -e "#ifndef ECAPTURE_${header_define}" >${header_file}
     echo -e "#define ECAPTURE_${header_define}\n" >>${header_file}
     ./offset >>${header_file}
+    echo -e "#define SSL_SESSION_ST_SECRET_LENGTH 0xFF\n" >>${header_file}
     echo -e "#include \"boringssl_const.h\"" >>${header_file}
     echo -e "#include \"boringssl_masterkey.h\"" >>${header_file}
     echo -e "#include \"openssl.h\"" >>${header_file}
