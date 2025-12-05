@@ -85,6 +85,8 @@ struct ssl3_state_st {
 #define SERVER_STATE12_READ_CLIENT_FINISHED 18  // ssl/internal.h line 1766: state12_read_client_finished
 #define SERVER_STATE12_DONE 21                  // ssl/internal.h line 1766: state12_done
 
+#define BORINGSSL_SSL_MAX_MASTER_KEY_LENGTH 48  // via https://android.googlesource.com/platform/external/boringssl/+/refs/heads/android16-release/src/ssl/internal.h#4467
+
 struct ssl3_handshake_st {
     // state is the internal state for the TLS 1.2 and below handshake. Its
     // values depend on |do_handshake| but the starting state is always zero.
@@ -189,20 +191,24 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
         debug_bpf_printk("mastersecret is null\n");
         return 0;
     }
-    u64 *ssl_version_ptr = (u64 *)(ssl_st_ptr + SSL_ST_VERSION);
-    // Get a ssl_session_st pointer
-    u64 *ssl_s3_st_ptr = (u64 *)(ssl_st_ptr + SSL_ST_S3);
 
-    // Get SSL->version pointer
-    int version;
     u64 address;
     u64 s3_address;
-    int ret = bpf_probe_read_user(&version, sizeof(version), (void *)ssl_version_ptr);
+    int ret;
+    int ssl_version;
+    // Get a ssl_session_st pointer
+    u64 *ssl_s3_st_ptr = (u64 *)(ssl_st_ptr + SSL_ST_S3);
+    mastersecret->version = 0;
+#ifndef SSL_SESSION_ST_SSL_VERSION
+    u64 *ssl_version_ptr = (u64 *)(ssl_st_ptr + SSL_ST_VERSION);
+    // Get SSL->version pointer
+    ret = bpf_probe_read_user(&ssl_version, sizeof(ssl_version), (void *)ssl_version_ptr);
     if (ret) {
         debug_bpf_printk("bpf_probe_read tls_version failed, ret :%d\n", ret);
 //        return 0; // In BoringSSL, version may be 0, mainly because the ssl->s3->hs object is used
     }
-    mastersecret->version = version & 0xFFFF;  //  uint16_t version;
+    mastersecret->version = ssl_version & 0xFFFF;  //  uint16_t version;
+#endif
 
     // Get ssl3_state_st pointer
     ret = bpf_probe_read_user(&address, sizeof(address), ssl_s3_st_ptr);
@@ -294,16 +300,34 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
         }
         debug_bpf_printk("s3_address:%llx, ssl_session_st_addr addr :%llx\n", s3_address, ssl_session_st_addr);
 
-        s32 secret_length;
-        u64 *ms_len_ptr = (u64 *)(ssl_session_st_addr + SSL_SESSION_ST_SECRET_LENGTH);
-        ret = bpf_probe_read_user(&secret_length, sizeof(secret_length), ms_len_ptr);
-        if (ret) {
-            debug_bpf_printk(
-                "bpf_probe_read SSL_SESSION_ST_SECRET_LENGTH failed, ms_len_ptr:%llx, ret :%d\n", ms_len_ptr, ret);
-            return 0;
+// in Android16, BoringSSL changed SSL_VERSION field to SSL_SESSION_ST_SSL_VERSION, via # https://github.com/gojue/ecapture/issues/842
+#ifdef SSL_SESSION_ST_SSL_VERSION
+    u64 *ssl_version_ptr = (u64 *)(ssl_session_st_addr + SSL_SESSION_ST_SSL_VERSION);
+    ret = bpf_probe_read_user(&ssl_version, sizeof(ssl_version), (void *)ssl_version_ptr);
+    if (ret) {
+        debug_bpf_printk("bpf_probe_read tls_version failed, ret :%d\n", ret);
+    }
+    mastersecret->version = ssl_version & 0xFFFF;  //  uint16_t version;
+#endif
+
+        if (SSL_SESSION_ST_SECRET_LENGTH == 0xFF) {
+            // not set offset yet.
+            // in Android16, BoringSSL droped SECRET_LENGTH field.
+            mastersecret->hash_len = BORINGSSL_SSL_MAX_MASTER_KEY_LENGTH;
+            debug_bpf_printk(" secret_length:%d\n", secret_length);
+        } else {
+            s32 secret_length;
+            u64 *ms_len_ptr = (u64 *)(ssl_session_st_addr + SSL_SESSION_ST_SECRET_LENGTH);
+            ret = bpf_probe_read_user(&secret_length, sizeof(secret_length), ms_len_ptr);
+            if (ret) {
+                debug_bpf_printk(
+                    "bpf_probe_read SSL_SESSION_ST_SECRET_LENGTH failed, ms_len_ptr:%llx, ret :%d\n", ms_len_ptr, ret);
+                return 0;
+            }
+            mastersecret->hash_len = secret_length;
+            debug_bpf_printk(" secret_length:%d\n", secret_length);
         }
-        mastersecret->hash_len = secret_length;
-        debug_bpf_printk(" secret_length:%d\n", secret_length);
+
 
         u64 *ms_ptr = (u64 *)(ssl_session_st_addr + SSL_SESSION_ST_SECRET);
         ret = bpf_probe_read_user(&mastersecret->secret_, sizeof(mastersecret->secret_), ms_ptr);

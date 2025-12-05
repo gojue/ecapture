@@ -269,6 +269,8 @@ int probe_entry_SSL_write(struct pt_regs* ctx) {
     u64 ssl_version, ssl_wbio_addr, ssl_wbio_num_addr;
     int ret;
 
+    ssl_version = 0;
+#ifndef SSL_SESSION_ST_SSL_VERSION
     ssl_ver_ptr = (u64 *)(ssl + SSL_ST_VERSION);
     ret = bpf_probe_read_user(&ssl_version, sizeof(ssl_version),
                               ssl_ver_ptr);
@@ -278,6 +280,7 @@ int probe_entry_SSL_write(struct pt_regs* ctx) {
             ret);
         return 0;
     }
+#endif
 
     ssl_wbio_ptr = (u64 *)(ssl + SSL_ST_WBIO);
     ret = bpf_probe_read_user(&ssl_wbio_addr, sizeof(ssl_wbio_addr),
@@ -382,17 +385,19 @@ int probe_entry_SSL_read(struct pt_regs* ctx) {
     // Get ssl_rbio pointer
     u64 *ssl_ver_ptr, *ssl_rbio_ptr, *ssl_rbio_num_ptr;
     u64 ssl_version, ssl_rbio_addr, ssl_rbio_num_addr;
-    int ret;
+    int ret = 0;
     u32 fd = 0;
     u32 bio_type = 0;
+    ssl_version = 0;
+#ifndef SSL_SESSION_ST_SSL_VERSION
     ssl_ver_ptr = (u64 *)((uintptr_t)ssl + SSL_ST_VERSION);
     ret = bpf_probe_read_user(&ssl_version, sizeof(ssl_version),
                               (void *)ssl_ver_ptr);
+#endif
     if (ret) {
         debug_bpf_printk(
             "(OPENSSL) bpf_probe_read ssl_ver_ptr failed, ret: %d\n",
             ret);
-//        return 0;
     } else {
     //  In BoringSSL, the ssl_st->s3->hs object is mainly used; ssl_st->version may be null
         ssl_rbio_ptr = (u64 *)(ssl + SSL_ST_RBIO);
