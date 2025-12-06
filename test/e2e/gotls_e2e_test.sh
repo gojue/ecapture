@@ -73,8 +73,7 @@ build_go_programs() {
     # Build server
     if [ ! -f "$GO_SERVER" ] || [ "$SCRIPT_DIR/go_https_server.go" -nt "$GO_SERVER" ]; then
         log_info "Building go_https_server..."
-        go build -o "$GO_SERVER" go_https_server.go
-        if [ $? -ne 0 ]; then
+        if ! go build -o "$GO_SERVER" go_https_server.go; then
             log_error "Failed to build go_https_server"
             return 1
         fi
@@ -83,8 +82,7 @@ build_go_programs() {
     # Build client
     if [ ! -f "$GO_CLIENT" ] || [ "$SCRIPT_DIR/go_https_client.go" -nt "$GO_CLIENT" ]; then
         log_info "Building go_https_client..."
-        go build -o "$GO_CLIENT" go_https_client.go
-        if [ $? -ne 0 ]; then
+        if ! go build -o "$GO_CLIENT" go_https_client.go; then
             log_error "Failed to build go_https_client"
             return 1
         fi
@@ -156,8 +154,7 @@ main() {
     # Generate certificates
     log_info "=== Step 4: Generate Certificates ==="
     local cert_info
-    cert_info=$(generate_certificate "$CERT_DIR" "server")
-    if [ $? -ne 0 ]; then
+    if ! cert_info=$(generate_certificate "$CERT_DIR" "server"); then
         log_error "Failed to generate certificates"
         exit 1
     fi

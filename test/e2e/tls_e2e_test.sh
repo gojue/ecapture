@@ -101,8 +101,7 @@ main() {
     # Generate certificates
     log_info "=== Step 3: Generate Certificates ==="
     local cert_info
-    cert_info=$(generate_certificate "$CERT_DIR" "server")
-    if [ $? -ne 0 ]; then
+    if ! cert_info=$(generate_certificate "$CERT_DIR" "server"); then
         log_error "Failed to generate certificates"
         exit 1
     fi

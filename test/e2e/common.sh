@@ -99,14 +99,12 @@ generate_certificate() {
     fi
     
     log_info "Generating self-signed certificate..."
-    openssl req -x509 -newkey rsa:2048 -nodes \
+    if openssl req -x509 -newkey rsa:2048 -nodes \
         -keyout "$key_file" \
         -out "$cert_file" \
         -days 365 \
         -subj "/C=US/ST=Test/L=Test/O=eCapture/CN=localhost" \
-        >/dev/null 2>&1
-    
-    if [ $? -eq 0 ]; then
+        >/dev/null 2>&1; then
         log_success "Certificate generated: $cert_file"
         echo "$cert_file:$key_file"
         return 0
