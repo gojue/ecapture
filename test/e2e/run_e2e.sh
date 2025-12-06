@@ -15,16 +15,11 @@ echo "== e2e: 清理构建缓存 =="
 make clean || { echo "make clean failed"; exit 1; }
 
 echo "== e2e: 尝试构建 ecapture 二进制（优先 make） =="
-if make -j 4 >/dev/null 2>&1; then
-  if make all; then
-    echo "make succeeded"
-  else
-    echo "make all failed"
-    exit 1
-  fi
+if make all -j 4; then
+  echo "make succeeded"
 else
-  echo "make CORE target not available, using non-CORE"
-  if make -j 4 nocore; then
+  echo "make all failed, trying non-CORE build"
+  if make nocore -j 4; then
     echo "make non-CORE succeeded"
   else
     echo "make non-CORE failed"
@@ -34,8 +29,8 @@ fi
 
 BINARY="./bin/ecapture"
 if [ ! -x "$BINARY" ]; then
-  # 可能项目输出到其他位置，尝试查找
-  BINARY="$(command -v ecapture || true)"
+  echo "ecapture binary not found at $BINARY. Please ensure the build succeeded and the binary is present."
+  exit 1
 fi
 
 if [ -z "$BINARY" ]; then

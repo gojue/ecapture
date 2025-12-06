@@ -30,7 +30,7 @@ eCapture 自动 PR 机器人（Auto PR Agent）
 Agent 允许并应该做的事情：
 
 1. OpenSSL/其他加密库版本支持增强（核心任务）
-    - 在 kernel/eBPF 源文件（`kern/openssl_*`、`kern/boringssl_*`、`kern/gnutls_*`、`kern/nspr` 等）与用户态版本检测逻辑中，增加对新版本加密库的支持；包括：
+    - 在 kern/ 源文件（`kern/openssl_*`、`kern/boringssl_*`、`kern/gnutls_*`、`kern/nspr` 等）与用户态版本检测逻辑中，增加对新版本加密库的支持；包括：
         - 在 `variables.mk` 的 `TARGETS` 中新增目标项；
         - 添加对应的 `kern/openssl_<version>_kern.c` 源文件或必要的偏移/结构体定义；
         - 在用户态（Go）中补充版本字符串映射、降级/回退逻辑与日志提示。
@@ -51,7 +51,7 @@ Agent 允许并应该做的事情：
 
 Agent 禁止的事项（严格）：
 - 不做发布（不生成 .deb/.rpm，不打 Tag 或更新 release）；
-- 默认不修改 README/CHANGELOG；
+- 不修改 README/CHANGELOG；
 - 不变更 CLI 外部行为（除非明确授权）；
 - 不直接修改生成的二进制 bytecode（如 user/bytecode/*.o）。
 
@@ -82,7 +82,7 @@ Agent 禁止的事项（严格）：
 1. 单元测试（必需）
     - 对于任何修改或新增的 Go 代码，必须新增或修改对应的 Go 单元测试，位于与被修改包相同的测试包（例如 `package foo_test` 或 `package foo`）；
     - 新增/修改的测试应覆盖主要逻辑分支、异常路径与边界条件；
-    - PR 必须能通过命令：`go test ./...`（若有特定包，可只跑对应包的测试）；
+    - PR 必须能通过命令：`make test-race`（若有特定包，可只跑对应包的测试）；
     - 若修改影响到公共函数签名或行为，测试需明确验证向后兼容性。
 
 2. C/内核代码的测试与静态检查（必需/建议）
@@ -93,7 +93,8 @@ Agent 禁止的事项（严格）：
 3. CLI E2E 脚本（必需，尽量）
     - 每个涉及 CLI 行为或集成点的变更，应补充或更新一条 e2e 测试脚本（放在 `test/e2e/` 目录），脚本需：
         - 能够在受控环境下做基本的“构建 -> 启动 -> smoke test”流程（例如 `ecapture --help`、`ecapture tls -h` 或 keylog/pcap 模式的最小运行检查）；
-        - 分为“轻量场景”（无需 root / 只验证二进制启动 & flag 解析）与“扩展场景”（使用 Docker `--privileged` 或真实环境进行 eBPF 运行测试，需额外依赖并手动启用）；
+        - 需要用root权限运行ecapture，根据代码需求，补充启动时的必要参数（`参见 --help的结果`）；
+        - 再开一个终端，使用`curl`或`wget`等脚本，触发https的请求，以验证eBPF hook的基本功能（如TLS keylog生成、流量捕获等）；
         - 在 PR 中给出如何运行 e2e 的说明（本地直接执行 / CI 集成的命令行）。
     - 例：新增 `test/e2e/run_e2e.sh`，脚本执行：
         - `go test ./...` 并保存 coverage；
@@ -103,7 +104,7 @@ Agent 禁止的事项（严格）：
 
 4. CI 要求（建议）
     - 在 CI 流程中至少运行：
-        - `go test ./... -coverprofile=coverage.out`；
+        - 运行 `make test-race`进行项目的单元测试与竞态检测；
         - 语法检查、`go vet`、`golangci-lint`（若仓库已有）；
         - 轻量 e2e 脚本以验证二进制基本可用性。
     - 如涉及 eBPF 运行的严格验证，建议维护者决定是否启用带特权的 runner。
@@ -112,14 +113,13 @@ Agent 禁止的事项（严格）：
 
 ## 风格与质量要求
 （与之前描述一致，略述）
-- C 代码用 `clang-format`（STYLE 位于 `variables.mk`）；
-- Go 代码用 `gofmt`、遵循现有命名和包结构；
+- 使用 `make format` 格式化项目代码；
 - 小步提交、单一目的 PR、清晰的 PR 描述；
 - 所有 PR 中若有未解决的集成测试限制，必须在 PR 描述中注明并提供复现步骤或需要的维护者权限/环境。
 
 ---
 
-## PR 模板建议（中文）
+## PR 模板建议（尽量用英文）
 - 标题：`[type] 简短描述`，例如：
     - `feat: 支持 OpenSSL 3.6.x HOOK`
     - `fix: 修复 gotls 在某条件下的 panic`
