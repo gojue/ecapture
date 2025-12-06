@@ -34,11 +34,16 @@ const (
 
 	// TypeEventProcessor display by event_processor.
 	TypeEventProcessor
-
-	TypeGoTls
 )
 
 const SocketLifecycleUUIDPrefix = "sock:"
+
+type CodecType uint8
+
+const (
+	CodecTypeText CodecType = iota
+	CodecTypeProtobuf
+)
 
 type IEventStruct interface {
 	Decode(payload []byte) (err error)

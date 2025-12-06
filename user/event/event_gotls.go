@@ -94,7 +94,7 @@ func (ge *GoTLSEvent) Clone() IEventStruct {
 }
 
 func (ge *GoTLSEvent) EventType() Type {
-	return TypeGoTls
+	return TypeOutput
 }
 
 func (ge *GoTLSEvent) GetUUID() string {
