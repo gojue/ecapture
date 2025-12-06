@@ -182,10 +182,12 @@ $(KERN_OBJECTS_NOCORE): %.nocore: %.c \
 			-filetype=obj \
 			-o $(subst kern/,user/bytecode/,$(subst .c,_noncore$(KERNEL_LESS_5_2_PREFIX),$<)) || exit 1
 
+# Generate assets for all eBPF bytecode
 .PHONY: assets
 assets: .checkver_$(CMD_GO) ebpf ebpf_noncore
 	$(CMD_GO) run github.com/shuLhan/go-bindata/cmd/go-bindata $(IGNORE_LESS52) -pkg assets -o "assets/ebpf_probe.go" $(wildcard ./user/bytecode/*.o)
 
+# Generate assets for non-core eBPF bytecode only
 .PHONY: assets_noncore
 assets_noncore: \
 	.checkver_$(CMD_GO) \
@@ -193,6 +195,7 @@ assets_noncore: \
 	$(CMD_GO) run github.com/shuLhan/go-bindata/cmd/go-bindata $(IGNORE_LESS52) -pkg assets -o "assets/ebpf_probe.go" $(wildcard ./user/bytecode/*.o)
 
 
+# Build libpcap static library
 .PHONY: $(TARGET_LIBPCAP)
 $(TARGET_LIBPCAP):
 	test -f ./lib/libpcap/configure || git submodule update --init
@@ -204,12 +207,14 @@ $(TARGET_LIBPCAP):
 			--without-turbocap --host=$(LIBPCAP_ARCH) && \
 	CC=$(CMD_CC_PREFIX)$(CMD_CC) AR=$(CMD_AR_PREFIX)$(CMD_AR) make || exit 1
 
+# Build CO-RE eBPF bytecode and golang binary
 .PHONY: build
 build: .checkver_$(CMD_GO) $(TARGET_LIBPCAP) assets assets_noncore
 	$(call allow-override,VERSION_FLAG,$(UNAME_R))
 	$(call gobuild, $(ANDROID))
 
 
+# Build non-core eBPF bytecode and golang binary
 .PHONY: build_noncore
 build_noncore: \
 	.checkver_$(CMD_GO) \
@@ -231,6 +236,18 @@ format:
 	@clang-format -i -style=$(STYLE) kern/boringssl_masterkey.h
 	@clang-format -i -style=$(STYLE) utils/*.c
 
-.PHONY: test
-test:
-	go test -v -race ./...
+# run unit tests with race detector
+.PHONY: test-race
+test-race: \
+	.checkver_$(CMD_GO) \
+	$(TARGET_LIBPCAP)
+	CGO_ENABLED=1 \
+	CGO_CFLAGS='-O2 -g -I$(CURDIR)/lib/libpcap/' \
+	CGO_LDFLAGS='-O2 -g -L$(CURDIR)/lib/libpcap/ -lpcap' \
+	GOOS=linux GOARCH=$(GOARCH) CC=$(CMD_CC_PREFIX)$(CMD_CC) \
+	go test -v -race ./... -coverprofile=coverage.out
+
+# run end to end tests
+.PHONY: test-e2e
+test-e2e:
+	bash ./test/e2e/run_e2e.sh

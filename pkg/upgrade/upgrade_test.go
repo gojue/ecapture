@@ -65,7 +65,7 @@ func TestCheckLatest(t *testing.T) {
 		os = "android"
 	}
 
-	githubResp, err := GetLatestVersion(useragent, fmt.Sprintf("%s%s?ver=%s", urlReleasesCN, apiReleases, ver), context.Background())
+	githubResp, err := GetLatestVersion(useragent, fmt.Sprintf("%s%s?ver=%s", urlReleases, apiReleases, ver), context.Background())
 	if err != nil {
 		t.Fatalf("Error getting latest version: %s", err.Error())
 	}
