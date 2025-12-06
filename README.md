@@ -310,6 +310,28 @@ For details of the Protobuf log schema used by eCapture/eCaptureQ, see:
 ## Stargazers over time
 [![Stargazers over time](https://starchart.cc/gojue/ecapture.svg)](https://starchart.cc/gojue/ecapture)
 
+# Testing
+
+eCapture includes comprehensive end-to-end (e2e) tests for the TLS, GnuTLS, and GoTLS modules. These tests verify that eCapture can successfully capture plaintext SSL/TLS traffic on Linux systems.
+
+## Running E2E Tests
+
+Run all e2e tests:
+```bash
+sudo make e2e
+```
+
+Run individual module tests:
+```bash
+sudo make e2e-tls      # Test OpenSSL/BoringSSL capture
+sudo make e2e-gnutls   # Test GnuTLS capture
+sudo make e2e-gotls    # Test Go TLS capture
+```
+
+**Prerequisites**: Linux kernel >= 4.18 (x86_64) or >= 5.5 (aarch64), root access, and required tools (see [docs/e2e-tests.md](./docs/e2e-tests.md)).
+
+For detailed information about the test suite, troubleshooting, and CI integration, see [docs/e2e-tests.md](./docs/e2e-tests.md).
+
 # Contributing
 See [CONTRIBUTING](./CONTRIBUTING.md) for details on submitting patches and the contribution workflow.
 
