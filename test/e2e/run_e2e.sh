@@ -55,17 +55,15 @@ else
   echo "'ecapture tls -h' succeeded"
 fi
 
-echo "== e2e: 可选扩展：在 Docker 中以 --privileged 模式运行更深入测试（需手动启用） =="
-cat <<'EOF'
-# 若需更深入的 eBPF 运行测试，可以在支持特权容器的环境中运行：
-# docker run --rm -it --privileged -v "$(pwd)":/src -w /src ubuntu:24.04 /bin/bash -c "
-#   apt update && apt install -y build-essential clang llvm libelf-dev pkg-config golang-go git \
-#     libpcap-dev bpftool ca-certificates && \
-#   make all -j$(nproc) && \
-#   ./bin/ecapture --help
-# "
-#
-# 上述命令示例仅作为参考，实际镜像和依赖可能需要根据仓库 Makefile 调整。
-EOF
+echo ""
+echo "== e2e: 运行综合 e2e 测试（需要 root 权限） =="
+echo "To run comprehensive e2e tests with real HTTPS traffic capture, use:"
+echo "  sudo make e2e           # Run all TLS/GnuTLS/GoTLS tests"
+echo "  sudo make e2e-tls       # Run OpenSSL/BoringSSL test only"
+echo "  sudo make e2e-gnutls    # Run GnuTLS test only"
+echo "  sudo make e2e-gotls     # Run GoTLS test only"
+echo ""
+echo "These tests require root privileges and will capture real HTTPS traffic from github.com"
+echo "See docs/e2e-tests.md for more information."
 
 exit 0
