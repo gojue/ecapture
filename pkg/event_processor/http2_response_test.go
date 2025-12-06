@@ -131,9 +131,10 @@ func TestHttp2ResponseDisplayWithIncompleteFrame(t *testing.T) {
 func TestHttp2ResponseDisplayWithMinimalIncompleteFrame(t *testing.T) {
 	// Create a minimal HTTP2 frame header that declares more data than available
 	// Frame header: Length (3 bytes) + Type (1 byte) + Flags (1 byte) + Stream ID (4 bytes) = 9 bytes
-	// We'll create a SETTINGS frame (type 0x04) that claims to have 12 bytes payload but only provide header
+	// We'll create a SETTINGS frame (type 0x04) that claims to have 18 bytes (0x12 hex) payload
+	// but only provide the header without the payload data
 	incompleteFrame := []byte{
-		0x00, 0x00, 0x12, // Length: 18 bytes (but we won't provide the payload)
+		0x00, 0x00, 0x12, // Length: 18 bytes (0x12 hex) - payload not provided
 		0x04,             // Type: SETTINGS
 		0x00,             // Flags: none
 		0x00, 0x00, 0x00, 0x00, // Stream ID: 0

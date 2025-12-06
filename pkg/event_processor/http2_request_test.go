@@ -133,9 +133,10 @@ func TestHttp2RequestDisplayWithMinimalIncompleteFrame(t *testing.T) {
 	// Client preface: "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n"
 	clientPreface := []byte(http2.ClientPreface)
 
-	// Incomplete SETTINGS frame header that claims more data than available
+	// Incomplete SETTINGS frame header that claims 18 bytes (0x12 hex) payload
+	// but we only provide the header without the payload data
 	incompleteFrame := []byte{
-		0x00, 0x00, 0x12, // Length: 18 bytes (but we won't provide the payload)
+		0x00, 0x00, 0x12, // Length: 18 bytes (0x12 hex) - payload not provided
 		0x04,             // Type: SETTINGS
 		0x00,             // Flags: none
 		0x00, 0x00, 0x00, 0x00, // Stream ID: 0
