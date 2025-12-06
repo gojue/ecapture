@@ -89,25 +89,19 @@ Each e2e test follows this general flow:
    - Build eCapture binary (if not present)
    - Build test programs (for GoTLS test)
 
-3. **Setup Phase**
-   - Generate self-signed SSL/TLS certificates
-   - Create temporary directories for test artifacts
-
-4. **Execution Phase**
-   - Start local HTTPS test server
+3. **Execution Phase**
    - Launch eCapture module in background
    - Wait for initialization (2-3 seconds)
-   - Execute HTTPS client requests
+   - Execute HTTPS client requests to https://github.com
    - Capture output for analysis
 
-5. **Verification Phase**
+4. **Verification Phase**
    - Check eCapture captured data
    - Verify plaintext content is visible
    - Validate HTTPS client succeeded
 
-6. **Cleanup Phase**
+5. **Cleanup Phase**
    - Stop eCapture process
-   - Stop test server
    - Remove temporary files
    - Display logs on failure
 
@@ -119,30 +113,26 @@ Shared functions for all tests:
 - Logging with color-coded output
 - Root privilege checking
 - Kernel version validation
-- Certificate generation
-- Process management (start/stop/wait)
+- Process management (kill by pattern)
 - Output verification
 
 #### TLS Test (`test/e2e/tls_e2e_test.sh`)
 
-- **Server**: Python HTTPS server (uses system OpenSSL/BoringSSL)
+- **Target**: https://github.com
 - **Client**: curl (uses system OpenSSL/BoringSSL)
-- **Port**: 8443
 - **Validates**: OpenSSL/BoringSSL plaintext capture
 
 #### GnuTLS Test (`test/e2e/gnutls_e2e_test.sh`)
 
-- **Server**: Python HTTPS server
+- **Target**: https://github.com
 - **Client**: wget (may use GnuTLS) or curl (fallback)
-- **Port**: 8444
 - **Validates**: GnuTLS plaintext capture
 - **Note**: Requires GnuTLS library installed for full test
 
 #### GoTLS Test (`test/e2e/gotls_e2e_test.sh`)
 
-- **Server**: Custom Go HTTPS server (`test/e2e/go_https_server.go`)
+- **Target**: https://github.com
 - **Client**: Custom Go HTTPS client (`test/e2e/go_https_client.go`)
-- **Port**: 8445
 - **Validates**: Go crypto/tls plaintext capture
 
 ## Test Output
@@ -191,15 +181,18 @@ Example:
 
 ### Known Limitations
 
-1. **GnuTLS Test**: Python's HTTPS server may use OpenSSL instead of GnuTLS
+1. **External Dependency**: Tests connect to https://github.com
+   - Requires internet connectivity
+   - May fail if GitHub is unreachable
+
+2. **GnuTLS Test**: wget/curl may use OpenSSL instead of GnuTLS
    - To test GnuTLS fully, use applications that link to libgnutls
    - Test still validates eCapture's GnuTLS module can start and capture
 
-2. **Timing Sensitivity**: Tests use sleep delays for process startup
+3. **Timing Sensitivity**: Tests use sleep delays for process startup
    - May need adjustment on slow systems
-   - Increase timeouts in `common.sh` if needed
 
-3. **Output Formats**: eCapture output format may vary by:
+4. **Output Formats**: eCapture output format may vary by:
    - Capture mode (text vs. keylog vs. pcap)
    - Library version
    - Traffic patterns

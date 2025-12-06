@@ -13,20 +13,13 @@ source "$SCRIPT_DIR/common.sh"
 
 # Test configuration
 TEST_NAME="GoTLS E2E Test"
-HTTPS_PORT=8445
+TEST_URL="https://github.com"
 ECAPTURE_BINARY="$ROOT_DIR/bin/ecapture"
-GO_SERVER="$SCRIPT_DIR/go_https_server"
 GO_CLIENT="$SCRIPT_DIR/go_https_client"
 TMP_DIR="/tmp/ecapture_gotls_e2e_$$"
-CERT_DIR="$TMP_DIR/certs"
 OUTPUT_DIR="$TMP_DIR/output"
 
-# PID files
-SERVER_PIDFILE="$TMP_DIR/server.pid"
-ECAPTURE_PIDFILE="$TMP_DIR/ecapture.pid"
-
 # Log files
-SERVER_LOG="$OUTPUT_DIR/server.log"
 ECAPTURE_LOG="$OUTPUT_DIR/ecapture.log"
 CLIENT_LOG="$OUTPUT_DIR/client.log"
 
@@ -34,21 +27,12 @@ CLIENT_LOG="$OUTPUT_DIR/client.log"
 cleanup_handler() {
     log_info "=== Cleanup ==="
     
-    # Kill ecapture
-    kill_by_pidfile "$ECAPTURE_PIDFILE"
-    
-    # Kill HTTPS server
-    kill_by_pidfile "$SERVER_PIDFILE"
-    
-    # Kill any remaining processes
-    kill_by_pattern "go_https_server" || true
+    # Kill ecapture by pattern
     kill_by_pattern "$ECAPTURE_BINARY.*gotls" || true
     
     # Show logs on failure
     if [ "${TEST_FAILED:-0}" = "1" ]; then
         log_error "Test failed. Showing logs:"
-        echo "=== Server Log ==="
-        cat "$SERVER_LOG" 2>/dev/null || echo "No server log"
         echo "=== eCapture Log ==="
         cat "$ECAPTURE_LOG" 2>/dev/null || echo "No ecapture log"
         echo "=== Client Log ==="
@@ -59,6 +43,11 @@ cleanup_handler() {
     if [ -d "$TMP_DIR" ]; then
         rm -rf "$TMP_DIR"
     fi
+    
+    # Clean up built Go client
+    if [ -f "$GO_CLIENT" ]; then
+        rm -f "$GO_CLIENT"
+    fi
 }
 
 # Setup trap
@@ -66,18 +55,9 @@ setup_cleanup_trap
 
 # Build Go test programs
 build_go_programs() {
-    log_info "Building Go HTTPS server and client..."
+    log_info "Building Go HTTPS client..."
     
     cd "$SCRIPT_DIR"
-    
-    # Build server
-    if [ ! -f "$GO_SERVER" ] || [ "$SCRIPT_DIR/go_https_server.go" -nt "$GO_SERVER" ]; then
-        log_info "Building go_https_server..."
-        if ! go build -o "$GO_SERVER" go_https_server.go; then
-            log_error "Failed to build go_https_server"
-            return 1
-        fi
-    fi
     
     # Build client
     if [ ! -f "$GO_CLIENT" ] || [ "$SCRIPT_DIR/go_https_client.go" -nt "$GO_CLIENT" ]; then
@@ -88,24 +68,8 @@ build_go_programs() {
         fi
     fi
     
-    log_success "Go programs built successfully"
+    log_success "Go client built successfully"
     return 0
-}
-
-# Start Go HTTPS server
-start_go_https_server() {
-    local port="$1"
-    local cert_file="$2"
-    local key_file="$3"
-    local pidfile="$4"
-    local logfile="$5"
-    
-    log_info "Starting Go HTTPS server on port $port..."
-    
-    "$GO_SERVER" -port "$port" -cert "$cert_file" -key "$key_file" > "$logfile" 2>&1 &
-    echo $! > "$pidfile"
-    
-    log_info "Go HTTPS server PID: $(cat "$pidfile")"
 }
 
 # Main test function
@@ -124,23 +88,16 @@ main() {
         exit 1
     fi
     
-    if ! check_prerequisites openssl go nc; then
+    if ! check_prerequisites go; then
         log_error "Prerequisites check failed"
         exit 1
     fi
     
     # Create working directories
-    mkdir -p "$TMP_DIR" "$CERT_DIR" "$OUTPUT_DIR"
-    
-    # Build Go test programs
-    log_info "=== Step 2: Build Go Test Programs ==="
-    if ! build_go_programs; then
-        log_error "Failed to build Go test programs"
-        exit 1
-    fi
+    mkdir -p "$TMP_DIR" "$OUTPUT_DIR"
     
     # Build ecapture
-    log_info "=== Step 3: Build eCapture ==="
+    log_info "=== Step 2: Build eCapture ==="
     if ! build_ecapture "$ECAPTURE_BINARY"; then
         log_error "Failed to build ecapture"
         exit 1
@@ -151,37 +108,20 @@ main() {
         exit 1
     fi
     
-    # Generate certificates
-    log_info "=== Step 4: Generate Certificates ==="
-    local cert_info
-    if ! cert_info=$(generate_certificate "$CERT_DIR" "server"); then
-        log_error "Failed to generate certificates"
+    # Build Go test programs
+    log_info "=== Step 3: Build Go Test Programs ==="
+    if ! build_go_programs; then
+        log_error "Failed to build Go test programs"
         exit 1
     fi
     
-    local cert_file key_file
-    cert_file=$(echo "$cert_info" | cut -d':' -f1)
-    key_file=$(echo "$cert_info" | cut -d':' -f2)
-    
-    # Start Go HTTPS server
-    log_info "=== Step 5: Start Go HTTPS Server ==="
-    start_go_https_server "$HTTPS_PORT" "$cert_file" "$key_file" "$SERVER_PIDFILE" "$SERVER_LOG"
-    
-    if ! wait_for_port "$HTTPS_PORT" 10; then
-        log_error "Go HTTPS server failed to start"
-        TEST_FAILED=1
-        exit 1
-    fi
-    
-    # Start ecapture GoTLS module
-    log_info "=== Step 6: Start eCapture GoTLS Module ==="
+    # Start ecapture with the Go client binary path
+    log_info "=== Step 4: Start eCapture GoTLS Module ==="
     log_info "Running: $ECAPTURE_BINARY gotls -m text --elfpath=$GO_CLIENT"
     
     "$ECAPTURE_BINARY" gotls -m text --elfpath="$GO_CLIENT" > "$ECAPTURE_LOG" 2>&1 &
-    echo $! > "$ECAPTURE_PIDFILE"
+    local ecapture_pid=$!
     
-    local ecapture_pid
-    ecapture_pid=$(cat "$ECAPTURE_PIDFILE")
     log_info "eCapture PID: $ecapture_pid"
     
     # Wait for ecapture to initialize
@@ -195,11 +135,11 @@ main() {
         exit 1
     fi
     
-    # Make HTTPS request with Go client
-    log_info "=== Step 7: Make HTTPS Request with Go Client ==="
-    log_info "Sending HTTPS request to https://127.0.0.1:$HTTPS_PORT/"
+    # Make HTTPS request using Go client
+    log_info "=== Step 5: Make HTTPS Request ==="
+    log_info "Sending HTTPS request to $TEST_URL using Go client"
     
-    "$GO_CLIENT" -url "https://127.0.0.1:$HTTPS_PORT/" -insecure > "$CLIENT_LOG" 2>&1 || {
+    "$GO_CLIENT" -url "$TEST_URL" > "$CLIENT_LOG" 2>&1 || {
         log_warn "Go client returned non-zero exit code (this might be expected)"
     }
     
@@ -208,14 +148,14 @@ main() {
     sleep 2
     
     # Stop ecapture gracefully
-    log_info "=== Step 8: Stop eCapture ==="
+    log_info "=== Step 6: Stop eCapture ==="
     if kill -0 "$ecapture_pid" 2>/dev/null; then
         kill -INT "$ecapture_pid" 2>/dev/null || true
         sleep 2
     fi
     
     # Verify results
-    log_info "=== Step 9: Verify Results ==="
+    log_info "=== Step 7: Verify Results ==="
     
     # Check if ecapture log has content
     if [ ! -s "$ECAPTURE_LOG" ]; then
@@ -228,16 +168,16 @@ main() {
     
     # Look for HTTP traffic in the output
     local found_http=0
-    if grep -iq "GET\|POST\|HTTP\|eCapture" "$ECAPTURE_LOG"; then
-        log_success "Found HTTP/application plaintext in eCapture output"
+    if grep -iq "GET\|POST\|HTTP" "$ECAPTURE_LOG"; then
+        log_success "Found HTTP plaintext in eCapture output"
         found_http=1
     else
         log_warn "Did not find obvious HTTP patterns in output"
     fi
     
-    # Look for GoTLS indicators
-    if grep -iq "GoTLS\|gotls\|crypto/tls" "$ECAPTURE_LOG"; then
-        log_success "Found GoTLS indicators in eCapture output"
+    # Look for TLS handshake indicators or other success markers
+    if grep -iq "SSL\|TLS\|GoTLS\|connected\|handshake" "$ECAPTURE_LOG"; then
+        log_success "Found TLS/SSL indicators in eCapture output"
     fi
     
     # Display sample output
@@ -245,14 +185,14 @@ main() {
     head -n 50 "$ECAPTURE_LOG"
     
     # Check client success
-    if grep -q "Response body\|status" "$CLIENT_LOG"; then
-        log_success "Go client successfully connected to HTTPS server"
+    if grep -q "Response status: 200\|bytes" "$CLIENT_LOG"; then
+        log_success "Client successfully connected to HTTPS server"
     else
         log_warn "Client connection status unclear"
     fi
     
     # Final verdict
-    log_info "=== Step 10: Test Summary ==="
+    log_info "=== Step 8: Test Summary ==="
     if [ $found_http -eq 1 ]; then
         log_success "✓ GoTLS E2E test PASSED"
         log_success "eCapture successfully captured GoTLS plaintext traffic"
@@ -263,7 +203,7 @@ main() {
         log_info "This may be due to:"
         log_info "  - Different output format than expected"
         log_info "  - Traffic not fully captured in test window"
-        log_info "  - Go version or TLS implementation differences"
+        log_info "  - Go TLS library version differences"
         log_info "Please review logs manually to confirm functionality"
         return 0
     fi

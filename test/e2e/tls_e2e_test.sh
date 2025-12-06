@@ -13,18 +13,12 @@ source "$SCRIPT_DIR/common.sh"
 
 # Test configuration
 TEST_NAME="TLS E2E Test"
-HTTPS_PORT=8443
+TEST_URL="https://github.com"
 ECAPTURE_BINARY="$ROOT_DIR/bin/ecapture"
 TMP_DIR="/tmp/ecapture_tls_e2e_$$"
-CERT_DIR="$TMP_DIR/certs"
 OUTPUT_DIR="$TMP_DIR/output"
 
-# PID files
-SERVER_PIDFILE="$TMP_DIR/server.pid"
-ECAPTURE_PIDFILE="$TMP_DIR/ecapture.pid"
-
 # Log files
-SERVER_LOG="$OUTPUT_DIR/server.log"
 ECAPTURE_LOG="$OUTPUT_DIR/ecapture.log"
 CLIENT_LOG="$OUTPUT_DIR/client.log"
 
@@ -32,21 +26,12 @@ CLIENT_LOG="$OUTPUT_DIR/client.log"
 cleanup_handler() {
     log_info "=== Cleanup ==="
     
-    # Kill ecapture
-    kill_by_pidfile "$ECAPTURE_PIDFILE"
-    
-    # Kill HTTPS server
-    kill_by_pidfile "$SERVER_PIDFILE"
-    
-    # Kill any remaining processes
-    kill_by_pattern "python3.*http.server" || true
+    # Kill ecapture by pattern
     kill_by_pattern "$ECAPTURE_BINARY.*tls" || true
     
     # Show logs on failure
     if [ "${TEST_FAILED:-0}" = "1" ]; then
         log_error "Test failed. Showing logs:"
-        echo "=== Server Log ==="
-        cat "$SERVER_LOG" 2>/dev/null || echo "No server log"
         echo "=== eCapture Log ==="
         cat "$ECAPTURE_LOG" 2>/dev/null || echo "No ecapture log"
         echo "=== Client Log ==="
@@ -78,13 +63,13 @@ main() {
         exit 1
     fi
     
-    if ! check_prerequisites openssl curl python3 nc; then
+    if ! check_prerequisites curl; then
         log_error "Prerequisites check failed"
         exit 1
     fi
     
     # Create working directories
-    mkdir -p "$TMP_DIR" "$CERT_DIR" "$OUTPUT_DIR"
+    mkdir -p "$TMP_DIR" "$OUTPUT_DIR"
     
     # Build ecapture
     log_info "=== Step 2: Build eCapture ==="
@@ -98,37 +83,13 @@ main() {
         exit 1
     fi
     
-    # Generate certificates
-    log_info "=== Step 3: Generate Certificates ==="
-    local cert_info
-    if ! cert_info=$(generate_certificate "$CERT_DIR" "server"); then
-        log_error "Failed to generate certificates"
-        exit 1
-    fi
-    
-    local cert_file key_file
-    cert_file=$(echo "$cert_info" | cut -d':' -f1)
-    key_file=$(echo "$cert_info" | cut -d':' -f2)
-    
-    # Start HTTPS server
-    log_info "=== Step 4: Start HTTPS Server ==="
-    start_python_https_server "$HTTPS_PORT" "$cert_file" "$key_file" "$SERVER_PIDFILE" "$SERVER_LOG"
-    
-    if ! wait_for_port "$HTTPS_PORT" 10; then
-        log_error "HTTPS server failed to start"
-        TEST_FAILED=1
-        exit 1
-    fi
-    
     # Start ecapture
-    log_info "=== Step 5: Start eCapture TLS Module ==="
+    log_info "=== Step 3: Start eCapture TLS Module ==="
     log_info "Running: $ECAPTURE_BINARY tls -m text"
     
     "$ECAPTURE_BINARY" tls -m text > "$ECAPTURE_LOG" 2>&1 &
-    echo $! > "$ECAPTURE_PIDFILE"
+    local ecapture_pid=$!
     
-    local ecapture_pid
-    ecapture_pid=$(cat "$ECAPTURE_PIDFILE")
     log_info "eCapture PID: $ecapture_pid"
     
     # Wait for ecapture to initialize
@@ -143,10 +104,10 @@ main() {
     fi
     
     # Make HTTPS request
-    log_info "=== Step 6: Make HTTPS Request ==="
-    log_info "Sending HTTPS request to https://127.0.0.1:$HTTPS_PORT/"
+    log_info "=== Step 4: Make HTTPS Request ==="
+    log_info "Sending HTTPS request to $TEST_URL"
     
-    curl -k -v "https://127.0.0.1:$HTTPS_PORT/" > "$CLIENT_LOG" 2>&1 || {
+    curl -v "$TEST_URL" > "$CLIENT_LOG" 2>&1 || {
         log_warn "curl returned non-zero exit code (this might be expected)"
     }
     
@@ -155,14 +116,14 @@ main() {
     sleep 2
     
     # Stop ecapture gracefully
-    log_info "=== Step 7: Stop eCapture ==="
+    log_info "=== Step 5: Stop eCapture ==="
     if kill -0 "$ecapture_pid" 2>/dev/null; then
         kill -INT "$ecapture_pid" 2>/dev/null || true
         sleep 2
     fi
     
     # Verify results
-    log_info "=== Step 8: Verify Results ==="
+    log_info "=== Step 6: Verify Results ==="
     
     # Check if ecapture log has content
     if [ ! -s "$ECAPTURE_LOG" ]; then
@@ -199,7 +160,7 @@ main() {
     fi
     
     # Final verdict
-    log_info "=== Step 9: Test Summary ==="
+    log_info "=== Step 7: Test Summary ==="
     if [ $found_http -eq 1 ]; then
         log_success "✓ TLS E2E test PASSED"
         log_success "eCapture successfully captured TLS plaintext traffic"

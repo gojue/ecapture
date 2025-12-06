@@ -82,110 +82,7 @@ check_prerequisites() {
     return 0
 }
 
-# Generate self-signed certificate
-generate_certificate() {
-    local cert_dir="$1"
-    local cert_name="${2:-server}"
-    
-    mkdir -p "$cert_dir"
-    
-    local key_file="$cert_dir/${cert_name}.key"
-    local cert_file="$cert_dir/${cert_name}.crt"
-    
-    if [ -f "$key_file" ] && [ -f "$cert_file" ]; then
-        log_info "Certificate already exists: $cert_file"
-        echo "$cert_file:$key_file"
-        return 0
-    fi
-    
-    log_info "Generating self-signed certificate..."
-    if openssl req -x509 -newkey rsa:2048 -nodes \
-        -keyout "$key_file" \
-        -out "$cert_file" \
-        -days 365 \
-        -subj "/C=US/ST=Test/L=Test/O=eCapture/CN=localhost" \
-        >/dev/null 2>&1; then
-        log_success "Certificate generated: $cert_file"
-        echo "$cert_file:$key_file"
-        return 0
-    else
-        log_error "Failed to generate certificate"
-        return 1
-    fi
-}
 
-# Wait for process to start
-wait_for_process() {
-    local process_name="$1"
-    local timeout="${2:-10}"
-    local count=0
-    
-    log_info "Waiting for process '$process_name' to start..."
-    while [ $count -lt "$timeout" ]; do
-        if pgrep -f "$process_name" >/dev/null 2>&1; then
-            log_success "Process '$process_name' is running"
-            return 0
-        fi
-        sleep 1
-        count=$((count + 1))
-    done
-    
-    log_error "Process '$process_name' did not start within ${timeout}s"
-    return 1
-}
-
-# Wait for port to be open
-wait_for_port() {
-    local port="$1"
-    local timeout="${2:-10}"
-    local count=0
-    
-    log_info "Waiting for port $port to be open..."
-    while [ $count -lt "$timeout" ]; do
-        if nc -z 127.0.0.1 "$port" 2>/dev/null; then
-            log_success "Port $port is open"
-            return 0
-        fi
-        sleep 1
-        count=$((count + 1))
-    done
-    
-    log_error "Port $port did not open within ${timeout}s"
-    return 1
-}
-
-# Kill process by PID file
-kill_by_pidfile() {
-    local pidfile="$1"
-    
-    if [ ! -f "$pidfile" ]; then
-        log_warn "PID file not found: $pidfile"
-        return 0
-    fi
-    
-    local pid
-    pid=$(cat "$pidfile")
-    
-    if [ -z "$pid" ]; then
-        log_warn "Empty PID file: $pidfile"
-        rm -f "$pidfile"
-        return 0
-    fi
-    
-    if kill -0 "$pid" 2>/dev/null; then
-        log_info "Killing process $pid..."
-        kill "$pid" 2>/dev/null || true
-        sleep 1
-        
-        # Force kill if still running
-        if kill -0 "$pid" 2>/dev/null; then
-            log_warn "Force killing process $pid..."
-            kill -9 "$pid" 2>/dev/null || true
-        fi
-    fi
-    
-    rm -f "$pidfile"
-}
 
 # Kill process by name pattern
 kill_by_pattern() {
@@ -246,36 +143,6 @@ verify_text_in_output() {
         cat "$output_file"
         return 1
     fi
-}
-
-# Start HTTPS server with Python
-start_python_https_server() {
-    local port="$1"
-    local cert_file="$2"
-    local key_file="$3"
-    local pidfile="$4"
-    local logfile="$5"
-    
-    log_info "Starting Python HTTPS server on port $port..."
-    
-    python3 -c "
-import http.server
-import ssl
-import sys
-
-server_address = ('127.0.0.1', $port)
-httpd = http.server.HTTPServer(server_address, http.server.SimpleHTTPRequestHandler)
-httpd.socket = ssl.wrap_socket(httpd.socket,
-                                server_side=True,
-                                certfile='$cert_file',
-                                keyfile='$key_file',
-                                ssl_version=ssl.PROTOCOL_TLS)
-print('Server started on port $port', file=sys.stderr, flush=True)
-httpd.serve_forever()
-" > "$logfile" 2>&1 &
-    
-    echo $! > "$pidfile"
-    log_info "Python HTTPS server PID: $(cat "$pidfile")"
 }
 
 # Build ecapture binary if needed
