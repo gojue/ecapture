@@ -117,7 +117,10 @@ func (h2r *HTTP2Request) Display() []byte {
 	for {
 		f, err := h2r.framer.ReadFrame()
 		if err != nil {
-			if !errors.Is(err, io.EOF) {
+			// io.EOF indicates clean end of stream
+			// io.ErrUnexpectedEOF is expected when capturing incremental TLS data
+			// where frames may be incomplete - this is normal during streaming capture
+			if !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
 				log.Println("[http2 request] Dump HTTP2 Frame error:", err)
 			}
 			break

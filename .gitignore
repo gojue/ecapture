@@ -13,6 +13,9 @@
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 
+# Log files
+*.log
+
 # Dependency directories (remove the comment below to include it)
 # vendor/
 /assets/ebpf_probe.go
