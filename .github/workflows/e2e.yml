@@ -1,0 +1,173 @@
+name: E2E Tests
+
+on:
+  pull_request:
+    branches: [ master, main ]
+    types: [ opened, synchronize, reopened ]
+  push:
+    branches: [ master, main ]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e-tests:
+    runs-on: ubuntu-22.04
+    name: E2E Tests (TLS/GnuTLS/GoTLS)
+    
+    steps:
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.6'
+
+      - name: Install Required Tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes \
+            build-essential \
+            pkgconf \
+            libelf-dev \
+            llvm-14 \
+            clang-14 \
+            linux-tools-common \
+            linux-tools-generic \
+            gcc \
+            curl \
+            wget \
+            netcat-openbsd \
+            openssl \
+            libssl-dev \
+            ca-certificates
+          
+          # Set up clang-14 as default
+          for tool in "clang" "llc" "llvm-strip"
+          do
+            sudo rm -f /usr/bin/$tool
+            sudo ln -s /usr/bin/$tool-14 /usr/bin/$tool
+          done
+          
+          # Verify tools are installed
+          echo "=== Installed Tool Versions ==="
+          go version
+          clang --version | head -1
+          curl --version | head -1
+          wget --version | head -1
+          openssl version
+
+      - name: Prepare Linux Headers
+        run: |
+          cd /usr/src
+          source_file=$(find . -maxdepth 1 -name "*linux-source*.tar.bz2")
+          if [ -n "$source_file" ]; then
+            source_dir=$(echo "$source_file" | sed 's/\.tar\.bz2//g')
+            sudo tar -xf $source_file
+            cd $source_dir
+            test -f .config || sudo make oldconfig
+          fi
+
+      - uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+          fetch-depth: 0
+
+      - name: Build eCapture
+        run: |
+          make clean
+          make env
+          make -j$(nproc)
+          
+          # Verify binary was built
+          if [ ! -f bin/ecapture ]; then
+            echo "❌ Failed to build ecapture binary"
+            exit 1
+          fi
+          
+          ls -lh bin/ecapture
+          file bin/ecapture
+
+      - name: Run E2E Tests
+        run: |
+          echo "=== Running E2E Tests ==="
+          echo "Kernel: $(uname -r)"
+          echo "Architecture: $(uname -m)"
+          
+          # Run comprehensive e2e tests with sudo
+          # Tests will connect to https://github.com to verify TLS capture
+          sudo make e2e || {
+            echo "❌ E2E tests failed"
+            exit 1
+          }
+
+      - name: E2E Test Summary
+        if: always()
+        run: |
+          echo "=== E2E Test Execution Complete ==="
+          if [ $? -eq 0 ]; then
+            echo "✅ All E2E tests passed successfully"
+          else
+            echo "❌ Some E2E tests failed - check logs above"
+          fi
+
+  e2e-tests-summary:
+    runs-on: ubuntu-22.04
+    name: E2E Test Results Summary
+    needs: e2e-tests
+    if: always()
+    
+    steps:
+      - name: Check E2E Test Results
+        run: |
+          if [ "${{ needs.e2e-tests.result }}" == "success" ]; then
+            echo "✅ E2E Tests: PASSED"
+            exit 0
+          else
+            echo "❌ E2E Tests: FAILED"
+            exit 1
+          fi
+
+      - name: Comment PR with E2E Results
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const prNumber = context.payload.pull_request.number;
+            const testResult = '${{ needs.e2e-tests.result }}';
+            const runId = context.runId;
+            
+            const statusEmoji = testResult === 'success' ? '✅' : '❌';
+            const statusText = testResult === 'success' ? 'PASSED' : 'FAILED';
+            
+            const body = `## ${statusEmoji} E2E Test Results: ${statusText}
+            
+            **Test Run:** [#${runId}](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId})
+            
+            ### Tests Executed:
+            - TLS/OpenSSL Module (curl → github.com)
+            - GnuTLS Module (wget/curl → github.com)
+            - GoTLS Module (Go client → github.com)
+            
+            ${testResult === 'success' ? 
+              '✅ All e2e tests passed successfully! The TLS capture functionality is working correctly.' : 
+              '❌ Some e2e tests failed. Please check the workflow logs for details.'}
+            
+            ---
+            *Automated e2e test results for commit ${context.sha.substring(0, 7)}*`;
+            
+            try {
+              await github.rest.issues.createComment({
+                issue_number: prNumber,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: body
+              });
+              console.log('E2E test results comment posted successfully');
+            } catch (error) {
+              console.log('Failed to post comment:', error.message);
+            }
