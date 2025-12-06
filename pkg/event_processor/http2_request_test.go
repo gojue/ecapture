@@ -137,8 +137,8 @@ func TestHttp2RequestDisplayWithMinimalIncompleteFrame(t *testing.T) {
 	// but we only provide the header without the payload data
 	incompleteFrame := []byte{
 		0x00, 0x00, 0x12, // Length: 18 bytes (0x12 hex) - payload not provided
-		0x04,             // Type: SETTINGS
-		0x00,             // Flags: none
+		0x04,                   // Type: SETTINGS
+		0x00,                   // Flags: none
 		0x00, 0x00, 0x00, 0x00, // Stream ID: 0
 		// Missing payload - this will cause io.ErrUnexpectedEOF
 	}
