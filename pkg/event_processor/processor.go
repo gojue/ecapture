@@ -45,8 +45,9 @@ type EventProcessor struct {
 	errChan   chan error
 
 	// output model
-	isHex        bool
-	truncateSize uint64
+	isHex           bool
+	truncateSize    uint64
+	eventOutputType event.CodecType
 }
 
 func (ep *EventProcessor) GetLogger() io.Writer {
@@ -94,7 +95,7 @@ func (ep *EventProcessor) dispatch(e event.IEventStruct) error {
 	found, eWorker := ep.getWorkerByUUID(uuid)
 	if !found {
 		// ADD a new eventWorker into queue
-		eWorker = NewEventWorker(uuid, ep)
+		eWorker = NewEventWorker(uuid, ep, ep.eventOutputType)
 		ep.addWorkerByUUID(eWorker)
 	}
 
@@ -203,13 +204,13 @@ func (ep *EventProcessor) ErrorChan() chan error {
 	return ep.errChan
 }
 
-func NewEventProcessor(logger io.Writer, isHex bool, truncateSize uint64) *EventProcessor {
-	var ep *EventProcessor
-	ep = &EventProcessor{}
+func NewEventProcessor(logger io.Writer, isHex bool, truncateSize uint64, codecType event.CodecType) *EventProcessor {
+	ep := &EventProcessor{}
 	ep.logger = logger
 	ep.isHex = isHex
 	ep.truncateSize = truncateSize
 	ep.isClosed = false
+	ep.eventOutputType = codecType
 	ep.init()
 	return ep
 }

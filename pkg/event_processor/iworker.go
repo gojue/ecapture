@@ -79,6 +79,7 @@ type eventWorker struct {
 	uuidOutput       string
 	DestroyUUID      uint64
 	processor        *EventProcessor
+	eventOutputType  event.CodecType
 	parser           IParser
 	payload          *bytes.Buffer
 	used             atomic.Bool
@@ -87,8 +88,9 @@ type eventWorker struct {
 	ewLifeCycleState LifeCycleState
 }
 
-func NewEventWorker(uuid string, processor *EventProcessor) IWorker {
+func NewEventWorker(uuid string, processor *EventProcessor, codecType event.CodecType) IWorker {
 	eWorker := &eventWorker{}
+	eWorker.eventOutputType = codecType
 	eWorker.init(uuid, processor)
 	go func() {
 		eWorker.Run()
@@ -191,8 +193,8 @@ func (ew *eventWorker) Display() error {
 
 	//iWorker只负责写入，不应该打印。
 	var err error
-	_, ok := ew.processor.logger.(event.CollectorWriter)
-	if ok {
+	// _, ok := ew.processor.logger.(event.CollectorWriter)
+	if ew.eventOutputType != event.CodecTypeProtobuf {
 		eb := new(event.Base)
 		oeb := ew.originEvent.Base()
 		eb = &oeb

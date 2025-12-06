@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/gojue/ecapture/user/event"
 )
 
 var (
@@ -40,7 +42,7 @@ func TestEventProcessor_Serve(t *testing.T) {
 	}
 	logger.SetOutput(f)
 	// no truncate
-	ep := NewEventProcessor(f, true, 0)
+	ep := NewEventProcessor(f, true, 0, event.CodecTypeText)
 	go func() {
 		var err error
 		err = ep.Serve()
@@ -123,7 +125,7 @@ func Test_Truncated_EventProcessor_Serve(t *testing.T) {
 	logger.SetOutput(f)
 
 	// truncate 1000 bytes
-	ep := NewEventProcessor(f, true, 1000)
+	ep := NewEventProcessor(f, true, 1000, event.CodecTypeText)
 	go func() {
 		var err error
 		err = ep.Serve()

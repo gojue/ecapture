@@ -38,6 +38,13 @@ const (
 
 const SocketLifecycleUUIDPrefix = "sock:"
 
+type CodecType uint8
+
+const (
+	CodecTypeText CodecType = iota
+	CodecTypeProtobuf
+)
+
 type IEventStruct interface {
 	Decode(payload []byte) (err error)
 	Payload() []byte
