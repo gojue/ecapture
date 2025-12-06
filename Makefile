@@ -247,11 +247,6 @@ test-race: \
 	GOOS=linux GOARCH=$(GOARCH) CC=$(CMD_CC_PREFIX)$(CMD_CC) \
 	go test -v -race ./... -coverprofile=coverage.out
 
-# run end to end tests
-.PHONY: test-e2e
-test-e2e:
-	bash ./test/e2e/run_e2e.sh
-
 # run TLS module e2e test
 .PHONY: e2e-tls
 e2e-tls:
