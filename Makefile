@@ -231,6 +231,16 @@ format:
 	@clang-format -i -style=$(STYLE) kern/boringssl_masterkey.h
 	@clang-format -i -style=$(STYLE) utils/*.c
 
-.PHONY: test
-test:
-	go test -v -race ./...
+.PHONY: test-race
+test-race: \
+	.checkver_$(CMD_GO) \
+	$(TARGET_LIBPCAP)
+	CGO_ENABLED=1 \
+	CGO_CFLAGS='-O2 -g -I$(CURDIR)/lib/libpcap/' \
+	CGO_LDFLAGS='-O2 -g -L$(CURDIR)/lib/libpcap/ -lpcap' \
+	GOOS=linux GOARCH=$(GOARCH) CC=$(CMD_CC_PREFIX)$(CMD_CC) \
+	go test -v -race ./... -coverprofile=coverage.out
+
+.PHONY: test_e2e
+test_e2e:
+	bash ./test/e2e/run_e2e.sh
