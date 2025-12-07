@@ -466,7 +466,7 @@ func (m *Module) output(e event.IEventStruct) (b []byte, err error) {
 		le.Payload = &pb.LogEntry_EventPayload{EventPayload: ep}
 		encodedData, err := proto.Marshal(le)
 		if err != nil {
-			m.logger.Error().Err(errors.New("protobuf marshall error")).Msg("error doing protobuf marshall for gotls")
+			m.logger.Error().Err(err).Msg("error marshalling event to protobuf")
 			return nil, err
 		}
 		return encodedData, nil
