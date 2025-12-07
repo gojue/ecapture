@@ -1,10 +1,38 @@
-# v1.5.0 (2025-12-07)
+# v1.5.1 (2025-12-07)
 
 ## What's Changed
+* fix (iworker): handle empty payload and ignore EOF error in parser write. by @cfc4n in https://github.com/gojue/ecapture/pull/897
 
 ## New Contributors
 
-**Full Changelog**: https://github.com/gojue/ecapture/compare/v1.4.3...v1.5.0 
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v1.5.0...v1.5.1
+<hr>
+
+# v1.5.0 (2025-12-07)
+
+## What's Changed
+* feat: support OpenSSL 3.5.4 by @namoen0301 in https://github.com/gojue/ecapture/pull/857
+* build(deps): bump golang.org/x/crypto from 0.38.0 to 0.45.0 by @dependabot[bot] in https://github.com/gojue/ecapture/pull/864
+* Add protobuf-based WebSocket client example and fix ecaptureq documentation by @Copilot in https://github.com/gojue/ecapture/pull/868
+* docs: update READMEs with protobuf protocol links and refactor visualizer docs by @zenyanle in https://github.com/gojue/ecapture/pull/869
+* feat: add eCapture Issue Responder template for Copilot Agent. by @cfc4n in https://github.com/gojue/ecapture/pull/873
+* feat:  add eCapture PR  Agent Profile. by @cfc4n in https://github.com/gojue/ecapture/pull/878
+* fix: prevent nil pointer panic in gnutls probe when setup fails by @Copilot in https://github.com/gojue/ecapture/pull/879
+* bugfix(gotls_kern): use actual data_len while reading payload by @h0x0er in https://github.com/gojue/ecapture/pull/882
+* fix(ecaptureq): adjust heartbeat frequency and trigger immediate ping by @zenyanle in https://github.com/gojue/ecapture/pull/884
+* feat: add support for BoringSSL on Android 16 with updated offsets by @cfc4n in https://github.com/gojue/ecapture/pull/885
+* Fix HTTP/2 parser logging spurious "unexpected EOF" errors during TLS capture by @Copilot in https://github.com/gojue/ecapture/pull/886
+* feat: add e2e testing framework and multiple HTTPS client examples by @cfc4n in https://github.com/gojue/ecapture/pull/887
+* Add comprehensive e2e tests for TLS, GnuTLS, and GoTLS modules with CI integration by @Copilot in https://github.com/gojue/ecapture/pull/888
+* feat: add remote configuration update API documentation and event forwarding details by @cfc4n in https://github.com/gojue/ecapture/pull/889
+* Enhance e2e tests with content verification and multi-mode coverage by @Copilot in https://github.com/gojue/ecapture/pull/890
+* fix(gotls): correct event output logic and support protobuf by @zenyanle in https://github.com/gojue/ecapture/pull/891
+* fix: simplify PR comment condition to trigger on all pull requests by @cfc4n in https://github.com/gojue/ecapture/pull/894
+
+## New Contributors
+* @namoen0301 made their first contribution in https://github.com/gojue/ecapture/pull/857
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v1.4.3...v1.5.0
 <hr>
 
 # v1.4.3 (2025-10-12)
