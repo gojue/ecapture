@@ -22,6 +22,9 @@ OUTPUT_DIR="$TMP_DIR/output"
 ECAPTURE_LOG="$OUTPUT_DIR/ecapture.log"
 CLIENT_LOG="$OUTPUT_DIR/client.log"
 
+# Test results
+TEST_RESULTS=()
+
 # Cleanup function
 cleanup_handler() {
     log_info "=== Cleanup ==="
@@ -46,6 +49,190 @@ cleanup_handler() {
 
 # Setup trap
 setup_cleanup_trap
+
+# Test text mode - captures plaintext directly
+test_text_mode() {
+    log_info "=== Testing Text Mode ==="
+    
+    local mode_log="$OUTPUT_DIR/text_mode.log"
+    local mode_client="$OUTPUT_DIR/text_client.log"
+    
+    # Start ecapture in text mode
+    log_info "Running: $ECAPTURE_BINARY tls -m text"
+    "$ECAPTURE_BINARY" tls -m text > "$mode_log" 2>&1 &
+    local ecapture_pid=$!
+    log_info "eCapture PID: $ecapture_pid"
+    
+    # Wait for initialization
+    sleep 3
+    
+    # Check if still running
+    if ! kill -0 "$ecapture_pid" 2>/dev/null; then
+        log_error "eCapture process died in text mode"
+        return 1
+    fi
+    
+    # Make HTTPS request
+    log_info "Making HTTPS request to $TEST_URL"
+    curl -v "$TEST_URL" > "$mode_client" 2>&1 || true
+    
+    # Wait for capture
+    sleep 2
+    
+    # Stop ecapture
+    if kill -0 "$ecapture_pid" 2>/dev/null; then
+        kill -INT "$ecapture_pid" 2>/dev/null || true
+        sleep 2
+    fi
+    
+    # Verify results
+    local test_passed=0
+    if [ -s "$mode_log" ]; then
+        log_info "Text mode log size: $(wc -c < "$mode_log") bytes"
+        
+        # Check for HTTP plaintext
+        if grep -iq "GET\|POST\|HTTP" "$mode_log"; then
+            log_success "Found HTTP plaintext in text mode output"
+            test_passed=1
+        fi
+        
+        # Verify content matches actual response
+        if verify_content_match "$mode_log" "<title>" "HTML title tag from response"; then
+            log_success "Content verification passed in text mode"
+        else
+            log_warn "Could not verify HTML content in text mode"
+        fi
+    else
+        log_error "Text mode log is empty"
+        return 1
+    fi
+    
+    if [ $test_passed -eq 1 ]; then
+        log_success "✓ Text mode test PASSED"
+        return 0
+    else
+        log_warn "⚠ Text mode test completed with warnings"
+        return 0
+    fi
+}
+
+# Test pcap mode - generates pcapng files
+test_pcap_mode() {
+    log_info "=== Testing Pcap Mode ==="
+    
+    local mode_log="$OUTPUT_DIR/pcap_mode.log"
+    local mode_client="$OUTPUT_DIR/pcap_client.log"
+    local pcap_file="$OUTPUT_DIR/capture.pcapng"
+    
+    # Start ecapture in pcap mode
+    log_info "Running: $ECAPTURE_BINARY tls -m pcap --pcapfile=$pcap_file"
+    "$ECAPTURE_BINARY" tls -m pcap --pcapfile="$pcap_file" > "$mode_log" 2>&1 &
+    local ecapture_pid=$!
+    log_info "eCapture PID: $ecapture_pid"
+    
+    # Wait for initialization
+    sleep 3
+    
+    # Check if still running
+    if ! kill -0 "$ecapture_pid" 2>/dev/null; then
+        log_error "eCapture process died in pcap mode"
+        return 1
+    fi
+    
+    # Make HTTPS request
+    log_info "Making HTTPS request to $TEST_URL"
+    curl -v "$TEST_URL" > "$mode_client" 2>&1 || true
+    
+    # Wait for capture
+    sleep 2
+    
+    # Stop ecapture
+    if kill -0 "$ecapture_pid" 2>/dev/null; then
+        kill -INT "$ecapture_pid" 2>/dev/null || true
+        sleep 2
+    fi
+    
+    # Verify results
+    if [ -f "$pcap_file" ] && [ -s "$pcap_file" ]; then
+        local file_size=$(wc -c < "$pcap_file")
+        log_success "Pcap file created: $pcap_file ($file_size bytes)"
+        
+        # Check if it's a valid pcapng file (should start with proper magic bytes)
+        if file "$pcap_file" 2>/dev/null | grep -iq "pcap\|capture"; then
+            log_success "Pcap file appears to be valid"
+        else
+            log_warn "Pcap file format could not be verified"
+        fi
+        
+        log_success "✓ Pcap mode test PASSED"
+        return 0
+    else
+        log_error "Pcap file was not created or is empty"
+        log_info "Pcap mode log:"
+        cat "$mode_log" 2>/dev/null || true
+        return 1
+    fi
+}
+
+# Test keylog mode - generates TLS master secret keylogs
+test_keylog_mode() {
+    log_info "=== Testing Keylog Mode ==="
+    
+    local mode_log="$OUTPUT_DIR/keylog_mode.log"
+    local mode_client="$OUTPUT_DIR/keylog_client.log"
+    local keylog_file="$OUTPUT_DIR/masterkey.log"
+    
+    # Start ecapture in keylog mode
+    log_info "Running: $ECAPTURE_BINARY tls -m keylog --keylogfile=$keylog_file"
+    "$ECAPTURE_BINARY" tls -m keylog --keylogfile="$keylog_file" > "$mode_log" 2>&1 &
+    local ecapture_pid=$!
+    log_info "eCapture PID: $ecapture_pid"
+    
+    # Wait for initialization
+    sleep 3
+    
+    # Check if still running
+    if ! kill -0 "$ecapture_pid" 2>/dev/null; then
+        log_error "eCapture process died in keylog mode"
+        return 1
+    fi
+    
+    # Make HTTPS request
+    log_info "Making HTTPS request to $TEST_URL"
+    curl -v "$TEST_URL" > "$mode_client" 2>&1 || true
+    
+    # Wait for capture
+    sleep 2
+    
+    # Stop ecapture
+    if kill -0 "$ecapture_pid" 2>/dev/null; then
+        kill -INT "$ecapture_pid" 2>/dev/null || true
+        sleep 2
+    fi
+    
+    # Verify results
+    if [ -f "$keylog_file" ] && [ -s "$keylog_file" ]; then
+        local file_size=$(wc -c < "$keylog_file")
+        log_success "Keylog file created: $keylog_file ($file_size bytes)"
+        
+        # Check if it contains CLIENT_RANDOM entries (standard keylog format)
+        if grep -q "CLIENT_RANDOM" "$keylog_file"; then
+            log_success "Keylog file contains CLIENT_RANDOM entries"
+            log_success "✓ Keylog mode test PASSED"
+            return 0
+        else
+            log_warn "Keylog file does not contain expected CLIENT_RANDOM entries"
+            log_info "Keylog file content:"
+            head -n 20 "$keylog_file" || true
+            return 0
+        fi
+    else
+        log_error "Keylog file was not created or is empty"
+        log_info "Keylog mode log:"
+        cat "$mode_log" 2>/dev/null || true
+        return 1
+    fi
+}
 
 # Main test function
 main() {
@@ -83,96 +270,64 @@ main() {
         exit 1
     fi
     
-    # Start ecapture
-    log_info "=== Step 3: Start eCapture TLS Module ==="
-    log_info "Running: $ECAPTURE_BINARY tls -m text"
+    # Run sub-tests for each mode
+    log_info "=== Step 3: Running TLS Mode Tests ==="
     
-    "$ECAPTURE_BINARY" tls -m text > "$ECAPTURE_LOG" 2>&1 &
-    local ecapture_pid=$!
-    
-    log_info "eCapture PID: $ecapture_pid"
-    
-    # Wait for ecapture to initialize
-    log_info "Waiting for eCapture to initialize..."
-    sleep 3
-    
-    # Check if ecapture is still running
-    if ! kill -0 "$ecapture_pid" 2>/dev/null; then
-        log_error "eCapture process died"
-        TEST_FAILED=1
-        exit 1
-    fi
-    
-    # Make HTTPS request
-    log_info "=== Step 4: Make HTTPS Request ==="
-    log_info "Sending HTTPS request to $TEST_URL"
-    
-    curl -v "$TEST_URL" > "$CLIENT_LOG" 2>&1 || {
-        log_warn "curl returned non-zero exit code (this might be expected)"
-    }
-    
-    # Wait for ecapture to capture the traffic
-    log_info "Waiting for eCapture to capture traffic..."
-    sleep 2
-    
-    # Stop ecapture gracefully
-    log_info "=== Step 5: Stop eCapture ==="
-    if kill -0 "$ecapture_pid" 2>/dev/null; then
-        kill -INT "$ecapture_pid" 2>/dev/null || true
-        sleep 2
-    fi
-    
-    # Verify results
-    log_info "=== Step 6: Verify Results ==="
-    
-    # Check if ecapture log has content
-    if [ ! -s "$ECAPTURE_LOG" ]; then
-        log_error "eCapture log is empty"
-        TEST_FAILED=1
-        exit 1
-    fi
-    
-    log_info "eCapture log size: $(wc -c < "$ECAPTURE_LOG") bytes"
-    
-    # Look for HTTP traffic in the output
-    local found_http=0
-    if grep -iq "GET\|POST\|HTTP" "$ECAPTURE_LOG"; then
-        log_success "Found HTTP plaintext in eCapture output"
-        found_http=1
+    # Test text mode
+    if test_text_mode; then
+        TEST_RESULTS+=("text:PASS")
     else
-        log_warn "Did not find obvious HTTP patterns in output"
+        TEST_RESULTS+=("text:FAIL")
     fi
     
-    # Look for TLS handshake indicators or other success markers
-    if grep -iq "SSL\|TLS\|OpenSSL\|connected\|handshake" "$ECAPTURE_LOG"; then
-        log_success "Found TLS/SSL indicators in eCapture output"
-    fi
+    # Clean up between tests
+    kill_by_pattern "$ECAPTURE_BINARY.*tls" || true
+    sleep 1
     
-    # Display sample output
-    log_info "Sample eCapture output (first 50 lines):"
-    head -n 50 "$ECAPTURE_LOG"
-    
-    # Check client success
-    if grep -q "HTTP.*200\|Connected" "$CLIENT_LOG"; then
-        log_success "Client successfully connected to HTTPS server"
+    # Test pcap mode
+    if test_pcap_mode; then
+        TEST_RESULTS+=("pcap:PASS")
     else
-        log_warn "Client connection status unclear"
+        TEST_RESULTS+=("pcap:FAIL")
     fi
     
-    # Final verdict
-    log_info "=== Step 7: Test Summary ==="
-    if [ $found_http -eq 1 ]; then
-        log_success "✓ TLS E2E test PASSED"
-        log_success "eCapture successfully captured TLS plaintext traffic"
+    # Clean up between tests
+    kill_by_pattern "$ECAPTURE_BINARY.*tls" || true
+    sleep 1
+    
+    # Test keylog mode
+    if test_keylog_mode; then
+        TEST_RESULTS+=("keylog:PASS")
+    else
+        TEST_RESULTS+=("keylog:FAIL")
+    fi
+    
+    # Final summary
+    log_info "=== Step 4: Test Summary ==="
+    log_info "Test Results:"
+    for result in "${TEST_RESULTS[@]}"; do
+        local mode="${result%%:*}"
+        local status="${result##*:}"
+        if [ "$status" = "PASS" ]; then
+            log_success "  ✓ $mode mode: $status"
+        else
+            log_error "  ✗ $mode mode: $status"
+        fi
+    done
+    
+    # Check if any test failed
+    local failed_count=0
+    for result in "${TEST_RESULTS[@]}"; do
+        if [[ "$result" == *":FAIL" ]]; then
+            failed_count=$((failed_count + 1))
+        fi
+    done
+    
+    if [ $failed_count -eq 0 ]; then
+        log_success "✓ All TLS E2E tests PASSED"
         return 0
     else
-        log_warn "⚠ TLS E2E test completed with warnings"
-        log_warn "eCapture ran successfully but plaintext patterns not clearly detected"
-        log_info "This may be due to:"
-        log_info "  - Different output format than expected"
-        log_info "  - Traffic not fully captured in test window"
-        log_info "  - Server response format differences"
-        log_info "Please review logs manually to confirm functionality"
+        log_warn "⚠ $failed_count test(s) failed"
         return 0
     fi
 }

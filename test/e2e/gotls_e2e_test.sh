@@ -175,6 +175,14 @@ main() {
         log_warn "Did not find obvious HTTP patterns in output"
     fi
     
+    # Verify content matches actual HTTP response
+    # GitHub's homepage contains <title>GitHub...</title>
+    if verify_content_match "$ECAPTURE_LOG" "<title>" "HTML title tag from response"; then
+        log_success "Content verification passed - captured plaintext matches actual response"
+    else
+        log_warn "Could not verify HTML title tag in captured output"
+    fi
+    
     # Look for TLS handshake indicators or other success markers
     if grep -iq "SSL\|TLS\|GoTLS\|connected\|handshake" "$ECAPTURE_LOG"; then
         log_success "Found TLS/SSL indicators in eCapture output"

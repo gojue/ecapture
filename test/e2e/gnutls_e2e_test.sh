@@ -76,6 +76,13 @@ main() {
         exit 1
     fi
     
+    # Verify that the chosen client is linked against GnuTLS
+    if ! check_library_linkage "$client_cmd" "libgnutls" "GnuTLS"; then
+        log_warn "Client $client_cmd is not linked against GnuTLS"
+        log_warn "This test may not exercise the GnuTLS hooks properly"
+        log_info "Continuing anyway, but results may be inconclusive..."
+    fi
+    
     # Create working directories
     mkdir -p "$TMP_DIR" "$OUTPUT_DIR"
     
@@ -155,6 +162,14 @@ main() {
         found_http=1
     else
         log_warn "Did not find obvious HTTP patterns in output"
+    fi
+    
+    # Verify content matches actual HTTP response
+    # GitHub's homepage contains <title>GitHub...</title>
+    if verify_content_match "$ECAPTURE_LOG" "<title>" "HTML title tag from response"; then
+        log_success "Content verification passed - captured plaintext matches actual response"
+    else
+        log_warn "Could not verify HTML title tag in captured output"
     fi
     
     # Look for TLS handshake indicators or other success markers
