@@ -6,8 +6,6 @@ on:
 
 permissions:
   contents: read
-  issues: write
-  pull-requests: write
   actions: read
 
 concurrency:
@@ -90,33 +88,3 @@ jobs:
           echo "Artifact sizes:"
           du -h dist/*
 
-  comment-pr:
-    runs-on: ubuntu-22.04
-    name: Comment PR with Download Links
-    needs: build-debug-artifacts
-    if: github.event_name == 'pull_request'
-    steps:
-      - name: Comment PR with Download Links
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const runId = context.runId;
-            const prNumber = context.payload.pull_request.number;
-            
-            try {
-              await github.rest.issues.createComment({
-                issue_number: prNumber,
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                body: `🔧 **Debug Build Complete (PR ${prNumber}, RunID ${runId})**
-
-            📦 Download Links:
-            - [PR ${prNumber} Debug Binary](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId})
-
-            ⏰ Files will be retained for 7 days, please download and test promptly.`
-              });
-              console.log('Comment created successfully');
-            } catch (error) {
-              console.log('Failed to create comment:', error.message);
-            }
