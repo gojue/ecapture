@@ -314,8 +314,17 @@ For details of the Protobuf log schema used by eCapture/eCaptureQ, see:
 See [CONTRIBUTING](./CONTRIBUTING.md) for details on submitting patches and the contribution workflow.
 
 # Compilation
+## Custom Compilation
 
-See [COMPILATION](./COMPILATION.md) for details on compiling the eCapture source code.
+You can customize the features you want, such as setting the offset address for `uprobe` to support statically compiled OpenSSL libraries. Refer to the [COMPILATION](./COMPILATION.md) introduction for compilation instructions.
+
+## Configurations Remote Update
+
+After eCapture is running, you can dynamically modify the configurations through HTTP interfaces. Refer to the [HTTP API Documentation](./docs/remote-config-update-api.md).
+
+## Event Forwarding
+
+eCapture supports multiple event forwarding methods. You can forward events to packet capture software such as Burp Suite. For details, refer to the [Event Forwarding API Documentation](./docs/event-forward-api.md).
 
 ## Acknowledgements
 
