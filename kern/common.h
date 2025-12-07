@@ -66,7 +66,62 @@
 // Optional Target PID and UID
 const volatile u64 target_pid = 0;
 const volatile u64 target_uid = 0;
+const volatile u64 target_mntns = 0;
 const volatile u64 target_errno = BASH_ERRNO_DEFAULT;
+
+// get_mnt_ns_id returns the mount namespace inode number for the current task
+// This uses BPF CO:RE to read the namespace ID portably across kernel versions
+static __always_inline u64 get_mnt_ns_id() {
+#ifndef NOCORE
+    // CO:RE enabled - use BTF-based field access
+    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+    
+    struct nsproxy *nsproxy = BPF_CORE_READ(task, nsproxy);
+    if (!nsproxy) {
+        return 0;
+    }
+    
+    struct mnt_namespace *mnt_ns = BPF_CORE_READ(nsproxy, mnt_ns);
+    if (!mnt_ns) {
+        return 0;
+    }
+    
+    unsigned int inum = BPF_CORE_READ(mnt_ns, ns.inum);
+    return (u64)inum;
+#else
+    // Non-CO:RE - use offset-based access with hardcoded offsets
+    // This is less portable but works on older kernels without BTF
+    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+    if (!task) {
+        return 0;
+    }
+    
+    void *nsproxy_ptr;
+    // task_struct->nsproxy offset varies by kernel, typically around offset 1960-2000
+    // For robustness, we try to read it safely
+    int ret = bpf_probe_read_kernel(&nsproxy_ptr, sizeof(nsproxy_ptr), (void *)task + 1976);
+    if (ret != 0 || !nsproxy_ptr) {
+        return 0;
+    }
+    
+    void *mnt_ns_ptr;
+    // nsproxy->mnt_ns is typically at offset 8 (second pointer field)
+    ret = bpf_probe_read_kernel(&mnt_ns_ptr, sizeof(mnt_ns_ptr), nsproxy_ptr + 8);
+    if (ret != 0 || !mnt_ns_ptr) {
+        return 0;
+    }
+    
+    unsigned int inum;
+    // mnt_namespace->ns.inum: ns_common is at start, inum after the stashed pointer
+    ret = bpf_probe_read_kernel(&inum, sizeof(inum), mnt_ns_ptr + 8);
+    if (ret != 0) {
+        return 0;
+    }
+    
+    return (u64)inum;
+#endif
+}
+
 #else
 #endif
 

@@ -198,6 +198,14 @@ func (g *MGnutlsProbe) constantEditor() []manager.ConstantEditor {
 			Value: uint64(g.conf.GetPid()),
 			//FailOnMissing: true,
 		},
+		{
+			Name:  "target_uid",
+			Value: uint64(g.conf.GetUid()),
+		},
+		{
+			Name:  "target_mntns",
+			Value: uint64(g.conf.GetMntNs()),
+		},
 	}
 
 	if g.conf.GetPid() <= 0 {
@@ -205,6 +213,19 @@ func (g *MGnutlsProbe) constantEditor() []manager.ConstantEditor {
 	} else {
 		g.logger.Info().Uint64("target pid", g.conf.GetPid()).Msg("target process.")
 	}
+
+	if g.conf.GetUid() <= 0 {
+		g.logger.Info().Msg("target all users")
+	} else {
+		g.logger.Info().Uint64("target uid", g.conf.GetUid()).Msg("target user")
+	}
+
+	if g.conf.GetMntNs() <= 0 {
+		g.logger.Info().Msg("target all mount namespaces.")
+	} else {
+		g.logger.Info().Uint64("target MNTNS", g.conf.GetMntNs()).Msg("target mount namespace.")
+	}
+
 	return editor
 }
 

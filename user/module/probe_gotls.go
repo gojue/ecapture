@@ -201,6 +201,10 @@ func (g *GoTLSProbe) constantEditor() []manager.ConstantEditor {
 			Name:  "target_uid",
 			Value: g.conf.GetUid(),
 		},
+		{
+			Name:  "target_mntns",
+			Value: g.conf.GetMntNs(),
+		},
 	}
 
 	if g.conf.GetPid() <= 0 {
@@ -215,6 +219,12 @@ func (g *GoTLSProbe) constantEditor() []manager.ConstantEditor {
 		g.logger.Info().Msg("target all users.")
 	} else {
 		g.logger.Info().Uint64("target UID", g.conf.GetUid()).Msg("target user.")
+	}
+
+	if g.conf.GetMntNs() <= 0 {
+		g.logger.Info().Msg("target all mount namespaces.")
+	} else {
+		g.logger.Info().Uint64("target MNTNS", g.conf.GetMntNs()).Msg("target mount namespace.")
 	}
 
 	return editor
