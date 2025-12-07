@@ -67,7 +67,7 @@ func (ge *GoTLSEvent) Base() Base {
 		DstIP:     "127.0.0.1", // GoTLS events do not have DstIP
 		DstPort:   0,           // GoTLS events do not have DstPort
 		PID:       int64(ge.Pid),
-		PName:     string(ge.Comm[:]),
+		PName:     commStr(ge.Comm[:]),
 		Type:      uint32(ge.inner.PayloadType),
 		Length:    uint32(ge.Len),
 	}
