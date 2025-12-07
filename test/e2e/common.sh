@@ -182,3 +182,58 @@ extract_plaintext() {
     
     grep -E "$pattern" "$output_file" || true
 }
+
+# Check if a binary is linked against a specific library
+check_library_linkage() {
+    local binary="$1"
+    local library_pattern="$2"
+    local description="${3:-library}"
+    
+    if [ ! -f "$binary" ] && ! command_exists "$binary"; then
+        log_error "Binary not found: $binary"
+        return 1
+    fi
+    
+    # Use full path if it's a command
+    local binary_path="$binary"
+    if ! [ -f "$binary" ]; then
+        binary_path=$(command -v "$binary")
+    fi
+    
+    log_info "Checking if $binary is linked against $description..."
+    
+    if ldd "$binary_path" 2>/dev/null | grep -q "$library_pattern"; then
+        log_success "$binary is linked against $description"
+        return 0
+    else
+        log_warn "$binary is NOT linked against $description"
+        log_info "Libraries linked by $binary:"
+        ldd "$binary_path" 2>/dev/null | head -20 || true
+        return 1
+    fi
+}
+
+# Verify that captured content contains expected content
+verify_content_match() {
+    local output_file="$1"
+    local expected_pattern="$2"
+    local description="${3:-expected content}"
+    
+    if [ ! -f "$output_file" ]; then
+        log_error "Output file not found: $output_file"
+        return 1
+    fi
+    
+    log_info "Verifying $description in captured output..."
+    
+    if grep -q "$expected_pattern" "$output_file"; then
+        log_success "Found $description in captured output"
+        return 0
+    else
+        log_error "Did not find $description in captured output"
+        log_info "Expected pattern: $expected_pattern"
+        log_info "Sample output (first 100 lines):"
+        head -n 100 "$output_file" || true
+        return 1
+    fi
+}
