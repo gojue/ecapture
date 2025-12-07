@@ -27,12 +27,21 @@ import (
 	"github.com/cilium/ebpf/perf"
 	"github.com/cilium/ebpf/ringbuf"
 	"github.com/rs/zerolog"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/gojue/ecapture/pkg/event_processor"
 	ebpfenv "github.com/gojue/ecapture/pkg/util/ebpf"
 	"github.com/gojue/ecapture/pkg/util/kernel"
+	pb "github.com/gojue/ecapture/protobuf/gen/v1"
 	"github.com/gojue/ecapture/user/config"
 	"github.com/gojue/ecapture/user/event"
+)
+
+type codecType uint8
+
+const (
+	codecTypeText codecType = iota
+	codecTypeProtobuf
 )
 
 type IModule interface {
@@ -88,6 +97,8 @@ type Module struct {
 	// bytecodeTypes
 	byteCodetype int
 
+	eventOutputType codecType
+
 	conf config.IConfig
 
 	processor       *event_processor.EventProcessor
@@ -106,6 +117,13 @@ func (m *Module) Init(ctx context.Context, logger *zerolog.Logger, conf config.I
 	m.eventCollector = eventCollector
 	//var epl = epLogger{logger: logger}
 	tsize := conf.GetTruncateSize()
+	// when eventCollector is CollectorWriter the output format will be string
+	// when eventCollector is ecaptureQEventWriter the output format will be protobuf
+	if _, ok := m.eventCollector.(event.CollectorWriter); !ok {
+		m.eventOutputType = codecTypeProtobuf
+	} else {
+		m.eventOutputType = codecTypeText
+	}
 	m.processor = event_processor.NewEventProcessor(eventCollector, conf.GetHex(), tsize)
 
 	go func() {
@@ -411,17 +429,19 @@ func (m *Module) Dispatcher(e event.IEventStruct) {
 	// they will be handled according to multiple branches of the switch
 	switch e.EventType() {
 	case event.TypeOutput:
-		s := e.String()
-		if s == "" {
+		b, err := m.output(e)
+		if err != nil {
+			m.logger.Warn().Err(err).Msg("event output encoding error")
 			return
 		}
 		//m.logger.Info().Msg(s)
-		_, _ = m.eventCollector.Write([]byte(s))
+		_, _ = m.eventCollector.Write(b)
 	case event.TypeEventProcessor:
 		m.processor.Write(e)
 	case event.TypeModuleData:
 		// Save to cache
 		m.child.Dispatcher(e)
+
 	default:
 		m.logger.Warn().Uint8("eventType", uint8(e.EventType())).Msg("unknown event type")
 	}
@@ -437,4 +457,23 @@ func (m *Module) Close() error {
 	}
 	err := m.processor.Close()
 	return err
+}
+func (m *Module) output(e event.IEventStruct) (b []byte, err error) {
+	if m.eventOutputType == codecTypeProtobuf {
+		le := new(pb.LogEntry)
+		le.LogType = pb.LogType_LOG_TYPE_EVENT
+		ep := e.ToProtobufEvent()
+		le.Payload = &pb.LogEntry_EventPayload{EventPayload: ep}
+		encodedData, err := proto.Marshal(le)
+		if err != nil {
+			m.logger.Error().Err(errors.New("protobuf marshall error")).Msg("error doing protobuf marshall for gotls")
+			return nil, err
+		}
+		return encodedData, nil
+	}
+	s := e.String()
+	if s == "" {
+		return nil, errors.New("empty string")
+	}
+	return []byte(s), nil
 }
