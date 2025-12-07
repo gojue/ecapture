@@ -252,7 +252,7 @@ func (ew *eventWorker) parserEvents() []byte {
 		ew.parser = NewParser(ew.payload.Bytes())
 	}
 	n, e := ew.parser.Write(ew.payload.Bytes())
-	if e != nil && e != io.EOF {
+	if e != nil && !errors.Is(e, io.EOF) {
 		ew.Log(fmt.Sprintf("ew.parser uuid: %s type %d write payload %d bytes, error:%s", ew.UUID, ew.parser.ParserType(), n, e.Error()))
 	}
 	ew.status = ProcessStateDone
