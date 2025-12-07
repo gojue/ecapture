@@ -154,7 +154,8 @@ test_pcap_mode() {
     
     # Verify results
     if [ -f "$pcap_file" ] && [ -s "$pcap_file" ]; then
-        local file_size=$(wc -c < "$pcap_file")
+        local file_size
+        file_size=$(wc -c < "$pcap_file")
         log_success "Pcap file created: $pcap_file ($file_size bytes)"
         
         # Check if it's a valid pcapng file (should start with proper magic bytes)
@@ -212,7 +213,8 @@ test_keylog_mode() {
     
     # Verify results
     if [ -f "$keylog_file" ] && [ -s "$keylog_file" ]; then
-        local file_size=$(wc -c < "$keylog_file")
+        local file_size
+        file_size=$(wc -c < "$keylog_file")
         log_success "Keylog file created: $keylog_file ($file_size bytes)"
         
         # Check if it contains CLIENT_RANDOM entries (standard keylog format)
