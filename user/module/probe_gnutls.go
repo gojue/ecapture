@@ -199,6 +199,8 @@ func (g *MGnutlsProbe) constantEditor() []manager.ConstantEditor {
 			//FailOnMissing: true,
 		},
 		{
+			// NOTE: target_uid was previously missing from gnutls module
+			// The kernel code checked it but user-space didn't pass it
 			Name:  "target_uid",
 			Value: uint64(g.conf.GetUid()),
 		},

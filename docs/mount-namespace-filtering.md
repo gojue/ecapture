@@ -146,9 +146,12 @@ Mount namespace filtering is supported in:
 
 ## Requirements
 
-- **Kernel**: 5.2+ (for eBPF global variables support)
+- **Kernel**: 5.2+ (for eBPF global variables support, required by `target_mntns` constant)
+  - Note: Other eCapture features work on older kernels (4.18+ x86_64, 5.5+ aarch64)
+  - Mount namespace filtering specifically requires 5.2+ for global variable support
 - **Root**: Required for eBPF and namespace access
-- **CO:RE**: Recommended for portable namespace access across kernel versions
+- **CO:RE**: Strongly recommended for portable namespace access across kernel versions
+  - Non-CO:RE builds use kernel-version-specific offsets (tested on 5.10-6.11)
 
 ## Troubleshooting
 

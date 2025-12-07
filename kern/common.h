@@ -90,35 +90,46 @@ static __always_inline u64 get_mnt_ns_id() {
     return (u64)inum;
 #else
     // Non-CO:RE - use offset-based access with hardcoded offsets
-    // This is less portable but works on older kernels without BTF
+    // WARNING: This is kernel-version specific and may not work on all kernels
+    // Offsets are based on kernel 5.10-6.11 on x86_64
+    // For production use, CO:RE mode is strongly recommended
+    
+    // Define offsets as constants for clarity
+    #define TASK_STRUCT_NSPROXY_OFFSET 1976  // task_struct->nsproxy (varies: 1960-2000)
+    #define NSPROXY_MNT_NS_OFFSET 8          // nsproxy->mnt_ns (second pointer field)
+    #define MNT_NAMESPACE_NS_INUM_OFFSET 8   // mnt_namespace->ns.inum (after stashed ptr)
+    
     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
     if (!task) {
         return 0;
     }
     
     void *nsproxy_ptr;
-    // task_struct->nsproxy offset varies by kernel, typically around offset 1960-2000
-    // For robustness, we try to read it safely
-    int ret = bpf_probe_read_kernel(&nsproxy_ptr, sizeof(nsproxy_ptr), (void *)task + 1976);
+    int ret = bpf_probe_read_kernel(&nsproxy_ptr, sizeof(nsproxy_ptr), 
+                                     (void *)task + TASK_STRUCT_NSPROXY_OFFSET);
     if (ret != 0 || !nsproxy_ptr) {
         return 0;
     }
     
     void *mnt_ns_ptr;
-    // nsproxy->mnt_ns is typically at offset 8 (second pointer field)
-    ret = bpf_probe_read_kernel(&mnt_ns_ptr, sizeof(mnt_ns_ptr), nsproxy_ptr + 8);
+    ret = bpf_probe_read_kernel(&mnt_ns_ptr, sizeof(mnt_ns_ptr), 
+                                 nsproxy_ptr + NSPROXY_MNT_NS_OFFSET);
     if (ret != 0 || !mnt_ns_ptr) {
         return 0;
     }
     
     unsigned int inum;
-    // mnt_namespace->ns.inum: ns_common is at start, inum after the stashed pointer
-    ret = bpf_probe_read_kernel(&inum, sizeof(inum), mnt_ns_ptr + 8);
+    ret = bpf_probe_read_kernel(&inum, sizeof(inum), 
+                                 mnt_ns_ptr + MNT_NAMESPACE_NS_INUM_OFFSET);
     if (ret != 0) {
         return 0;
     }
     
     return (u64)inum;
+    
+    #undef TASK_STRUCT_NSPROXY_OFFSET
+    #undef NSPROXY_MNT_NS_OFFSET
+    #undef MNT_NAMESPACE_NS_INUM_OFFSET
 #endif
 }
 
