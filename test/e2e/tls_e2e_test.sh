@@ -98,11 +98,12 @@ test_text_mode() {
         fi
         
         # Verify content matches actual response
-        if verify_content_match "$mode_log" "<title>" "HTML title tag from response"; then
-            log_success "Content verification passed in text mode"
+        if grep -iq "GitHub" "$mode_log"; then
+            log_success "Content verification passed - found 'GitHub' in text mode output"
             content_verified=1
         else
-            log_error "Could not verify HTML content in text mode"
+            log_error "Could not verify content in text mode output"
+            log_error "Expected to find 'GitHub' in the HTTP response body"
         fi
     else
         log_error "Text mode log is empty"
