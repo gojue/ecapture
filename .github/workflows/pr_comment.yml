@@ -33,19 +33,23 @@ jobs:
             const prNumber = pullRequests[0].number;
             
             try {
+              const commentBody = [
+                `🔧 **Debug Build Complete (PR #${prNumber})**`,
+                '',
+                '📦 Download Links:',
+                `- [View Build Artifacts](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId})`,
+                '',
+                '⏰ Files will be retained for 7 days, please download and test promptly.',
+                '',
+                '---',
+                '*This build includes debug binaries for: android/linux (arm64/amd64)*'
+              ].join('\n');
+              
               await github.rest.issues.createComment({
                 issue_number: prNumber,
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                body: `🔧 **Debug Build Complete (PR #${prNumber})**
-
-            📦 Download Links:
-            - [View Build Artifacts](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId})
-
-            ⏰ Files will be retained for 7 days, please download and test promptly.
-
-            ---
-            *This build includes debug binaries for: android/linux (arm64/amd64)*`
+                body: commentBody
               });
               console.log('Comment created successfully');
             } catch (error) {
