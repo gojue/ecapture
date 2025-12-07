@@ -177,10 +177,13 @@ main() {
     
     # Verify content matches actual HTTP response
     # GitHub's homepage contains <title>GitHub...</title>
+    local content_verified=0
     if verify_content_match "$ECAPTURE_LOG" "<title>" "HTML title tag from response"; then
         log_success "Content verification passed - captured plaintext matches actual response"
+        content_verified=1
     else
-        log_warn "Could not verify HTML title tag in captured output"
+        log_error "Could not verify HTML title tag in captured output"
+        log_error "This indicates the captured data may not match the actual HTTP response"
     fi
     
     # Look for TLS handshake indicators or other success markers
@@ -201,19 +204,25 @@ main() {
     
     # Final verdict
     log_info "=== Step 8: Test Summary ==="
-    if [ $found_http -eq 1 ]; then
+    if [ $found_http -eq 1 ] && [ $content_verified -eq 1 ]; then
         log_success "✓ GoTLS E2E test PASSED"
         log_success "eCapture successfully captured GoTLS plaintext traffic"
         return 0
+    elif [ $found_http -eq 1 ] && [ $content_verified -eq 0 ]; then
+        log_error "✗ GoTLS E2E test FAILED"
+        log_error "HTTP patterns found but content verification failed"
+        log_error "The captured data does not match the expected HTTP response content"
+        TEST_FAILED=1
+        exit 1
     else
-        log_warn "⚠ GoTLS E2E test completed with warnings"
-        log_warn "eCapture ran successfully but plaintext patterns not clearly detected"
+        log_error "✗ GoTLS E2E test FAILED"
+        log_error "eCapture did not capture expected plaintext patterns"
         log_info "This may be due to:"
         log_info "  - Different output format than expected"
         log_info "  - Traffic not fully captured in test window"
         log_info "  - Go TLS library version differences"
-        log_info "Please review logs manually to confirm functionality"
-        return 0
+        TEST_FAILED=1
+        exit 1
     fi
 }
 

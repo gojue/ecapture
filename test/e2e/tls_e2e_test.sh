@@ -87,6 +87,7 @@ test_text_mode() {
     
     # Verify results
     local test_passed=0
+    local content_verified=0
     if [ -s "$mode_log" ]; then
         log_info "Text mode log size: $(wc -c < "$mode_log") bytes"
         
@@ -99,20 +100,24 @@ test_text_mode() {
         # Verify content matches actual response
         if verify_content_match "$mode_log" "<title>" "HTML title tag from response"; then
             log_success "Content verification passed in text mode"
+            content_verified=1
         else
-            log_warn "Could not verify HTML content in text mode"
+            log_error "Could not verify HTML content in text mode"
         fi
     else
         log_error "Text mode log is empty"
         return 1
     fi
     
-    if [ $test_passed -eq 1 ]; then
+    if [ $test_passed -eq 1 ] && [ $content_verified -eq 1 ]; then
         log_success "✓ Text mode test PASSED"
         return 0
+    elif [ $test_passed -eq 1 ] && [ $content_verified -eq 0 ]; then
+        log_error "✗ Text mode test FAILED - content verification failed"
+        return 1
     else
-        log_warn "⚠ Text mode test completed with warnings"
-        return 0
+        log_error "✗ Text mode test FAILED - no HTTP patterns found"
+        return 1
     fi
 }
 
