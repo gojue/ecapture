@@ -158,11 +158,18 @@ test_pcap_mode() {
         file_size=$(wc -c < "$pcap_file")
         log_success "Pcap file created: $pcap_file ($file_size bytes)"
         
-        # Check if it's a valid pcapng file (should start with proper magic bytes)
-        if file "$pcap_file" 2>/dev/null | grep -iq "pcap\|capture"; then
-            log_success "Pcap file appears to be valid"
+        # Check if it's a valid pcapng file by checking magic bytes (0x0A0D0D0A at offset 0)
+        local magic_bytes
+        magic_bytes=$(od -An -tx1 -N4 "$pcap_file" 2>/dev/null | tr -d ' ')
+        if [ "$magic_bytes" = "0a0d0d0a" ]; then
+            log_success "Pcap file has valid pcapng magic bytes"
         else
-            log_warn "Pcap file format could not be verified"
+            # Fallback to file command
+            if file "$pcap_file" 2>/dev/null | grep -iq "pcap\|capture"; then
+                log_success "Pcap file appears to be valid (verified by file command)"
+            else
+                log_warn "Pcap file format could not be verified"
+            fi
         fi
         
         log_success "✓ Pcap mode test PASSED"

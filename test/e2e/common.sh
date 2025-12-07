@@ -213,7 +213,7 @@ check_library_linkage() {
     fi
 }
 
-# Verify that captured content matches expected patterns
+# Verify that captured content contains expected content
 verify_content_match() {
     local output_file="$1"
     local expected_pattern="$2"
