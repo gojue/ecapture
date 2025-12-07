@@ -19,6 +19,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"strconv"
 	"strings"
 	"sync"
@@ -172,6 +173,9 @@ func (ew *eventWorker) writeToChan(b []byte) error {
 
 // Display 输出包内容
 func (ew *eventWorker) Display() error {
+	if ew.payload.Len() <= 0 {
+		return nil
+	}
 	//  输出包内容
 	b := ew.parserEvents()
 	defer func() {
@@ -248,7 +252,7 @@ func (ew *eventWorker) parserEvents() []byte {
 		ew.parser = NewParser(ew.payload.Bytes())
 	}
 	n, e := ew.parser.Write(ew.payload.Bytes())
-	if e != nil {
+	if e != nil && e != io.EOF {
 		ew.Log(fmt.Sprintf("ew.parser uuid: %s type %d write payload %d bytes, error:%s", ew.UUID, ew.parser.ParserType(), n, e.Error()))
 	}
 	ew.status = ProcessStateDone
