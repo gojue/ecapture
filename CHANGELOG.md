@@ -1,3 +1,12 @@
+# v1.5.0 (2025-12-07)
+
+## What's Changed
+
+## New Contributors
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v1.4.3...v1.5.0 
+<hr>
+
 # v1.4.3 (2025-10-12)
 
 ## What's Changed
@@ -10,7 +19,8 @@
 ## New Contributors
 * @Copilot made their first contribution in https://github.com/gojue/ecapture/pull/846
 
-**Full Changelog**: https://github.com/gojue/ecapture/compare/v1.4.2...v1.4.3<hr>
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v1.4.2...v1.4.3
+<hr>
 
 # v1.4.2 (2025-09-27)
 
