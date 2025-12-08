@@ -369,6 +369,10 @@ func (m *MOpenSSLProbe) constantEditor() []manager.ConstantEditor {
 			Name:  "target_uid",
 			Value: uint64(m.conf.GetUid()),
 		},
+		{
+			Name:  "target_mntns",
+			Value: uint64(m.conf.GetMntNs()),
+		},
 	}
 
 	if m.conf.GetPid() <= 0 {
@@ -381,6 +385,12 @@ func (m *MOpenSSLProbe) constantEditor() []manager.ConstantEditor {
 		m.logger.Info().Msg("target all users.")
 	} else {
 		m.logger.Info().Uint64("target UID", m.conf.GetUid()).Msg("target user.")
+	}
+
+	if m.conf.GetMntNs() <= 0 {
+		m.logger.Info().Msg("target all mount namespaces.")
+	} else {
+		m.logger.Info().Uint64("target MNTNS", m.conf.GetMntNs()).Msg("target mount namespace.")
 	}
 
 	return editor

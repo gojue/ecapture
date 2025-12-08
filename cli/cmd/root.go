@@ -62,6 +62,7 @@ var (
 const (
 	defaultPid          uint64 = 0
 	defaultUid          uint64 = 0
+	defaultMntNs        uint64 = 0
 	defaultTruncateSize uint64 = 0
 )
 
@@ -143,6 +144,7 @@ func init() {
 	rootCmd.PersistentFlags().IntVar(&globalConf.PerCpuMapSize, "mapsize", 1024, "eBPF map size per CPU,for events buffer. default:1024 * PAGESIZE. (KB)")
 	rootCmd.PersistentFlags().Uint64VarP(&globalConf.Pid, "pid", "p", defaultPid, "if pid is 0 then we target all pids")
 	rootCmd.PersistentFlags().Uint64VarP(&globalConf.Uid, "uid", "u", defaultUid, "if uid is 0 then we target all users")
+	rootCmd.PersistentFlags().Uint64Var(&globalConf.MntNs, "mntns", defaultMntNs, "if mntns is 0 then we target all mount namespaces. Use to capture specific containers: --mntns=$(stat -c %i /proc/PID/ns/mnt)")
 	rootCmd.PersistentFlags().StringVarP(&globalConf.LoggerAddr, "logaddr", "l", "", "send logs to this server. -l /tmp/ecapture.log or -l ws://127.0.0.1:8090/ecapture or -l tcp://127.0.0.1:8080")
 	rootCmd.PersistentFlags().StringVar(&globalConf.EventCollectorAddr, "eventaddr", "", "the server address that receives the captured event. --eventaddr ws://127.0.0.1:8090/ecapture or tcp://127.0.0.1:8090, default: same as logaddr")
 	rootCmd.PersistentFlags().StringVar(&globalConf.EcaptureQ, "ecaptureq", "", "listening server, waiting for clients to connect before sending events and logs; false: send directly to the remote server.")
@@ -157,6 +159,7 @@ func init() {
 func setModConfig(globalConf config.BaseConfig, modConf config.IConfig) {
 	modConf.SetPid(globalConf.Pid)
 	modConf.SetUid(globalConf.Uid)
+	modConf.SetMntNs(globalConf.MntNs)
 	modConf.SetDebug(globalConf.Debug)
 	modConf.SetHex(globalConf.IsHex)
 	modConf.SetBTF(globalConf.BtfMode)

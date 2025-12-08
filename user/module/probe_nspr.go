@@ -117,6 +117,10 @@ func (n *MNsprProbe) constantEditor() []manager.ConstantEditor {
 			Name:  "target_uid",
 			Value: uint64(n.conf.GetUid()),
 		},
+		{
+			Name:  "target_mntns",
+			Value: uint64(n.conf.GetMntNs()),
+		},
 	}
 
 	if n.conf.GetPid() <= 0 {
@@ -128,6 +132,11 @@ func (n *MNsprProbe) constantEditor() []manager.ConstantEditor {
 		n.logger.Info().Msg("target all users.")
 	} else {
 		n.logger.Info().Uint64("target UID", n.conf.GetUid()).Msg("target user.")
+	}
+	if n.conf.GetMntNs() <= 0 {
+		n.logger.Info().Msg("target all mount namespaces.")
+	} else {
+		n.logger.Info().Uint64("target MNTNS", n.conf.GetMntNs()).Msg("target mount namespace.")
 	}
 	return editor
 }
