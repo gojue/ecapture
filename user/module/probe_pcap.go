@@ -104,13 +104,31 @@ func (t *MTCProbe) dumpTcSkb(tcEvent *event.TcSkbEvent) error {
 }
 
 func (t *MTCProbe) writePid(tcEvent *event.TcSkbEvent) ([]byte, error) {
+	payload := tcEvent.Payload()
+	if len(payload) == 0 {
+		return nil, fmt.Errorf("empty payload")
+	}
+
 	ethPacket := gopacket.NewPacket(
-		tcEvent.Payload(),
+		payload,
 		layers.LayerTypeEthernet,
 		gopacket.Default,
 	)
 
-	oldEthLayer := ethPacket.Layers()[0].(*layers.Ethernet)
+	// Check if packet parsing was successful
+	if ethPacket.ErrorLayer() != nil {
+		return nil, fmt.Errorf("failed to decode packet: %v", ethPacket.ErrorLayer().Error())
+	}
+
+	packetLayers := ethPacket.Layers()
+	if len(packetLayers) == 0 {
+		return nil, fmt.Errorf("no layers found in packet")
+	}
+
+	oldEthLayer, ok := packetLayers[0].(*layers.Ethernet)
+	if !ok {
+		return nil, fmt.Errorf("first layer is not Ethernet: %T", packetLayers[0])
+	}
 
 	// subtract oldethelayer from the beginning of ethpacket
 	restOfLayers := ethPacket.Layers()[1:]

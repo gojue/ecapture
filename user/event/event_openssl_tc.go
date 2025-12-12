@@ -61,11 +61,21 @@ func (te *TcSkbEvent) Decode(payload []byte) (err error) {
 	if err = binary.Read(buf, binary.LittleEndian, &te.Ifindex); err != nil {
 		return
 	}
-	tmpData := make([]byte, te.Len)
-	if err = binary.Read(buf, binary.LittleEndian, &tmpData); err != nil {
-		return
+	// Only read payload if there's remaining data in the buffer.
+	// The kernel may send only TC_PACKET_MIN_SIZE (36 bytes) without the actual packet payload.
+	remaining := buf.Len()
+	if remaining > 0 {
+		// Read only the available data, up to te.Len
+		readLen := int(te.Len)
+		if remaining < readLen {
+			readLen = remaining
+		}
+		tmpData := make([]byte, readLen)
+		if err = binary.Read(buf, binary.LittleEndian, &tmpData); err != nil {
+			return
+		}
+		te.payload = tmpData
 	}
-	te.payload = tmpData
 	return nil
 }
 
