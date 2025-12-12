@@ -67,6 +67,10 @@
 const volatile u64 target_pid = 0;
 const volatile u64 target_uid = 0;
 const volatile u64 target_errno = BASH_ERRNO_DEFAULT;
+
+// Runtime switch: 0 = use perf event, 1 = use ring buffer
+// Ring buffer is supported since Linux 5.8
+const volatile u64 use_ringbuf = 0;
 #else
 #endif
 

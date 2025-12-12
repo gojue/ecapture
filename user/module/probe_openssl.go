@@ -359,6 +359,13 @@ func (m *MOpenSSLProbe) Close() error {
 
 // 通过elf的常量替换方式传递数据
 func (m *MOpenSSLProbe) constantEditor() []manager.ConstantEditor {
+	// use_ringbuf: 0 = use perf event, 1 = use ring buffer
+	// ring buffer is supported since Linux 5.8
+	var useRingbuf uint64 = 1
+	if m.IsKernelLess58() {
+		useRingbuf = 0
+	}
+
 	editor := []manager.ConstantEditor{
 		{
 			Name:  "target_pid",
@@ -368,6 +375,10 @@ func (m *MOpenSSLProbe) constantEditor() []manager.ConstantEditor {
 		{
 			Name:  "target_uid",
 			Value: uint64(m.conf.GetUid()),
+		},
+		{
+			Name:  "use_ringbuf",
+			Value: useRingbuf,
 		},
 	}
 

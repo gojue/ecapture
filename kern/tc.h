@@ -54,12 +54,20 @@ struct net_ctx_t {
 };
 
 ////////////////////// ebpf maps //////////////////////
+
+// Perf event array for older kernels (< 5.8)
 struct {
     __uint(type, BPF_MAP_TYPE_PERF_EVENT_ARRAY);
     __uint(key_size, sizeof(u32));
     __uint(value_size, sizeof(u32));
     __uint(max_entries, 10240);
 } skb_events SEC(".maps");
+
+// Ring buffer for newer kernels (>= 5.8) - better performance, no packet loss
+struct {
+    __uint(type, BPF_MAP_TYPE_RINGBUF);
+    __uint(max_entries, 1024 * 1024); // 1MB ring buffer
+} skb_events_rb SEC(".maps");
 
 struct {
     __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
@@ -257,9 +265,6 @@ static __always_inline int capture_packets(struct __sk_buff *skb, bool is_ingres
     event.len = skb->len;
     event.ifindex = skb->ifindex;
 
-    u64 flags = BPF_F_CURRENT_CPU;
-    flags |= (u64)skb->len << 32;
-
     // via aquasecurity/tracee    tracee.bpf.c tc_probe
     // if net_packet event not chosen, send minimal data only:
     //     timestamp (u64)      8 bytes
@@ -268,7 +273,21 @@ static __always_inline int capture_packets(struct __sk_buff *skb, bool is_ingres
     //     packet len (u32)     4 bytes
     //     ifindex (u32)        4 bytes
     size_t pkt_size = TC_PACKET_MIN_SIZE;
+
+#ifndef KERNEL_LESS_5_2
+    // Runtime selection between ring buffer and perf event array
+    if (use_ringbuf) {
+        bpf_ringbuf_output(&skb_events_rb, &event, pkt_size, 0);
+    } else {
+        u64 flags = BPF_F_CURRENT_CPU;
+        flags |= (u64)skb->len << 32;
+        bpf_perf_event_output(skb, &skb_events, flags, &event, pkt_size);
+    }
+#else
+    u64 flags = BPF_F_CURRENT_CPU;
+    flags |= (u64)skb->len << 32;
     bpf_perf_event_output(skb, &skb_events, flags, &event, pkt_size);
+#endif
 
     //    debug_bpf_printk("new packet captured on egress/ingress (TC),
     //    length:%d\n", data_len);

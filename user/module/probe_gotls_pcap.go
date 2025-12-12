@@ -140,14 +140,34 @@ func (g *GoTLSProbe) setupManagersPcap() error {
 }
 
 func (g *GoTLSProbe) initDecodeFunPcap() error {
-	// SkbEventsMap 与解码函数映射
-	SkbEventsMap, found, err := g.bpfManager.GetMap("skb_events")
-	if err != nil {
-		return err
+	var SkbEventsMap *ebpf.Map
+	var found bool
+	var err error
+
+	// Select map based on kernel version
+	// Ring buffer is supported since Linux 5.8
+	if g.IsKernelLess58() {
+		// Use perf event array for older kernels
+		SkbEventsMap, found, err = g.bpfManager.GetMap("skb_events")
+		if err != nil {
+			return err
+		}
+		if !found {
+			return errors.New("cant found map:skb_events")
+		}
+		g.logger.Info().Msg("Using perf event array for packet capture (kernel < 5.8)")
+	} else {
+		// Use ring buffer for newer kernels
+		SkbEventsMap, found, err = g.bpfManager.GetMap("skb_events_rb")
+		if err != nil {
+			return err
+		}
+		if !found {
+			return errors.New("cant found map:skb_events_rb")
+		}
+		g.logger.Info().Msg("Using ring buffer for packet capture (kernel >= 5.8)")
 	}
-	if !found {
-		return errors.New("cant found map:skb_events")
-	}
+
 	g.eventMaps = append(g.eventMaps, SkbEventsMap)
 	sslEvent := &event.TcSkbEvent{}
 	// sslEvent.SetModule(g)
