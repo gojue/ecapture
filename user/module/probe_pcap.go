@@ -117,7 +117,7 @@ func (t *MTCProbe) writePid(tcEvent *event.TcSkbEvent) ([]byte, error) {
 
 	// Check if packet parsing was successful
 	if ethPacket.ErrorLayer() != nil {
-		return nil, fmt.Errorf("failed to decode packet: %v", ethPacket.ErrorLayer().Error())
+		return nil, fmt.Errorf("failed to decode packet: %w", ethPacket.ErrorLayer().Error())
 	}
 
 	packetLayers := ethPacket.Layers()
