@@ -158,14 +158,34 @@ func (m *MOpenSSLProbe) setupManagersPcap() error {
 }
 
 func (m *MOpenSSLProbe) initDecodeFunPcap() error {
-	// SkbEventsMap 与解码函数映射
-	SkbEventsMap, found, err := m.bpfManager.GetMap("skb_events")
-	if err != nil {
-		return err
+	var SkbEventsMap *ebpf.Map
+	var found bool
+	var err error
+
+	// Select map based on kernel version
+	// Ring buffer is supported since Linux 5.8
+	if m.IsKernelLess58() {
+		// Use perf event array for older kernels
+		SkbEventsMap, found, err = m.bpfManager.GetMap("skb_events")
+		if err != nil {
+			return err
+		}
+		if !found {
+			return errors.New("cant found map:skb_events")
+		}
+		m.logger.Info().Msg("Using perf event array for packet capture (kernel < 5.8)")
+	} else {
+		// Use ring buffer for newer kernels
+		SkbEventsMap, found, err = m.bpfManager.GetMap("skb_events_rb")
+		if err != nil {
+			return err
+		}
+		if !found {
+			return errors.New("cant found map:skb_events_rb")
+		}
+		m.logger.Info().Msg("Using ring buffer for packet capture (kernel >= 5.8)")
 	}
-	if !found {
-		return errors.New("cant found map:skb_events")
-	}
+
 	m.eventMaps = append(m.eventMaps, SkbEventsMap)
 	sslEvent := &event.TcSkbEvent{}
 	// sslEvent.SetModule(m)

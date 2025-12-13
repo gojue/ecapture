@@ -103,6 +103,7 @@ type Module struct {
 
 	processor       *event_processor.EventProcessor
 	isKernelLess5_2 bool // is  kernel version less 5.2
+	isKernelLess5_8 bool // is  kernel version less 5.8 (ring buffer support)
 	isCoreUsed      bool // is core mode used
 	errChan         chan error
 }
@@ -114,6 +115,7 @@ func (m *Module) Init(ctx context.Context, logger *zerolog.Logger, conf config.I
 	m.logger = logger
 	m.errChan = make(chan error, 16)
 	m.isKernelLess5_2 = false //set false default
+	m.isKernelLess5_8 = false //set false default
 	m.eventCollector = eventCollector
 	//var epl = epLogger{logger: logger}
 	tsize := conf.GetTruncateSize()
@@ -145,6 +147,13 @@ func (m *Module) Init(ctx context.Context, logger *zerolog.Logger, conf config.I
 		if kv < kernel.VersionCode(5, 2, 0) {
 			m.isKernelLess5_2 = true
 			m.logger.Warn().Str("kernel", kv.String()).Msg("Kernel version is less than 5.2, Process filtering parameters do not take effect such as pid/uid.")
+		}
+		// ring buffer is supported since Linux 5.8
+		if kv < kernel.VersionCode(5, 8, 0) {
+			m.isKernelLess5_8 = true
+			m.logger.Info().Str("kernel", kv.String()).Msg("Kernel version is less than 5.8, using perf event array instead of ring buffer.")
+		} else {
+			m.logger.Info().Str("kernel", kv.String()).Msg("Kernel version >= 5.8, using ring buffer for better performance.")
 		}
 	}
 
@@ -231,6 +240,12 @@ func (m *Module) DecodeFun(p *ebpf.Map) (event.IEventStruct, bool) {
 
 func (m *Module) Name() string {
 	return m.name
+}
+
+// IsKernelLess58 returns true if kernel version is less than 5.8
+// Ring buffer is supported since Linux 5.8
+func (m *Module) IsKernelLess58() bool {
+	return m.isKernelLess5_8
 }
 
 func (m *Module) Run() error {
