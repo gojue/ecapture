@@ -14,7 +14,7 @@
 #define SSL_ST_WBIO 0x20
 
 // ssl_st->s3
-#define SSL_ST_S3 0x30
+#define SSL_ST_S3 0xa8
 
 // ssl_session_st->ssl_version
 #define SSL_SESSION_ST_SSL_VERSION 0x4
