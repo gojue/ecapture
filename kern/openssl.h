@@ -289,7 +289,7 @@ int probe_entry_SSL_write(struct pt_regs* ctx) {
         debug_bpf_printk(
             "(OPENSSL) bpf_probe_read ssl_wbio_addr failed, ret: %d\n",
             ret);
-        return 0;
+        //return 0;
     }
 
     // get ssl->bio->method->type
@@ -303,7 +303,7 @@ int probe_entry_SSL_write(struct pt_regs* ctx) {
         debug_bpf_printk(
             "(OPENSSL) bpf_probe_read ssl_wbio_num_ptr failed, ret: %d\n",
             ret);
-        return 0;
+        //return 0;
     }
     u32 fd = (u32)ssl_wbio_num_addr;
     if (fd == 0) {
