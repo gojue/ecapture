@@ -281,6 +281,48 @@ static int process_SSL_rbio(void *ssl, u32 *fd, u32 *bio_type) {
     return 0;
 }
 
+static int process_SSL_wbio(void *ssl, u32 *fd, u32 *bio_type) {
+    u64 *ssl_wbio_ptr;
+    u64 ssl_wbio_addr;
+    u64 *ssl_wbio_num_ptr;
+    u64 ssl_wbio_num_addr;
+    int ret;
+
+    ssl_wbio_ptr = (u64 *)(ssl + SSL_ST_WBIO);
+    ret = bpf_probe_read_user(&ssl_wbio_addr, sizeof(ssl_wbio_addr),
+                              ssl_wbio_ptr);
+    if (ret) {
+        debug_bpf_printk(
+            "(OPENSSL) bpf_probe_read ssl_wbio_addr failed, ret: %d\n",
+            ret);
+        return ret;
+    }
+
+    // get ssl->bio->method->type
+    *bio_type = process_BIO_type(ssl_wbio_addr);
+
+    // get fd ssl->wbio->num
+    ssl_wbio_num_ptr = (u64 *)(ssl_wbio_addr + BIO_ST_NUM);
+    ret = bpf_probe_read_user(&ssl_wbio_num_addr, sizeof(ssl_wbio_num_addr),
+                              ssl_wbio_num_ptr);
+    if (ret) {
+        debug_bpf_printk(
+            "(OPENSSL) bpf_probe_read ssl_wbio_num_ptr failed, ret: %d\n",
+            ret);
+        return ret;
+    }
+
+    *fd = (u32)ssl_wbio_num_addr;
+    if (*fd == 0) {
+        u64 ssl_addr = (u64)ssl;
+        u64 *fd_ptr = bpf_map_lookup_elem(&ssl_st_fd, &ssl_addr);
+        if (fd_ptr) {
+            *fd = (u32)*fd_ptr;
+        }
+    }
+    return 0;
+}
+
 /***********************************************************
  * BPF probe function entry-points
  ***********************************************************/
@@ -308,8 +350,8 @@ int probe_entry_SSL_write(struct pt_regs* ctx) {
     void* ssl = (void*)PT_REGS_PARM1(ctx);
     // https://github.com/openssl/openssl/blob/OpenSSL_1_1_1-stable/crypto/bio/bio_local.h
 
-    u64 *ssl_ver_ptr, *ssl_wbio_ptr, *ssl_wbio_num_ptr;
-    u64 ssl_version, ssl_wbio_addr, ssl_wbio_num_addr;
+    u64 *ssl_ver_ptr;
+    u64 ssl_version;
     int ret;
 
     ssl_version = 0;
@@ -325,39 +367,12 @@ int probe_entry_SSL_write(struct pt_regs* ctx) {
     }
 #endif
 
-    ssl_wbio_ptr = (u64 *)(ssl + SSL_ST_WBIO);
-    ret = bpf_probe_read_user(&ssl_wbio_addr, sizeof(ssl_wbio_addr),
-                              ssl_wbio_ptr);
-    if (ret) {
-        debug_bpf_printk(
-            "(OPENSSL) bpf_probe_read ssl_wbio_addr failed, ret: %d\n",
-            ret);
-    } else {
-        // get ssl->bio->method->type
-        u32 bio_type = process_BIO_type(ssl_wbio_addr);
-
-        // get fd ssl->wbio->num
-        ssl_wbio_num_ptr = (u64 *)(ssl_wbio_addr + BIO_ST_NUM);
-        ret = bpf_probe_read_user(&ssl_wbio_num_addr, sizeof(ssl_wbio_num_addr),
-                                  ssl_wbio_num_ptr);
-        if (ret) {
-            debug_bpf_printk(
-                "(OPENSSL) bpf_probe_read ssl_wbio_num_ptr failed, ret: %d\n",
-                ret);
-        }
+    u32 fd = 0;
+    u32 bio_type = 0;
+    ret = process_SSL_wbio(ssl, &fd, &bio_type);
+    if (ret == 0) {
+        debug_bpf_printk("openssl uprobe/SSL_write fd: %d, version: %d\n", fd, ssl_version);
     }
-
-
-    u32 fd = (u32)ssl_wbio_num_addr;
-    if (fd == 0) {
-        u64 ssl_addr = (u64)ssl;
-        u64 *fd_ptr = bpf_map_lookup_elem(&ssl_st_fd, &ssl_addr);
-        if (fd_ptr) {
-            fd = (u64)*fd_ptr;
-        } else {
-        }
-    }
-    debug_bpf_printk("openssl uprobe/SSL_write fd: %d, version: %d\n", fd, ssl_version);
 
     const char* buf = (const char*)PT_REGS_PARM2(ctx);
     struct active_ssl_buf active_ssl_buf_t;
