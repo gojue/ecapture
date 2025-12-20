@@ -127,6 +127,12 @@ int probe_entry_SSL_write(struct pt_regs* ctx) {
     if (target_uid != 0 && target_uid != uid) {
         return 0;
     }
+    if (target_mntns != 0) {
+        u64 mntns = get_mnt_ns_id();
+        if (mntns != target_mntns) {
+            return 0;
+        }
+    }
 #endif
 
     const char* buf = (const char*)PT_REGS_PARM2(ctx);
@@ -149,6 +155,12 @@ int probe_ret_SSL_write(struct pt_regs* ctx) {
     }
     if (target_uid != 0 && target_uid != uid) {
         return 0;
+    }
+    if (target_mntns != 0) {
+        u64 mntns = get_mnt_ns_id();
+        if (mntns != target_mntns) {
+            return 0;
+        }
     }
 #endif
 
@@ -182,6 +194,12 @@ int probe_entry_SSL_read(struct pt_regs* ctx) {
     if (target_uid != 0 && target_uid != uid) {
         return 0;
     }
+    if (target_mntns != 0) {
+        u64 mntns = get_mnt_ns_id();
+        if (mntns != target_mntns) {
+            return 0;
+        }
+    }
 #endif
 
     const char* buf = (const char*)PT_REGS_PARM2(ctx);
@@ -204,6 +222,12 @@ int probe_ret_SSL_read(struct pt_regs* ctx) {
     }
     if (target_uid != 0 && target_uid != uid) {
         return 0;
+    }
+    if (target_mntns != 0) {
+        u64 mntns = get_mnt_ns_id();
+        if (mntns != target_mntns) {
+            return 0;
+        }
     }
 #endif
 

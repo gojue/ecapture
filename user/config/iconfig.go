@@ -29,6 +29,8 @@ type IConfig interface {
 	GetPid() uint64
 	// GetUid returns the user ID to monitor
 	GetUid() uint64
+	// GetMntNs returns the mount namespace inode number to monitor
+	GetMntNs() uint64
 	// GetHex returns whether to display output in hexadecimal format
 	GetHex() bool
 	// GetBTF returns the BTF (BPF Type Format) mode
@@ -41,6 +43,8 @@ type IConfig interface {
 	SetPid(uint64)
 	// SetUid sets the user ID to monitor
 	SetUid(uint64)
+	// SetMntNs sets the mount namespace inode number to monitor
+	SetMntNs(uint64)
 	// SetHex sets whether to display output in hexadecimal format
 	SetHex(bool)
 	// SetBTF sets the BTF (BPF Type Format) mode
@@ -96,6 +100,7 @@ const (
 type BaseConfig struct {
 	Pid          uint64 `json:"pid"`           // Process ID to monitor
 	Uid          uint64 `json:"uid"`           // User ID to monitor
+	MntNs        uint64 `json:"mntns"`         // Mount namespace inode number to monitor
 	Listen       string `json:"listen"`        // Listen address for the server (default: 127.0.0.1:28256)
 	TruncateSize uint64 `json:"truncate_size"` // truncate size in text mode
 
@@ -119,6 +124,10 @@ func (c *BaseConfig) GetUid() uint64 {
 	return c.Uid
 }
 
+func (c *BaseConfig) GetMntNs() uint64 {
+	return c.MntNs
+}
+
 func (c *BaseConfig) GetDebug() bool {
 	return c.Debug
 }
@@ -133,6 +142,10 @@ func (c *BaseConfig) SetPid(pid uint64) {
 
 func (c *BaseConfig) SetUid(uid uint64) {
 	c.Uid = uid
+}
+
+func (c *BaseConfig) SetMntNs(mntns uint64) {
+	c.MntNs = mntns
 }
 
 func (c *BaseConfig) SetEventCollectorAddr(addr string) {
