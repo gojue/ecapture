@@ -24,15 +24,9 @@ int uretprobe_zsh_zleentry(struct pt_regs *ctx) {
     u32 pid = pid_tgid >> 32;
     u64 current_uid_gid = bpf_get_current_uid_gid();
     u32 uid = current_uid_gid;
-#ifndef KERNEL_LESS_5_2
-    // if target_ppid is 0 then we target all pids
-    if (target_pid != 0 && target_pid != pid) {
+    if (!passes_filter(ctx)) {
         return 0;
     }
-    if (target_uid != 0 && target_uid != uid) {
-        return 0;
-    }
-#endif
     struct event event = {};
     event.pid = pid;
     event.uid = uid;

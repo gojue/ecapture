@@ -274,6 +274,9 @@ Rust + Tauri + React
 * 集成模式：Linux/Android 一体化运行
 * 远程模式：Windows/macOS/Linux 客户端连接远程 eCapture 服务
 
+### 其他事件转发项目
+[事件转发优秀项目](./EVENT_FORWARD.md)
+
 ### 视频演示
 
 https://github.com/user-attachments/assets/c8b7a84d-58eb-4fdb-9843-f775c97bdbfb

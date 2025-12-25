@@ -110,6 +110,10 @@ func (b *MZshProbe) Close() error {
 
 // 通过elf的常量替换方式传递数据
 func (b *MZshProbe) constantEditor() []manager.ConstantEditor {
+	var kernelLess52 uint64 = 1
+	if !b.isKernelLess5_2 {
+		kernelLess52 = 0
+	}
 	var editor = []manager.ConstantEditor{
 		{
 			Name:  "target_pid",
@@ -124,6 +128,10 @@ func (b *MZshProbe) constantEditor() []manager.ConstantEditor {
 		{
 			Name:  "target_errno",
 			Value: uint64(b.Module.conf.(*config.ZshConfig).ErrNo),
+		},
+		{
+			Name:  "less52",
+			Value: kernelLess52,
 		},
 	}
 

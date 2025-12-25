@@ -119,15 +119,9 @@ int probe_entry_SSL_write(struct pt_regs* ctx) {
     u32 uid = current_uid_gid;
     debug_bpf_printk("nspr uprobe/PR_Write pid :%d\n", pid);
 
-#ifndef KERNEL_LESS_5_2
-    // if target_ppid is 0 then we target all pids
-    if (target_pid != 0 && target_pid != pid) {
+    if (!passes_filter(ctx)) {
         return 0;
     }
-    if (target_uid != 0 && target_uid != uid) {
-        return 0;
-    }
-#endif
 
     const char* buf = (const char*)PT_REGS_PARM2(ctx);
     bpf_map_update_elem(&active_ssl_write_args_map, &current_pid_tgid, &buf, BPF_ANY);
@@ -142,15 +136,9 @@ int probe_ret_SSL_write(struct pt_regs* ctx) {
     u32 uid = current_uid_gid;
     debug_bpf_printk("nspr uretprobe/PR_Write pid :%d\n", pid);
 
-#ifndef KERNEL_LESS_5_2
-    // if target_ppid is 0 then we target all pids
-    if (target_pid != 0 && target_pid != pid) {
+    if (!passes_filter(ctx)) {
         return 0;
     }
-    if (target_uid != 0 && target_uid != uid) {
-        return 0;
-    }
-#endif
 
     const char** buf = bpf_map_lookup_elem(&active_ssl_write_args_map, &current_pid_tgid);
     if (buf != NULL) {
@@ -174,15 +162,9 @@ int probe_entry_SSL_read(struct pt_regs* ctx) {
     u32 uid = current_uid_gid;
     debug_bpf_printk("nspr uprobe/PR_Read pid :%d\n", pid);
 
-#ifndef KERNEL_LESS_5_2
-    // if target_ppid is 0 then we target all pids
-    if (target_pid != 0 && target_pid != pid) {
+    if (!passes_filter(ctx)) {
         return 0;
     }
-    if (target_uid != 0 && target_uid != uid) {
-        return 0;
-    }
-#endif
 
     const char* buf = (const char*)PT_REGS_PARM2(ctx);
     bpf_map_update_elem(&active_ssl_read_args_map, &current_pid_tgid, &buf, BPF_ANY);
@@ -197,15 +179,9 @@ int probe_ret_SSL_read(struct pt_regs* ctx) {
     u32 uid = current_uid_gid;
     debug_bpf_printk("nspr uretprobe/PR_Read pid :%d\n", pid);
 
-#ifndef KERNEL_LESS_5_2
-    // if target_ppid is 0 then we target all pids
-    if (target_pid != 0 && target_pid != pid) {
+    if (!passes_filter(ctx)) {
         return 0;
     }
-    if (target_uid != 0 && target_uid != uid) {
-        return 0;
-    }
-#endif
 
     const char** buf = bpf_map_lookup_elem(&active_ssl_read_args_map, &current_pid_tgid);
     if (buf != NULL) {

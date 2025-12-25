@@ -19,6 +19,7 @@ eCapture 自动 PR 机器人（Auto PR Agent）
 - 保持现有构建系统（`Makefile` / `variables.mk` / `functions.mk`）的约定与约束，但不负责发布或打包。
 
 重要约束（严格）：
+- **不向后兼容**
 - 不进行打包、发布、Tag 操作；
 - 不修改 `README*` / `CHANGELOG.md` 等文档（默认禁止改动，除非维护者明确要求）；
 - 不修改版本号或自动化发布流程。

@@ -173,15 +173,9 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
     u64 current_uid_gid = bpf_get_current_uid_gid();
     u32 uid = current_uid_gid;
 
-#ifndef KERNEL_LESS_5_2
-    // if target_ppid is 0 then we target all pids
-    if (target_pid != 0 && target_pid != pid) {
+    if (!passes_filter(ctx)) {
         return 0;
     }
-    if (target_uid != 0 && target_uid != uid) {
-        return 0;
-    }
-#endif
 
     // mastersecret_bssl_t sent to userspace
     struct mastersecret_bssl_t *mastersecret = make_event();

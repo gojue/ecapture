@@ -142,12 +142,11 @@ static __always_inline int capture_packets(struct __sk_buff *skb, bool is_ingres
     {
         return TC_ACT_OK;
     }
-
     // filter L2/L3/L4 packet, include arp
-#ifndef KERNEL_LESS_5_2
-    if (!filter_pcap_l2(skb, data_start, data_end))
-        return TC_ACT_OK;
-#endif
+    if (less52 !=1) {
+        if (!filter_pcap_l2(skb, data_start, data_end))
+            return TC_ACT_OK;
+    }
 
     struct net_id_t conn_id = {0};
     struct net_ctx_t *net_ctx = NULL;
@@ -240,14 +239,10 @@ static __always_inline int capture_packets(struct __sk_buff *skb, bool is_ingres
 
     if (net_ctx != NULL) {
         // pid uid filter
-#ifndef KERNEL_LESS_5_2
-        if (target_pid != 0 && target_pid != net_ctx->pid) {
+        if (filter_match(net_ctx->pid, net_ctx->uid)) {
             return TC_ACT_OK;
         }
-        if (target_uid != 0 && target_uid != net_ctx->uid) {
-            return TC_ACT_OK;
-        }
-#endif
+
         event.pid = net_ctx->pid;
         __builtin_memcpy(event.comm, net_ctx->comm, TASK_COMM_LEN);
         debug_bpf_printk("capture packet process found, pid: %d, comm :%s\n", event.pid, event.comm);
@@ -292,15 +287,6 @@ int tcp_sendmsg(struct pt_regs *ctx){
     u32 pid = bpf_get_current_pid_tgid() >> 32;
     u64 current_uid_gid = bpf_get_current_uid_gid();
     u32 uid = current_uid_gid;
-// 这里需要对所有的进程进行监控，所以不需要对pid和uid进行过滤，否则在TC capture_packets函数里无法使用pid\uid过滤网络包
-//#ifndef KERNEL_LESS_5_2
-//  if (target_pid != 0 && target_pid != pid) {
-//      return 0;
-//  }
-//  if (target_uid != 0 && target_uid != uid) {
-//      return 0;
-//  }
-//#endif
     struct sock *sk = (struct sock *)PT_REGS_PARM1(ctx);
     if (sk == NULL) {
         return 0;

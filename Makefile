@@ -125,13 +125,6 @@ $(KERN_OBJECTS): %.o: %.c \
 		-target bpfel -c $< -o $(subst kern/,user/bytecode/,$(subst .o,_core.o,$@)) \
 		-fno-ident -fdebug-compilation-dir . -g -D__BPF_TARGET_MISSING="GCC error \"The eBPF is using target specific macros, please provide -target\"" \
 		-MD -MP || exit 1
-	$(CMD_CLANG) -D__TARGET_ARCH_$(LINUX_ARCH) \
-		$(EXTRA_CFLAGS) \
-		$(BPFHEADER) \
-		-DKERNEL_LESS_5_2 \
-		-target bpfel -c $< -o $(subst kern/,user/bytecode/,$(subst .c,_core$(KERNEL_LESS_5_2_PREFIX),$<)) \
-		-fno-ident -fdebug-compilation-dir . -g -D__BPF_TARGET_MISSING="GCC error \"The eBPF is using target specific macros, please provide -target\"" \
-		-MD -MP || exit 1
 
 .PHONY: autogen
 autogen: .checkver_$(CMD_BPFTOOL)
@@ -164,23 +157,6 @@ $(KERN_OBJECTS_NOCORE): %.nocore: %.c \
 			-march=bpf \
 			-filetype=obj \
 			-o $(subst kern/,user/bytecode/,$(subst .c,_noncore.o,$<)) || exit 1
-	$(CMD_CLANG) \
-			$(EXTRA_CFLAGS_NOCORE) \
-			$(BPFHEADER) \
-			-I $(KERN_SRC_PATH)/arch/$(LINUX_ARCH)/include \
-			-I $(KERN_BUILD_PATH)/arch/$(LINUX_ARCH)/include/generated \
-			-I $(KERN_SRC_PATH)/include \
-			-I $(KERN_SRC_PATH)/include/linux \
-			-I $(KERN_SRC_PATH)/arch/$(LINUX_ARCH)/include/uapi \
-			-I $(KERN_BUILD_PATH)/arch/$(LINUX_ARCH)/include/generated/uapi \
-			-I $(KERN_SRC_PATH)/include/uapi \
-			-I $(KERN_BUILD_PATH)/include/generated/uapi \
-			-DKERNEL_LESS_5_2 \
-			-c $< \
-			-o - |$(CMD_LLC) \
-			-march=bpf \
-			-filetype=obj \
-			-o $(subst kern/,user/bytecode/,$(subst .c,_noncore$(KERNEL_LESS_5_2_PREFIX),$<)) || exit 1
 
 # Generate assets for all eBPF bytecode
 .PHONY: assets

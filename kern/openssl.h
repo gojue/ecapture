@@ -22,11 +22,8 @@
 
 enum ssl_data_event_type { kSSLRead, kSSLWrite };
 
-#ifndef KERNEL_LESS_5_2
 const u32 invalidFD = 0;
-// BIO_TYPE_NONE
 const u32 defaultBioType = 0;
-#endif
 
 struct ssl_data_event_t {
     enum ssl_data_event_type type;
@@ -141,19 +138,6 @@ struct {
  * General helper functions
  ***********************************************************/
 
-static __inline int should_trace(u32 pid, u32 uid) {
-#ifndef KERNEL_LESS_5_2
-    // if target_ppid is 0 then we target all pids
-    if (target_pid != 0 && target_pid != pid) {
-        return 0;
-    }
-    if (target_uid != 0 && target_uid != uid) {
-        return 0;
-    }
-#endif
-    return 1;
-}
-
 static __inline struct ssl_data_event_t* create_ssl_data_event(
     u64 current_pid_tgid) {
     u32 kZero = 0;
@@ -167,13 +151,8 @@ static __inline struct ssl_data_event_t* create_ssl_data_event(
     event->timestamp_ns = bpf_ktime_get_ns();
     event->pid = current_pid_tgid >> 32;
     event->tid = current_pid_tgid & kMask32b;
-#ifndef KERNEL_LESS_5_2
     event->fd = invalidFD;
     event->bio_type = defaultBioType;
-#else
-    event->fd = 0;
-    event->bio_type = 0;
-#endif
 
     return event;
 }
@@ -225,11 +204,7 @@ static u32 process_BIO_type(u64 ssl_bio_addr) {
         debug_bpf_printk(
             "(OPENSSL) process_BIO_type: bpf_probe_read ssl_bio_method_ptr failed, ret: %d\n",
             ret);
-#ifndef KERNEL_LESS_5_2
         return defaultBioType;
-#else
-        return 0;
-#endif
     }
 
     // get ssl->bio->method->type
@@ -240,11 +215,7 @@ static u32 process_BIO_type(u64 ssl_bio_addr) {
         debug_bpf_printk(
             "(OPENSSL) process_BIO_type: bpf_probe_read ssl_bio_method_type_ptr failed, ret: %d\n",
             ret);
-#ifndef KERNEL_LESS_5_2
         return defaultBioType;
-#else
-        return 0;
-#endif
     }
 
     debug_bpf_printk("openssl process_BIO_type bio_type: %d\n", bio_type);
@@ -295,12 +266,12 @@ static int process_SSL_bio(void *ssl, int bio_offset, u32 *fd, u32 *bio_type) {
 }
 
 static __inline int probe_entry_SSL(struct pt_regs* ctx, void *map, int bio_offset) {
-    u64 current_pid_tgid = bpf_get_current_pid_tgid();
-    u32 pid = current_pid_tgid >> 32;
-    u64 current_uid_gid = bpf_get_current_uid_gid();
-    u32 uid = current_uid_gid;
+//    u64 current_pid_tgid = bpf_get_current_pid_tgid();
+//    u32 pid = current_pid_tgid >> 32;
+//    u64 current_uid_gid = bpf_get_current_uid_gid();
+//    u32 uid = current_uid_gid;
 
-    if (!should_trace(pid, uid)) {
+    if (!passes_filter(ctx)) {
         return 0;
     }
 
@@ -331,20 +302,20 @@ static __inline int probe_entry_SSL(struct pt_regs* ctx, void *map, int bio_offs
     active_ssl_buf_t.version = ssl_version;
     active_ssl_buf_t.buf = buf;
     active_ssl_buf_t.bio_type = bio_type;
-
+    u64 current_pid_tgid = bpf_get_current_pid_tgid();
+    u32 pid = current_pid_tgid >> 32;
     bpf_map_update_elem(map, &current_pid_tgid, &active_ssl_buf_t, BPF_ANY);
     return 0;
 }
 
 static __inline int probe_ret_SSL(struct pt_regs* ctx, void *map, enum ssl_data_event_type type) {
+    if (!passes_filter(ctx)) {
+        return 0;
+    }
     u64 current_pid_tgid = bpf_get_current_pid_tgid();
     u32 pid = current_pid_tgid >> 32;
     u64 current_uid_gid = bpf_get_current_uid_gid();
     u32 uid = current_uid_gid;
-
-    if (!should_trace(pid, uid)) {
-        return 0;
-    }
 
     struct active_ssl_buf* active_ssl_buf_t = bpf_map_lookup_elem(map, &current_pid_tgid);
     if (active_ssl_buf_t != NULL) {
@@ -439,7 +410,7 @@ static __inline int kretprobe_connect(struct pt_regs *ctx, int fd, struct sock *
     unsigned __int128 daddr;
     u32 ports;
 
-    if (!should_trace(pid, uid)) {
+    if (!passes_filter(ctx)) {
         return 0;
     }
 
