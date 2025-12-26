@@ -75,9 +75,9 @@ type IModule interface {
 }
 
 const (
-	KernelLess52Prefix = "_less52.o"
-	BtfNotSupport      = "You can compile the BTF-free version by using the command `make nocore`, please read the Makefile for more information."
-	BtfModeSwitch      = "If eCapture fails to run, try specifying the BTF mode. use `-b 2` to specify non-CORE mode."
+	//KernelLess52Prefix = "_less52.o"
+	BtfNotSupport = "You can compile the BTF-free version by using the command `make nocore`, please read the Makefile for more information."
+	BtfModeSwitch = "If eCapture fails to run, try specifying the BTF mode. use `-b 2` to specify non-CORE mode."
 )
 
 type Module struct {
@@ -206,9 +206,9 @@ func (m *Module) geteBPFName(filename string) string {
 	}
 
 	// kernel version perfix
-	if m.isKernelLess5_2 {
-		newFilename = strings.Replace(newFilename, ".o", KernelLess52Prefix, 1)
-	}
+	//if m.isKernelLess5_2 {
+	//	newFilename = strings.Replace(newFilename, ".o", KernelLess52Prefix, 1)
+	//}
 
 	return newFilename
 }

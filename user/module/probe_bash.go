@@ -112,6 +112,10 @@ func (b *MBashProbe) Close() error {
 
 // 通过elf的常量替换方式传递数据
 func (b *MBashProbe) constantEditor() []manager.ConstantEditor {
+	var kernelLess52 uint64 = 1
+	if !b.isKernelLess5_2 {
+		kernelLess52 = 0
+	}
 	var editor = []manager.ConstantEditor{
 		{
 			Name:  "target_pid",
@@ -126,6 +130,10 @@ func (b *MBashProbe) constantEditor() []manager.ConstantEditor {
 		{
 			Name:  "target_errno",
 			Value: uint64(b.Module.conf.(*config.BashConfig).ErrNo),
+		},
+		{
+			Name:  "less52",
+			Value: kernelLess52,
 		},
 	}
 

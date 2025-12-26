@@ -61,14 +61,15 @@
 #define SKB_MAX_DATA_SIZE 2048
 
 // .rodata section bug via : https://github.com/gojue/ecapture/issues/39
-#ifndef KERNEL_LESS_5_2
 
+// Kernel version less than 5.2
+const volatile u64 less52 = 1;
 // Optional Target PID and UID
 const volatile u64 target_pid = 0;
 const volatile u64 target_uid = 0;
 const volatile u64 target_errno = BASH_ERRNO_DEFAULT;
-#else
-#endif
+
+
 
 // fix  4.19.91-27.7.al7.x86_64/source/include/linux/kernel.h:140:9: warning: 'roundup' macro redefined
 #ifndef roundup

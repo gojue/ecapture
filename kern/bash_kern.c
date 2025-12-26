@@ -46,15 +46,9 @@ int uretprobe_bash_readline(struct pt_regs *ctx) {
     u64 current_uid_gid = bpf_get_current_uid_gid();
     u32 uid = current_uid_gid;
 
-#ifndef KERNEL_LESS_5_2
-    // if target_ppid is 0 then we target all pids
-    if (target_pid != 0 && target_pid != pid) {
+    if (!passes_filter(ctx)) {
         return 0;
     }
-    if (target_uid != 0 && target_uid != uid) {
-        return 0;
-    }
-#endif
 
     struct event event = {};
     event.pid = pid;
@@ -76,30 +70,24 @@ int uretprobe_bash_retval(struct pt_regs *ctx) {
     u32 uid = current_uid_gid;
     int retval = (int)PT_REGS_RC(ctx);
 
-#ifndef KERNEL_LESS_5_2
-    // if target_ppid is 0 then we target all pids
-    if (target_pid != 0 && target_pid != pid) {
+    if (!passes_filter(ctx)) {
         return 0;
     }
-    if (target_uid != 0 && target_uid != uid) {
-        return 0;
-    }
-#endif
 
     struct event *event_p = bpf_map_lookup_elem(&events_t, &pid);
 
-#ifndef KERNEL_LESS_5_2
-    // if target_errno is 128 then we target all
-    if (target_errno != BASH_ERRNO_DEFAULT && target_errno != retval) {
-        if (event_p) {
-            event_p->retval = BASH_ERRNO_DEFAULT;
-            event_p->type = BASH_EVENT_TYPE_RETVAL;
-            bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, event_p, sizeof(struct event));
-            bpf_map_delete_elem(&events_t, &pid);
+    if (less52 != 1) {
+        // if target_errno is 128 then we target all
+        if (target_errno != BASH_ERRNO_DEFAULT && target_errno != retval) {
+            if (event_p) {
+                event_p->retval = BASH_ERRNO_DEFAULT;
+                event_p->type = BASH_EVENT_TYPE_RETVAL;
+                bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, event_p, sizeof(struct event));
+                bpf_map_delete_elem(&events_t, &pid);
+            }
+            return 0;
         }
-        return 0;
     }
-#endif
 
     if (event_p) {
         event_p->retval = retval;
