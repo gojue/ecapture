@@ -36,11 +36,9 @@ SEC("uprobe/exec_simple_query")
 int postgres_query(struct pt_regs *ctx) {
     u64 current_pid_tgid = bpf_get_current_pid_tgid();
     u32 pid = current_pid_tgid >> 32;
-    u64 current_uid_gid = bpf_get_current_uid_gid();
-    u32 uid = current_uid_gid;
 
     if (!passes_filter(ctx)) {
-            return 0;
+        return 0;
     }
 
     struct data_t data = {};

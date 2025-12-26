@@ -76,7 +76,7 @@ int uretprobe_bash_retval(struct pt_regs *ctx) {
 
     struct event *event_p = bpf_map_lookup_elem(&events_t, &pid);
 
-    if (less52 !=1) {
+    if (less52 != 1) {
         // if target_errno is 128 then we target all
         if (target_errno != BASH_ERRNO_DEFAULT && target_errno != retval) {
             if (event_p) {

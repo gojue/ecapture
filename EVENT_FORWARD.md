@@ -1,4 +1,13 @@
+# eCapture Event Forwarding
 
+## Application (GUI Client)
+### eCaptureQ
+作者 zenyanle
+星标 : ⭐️ 213
+> eCaptureQ 是 eCapture 的跨平台 GUI，将其 eBPF 抓包能力以可视化方式呈现：无需 CA / MITM，在内核侧捕获 TLS 明文。
+> 这意味着您可以更简单、更高效、更无侵入地调试和分析任何程序的加密通信。
+
+GitHub Repo:  https://github.com/gojue/ecaptureQ 
 
 ## Burp Suite Plugin
 

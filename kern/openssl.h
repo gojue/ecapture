@@ -266,11 +266,6 @@ static int process_SSL_bio(void *ssl, int bio_offset, u32 *fd, u32 *bio_type) {
 }
 
 static __inline int probe_entry_SSL(struct pt_regs* ctx, void *map, int bio_offset) {
-//    u64 current_pid_tgid = bpf_get_current_pid_tgid();
-//    u32 pid = current_pid_tgid >> 32;
-//    u64 current_uid_gid = bpf_get_current_uid_gid();
-//    u32 uid = current_uid_gid;
-
     if (!passes_filter(ctx)) {
         return 0;
     }
@@ -313,9 +308,6 @@ static __inline int probe_ret_SSL(struct pt_regs* ctx, void *map, enum ssl_data_
         return 0;
     }
     u64 current_pid_tgid = bpf_get_current_pid_tgid();
-    u32 pid = current_pid_tgid >> 32;
-    u64 current_uid_gid = bpf_get_current_uid_gid();
-    u32 uid = current_uid_gid;
 
     struct active_ssl_buf* active_ssl_buf_t = bpf_map_lookup_elem(map, &current_pid_tgid);
     if (active_ssl_buf_t != NULL) {

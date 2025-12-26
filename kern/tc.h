@@ -143,7 +143,7 @@ static __always_inline int capture_packets(struct __sk_buff *skb, bool is_ingres
         return TC_ACT_OK;
     }
     // filter L2/L3/L4 packet, include arp
-    if (less52 !=1) {
+    if (less52 != 1) {
         if (!filter_pcap_l2(skb, data_start, data_end))
             return TC_ACT_OK;
     }
@@ -239,7 +239,7 @@ static __always_inline int capture_packets(struct __sk_buff *skb, bool is_ingres
 
     if (net_ctx != NULL) {
         // pid uid filter
-        if (filter_match(net_ctx->pid, net_ctx->uid)) {
+        if (filter_rejects(net_ctx->pid, net_ctx->uid)) {
             return TC_ACT_OK;
         }
 

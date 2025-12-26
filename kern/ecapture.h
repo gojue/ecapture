@@ -90,7 +90,7 @@ struct ipv6hdr {
 #include "common.h"
 
 
-static __inline bool filter_match(u32 pid, u32 uid) {
+static __inline bool filter_rejects(u32 pid, u32 uid) {
     if (less52 == 1) {
         return false;
     }
@@ -120,7 +120,7 @@ static __always_inline bool passes_filter(struct pt_regs *ctx) {
     u64 current_uid_gid = bpf_get_current_uid_gid();
     u32 uid = current_uid_gid;
 
-    if (filter_match(pid, uid)) {
+    if (filter_rejects(pid, uid)) {
         return false;
     }
     return true;
