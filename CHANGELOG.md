@@ -1,3 +1,12 @@
+# v1.5.2 (2025-12-27)
+
+## What's Changed
+
+## New Contributors
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v1.5.1...v1.5.2
+<hr>
+
 # v1.5.1 (2025-12-07)
 
 ## What's Changed
