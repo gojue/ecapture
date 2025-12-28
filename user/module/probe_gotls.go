@@ -191,6 +191,10 @@ func (g *GoTLSProbe) start() error {
 
 // 通过elf的常量替换方式传递数据
 func (g *GoTLSProbe) constantEditor() []manager.ConstantEditor {
+	var kernelLess52 uint64 = 1
+	if !g.isKernelLess5_2 {
+		kernelLess52 = 0
+	}
 	editor := []manager.ConstantEditor{
 		{
 			Name:  "target_pid",
@@ -200,6 +204,10 @@ func (g *GoTLSProbe) constantEditor() []manager.ConstantEditor {
 		{
 			Name:  "target_uid",
 			Value: g.conf.GetUid(),
+		},
+		{
+			Name:  "less52",
+			Value: kernelLess52,
 		},
 		{
 			Name:  "target_mntns",

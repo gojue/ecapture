@@ -192,11 +192,19 @@ func (g *MGnutlsProbe) Close() error {
 
 // 通过elf的常量替换方式传递数据
 func (g *MGnutlsProbe) constantEditor() []manager.ConstantEditor {
+	var kernelLess52 uint64 = 1
+	if !g.isKernelLess5_2 {
+		kernelLess52 = 0
+	}
 	var editor = []manager.ConstantEditor{
 		{
 			Name:  "target_pid",
 			Value: uint64(g.conf.GetPid()),
 			//FailOnMissing: true,
+		},
+		{
+			Name:  "less52",
+			Value: kernelLess52,
 		},
 		{
 			// NOTE: target_uid was previously missing from gnutls module
