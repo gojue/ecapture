@@ -61,18 +61,12 @@
 #define SKB_MAX_DATA_SIZE 2048
 
 // .rodata section bug via : https://github.com/gojue/ecapture/issues/39
-#ifndef KERNEL_LESS_5_2
 
 // Optional Target PID and UID
 const volatile u64 target_pid = 0;
 const volatile u64 target_uid = 0;
 const volatile u64 target_errno = BASH_ERRNO_DEFAULT;
-
-// Runtime switch: 0 = use perf event, 1 = use ring buffer
-// Ring buffer is supported since Linux 5.8
 const volatile u64 use_ringbuf = 0;
-#else
-#endif
 
 // fix  4.19.91-27.7.al7.x86_64/source/include/linux/kernel.h:140:9: warning: 'roundup' macro redefined
 #ifndef roundup

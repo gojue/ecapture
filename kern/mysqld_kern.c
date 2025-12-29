@@ -66,15 +66,9 @@ int mysql56_query(struct pt_regs *ctx) {
     u64 current_uid_gid = bpf_get_current_uid_gid();
     u32 uid = current_uid_gid;
 
-#ifndef KERNEL_LESS_5_2
-    // if target_ppid is 0 then we target all pids
-    if (target_pid != 0 && target_pid != pid) {
+    if (!passes_filter(ctx)) {
         return 0;
     }
-    if (target_uid != 0 && target_uid != uid) {
-        return 0;
-    }
-#endif
 
     u64 len = (u64)PT_REGS_PARM4(ctx);
     if (len < 0) {
@@ -118,15 +112,9 @@ int mysql56_query_return(struct pt_regs *ctx) {
     u64 current_uid_gid = bpf_get_current_uid_gid();
     u32 uid = current_uid_gid;
 
-#ifndef KERNEL_LESS_5_2
-    // if target_ppid is 0 then we target all pids
-    if (target_pid != 0 && target_pid != pid) {
+    if (!passes_filter(ctx)) {
         return 0;
     }
-    if (target_uid != 0 && target_uid != uid) {
-        return 0;
-    }
-#endif
 
     s8 command_return = (u64)PT_REGS_RC(ctx);
     struct data_t *data = bpf_map_lookup_elem(&sql_hash, &pid);
@@ -194,15 +182,10 @@ int mysql57_query(struct pt_regs *ctx) {
     u32 pid = current_pid_tgid >> 32;
     u64 current_uid_gid = bpf_get_current_uid_gid();
     u32 uid = current_uid_gid;
-#ifndef KERNEL_LESS_5_2
-    // if target_ppid is 0 then we target all pids
-    if (target_pid != 0 && target_pid != pid) {
+
+    if (!passes_filter(ctx)) {
         return 0;
     }
-    if (target_uid != 0 && target_uid != uid) {
-        return 0;
-    }
-#endif
 
     u64 len = 0;
     struct data_t data = {};
@@ -237,16 +220,9 @@ int mysql57_query_return(struct pt_regs *ctx) {
     u64 current_uid_gid = bpf_get_current_uid_gid();
     u32 uid = current_uid_gid;
 
-#ifndef KERNEL_LESS_5_2
-    // if target_ppid is 0 then we target all pids
-    if (target_pid != 0 && target_pid != pid) {
+    if (!passes_filter(ctx)) {
         return 0;
     }
-
-    if (target_uid != 0 && target_uid != uid) {
-        return 0;
-    }
-#endif
 
     u8 command_return = (u64)PT_REGS_RC(ctx);
     struct data_t *data = bpf_map_lookup_elem(&sql_hash, &pid);

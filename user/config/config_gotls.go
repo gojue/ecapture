@@ -41,6 +41,7 @@ var (
 	ErrorSymbolNotFoundFromTable  = errors.New("symbol not found from table")
 	ErrorNoRetFound               = errors.New("no RET instructions found")
 	ErrorNoFuncFoundFromSymTabFun = errors.New("no function found from golang symbol table with Func Name")
+	ErrorTextSectionNotFound      = errors.New("`.text` section not found")
 )
 
 // From go/src/debug/gosym/pclntab.go
@@ -182,6 +183,28 @@ func (gc *GoTLSConfig) Check() error {
 		}
 	} else {
 		gc.ReadTlsAddrs, err = gc.findRetOffsets(GoTlsReadFunc)
+		if err == nil {
+			return nil
+		}
+
+		gc.goSymTab, err = gc.ReadTable()
+		if err != nil {
+			return err
+		}
+		var addr uint64
+		addr, err = gc.findSymbolAddr(GoTlsWriteFunc)
+		if err != nil {
+			return fmt.Errorf("%s find symbol addr error:%w", GoTlsWriteFunc, err)
+		}
+		gc.GoTlsWriteAddr = addr
+
+		addr, err = gc.findSymbolAddr(GoTlsMasterSecretFunc)
+		if err != nil {
+			return fmt.Errorf("%s find symbol addr error:%w", GoTlsWriteFunc, err)
+		}
+		gc.GoTlsMasterSecretAddr = addr
+
+		gc.ReadTlsAddrs, err = gc.findSymbolRetOffsets(GoTlsReadFunc)
 		if err != nil {
 			return err
 		}
@@ -362,6 +385,64 @@ func (gc *GoTLSConfig) findPieSymbolAddr(lfunc string) (uint64, error) {
 		return 0, ErrorNoFuncFoundFromSymTabFun
 	}
 	return f.Value, nil
+}
+
+func (gc *GoTLSConfig) findSymbolAddr(lfunc string) (uint64, error) {
+	f := gc.goSymTab.LookupFunc(lfunc)
+	if f == nil {
+		return 0, ErrorNoFuncFoundFromSymTabFun
+	}
+
+	textSect := gc.goElf.Section(".text")
+	if textSect == nil {
+		return 0, ErrorTextSectionNotFound
+	}
+	return f.Entry - textSect.Addr + textSect.Offset, nil
+}
+
+func (gc *GoTLSConfig) findSymbolRetOffsets(lfunc string) ([]int, error) {
+	f := gc.goSymTab.LookupFunc(lfunc)
+	if f == nil {
+		return nil, ErrorNoFuncFoundFromSymTabFun
+	}
+
+	textSect := gc.goElf.Section(".text")
+	if textSect == nil {
+		return nil, ErrorTextSectionNotFound
+	}
+	textData, err := textSect.Data()
+	if err != nil {
+		return nil, err
+	}
+
+	var (
+		start = f.Entry - textSect.Addr
+		end   = f.End - textSect.Addr
+	)
+
+	if end <= start || start > textSect.Size || end > textSect.Size {
+		return nil, fmt.Errorf("invalid function range start: %d, end: %d", start, end)
+	}
+
+	offsets, err := gc.decodeInstruction(textData[start:end])
+	if err != nil {
+		return nil, err
+	}
+	for _, prog := range gc.goElf.Progs {
+		if prog.Type != elf.PT_LOAD || (prog.Flags&elf.PF_X) == 0 {
+			continue
+		}
+
+		if prog.Vaddr <= f.Entry && f.Entry < (prog.Vaddr+prog.Memsz) {
+			// stackoverflow.com/a/40249502
+			address := f.Entry - prog.Vaddr + prog.Off
+			for i, offset := range offsets {
+				offsets[i] = int(address) + offset
+			}
+			return offsets, nil
+		}
+	}
+	return nil, errors.New("cant found gotls ret offsets")
 }
 
 func (gc *GoTLSConfig) Bytes() []byte {

@@ -89,4 +89,41 @@ struct ipv6hdr {
 
 #include "common.h"
 
+
+static __inline bool filter_rejects(u32 pid, u32 uid) {
+    if (less52 == 1) {
+        return false;
+    }
+    // if target_ppid is 0 then we target all pids
+    if (target_pid != 0 && target_pid != pid) {
+        return true;
+    }
+    if (target_uid != 0 && target_uid != uid) {
+        return true;
+    }
+    return false;
+}
+
+// 是否通过过滤要求
+static __always_inline bool passes_filter(struct pt_regs *ctx) {
+    // 先判断内核版本是不是小于等于 5.2
+    if (less52 == 1) {
+        return true;
+    }
+
+    if (ctx == NULL) {
+        return true;
+    }
+
+    u64 current_pid_tgid = bpf_get_current_pid_tgid();
+    u32 pid = current_pid_tgid >> 32;
+    u64 current_uid_gid = bpf_get_current_uid_gid();
+    u32 uid = current_uid_gid;
+
+    if (filter_rejects(pid, uid)) {
+        return false;
+    }
+    return true;
+}
+
 #endif

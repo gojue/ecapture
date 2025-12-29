@@ -295,6 +295,9 @@ techniques, making them easy to use. Supports two modes:
 * Integrated Mode: Unified Linux/Android execution
 * Remote Mode: Windows/macOS/Linux client connects to a remote eCapture service
 
+### Event Forwarding
+[Event Forwarding Projects](./EVENT_FORWARD.md)
+
 ### Video Demonstration
 
 https://github.com/user-attachments/assets/c8b7a84d-58eb-4fdb-9843-f775c97bdbfb

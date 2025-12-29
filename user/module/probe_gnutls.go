@@ -192,18 +192,23 @@ func (g *MGnutlsProbe) Close() error {
 
 // 通过elf的常量替换方式传递数据
 func (g *MGnutlsProbe) constantEditor() []manager.ConstantEditor {
-	// use_ringbuf: 0 = use perf event, 1 = use ring buffer
-	// ring buffer is supported since Linux 5.8
+	var kernelLess52 uint64 = 1
+	if !g.isKernelLess5_2 {
+		kernelLess52 = 0
+	}
 	var useRingbuf uint64 = 1
 	if g.IsKernelLess58() {
 		useRingbuf = 0
 	}
-
 	var editor = []manager.ConstantEditor{
 		{
 			Name:  "target_pid",
 			Value: uint64(g.conf.GetPid()),
 			//FailOnMissing: true,
+		},
+		{
+			Name:  "less52",
+			Value: kernelLess52,
 		},
 		{
 			Name:  "use_ringbuf",

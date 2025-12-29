@@ -163,15 +163,10 @@ int uprobe_gnutls_master_key(struct pt_regs *ctx) {
     u32 pid = current_pid_tgid >> 32;
     u64 current_uid_gid = bpf_get_current_uid_gid();
     u32 uid = current_uid_gid;
-#ifndef KERNEL_LESS_5_2
-    // if target_ppid is 0 then we target all pids
-    if (target_pid != 0 && target_pid != pid) {
+
+    if (!passes_filter(ctx)) {
         return 0;
     }
-    if (target_uid != 0 && target_uid != uid) {
-        return 0;
-    }
-#endif
     u64 gnutls_session_addr = (u64)PT_REGS_PARM1(ctx);
     bpf_map_update_elem(&gnutls_session_maps, &current_pid_tgid, &gnutls_session_addr, BPF_ANY);
     debug_bpf_printk("gnutls uprobe/gnutls_handshake PID: %d, gnutls_session_addr: %d\n", pid, gnutls_session_addr);
@@ -185,15 +180,9 @@ int uretprobe_gnutls_master_key(struct pt_regs *ctx) {
     u64 current_uid_gid = bpf_get_current_uid_gid();
     u32 uid = current_uid_gid;
 
-#ifndef KERNEL_LESS_5_2
-    // if target_ppid is 0 then we target all pids
-    if (target_pid != 0 && target_pid != pid) {
+    if (!passes_filter(ctx)) {
         return 0;
     }
-    if (target_uid != 0 && target_uid != uid) {
-        return 0;
-    }
-#endif
 
     u8 handshake_return = (u8)PT_REGS_RC(ctx);
     if (handshake_return != 0) {

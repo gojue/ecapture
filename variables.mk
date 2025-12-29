@@ -33,7 +33,6 @@ CMD_CD ?= cd
 CMD_DPKG-DEB ?= dpkg-deb
 CMD_ECHO ?= echo
 
-KERNEL_LESS_5_2_PREFIX ?= _less52.o
 BYTECODE_FILES ?= all
 STYLE    ?= "{BasedOnStyle: Google, IndentWidth: 4, TabWidth: 4, UseTab: Never, ColumnLimit: 120, AlignAfterOpenBracket: DontAlign, BinPackArguments: true, BreakStringLiterals: false}"
 IGNORE_LESS52 ?=

@@ -108,6 +108,10 @@ func (n *MNsprProbe) Close() error {
 
 // 通过elf的常量替换方式传递数据
 func (n *MNsprProbe) constantEditor() []manager.ConstantEditor {
+	var kernelLess52 uint64 = 1
+	if !n.isKernelLess5_2 {
+		kernelLess52 = 0
+	}
 	var editor = []manager.ConstantEditor{
 		{
 			Name:  "target_pid",
@@ -116,6 +120,10 @@ func (n *MNsprProbe) constantEditor() []manager.ConstantEditor {
 		{
 			Name:  "target_uid",
 			Value: uint64(n.conf.GetUid()),
+		},
+		{
+			Name:  "less52",
+			Value: kernelLess52,
 		},
 	}
 
