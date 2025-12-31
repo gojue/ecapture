@@ -62,6 +62,8 @@
 
 // .rodata section bug via : https://github.com/gojue/ecapture/issues/39
 
+// Kernel version less than 5.2
+const volatile u64 less52 = 1;
 // Optional Target PID and UID
 const volatile u64 target_pid = 0;
 const volatile u64 target_uid = 0;

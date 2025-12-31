@@ -34,7 +34,8 @@ struct skb_data_event_t {
 //    u8 cmdline[PATH_MAX_LEN];
     u32 len;
     u32 ifindex;
-};
+    __u8 payload[0];
+} __attribute__((packed));
 
 struct net_id_t {
     u32 protocol;
@@ -139,6 +140,7 @@ static __always_inline bool filter_pcap_l2(struct __sk_buff *skb, void *data,
                                data_end);
 }
 
+#define MAX_PAYLOAD_LEN 262144
 ///////////////////// ebpf functions //////////////////////
 static __always_inline int capture_packets(struct __sk_buff *skb, bool is_ingress) {
     // packet data
@@ -241,9 +243,24 @@ static __always_inline int capture_packets(struct __sk_buff *skb, bool is_ingres
             net_ctx = bpf_map_lookup_elem(&network_map, &conn_id);
         }
     }
-
+    // u64 payload_len = skb->len;
+    //if (payload_len > MAX_PAYLOAD_LEN) {
+    //    payload_len = MAX_PAYLOAD_LEN;
+    //}
+    struct skb_data_event_t *event = NULL;
+    struct skb_data_event_t tmp_stack = {0};
     // new packet event
-    struct skb_data_event_t event = {0};
+    if (use_ringbuf) {
+        void *ringbuf = NULL;
+        ringbuf = bpf_ringbuf_reserve(&skb_events_rb, sizeof(tmp_stack) + MAX_PAYLOAD_LEN, 0);
+        if (!ringbuf) {
+            return TC_ACT_OK;
+        }
+        event = (struct skb_data_event_t *)ringbuf;
+
+    } else {
+        event = &tmp_stack;
+    }
 
     if (net_ctx != NULL) {
         // pid uid filter
@@ -251,14 +268,14 @@ static __always_inline int capture_packets(struct __sk_buff *skb, bool is_ingres
             return TC_ACT_OK;
         }
 
-        event.pid = net_ctx->pid;
-        __builtin_memcpy(event.comm, net_ctx->comm, TASK_COMM_LEN);
+        event->pid = net_ctx->pid;
+        __builtin_memcpy(event->comm, net_ctx->comm, TASK_COMM_LEN);
         debug_bpf_printk("capture packet process found, pid: %d, comm :%s\n", event.pid, event.comm);
     }
 
-    event.ts = bpf_ktime_get_ns();
-    event.len = skb->len;
-    event.ifindex = skb->ifindex;
+    event->ts = bpf_ktime_get_ns();
+    event->len = skb->len;
+    event->ifindex = skb->ifindex;
 
     // via aquasecurity/tracee    tracee.bpf.c tc_probe
     // if net_packet event not chosen, send minimal data only:
@@ -269,20 +286,15 @@ static __always_inline int capture_packets(struct __sk_buff *skb, bool is_ingres
     //     ifindex (u32)        4 bytes
     size_t pkt_size = TC_PACKET_MIN_SIZE;
 
-#ifndef KERNEL_LESS_5_2
     // Runtime selection between ring buffer and perf event array
     if (use_ringbuf) {
-        bpf_ringbuf_output(&skb_events_rb, &event, pkt_size, 0);
+        bpf_skb_load_bytes(skb, 0, event->payload, MAX_PAYLOAD_LEN);
+        bpf_ringbuf_submit((void *)event, 0);
     } else {
         u64 flags = BPF_F_CURRENT_CPU;
         flags |= (u64)skb->len << 32;
-        bpf_perf_event_output(skb, &skb_events, flags, &event, pkt_size);
+        bpf_perf_event_output(skb, &skb_events, flags, event, pkt_size);
     }
-#else
-    u64 flags = BPF_F_CURRENT_CPU;
-    flags |= (u64)skb->len << 32;
-    bpf_perf_event_output(skb, &skb_events, flags, &event, pkt_size);
-#endif
 
     //    debug_bpf_printk("new packet captured on egress/ingress (TC),
     //    length:%d\n", data_len);
