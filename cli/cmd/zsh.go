@@ -18,8 +18,19 @@
 package cmd
 
 import (
+	"context"
+	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
+
 	"github.com/spf13/cobra"
 
+	// Import new probe packages to register them with factory
+	_ "github.com/gojue/ecapture/internal/probe/zsh"
+
+	"github.com/gojue/ecapture/internal/factory"
+	zshProbe "github.com/gojue/ecapture/internal/probe/zsh"
 	"github.com/gojue/ecapture/user/config"
 	"github.com/gojue/ecapture/user/module"
 )
@@ -39,19 +50,77 @@ func init() {
 	zshCmd.PersistentFlags().StringVar(&zc.Zshpath, "zsh", "", "$SHELL file path, eg: /bin/zsh , will automatically find it from $ENV default.")
 	zshCmd.Flags().IntVarP(&zc.ErrNo, "errnumber", "e", module.ZshErrnoDefault, "only show the command which exec reulst equals err number.")
 	rootCmd.AddCommand(zshCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all suzcommands, e.g.:
-	// zshCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// zshCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
 
-// zshCommandFunc executes the "zsh" command.
+// zshCommandFunc executes the "zsh" command using the new probe architecture.
 func zshCommandFunc(command *cobra.Command, args []string) error {
-	return runModule(module.ModuleNameZsh, zc)
+	// Check if we should use new architecture (check environment variable)
+	if os.Getenv("ECAPTURE_USE_NEW_ARCH") != "1" {
+		// Fall back to old architecture
+		return runModule(module.ModuleNameZsh, zc)
+	}
+
+	// Create new architecture config from old config
+	newConfig := zshProbe.NewConfig()
+	newConfig.SetPid(globalConf.Pid)
+	newConfig.SetUid(globalConf.Uid)
+	newConfig.SetDebug(globalConf.Debug)
+	newConfig.SetHex(globalConf.IsHex)
+	newConfig.SetBTF(globalConf.BtfMode)
+	newConfig.SetPerCpuMapSize(globalConf.PerCpuMapSize)
+	newConfig.SetTruncateSize(globalConf.TruncateSize)
+
+	// Set zsh-specific config
+	newConfig.Zshpath = zc.Zshpath
+	newConfig.ErrNo = zc.ErrNo
+
+	// Validate configuration
+	if err := newConfig.Validate(); err != nil {
+		return fmt.Errorf("config validation failed: %w", err)
+	}
+
+	// Create probe via factory
+	probe, err := factory.CreateProbe(factory.ProbeTypeZsh)
+	if err != nil {
+		return fmt.Errorf("failed to create probe: %w", err)
+	}
+	defer probe.Close()
+
+	// Create context
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Create event dispatcher
+	dispatcher, err := newEventDispatcher(globalConf.IsHex)
+	if err != nil {
+		return fmt.Errorf("failed to create event dispatcher: %w", err)
+	}
+	defer dispatcher.Close()
+
+	// Initialize probe
+	if err := probe.Initialize(ctx, newConfig, dispatcher); err != nil {
+		return fmt.Errorf("failed to initialize probe: %w", err)
+	}
+
+	// Start probe
+	if err := probe.Start(ctx); err != nil {
+		return fmt.Errorf("failed to start probe: %w", err)
+	}
+
+	fmt.Println("Zsh probe started successfully. Press Ctrl+C to stop.")
+
+	// Setup signal handling
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	<-sigCh
+
+	fmt.Println("\nStopping zsh probe...")
+
+	// Stop probe
+	if err := probe.Stop(ctx); err != nil {
+		return fmt.Errorf("failed to stop probe: %w", err)
+	}
+
+	return nil
 }
+
