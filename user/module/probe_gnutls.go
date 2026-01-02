@@ -34,6 +34,12 @@ import (
 	"github.com/gojue/ecapture/user/event"
 )
 
+// MGnutlsProbe represents the GnuTLS traffic capture probe.
+//
+// Deprecated: This implementation is deprecated and will be removed in v3.0.
+// Please use the new architecture in internal/probe/gnutls instead.
+// The new implementation provides better maintainability, testability, and follows clean architecture principles.
+// For migration guide, see docs/MIGRATION_V2.md
 type MGnutlsProbe struct {
 	MTCProbe
 	bpfManager        *manager.Manager

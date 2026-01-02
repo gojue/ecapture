@@ -17,7 +17,6 @@ package bash
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"math"
 	"sync"
@@ -26,18 +25,12 @@ import (
 	manager "github.com/gojue/ebpfmanager"
 	"golang.org/x/sys/unix"
 
+	"github.com/gojue/ecapture/assets"
 	"github.com/gojue/ecapture/internal/domain"
 	"github.com/gojue/ecapture/internal/errors"
 	"github.com/gojue/ecapture/internal/probe/base"
 	"github.com/gojue/ecapture/pkg/util/kernel"
 )
-
-//go:generate go run github.com/shuLhan/go-bindata/cmd/go-bindata -pkg assets -o ../../../assets/ebpf_probe.go -prefix ../../../ user/bytecode/
-
-// stubAsset is a stub for assets.Asset when assets are not available
-func stubAsset(name string) ([]byte, error) {
-	return nil, fmt.Errorf("asset %s not found (assets not generated)", name)
-}
 
 // Probe implements the bash command tracing probe.
 type Probe struct {
@@ -90,8 +83,8 @@ func (p *Probe) Start(ctx context.Context) error {
 	bpfFileName := p.getBPFName("user/bytecode/bash_kern.o")
 	p.Logger().Info().Str("file", bpfFileName).Msg("Loading eBPF bytecode")
 	
-	// Try to load from assets (will be available after running make)
-	byteBuf, err := stubAsset(bpfFileName)
+	// Load from assets
+	byteBuf, err := assets.Asset(bpfFileName)
 	if err != nil {
 		return errors.NewEBPFLoadError(bpfFileName, err)
 	}

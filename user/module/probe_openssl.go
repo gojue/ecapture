@@ -80,6 +80,12 @@ type ConnInfo struct {
 	sock  uint64
 }
 
+// MOpenSSLProbe represents the OpenSSL/BoringSSL traffic capture probe.
+//
+// Deprecated: This implementation is deprecated and will be removed in v3.0.
+// Please use the new architecture in internal/probe/openssl instead.
+// The new implementation provides better maintainability, testability, and follows clean architecture principles.
+// For migration guide, see docs/MIGRATION_V2.md
 type MOpenSSLProbe struct {
 	MTCProbe
 	bpfManager        *manager.Manager

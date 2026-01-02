@@ -223,6 +223,26 @@ test-race: \
 	GOOS=linux GOARCH=$(GOARCH) CC=$(CMD_CC_PREFIX)$(CMD_CC) \
 	go test -v -race ./... -coverprofile=coverage.out
 
+# run Bash module e2e test
+.PHONY: e2e-bash
+e2e-bash:
+	bash ./test/e2e/bash_e2e_test.sh
+
+# run Zsh module e2e test
+.PHONY: e2e-zsh
+e2e-zsh:
+	bash ./test/e2e/zsh_e2e_test.sh
+
+# run MySQL module e2e test
+.PHONY: e2e-mysql
+e2e-mysql:
+	bash ./test/e2e/mysql_e2e_test.sh
+
+# run PostgreSQL module e2e test
+.PHONY: e2e-postgres
+e2e-postgres:
+	bash ./test/e2e/postgres_e2e_test.sh
+
 # run TLS module e2e test
 .PHONY: e2e-tls
 e2e-tls:
@@ -240,5 +260,5 @@ e2e-gotls:
 
 # run all comprehensive e2e tests
 .PHONY: e2e
-e2e: e2e-tls e2e-gnutls e2e-gotls
+e2e: e2e-bash e2e-zsh e2e-mysql e2e-postgres e2e-tls e2e-gnutls e2e-gotls
 	@echo "All e2e tests completed"

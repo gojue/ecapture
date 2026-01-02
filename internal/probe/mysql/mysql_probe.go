@@ -24,17 +24,11 @@ import (
 	manager "github.com/gojue/ebpfmanager"
 	"golang.org/x/sys/unix"
 
+	"github.com/gojue/ecapture/assets"
 	"github.com/gojue/ecapture/internal/domain"
 	"github.com/gojue/ecapture/internal/errors"
 	"github.com/gojue/ecapture/internal/probe/base"
 )
-
-// stubAsset is a stub for assets.Asset when assets are not available
-func stubAsset(name string) ([]byte, error) {
-	// During testing, we create a mock bytecode
-	// In production, this will be replaced by actual assets
-	return make([]byte, 100), nil
-}
 
 // Probe represents the MySQL probe that captures SQL queries
 type Probe struct {
@@ -185,7 +179,7 @@ func (p *Probe) loadBytecode() ([]byte, error) {
 		Msg("Loading eBPF bytecode")
 
 	// Load bytecode from assets
-	bytecode, err := stubAsset(bpfFileName)
+	bytecode, err := assets.Asset(bpfFileName)
 	if err != nil {
 		return nil, errors.NewEBPFLoadError(bpfFileName, err)
 	}

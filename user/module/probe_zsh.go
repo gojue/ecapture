@@ -39,6 +39,12 @@ const (
 	ZshEventTypeReadline = 0
 )
 
+// MZshProbe represents the Zsh command capture probe.
+//
+// Deprecated: This implementation is deprecated and will be removed in v3.0.
+// Please use the new architecture in internal/probe/zsh instead.
+// The new implementation provides better maintainability, testability, and follows clean architecture principles.
+// For migration guide, see docs/MIGRATION_V2.md
 type MZshProbe struct {
 	Module
 	bpfManager        *manager.Manager
