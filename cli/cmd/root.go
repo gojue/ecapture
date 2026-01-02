@@ -649,6 +649,22 @@ func (a *probeConfigAdapter) SetTruncateSize(size uint64) {
 	// Not needed for adapter
 }
 
+func (a *probeConfigAdapter) SetAddrType(t uint8) {
+	// Not needed for adapter
+}
+
+func (a *probeConfigAdapter) GetAddrType() uint8 {
+	return 0 // Default to stdout
+}
+
+func (a *probeConfigAdapter) SetEventCollectorAddr(addr string) {
+	// Not needed for adapter
+}
+
+func (a *probeConfigAdapter) GetEventCollectorAddr() string {
+	return "" // Not used in probe architecture
+}
+
 func (a *probeConfigAdapter) Bytes() []byte {
 	return a.config.Bytes()
 }
