@@ -458,17 +458,17 @@ func runProbe(probeType factory.ProbeType, probeConfig domain.Configuration) err
 	var isReload bool
 	var reRloadConfig = make(chan domain.Configuration, 10)
 
-	// listen http server (disabled for now, can be enabled later)
-	// go func() {
-	// 	logger.Info().Str("listen", globalConf.Listen).Send()
-	// 	logger.Info().Msg("https server starting...You can upgrade the configuration file via the HTTP interface.")
-	// 	var ec = http.NewHttpServer(globalConf.Listen, reRloadConfig, logger)
-	// 	err = ec.Run()
-	// 	if err != nil {
-	// 		logger.Fatal().Err(err).Msg("http server start failed")
-	// 		return
-	// 	}
-	// }()
+	// listen http server
+	go func() {
+		logger.Info().Str("listen", globalConf.Listen).Send()
+		logger.Info().Msg("https server starting...You can upgrade the configuration file via the HTTP interface.")
+		var ec = http.NewHttpServer(globalConf.Listen, reRloadConfig, logger)
+		err = ec.Run()
+		if err != nil {
+			logger.Fatal().Err(err).Msg("http server start failed")
+			return
+		}
+	}()
 
 	ctx, cancelFun := context.WithCancel(context.TODO())
 

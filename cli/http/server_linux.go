@@ -19,9 +19,6 @@ package http
 
 import (
 	"github.com/gin-gonic/gin"
-
-	"github.com/gojue/ecapture/user/config"
-	"github.com/gojue/ecapture/user/module"
 )
 
 func (hs *HttpServer) attach() {
@@ -32,22 +29,20 @@ func (hs *HttpServer) attach() {
 	hs.ge.POST("/nss", hs.Nss)
 	hs.ge.POST("/nspr", hs.Nss)
 	hs.ge.POST("/postgress", hs.Postgress)
+	hs.ge.POST("/postgres", hs.Postgress)
 	hs.ge.POST("/tls", hs.Tls)
 	hs.ge.POST("/openssl", hs.Tls)
 	hs.ge.POST("/boringssl", hs.Tls)
 }
 
 func (hs *HttpServer) Bash(c *gin.Context) {
-	hs.decodeConf(new(config.BashConfig), c, module.ModuleNameBash)
-	return
+	hs.decodeConf(c, "bash")
 }
 
 func (hs *HttpServer) Mysqld(c *gin.Context) {
-	hs.decodeConf(new(config.MysqldConfig), c, module.ModuleNameMysqld)
-	return
+	hs.decodeConf(c, "mysql")
 }
 
 func (hs *HttpServer) Postgress(c *gin.Context) {
-	hs.decodeConf(new(config.PostgresConfig), c, module.ModuleNamePostgres)
-	return
+	hs.decodeConf(c, "postgres")
 }

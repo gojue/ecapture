@@ -20,23 +20,22 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
 
-	"github.com/gojue/ecapture/user/config"
-	"github.com/gojue/ecapture/user/module"
+	"github.com/gojue/ecapture/internal/domain"
 )
 
 type HttpServer struct {
 	//
 	loadTime   int64  // 加载时间，防止短时间内多次加载
 	loadStat   int8   // 加载状态，重启完成后，进行再次加载
-	ModuleType string //当前加载模块
-	modConfig  any    //模块配置
-	confChan   chan config.IConfig
+	ProbeType  string //当前加载探针类型
+	probeConf  any    //探针配置
+	confChan   chan domain.Configuration
 	ge         *gin.Engine
 	addr       string
 	logger     zerolog.Logger
 }
 
-func NewHttpServer(addr string, confChan chan config.IConfig, zerologger zerolog.Logger) *HttpServer {
+func NewHttpServer(addr string, confChan chan domain.Configuration, zerologger zerolog.Logger) *HttpServer {
 	gin.SetMode(gin.ReleaseMode)
 	var errLogger = &ErrLogger{zerologger: zerologger}
 	var infoLogger = &InfoLogger{zerologger: zerologger}
@@ -59,38 +58,68 @@ func (hs HttpServer) Run() error {
 }
 
 func (hs *HttpServer) Tls(c *gin.Context) {
-	hs.decodeConf(new(config.OpensslConfig), c, module.ModuleNameOpenssl)
+	hs.decodeConf(c, "openssl")
 }
 
 func (hs *HttpServer) Gnutls(c *gin.Context) {
-	hs.decodeConf(new(config.GnutlsConfig), c, module.ModuleNameGnutls)
+	hs.decodeConf(c, "gnutls")
 }
 
 func (hs *HttpServer) Gotls(c *gin.Context) {
-	hs.decodeConf(new(config.GoTLSConfig), c, module.ModuleNameGotls)
+	hs.decodeConf(c, "gotls")
 }
 
 func (hs *HttpServer) Nss(c *gin.Context) {
-	hs.decodeConf(new(config.NsprConfig), c, module.ModuleNameNspr)
+	hs.decodeConf(c, "nspr")
 }
 
-func (hs *HttpServer) decodeConf(ic config.IConfig, c *gin.Context, modName string) {
-	if err := c.ShouldBindJSON(&ic); err != nil {
+func (hs *HttpServer) decodeConf(c *gin.Context, probeType string) {
+	// Create appropriate config based on probe type
+	var conf domain.Configuration
+	var err error
+
+	switch probeType {
+	case "openssl":
+		conf, err = createOpensslConfig(c)
+	case "gnutls":
+		conf, err = createGnutlsConfig(c)
+	case "gotls":
+		conf, err = createGotlsConfig(c)
+	case "nspr":
+		conf, err = createNsprConfig(c)
+	case "bash":
+		conf, err = createBashConfig(c)
+	case "mysql":
+		conf, err = createMysqlConfig(c)
+	case "postgres":
+		conf, err = createPostgresConfig(c)
+	default:
 		c.JSON(http.StatusBadRequest, Resp{
-			Code:       RespConfigDecodeFailed,
-			ModuleType: modName,
-			Msg:        RespConfigDecodeFailed.String(),
+			Code:       RespErrorNotFound,
+			ModuleType: probeType,
+			Msg:        "unknown probe type",
 			Data:       nil,
 		})
 		return
 	}
+
+	if err != nil {
+		c.JSON(http.StatusBadRequest, Resp{
+			Code:       RespConfigDecodeFailed,
+			ModuleType: probeType,
+			Msg:        err.Error(),
+			Data:       nil,
+		})
+		return
+	}
+
 	// check config
-	err := ic.Check()
+	err = conf.Validate()
 	if err != nil {
 		c.JSON(http.StatusBadRequest, Resp{
 			Code:       RespConfigCheckFailed,
-			ModuleType: modName,
-			Msg:        RespConfigCheckFailed.String(),
+			ModuleType: probeType,
+			Msg:        err.Error(),
 			Data:       nil,
 		})
 		return
@@ -98,20 +127,20 @@ func (hs *HttpServer) decodeConf(ic config.IConfig, c *gin.Context, modName stri
 
 	// send to channel
 	select {
-	case hs.confChan <- ic:
+	case hs.confChan <- conf:
 		c.JSON(http.StatusOK, Resp{
 			Code:       RespOK,
-			ModuleType: modName,
+			ModuleType: probeType,
 			Msg:        RespOK.String(),
 			Data:       nil,
 		})
 	default:
 		c.JSON(http.StatusServiceUnavailable, Resp{
 			Code:       RespSendToChanFailed,
-			ModuleType: modName,
+			ModuleType: probeType,
 			Msg:        RespSendToChanFailed.String(),
 			Data:       nil,
 		})
 	}
-	hs.logger.Info().RawJSON("config", ic.Bytes()).Msg("config send to channel.")
+	hs.logger.Info().Interface("config", conf).Msg("config send to channel.")
 }
