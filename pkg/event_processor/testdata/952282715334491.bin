@@ -1,0 +1,49 @@
+on-bar"></span>
+			    <span class="icon-bar"></span>
+			  </button>
+
+				
+				
+					<div id="logo">
+						<span class="site-title"><a class="navbar-brand" href="https://www.cnxct.com/" title="CFC4N的博客" rel="home">CFC4N的博客</a></span>
+<span style="display:inline-block;margin-top:30px">因为不可能，所以才值得相信。</span>
+					</div><!-- end of #logo -->
+
+				
+			</div>
+				<div class="collapse navbar-collapse navbar-ex1-collapse"><ul id="menu-%e9%a6%96%e9%80%89%e8%8f%9c%e5%8d%95" class="nav navbar-nav"><li id="menu-item-1659" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-has-children menu-item-1659 dropdown"><a title="Product" href="#" data-toggle="dropdown" class="dropdown-toggle">Product <span class="caret"></span></a>
+<ul role="menu" class=" dropdown-menu">
+	<li id="menu-item-2525" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-2525"><a title="eCapture 免CA HTTPS抓包" href="https://ecapture.cc"><span class="glyphicon ecapture是一款无需CA证书，就可以进行HTTPS通讯明文抓包的工具。"></span>&nbsp;eCapture 免CA HTTPS抓包</a></li>
+	<li id="menu-item-2424" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-2424"><a title="eBPF HIDS主机入侵检测" href="https://github.com/cfc4n/ehids"><span class="glyphicon A Linux Host-based Intrusion Detection System based on eBPF."></span>&nbsp;eBPF HIDS主机入侵检测</a></li>
+	<li id="menu-item-2526" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-2526"><a title="Golang eBPF Manager" href="https://github.com/ehids/ebpfmanager"><span class="glyphicon A golang ebpf libary base on cilium/ebpf and datadog/ebpf."></span>&nbsp;Golang eBPF Manager</a></li>
+	<li id="menu-item-2527" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-2527"><a title="eBPF技术精选资料" href="https://github.com/ehids/slide">eBPF技术精选资料</a></li>
+	<li id="menu-item-1715" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-1715"><a title="League Of legends启动器" href="https://github.com/cfc4n/lol_launcher">League Of legends启动器</a></li>
+</ul>
+</li>
+<li id="menu-item-1656" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-1656"><a title="归档" href="https://www.cnxct.com/archives/">归档</a></li>
+<li id="menu-item-1654" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-1654"><a title="关于我" href="https://www.cnxct.com/about/">关于我</a></li>
+<li id="menu-item-1959" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-1959"><a title="工作机会" href="https://www.cnxct.com/jobs/">工作机会</a></li>
+</ul></div>		</div>
+	</nav><!-- .site-navigation -->
+        
+        <div class="top-section">
+				        </div>
+        <div id="content" class="site-content container">
+            
+            <div class="container main-content-area">                <div class="row full-width">
+                    
+	
+
+        <div id="primary" class="content-area col-sm-12 col-md-8">
+                <main id="main" class="site-main" role="main">
+
+                
+                                                
+                                
+<article id="post-2594" class="post-2594 post type-post status-publish format-standard hentry category-9 tag-android tag-ebpf tag-ecapture">
+	<header class="entry-header page-header">
+
+		<h1 class="entry-title"><a href="https://www.cnxct.com/ecapture-news-android/" rel="bookmark">eCapture的几个好消息，支持Android&#8230;</a></h1>
+
+				<div class="entry-meta">
+			<span class="posted-on"><i class="fa fa-calendar"></i> <a href="https://www.cnxct.com/ecapture-news-android/" rel="bookmark"><time class="entry-date published" datetime="2022-06-22T01:00:17+08:00">2022/06/22</time><time class="updated" datetime="2022-06-22T01:02:11+08:00">2022/06/22</time></a></span><span class="byline"> <i class="fa fa-user"></i> <span class="author vcard"><a class="url fn n" href="https://www.cnxct.com/autho
