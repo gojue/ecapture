@@ -30,6 +30,9 @@ type PacketEvent interface {
 	GetTimestamp() uint64
 	GetPacketData() []byte
 	GetPacketLen() uint32
+	// GetInterfaceIndex returns the network interface index
+	// Set to 0 by default because the monitored interface is the first one in pcapng header
+	// See: https://github.com/gojue/ecapture/issues/347
 	GetInterfaceIndex() uint32
 	// Connection tuple information
 	GetSrcIP() string

@@ -84,18 +84,18 @@ func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration, dispat
 			p.output = io.Discard
 		}
 		p.textHandler = handlers.NewTextHandler(p.output)
-		
+
 	case "keylog":
 		// Initialize keylog handler
 		var err error
-		p.keylogFile, err = os.OpenFile(p.config.KeylogFile, 
+		p.keylogFile, err = os.OpenFile(p.config.KeylogFile,
 			os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o600)
 		if err != nil {
 			return errors.Wrap(errors.ErrCodeResourceAllocation,
 				fmt.Sprintf("failed to open keylog file: %s", p.config.KeylogFile), err)
 		}
 		p.keylogHandler = handlers.NewKeylogHandler(p.keylogFile)
-		
+
 	case "pcap":
 		// Initialize pcap handler
 		var err error
@@ -135,6 +135,12 @@ func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration, dispat
 // Note: This provides the probe lifecycle. For full eBPF hook implementation,
 // this probe can be integrated with the existing eBPF code from user/module/probe_openssl.go
 // which includes SSL_read/SSL_write hooks, network connection tracking, and event processing.
+//
+// Performance Note: While SSL_write/SSL_read hooks are used after TLS handshake completion,
+// frequent calls can cause performance issues. See: https://github.com/gojue/ecapture/issues/463
+// The implementation balances between capturing complete data and maintaining performance.
+//
+// Version Support Note: OpenSSL 1.0.x requires special handling. See: https://github.com/gojue/ecapture/issues/518
 func (p *Probe) Start(ctx context.Context) error {
 	if err := p.BaseProbe.Start(ctx); err != nil {
 		return err

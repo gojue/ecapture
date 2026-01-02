@@ -240,4 +240,3 @@ func TestConfig_ValidateCaptureMode_Pcap(t *testing.T) {
 		t.Error("validateCaptureMode() should fail for pcap mode without pcap file")
 	}
 }
-

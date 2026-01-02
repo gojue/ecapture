@@ -44,7 +44,7 @@ const (
 //   - ClientRandom: 32-byte client random value
 //   - Multiple traffic secrets (handshake, application, exporter)
 type MasterSecretEvent struct {
-	Version   int32 `json:"version"`   // TLS version (0x0303 = TLS 1.2, 0x0304 = TLS 1.3)
+	Version   int32  `json:"version"`   // TLS version (0x0303 = TLS 1.2, 0x0304 = TLS 1.3)
 	Timestamp uint64 `json:"timestamp"` // Event timestamp
 
 	// TLS 1.2 and earlier

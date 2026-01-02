@@ -30,7 +30,8 @@ const (
 	DataTypeWrite = 1
 
 	// MaxDataSize is the maximum TLS data size from eBPF
-	MaxDataSize = 4096
+	// Increased to 16KB, fix: https://github.com/gojue/ecapture/issues/740
+	MaxDataSize = 1024 * 16
 )
 
 // Event represents an OpenSSL TLS data event from eBPF.

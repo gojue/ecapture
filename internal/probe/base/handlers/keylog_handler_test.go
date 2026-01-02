@@ -24,23 +24,23 @@ import (
 
 // mockMasterSecretEvent is a mock implementation of MasterSecretEvent for testing.
 type mockMasterSecretEvent struct {
-	version                       int32
-	clientRandom                  []byte
-	masterKey                     []byte
-	cipherId                      uint32
-	clientHandshakeTrafficSecret  []byte
-	serverHandshakeTrafficSecret  []byte
-	clientAppTrafficSecret        []byte
-	serverAppTrafficSecret        []byte
-	exporterMasterSecret          []byte
+	version                      int32
+	clientRandom                 []byte
+	masterKey                    []byte
+	cipherId                     uint32
+	clientHandshakeTrafficSecret []byte
+	serverHandshakeTrafficSecret []byte
+	clientAppTrafficSecret       []byte
+	serverAppTrafficSecret       []byte
+	exporterMasterSecret         []byte
 }
 
-func (m *mockMasterSecretEvent) GetVersion() int32 { return m.version }
+func (m *mockMasterSecretEvent) GetVersion() int32       { return m.version }
 func (m *mockMasterSecretEvent) GetClientRandom() []byte { return m.clientRandom }
-func (m *mockMasterSecretEvent) GetMasterKey() []byte { return m.masterKey }
-func (m *mockMasterSecretEvent) GetCipherId() uint32 { return m.cipherId }
-func (m *mockMasterSecretEvent) GetClientHandshakeTrafficSecret() []byte { 
-	return m.clientHandshakeTrafficSecret 
+func (m *mockMasterSecretEvent) GetMasterKey() []byte    { return m.masterKey }
+func (m *mockMasterSecretEvent) GetCipherId() uint32     { return m.cipherId }
+func (m *mockMasterSecretEvent) GetClientHandshakeTrafficSecret() []byte {
+	return m.clientHandshakeTrafficSecret
 }
 func (m *mockMasterSecretEvent) GetServerHandshakeTrafficSecret() []byte {
 	return m.serverHandshakeTrafficSecret
@@ -56,12 +56,12 @@ func (m *mockMasterSecretEvent) GetExporterMasterSecret() []byte {
 }
 
 func (m *mockMasterSecretEvent) DecodeFromBytes(data []byte) error { return nil }
-func (m *mockMasterSecretEvent) Validate() error { return nil }
-func (m *mockMasterSecretEvent) String() string { return "" }
-func (m *mockMasterSecretEvent) StringHex() string { return "" }
-func (m *mockMasterSecretEvent) Clone() domain.Event { return &mockMasterSecretEvent{} }
-func (m *mockMasterSecretEvent) Type() domain.EventType { return domain.EventTypeOutput }
-func (m *mockMasterSecretEvent) UUID() string { return "" }
+func (m *mockMasterSecretEvent) Validate() error                   { return nil }
+func (m *mockMasterSecretEvent) String() string                    { return "" }
+func (m *mockMasterSecretEvent) StringHex() string                 { return "" }
+func (m *mockMasterSecretEvent) Clone() domain.Event               { return &mockMasterSecretEvent{} }
+func (m *mockMasterSecretEvent) Type() domain.EventType            { return domain.EventTypeOutput }
+func (m *mockMasterSecretEvent) UUID() string                      { return "" }
 
 func TestNewKeylogHandler(t *testing.T) {
 	buf := &bytes.Buffer{}
@@ -129,7 +129,7 @@ func TestKeylogHandler_Handle_TLS13(t *testing.T) {
 	clientRandom := make([]byte, Ssl3RandomSize)
 	clientHandshake := make([]byte, EvpMaxMdSize)
 	serverHandshake := make([]byte, EvpMaxMdSize)
-	
+
 	for i := range clientRandom {
 		clientRandom[i] = byte(i)
 	}
@@ -218,12 +218,12 @@ func TestKeylogHandler_Handle_NilEvent(t *testing.T) {
 type mockNonMasterSecretEvent struct{}
 
 func (m *mockNonMasterSecretEvent) DecodeFromBytes(data []byte) error { return nil }
-func (m *mockNonMasterSecretEvent) Validate() error { return nil }
-func (m *mockNonMasterSecretEvent) String() string { return "" }
-func (m *mockNonMasterSecretEvent) StringHex() string { return "" }
-func (m *mockNonMasterSecretEvent) Clone() domain.Event { return &mockNonMasterSecretEvent{} }
-func (m *mockNonMasterSecretEvent) Type() domain.EventType { return domain.EventTypeOutput }
-func (m *mockNonMasterSecretEvent) UUID() string { return "" }
+func (m *mockNonMasterSecretEvent) Validate() error                   { return nil }
+func (m *mockNonMasterSecretEvent) String() string                    { return "" }
+func (m *mockNonMasterSecretEvent) StringHex() string                 { return "" }
+func (m *mockNonMasterSecretEvent) Clone() domain.Event               { return &mockNonMasterSecretEvent{} }
+func (m *mockNonMasterSecretEvent) Type() domain.EventType            { return domain.EventTypeOutput }
+func (m *mockNonMasterSecretEvent) UUID() string                      { return "" }
 
 func TestKeylogHandler_Handle_InvalidEventType(t *testing.T) {
 	buf := &bytes.Buffer{}

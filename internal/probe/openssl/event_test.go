@@ -29,10 +29,10 @@ func TestEvent_DecodeFromBytes(t *testing.T) {
 	buf := new(bytes.Buffer)
 
 	// Write test data in the same order as the struct
-	binary.Write(buf, binary.LittleEndian, int64(DataTypeWrite)) // DataType
+	binary.Write(buf, binary.LittleEndian, int64(DataTypeWrite))          // DataType
 	binary.Write(buf, binary.LittleEndian, uint64(time.Now().UnixNano())) // Timestamp
-	binary.Write(buf, binary.LittleEndian, uint32(1234)) // Pid
-	binary.Write(buf, binary.LittleEndian, uint32(5678)) // Tid
+	binary.Write(buf, binary.LittleEndian, uint32(1234))                  // Pid
+	binary.Write(buf, binary.LittleEndian, uint32(5678))                  // Tid
 
 	// Write data array
 	data := [MaxDataSize]byte{}
@@ -40,13 +40,13 @@ func TestEvent_DecodeFromBytes(t *testing.T) {
 	binary.Write(buf, binary.LittleEndian, data)
 
 	binary.Write(buf, binary.LittleEndian, int32(16)) // DataLen
-	
+
 	// Write comm
 	comm := [16]byte{}
 	copy(comm[:], []byte("curl"))
 	binary.Write(buf, binary.LittleEndian, comm)
 
-	binary.Write(buf, binary.LittleEndian, uint32(3)) // Fd
+	binary.Write(buf, binary.LittleEndian, uint32(3))  // Fd
 	binary.Write(buf, binary.LittleEndian, int32(771)) // Version (TLS 1.2)
 
 	// Decode the event
@@ -75,7 +75,7 @@ func TestEvent_DecodeFromBytes(t *testing.T) {
 	if event.Version != 771 {
 		t.Errorf("Version = %d, want 771", event.Version)
 	}
-	
+
 	dataStr := string(event.GetData())
 	if !strings.Contains(dataStr, "GET / HTTP/1.1") {
 		t.Errorf("Data does not contain expected string, got: %s", dataStr)
@@ -146,9 +146,9 @@ func TestEvent_StringHex(t *testing.T) {
 
 func TestEvent_Clone(t *testing.T) {
 	original := &Event{
-		Pid:       1234,
-		DataType:  DataTypeWrite,
-		DataLen:   10,
+		Pid:      1234,
+		DataType: DataTypeWrite,
+		DataLen:  10,
 	}
 	copy(original.Data[:], []byte("test data"))
 

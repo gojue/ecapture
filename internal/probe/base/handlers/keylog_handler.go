@@ -50,16 +50,17 @@ type MasterSecretEvent interface {
 // The output format is compatible with Wireshark for TLS decryption.
 //
 // NSS Key Log Format:
-//   CLIENT_RANDOM <64 hex digits client random> <96 hex digits master secret>
-//   CLIENT_HANDSHAKE_TRAFFIC_SECRET <64 hex digits> <64+ hex digits>
-//   SERVER_HANDSHAKE_TRAFFIC_SECRET <64 hex digits> <64+ hex digits>
-//   CLIENT_TRAFFIC_SECRET_0 <64 hex digits> <64+ hex digits>
-//   SERVER_TRAFFIC_SECRET_0 <64 hex digits> <64+ hex digits>
-//   EXPORTER_SECRET <64 hex digits> <64+ hex digits>
+//
+//	CLIENT_RANDOM <64 hex digits client random> <96 hex digits master secret>
+//	CLIENT_HANDSHAKE_TRAFFIC_SECRET <64 hex digits> <64+ hex digits>
+//	SERVER_HANDSHAKE_TRAFFIC_SECRET <64 hex digits> <64+ hex digits>
+//	CLIENT_TRAFFIC_SECRET_0 <64 hex digits> <64+ hex digits>
+//	SERVER_TRAFFIC_SECRET_0 <64 hex digits> <64+ hex digits>
+//	EXPORTER_SECRET <64 hex digits> <64+ hex digits>
 type KeylogHandler struct {
-	writer     io.Writer
-	mu         sync.Mutex
-	seenKeys   map[string]bool // Deduplicate keys
+	writer   io.Writer
+	mu       sync.Mutex
+	seenKeys map[string]bool // Deduplicate keys
 }
 
 // NewKeylogHandler creates a new KeylogHandler that writes to the provided writer.
@@ -105,7 +106,7 @@ func (h *KeylogHandler) handleTLS12(event MasterSecretEvent) error {
 	masterKey := event.GetMasterKey()
 
 	if len(clientRandom) < Ssl3RandomSize {
-		return errors.New(errors.ErrCodeEventValidation, 
+		return errors.New(errors.ErrCodeEventValidation,
 			fmt.Sprintf("client random too short: %d bytes", len(clientRandom)))
 	}
 	if len(masterKey) < MasterSecretMaxLen {
@@ -168,7 +169,7 @@ func (h *KeylogHandler) handleTLS13(event MasterSecretEvent) error {
 
 		// Write to output
 		if _, err := h.writer.Write([]byte(line)); err != nil {
-			return errors.Wrap(errors.ErrCodeEventDispatch, 
+			return errors.Wrap(errors.ErrCodeEventDispatch,
 				fmt.Sprintf("failed to write %s", secret.label), err)
 		}
 
