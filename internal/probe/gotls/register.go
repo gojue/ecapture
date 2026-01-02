@@ -14,6 +14,11 @@
 
 package gotls
 
-// TODO: Factory registration
-// This file will contain the factory registration code
-// to integrate GoTLS probe with the probe factory system
+// Factory registration deferred - GoTLS probe uses simplified stub implementation
+// in Phase 4 Plan B that doesn't require full domain.Configuration interface.
+// Use gotls.NewProbe() directly to create instances.
+//
+// Full factory integration will be added in future PRs when:
+// - Config implements domain.Configuration interface
+// - eBPF implementation is complete
+// - Factory system supports simplified probe patterns

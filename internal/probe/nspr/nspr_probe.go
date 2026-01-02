@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/cilium/ebpf"
 	"github.com/gojue/ecapture/internal/probe/base/handlers"
 )
 
@@ -109,13 +110,25 @@ func (p *Probe) Start(ctx context.Context) error {
 }
 
 // Stop stops the probe
-func (p *Probe) Stop() error {
+func (p *Probe) Stop(ctx context.Context) error {
 	// TODO: Stop eBPF event processing
 	// - Stop reading from perf buffers
 	// - Detach eBPF programs
 	// - Clean up event maps
 
 	return nil
+}
+
+// Events returns the eBPF maps for event collection.
+// TODO: Return actual event maps once eBPF is implemented
+func (p *Probe) Events() []*ebpf.Map {
+	return []*ebpf.Map{}
+}
+
+// IsRunning returns whether the probe is currently running.
+func (p *Probe) IsRunning() bool {
+	// TODO: Track running state once eBPF is implemented
+	return false
 }
 
 // Close closes the probe and releases resources

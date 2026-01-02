@@ -14,7 +14,14 @@
 
 package gnutls
 
-// TODO: Factory registration will be implemented when factory package is available
-// For now, this package provides the GnuTLS probe implementation
-// following the OpenSSL pattern.
+import (
+	"github.com/gojue/ecapture/internal/domain"
+	"github.com/gojue/ecapture/internal/factory"
+)
 
+func init() {
+	// Register GnuTLS probe with the factory
+	factory.RegisterProbe(factory.ProbeTypeGnuTLS, func() (domain.Probe, error) {
+		return NewProbe()
+	})
+}

@@ -14,5 +14,11 @@
 
 package nspr
 
-// TODO: Register NSPR probe with factory when factory system is implemented
-// This will enable creating NSPR probes via factory.CreateProbe(factory.ProbeTypeNSPR)
+// Factory registration deferred - NSPR probe uses simplified stub implementation
+// in Phase 4 Plan B that doesn't require full domain.Configuration interface.
+// Use nspr.NewProbe() directly to create instances.
+//
+// Full factory integration will be added in future PRs when:
+// - Config implements domain.Configuration interface
+// - eBPF implementation is complete
+// - Factory system supports simplified probe patterns
