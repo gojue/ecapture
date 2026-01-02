@@ -14,11 +14,22 @@
 
 package gotls
 
-// Factory registration deferred - GoTLS probe uses simplified stub implementation
-// in Phase 4 Plan B that doesn't require full domain.Configuration interface.
-// Use gotls.NewProbe() directly to create instances.
+// NOTE: Factory registration is not implemented for GoTLS probe in Phase 4.
 //
-// Full factory integration will be added in future PRs when:
-// - Config implements domain.Configuration interface
-// - eBPF implementation is complete
-// - Factory system supports simplified probe patterns
+// The GoTLS probe currently uses a simplified interface signature:
+//   Initialize(ctx context.Context, config interface{}, dispatcher interface{}) error
+//
+// The domain.Probe interface requires:
+//   Initialize(ctx context.Context, config domain.Configuration, dispatcher domain.EventDispatcher) error
+//
+// To enable factory registration, the following changes are needed:
+// 1. Update Config to implement domain.Configuration interface
+// 2. Update probe Initialize signature to use typed interfaces
+// 3. Implement full domain.Probe interface (Events(), IsRunning(), etc.)
+// 4. Complete eBPF implementation
+//
+// For now, create GoTLS probes directly using:
+//   probe, err := gotls.NewProbe()
+//   probe.Initialize(ctx, config, dispatcher)
+//
+// Factory registration will be added in a future PR.
