@@ -20,11 +20,14 @@ package cmd
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/gojue/ecapture/user/config"
-	"github.com/gojue/ecapture/user/module"
+	// Import new probe packages to register them with factory
+	_ "github.com/gojue/ecapture/internal/probe/nspr"
+
+	"github.com/gojue/ecapture/internal/factory"
+	nsprProbe "github.com/gojue/ecapture/internal/probe/nspr"
 )
 
-var nc = config.NewNsprConfig()
+var nsprConfig = nsprProbe.NewConfig()
 
 // nssCmd represents the nspr command
 var nssCmd = &cobra.Command{
@@ -41,11 +44,15 @@ ecapture nspr --nspr=/lib/x86_64-linux-gnu/libnspr44.so
 }
 
 func init() {
-	nssCmd.PersistentFlags().StringVar(&nc.Nsprpath, "nspr", "", "libnspr44.so file path, will automatically find it from curl default.")
+	nssCmd.PersistentFlags().StringVar(&nsprConfig.NSPRPath, "nspr", "", "libnspr44.so file path, will automatically find it from curl default.")
 	rootCmd.AddCommand(nssCmd)
 }
 
-// nssCommandFunc executes the "nspr" command.
+// nssCommandFunc executes the "nspr" command using the new probe architecture.
 func nssCommandFunc(command *cobra.Command, args []string) error {
-	return runModule(module.ModuleNameNspr, nc)
+	// Set global config (note: nspr Config doesn't extend BaseConfig)
+	nsprConfig.PID = uint32(globalConf.Pid)
+
+	// Run probe using the common entry point
+	return runProbe(factory.ProbeTypeNSPR, nsprConfig)
 }
