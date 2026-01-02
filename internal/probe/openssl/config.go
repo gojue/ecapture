@@ -42,8 +42,12 @@ type Config struct {
 	OpensslPath string `json:"opensslpath"` // Path to libssl.so
 	SslVersion  string `json:"sslversion"`  // Detected OpenSSL version
 	IsBoringSSL bool   `json:"isboringssl"` // Whether this is BoringSSL
-	// TODO: Add Keylog and Pcap mode fields in future PRs
-	// KeylogFile string `json:"keylogfile"`
+	
+	// Capture mode configuration
+	CaptureMode string `json:"capturemode"` // "text", "keylog", or "pcap"
+	KeylogFile  string `json:"keylogfile"`  // Path to keylog file (for keylog mode)
+	
+	// TODO: Add Pcap mode fields in future PRs
 	// PcapFile   string `json:"pcapfile"`
 	// Ifname     string `json:"ifname"`
 }
@@ -51,7 +55,8 @@ type Config struct {
 // NewConfig creates a new OpenSSL probe configuration.
 func NewConfig() *Config {
 	return &Config{
-		BaseConfig: config.NewBaseConfig(),
+		BaseConfig:  config.NewBaseConfig(),
+		CaptureMode: "text", // Default to text mode
 	}
 }
 
@@ -71,7 +76,43 @@ func (c *Config) Validate() error {
 		return errors.NewConfigurationError("openssl version detection failed", err)
 	}
 
+	// Validate capture mode
+	if err := c.validateCaptureMode(); err != nil {
+		return errors.NewConfigurationError("capture mode validation failed", err)
+	}
+
 	return nil
+}
+
+// validateCaptureMode checks if the capture mode configuration is valid.
+func (c *Config) validateCaptureMode() error {
+	// Normalize capture mode
+	mode := strings.ToLower(c.CaptureMode)
+	c.CaptureMode = mode
+
+	switch mode {
+	case "text", "":
+		// Text mode is the default, no additional validation needed
+		c.CaptureMode = "text"
+		return nil
+	case "keylog", "key":
+		// Keylog mode requires a keylog file path
+		c.CaptureMode = "keylog"
+		if c.KeylogFile == "" {
+			return fmt.Errorf("keylog mode requires KeylogFile to be set")
+		}
+		// Check if we can create/write to the keylog file
+		dir := filepath.Dir(c.KeylogFile)
+		if _, err := os.Stat(dir); os.IsNotExist(err) {
+			return fmt.Errorf("keylog directory does not exist: %s", dir)
+		}
+		return nil
+	case "pcap", "pcapng":
+		// TODO: Implement in future PR
+		return fmt.Errorf("pcap mode not yet implemented (TODO: PR #3)")
+	default:
+		return fmt.Errorf("unsupported capture mode: %s (supported: text, keylog)", mode)
+	}
 }
 
 // detectOpenSSL locates the OpenSSL library.

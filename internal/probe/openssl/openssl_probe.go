@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 
 	"github.com/cilium/ebpf"
 
@@ -27,19 +28,20 @@ import (
 	"github.com/gojue/ecapture/internal/probe/base/handlers"
 )
 
-// Probe implements the OpenSSL TLS tracing probe (simplified Text mode implementation).
-// TODO: This is a Phase 4 Plan B simplified implementation.
-// Full implementation with network tracking, Keylog, and Pcap modes will be added in future PRs.
+// Probe implements the OpenSSL TLS tracing probe.
+// Supports Text mode (implemented) and Keylog mode (PR #2).
+// TODO: Pcap mode will be added in PR #3.
 type Probe struct {
 	*base.BaseProbe
-	config      *Config
-	textHandler *handlers.TextHandler
-	output      io.Writer
+	config         *Config
+	textHandler    *handlers.TextHandler
+	keylogHandler  *handlers.KeylogHandler
+	output         io.Writer
+	keylogFile     *os.File
 	// TODO: Add in future PRs:
 	// bpfManager *manager.Manager
 	// eventMaps  []*ebpf.Map
 	// connTracker *ConnectionTracker
-	// keylogHandler *handlers.KeylogHandler
 	// pcapHandler   *handlers.PcapHandler
 }
 
@@ -69,16 +71,40 @@ func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration, dispat
 			fmt.Sprintf("unsupported OpenSSL version: %s", p.config.SslVersion))
 	}
 
-	// Initialize text handler
-	if p.output == nil {
-		p.output = io.Discard
+	// Initialize handlers based on capture mode
+	switch p.config.CaptureMode {
+	case "text":
+		// Initialize text handler
+		if p.output == nil {
+			p.output = io.Discard
+		}
+		p.textHandler = handlers.NewTextHandler(p.output)
+		
+	case "keylog":
+		// Initialize keylog handler
+		var err error
+		p.keylogFile, err = os.OpenFile(p.config.KeylogFile, 
+			os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o600)
+		if err != nil {
+			return errors.Wrap(errors.ErrCodeResourceAllocation,
+				fmt.Sprintf("failed to open keylog file: %s", p.config.KeylogFile), err)
+		}
+		p.keylogHandler = handlers.NewKeylogHandler(p.keylogFile)
+		
+	case "pcap":
+		// TODO: Implement in PR #3
+		return errors.New(errors.ErrCodeConfiguration, "pcap mode not yet implemented")
+		
+	default:
+		return errors.New(errors.ErrCodeConfiguration,
+			fmt.Sprintf("unsupported capture mode: %s", p.config.CaptureMode))
 	}
-	p.textHandler = handlers.NewTextHandler(p.output)
 
 	p.Logger().Info().
 		Str("openssl_path", opensslConfig.OpensslPath).
 		Str("ssl_version", opensslConfig.SslVersion).
 		Bool("is_boringssl", opensslConfig.IsBoringSSL).
+		Str("capture_mode", opensslConfig.CaptureMode).
 		Msg("OpenSSL probe initialized")
 
 	return nil
@@ -124,6 +150,18 @@ func (p *Probe) Close() error {
 	if p.textHandler != nil {
 		if err := p.textHandler.Close(); err != nil {
 			p.Logger().Warn().Err(err).Msg("Failed to close text handler")
+		}
+	}
+
+	// Close keylog handler and file
+	if p.keylogHandler != nil {
+		if err := p.keylogHandler.Close(); err != nil {
+			p.Logger().Warn().Err(err).Msg("Failed to close keylog handler")
+		}
+	}
+	if p.keylogFile != nil {
+		if err := p.keylogFile.Close(); err != nil {
+			p.Logger().Warn().Err(err).Msg("Failed to close keylog file")
 		}
 	}
 
