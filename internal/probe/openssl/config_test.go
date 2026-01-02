@@ -160,3 +160,84 @@ func TestConfig_Validate(t *testing.T) {
 		}
 	}
 }
+
+func TestConfig_ValidateNetworkInterface(t *testing.T) {
+	cfg := NewConfig()
+
+	// Test with loopback interface (should exist on most systems)
+	cfg.Ifname = "lo"
+	err := cfg.validateNetworkInterface()
+	if err != nil {
+		t.Logf("validateNetworkInterface('lo') failed: %v (may not exist on this system)", err)
+	} else {
+		t.Log("validateNetworkInterface('lo') succeeded")
+	}
+
+	// Test with non-existent interface
+	cfg.Ifname = "nonexistent-interface-12345"
+	err = cfg.validateNetworkInterface()
+	if err == nil {
+		t.Error("validateNetworkInterface() should fail for non-existent interface")
+	}
+
+	// Test with empty interface name
+	cfg.Ifname = ""
+	err = cfg.validateNetworkInterface()
+	if err != nil {
+		t.Errorf("validateNetworkInterface() should not fail for empty interface: %v", err)
+	}
+}
+
+func TestConfig_CheckTCSupport(t *testing.T) {
+	cfg := NewConfig()
+
+	// Test with loopback interface
+	cfg.Ifname = "lo"
+	err := cfg.checkTCSupport()
+	if err != nil {
+		t.Logf("checkTCSupport('lo') failed: %v (expected on non-Linux or restricted systems)", err)
+	} else {
+		t.Log("checkTCSupport('lo') succeeded")
+	}
+
+	// Test with non-existent interface
+	cfg.Ifname = "nonexistent-interface-12345"
+	err = cfg.checkTCSupport()
+	if err == nil {
+		t.Error("checkTCSupport() should fail for non-existent interface")
+	}
+}
+
+func TestConfig_ValidateCaptureMode_Pcap(t *testing.T) {
+	cfg := NewConfig()
+	cfg.OpensslPath = "/usr/lib/x86_64-linux-gnu/libssl.so.3"
+	cfg.SslVersion = Version_3_0
+
+	// Test pcap mode validation with valid settings
+	cfg.CaptureMode = "pcap"
+	cfg.PcapFile = "/tmp/test.pcapng"
+	cfg.Ifname = "lo"
+
+	// Note: Full validation will depend on system state
+	// We're mainly testing the validation logic exists
+	err := cfg.validateCaptureMode()
+	if err != nil {
+		t.Logf("Pcap mode validation failed (expected on some systems): %v", err)
+	}
+
+	// Test pcap mode without interface
+	cfg.Ifname = ""
+	err = cfg.validateCaptureMode()
+	if err == nil {
+		t.Error("validateCaptureMode() should fail for pcap mode without interface")
+	}
+
+	// Test pcap mode without file
+	cfg.Ifname = "lo"
+	cfg.PcapFile = ""
+	err = cfg.validateCaptureMode()
+	if err == nil {
+		t.Error("validateCaptureMode() should fail for pcap mode without pcap file")
+	}
+}
+

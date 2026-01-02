@@ -18,6 +18,7 @@ import (
 	"debug/elf"
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -122,8 +123,17 @@ func (c *Config) validateCaptureMode() error {
 		if _, err := os.Stat(dir); os.IsNotExist(err) {
 			return fmt.Errorf("pcap directory does not exist: %s", dir)
 		}
-		// TODO: Validate network interface exists
-		// TODO: Check TC (Traffic Control) classifier support
+
+		// Validate network interface exists
+		if err := c.validateNetworkInterface(); err != nil {
+			return err
+		}
+
+		// Check TC (Traffic Control) classifier support
+		if err := c.checkTCSupport(); err != nil {
+			return err
+		}
+
 		return nil
 	default:
 		return fmt.Errorf("unsupported capture mode: %s (supported: text, keylog, pcap)", mode)
@@ -297,3 +307,51 @@ func (c *Config) Bytes() []byte {
 	}
 	return b
 }
+
+// validateNetworkInterface checks if the specified network interface exists.
+func (c *Config) validateNetworkInterface() error {
+	if c.Ifname == "" {
+		return nil // Already checked earlier, but just in case
+	}
+
+	// Try to get the interface by name
+	iface, err := net.InterfaceByName(c.Ifname)
+	if err != nil {
+		return fmt.Errorf("network interface '%s' not found: %w", c.Ifname, err)
+	}
+
+	// Check if interface is up
+	if iface.Flags&net.FlagUp == 0 {
+		return fmt.Errorf("network interface '%s' is not up", c.Ifname)
+	}
+
+	return nil
+}
+
+// checkTCSupport checks if the system supports TC (Traffic Control) classifier.
+// This is a basic check - full TC support validation would require checking kernel modules,
+// capabilities, and qdisc configuration, which is done at probe initialization time.
+func (c *Config) checkTCSupport() error {
+	// Check if /proc/sys/net/core exists (basic networking support)
+	if _, err := os.Stat("/proc/sys/net/core"); os.IsNotExist(err) {
+		return fmt.Errorf("system networking support not available: /proc/sys/net/core not found")
+	}
+
+	// Check if /sys/class/net exists (network device management)
+	if _, err := os.Stat("/sys/class/net"); os.IsNotExist(err) {
+		return fmt.Errorf("network device management not available: /sys/class/net not found")
+	}
+
+	// Check if the interface exists in sysfs
+	ifacePath := filepath.Join("/sys/class/net", c.Ifname)
+	if _, err := os.Stat(ifacePath); os.IsNotExist(err) {
+		return fmt.Errorf("network interface '%s' not found in sysfs", c.Ifname)
+	}
+
+	// Note: Full TC classifier support validation (qdisc clsact, eBPF TC programs, etc.)
+	// is deferred to probe initialization when eBPF manager attempts to attach.
+	// At that point, proper error handling will indicate if TC is not supported.
+
+	return nil
+}
+
