@@ -18,12 +18,6 @@
 package cmd
 
 import (
-	"context"
-	"fmt"
-	"os"
-	"os/signal"
-	"syscall"
-
 	"github.com/spf13/cobra"
 
 	// Import new probe packages to register them with factory
@@ -59,52 +53,6 @@ func postgresCommandFunc(command *cobra.Command, args []string) error {
 	postgresConfig.SetPerCpuMapSize(globalConf.PerCpuMapSize)
 	postgresConfig.SetTruncateSize(globalConf.TruncateSize)
 
-	// Validate configuration
-	if err := postgresConfig.Validate(); err != nil {
-		return fmt.Errorf("config validation failed: %w", err)
-	}
-
-	// Create probe via factory
-	probe, err := factory.CreateProbe(factory.ProbeTypePostgres)
-	if err != nil {
-		return fmt.Errorf("failed to create probe: %w", err)
-	}
-	defer probe.Close()
-
-	// Create context
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	// Create event dispatcher
-	dispatcher, err := newEventDispatcher(globalConf.IsHex)
-	if err != nil {
-		return fmt.Errorf("failed to create event dispatcher: %w", err)
-	}
-	defer dispatcher.Close()
-
-	// Initialize probe
-	if err := probe.Initialize(ctx, postgresConfig, dispatcher); err != nil {
-		return fmt.Errorf("failed to initialize probe: %w", err)
-	}
-
-	// Start probe
-	if err := probe.Start(ctx); err != nil {
-		return fmt.Errorf("failed to start probe: %w", err)
-	}
-
-	fmt.Println("PostgreSQL probe started successfully. Press Ctrl+C to stop.")
-
-	// Setup signal handling
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-	<-sigCh
-
-	fmt.Println("\nStopping PostgreSQL probe...")
-
-	// Stop probe
-	if err := probe.Stop(ctx); err != nil {
-		return fmt.Errorf("failed to stop probe: %w", err)
-	}
-
-	return nil
+	// Run probe using the common entry point
+	return runProbe(factory.ProbeTypePostgres, postgresConfig)
 }

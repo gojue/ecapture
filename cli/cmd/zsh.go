@@ -18,12 +18,6 @@
 package cmd
 
 import (
-	"context"
-	"fmt"
-	"os"
-	"os/signal"
-	"syscall"
-
 	"github.com/spf13/cobra"
 
 	// Import new probe packages to register them with factory
@@ -61,52 +55,6 @@ func zshCommandFunc(command *cobra.Command, args []string) error {
 	zshConfig.SetPerCpuMapSize(globalConf.PerCpuMapSize)
 	zshConfig.SetTruncateSize(globalConf.TruncateSize)
 
-	// Validate configuration
-	if err := zshConfig.Validate(); err != nil {
-		return fmt.Errorf("config validation failed: %w", err)
-	}
-
-	// Create probe via factory
-	probe, err := factory.CreateProbe(factory.ProbeTypeZsh)
-	if err != nil {
-		return fmt.Errorf("failed to create probe: %w", err)
-	}
-	defer probe.Close()
-
-	// Create context
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	// Create event dispatcher
-	dispatcher, err := newEventDispatcher(globalConf.IsHex)
-	if err != nil {
-		return fmt.Errorf("failed to create event dispatcher: %w", err)
-	}
-	defer dispatcher.Close()
-
-	// Initialize probe
-	if err := probe.Initialize(ctx, zshConfig, dispatcher); err != nil {
-		return fmt.Errorf("failed to initialize probe: %w", err)
-	}
-
-	// Start probe
-	if err := probe.Start(ctx); err != nil {
-		return fmt.Errorf("failed to start probe: %w", err)
-	}
-
-	fmt.Println("Zsh probe started successfully. Press Ctrl+C to stop.")
-
-	// Setup signal handling
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-	<-sigCh
-
-	fmt.Println("\nStopping zsh probe...")
-
-	// Stop probe
-	if err := probe.Stop(ctx); err != nil {
-		return fmt.Errorf("failed to stop probe: %w", err)
-	}
-
-	return nil
+	// Run probe using the common entry point
+	return runProbe(factory.ProbeTypeZsh, zshConfig)
 }

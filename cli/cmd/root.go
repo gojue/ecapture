@@ -34,6 +34,8 @@ import (
 
 	"github.com/gojue/ecapture/cli/cobrautl"
 	"github.com/gojue/ecapture/cli/http"
+	"github.com/gojue/ecapture/internal/domain"
+	"github.com/gojue/ecapture/internal/factory"
 	"github.com/gojue/ecapture/pkg/util/roratelog"
 	"github.com/gojue/ecapture/pkg/util/ws"
 	"github.com/gojue/ecapture/user/config"
@@ -400,4 +402,259 @@ func runModule(modName string, modConfig config.IConfig) error {
 
 	logger.Info().Msg("bye bye.")
 	return nil
+}
+
+// runProbe runs a probe using the new internal/probe architecture
+func runProbe(probeType factory.ProbeType, probeConfig domain.Configuration) error {
+	var logger, eventCollector zerolog.Logger
+	var err error
+	var ecw io.Writer
+	
+	if globalConf.EcaptureQ != "" {
+		parsedURL, err := url.Parse(globalConf.EcaptureQ)
+		if err != nil {
+			return err
+		}
+		es := ecaptureq.NewServer(parsedURL.Host, os.Stdout)
+		go func() {
+			err := es.Start()
+			if err != nil {
+				fmt.Printf("eCaptureQ addr listen failed:%s\n", err.Error())
+				os.Exit(1)
+				return
+			}
+		}()
+		// log writer
+		consoleWriter := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}
+		zerolog.SetGlobalLevel(zerolog.InfoLevel)
+		if probeConfig.GetDebug() {
+			zerolog.SetGlobalLevel(zerolog.DebugLevel)
+		}
+		eqWriter := ecaptureQLogWriter{es: es}
+
+		multi := zerolog.MultiLevelWriter(consoleWriter, eqWriter)
+		logger = zerolog.New(multi).With().Timestamp().Logger()
+
+		ecw = ecaptureQEventWriter{es: es}
+	} else {
+		// Create logger adapter that implements config.IConfig interface
+		configAdapter := &probeConfigAdapter{config: probeConfig}
+		logger, err = initLogger(globalConf.LoggerAddr, configAdapter, false)
+		if err != nil {
+			return err
+		}
+		if globalConf.EventCollectorAddr == "" {
+			eventCollector = logger
+		} else {
+			eventCollector, err = initLogger(globalConf.EventCollectorAddr, configAdapter, true)
+			if err != nil {
+				return err
+			}
+		}
+		ecw = event.NewCollectorWriter(&eventCollector)
+	}
+
+	// init eCapture
+	logger.Info().Str("AppName", fmt.Sprintf("%s(%s)", CliName, CliNameZh)).Send()
+	logger.Info().Str("HomePage", CliHomepage).Send()
+	logger.Info().Str("Repository", CliGithubRepo).Send()
+	logger.Info().Str("Author", CliAuthor).Send()
+	logger.Info().Str("Description", CliDescription).Send()
+	logger.Info().Str("Version", GitVersion).Send()
+	logger.Info().Str("Listen", globalConf.Listen).Send()
+	logger.Info().Str("Listen for eCaptureQ", globalConf.EcaptureQ).Send()
+	logger.Info().Str("logger", globalConf.LoggerAddr).Msg("eCapture running logs")
+	logger.Info().Str("eventCollector", globalConf.EventCollectorAddr).Msg("the file handler that receives the captured event")
+
+	var isReload bool
+	var reRloadConfig = make(chan domain.Configuration, 10)
+
+	// listen http server (disabled for now, can be enabled later)
+	// go func() {
+	// 	logger.Info().Str("listen", globalConf.Listen).Send()
+	// 	logger.Info().Msg("https server starting...You can upgrade the configuration file via the HTTP interface.")
+	// 	var ec = http.NewHttpServer(globalConf.Listen, reRloadConfig, logger)
+	// 	err = ec.Run()
+	// 	if err != nil {
+	// 		logger.Fatal().Err(err).Msg("http server start failed")
+	// 		return
+	// 	}
+	// }()
+
+	ctx, cancelFun := context.WithCancel(context.TODO())
+
+	// upgrade check
+	go func() {
+		tags, upgradeUrl, e := upgradeCheck(ctx)
+		if e != nil {
+			logger.Debug().Msgf("upgrade check failed: %s", e.Error())
+			return
+		}
+		logger.Warn().Msgf("A new version %s is available:%s", tags, upgradeUrl)
+	}()
+
+	// run probe
+	{
+		// config check
+		err = probeConfig.Validate()
+		if err != nil {
+			logger.Fatal().Err(err).Msg("config validation failed")
+		}
+
+	reload:
+		// Create probe via factory
+		probe, err := factory.CreateProbe(probeType)
+		if err != nil {
+			logger.Fatal().Err(err).Msg("failed to create probe")
+		}
+
+		// Create event dispatcher
+		dispatcher, err := newEventDispatcherWithLogger(&logger, probeConfig.GetHex())
+		if err != nil {
+			logger.Fatal().Err(err).Msg("failed to create event dispatcher")
+		}
+
+		// Initialize probe
+		err = probe.Initialize(ctx, probeConfig, dispatcher)
+		if err != nil {
+			logger.Fatal().Err(err).Bool("isReload", isReload).Msg("probe initialization failed")
+		}
+		logger.Info().Str("probeName", string(probeType)).Bool("isReload", isReload).Msg("probe initialization.")
+
+		// Start probe
+		err = probe.Start(ctx)
+		if err != nil {
+			logger.Fatal().Err(err).Bool("isReload", isReload).Msg("probe start failed.")
+		}
+		logger.Info().Str("probeName", string(probeType)).Bool("isReload", isReload).Msg("probe started successfully.")
+
+		// reset isReload
+		isReload = false
+		stopper := make(chan os.Signal, 1)
+		signal.Notify(stopper, os.Interrupt, syscall.SIGTERM)
+		select {
+		case _, ok := <-stopper:
+			if !ok {
+				logger.Warn().Msg("reload stopper channel closed.")
+				break
+			}
+			isReload = false
+		case rc, ok := <-reRloadConfig:
+			if !ok {
+				logger.Warn().Msg("reload config channel closed.")
+				isReload = false
+				break
+			}
+			logger.Warn().Msg("========== Signal received; the probe will initiate a restart. ==========")
+			isReload = true
+			probeConfig = rc
+		}
+		cancelFun()
+
+		// Stop probe
+		err = probe.Stop(ctx)
+		if err != nil {
+			logger.Warn().Err(err).Msg("probe stop failed")
+		}
+
+		// Close probe
+		err = probe.Close()
+		if err != nil {
+			logger.Warn().Err(err).Msg("probe close failed")
+		}
+
+		// Close dispatcher
+		dispatcher.Close()
+
+		// reload
+		if isReload {
+			isReload = false
+			logger.Info().RawJSON("config", probeConfig.Bytes()).Msg("reloading probe...")
+			goto reload
+		}
+	}
+
+	logger.Info().Msg("bye bye.")
+	return nil
+}
+
+// probeConfigAdapter adapts domain.Configuration to config.IConfig
+type probeConfigAdapter struct {
+	config domain.Configuration
+}
+
+func (a *probeConfigAdapter) Check() error {
+	return a.config.Validate()
+}
+
+func (a *probeConfigAdapter) GetPid() uint64 {
+	return a.config.GetPid()
+}
+
+func (a *probeConfigAdapter) GetUid() uint64 {
+	return a.config.GetUid()
+}
+
+func (a *probeConfigAdapter) GetDebug() bool {
+	return a.config.GetDebug()
+}
+
+func (a *probeConfigAdapter) GetHex() bool {
+	return a.config.GetHex()
+}
+
+func (a *probeConfigAdapter) GetBTF() uint8 {
+	return a.config.GetBTF()
+}
+
+func (a *probeConfigAdapter) GetPerCpuMapSize() int {
+	return a.config.GetPerCpuMapSize()
+}
+
+func (a *probeConfigAdapter) GetByteCodeFileMode() uint8 {
+	return a.config.GetByteCodeFileMode()
+}
+
+func (a *probeConfigAdapter) EnableGlobalVar() bool {
+	return a.config.EnableGlobalVar()
+}
+
+func (a *probeConfigAdapter) GetTruncateSize() uint64 {
+	return a.config.GetTruncateSize()
+}
+
+func (a *probeConfigAdapter) SetPid(pid uint64) {
+	// Not needed for adapter
+}
+
+func (a *probeConfigAdapter) SetUid(uid uint64) {
+	// Not needed for adapter
+}
+
+func (a *probeConfigAdapter) SetDebug(debug bool) {
+	// Not needed for adapter
+}
+
+func (a *probeConfigAdapter) SetHex(hex bool) {
+	// Not needed for adapter
+}
+
+func (a *probeConfigAdapter) SetBTF(mode uint8) {
+	// Not needed for adapter
+}
+
+func (a *probeConfigAdapter) SetByteCodeFileMode(mode uint8) {
+	// Not needed for adapter
+}
+
+func (a *probeConfigAdapter) SetPerCpuMapSize(size int) {
+	// Not needed for adapter
+}
+
+func (a *probeConfigAdapter) SetTruncateSize(size uint64) {
+	// Not needed for adapter
+}
+
+func (a *probeConfigAdapter) Bytes() []byte {
+	return a.config.Bytes()
 }
