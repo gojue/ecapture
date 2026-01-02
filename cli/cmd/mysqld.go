@@ -18,8 +18,19 @@
 package cmd
 
 import (
+	"context"
+	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
+
 	"github.com/spf13/cobra"
 
+	// Import new probe packages to register them with factory
+	_ "github.com/gojue/ecapture/internal/probe/mysql"
+
+	"github.com/gojue/ecapture/internal/factory"
+	mysqlProbe "github.com/gojue/ecapture/internal/probe/mysql"
 	"github.com/gojue/ecapture/user/config"
 	"github.com/gojue/ecapture/user/module"
 )
@@ -43,7 +54,76 @@ func init() {
 	rootCmd.AddCommand(mysqldCmd)
 }
 
-// mysqldCommandFunc executes the "mysqld" command.
+// mysqldCommandFunc executes the "mysqld" command using the new probe architecture.
 func mysqldCommandFunc(command *cobra.Command, args []string) error {
-	return runModule(module.ModuleNameMysqld, myc)
+	// Check if we should use new architecture (check environment variable)
+	if os.Getenv("ECAPTURE_USE_NEW_ARCH") != "1" {
+		// Fall back to old architecture
+		return runModule(module.ModuleNameMysqld, myc)
+	}
+
+	// Create new architecture config from old config
+	newConfig := mysqlProbe.NewConfig()
+	newConfig.SetPid(globalConf.Pid)
+	newConfig.SetUid(globalConf.Uid)
+	newConfig.SetDebug(globalConf.Debug)
+	newConfig.SetHex(globalConf.IsHex)
+	newConfig.SetBTF(globalConf.BtfMode)
+	newConfig.SetPerCpuMapSize(globalConf.PerCpuMapSize)
+	newConfig.SetTruncateSize(globalConf.TruncateSize)
+
+	// Set mysql-specific config
+	newConfig.MysqlPath = myc.Mysqldpath
+	newConfig.FuncName = myc.FuncName
+	newConfig.Offset = myc.Offset
+
+	// Validate configuration
+	if err := newConfig.Validate(); err != nil {
+		return fmt.Errorf("config validation failed: %w", err)
+	}
+
+	// Create probe via factory
+	probe, err := factory.CreateProbe(factory.ProbeTypeMySQL)
+	if err != nil {
+		return fmt.Errorf("failed to create probe: %w", err)
+	}
+	defer probe.Close()
+
+	// Create context
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Create event dispatcher
+	dispatcher, err := newEventDispatcher(globalConf.IsHex)
+	if err != nil {
+		return fmt.Errorf("failed to create event dispatcher: %w", err)
+	}
+	defer dispatcher.Close()
+
+	// Initialize probe
+	if err := probe.Initialize(ctx, newConfig, dispatcher); err != nil {
+		return fmt.Errorf("failed to initialize probe: %w", err)
+	}
+
+	// Start probe
+	if err := probe.Start(ctx); err != nil {
+		return fmt.Errorf("failed to start probe: %w", err)
+	}
+
+	fmt.Println("MySQL probe started successfully. Press Ctrl+C to stop.")
+
+	// Setup signal handling
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	<-sigCh
+
+	fmt.Println("\nStopping MySQL probe...")
+
+	// Stop probe
+	if err := probe.Stop(ctx); err != nil {
+		return fmt.Errorf("failed to stop probe: %w", err)
+	}
+
+	return nil
 }
+

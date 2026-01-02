@@ -123,4 +123,3 @@ func zshCommandFunc(command *cobra.Command, args []string) error {
 
 	return nil
 }
-
