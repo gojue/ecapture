@@ -38,9 +38,6 @@ import (
 	"github.com/gojue/ecapture/internal/factory"
 	"github.com/gojue/ecapture/pkg/util/roratelog"
 	"github.com/gojue/ecapture/pkg/util/ws"
-	"github.com/gojue/ecapture/user/config"
-	"github.com/gojue/ecapture/user/event"
-	"github.com/gojue/ecapture/user/module"
 )
 
 const (
@@ -155,29 +152,8 @@ func init() {
 	rootCmd.SilenceUsage = true
 }
 
-// setModConfig set module config
-func setModConfig(globalConf config.BaseConfig, modConf config.IConfig) {
-	modConf.SetPid(globalConf.Pid)
-	modConf.SetUid(globalConf.Uid)
-	modConf.SetDebug(globalConf.Debug)
-	modConf.SetHex(globalConf.IsHex)
-	modConf.SetBTF(globalConf.BtfMode)
-	modConf.SetPerCpuMapSize(globalConf.PerCpuMapSize)
-	modConf.SetAddrType(loggerTypeStdout)
-	modConf.SetTruncateSize(globalConf.TruncateSize)
-
-	switch ByteCodeFiles {
-	case "core":
-		modConf.SetByteCodeFileMode(config.ByteCodeFileCore)
-	case "noncore":
-		modConf.SetByteCodeFileMode(config.ByteCodeFileNonCore)
-	default:
-		modConf.SetByteCodeFileMode(config.ByteCodeFileAll)
-	}
-}
-
 // initLogger init logger
-func initLogger(addr string, modConfig config.IConfig, isRorate bool) (zerolog.Logger, error) {
+func initLogger(addr string, isDebug bool, isRorate bool) (zerolog.Logger, error) {
 	var logger zerolog.Logger
 	var err error
 	consoleWriter := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}
@@ -210,7 +186,6 @@ func initLogger(addr string, modConfig config.IConfig, isRorate bool) (zerolog.L
 				return zerolog.Logger{}, errors.New("URL scheme must be 'ws' or 'wss'")
 			}
 
-			modConfig.SetAddrType(loggerTypeWebsocket)
 			// 连接到WebSocket服务器
 			var wsConn = ws.NewClient()
 			err = wsConn.Dial(addr, "", "http://localhost")
@@ -219,8 +194,6 @@ func initLogger(addr string, modConfig config.IConfig, isRorate bool) (zerolog.L
 			}
 			writer = wsConn
 		} else {
-			modConfig.SetAddrType(loggerTypeFile)
-			//modConfig.SetLoggerTCPAddr("")
 			isLogRate := isRorate && (rorateSize > 0 || rorateTime > 0)
 			if isLogRate {
 				logFile := &roratelog.Logger{
@@ -248,169 +221,10 @@ func initLogger(addr string, modConfig config.IConfig, isRorate bool) (zerolog.L
 	return logger, nil
 }
 
-// runModule run module
-func runModule(modName string, modConfig config.IConfig) error {
-	setModConfig(globalConf, modConfig)
-	var logger, eventCollector zerolog.Logger
-	var err error
-	var ecw io.Writer
-	if globalConf.EcaptureQ != "" {
-		parsedURL, err := url.Parse(globalConf.EcaptureQ)
-		if err != nil {
-			return err
-		}
-		es := ecaptureq.NewServer(parsedURL.Host, os.Stdout)
-		go func() {
-			err := es.Start()
-			if err != nil {
-				fmt.Printf("eCaptureQ addr listen failed:%s\n", err.Error())
-				os.Exit(1)
-				return
-			}
-		}()
-		// log writer
-		consoleWriter := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}
-		zerolog.SetGlobalLevel(zerolog.InfoLevel)
-		if modConfig.GetDebug() {
-			zerolog.SetGlobalLevel(zerolog.DebugLevel)
-		}
-		eqWriter := ecaptureQLogWriter{es: es}
-
-		multi := zerolog.MultiLevelWriter(consoleWriter, eqWriter)
-		logger = zerolog.New(multi).With().Timestamp().Logger()
-
-		ecw = ecaptureQEventWriter{es: es}
-	} else {
-		logger, err = initLogger(globalConf.LoggerAddr, modConfig, false)
-		if err != nil {
-			return err
-		}
-		if globalConf.EventCollectorAddr == "" {
-			eventCollector = logger
-		} else {
-			eventCollector, err = initLogger(globalConf.EventCollectorAddr, modConfig, true)
-			if err != nil {
-				return err
-			}
-		}
-		ecw = event.NewCollectorWriter(&eventCollector)
-	}
-
-	// init eCapture
-	logger.Info().Str("AppName", fmt.Sprintf("%s(%s)", CliName, CliNameZh)).Send()
-	logger.Info().Str("HomePage", CliHomepage).Send()
-	logger.Info().Str("Repository", CliGithubRepo).Send()
-	logger.Info().Str("Author", CliAuthor).Send()
-	logger.Info().Str("Description", CliDescription).Send()
-	logger.Info().Str("Version", GitVersion).Send()
-	logger.Info().Str("Listen", globalConf.Listen).Send()
-	logger.Info().Str("Listen for eCaptureQ", globalConf.EcaptureQ).Send()
-	logger.Info().Str("logger", globalConf.LoggerAddr).Msg("eCapture running logs")
-	logger.Info().Str("eventCollector", globalConf.EventCollectorAddr).Msg("the file handler that receives the captured event")
-
-	var isReload bool
-	var reRloadConfig = make(chan config.IConfig, 10)
-
-	// listen http server
-	go func() {
-		logger.Info().Str("listen", globalConf.Listen).Send()
-		logger.Info().Msg("https server starting...You can upgrade the configuration file via the HTTP interface.")
-		var ec = http.NewHttpServer(globalConf.Listen, reRloadConfig, logger)
-		err = ec.Run()
-		if err != nil {
-			logger.Fatal().Err(err).Msg("http server start failed")
-			return
-		}
-	}()
-
-	ctx, cancelFun := context.WithCancel(context.TODO())
-
-	// upgrade check
-	go func() {
-		tags, upgradeUrl, e := upgradeCheck(ctx)
-		if e != nil {
-			logger.Debug().Msgf("upgrade check failed: %s", e.Error())
-			return
-		}
-		logger.Warn().Msgf("A new version %s is available:%s", tags, upgradeUrl)
-	}()
-
-	// run module
-	{
-		// config check
-		err = modConfig.Check()
-		if err != nil {
-			logger.Fatal().Err(err).Msg("config check failed")
-			//return fmt.Errorf("config check failed: %s", err.Error())
-		}
-		modFunc := module.GetModuleFunc(modName)
-		if modFunc == nil {
-			logger.Fatal().Err(fmt.Errorf("cant found module function: %s", modName)).Send()
-		}
-
-	reload:
-		// 初始化
-		mod := modFunc()
-		err = mod.Init(ctx, &logger, modConfig, ecw)
-		if err != nil {
-			logger.Fatal().Err(err).Bool("isReload", isReload).Msg("module initialization failed")
-		}
-		logger.Info().Str("moduleName", modName).Bool("isReload", isReload).Msg("module initialization.")
-
-		err = mod.Run()
-		if err != nil {
-			logger.Fatal().Err(err).Bool("isReload", isReload).Msg("module run failed.")
-		}
-		logger.Info().Str("moduleName", modName).Bool("isReload", isReload).Msg("module started successfully.")
-
-		// reset isReload
-		isReload = false
-		stopper := make(chan os.Signal, 1)
-		signal.Notify(stopper, os.Interrupt, syscall.SIGTERM)
-		select {
-		case _, ok := <-stopper:
-			if !ok {
-				logger.Warn().Msg("reload stopper channel closed.")
-				break
-			}
-			isReload = false
-		case rc, ok := <-reRloadConfig:
-			if !ok {
-				logger.Warn().Msg("reload config channel closed.")
-				isReload = false
-				break
-			}
-			logger.Warn().Msg("========== Signal received; the module will initiate a restart. ==========")
-			isReload = true
-			modConfig = rc
-		}
-		cancelFun()
-		// clean up
-		err = mod.Close()
-		if err != nil {
-			logger.Warn().Err(err).Msg("module close failed")
-		}
-		// reload
-		if isReload {
-			isReload = false
-			logger.Info().RawJSON("config", modConfig.Bytes()).Msg("reloading module...")
-			goto reload
-		}
-	}
-
-	// TODO Stop http server
-
-	logger.Info().Msg("bye bye.")
-	return nil
-}
-
 // runProbe runs a probe using the new internal/probe architecture
 func runProbe(probeType factory.ProbeType, probeConfig domain.Configuration) error {
 	var logger zerolog.Logger
 	var err error
-
-	// Create logger adapter that implements config.IConfig interface
-	configAdapter := newProbeConfigAdapter(probeConfig)
 
 	if globalConf.EcaptureQ != "" {
 		parsedURL, err := url.Parse(globalConf.EcaptureQ)
@@ -437,7 +251,7 @@ func runProbe(probeType factory.ProbeType, probeConfig domain.Configuration) err
 		multi := zerolog.MultiLevelWriter(consoleWriter, eqWriter)
 		logger = zerolog.New(multi).With().Timestamp().Logger()
 	} else {
-		logger, err = initLogger(globalConf.LoggerAddr, configAdapter, false)
+		logger, err = initLogger(globalConf.LoggerAddr, probeConfig.GetDebug(), false)
 		if err != nil {
 			return err
 		}
@@ -664,6 +478,11 @@ func (a *probeConfigAdapter) SetEventCollectorAddr(addr string) {
 func (a *probeConfigAdapter) GetEventCollectorAddr() string {
 	return "" // Not used in probe architecture
 }
+
+func (a *probeConfigAdapter) Bytes() []byte {
+	return a.config.Bytes()
+}
+
 
 func (a *probeConfigAdapter) Bytes() []byte {
 	return a.config.Bytes()

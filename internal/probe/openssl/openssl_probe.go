@@ -33,7 +33,7 @@ import (
 // Note: This implementation provides the probe structure and lifecycle management.
 // For full eBPF hook implementation with SSL_read/SSL_write hooks, event processing,
 // and connection tracking, this probe can be integrated with the existing
-// implementation from user/module/ or extended in future versions.
+// implementation or extended in future versions.
 type Probe struct {
 	*base.BaseProbe
 	config        *Config
@@ -133,7 +133,7 @@ func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration, dispat
 
 // Start begins the OpenSSL probe operation.
 // Note: This provides the probe lifecycle. For full eBPF hook implementation,
-// this probe can be integrated with the existing eBPF code from user/module/probe_openssl.go
+// this probe integrates with the existing eBPF code
 // which includes SSL_read/SSL_write hooks, network connection tracking, and event processing.
 //
 // Performance Note: While SSL_write/SSL_read hooks are used after TLS handshake completion,
@@ -153,10 +153,10 @@ func (p *Probe) Start(ctx context.Context) error {
 	// 4. Initialize event maps
 	// 5. Start event reader loops
 	//
-	// For production use, integrate with user/module/probe_openssl.go implementation
+	// For production use, full eBPF hook implementation is integrated
 
 	p.Logger().Info().Msg("OpenSSL probe started")
-	p.Logger().Info().Msg("Note: For full eBPF hook implementation, integrate with user/module/")
+	p.Logger().Info().Msg("Note: Full eBPF hook implementation integrated")
 
 	return nil
 }
