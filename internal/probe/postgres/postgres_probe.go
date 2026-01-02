@@ -24,6 +24,7 @@ import (
 	manager "github.com/gojue/ebpfmanager"
 	"golang.org/x/sys/unix"
 
+	"github.com/gojue/ecapture/assets"
 	"github.com/gojue/ecapture/internal/domain"
 	"github.com/gojue/ecapture/internal/errors"
 	"github.com/gojue/ecapture/internal/probe/base"
@@ -173,11 +174,15 @@ func (p *Probe) loadBytecode() ([]byte, error) {
 		bytecodeFile = "user/bytecode/postgres_kern.o"
 	}
 
-	// Load bytecode from assets (Note: assets package not available in tests)
-	// For production, use assets.Asset(bytecodeFile)
-	// For now, return empty bytecode
+	// Load bytecode from assets
+	bytecode, err := assets.Asset(bytecodeFile)
+	if err != nil {
+		p.Logger().Error().Err(err).Str("file", bytecodeFile).Msg("Failed to load PostgreSQL eBPF bytecode")
+		return nil, fmt.Errorf("failed to load bytecode file %s: %w", bytecodeFile, err)
+	}
+
 	p.Logger().Info().Str("file", bytecodeFile).Msg("Loaded PostgreSQL eBPF bytecode")
-	return []byte{}, fmt.Errorf("bytecode loading not implemented in test environment")
+	return bytecode, nil
 }
 
 // getManagerOptions returns the eBPF manager options
