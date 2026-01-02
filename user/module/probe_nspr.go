@@ -35,6 +35,12 @@ import (
 	"github.com/gojue/ecapture/user/event"
 )
 
+// MNsprProbe represents the NSPR (Firefox/Thunderbird) traffic capture probe.
+//
+// Deprecated: This implementation is deprecated and will be removed in v3.0.
+// Please use the new architecture in internal/probe/nspr instead.
+// The new implementation provides better maintainability, testability, and follows clean architecture principles.
+// For migration guide, see docs/MIGRATION_V2.md
 type MNsprProbe struct {
 	Module
 	bpfManager        *manager.Manager
