@@ -169,9 +169,9 @@ func (p *Probe) loadBytecode() ([]byte, error) {
 	// Determine which bytecode file to use based on BTF support
 	var bytecodeFile string
 	if p.config.GetBTF() == 1 { // BTFModeCore
-		bytecodeFile = "user/bytecode/postgres_kern_core.o"
+		bytecodeFile = "bytecode/postgres_kern_core.o"
 	} else {
-		bytecodeFile = "user/bytecode/postgres_kern.o"
+		bytecodeFile = "bytecode/postgres_kern.o"
 	}
 
 	// Load bytecode from assets

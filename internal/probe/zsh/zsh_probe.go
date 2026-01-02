@@ -153,7 +153,7 @@ func (p *Probe) Events() []*ebpf.Map {
 
 // loadBytecode loads the eBPF bytecode for the probe.
 func (p *Probe) loadBytecode() ([]byte, error) {
-	bpfFileName := p.getBPFName("user/bytecode/zsh_kern.o")
+	bpfFileName := p.getBPFName("bytecode/zsh_kern.o")
 	p.Logger().Info().Str("file", bpfFileName).Msg("Loading BPF bytecode")
 
 	bytecode, err := assets.Asset(bpfFileName)

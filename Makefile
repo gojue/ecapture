@@ -86,7 +86,7 @@ help:
 	@echo "    $$ make rpm VERSION=0.0.0 RELEASE=1		# build ecapture rpm"
 	@echo ""
 	@echo "# clean"
-	@echo "    $$ make clean				# wipe ./bin/ ./user/bytecode/ ./assets/"
+	@echo "    $$ make clean				# wipe ./bin/ ./bytecode/ ./assets/"
 	@echo ""
 	@echo "# test"
 	@echo "    $$ CROSS_ARCH=arm64 make ...		# cross compile, build eCapture for arm64(aarch64) on amd64(x86_64) host"
@@ -107,8 +107,8 @@ prepare:
 
 .PHONY: clean
 clean:
-	$(CMD_RM) -f user/bytecode/*.d
-	$(CMD_RM) -f user/bytecode/*.o
+	$(CMD_RM) -f bytecode/*.d
+	$(CMD_RM) -f bytecode/*.o
 	$(CMD_RM) -f assets/ebpf_probe.go
 	$(CMD_RM) -f bin/ecapture
 	$(CMD_RM) -f .check*
@@ -122,7 +122,7 @@ $(KERN_OBJECTS): %.o: %.c \
 	$(CMD_CLANG) -D__TARGET_ARCH_$(LINUX_ARCH) \
 		$(EXTRA_CFLAGS) \
 		$(BPFHEADER) \
-		-target bpfel -c $< -o $(subst kern/,user/bytecode/,$(subst .o,_core.o,$@)) \
+		-target bpfel -c $< -o $(subst kern/,bytecode/,$(subst .o,_core.o,$@)) \
 		-fno-ident -fdebug-compilation-dir . -g -D__BPF_TARGET_MISSING="GCC error \"The eBPF is using target specific macros, please provide -target\"" \
 		-MD -MP || exit 1
 
@@ -156,19 +156,19 @@ $(KERN_OBJECTS_NOCORE): %.nocore: %.c \
 			-o - |$(CMD_LLC) \
 			-march=bpf \
 			-filetype=obj \
-			-o $(subst kern/,user/bytecode/,$(subst .c,_noncore.o,$<)) || exit 1
+			-o $(subst kern/,bytecode/,$(subst .c,_noncore.o,$<)) || exit 1
 
 # Generate assets for all eBPF bytecode
 .PHONY: assets
 assets: .checkver_$(CMD_GO) ebpf ebpf_noncore
-	$(CMD_GO) run github.com/shuLhan/go-bindata/cmd/go-bindata $(IGNORE_LESS52) -pkg assets -o "assets/ebpf_probe.go" $(wildcard ./user/bytecode/*.o)
+	$(CMD_GO) run github.com/shuLhan/go-bindata/cmd/go-bindata $(IGNORE_LESS52) -pkg assets -o "assets/ebpf_probe.go" $(wildcard ./bytecode/*.o)
 
 # Generate assets for non-core eBPF bytecode only
 .PHONY: assets_noncore
 assets_noncore: \
 	.checkver_$(CMD_GO) \
 	ebpf_noncore
-	$(CMD_GO) run github.com/shuLhan/go-bindata/cmd/go-bindata $(IGNORE_LESS52) -pkg assets -o "assets/ebpf_probe.go" $(wildcard ./user/bytecode/*.o)
+	$(CMD_GO) run github.com/shuLhan/go-bindata/cmd/go-bindata $(IGNORE_LESS52) -pkg assets -o "assets/ebpf_probe.go" $(wildcard ./bytecode/*.o)
 
 
 # Build libpcap static library
