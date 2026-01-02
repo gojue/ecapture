@@ -15,85 +15,85 @@
 package handlers
 
 import (
-"fmt"
-"io"
-"time"
+	"fmt"
+	"io"
+	"time"
 
-"github.com/gojue/ecapture/internal/domain"
-"github.com/gojue/ecapture/internal/errors"
+	"github.com/gojue/ecapture/internal/domain"
+	"github.com/gojue/ecapture/internal/errors"
 )
 
 // TLSDataEvent defines the interface for TLS data events.
 type TLSDataEvent interface {
-domain.Event
-GetPid() uint32
-GetComm() string
-GetData() []byte
-GetDataLen() uint32
-GetTimestamp() uint64
-IsRead() bool
+	domain.Event
+	GetPid() uint32
+	GetComm() string
+	GetData() []byte
+	GetDataLen() uint32
+	GetTimestamp() uint64
+	IsRead() bool
 }
 
 // TextHandler handles TLS events by formatting them as readable text output.
 type TextHandler struct {
-writer io.Writer
+	writer io.Writer
 }
 
 // NewTextHandler creates a new TextHandler that writes to the provided writer.
 func NewTextHandler(writer io.Writer) *TextHandler {
-if writer == nil {
-writer = io.Discard
-}
-return &TextHandler{
-writer: writer,
-}
+	if writer == nil {
+		writer = io.Discard
+	}
+	return &TextHandler{
+		writer: writer,
+	}
 }
 
 // Handle processes a TLS event and writes formatted text output.
 func (h *TextHandler) Handle(event domain.Event) error {
-if event == nil {
-return errors.New(errors.ErrCodeEventValidation, "event cannot be nil")
-}
+	if event == nil {
+		return errors.New(errors.ErrCodeEventValidation, "event cannot be nil")
+	}
 
-// Type assert to TLS data event
-tlsEvent, ok := event.(TLSDataEvent)
-if !ok {
-return errors.New(errors.ErrCodeEventValidation, "event is not a TLS data event")
-}
+	// Type assert to TLS data event
+	tlsEvent, ok := event.(TLSDataEvent)
+	if !ok {
+		return errors.New(errors.ErrCodeEventValidation, "event is not a TLS data event")
+	}
 
-// Format timestamp
-ts := time.Unix(0, int64(tlsEvent.GetTimestamp()))
-timestamp := ts.Format("2006-01-02 15:04:05.000")
+	// Format timestamp
+	ts := time.Unix(0, int64(tlsEvent.GetTimestamp()))
+	timestamp := ts.Format("2006-01-02 15:04:05.000")
 
-// Determine direction
-direction := ">>>"
-if tlsEvent.IsRead() {
-direction = "<<<"
-}
+	// Determine direction
+	direction := ">>>"
+	if tlsEvent.IsRead() {
+		direction = "<<<"
+	}
 
-// Format output
-output := fmt.Sprintf("[%s] [PID: %d] [%s] %s\n%s\n",
-timestamp,
-tlsEvent.GetPid(),
-tlsEvent.GetComm(),
-direction,
-string(tlsEvent.GetData()),
-)
+	// Format output
+	output := fmt.Sprintf("[%s] [PID: %d] [%s] %s\n%s\n",
+		timestamp,
+		tlsEvent.GetPid(),
+		tlsEvent.GetComm(),
+		direction,
+		string(tlsEvent.GetData()),
+	)
 
-// Write to output
-_, err := h.writer.Write([]byte(output))
-if err != nil {
-return errors.Wrap(errors.ErrCodeEventDispatch, "failed to write event", err)
-}
+	// Write to output
+	_, err := h.writer.Write([]byte(output))
+	if err != nil {
+		return errors.Wrap(errors.ErrCodeEventDispatch, "failed to write event", err)
+	}
 
-return nil
+	return nil
 }
 
 // Close closes the handler and releases resources.
 func (h *TextHandler) Close() error {
-// Check if writer implements io.Closer
-if closer, ok := h.writer.(io.Closer); ok {
-return closer.Close()
-}
-return nil
+	// Check if writer implements io.Closer
+	if closer, ok := h.writer.(io.Closer); ok {
+		return closer.Close()
+	}
+	return nil
 }
