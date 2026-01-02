@@ -89,6 +89,13 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("NSPR library not found: %s", c.NSPRPath)
 	}
 
+	// Warn if NSPR functions are found in libnss3.so instead of libnspr4.so
+	// In normal circumstances, PR_Write/PR_Read should be in libnspr4.so
+	// For more information, see: https://github.com/gojue/ecapture/issues/662
+	if strings.Contains(c.NSPRPath, "libnss3.so") || strings.Contains(c.NSPRPath, "libnss.so") {
+		// This is acceptable but may require explicit --nspr path specification
+	}
+
 	// Detect and validate NSS version
 	version, err := c.readNSSVersion(c.NSSPath)
 	if err != nil {
@@ -302,4 +309,56 @@ func (c *Config) checkTCSupport() error {
 	// This is just a basic sanity check.
 
 	return nil
+}
+
+// GetHex returns whether to use hex encoding for output (always false for NSPR)
+func (c *Config) GetHex() bool {
+	return false
+}
+
+// GetPid returns the target process ID
+func (c *Config) GetPid() uint64 {
+	return uint64(c.PID)
+}
+
+// GetUid returns the target user ID (not used for NSPR)
+func (c *Config) GetUid() uint64 {
+	return 0
+}
+
+// GetDebug returns whether debug mode is enabled (not used for NSPR)
+func (c *Config) GetDebug() bool {
+	return false
+}
+
+// GetBTF returns the BTF mode (not used for NSPR)
+func (c *Config) GetBTF() uint8 {
+	return 0
+}
+
+// GetPerCpuMapSize returns the eBPF map size per CPU (not used for NSPR)
+func (c *Config) GetPerCpuMapSize() int {
+	return 0
+}
+
+// GetTruncateSize returns the maximum size for truncating captured data (not used for NSPR)
+func (c *Config) GetTruncateSize() uint64 {
+	return 0
+}
+
+// EnableGlobalVar checks if kernel supports global variables (not used for NSPR)
+func (c *Config) EnableGlobalVar() bool {
+	return false
+}
+
+// GetByteCodeFileMode returns the bytecode file selection mode (not used for NSPR)
+func (c *Config) GetByteCodeFileMode() uint8 {
+	return 0
+}
+
+// Bytes serializes the configuration to JSON bytes (required by domain.Configuration interface)
+func (c *Config) Bytes() []byte {
+	// Implement simple JSON-like serialization for HTTP interface compatibility
+	return []byte(fmt.Sprintf(`{"nss_path":"%s","nspr_path":"%s","capture_mode":"%s","keylog_file":"%s","pcap_file":"%s","ifname":"%s","pcap_filter":"%s","pid":%d}`,
+		c.NSSPath, c.NSPRPath, c.CaptureMode, c.KeylogFile, c.PcapFile, c.Ifname, c.PcapFilter, c.PID))
 }

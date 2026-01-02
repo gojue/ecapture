@@ -34,14 +34,14 @@ type mockPacketEvent struct {
 	dstPort        uint16
 }
 
-func (m *mockPacketEvent) GetTimestamp() uint64       { return m.timestamp }
-func (m *mockPacketEvent) GetPacketData() []byte      { return m.packetData }
-func (m *mockPacketEvent) GetPacketLen() uint32       { return m.packetLen }
-func (m *mockPacketEvent) GetInterfaceIndex() uint32  { return m.interfaceIndex }
-func (m *mockPacketEvent) GetSrcIP() string           { return m.srcIP }
-func (m *mockPacketEvent) GetDstIP() string           { return m.dstIP }
-func (m *mockPacketEvent) GetSrcPort() uint16         { return m.srcPort }
-func (m *mockPacketEvent) GetDstPort() uint16         { return m.dstPort }
+func (m *mockPacketEvent) GetTimestamp() uint64              { return m.timestamp }
+func (m *mockPacketEvent) GetPacketData() []byte             { return m.packetData }
+func (m *mockPacketEvent) GetPacketLen() uint32              { return m.packetLen }
+func (m *mockPacketEvent) GetInterfaceIndex() uint32         { return m.interfaceIndex }
+func (m *mockPacketEvent) GetSrcIP() string                  { return m.srcIP }
+func (m *mockPacketEvent) GetDstIP() string                  { return m.dstIP }
+func (m *mockPacketEvent) GetSrcPort() uint16                { return m.srcPort }
+func (m *mockPacketEvent) GetDstPort() uint16                { return m.dstPort }
 func (m *mockPacketEvent) DecodeFromBytes(data []byte) error { return nil }
 func (m *mockPacketEvent) Validate() error                   { return nil }
 func (m *mockPacketEvent) String() string                    { return "" }

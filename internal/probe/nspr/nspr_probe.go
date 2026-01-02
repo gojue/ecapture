@@ -86,7 +86,7 @@ func (p *Probe) Initialize(ctx context.Context, config interface{}, dispatcher i
 	}
 
 	// Load eBPF bytecode
-	bpfFileName := "user/bytecode/nspr_kern.o"
+	bpfFileName := "bytecode/nspr_kern.o"
 	_, err := assets.Asset(bpfFileName)
 	if err != nil {
 		return fmt.Errorf("couldn't find asset %w", err)

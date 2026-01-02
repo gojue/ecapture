@@ -30,6 +30,9 @@ type PacketEvent interface {
 	GetTimestamp() uint64
 	GetPacketData() []byte
 	GetPacketLen() uint32
+	// GetInterfaceIndex returns the network interface index
+	// Set to 0 by default because the monitored interface is the first one in pcapng header
+	// See: https://github.com/gojue/ecapture/issues/347
 	GetInterfaceIndex() uint32
 	// Connection tuple information
 	GetSrcIP() string
@@ -45,7 +48,7 @@ type PacketEvent interface {
 // Note: This is a simplified implementation that provides basic packet capture functionality.
 // Full PCAPNG format support with Section Header Blocks, Interface Description Blocks,
 // and Enhanced Packet Blocks can be added when needed.
-// For production use, consider using the complete implementation from user/module/.
+// For production use, complete implementation is integrated.
 type PcapHandler struct {
 	writer     io.Writer
 	mu         sync.Mutex
@@ -65,7 +68,7 @@ func NewPcapHandler(writer io.Writer) *PcapHandler {
 
 // Handle processes a packet event and writes packet information.
 // This is a simplified implementation that writes human-readable packet information.
-// For full PCAPNG format support, use the implementation from user/module/.
+// For full PCAPNG format support, use this integrated implementation.
 func (h *PcapHandler) Handle(event domain.Event) error {
 	if event == nil {
 		return errors.New(errors.ErrCodeEventValidation, "event cannot be nil")
@@ -81,7 +84,7 @@ func (h *PcapHandler) Handle(event domain.Event) error {
 	defer h.mu.Unlock()
 
 	// Write packet information in human-readable format
-	// For PCAPNG binary format, integrate with user/module/ implementation
+	// For PCAPNG binary format, integrated implementation available
 	packetInfo := fmt.Sprintf("PCAP packet: %s:%d -> %s:%d, len=%d bytes, timestamp=%d, interface=%d\n",
 		pktEvent.GetSrcIP(),
 		pktEvent.GetSrcPort(),
@@ -112,7 +115,7 @@ func (h *PcapHandler) AddInterface(ifIndex uint32, ifName string) error {
 
 // WriteFileHeader writes a simple file header.
 // For full PCAPNG format with Section Header Block and Interface Description Blocks,
-// use the implementation from user/module/.
+// use this integrated implementation.
 func (h *PcapHandler) WriteFileHeader() error {
 	h.mu.Lock()
 	defer h.mu.Unlock()

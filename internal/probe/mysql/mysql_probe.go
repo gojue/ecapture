@@ -167,9 +167,9 @@ func (p *Probe) loadBytecode() ([]byte, error) {
 	var bpfFileName string
 	btfEnabled := (p.config.GetBTF() != 0)
 	if btfEnabled {
-		bpfFileName = "user/bytecode/mysqld_kern.o"
+		bpfFileName = "bytecode/mysqld_kern.o"
 	} else {
-		bpfFileName = "user/bytecode/mysqld_kern.o" // Same file for non-BTF
+		bpfFileName = "bytecode/mysqld_kern.o" // Same file for non-BTF
 	}
 
 	p.Logger().Info().

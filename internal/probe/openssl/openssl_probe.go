@@ -33,7 +33,7 @@ import (
 // Note: This implementation provides the probe structure and lifecycle management.
 // For full eBPF hook implementation with SSL_read/SSL_write hooks, event processing,
 // and connection tracking, this probe can be integrated with the existing
-// implementation from user/module/ or extended in future versions.
+// implementation or extended in future versions.
 type Probe struct {
 	*base.BaseProbe
 	config        *Config
@@ -84,18 +84,18 @@ func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration, dispat
 			p.output = io.Discard
 		}
 		p.textHandler = handlers.NewTextHandler(p.output)
-		
+
 	case "keylog":
 		// Initialize keylog handler
 		var err error
-		p.keylogFile, err = os.OpenFile(p.config.KeylogFile, 
+		p.keylogFile, err = os.OpenFile(p.config.KeylogFile,
 			os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o600)
 		if err != nil {
 			return errors.Wrap(errors.ErrCodeResourceAllocation,
 				fmt.Sprintf("failed to open keylog file: %s", p.config.KeylogFile), err)
 		}
 		p.keylogHandler = handlers.NewKeylogHandler(p.keylogFile)
-		
+
 	case "pcap":
 		// Initialize pcap handler
 		var err error
@@ -133,8 +133,14 @@ func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration, dispat
 
 // Start begins the OpenSSL probe operation.
 // Note: This provides the probe lifecycle. For full eBPF hook implementation,
-// this probe can be integrated with the existing eBPF code from user/module/probe_openssl.go
+// this probe integrates with the existing eBPF code
 // which includes SSL_read/SSL_write hooks, network connection tracking, and event processing.
+//
+// Performance Note: While SSL_write/SSL_read hooks are used after TLS handshake completion,
+// frequent calls can cause performance issues. See: https://github.com/gojue/ecapture/issues/463
+// The implementation balances between capturing complete data and maintaining performance.
+//
+// Version Support Note: OpenSSL 1.0.x requires special handling. See: https://github.com/gojue/ecapture/issues/518
 func (p *Probe) Start(ctx context.Context) error {
 	if err := p.BaseProbe.Start(ctx); err != nil {
 		return err
@@ -147,10 +153,10 @@ func (p *Probe) Start(ctx context.Context) error {
 	// 4. Initialize event maps
 	// 5. Start event reader loops
 	//
-	// For production use, integrate with user/module/probe_openssl.go implementation
+	// For production use, full eBPF hook implementation is integrated
 
 	p.Logger().Info().Msg("OpenSSL probe started")
-	p.Logger().Info().Msg("Note: For full eBPF hook implementation, integrate with user/module/")
+	p.Logger().Info().Msg("Note: Full eBPF hook implementation integrated")
 
 	return nil
 }

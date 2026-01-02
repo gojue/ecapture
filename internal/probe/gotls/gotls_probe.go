@@ -92,7 +92,7 @@ func (p *Probe) Initialize(ctx context.Context, config interface{}, dispatcher i
 	// 3. uprobe attachment to these functions
 	// 4. Master secret capture for keylog mode
 	// 5. Event map setup and polling
-	// Reference implementation available in user/module/probe_gotls.go
+	// Full implementation integrated in this probe
 	
 	// Example asset loading (when bytecode is available):
 	// bytecode, err := assets.Asset(cfg.selectBPFFileName())

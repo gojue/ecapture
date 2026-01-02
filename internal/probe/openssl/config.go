@@ -78,6 +78,9 @@ func (c *Config) Validate() error {
 		return errors.NewConfigurationError("openssl version detection failed", err)
 	}
 
+	// If unsupported version is detected, users should report it
+	// See: https://github.com/gojue/ecapture/issues for reporting new versions
+
 	// Validate capture mode
 	if err := c.validateCaptureMode(); err != nil {
 		return errors.NewConfigurationError("capture mode validation failed", err)
@@ -353,4 +356,3 @@ func (c *Config) checkTCSupport() error {
 
 	return nil
 }
-

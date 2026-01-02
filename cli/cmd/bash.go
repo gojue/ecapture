@@ -17,11 +17,14 @@ package cmd
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/gojue/ecapture/user/config"
-	"github.com/gojue/ecapture/user/module"
+	// Import new probe packages to register them with factory
+	_ "github.com/gojue/ecapture/internal/probe/bash"
+
+	"github.com/gojue/ecapture/internal/factory"
+	bashProbe "github.com/gojue/ecapture/internal/probe/bash"
 )
 
-var bc = config.NewBashConfig()
+var bashConfig = bashProbe.NewConfig()
 
 // bashCmd represents the bash command
 var bashCmd = &cobra.Command{
@@ -33,23 +36,23 @@ Auto find the bash of the current env as the capture target.`,
 }
 
 func init() {
-	bashCmd.PersistentFlags().StringVar(&bc.Bashpath, "bash", "", "$SHELL file path, eg: /bin/bash , will automatically find it from $ENV default.")
-	bashCmd.PersistentFlags().StringVar(&bc.Readline, "readlineso", "", "readline.so file path, will automatically find it from $BASH_PATH default.")
-	bashCmd.Flags().IntVarP(&bc.ErrNo, "errnumber", "e", module.BashErrnoDefault, "only show the command which exec reulst equals err number.")
+	bashCmd.PersistentFlags().StringVar(&bashConfig.Bashpath, "bash", "", "$SHELL file path, eg: /bin/bash , will automatically find it from $ENV default.")
+	bashCmd.PersistentFlags().StringVar(&bashConfig.Readline, "readlineso", "", "readline.so file path, will automatically find it from $BASH_PATH default.")
+	bashCmd.Flags().IntVarP(&bashConfig.ErrNo, "errnumber", "e", 128, "only show the command which exec reulst equals err number.")
 	rootCmd.AddCommand(bashCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// bashCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// bashCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
 
-// bashCommandFunc executes the "bash" command.
+// bashCommandFunc executes the "bash" command using the new probe architecture.
 func bashCommandFunc(command *cobra.Command, args []string) error {
-	return runModule(module.ModuleNameBash, bc)
+	// Set global config to bash-specific config
+	bashConfig.SetPid(globalConf.Pid)
+	bashConfig.SetUid(globalConf.Uid)
+	bashConfig.SetDebug(globalConf.Debug)
+	bashConfig.SetHex(globalConf.IsHex)
+	bashConfig.SetBTF(globalConf.BtfMode)
+	bashConfig.SetPerCpuMapSize(globalConf.PerCpuMapSize)
+	bashConfig.SetTruncateSize(globalConf.TruncateSize)
+
+	// Run probe using the common entry point
+	return runProbe(factory.ProbeTypeBash, bashConfig)
 }

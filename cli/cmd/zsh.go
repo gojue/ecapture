@@ -20,11 +20,14 @@ package cmd
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/gojue/ecapture/user/config"
-	"github.com/gojue/ecapture/user/module"
+	// Import new probe packages to register them with factory
+	_ "github.com/gojue/ecapture/internal/probe/zsh"
+
+	"github.com/gojue/ecapture/internal/factory"
+	zshProbe "github.com/gojue/ecapture/internal/probe/zsh"
 )
 
-var zc = config.NewZshConfig()
+var zshConfig = zshProbe.NewConfig()
 
 // zshCmd represents the zsh command
 var zshCmd = &cobra.Command{
@@ -36,22 +39,22 @@ Auto find the zsh of the current env as the capture target.`,
 }
 
 func init() {
-	zshCmd.PersistentFlags().StringVar(&zc.Zshpath, "zsh", "", "$SHELL file path, eg: /bin/zsh , will automatically find it from $ENV default.")
-	zshCmd.Flags().IntVarP(&zc.ErrNo, "errnumber", "e", module.ZshErrnoDefault, "only show the command which exec reulst equals err number.")
+	zshCmd.PersistentFlags().StringVar(&zshConfig.Zshpath, "zsh", "", "$SHELL file path, eg: /bin/zsh , will automatically find it from $ENV default.")
+	zshCmd.Flags().IntVarP(&zshConfig.ErrNo, "errnumber", "e", 128, "only show the command which exec reulst equals err number.")
 	rootCmd.AddCommand(zshCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all suzcommands, e.g.:
-	// zshCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// zshCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
 
-// zshCommandFunc executes the "zsh" command.
+// zshCommandFunc executes the "zsh" command using the new probe architecture.
 func zshCommandFunc(command *cobra.Command, args []string) error {
-	return runModule(module.ModuleNameZsh, zc)
+	// Set global config to zsh-specific config
+	zshConfig.SetPid(globalConf.Pid)
+	zshConfig.SetUid(globalConf.Uid)
+	zshConfig.SetDebug(globalConf.Debug)
+	zshConfig.SetHex(globalConf.IsHex)
+	zshConfig.SetBTF(globalConf.BtfMode)
+	zshConfig.SetPerCpuMapSize(globalConf.PerCpuMapSize)
+	zshConfig.SetTruncateSize(globalConf.TruncateSize)
+
+	// Run probe using the common entry point
+	return runProbe(factory.ProbeTypeZsh, zshConfig)
 }

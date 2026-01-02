@@ -17,13 +17,16 @@ package cmd
 import (
 	"strings"
 
-	"github.com/gojue/ecapture/user/config"
-	"github.com/gojue/ecapture/user/module"
-
 	"github.com/spf13/cobra"
+
+	// Import new probe packages to register them with factory
+	_ "github.com/gojue/ecapture/internal/probe/gotls"
+
+	"github.com/gojue/ecapture/internal/factory"
+	gotlsProbe "github.com/gojue/ecapture/internal/probe/gotls"
 )
 
-var goc = config.NewGoTLSConfig()
+var gotlsConfig = gotlsProbe.NewConfig()
 
 // gotlsCmd represents the gotls command
 var gotlsCmd = &cobra.Command{
@@ -40,19 +43,22 @@ ecapture gotls -m pcap --pcapfile=save_android.pcapng -i wlan0 --elfpath=/home/c
 }
 
 func init() {
-	gotlsCmd.PersistentFlags().StringVarP(&goc.Path, "elfpath", "e", "", "ELF path to binary built with Go toolchain.")
-	gotlsCmd.PersistentFlags().StringVarP(&goc.PcapFile, "pcapfile", "w", "ecapture_gotls.pcapng", "write the  raw packets to file as pcapng format.")
-	gotlsCmd.PersistentFlags().StringVarP(&goc.Model, "model", "m", "text", "capture model, such as : text, pcap/pcapng, key/keylog")
-	gotlsCmd.PersistentFlags().StringVarP(&goc.KeylogFile, "keylogfile", "k", "ecapture_gotls_key.log", "The file stores SSL/TLS keys, and eCapture captures these keys during encrypted traffic communication and saves them to the file.")
-	gotlsCmd.PersistentFlags().StringVarP(&goc.Ifname, "ifname", "i", "", "(TC Classifier) Interface name on which the probe will be attached.")
+	gotlsCmd.PersistentFlags().StringVarP(&gotlsConfig.PcapFile, "pcapfile", "w", "ecapture_gotls.pcapng", "write the  raw packets to file as pcapng format.")
+	gotlsCmd.PersistentFlags().StringVarP(&gotlsConfig.CaptureMode, "model", "m", "text", "capture model, such as : text, pcap/pcapng, key/keylog")
+	gotlsCmd.PersistentFlags().StringVarP(&gotlsConfig.KeylogFile, "keylogfile", "k", "ecapture_gotls_key.log", "The file stores SSL/TLS keys, and eCapture captures these keys during encrypted traffic communication and saves them to the file.")
+	gotlsCmd.PersistentFlags().StringVarP(&gotlsConfig.Ifname, "ifname", "i", "", "(TC Classifier) Interface name on which the probe will be attached.")
 	rootCmd.AddCommand(gotlsCmd)
 }
 
-// goTLSCommandFunc executes the "gotls" command.
+// goTLSCommandFunc executes the "gotls" command using the new probe architecture.
 func goTLSCommandFunc(command *cobra.Command, args []string) error {
-	if goc.PcapFilter == "" && len(args) != 0 {
-		goc.PcapFilter = strings.Join(args, " ")
+	if gotlsConfig.PcapFilter == "" && len(args) != 0 {
+		gotlsConfig.PcapFilter = strings.Join(args, " ")
 	}
 
-	return runModule(module.ModuleNameGotls, goc)
+	// Set global config (note: gotls Config doesn't extend BaseConfig)
+	gotlsConfig.Pid = uint32(globalConf.Pid)
+
+	// Run probe using the common entry point
+	return runProbe(factory.ProbeTypeGoTLS, gotlsConfig)
 }
