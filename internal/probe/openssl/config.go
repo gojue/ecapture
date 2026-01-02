@@ -42,14 +42,15 @@ type Config struct {
 	OpensslPath string `json:"opensslpath"` // Path to libssl.so
 	SslVersion  string `json:"sslversion"`  // Detected OpenSSL version
 	IsBoringSSL bool   `json:"isboringssl"` // Whether this is BoringSSL
-	
+
 	// Capture mode configuration
 	CaptureMode string `json:"capturemode"` // "text", "keylog", or "pcap"
 	KeylogFile  string `json:"keylogfile"`  // Path to keylog file (for keylog mode)
-	
-	// TODO: Add Pcap mode fields in future PRs
-	// PcapFile   string `json:"pcapfile"`
-	// Ifname     string `json:"ifname"`
+
+	// Pcap mode configuration
+	PcapFile   string `json:"pcapfile"`   // Path to pcap/pcapng file (for pcap mode)
+	Ifname     string `json:"ifname"`     // Network interface name (for pcap mode)
+	PcapFilter string `json:"pcapfilter"` // BPF filter expression (for pcap mode)
 }
 
 // NewConfig creates a new OpenSSL probe configuration.
@@ -108,10 +109,24 @@ func (c *Config) validateCaptureMode() error {
 		}
 		return nil
 	case "pcap", "pcapng":
-		// TODO: Implement in future PR
-		return fmt.Errorf("pcap mode not yet implemented (TODO: PR #3)")
+		// Pcap mode requires pcap file path and network interface
+		c.CaptureMode = "pcap"
+		if c.PcapFile == "" {
+			return fmt.Errorf("pcap mode requires PcapFile to be set")
+		}
+		if c.Ifname == "" {
+			return fmt.Errorf("pcap mode requires Ifname (network interface) to be set")
+		}
+		// Check if pcap directory exists
+		dir := filepath.Dir(c.PcapFile)
+		if _, err := os.Stat(dir); os.IsNotExist(err) {
+			return fmt.Errorf("pcap directory does not exist: %s", dir)
+		}
+		// TODO: Validate network interface exists
+		// TODO: Check TC (Traffic Control) classifier support
+		return nil
 	default:
-		return fmt.Errorf("unsupported capture mode: %s (supported: text, keylog)", mode)
+		return fmt.Errorf("unsupported capture mode: %s (supported: text, keylog, pcap)", mode)
 	}
 }
 

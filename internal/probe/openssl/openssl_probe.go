@@ -29,20 +29,21 @@ import (
 )
 
 // Probe implements the OpenSSL TLS tracing probe.
-// Supports Text mode (implemented) and Keylog mode (PR #2).
-// TODO: Pcap mode will be added in PR #3.
+// Supports Text mode, Keylog mode, and Pcap mode (stub).
 type Probe struct {
 	*base.BaseProbe
-	config         *Config
-	textHandler    *handlers.TextHandler
-	keylogHandler  *handlers.KeylogHandler
-	output         io.Writer
-	keylogFile     *os.File
-	// TODO: Add in future PRs:
+	config        *Config
+	textHandler   *handlers.TextHandler
+	keylogHandler *handlers.KeylogHandler
+	pcapHandler   *handlers.PcapHandler
+	output        io.Writer
+	keylogFile    *os.File
+	pcapFile      *os.File
+	// TODO: Add in future PRs for full eBPF implementation:
 	// bpfManager *manager.Manager
 	// eventMaps  []*ebpf.Map
 	// connTracker *ConnectionTracker
-	// pcapHandler   *handlers.PcapHandler
+	// tcClassifier *TCClassifier
 }
 
 // NewProbe creates a new OpenSSL probe instance.
@@ -92,9 +93,26 @@ func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration, dispat
 		p.keylogHandler = handlers.NewKeylogHandler(p.keylogFile)
 		
 	case "pcap":
-		// TODO: Implement in PR #3
-		return errors.New(errors.ErrCodeConfiguration, "pcap mode not yet implemented")
-		
+		// Initialize pcap handler
+		var err error
+		p.pcapFile, err = os.OpenFile(p.config.PcapFile,
+			os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
+		if err != nil {
+			return errors.Wrap(errors.ErrCodeResourceAllocation,
+				fmt.Sprintf("failed to open pcap file: %s", p.config.PcapFile), err)
+		}
+		p.pcapHandler = handlers.NewPcapHandler(p.pcapFile)
+
+		// Write PCAPNG file header
+		if err := p.pcapHandler.WriteFileHeader(); err != nil {
+			return errors.Wrap(errors.ErrCodeResourceAllocation,
+				"failed to write pcap file header", err)
+		}
+
+		// TODO: Register network interface
+		// TODO: Setup TC (Traffic Control) classifier
+		// TODO: Setup connection tracking
+
 	default:
 		return errors.New(errors.ErrCodeConfiguration,
 			fmt.Sprintf("unsupported capture mode: %s", p.config.CaptureMode))
@@ -162,6 +180,18 @@ func (p *Probe) Close() error {
 	if p.keylogFile != nil {
 		if err := p.keylogFile.Close(); err != nil {
 			p.Logger().Warn().Err(err).Msg("Failed to close keylog file")
+		}
+	}
+
+	// Close pcap handler and file
+	if p.pcapHandler != nil {
+		if err := p.pcapHandler.Close(); err != nil {
+			p.Logger().Warn().Err(err).Msg("Failed to close pcap handler")
+		}
+	}
+	if p.pcapFile != nil {
+		if err := p.pcapFile.Close(); err != nil {
+			p.Logger().Warn().Err(err).Msg("Failed to close pcap file")
 		}
 	}
 
