@@ -126,4 +126,3 @@ func mysqldCommandFunc(command *cobra.Command, args []string) error {
 
 	return nil
 }
-

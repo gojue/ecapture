@@ -121,4 +121,3 @@ func postgresCommandFunc(command *cobra.Command, args []string) error {
 
 	return nil
 }
-
