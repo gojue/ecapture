@@ -409,7 +409,7 @@ func runProbe(probeType factory.ProbeType, probeConfig domain.Configuration) err
 	var logger, eventCollector zerolog.Logger
 	var err error
 	var ecw io.Writer
-	
+
 	if globalConf.EcaptureQ != "" {
 		parsedURL, err := url.Parse(globalConf.EcaptureQ)
 		if err != nil {
