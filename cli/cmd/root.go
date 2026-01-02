@@ -27,6 +27,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/gojue/ecapture/internal/config"
 	"github.com/gojue/ecapture/pkg/ecaptureq"
 
 	"github.com/rs/zerolog"
@@ -76,7 +77,33 @@ const (
 	configUpdateAddr = "localhost:28256"
 )
 
-// rootCmd represents the base command when called without any subcommands
+// CLIConfig extends BaseConfig with CLI-specific fields
+type CLIConfig struct {
+	config.BaseConfig
+	LoggerAddr         string
+	EventCollectorAddr string
+	EcaptureQ          string
+	Listen             string
+	AddrType           uint8 // 用于存储日志地址类型
+}
+
+// GetDebug returns whether debug mode is enabled
+func (c *CLIConfig) GetDebug() bool {
+	return c.Debug
+}
+
+// SetAddrType sets the logger address type
+func (c *CLIConfig) SetAddrType(t uint8) {
+	c.AddrType = t
+}
+
+// GetAddrType returns the logger address type
+func (c *CLIConfig) GetAddrType() uint8 {
+	return c.AddrType
+}
+
+var globalConf = CLIConfig{}
+var modConfig = &globalConf // alias for backward compatibility
 var rootCmd = &cobra.Command{
 	Use:        CliName,
 	Short:      CliDescription,
@@ -129,8 +156,6 @@ func Execute() {
 		os.Exit(1)
 	}
 }
-
-var globalConf = config.BaseConfig{}
 
 func init() {
 	cobra.EnablePrefixMatching = true
@@ -387,8 +412,8 @@ type probeConfigAdapter struct {
 }
 
 // newProbeConfigAdapter creates a new probe config adapter
-func newProbeConfigAdapter(config domain.Configuration) config.IConfig {
-	return &probeConfigAdapter{config: config}
+func newProbeConfigAdapter(cfg domain.Configuration) domain.Configuration {
+	return cfg
 }
 
 func (a *probeConfigAdapter) Check() error {
@@ -478,11 +503,6 @@ func (a *probeConfigAdapter) SetEventCollectorAddr(addr string) {
 func (a *probeConfigAdapter) GetEventCollectorAddr() string {
 	return "" // Not used in probe architecture
 }
-
-func (a *probeConfigAdapter) Bytes() []byte {
-	return a.config.Bytes()
-}
-
 
 func (a *probeConfigAdapter) Bytes() []byte {
 	return a.config.Bytes()

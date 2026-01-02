@@ -12,8 +12,6 @@ github.com/cilium/ebpf v0.7.0/go.mod h1:/oI2+1shJiTGAMgl6/RgJr36Eo1jzrRcAWbcXO2u
 github.com/cilium/ebpf v0.8.1/go.mod h1:f5zLIM0FSNuAkSyLAN7X+Hy6yznlF1mNiWUMfxMtrgk=
 github.com/cilium/ebpf v0.18.0 h1:OsSwqS4y+gQHxaKgg2U/+Fev834kdnsQbtzRnbVC6Gs=
 github.com/cilium/ebpf v0.18.0/go.mod h1:vmsAT73y4lW2b4peE+qcOqw6MxvWQdC+LiU5gd/xyo4=
-github.com/cloudflare/cbpfc v0.0.0-20240920015331-ff978e94500b h1:EgR1t4Lnq6uP6QxJQ+oIFtENOHUY3/7gMOE76vL0KcA=
-github.com/cloudflare/cbpfc v0.0.0-20240920015331-ff978e94500b/go.mod h1:X/9cHz8JVzKlvoZyKBgMgrogKZlLf+pWjmm5gSUm5dI=
 github.com/cloudwego/base64x v0.1.5 h1:XPciSp1xaq2VCSt6lF0phncD4koWyULpl5bUxbfCyP4=
 github.com/cloudwego/base64x v0.1.5/go.mod h1:0zlkT4Wn5C6NdauXdJRhSKRlJvmclQ1hhJgA0rcu/8w=
 github.com/cloudwego/iasm v0.2.0/go.mod h1:8rXZaNYT2n95jn+zTI1sDr+IgcD2GVs0nlbbQPiEFhY=
@@ -71,8 +69,6 @@ github.com/josharian/native v0.0.0-20200817173448-b6b71def0850/go.mod h1:7X/rasw
 github.com/josharian/native v1.0.0/go.mod h1:7X/raswPFr05uY3HiLlYeyQntB6OO7E/d2Cu7qoaN2w=
 github.com/josharian/native v1.1.0 h1:uuaP0hAbW7Y4l0ZRQ6C9zfb7Mg1mbFKry/xzDAfmtLA=
 github.com/josharian/native v1.1.0/go.mod h1:7X/raswPFr05uY3HiLlYeyQntB6OO7E/d2Cu7qoaN2w=
-github.com/jschwinger233/elibpcap v1.0.2 h1:9VVQi2fZhxxLK6ErLtPZZsC9WuLjp1+XiYAImn78kEk=
-github.com/jschwinger233/elibpcap v1.0.2/go.mod h1:fUmq00C6Pechtr089JDPhvIc6TxrbUHDlZ5QCYc9tJQ=
 github.com/jsimonetti/rtnetlink v0.0.0-20190606172950-9527aa82566a/go.mod h1:Oz+70psSo5OFh8DBl0Zv2ACw7Esh6pPUphlvZG9x7uw=
 github.com/jsimonetti/rtnetlink v0.0.0-20200117123717-f846d4f6c1f4/go.mod h1:WGuG/smIU4J/54PblvSbh+xvCZmpJnFgr3ds6Z55XMQ=
 github.com/jsimonetti/rtnetlink v0.0.0-20201009170750-9c6f07d100c1/go.mod h1:hqoO/u39cqLeBLebZ8fWdE96O7FxrAsRYhnVOdgHxok=
@@ -135,7 +131,6 @@ github.com/modern-go/reflect2 v1.0.2 h1:xBagoLtFs94CBntxluKeaWgTMpvLxC4ur3nMaC9G
 github.com/modern-go/reflect2 v1.0.2/go.mod h1:yWuevngMOJpCy52FWWMvUC8ws7m/LJsjYzDa0/r8luk=
 github.com/pelletier/go-toml/v2 v2.2.4 h1:mye9XuhQ6gvn5h28+VilKrrPoQVanw5PMw/TB0t5Ec4=
 github.com/pelletier/go-toml/v2 v2.2.4/go.mod h1:2gIqNv+qfxSVS7cM2xJQKtLSTLUE9V8t9Stt+h56mCY=
-github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
