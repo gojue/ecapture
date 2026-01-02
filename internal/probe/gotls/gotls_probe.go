@@ -20,6 +20,7 @@ import (
 	"os"
 
 	"github.com/cilium/ebpf"
+	"github.com/gojue/ecapture/assets"
 	"github.com/gojue/ecapture/internal/probe/base/handlers"
 )
 
@@ -83,9 +84,22 @@ func (p *Probe) Initialize(ctx context.Context, config interface{}, dispatcher i
 		// Write pcap file header
 	}
 
-	// Load eBPF program - can be integrated from user/module/probe_gotls.go
-	// Attach crypto/tls hooks when implemented
-	// Set up perf event arrays when implemented
+	// Load eBPF program
+	// Note: GoTLS probe requires specific Go version detection and crypto/tls function offset calculation
+	// The eBPF bytecode asset loading is ready, but full implementation requires:
+	// 1. Go binary version detection
+	// 2. crypto/tls.(*Conn).Write and crypto/tls.(*Conn).Read function offset calculation
+	// 3. uprobe attachment to these functions
+	// 4. Master secret capture for keylog mode
+	// 5. Event map setup and polling
+	// Reference implementation available in user/module/probe_gotls.go
+	
+	// Example asset loading (when bytecode is available):
+	// bytecode, err := assets.Asset(cfg.selectBPFFileName())
+	// if err != nil {
+	//     return fmt.Errorf("failed to load eBPF bytecode: %w", err)
+	// }
+	_ = assets.Asset // Suppress unused import warning until full implementation
 
 	return nil
 }
