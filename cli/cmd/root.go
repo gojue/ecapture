@@ -406,9 +406,11 @@ func runModule(modName string, modConfig config.IConfig) error {
 
 // runProbe runs a probe using the new internal/probe architecture
 func runProbe(probeType factory.ProbeType, probeConfig domain.Configuration) error {
-	var logger, eventCollector zerolog.Logger
+	var logger zerolog.Logger
 	var err error
-	var ecw io.Writer
+
+	// Create logger adapter that implements config.IConfig interface
+	configAdapter := newProbeConfigAdapter(probeConfig)
 
 	if globalConf.EcaptureQ != "" {
 		parsedURL, err := url.Parse(globalConf.EcaptureQ)
@@ -434,24 +436,11 @@ func runProbe(probeType factory.ProbeType, probeConfig domain.Configuration) err
 
 		multi := zerolog.MultiLevelWriter(consoleWriter, eqWriter)
 		logger = zerolog.New(multi).With().Timestamp().Logger()
-
-		ecw = ecaptureQEventWriter{es: es}
 	} else {
-		// Create logger adapter that implements config.IConfig interface
-		configAdapter := &probeConfigAdapter{config: probeConfig}
 		logger, err = initLogger(globalConf.LoggerAddr, configAdapter, false)
 		if err != nil {
 			return err
 		}
-		if globalConf.EventCollectorAddr == "" {
-			eventCollector = logger
-		} else {
-			eventCollector, err = initLogger(globalConf.EventCollectorAddr, configAdapter, true)
-			if err != nil {
-				return err
-			}
-		}
-		ecw = event.NewCollectorWriter(&eventCollector)
 	}
 
 	// init eCapture
@@ -581,6 +570,11 @@ func runProbe(probeType factory.ProbeType, probeConfig domain.Configuration) err
 // probeConfigAdapter adapts domain.Configuration to config.IConfig
 type probeConfigAdapter struct {
 	config domain.Configuration
+}
+
+// newProbeConfigAdapter creates a new probe config adapter
+func newProbeConfigAdapter(config domain.Configuration) config.IConfig {
+	return &probeConfigAdapter{config: config}
 }
 
 func (a *probeConfigAdapter) Check() error {
