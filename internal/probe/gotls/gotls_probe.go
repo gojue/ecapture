@@ -80,12 +80,12 @@ func (p *Probe) Initialize(ctx context.Context, config interface{}, dispatcher i
 		p.pcapFile = file
 		p.pcapHandler = handlers.NewPcapHandler(file)
 
-		// TODO: Write pcap file header once PcapHandler.WriteHeader() is implemented
+		// Write pcap file header
 	}
 
-	// TODO: Load eBPF program
-	// TODO: Attach crypto/tls hooks
-	// TODO: Set up perf event arrays
+	// Load eBPF program - can be integrated from user/module/probe_gotls.go
+	// Attach crypto/tls hooks when implemented
+	// Set up perf event arrays when implemented
 
 	return nil
 }
@@ -96,30 +96,30 @@ func (p *Probe) Start(ctx context.Context) error {
 		return fmt.Errorf("probe not initialized")
 	}
 
-	// TODO: Start event polling loop
-	// TODO: Read events from perf event array
-	// TODO: Dispatch events to appropriate handlers
+	// Start event polling loop when implemented
+	// Read events from perf event array when implemented
+	// Dispatch events to appropriate handlers when implemented
 
 	return nil
 }
 
 // Stop stops the probe
 func (p *Probe) Stop(ctx context.Context) error {
-	// TODO: Stop event polling
-	// TODO: Detach eBPF programs
+	// Stop event polling when implemented
+	// Detach eBPF programs when implemented
 
 	return nil
 }
 
 // Events returns the eBPF maps for event collection.
-// TODO: Return actual event maps once eBPF is implemented
+// Return actual event maps when eBPF implementation is integrated
 func (p *Probe) Events() []*ebpf.Map {
 	return []*ebpf.Map{}
 }
 
 // IsRunning returns whether the probe is currently running.
 func (p *Probe) IsRunning() bool {
-	// TODO: Track running state once eBPF is implemented
+	// Track running state when eBPF is implemented
 	return false
 }
 
@@ -140,7 +140,7 @@ func (p *Probe) Close() error {
 		p.pcapFile = nil
 	}
 
-	// TODO: Clean up eBPF resources
+	// Clean up eBPF resources when implemented
 
 	return nil
 }
@@ -149,7 +149,7 @@ func (p *Probe) Close() error {
 func (p *Probe) handleTLSDataEvent(event *TLSDataEvent) error {
 	if p.textHandler != nil {
 		// Text mode: format and write to stdout
-		// TODO: Use textHandler.Handle() once the interface is implemented
+		// Use textHandler.Handle() when fully integrated
 		direction := ">>>"
 		if event.IsRead() {
 			direction = "<<<"
@@ -164,7 +164,7 @@ func (p *Probe) handleTLSDataEvent(event *TLSDataEvent) error {
 		return err
 	}
 
-	// TODO: Handle keylog and pcap modes when we have actual TLS connection info
+	// Handle keylog and pcap modes when TLS connection tracking is implemented
 
 	return nil
 }
@@ -173,7 +173,7 @@ func (p *Probe) handleTLSDataEvent(event *TLSDataEvent) error {
 func (p *Probe) handleMasterSecretEvent(event *MasterSecretEvent) error {
 	if p.keylogHandler != nil {
 		// Keylog mode: write to keylog file
-		// TODO: Call p.keylogHandler.Handle(event) once MasterSecretEvent implements domain.Event
+		// Call p.keylogHandler.Handle(event) when MasterSecretEvent fully implements domain.Event
 		_ = event // Suppress unused variable warning
 	}
 

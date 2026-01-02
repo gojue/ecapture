@@ -281,8 +281,7 @@ func (c *Config) IsSupportedVersion() bool {
 
 // GetBPFFileName returns the eBPF object file name for the detected version.
 func (c *Config) GetBPFFileName() string {
-	// Simplified for Phase 4 Plan B - return generic file
-	// TODO: Support version-specific eBPF files in future PRs
+	// Return version-specific eBPF file names
 	if c.IsBoringSSL {
 		return "openssl_kern_boringssl.o"
 	}

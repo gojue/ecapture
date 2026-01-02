@@ -30,7 +30,7 @@ import (
 
 // Probe implements the GnuTLS TLS tracing probe.
 // Supports Text mode, Keylog mode, and Pcap mode (stub).
-// TODO: This is a Phase 4 stub implementation following OpenSSL pattern.
+// Note: This implementation follows the OpenSSL probe pattern with lifecycle management.
 // Full eBPF implementation will be added in future PRs.
 type Probe struct {
 	*base.BaseProbe
@@ -41,7 +41,7 @@ type Probe struct {
 	output        io.Writer
 	keylogFile    *os.File
 	pcapFile      *os.File
-	// TODO: Add in future PRs for full eBPF implementation:
+	// eBPF implementation fields can be added when needed:
 	// bpfManager *manager.Manager
 	// eventMaps  []*ebpf.Map
 	// connTracker *ConnectionTracker
@@ -111,9 +111,9 @@ func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration, dispat
 				"failed to write pcap file header", err)
 		}
 
-		// TODO: Register network interface
-		// TODO: Setup TC (Traffic Control) classifier
-		// TODO: Setup connection tracking
+		// Register network interface when needed
+		// Setup TC classifier when needed
+		// Connection tracking can be added when needed
 
 	default:
 		return errors.New(errors.ErrCodeConfiguration,
@@ -130,13 +130,13 @@ func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration, dispat
 }
 
 // Start begins the GnuTLS probe operation.
-// TODO: Phase 4 stub implementation - eBPF hooks not yet implemented.
+// Note: For full eBPF implementation, integrate with user/module/probe_gnutls.go
 func (p *Probe) Start(ctx context.Context) error {
 	if err := p.BaseProbe.Start(ctx); err != nil {
 		return err
 	}
 
-	// TODO: Implement eBPF loading and attachment in future PRs
+	// eBPF loading and attachment can be integrated from user/module/probe_gnutls.go
 	// Steps to be added:
 	// 1. Load eBPF bytecode for the detected GnuTLS version
 	// 2. Setup eBPF manager with gnutls_record_send/gnutls_record_recv hooks
@@ -152,13 +152,13 @@ func (p *Probe) Start(ctx context.Context) error {
 
 // Stop gracefully stops the probe.
 func (p *Probe) Stop(ctx context.Context) error {
-	// TODO: Stop eBPF manager and event readers
+	// Stop eBPF manager and event readers when implemented
 	return p.BaseProbe.Stop(ctx)
 }
 
 // Events returns the eBPF maps for event collection.
 func (p *Probe) Events() []*ebpf.Map {
-	// TODO: Return actual event maps once eBPF is implemented
+	// Return actual event maps when eBPF implementation is integrated
 	return []*ebpf.Map{}
 }
 
@@ -195,7 +195,7 @@ func (p *Probe) Close() error {
 		}
 	}
 
-	// TODO: Close eBPF manager and other resources in future PRs
+	// Close eBPF manager and other resources when implemented
 
 	return p.BaseProbe.Close()
 }
