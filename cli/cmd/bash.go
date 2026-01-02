@@ -28,11 +28,9 @@ import (
 
 	"github.com/gojue/ecapture/internal/factory"
 	bashProbe "github.com/gojue/ecapture/internal/probe/bash"
-	"github.com/gojue/ecapture/user/config"
-	"github.com/gojue/ecapture/user/module"
 )
 
-var bc = config.NewBashConfig()
+var bashConfig = bashProbe.NewConfig()
 
 // bashCmd represents the bash command
 var bashCmd = &cobra.Command{
@@ -44,37 +42,25 @@ Auto find the bash of the current env as the capture target.`,
 }
 
 func init() {
-	bashCmd.PersistentFlags().StringVar(&bc.Bashpath, "bash", "", "$SHELL file path, eg: /bin/bash , will automatically find it from $ENV default.")
-	bashCmd.PersistentFlags().StringVar(&bc.Readline, "readlineso", "", "readline.so file path, will automatically find it from $BASH_PATH default.")
-	bashCmd.Flags().IntVarP(&bc.ErrNo, "errnumber", "e", module.BashErrnoDefault, "only show the command which exec reulst equals err number.")
+	bashCmd.PersistentFlags().StringVar(&bashConfig.Bashpath, "bash", "", "$SHELL file path, eg: /bin/bash , will automatically find it from $ENV default.")
+	bashCmd.PersistentFlags().StringVar(&bashConfig.Readline, "readlineso", "", "readline.so file path, will automatically find it from $BASH_PATH default.")
+	bashCmd.Flags().IntVarP(&bashConfig.ErrNo, "errnumber", "e", 128, "only show the command which exec reulst equals err number.")
 	rootCmd.AddCommand(bashCmd)
 }
 
 // bashCommandFunc executes the "bash" command using the new probe architecture.
 func bashCommandFunc(command *cobra.Command, args []string) error {
-	// Check if we should use new architecture (check environment variable)
-	if os.Getenv("ECAPTURE_USE_NEW_ARCH") != "1" {
-		// Fall back to old architecture
-		return runModule(module.ModuleNameBash, bc)
-	}
-
-	// Create new architecture config from old config
-	newConfig := bashProbe.NewConfig()
-	newConfig.SetPid(globalConf.Pid)
-	newConfig.SetUid(globalConf.Uid)
-	newConfig.SetDebug(globalConf.Debug)
-	newConfig.SetHex(globalConf.IsHex)
-	newConfig.SetBTF(globalConf.BtfMode)
-	newConfig.SetPerCpuMapSize(globalConf.PerCpuMapSize)
-	newConfig.SetTruncateSize(globalConf.TruncateSize)
-
-	// Set bash-specific config
-	newConfig.Bashpath = bc.Bashpath
-	newConfig.Readline = bc.Readline
-	newConfig.ErrNo = bc.ErrNo
+	// Set global config to bash-specific config
+	bashConfig.SetPid(globalConf.Pid)
+	bashConfig.SetUid(globalConf.Uid)
+	bashConfig.SetDebug(globalConf.Debug)
+	bashConfig.SetHex(globalConf.IsHex)
+	bashConfig.SetBTF(globalConf.BtfMode)
+	bashConfig.SetPerCpuMapSize(globalConf.PerCpuMapSize)
+	bashConfig.SetTruncateSize(globalConf.TruncateSize)
 
 	// Validate configuration
-	if err := newConfig.Validate(); err != nil {
+	if err := bashConfig.Validate(); err != nil {
 		return fmt.Errorf("config validation failed: %w", err)
 	}
 
@@ -97,7 +83,7 @@ func bashCommandFunc(command *cobra.Command, args []string) error {
 	defer dispatcher.Close()
 
 	// Initialize probe
-	if err := probe.Initialize(ctx, newConfig, dispatcher); err != nil {
+	if err := probe.Initialize(ctx, bashConfig, dispatcher); err != nil {
 		return fmt.Errorf("failed to initialize probe: %w", err)
 	}
 

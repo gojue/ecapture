@@ -31,11 +31,9 @@ import (
 
 	"github.com/gojue/ecapture/internal/factory"
 	zshProbe "github.com/gojue/ecapture/internal/probe/zsh"
-	"github.com/gojue/ecapture/user/config"
-	"github.com/gojue/ecapture/user/module"
 )
 
-var zc = config.NewZshConfig()
+var zshConfig = zshProbe.NewConfig()
 
 // zshCmd represents the zsh command
 var zshCmd = &cobra.Command{
@@ -47,35 +45,24 @@ Auto find the zsh of the current env as the capture target.`,
 }
 
 func init() {
-	zshCmd.PersistentFlags().StringVar(&zc.Zshpath, "zsh", "", "$SHELL file path, eg: /bin/zsh , will automatically find it from $ENV default.")
-	zshCmd.Flags().IntVarP(&zc.ErrNo, "errnumber", "e", module.ZshErrnoDefault, "only show the command which exec reulst equals err number.")
+	zshCmd.PersistentFlags().StringVar(&zshConfig.Zshpath, "zsh", "", "$SHELL file path, eg: /bin/zsh , will automatically find it from $ENV default.")
+	zshCmd.Flags().IntVarP(&zshConfig.ErrNo, "errnumber", "e", 128, "only show the command which exec reulst equals err number.")
 	rootCmd.AddCommand(zshCmd)
 }
 
 // zshCommandFunc executes the "zsh" command using the new probe architecture.
 func zshCommandFunc(command *cobra.Command, args []string) error {
-	// Check if we should use new architecture (check environment variable)
-	if os.Getenv("ECAPTURE_USE_NEW_ARCH") != "1" {
-		// Fall back to old architecture
-		return runModule(module.ModuleNameZsh, zc)
-	}
-
-	// Create new architecture config from old config
-	newConfig := zshProbe.NewConfig()
-	newConfig.SetPid(globalConf.Pid)
-	newConfig.SetUid(globalConf.Uid)
-	newConfig.SetDebug(globalConf.Debug)
-	newConfig.SetHex(globalConf.IsHex)
-	newConfig.SetBTF(globalConf.BtfMode)
-	newConfig.SetPerCpuMapSize(globalConf.PerCpuMapSize)
-	newConfig.SetTruncateSize(globalConf.TruncateSize)
-
-	// Set zsh-specific config
-	newConfig.Zshpath = zc.Zshpath
-	newConfig.ErrNo = zc.ErrNo
+	// Set global config to zsh-specific config
+	zshConfig.SetPid(globalConf.Pid)
+	zshConfig.SetUid(globalConf.Uid)
+	zshConfig.SetDebug(globalConf.Debug)
+	zshConfig.SetHex(globalConf.IsHex)
+	zshConfig.SetBTF(globalConf.BtfMode)
+	zshConfig.SetPerCpuMapSize(globalConf.PerCpuMapSize)
+	zshConfig.SetTruncateSize(globalConf.TruncateSize)
 
 	// Validate configuration
-	if err := newConfig.Validate(); err != nil {
+	if err := zshConfig.Validate(); err != nil {
 		return fmt.Errorf("config validation failed: %w", err)
 	}
 
@@ -98,7 +85,7 @@ func zshCommandFunc(command *cobra.Command, args []string) error {
 	defer dispatcher.Close()
 
 	// Initialize probe
-	if err := probe.Initialize(ctx, newConfig, dispatcher); err != nil {
+	if err := probe.Initialize(ctx, zshConfig, dispatcher); err != nil {
 		return fmt.Errorf("failed to initialize probe: %w", err)
 	}
 

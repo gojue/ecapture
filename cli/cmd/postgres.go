@@ -31,11 +31,9 @@ import (
 
 	"github.com/gojue/ecapture/internal/factory"
 	postgresProbe "github.com/gojue/ecapture/internal/probe/postgres"
-	"github.com/gojue/ecapture/user/config"
-	"github.com/gojue/ecapture/user/module"
 )
 
-var pgc = config.NewPostgresConfig()
+var postgresConfig = postgresProbe.NewConfig()
 
 // postgres Cmd represents the postgres command
 var postgresCmd = &cobra.Command{
@@ -45,35 +43,24 @@ var postgresCmd = &cobra.Command{
 }
 
 func init() {
-	postgresCmd.PersistentFlags().StringVarP(&pgc.PostgresPath, "postgres", "m", "/usr/bin/postgres", "postgres binary file path, use to hook")
-	postgresCmd.PersistentFlags().StringVarP(&pgc.FuncName, "funcname", "f", "", "function name to hook")
+	postgresCmd.PersistentFlags().StringVarP(&postgresConfig.PostgresPath, "postgres", "m", "/usr/bin/postgres", "postgres binary file path, use to hook")
+	postgresCmd.PersistentFlags().StringVarP(&postgresConfig.FuncName, "funcname", "f", "", "function name to hook")
 	rootCmd.AddCommand(postgresCmd)
 }
 
 // postgres CommandFunc executes the "psql" command using the new probe architecture.
 func postgresCommandFunc(command *cobra.Command, args []string) error {
-	// Check if we should use new architecture (check environment variable)
-	if os.Getenv("ECAPTURE_USE_NEW_ARCH") != "1" {
-		// Fall back to old architecture
-		return runModule(module.ModuleNamePostgres, pgc)
-	}
-
-	// Create new architecture config from old config
-	newConfig := postgresProbe.NewConfig()
-	newConfig.SetPid(globalConf.Pid)
-	newConfig.SetUid(globalConf.Uid)
-	newConfig.SetDebug(globalConf.Debug)
-	newConfig.SetHex(globalConf.IsHex)
-	newConfig.SetBTF(globalConf.BtfMode)
-	newConfig.SetPerCpuMapSize(globalConf.PerCpuMapSize)
-	newConfig.SetTruncateSize(globalConf.TruncateSize)
-
-	// Set postgres-specific config
-	newConfig.PostgresPath = pgc.PostgresPath
-	newConfig.FuncName = pgc.FuncName
+	// Set global config to postgres-specific config
+	postgresConfig.SetPid(globalConf.Pid)
+	postgresConfig.SetUid(globalConf.Uid)
+	postgresConfig.SetDebug(globalConf.Debug)
+	postgresConfig.SetHex(globalConf.IsHex)
+	postgresConfig.SetBTF(globalConf.BtfMode)
+	postgresConfig.SetPerCpuMapSize(globalConf.PerCpuMapSize)
+	postgresConfig.SetTruncateSize(globalConf.TruncateSize)
 
 	// Validate configuration
-	if err := newConfig.Validate(); err != nil {
+	if err := postgresConfig.Validate(); err != nil {
 		return fmt.Errorf("config validation failed: %w", err)
 	}
 
@@ -96,7 +83,7 @@ func postgresCommandFunc(command *cobra.Command, args []string) error {
 	defer dispatcher.Close()
 
 	// Initialize probe
-	if err := probe.Initialize(ctx, newConfig, dispatcher); err != nil {
+	if err := probe.Initialize(ctx, postgresConfig, dispatcher); err != nil {
 		return fmt.Errorf("failed to initialize probe: %w", err)
 	}
 

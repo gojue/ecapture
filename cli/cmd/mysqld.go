@@ -31,11 +31,9 @@ import (
 
 	"github.com/gojue/ecapture/internal/factory"
 	mysqlProbe "github.com/gojue/ecapture/internal/probe/mysql"
-	"github.com/gojue/ecapture/user/config"
-	"github.com/gojue/ecapture/user/module"
 )
 
-var myc = config.NewMysqldConfig()
+var mysqlConfig = mysqlProbe.NewConfig()
 
 // mysqldCmd represents the mysqld command
 var mysqldCmd = &cobra.Command{
@@ -48,37 +46,25 @@ other version coming soon`,
 }
 
 func init() {
-	mysqldCmd.PersistentFlags().StringVarP(&myc.Mysqldpath, "mysqld", "m", "/usr/sbin/mariadbd", "mysqld binary file path, use to hook")
-	mysqldCmd.PersistentFlags().Uint64VarP(&myc.Offset, "offset", "", 0, "0x710410")
-	mysqldCmd.PersistentFlags().StringVarP(&myc.FuncName, "funcname", "f", "", "function name to hook")
+	mysqldCmd.PersistentFlags().StringVarP(&mysqlConfig.MysqlPath, "mysqld", "m", "/usr/sbin/mariadbd", "mysqld binary file path, use to hook")
+	mysqldCmd.PersistentFlags().Uint64VarP(&mysqlConfig.Offset, "offset", "", 0, "0x710410")
+	mysqldCmd.PersistentFlags().StringVarP(&mysqlConfig.FuncName, "funcname", "f", "", "function name to hook")
 	rootCmd.AddCommand(mysqldCmd)
 }
 
 // mysqldCommandFunc executes the "mysqld" command using the new probe architecture.
 func mysqldCommandFunc(command *cobra.Command, args []string) error {
-	// Check if we should use new architecture (check environment variable)
-	if os.Getenv("ECAPTURE_USE_NEW_ARCH") != "1" {
-		// Fall back to old architecture
-		return runModule(module.ModuleNameMysqld, myc)
-	}
-
-	// Create new architecture config from old config
-	newConfig := mysqlProbe.NewConfig()
-	newConfig.SetPid(globalConf.Pid)
-	newConfig.SetUid(globalConf.Uid)
-	newConfig.SetDebug(globalConf.Debug)
-	newConfig.SetHex(globalConf.IsHex)
-	newConfig.SetBTF(globalConf.BtfMode)
-	newConfig.SetPerCpuMapSize(globalConf.PerCpuMapSize)
-	newConfig.SetTruncateSize(globalConf.TruncateSize)
-
-	// Set mysql-specific config
-	newConfig.MysqlPath = myc.Mysqldpath
-	newConfig.FuncName = myc.FuncName
-	newConfig.Offset = myc.Offset
+	// Set global config to mysql-specific config
+	mysqlConfig.SetPid(globalConf.Pid)
+	mysqlConfig.SetUid(globalConf.Uid)
+	mysqlConfig.SetDebug(globalConf.Debug)
+	mysqlConfig.SetHex(globalConf.IsHex)
+	mysqlConfig.SetBTF(globalConf.BtfMode)
+	mysqlConfig.SetPerCpuMapSize(globalConf.PerCpuMapSize)
+	mysqlConfig.SetTruncateSize(globalConf.TruncateSize)
 
 	// Validate configuration
-	if err := newConfig.Validate(); err != nil {
+	if err := mysqlConfig.Validate(); err != nil {
 		return fmt.Errorf("config validation failed: %w", err)
 	}
 
@@ -101,7 +87,7 @@ func mysqldCommandFunc(command *cobra.Command, args []string) error {
 	defer dispatcher.Close()
 
 	// Initialize probe
-	if err := probe.Initialize(ctx, newConfig, dispatcher); err != nil {
+	if err := probe.Initialize(ctx, mysqlConfig, dispatcher); err != nil {
 		return fmt.Errorf("failed to initialize probe: %w", err)
 	}
 
