@@ -19,7 +19,6 @@ OUTPUT_DIR="$TMP_DIR/output"
 
 # Log files
 ECAPTURE_LOG="$OUTPUT_DIR/ecapture.log"
-TEST_COMMANDS_LOG="$OUTPUT_DIR/test_commands.log"
 
 # Test results
 TEST_FAILED=0

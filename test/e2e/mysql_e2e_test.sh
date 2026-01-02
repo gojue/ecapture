@@ -130,9 +130,9 @@ run_mysql_test() {
     
     # Try to connect and run some basic queries
     # Note: This requires MySQL to be configured to allow connections
+    # For security, we use --defaults-file or rely on socket auth
     mysql -e "SELECT 1 AS test_query;" >/dev/null 2>&1 || \
     mysql -u root -e "SELECT 1 AS test_query;" >/dev/null 2>&1 || \
-    mysql -u root -proot -e "SELECT 1 AS test_query;" >/dev/null 2>&1 || \
     log_warn "Could not connect to MySQL to run test queries"
     
     # Wait for capture
