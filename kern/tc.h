@@ -140,7 +140,6 @@ static __always_inline bool filter_pcap_l2(struct __sk_buff *skb, void *data,
                                data_end);
 }
 
-#define MAX_PAYLOAD_LEN 262144
 ///////////////////// ebpf functions //////////////////////
 static __always_inline int capture_packets(struct __sk_buff *skb, bool is_ingress) {
     // packet data
@@ -247,12 +246,21 @@ static __always_inline int capture_packets(struct __sk_buff *skb, bool is_ingres
     //if (payload_len > MAX_PAYLOAD_LEN) {
     //    payload_len = MAX_PAYLOAD_LEN;
     //}
+
+    u64 payload_len = (u64)skb->len;
+    if (payload_len <= 0) {
+        return TC_ACT_OK;
+    }
+    if (max_payload_len > 0) {
+        payload_len = payload_len < max_payload_len ? payload_len : max_payload_len;
+    }
+
     struct skb_data_event_t *event = NULL;
     struct skb_data_event_t tmp_stack = {0};
     // new packet event
     if (use_ringbuf) {
         void *ringbuf = NULL;
-        ringbuf = bpf_ringbuf_reserve(&skb_events_rb, sizeof(tmp_stack) + MAX_PAYLOAD_LEN, 0);
+        ringbuf = bpf_ringbuf_reserve(&skb_events_rb, sizeof(tmp_stack) + max_payload_len, 0);
         if (!ringbuf) {
             return TC_ACT_OK;
         }
@@ -270,11 +278,11 @@ static __always_inline int capture_packets(struct __sk_buff *skb, bool is_ingres
 
         event->pid = net_ctx->pid;
         __builtin_memcpy(event->comm, net_ctx->comm, TASK_COMM_LEN);
-        debug_bpf_printk("capture packet process found, pid: %d, comm :%s\n", event.pid, event.comm);
+        debug_bpf_printk("capture packet process found, pid: %d, comm :%s\n", event->pid, event->comm);
     }
 
     event->ts = bpf_ktime_get_ns();
-    event->len = skb->len;
+    event->len = payload_len;
     event->ifindex = skb->ifindex;
 
     // via aquasecurity/tracee    tracee.bpf.c tc_probe
@@ -288,7 +296,12 @@ static __always_inline int capture_packets(struct __sk_buff *skb, bool is_ingres
 
     // Runtime selection between ring buffer and perf event array
     if (use_ringbuf) {
-        bpf_skb_load_bytes(skb, 0, event->payload, MAX_PAYLOAD_LEN);
+        if (payload_len > 0) {
+            bpf_skb_load_bytes(skb, 0, event->payload, payload_len);
+        } else {
+            return TC_ACT_OK;
+        }
+    
         bpf_ringbuf_submit((void *)event, 0);
     } else {
         u64 flags = BPF_F_CURRENT_CPU;

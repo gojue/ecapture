@@ -62,6 +62,7 @@
 
 // .rodata section bug via : https://github.com/gojue/ecapture/issues/39
 
+const volatile u64 max_payload_len = 262144;
 // Kernel version less than 5.2
 const volatile u64 less52 = 1;
 // Optional Target PID and UID
