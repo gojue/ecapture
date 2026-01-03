@@ -356,7 +356,7 @@ func (p *Probe) setupManager() error {
 			Msg("Added master secret probe")
 	}
 
-	// PCAP/PCAPNG MODE: Capture network packets with TC
+	// PCAP/PCAPNG MODE: Capture network packets with TC + master secrets for DSB
 	if p.config.CaptureMode == "pcap" || p.config.CaptureMode == "pcapng" {
 		if p.config.Ifname == "" {
 			return errors.NewConfigurationError("ifname is required for pcap mode", nil)
@@ -378,14 +378,27 @@ func (p *Probe) setupManager() error {
 			NetworkDirection: manager.Egress,
 		})
 
+		// Add master secret probe for PCAPNG DSB (Decryption Secrets Block)
+		probes = append(probes, &manager.Probe{
+			Section:          masterSecretSection,
+			EbpfFuncName:     masterSecretFunc,
+			AttachToFuncName: "crypto/tls.(*Config).writeKeyLog",
+			BinaryPath:       elfPath,
+			UAddress:         p.config.GoTlsMasterSecretAddr,
+		})
+
 		// Add TC-related maps
 		maps = append(maps, &manager.Map{Name: "skb_events"})
 		maps = append(maps, &manager.Map{Name: "skb_data_buffer_heap"})
 		maps = append(maps, &manager.Map{Name: "network_map"})
+		
+		// Add master secret events map for PCAPNG DSB
+		maps = append(maps, &manager.Map{Name: "mastersecret_go_events"})
 
 		p.Logger().Debug().
 			Str("ifname", p.config.Ifname).
-			Msg("Added TC probes for pcap mode")
+			Uint64("master_secret_address", p.config.GoTlsMasterSecretAddr).
+			Msg("Added TC probes and master secret probe for pcap mode")
 	}
 
 	p.bpfManager = &manager.Manager{
