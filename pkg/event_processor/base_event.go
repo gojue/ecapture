@@ -20,7 +20,6 @@ import (
 	"fmt"
 
 	pb "github.com/gojue/ecapture/protobuf/gen/v1"
-	"github.com/gojue/ecapture/user/event"
 )
 
 type AttachType int64
@@ -75,7 +74,7 @@ func (t tlsVersion) String() string {
 }
 
 type BaseEvent struct {
-	eventType event.Type
+	eventType Type
 	DataType  int64
 	Timestamp uint64
 	Pid       uint32
@@ -167,14 +166,14 @@ func (be *BaseEvent) String() string {
 	return s
 }
 
-func (be *BaseEvent) Clone() event.IEventStruct {
+func (be *BaseEvent) Clone() IEventStruct {
 	e := new(BaseEvent)
-	e.eventType = event.TypeOutput
+	e.eventType = TypeOutput
 	return e
 }
 
-func (be *BaseEvent) Base() event.Base {
-	return event.Base{
+func (be *BaseEvent) Base() Base {
+	return Base{
 		Timestamp: int64(be.Timestamp),
 		UUID:      be.GetUUID(),
 		PID:       int64(be.Pid),
@@ -193,7 +192,7 @@ func (be *BaseEvent) ToProtobufEvent() *pb.Event {
 	}
 }
 
-func (be *BaseEvent) EventType() event.Type {
+func (be *BaseEvent) EventType() Type {
 	return be.eventType
 }
 
