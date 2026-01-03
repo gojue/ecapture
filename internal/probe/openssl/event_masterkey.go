@@ -139,7 +139,7 @@ func (e *MasterSecretEvent) String() string {
 
 	return fmt.Sprintf("TLS Version: %s, ClientRandom: %x",
 		versionStr,
-		e.ClientRandom[:16]) // Show first 16 bytes of client random
+		e.ClientRandom[:]) // Show full 32 bytes of client random
 }
 
 // StringHex returns a hexadecimal representation of the event.

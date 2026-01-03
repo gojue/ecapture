@@ -76,12 +76,31 @@ func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration, dispat
 		return err
 	}
 
-	p.Logger().Info().
+	// Log initialization with file paths
+	logEvent := p.Logger().Info().
 		Str("openssl_path", opensslConfig.OpensslPath).
 		Str("ssl_version", opensslConfig.SslVersion).
 		Bool("is_boringssl", opensslConfig.IsBoringSSL).
-		Str("capture_mode", opensslConfig.CaptureMode).
-		Msg("OpenSSL probe initialized")
+		Str("capture_mode", opensslConfig.CaptureMode)
+	
+	// Add file paths to log based on mode
+	if opensslConfig.CaptureMode == "keylog" || opensslConfig.CaptureMode == "key" {
+		if opensslConfig.KeylogFile != "" {
+			logEvent = logEvent.Str("keylog_file", opensslConfig.KeylogFile)
+		}
+	} else if opensslConfig.CaptureMode == "pcap" {
+		if opensslConfig.PcapFile != "" {
+			logEvent = logEvent.Str("pcap_file", opensslConfig.PcapFile)
+		}
+		if opensslConfig.KeylogFile != "" {
+			logEvent = logEvent.Str("keylog_file", opensslConfig.KeylogFile)
+		}
+		if opensslConfig.Ifname != "" {
+			logEvent = logEvent.Str("ifname", opensslConfig.Ifname)
+		}
+	}
+	
+	logEvent.Msg("OpenSSL probe initialized")
 
 	return nil
 }
@@ -225,15 +244,20 @@ func (p *Probe) Events() []*ebpf.Map {
 
 // Close releases all probe resources.
 func (p *Probe) Close() error {
+	p.Logger().Debug().Msg("Closing OpenSSL probe")
+	
 	// Stop eBPF manager
 	if p.bpfManager != nil {
+		p.Logger().Debug().Msg("Stopping eBPF manager")
 		if err := p.bpfManager.Stop(manager.CleanAll); err != nil {
 			p.Logger().Warn().Err(err).Msg("Failed to stop eBPF manager")
 		}
+		p.Logger().Debug().Msg("eBPF manager stopped")
 	}
 
 	// Close file handles
 	if p.keylogFile != nil {
+		p.Logger().Debug().Msg("Closing keylog file")
 		if err := p.keylogFile.Close(); err != nil {
 			p.Logger().Warn().Err(err).Msg("Failed to close keylog file")
 		}
@@ -241,13 +265,17 @@ func (p *Probe) Close() error {
 	}
 
 	if p.pcapFile != nil {
+		p.Logger().Debug().Msg("Closing pcap file")
 		if err := p.pcapFile.Close(); err != nil {
 			p.Logger().Warn().Err(err).Msg("Failed to close pcap file")
 		}
 		p.pcapFile = nil
 	}
 
-	return p.BaseProbe.Close()
+	p.Logger().Debug().Msg("Calling BaseProbe.Close()")
+	err := p.BaseProbe.Close()
+	p.Logger().Debug().Msg("OpenSSL probe closed")
+	return err
 }
 
 // Decode implements EventDecoder interface.
