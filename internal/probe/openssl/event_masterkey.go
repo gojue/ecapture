@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"hash/fnv"
 
 	"github.com/gojue/ecapture/internal/domain"
 	"github.com/gojue/ecapture/internal/errors"
@@ -163,7 +164,10 @@ func (e *MasterSecretEvent) Type() domain.EventType {
 
 // UUID returns a unique identifier for this event.
 func (e *MasterSecretEvent) UUID() string {
-	return fmt.Sprintf("ms_%x_%d", e.ClientRandom[:8], e.Version)
+	// Use hash of full ClientRandom for better uniqueness
+	h := fnv.New64a()
+	h.Write(e.ClientRandom[:])
+	return fmt.Sprintf("ms_%x", h.Sum64())
 }
 
 // Validate checks if the event data is valid.

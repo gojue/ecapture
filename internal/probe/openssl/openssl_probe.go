@@ -84,7 +84,7 @@ func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration, dispat
 		Str("capture_mode", opensslConfig.CaptureMode)
 	
 	// Add file paths to log based on mode
-	if opensslConfig.CaptureMode == "keylog" || opensslConfig.CaptureMode == "key" {
+	if opensslConfig.CaptureMode == "keylog" {
 		if opensslConfig.KeylogFile != "" {
 			logEvent = logEvent.Str("keylog_file", opensslConfig.KeylogFile)
 		}
@@ -107,13 +107,15 @@ func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration, dispat
 
 // openOutputFiles opens output files based on capture mode
 func (p *Probe) openOutputFiles() error {
-	// Normalize capture mode: treat "pcapng" as "pcap"
+	// Normalize capture mode: treat "pcapng" as "pcap" and "key" as "keylog"
 	if p.config.CaptureMode == "pcapng" {
 		p.config.CaptureMode = "pcap"
+	} else if p.config.CaptureMode == "key" {
+		p.config.CaptureMode = "keylog"
 	}
 
 	switch p.config.CaptureMode {
-	case "keylog", "key":
+	case "keylog":
 		if p.config.KeylogFile == "" {
 			return errors.NewConfigurationError("keylog_file is required for keylog mode", nil)
 		}
@@ -196,7 +198,7 @@ func (p *Probe) Start(ctx context.Context) error {
 
 	// Get master secret events map if in keylog or pcap mode
 	var masterSecretMap *ebpf.Map
-	if p.config.CaptureMode == "keylog" || p.config.CaptureMode == "key" || p.config.CaptureMode == "pcap" {
+	if p.config.CaptureMode == "keylog" || p.config.CaptureMode == "pcap" {
 		masterSecretMap, found, err = p.bpfManager.GetMap("mastersecret_events")
 		if err != nil {
 			return errors.Wrap(errors.ErrCodeEBPFMapAccess, "failed to get mastersecret_events map", err)
@@ -334,14 +336,13 @@ func (p *Probe) writeMasterSecretToFile(event *MasterSecretEvent) error {
 	}
 
 	// Only write to keylog file in keylog or pcap mode
-	if p.config.CaptureMode != "keylog" && p.config.CaptureMode != "key" &&
-		p.config.CaptureMode != "pcap" {
+	if p.config.CaptureMode != "keylog" && p.config.CaptureMode != "pcap" {
 		return nil
 	}
 
 	// Ensure we have a file to write to
 	var file *os.File
-	if p.config.CaptureMode == "keylog" || p.config.CaptureMode == "key" {
+	if p.config.CaptureMode == "keylog" {
 		file = p.keylogFile
 	} else if p.config.CaptureMode == "pcap" {
 		// For pcap mode, we also write to keylog file (DSB block handling)
@@ -394,17 +395,12 @@ func (p *Probe) writeMasterSecretToFile(event *MasterSecretEvent) error {
 	clientRandomHex := fmt.Sprintf("%x", clientRandom[:handlers.Ssl3RandomSize])
 
 	// Write each TLS 1.3 secret type if available
-	// Note: OpenSSL's client_app_traffic_secret and server_app_traffic_secret fields
-	// may contain handshake traffic secrets during the handshake phase,
-	// and application traffic secrets after the handshake completes.
-	// We output both labels to support decryption at different stages.
+	// OpenSSL's client_app_traffic_secret and server_app_traffic_secret contain
+	// the application traffic secrets after handshake completion.
 	secrets := []struct {
 		label string
 		data  []byte
 	}{
-		// Handshake traffic secrets (used during TLS handshake)
-		{"CLIENT_HANDSHAKE_TRAFFIC_SECRET", event.GetClientAppTrafficSecret()},
-		{"SERVER_HANDSHAKE_TRAFFIC_SECRET", event.GetServerAppTrafficSecret()},
 		// Application traffic secrets (used after handshake completion)
 		{"CLIENT_TRAFFIC_SECRET_0", event.GetClientAppTrafficSecret()},
 		{"SERVER_TRAFFIC_SECRET_0", event.GetServerAppTrafficSecret()},
@@ -510,7 +506,7 @@ func (p *Probe) setupManager() error {
 			},
 		)
 
-	case "keylog", "key":
+	case "keylog":
 		// KEYLOG mode: Master secret extraction probes
 		maps = append(maps, &manager.Map{Name: "mastersecret_events"})
 
