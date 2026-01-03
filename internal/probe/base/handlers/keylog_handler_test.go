@@ -24,25 +24,25 @@ import (
 
 // mockMasterSecretEvent is a mock implementation of MasterSecretEvent for testing.
 type mockMasterSecretEvent struct {
-	version                  int32
-	clientRandom             []byte
-	masterKey                []byte
-	cipherId                 uint32
-	earlySecret              []byte
-	handshakeSecret          []byte
-	handshakeTrafficHash     []byte
-	clientAppTrafficSecret   []byte
-	serverAppTrafficSecret   []byte
-	exporterMasterSecret     []byte
+	version                int32
+	clientRandom           []byte
+	masterKey              []byte
+	cipherId               uint32
+	earlySecret            []byte
+	handshakeSecret        []byte
+	handshakeTrafficHash   []byte
+	clientAppTrafficSecret []byte
+	serverAppTrafficSecret []byte
+	exporterMasterSecret   []byte
 }
 
-func (m *mockMasterSecretEvent) GetVersion() int32                     { return m.version }
-func (m *mockMasterSecretEvent) GetClientRandom() []byte               { return m.clientRandom }
-func (m *mockMasterSecretEvent) GetMasterKey() []byte                  { return m.masterKey }
-func (m *mockMasterSecretEvent) GetCipherId() uint32                   { return m.cipherId }
-func (m *mockMasterSecretEvent) GetEarlySecret() []byte                { return m.earlySecret }
-func (m *mockMasterSecretEvent) GetHandshakeSecret() []byte            { return m.handshakeSecret }
-func (m *mockMasterSecretEvent) GetHandshakeTrafficHash() []byte       { return m.handshakeTrafficHash }
+func (m *mockMasterSecretEvent) GetVersion() int32               { return m.version }
+func (m *mockMasterSecretEvent) GetClientRandom() []byte         { return m.clientRandom }
+func (m *mockMasterSecretEvent) GetMasterKey() []byte            { return m.masterKey }
+func (m *mockMasterSecretEvent) GetCipherId() uint32             { return m.cipherId }
+func (m *mockMasterSecretEvent) GetEarlySecret() []byte          { return m.earlySecret }
+func (m *mockMasterSecretEvent) GetHandshakeSecret() []byte      { return m.handshakeSecret }
+func (m *mockMasterSecretEvent) GetHandshakeTrafficHash() []byte { return m.handshakeTrafficHash }
 func (m *mockMasterSecretEvent) GetClientAppTrafficSecret() []byte {
 	return m.clientAppTrafficSecret
 }

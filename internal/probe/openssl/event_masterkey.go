@@ -53,13 +53,13 @@ type MasterSecretEvent struct {
 	MasterKey    [MasterSecretMaxLen]byte `json:"masterKey"`    // Master secret
 
 	// TLS 1.3 secrets
-	CipherId                 uint32             `json:"cipherId"`                 // Cipher suite ID
-	EarlySecret              [EvpMaxMdSize]byte `json:"earlySecret"`              // EARLY_EXPORTER_SECRET
-	HandshakeSecret          [EvpMaxMdSize]byte `json:"handshakeSecret"`          // Handshake secret (internal)
-	HandshakeTrafficHash     [EvpMaxMdSize]byte `json:"handshakeTrafficHash"`     // Handshake traffic hash
-	ClientAppTrafficSecret   [EvpMaxMdSize]byte `json:"clientAppTrafficSecret"`   // CLIENT_TRAFFIC_SECRET_0
-	ServerAppTrafficSecret   [EvpMaxMdSize]byte `json:"serverAppTrafficSecret"`   // SERVER_TRAFFIC_SECRET_0
-	ExporterMasterSecret     [EvpMaxMdSize]byte `json:"exporterMasterSecret"`     // EXPORTER_SECRET
+	CipherId               uint32             `json:"cipherId"`               // Cipher suite ID
+	EarlySecret            [EvpMaxMdSize]byte `json:"earlySecret"`            // EARLY_EXPORTER_SECRET
+	HandshakeSecret        [EvpMaxMdSize]byte `json:"handshakeSecret"`        // Handshake secret (internal)
+	HandshakeTrafficHash   [EvpMaxMdSize]byte `json:"handshakeTrafficHash"`   // Handshake traffic hash
+	ClientAppTrafficSecret [EvpMaxMdSize]byte `json:"clientAppTrafficSecret"` // CLIENT_TRAFFIC_SECRET_0
+	ServerAppTrafficSecret [EvpMaxMdSize]byte `json:"serverAppTrafficSecret"` // SERVER_TRAFFIC_SECRET_0
+	ExporterMasterSecret   [EvpMaxMdSize]byte `json:"exporterMasterSecret"`   // EXPORTER_SECRET
 }
 
 // DecodeFromBytes deserializes the master secret event from raw eBPF data.

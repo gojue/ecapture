@@ -469,7 +469,7 @@ func (p *Probe) setupManager() error {
 	case "keylog", "key":
 		// KEYLOG mode: Master secret extraction probes
 		maps = append(maps, &manager.Map{Name: "mastersecret_events"})
-		
+
 		// Add master secret extraction probes based on OpenSSL version
 		if p.config.IsBoringSSL {
 			// BoringSSL uses different function names
@@ -498,7 +498,7 @@ func (p *Probe) setupManager() error {
 		// TODO: Add TC (Traffic Control) classifier probes for packet capture
 		// For now, we'll add the basic probes and master secret extraction
 		maps = append(maps, &manager.Map{Name: "mastersecret_events"})
-		
+
 		// Add SSL_read/SSL_write for connection tracking
 		probes = append(probes,
 			&manager.Probe{
@@ -526,7 +526,7 @@ func (p *Probe) setupManager() error {
 				BinaryPath:       opensslPath,
 			},
 		)
-		
+
 		// Add master secret extraction
 		if p.config.IsBoringSSL {
 			probes = append(probes,
