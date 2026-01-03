@@ -39,8 +39,9 @@ type MasterSecretEvent interface {
 	GetMasterKey() []byte
 	// TLS 1.3 specific methods
 	GetCipherId() uint32
-	GetClientHandshakeTrafficSecret() []byte
-	GetServerHandshakeTrafficSecret() []byte
+	GetEarlySecret() []byte
+	GetHandshakeSecret() []byte
+	GetHandshakeTrafficHash() []byte
 	GetClientAppTrafficSecret() []byte
 	GetServerAppTrafficSecret() []byte
 	GetExporterMasterSecret() []byte
@@ -148,8 +149,6 @@ func (h *KeylogHandler) handleTLS13(event MasterSecretEvent) error {
 		label string
 		data  []byte
 	}{
-		{"CLIENT_HANDSHAKE_TRAFFIC_SECRET", event.GetClientHandshakeTrafficSecret()},
-		{"SERVER_HANDSHAKE_TRAFFIC_SECRET", event.GetServerHandshakeTrafficSecret()},
 		{"CLIENT_TRAFFIC_SECRET_0", event.GetClientAppTrafficSecret()},
 		{"SERVER_TRAFFIC_SECRET_0", event.GetServerAppTrafficSecret()},
 		{"EXPORTER_SECRET", event.GetExporterMasterSecret()},

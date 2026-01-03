@@ -24,27 +24,25 @@ import (
 
 // mockMasterSecretEvent is a mock implementation of MasterSecretEvent for testing.
 type mockMasterSecretEvent struct {
-	version                      int32
-	clientRandom                 []byte
-	masterKey                    []byte
-	cipherId                     uint32
-	clientHandshakeTrafficSecret []byte
-	serverHandshakeTrafficSecret []byte
-	clientAppTrafficSecret       []byte
-	serverAppTrafficSecret       []byte
-	exporterMasterSecret         []byte
+	version                  int32
+	clientRandom             []byte
+	masterKey                []byte
+	cipherId                 uint32
+	earlySecret              []byte
+	handshakeSecret          []byte
+	handshakeTrafficHash     []byte
+	clientAppTrafficSecret   []byte
+	serverAppTrafficSecret   []byte
+	exporterMasterSecret     []byte
 }
 
-func (m *mockMasterSecretEvent) GetVersion() int32       { return m.version }
-func (m *mockMasterSecretEvent) GetClientRandom() []byte { return m.clientRandom }
-func (m *mockMasterSecretEvent) GetMasterKey() []byte    { return m.masterKey }
-func (m *mockMasterSecretEvent) GetCipherId() uint32     { return m.cipherId }
-func (m *mockMasterSecretEvent) GetClientHandshakeTrafficSecret() []byte {
-	return m.clientHandshakeTrafficSecret
-}
-func (m *mockMasterSecretEvent) GetServerHandshakeTrafficSecret() []byte {
-	return m.serverHandshakeTrafficSecret
-}
+func (m *mockMasterSecretEvent) GetVersion() int32                     { return m.version }
+func (m *mockMasterSecretEvent) GetClientRandom() []byte               { return m.clientRandom }
+func (m *mockMasterSecretEvent) GetMasterKey() []byte                  { return m.masterKey }
+func (m *mockMasterSecretEvent) GetCipherId() uint32                   { return m.cipherId }
+func (m *mockMasterSecretEvent) GetEarlySecret() []byte                { return m.earlySecret }
+func (m *mockMasterSecretEvent) GetHandshakeSecret() []byte            { return m.handshakeSecret }
+func (m *mockMasterSecretEvent) GetHandshakeTrafficHash() []byte       { return m.handshakeTrafficHash }
 func (m *mockMasterSecretEvent) GetClientAppTrafficSecret() []byte {
 	return m.clientAppTrafficSecret
 }
@@ -127,24 +125,24 @@ func TestKeylogHandler_Handle_TLS13(t *testing.T) {
 
 	// Create a TLS 1.3 event (version 0x0304)
 	clientRandom := make([]byte, Ssl3RandomSize)
-	clientHandshake := make([]byte, EvpMaxMdSize)
-	serverHandshake := make([]byte, EvpMaxMdSize)
+	clientApp := make([]byte, EvpMaxMdSize)
+	serverApp := make([]byte, EvpMaxMdSize)
 
 	for i := range clientRandom {
 		clientRandom[i] = byte(i)
 	}
-	for i := range clientHandshake {
-		clientHandshake[i] = byte(i + 50)
+	for i := range clientApp {
+		clientApp[i] = byte(i + 50)
 	}
-	for i := range serverHandshake {
-		serverHandshake[i] = byte(i + 100)
+	for i := range serverApp {
+		serverApp[i] = byte(i + 100)
 	}
 
 	event := &mockMasterSecretEvent{
-		version:                      0x0304, // TLS 1.3
-		clientRandom:                 clientRandom,
-		clientHandshakeTrafficSecret: clientHandshake,
-		serverHandshakeTrafficSecret: serverHandshake,
+		version:                0x0304, // TLS 1.3
+		clientRandom:           clientRandom,
+		clientAppTrafficSecret: clientApp,
+		serverAppTrafficSecret: serverApp,
 	}
 
 	err := handler.Handle(event)
@@ -153,11 +151,11 @@ func TestKeylogHandler_Handle_TLS13(t *testing.T) {
 	}
 
 	output := buf.String()
-	if !strings.Contains(output, "CLIENT_HANDSHAKE_TRAFFIC_SECRET") {
-		t.Errorf("Output should contain CLIENT_HANDSHAKE_TRAFFIC_SECRET, got: %s", output)
+	if !strings.Contains(output, "CLIENT_TRAFFIC_SECRET_0") {
+		t.Errorf("Output should contain CLIENT_TRAFFIC_SECRET_0, got: %s", output)
 	}
-	if !strings.Contains(output, "SERVER_HANDSHAKE_TRAFFIC_SECRET") {
-		t.Errorf("Output should contain SERVER_HANDSHAKE_TRAFFIC_SECRET, got: %s", output)
+	if !strings.Contains(output, "SERVER_TRAFFIC_SECRET_0") {
+		t.Errorf("Output should contain SERVER_TRAFFIC_SECRET_0, got: %s", output)
 	}
 }
 
@@ -281,10 +279,10 @@ func TestKeylogHandler_Handle_TLS13_SkipZeroSecrets(t *testing.T) {
 	}
 
 	event := &mockMasterSecretEvent{
-		version:                      0x0304,
-		clientRandom:                 clientRandom,
-		clientHandshakeTrafficSecret: make([]byte, EvpMaxMdSize), // All zeros
-		serverHandshakeTrafficSecret: make([]byte, EvpMaxMdSize), // All zeros
+		version:                0x0304,
+		clientRandom:           clientRandom,
+		clientAppTrafficSecret: make([]byte, EvpMaxMdSize), // All zeros
+		serverAppTrafficSecret: make([]byte, EvpMaxMdSize), // All zeros
 	}
 
 	err := handler.Handle(event)
