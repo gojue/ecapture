@@ -70,6 +70,15 @@ func (pw *PcapWriter) WritePacket(data []byte, timestamp time.Time) error {
 	return pw.writer.WritePacket(captureInfo, data)
 }
 
+// DSB secret types for Decryption Secrets Block
+const (
+	DSB_SECRETS_TYPE_TLS            uint32 = 0x544c534b // TLS Key Log
+	DSB_SECRETS_TYPE_SSH            uint32 = 0x5353484b // SSH Key Log
+	DSB_SECRETS_TYPE_WIREGUARD      uint32 = 0x57474b4c // WireGuard Key Log
+	DSB_SECRETS_TYPE_ZIGBEE_NWK_KEY uint32 = 0x5a4e574b // Zigbee NWK Key
+	DSB_SECRETS_TYPE_ZIGBEE_APS_KEY uint32 = 0x5a415053 // Zigbee APS Key
+)
+
 // WriteMasterSecret writes TLS master secret as a Decryption Secrets Block (DSB)
 func (pw *PcapWriter) WriteMasterSecret(label, clientRandom, secret []byte) error {
 	// Format: "LABEL CLIENTRANDOM SECRET\n"
@@ -81,7 +90,8 @@ func (pw *PcapWriter) WriteMasterSecret(label, clientRandom, secret []byte) erro
 
 	// Write as DSB (Decryption Secrets Block) using custom gopacket implementation
 	// The cfc4n/gopacket fork includes WriteDecryptionSecretsBlock method
-	return pw.writer.WriteDecryptionSecretsBlock([]byte(keylogLine))
+	// Use DSB_SECRETS_TYPE_TLS for TLS key logs
+	return pw.writer.WriteDecryptionSecretsBlock(DSB_SECRETS_TYPE_TLS, []byte(keylogLine))
 }
 
 // Flush ensures all buffered data is written to disk
