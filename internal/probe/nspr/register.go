@@ -14,22 +14,14 @@
 
 package nspr
 
-// NOTE: Factory registration is not implemented for NSPR probe in Phase 4.
-//
-// The NSPR probe currently uses a simplified interface signature:
-//   Initialize(ctx context.Context, config interface{}, dispatcher interface{}) error
-//
-// The domain.Probe interface requires:
-//   Initialize(ctx context.Context, config domain.Configuration, dispatcher domain.EventDispatcher) error
-//
-// To enable factory registration, the following changes are needed:
-// 1. Update Config to implement domain.Configuration interface
-// 2. Update probe Initialize signature to use typed interfaces
-// 3. Implement full domain.Probe interface (Events(), IsRunning(), etc.)
-// 4. Complete eBPF implementation
-//
-// For now, create NSPR probes directly using:
-//   probe, err := nspr.NewProbe()
-//   probe.Initialize(ctx, config, dispatcher)
-//
-// Factory registration will be added in a future PR.
+import (
+	"github.com/gojue/ecapture/internal/domain"
+	"github.com/gojue/ecapture/internal/factory"
+)
+
+func init() {
+	// Register NSPR probe with the factory
+	factory.RegisterProbe(factory.ProbeTypeNSPR, func() (domain.Probe, error) {
+		return NewProbe()
+	})
+}

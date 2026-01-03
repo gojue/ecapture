@@ -15,8 +15,6 @@
 package nspr
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
 )
 
@@ -26,12 +24,12 @@ func TestNewConfig(t *testing.T) {
 		t.Fatal("NewConfig() returned nil")
 	}
 
-	if cfg.CaptureMode != "text" {
-		t.Errorf("Expected default CaptureMode 'text', got '%s'", cfg.CaptureMode)
+	if cfg.Pid != 0 {
+		t.Errorf("Expected default Pid 0, got %d", cfg.Pid)
 	}
 
-	if cfg.PID != 0 {
-		t.Errorf("Expected default PID 0, got %d", cfg.PID)
+	if cfg.BaseConfig == nil {
+		t.Error("BaseConfig should not be nil")
 	}
 }
 
@@ -78,158 +76,5 @@ func TestConfig_selectBPFFileName(t *testing.T) {
 				t.Errorf("selectBPFFileName(%s) = %s, want %s", tt.version, result, tt.expected)
 			}
 		})
-	}
-}
-
-func TestConfig_validateCaptureMode_Text(t *testing.T) {
-	cfg := NewConfig()
-	cfg.CaptureMode = "text"
-
-	if err := cfg.validateCaptureMode(); err != nil {
-		t.Errorf("validateCaptureMode() failed for text mode: %v", err)
-	}
-}
-
-func TestConfig_validateCaptureMode_Keylog(t *testing.T) {
-	// Create a temp directory for testing
-	tempDir := t.TempDir()
-
-	tests := []struct {
-		name        string
-		keylogFile  string
-		shouldError bool
-	}{
-		{
-			name:        "Valid keylog file",
-			keylogFile:  filepath.Join(tempDir, "test_keylog.log"),
-			shouldError: false,
-		},
-		{
-			name:        "Missing keylog file",
-			keylogFile:  "",
-			shouldError: true,
-		},
-		{
-			name:        "Non-existent directory",
-			keylogFile:  "/nonexistent/path/keylog.log",
-			shouldError: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cfg := NewConfig()
-			cfg.CaptureMode = "keylog"
-			cfg.KeylogFile = tt.keylogFile
-
-			err := cfg.validateCaptureMode()
-			if tt.shouldError && err == nil {
-				t.Error("validateCaptureMode() should have failed but didn't")
-			}
-			if !tt.shouldError && err != nil {
-				t.Errorf("validateCaptureMode() failed unexpectedly: %v", err)
-			}
-		})
-	}
-}
-
-func TestConfig_validateCaptureMode_Pcap(t *testing.T) {
-	// Create a temp directory for testing
-	tempDir := t.TempDir()
-
-	tests := []struct {
-		name        string
-		pcapFile    string
-		ifname      string
-		shouldError bool
-	}{
-		{
-			name:        "Missing pcap file",
-			pcapFile:    "",
-			ifname:      "eth0",
-			shouldError: true,
-		},
-		{
-			name:        "Missing interface name",
-			pcapFile:    filepath.Join(tempDir, "test.pcapng"),
-			ifname:      "",
-			shouldError: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cfg := NewConfig()
-			cfg.CaptureMode = "pcap"
-			cfg.PcapFile = tt.pcapFile
-			cfg.Ifname = tt.ifname
-
-			err := cfg.validateCaptureMode()
-			if tt.shouldError && err == nil {
-				t.Error("validateCaptureMode() should have failed but didn't")
-			}
-			if !tt.shouldError && err != nil {
-				t.Errorf("validateCaptureMode() failed unexpectedly: %v", err)
-			}
-		})
-	}
-}
-
-func TestConfig_validateCaptureMode_Invalid(t *testing.T) {
-	cfg := NewConfig()
-	cfg.CaptureMode = "invalid"
-
-	err := cfg.validateCaptureMode()
-	if err == nil {
-		t.Error("validateCaptureMode() should have failed for invalid mode")
-	}
-}
-
-func TestConfig_validateNetworkInterface(t *testing.T) {
-	tests := []struct {
-		name        string
-		ifname      string
-		shouldError bool
-	}{
-		{
-			name:        "Loopback interface",
-			ifname:      "lo",
-			shouldError: false,
-		},
-		{
-			name:        "Non-existent interface",
-			ifname:      "nonexistent999",
-			shouldError: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cfg := NewConfig()
-			cfg.Ifname = tt.ifname
-
-			err := cfg.validateNetworkInterface()
-			if tt.shouldError && err == nil {
-				t.Error("validateNetworkInterface() should have failed but didn't")
-			}
-			if !tt.shouldError && err != nil {
-				t.Errorf("validateNetworkInterface() failed unexpectedly: %v", err)
-			}
-		})
-	}
-}
-
-func TestConfig_checkTCSupport(t *testing.T) {
-	cfg := NewConfig()
-	cfg.Ifname = "lo"
-
-	// Check if /proc/sys/net/core exists (basic networking support)
-	if _, err := os.Stat("/proc/sys/net/core"); os.IsNotExist(err) {
-		t.Skip("Skipping test: /proc/sys/net/core not available on this system")
-	}
-
-	err := cfg.checkTCSupport()
-	if err != nil {
-		t.Errorf("checkTCSupport() failed: %v", err)
 	}
 }

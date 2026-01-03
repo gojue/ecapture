@@ -19,6 +19,9 @@ import (
 	"encoding/binary"
 	"fmt"
 	"time"
+
+	"github.com/gojue/ecapture/internal/domain"
+	"github.com/gojue/ecapture/internal/errors"
 )
 
 const (
@@ -112,51 +115,101 @@ func (e *TLSDataEvent) IsWrite() bool {
 	return e.Direction == 1
 }
 
-// Decode decodes a TLSDataEvent from binary data
-func (e *TLSDataEvent) Decode(data []byte) error {
+// DecodeFromBytes implements domain.Event interface
+func (e *TLSDataEvent) DecodeFromBytes(data []byte) error {
 	buf := bytes.NewReader(data)
 
 	// Read Timestamp
 	if err := binary.Read(buf, binary.LittleEndian, &e.Timestamp); err != nil {
-		return fmt.Errorf("failed to read timestamp: %w", err)
+		return errors.NewEventDecodeError("nspr.Timestamp", err)
 	}
 
 	// Read PID
 	if err := binary.Read(buf, binary.LittleEndian, &e.PID); err != nil {
-		return fmt.Errorf("failed to read PID: %w", err)
+		return errors.NewEventDecodeError("nspr.PID", err)
 	}
 
 	// Read TID
 	if err := binary.Read(buf, binary.LittleEndian, &e.TID); err != nil {
-		return fmt.Errorf("failed to read TID: %w", err)
+		return errors.NewEventDecodeError("nspr.TID", err)
 	}
 
 	// Read Comm
 	if err := binary.Read(buf, binary.LittleEndian, &e.Comm); err != nil {
-		return fmt.Errorf("failed to read comm: %w", err)
+		return errors.NewEventDecodeError("nspr.Comm", err)
 	}
 
 	// Read FD
 	if err := binary.Read(buf, binary.LittleEndian, &e.FD); err != nil {
-		return fmt.Errorf("failed to read FD: %w", err)
+		return errors.NewEventDecodeError("nspr.FD", err)
 	}
 
 	// Read DataLen
 	if err := binary.Read(buf, binary.LittleEndian, &e.DataLen); err != nil {
-		return fmt.Errorf("failed to read data length: %w", err)
+		return errors.NewEventDecodeError("nspr.DataLen", err)
 	}
 
 	// Read Direction
 	if err := binary.Read(buf, binary.LittleEndian, &e.Direction); err != nil {
-		return fmt.Errorf("failed to read direction: %w", err)
+		return errors.NewEventDecodeError("nspr.Direction", err)
 	}
 
 	// Read Data
 	if err := binary.Read(buf, binary.LittleEndian, &e.Data); err != nil {
-		return fmt.Errorf("failed to read data: %w", err)
+		return errors.NewEventDecodeError("nspr.Data", err)
 	}
 
 	return nil
+}
+
+// String implements domain.Event interface - returns a human-readable representation
+func (e *TLSDataEvent) String() string {
+	direction := "read"
+	if e.IsWrite() {
+		direction = "write"
+	}
+
+	return fmt.Sprintf("TLSDataEvent{Timestamp: %v, PID: %d, TID: %d, Comm: %s, FD: %d, Direction: %s, DataLen: %d}",
+		e.GetTimestamp(), e.PID, e.TID, e.GetComm(), e.FD, direction, e.DataLen)
+}
+
+// StringHex implements domain.Event interface - returns a hexadecimal representation
+func (e *TLSDataEvent) StringHex() string {
+	direction := "read"
+	if e.IsWrite() {
+		direction = "write"
+	}
+
+	return fmt.Sprintf("TLSDataEvent{Timestamp: %v, PID: %d, TID: %d, Comm: %s, FD: %d, Direction: %s, DataLen: %d, Data(hex): %x}",
+		e.GetTimestamp(), e.PID, e.TID, e.GetComm(), e.FD, direction, e.DataLen, e.GetData())
+}
+
+// Clone implements domain.Event interface
+func (e *TLSDataEvent) Clone() domain.Event {
+	return &TLSDataEvent{}
+}
+
+// Type implements domain.Event interface
+func (e *TLSDataEvent) Type() domain.EventType {
+	return domain.EventTypeOutput
+}
+
+// UUID implements domain.Event interface
+func (e *TLSDataEvent) UUID() string {
+	return fmt.Sprintf("%d_%d_%d", e.PID, e.TID, e.Timestamp)
+}
+
+// Validate implements domain.Event interface
+func (e *TLSDataEvent) Validate() error {
+	if e.DataLen > MaxDataSize {
+		return fmt.Errorf("invalid data length: %d > %d", e.DataLen, MaxDataSize)
+	}
+	return nil
+}
+
+// Decode is kept for backward compatibility
+func (e *TLSDataEvent) Decode(data []byte) error {
+	return e.DecodeFromBytes(data)
 }
 
 // Encode encodes a TLSDataEvent to binary data
@@ -204,15 +257,4 @@ func (e *TLSDataEvent) Encode() ([]byte, error) {
 	}
 
 	return buf.Bytes(), nil
-}
-
-// String returns a string representation of the event
-func (e *TLSDataEvent) String() string {
-	direction := "read"
-	if e.IsWrite() {
-		direction = "write"
-	}
-
-	return fmt.Sprintf("TLSDataEvent{Timestamp: %v, PID: %d, TID: %d, Comm: %s, FD: %d, Direction: %s, DataLen: %d}",
-		e.GetTimestamp(), e.PID, e.TID, e.GetComm(), e.FD, direction, e.DataLen)
 }
