@@ -342,6 +342,13 @@ func (p *Probe) writeMasterSecretToFile(event *MasterSecretEvent) error {
 	// TLS 1.2 and earlier use CLIENT_RANDOM format
 	if version <= 0x0303 { // TLS 1.2 = 0x0303
 		masterKey := event.GetMasterKey()
+		
+		// Skip if client random or master key are all zeros
+		if isZeroBytes(clientRandom) || isZeroBytes(masterKey) {
+			p.Logger().Debug().Msg("Skipping TLS 1.2 master secret with zero values")
+			return nil
+		}
+		
 		line := fmt.Sprintf("CLIENT_RANDOM %x %x\n",
 			clientRandom[:handlers.Ssl3RandomSize],
 			masterKey[:handlers.MasterSecretMaxLen])
@@ -359,12 +366,21 @@ func (p *Probe) writeMasterSecretToFile(event *MasterSecretEvent) error {
 	clientRandomHex := fmt.Sprintf("%x", clientRandom[:handlers.Ssl3RandomSize])
 
 	// Write each TLS 1.3 secret type if available
+	// Note: OpenSSL's client_app_traffic_secret and server_app_traffic_secret fields
+	// may contain handshake traffic secrets during the handshake phase,
+	// and application traffic secrets after the handshake completes.
+	// We output both labels to support decryption at different stages.
 	secrets := []struct {
 		label string
 		data  []byte
 	}{
+		// Handshake traffic secrets (used during TLS handshake)
+		{"CLIENT_HANDSHAKE_TRAFFIC_SECRET", event.GetClientAppTrafficSecret()},
+		{"SERVER_HANDSHAKE_TRAFFIC_SECRET", event.GetServerAppTrafficSecret()},
+		// Application traffic secrets (used after handshake completion)
 		{"CLIENT_TRAFFIC_SECRET_0", event.GetClientAppTrafficSecret()},
 		{"SERVER_TRAFFIC_SECRET_0", event.GetServerAppTrafficSecret()},
+		// Exporter master secret
 		{"EXPORTER_SECRET", event.GetExporterMasterSecret()},
 	}
 
