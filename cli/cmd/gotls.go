@@ -57,8 +57,8 @@ func goTLSCommandFunc(command *cobra.Command, args []string) error {
 		gotlsConfig.PcapFilter = strings.Join(args, " ")
 	}
 
-	// Set global config (note: gotls Config doesn't extend BaseConfig)
-	gotlsConfig.Pid = uint32(globalConf.Pid)
+	// Set global config from BaseConfig
+	gotlsConfig.Pid = globalConf.Pid
 
 	// Run probe using the common entry point
 	return runProbe(factory.ProbeTypeGoTLS, gotlsConfig)

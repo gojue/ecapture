@@ -15,52 +15,76 @@
 package gotls
 
 import (
+	"bytes"
+	"debug/buildinfo"
+	"debug/elf"
+	"debug/gosym"
+	"encoding/binary"
 	"fmt"
 	"net"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"github.com/gojue/ecapture/internal/config"
 )
 
-// Config holds the configuration for GoTLS probe
+// Config extends BaseConfig with GoTLS-specific configuration.
 type Config struct {
+	*config.BaseConfig
+
 	// ElfPath is the path to the Go binary ELF file
-	ElfPath string
+	ElfPath string `json:"elf_path"`
 
 	// CaptureMode specifies the output mode: "text", "keylog", or "pcap"
-	CaptureMode string
+	CaptureMode string `json:"capture_mode"`
 
 	// KeylogFile is the path to write TLS keylog output (for keylog mode)
-	KeylogFile string
+	KeylogFile string `json:"keylog_file"`
 
 	// PcapFile is the path to write pcap output (for pcap mode)
-	PcapFile string
+	PcapFile string `json:"pcap_file"`
 
 	// Ifname is the network interface name for packet capture (for pcap mode)
-	Ifname string
+	Ifname string `json:"ifname"`
 
 	// PcapFilter is an optional BPF filter expression (for pcap mode)
-	PcapFilter string
+	PcapFilter string `json:"pcap_filter"`
 
 	// GoVersion is the detected Go runtime version
-	GoVersion string
+	GoVersion string `json:"go_version"`
 
-	// Pid is the target process ID (0 means capture all processes)
-	Pid uint32
+	// IsRegisterABI indicates whether to use register-based ABI (Go 1.17+)
+	IsRegisterABI bool `json:"is_register_abi"`
+
+	// ReadTlsAddrs stores the offsets for Read function RET instructions (for uretprobe)
+	ReadTlsAddrs []uint64 `json:"-"`
+
+	// GoTlsWriteAddr stores the offset for Write function
+	GoTlsWriteAddr uint64 `json:"-"`
+
+	// GoTlsMasterSecretAddr stores the offset for master secret function (keylog mode)
+	GoTlsMasterSecretAddr uint64 `json:"-"`
 }
 
 // NewConfig creates a new GoTLS config with default values
 func NewConfig() *Config {
 	return &Config{
-		CaptureMode: "text",
-		GoVersion:   "",
-		Pid:         0,
+		BaseConfig:    config.NewBaseConfig(),
+		CaptureMode:   "text",
+		GoVersion:     "",
+		IsRegisterABI: false,
 	}
 }
 
 // Validate validates the configuration
 func (c *Config) Validate() error {
+	// Validate BaseConfig first
+	if err := c.BaseConfig.Validate(); err != nil {
+		return fmt.Errorf("base config validation failed: %w", err)
+	}
+
 	// Detect Go version
 	if c.GoVersion == "" {
 		version := detectGoVersion()
@@ -75,9 +99,19 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("unsupported Go version: %s (require Go 1.17+)", c.GoVersion)
 	}
 
+	// Determine ABI based on Go version
+	c.IsRegisterABI = isRegisterABI(c.GoVersion)
+
 	// Validate capture mode
 	if err := c.validateCaptureMode(); err != nil {
 		return err
+	}
+
+	// Find symbol addresses if ElfPath is provided
+	if c.ElfPath != "" {
+		if err := c.findSymbolOffsets(); err != nil {
+			return fmt.Errorf("failed to find symbol offsets: %w", err)
+		}
 	}
 
 	return nil
@@ -228,54 +262,180 @@ func isGoVersionSupported(version string) bool {
 	return false
 }
 
-// GetHex returns whether to use hex encoding for output (always false for GoTLS)
-func (c *Config) GetHex() bool {
+// isRegisterABI checks if the Go version uses register-based ABI
+// Go 1.17+ uses register-based ABI, earlier versions use stack-based ABI
+func isRegisterABI(version string) bool {
+	// Remove "go" prefix
+	version = strings.TrimPrefix(version, "go")
+
+	// Parse major.minor version
+	var major, minor int
+	_, err := fmt.Sscanf(version, "%d.%d", &major, &minor)
+	if err != nil {
+		return false
+	}
+
+	// Go 1.17+ uses register-based ABI
+	if major > 1 {
+		return true
+	}
+	if major == 1 && minor >= 17 {
+		return true
+	}
+
 	return false
 }
 
-// GetPid returns the target process ID
-func (c *Config) GetPid() uint64 {
-	return uint64(c.Pid)
-}
-
-// GetUid returns the target user ID (not used for GoTLS)
-func (c *Config) GetUid() uint64 {
-	return 0
-}
-
-// GetDebug returns whether debug mode is enabled (not used for GoTLS)
-func (c *Config) GetDebug() bool {
-	return false
-}
-
-// GetBTF returns the BTF mode (not used for GoTLS)
-func (c *Config) GetBTF() uint8 {
-	return 0
-}
-
-// GetPerCpuMapSize returns the eBPF map size per CPU (not used for GoTLS)
-func (c *Config) GetPerCpuMapSize() int {
-	return 0
-}
-
-// GetTruncateSize returns the maximum size for truncating captured data (not used for GoTLS)
-func (c *Config) GetTruncateSize() uint64 {
-	return 0
-}
-
-// EnableGlobalVar checks if kernel supports global variables (not used for GoTLS)
-func (c *Config) EnableGlobalVar() bool {
-	return false
-}
-
-// GetByteCodeFileMode returns the bytecode file selection mode (not used for GoTLS)
-func (c *Config) GetByteCodeFileMode() uint8 {
-	return 0
-}
-
-// Bytes serializes the configuration to JSON bytes (required by domain.Configuration interface)
+// Bytes serializes the configuration to JSON bytes (using BaseConfig implementation)
 func (c *Config) Bytes() []byte {
-	// Implement simple JSON-like serialization for HTTP interface compatibility
-	return []byte(fmt.Sprintf(`{"capture_mode":"%s","keylog_file":"%s","pcap_file":"%s","ifname":"%s","pcap_filter":"%s","go_version":"%s","pid":%d}`,
-		c.CaptureMode, c.KeylogFile, c.PcapFile, c.Ifname, c.PcapFilter, c.GoVersion, c.Pid))
+	// Use BaseConfig's Bytes method which handles JSON serialization properly
+	return c.BaseConfig.Bytes()
+}
+
+// findSymbolOffsets finds the offsets for crypto/tls functions in the Go binary
+func (c *Config) findSymbolOffsets() error {
+	if c.ElfPath == "" {
+		return fmt.Errorf("ElfPath is required")
+	}
+
+	// Open the ELF file
+	elfFile, err := elf.Open(c.ElfPath)
+	if err != nil {
+		return fmt.Errorf("failed to open ELF file: %w", err)
+	}
+	defer elfFile.Close()
+
+	// Read build info to get Go version
+	buildInfo, err := buildinfo.ReadFile(c.ElfPath)
+	if err != nil {
+		return fmt.Errorf("failed to read build info: %w", err)
+	}
+
+	// Read the Go symbol table
+	symTable, err := c.readGoSymbolTable(elfFile, buildInfo.GoVersion)
+	if err != nil {
+		return fmt.Errorf("failed to read Go symbol table: %w", err)
+	}
+
+	// Find function symbols
+	const writeFunc = "crypto/tls.(*Conn).writeRecordLocked"
+	const readFunc = "crypto/tls.(*Conn).Read"
+	const masterSecretFunc = "crypto/tls.(*Config).writeKeyLog"
+
+	writeSymbol := symTable.LookupFunc(writeFunc)
+	if writeSymbol == nil {
+		return fmt.Errorf("write function symbol not found: %s", writeFunc)
+	}
+
+	readSymbol := symTable.LookupFunc(readFunc)
+	if readSymbol == nil {
+		return fmt.Errorf("read function symbol not found: %s", readFunc)
+	}
+
+	// Master secret function is optional (only used in keylog mode)
+	masterSecretSymbol := symTable.LookupFunc(masterSecretFunc)
+	if masterSecretSymbol != nil {
+		c.GoTlsMasterSecretAddr = c.addrToOffset(elfFile, masterSecretSymbol.Entry)
+	}
+
+	// Convert virtual addresses to file offsets
+	c.GoTlsWriteAddr = c.addrToOffset(elfFile, writeSymbol.Entry)
+	
+	// For read function, use the entry point as the offset
+	// In a full implementation, we would parse instructions to find RET offsets
+	readOffset := c.addrToOffset(elfFile, readSymbol.Entry)
+	c.ReadTlsAddrs = []uint64{readOffset}
+
+	return nil
+}
+
+// readGoSymbolTable reads the Go symbol table from the ELF file
+func (c *Config) readGoSymbolTable(elfFile *elf.File, goVersion string) (*gosym.Table, error) {
+	// Try different section names for gopclntab
+	sectionNames := []string{".gopclntab", ".data.rel.ro.gopclntab", ".data.rel.ro"}
+	
+	var pclnData []byte
+	for _, name := range sectionNames {
+		section := elfFile.Section(name)
+		if section != nil {
+			data, err := section.Data()
+			if err != nil {
+				continue
+			}
+			
+			// Find gopclntab by magic number
+			magic := magicNumber(goVersion)
+			index := bytes.Index(data, magic)
+			if index >= 0 {
+				pclnData = data[index:]
+				break
+			}
+		}
+	}
+	
+	if pclnData == nil {
+		return nil, fmt.Errorf("gopclntab not found in ELF file")
+	}
+
+	// Extract text start address from pclntab
+	ptrSize := uint32(pclnData[7])
+	var textStart uint64
+	if ptrSize == 4 {
+		textStart = uint64(binary.LittleEndian.Uint32(pclnData[8+2*ptrSize:]))
+	} else {
+		textStart = binary.LittleEndian.Uint64(pclnData[8+2*ptrSize:])
+	}
+
+	// Create line table and symbol table
+	lineTable := gosym.NewLineTable(pclnData, textStart)
+	symTable, err := gosym.NewTable([]byte{}, lineTable)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create symbol table: %w", err)
+	}
+
+	return symTable, nil
+}
+
+// magicNumber returns the magic number for the given Go version
+func magicNumber(goVersion string) []byte {
+	const (
+		go12magic  = 0xfffffffb
+		go116magic = 0xfffffffa
+		go118magic = 0xfffffff0
+		go120magic = 0xfffffff1
+	)
+
+	bs := make([]byte, 4)
+	var magic uint32
+	
+	if strings.Compare(goVersion, "go1.20") >= 0 {
+		magic = go120magic
+	} else if strings.Compare(goVersion, "go1.18") >= 0 {
+		magic = go118magic
+	} else if strings.Compare(goVersion, "go1.16") >= 0 {
+		magic = go116magic
+	} else {
+		magic = go12magic
+	}
+	
+	binary.LittleEndian.PutUint32(bs, magic)
+	return bs
+}
+
+// addrToOffset converts a virtual address to a file offset
+func (c *Config) addrToOffset(elfFile *elf.File, addr uint64) uint64 {
+	// Find the program segment containing this address
+	for _, prog := range elfFile.Progs {
+		if prog.Type != elf.PT_LOAD || (prog.Flags&elf.PF_X) == 0 {
+			continue
+		}
+
+		if prog.Vaddr <= addr && addr < (prog.Vaddr+prog.Memsz) {
+			// Convert virtual address to file offset
+			return addr - prog.Vaddr + prog.Off
+		}
+	}
+
+	// If not found in any segment, return the address directly
+	return addr
 }

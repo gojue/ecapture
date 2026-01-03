@@ -19,7 +19,17 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/gojue/ecapture/internal/domain"
 )
+
+// mockDispatcher implements domain.EventDispatcher for testing
+type mockDispatcher struct{}
+
+func (m *mockDispatcher) Register(handler domain.EventHandler) error   { return nil }
+func (m *mockDispatcher) Unregister(handlerName string) error          { return nil }
+func (m *mockDispatcher) Dispatch(event domain.Event) error            { return nil }
+func (m *mockDispatcher) Close() error                                 { return nil }
 
 func TestNewProbe(t *testing.T) {
 	probe, err := NewProbe()
@@ -42,12 +52,17 @@ func TestProbe_Initialize_TextMode(t *testing.T) {
 	cfg.CaptureMode = "text"
 
 	ctx := context.Background()
-	if err := probe.Initialize(ctx, cfg, nil); err != nil {
+	dispatcher := &mockDispatcher{}
+	if err := probe.Initialize(ctx, cfg, dispatcher); err != nil {
 		t.Errorf("Initialize() failed for text mode: %v", err)
 	}
 
-	if probe.textHandler == nil {
-		t.Error("expected textHandler to be initialized")
+	if probe.config == nil {
+		t.Error("expected config to be set")
+	}
+
+	if probe.config.CaptureMode != "text" {
+		t.Errorf("expected capture mode 'text', got %q", probe.config.CaptureMode)
 	}
 
 	// Clean up
@@ -68,12 +83,9 @@ func TestProbe_Initialize_KeylogMode(t *testing.T) {
 	cfg.KeylogFile = keylogFile
 
 	ctx := context.Background()
-	if err := probe.Initialize(ctx, cfg, nil); err != nil {
+	dispatcher := &mockDispatcher{}
+	if err := probe.Initialize(ctx, cfg, dispatcher); err != nil {
 		t.Errorf("Initialize() failed for keylog mode: %v", err)
-	}
-
-	if probe.keylogHandler == nil {
-		t.Error("expected keylogHandler to be initialized")
 	}
 
 	if probe.keylogFile == nil {
@@ -97,6 +109,9 @@ func TestProbe_Initialize_PcapMode(t *testing.T) {
 	}
 
 	ifname := ifaces[0].Name()
+	if ifname == "lo" && len(ifaces) > 1 {
+		ifname = ifaces[1].Name() // Skip loopback if possible
+	}
 
 	probe, err := NewProbe()
 	if err != nil {
@@ -112,12 +127,9 @@ func TestProbe_Initialize_PcapMode(t *testing.T) {
 	cfg.Ifname = ifname
 
 	ctx := context.Background()
-	if err := probe.Initialize(ctx, cfg, nil); err != nil {
+	dispatcher := &mockDispatcher{}
+	if err := probe.Initialize(ctx, cfg, dispatcher); err != nil {
 		t.Errorf("Initialize() failed for pcap mode: %v", err)
-	}
-
-	if probe.pcapHandler == nil {
-		t.Error("expected pcapHandler to be initialized")
 	}
 
 	if probe.pcapFile == nil {
@@ -147,7 +159,8 @@ func TestProbe_Close(t *testing.T) {
 	cfg.KeylogFile = keylogFile
 
 	ctx := context.Background()
-	if err := probe.Initialize(ctx, cfg, nil); err != nil {
+	dispatcher := &mockDispatcher{}
+	if err := probe.Initialize(ctx, cfg, dispatcher); err != nil {
 		t.Fatalf("Initialize() failed: %v", err)
 	}
 
