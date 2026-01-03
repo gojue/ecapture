@@ -301,7 +301,9 @@ test_transactions() {
     fi
     
     log_info "Executing transaction"
-    mysql "$TEST_DB" <<'EOF' >/dev/null 2>&1 || mysql -u root "$TEST_DB" <<'EOF' >/dev/null 2>&1 || true
+    {
+        mysql "$TEST_DB" >/dev/null 2>&1 || mysql -u root "$TEST_DB" >/dev/null 2>&1 || true
+    } <<'EOF'
 START TRANSACTION;
 INSERT INTO test_users (username, email) VALUES ('tx_user1', 'tx1@example.com');
 INSERT INTO test_users (username, email) VALUES ('tx_user2', 'tx2@example.com');
