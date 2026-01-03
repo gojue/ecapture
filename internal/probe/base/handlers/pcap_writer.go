@@ -40,7 +40,7 @@ func NewPcapWriter(w io.Writer, snaplen uint32, linkType layers.LinkType) (*Pcap
 
 	// Add interface to PCAPNG file
 	iface := pcapgo.NgInterface{
-		Name:       "ecapture0",
+		Name:       "eCapture(旁观者)",
 		Comment:    "eCapture GoTLS capture interface",
 		Filter:     "",
 		LinkType:   linkType,
@@ -74,24 +74,38 @@ func (pw *PcapWriter) WritePacket(data []byte, timestamp time.Time) error {
 func (pw *PcapWriter) WriteMasterSecret(label, clientRandom, secret []byte) error {
 	// Format: "LABEL CLIENTRANDOM SECRET\n"
 	// This follows the NSS SSLKEYLOGFILE format
-	_ = fmt.Sprintf("%s %x %x\n", 
+	keylogLine := fmt.Sprintf("%s %x %x\n", 
 		nullTerminatedString(label),
 		clientRandom,
 		secret)
 
-	// Write as DSB (Decryption Secrets Block) if supported by the writer
-	// For now, we can append it as a custom block or handle it separately
-	// The gopacket library may need customization for full DSB support
-	
-	// TODO: Implement proper DSB block writing
-	// For now, this can be handled by writing to a separate keylog file
-	
+	// Write as DSB (Decryption Secrets Block) using custom gopacket implementation
+	// The cfc4n/gopacket fork includes WriteDecryptionSecretsBlock method
+	return pw.writer.WriteDecryptionSecretsBlock([]byte(keylogLine))
+}
+
+// Flush ensures all buffered data is written to disk
+func (pw *PcapWriter) Flush() error {
+	// Flush the underlying writer if it supports flushing
+	if flusher, ok := pw.writer.(interface{ Flush() error }); ok {
+		return flusher.Flush()
+	}
 	return nil
 }
 
-// Flush ensures all buffered data is written
-func (pw *PcapWriter) Flush() error {
-	// NgWriter doesn't expose a Flush method, but we can try type assertion
+// Close closes the PCAPNG writer and flushes any buffered data
+// This should be called when the program exits to ensure all data is written
+func (pw *PcapWriter) Close() error {
+	// Flush any remaining data before closing
+	if err := pw.Flush(); err != nil {
+		return err
+	}
+	
+	// Close the writer if it implements io.Closer
+	if closer, ok := pw.writer.(io.Closer); ok {
+		return closer.Close()
+	}
+	
 	return nil
 }
 
