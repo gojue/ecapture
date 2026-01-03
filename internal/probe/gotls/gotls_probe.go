@@ -80,6 +80,11 @@ func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration, dispat
 
 // openOutputFiles opens output files based on capture mode
 func (p *Probe) openOutputFiles() error {
+	// Normalize capture mode: treat "pcapng" as "pcap"
+	if p.config.CaptureMode == "pcapng" {
+		p.config.CaptureMode = "pcap"
+	}
+
 	switch p.config.CaptureMode {
 	case "keylog", "key":
 		if p.config.KeylogFile == "" {
@@ -91,7 +96,8 @@ func (p *Probe) openOutputFiles() error {
 		}
 		p.keylogFile = file
 
-	case "pcap", "pcapng":
+	case "pcap":
+		// PCAP mode requires pcap file for storing TC probe network packets
 		if p.config.PcapFile == "" {
 			return errors.NewConfigurationError("pcap_file is required for pcap mode", nil)
 		}
@@ -263,9 +269,9 @@ func (p *Probe) writeMasterSecretToFile(event *MasterSecretEvent) error {
 		return nil
 	}
 
-	// Only write to keylog file in keylog or pcapng mode
+	// Only write to keylog file in keylog or pcap mode
 	if p.config.CaptureMode != "keylog" && p.config.CaptureMode != "key" && 
-	   p.config.CaptureMode != "pcap" && p.config.CaptureMode != "pcapng" {
+	   p.config.CaptureMode != "pcap" {
 		return nil
 	}
 
@@ -273,8 +279,8 @@ func (p *Probe) writeMasterSecretToFile(event *MasterSecretEvent) error {
 	var file *os.File
 	if p.config.CaptureMode == "keylog" || p.config.CaptureMode == "key" {
 		file = p.keylogFile
-	} else if p.config.CaptureMode == "pcap" || p.config.CaptureMode == "pcapng" {
-		// For pcapng mode, we also write to keylog file (DSB block handling)
+	} else if p.config.CaptureMode == "pcap" {
+		// For pcap mode, we also write to keylog file (DSB block handling)
 		// If keylogFile is set, use it; otherwise, pcapFile will handle DSB internally
 		file = p.keylogFile
 		if file == nil {
@@ -438,8 +444,9 @@ func (p *Probe) setupManager() error {
 			Msg("Added master secret probe")
 	}
 
-	// PCAP/PCAPNG MODE: Capture network packets with TC + master secrets for DSB
-	if p.config.CaptureMode == "pcap" || p.config.CaptureMode == "pcapng" {
+	// PCAP MODE: Capture network packets with TC + master secrets for DSB
+	// Note: "pcapng" is normalized to "pcap" in openOutputFiles()
+	if p.config.CaptureMode == "pcap" {
 		if p.config.Ifname == "" {
 			return errors.NewConfigurationError("ifname is required for pcap mode", nil)
 		}
@@ -469,7 +476,7 @@ func (p *Probe) setupManager() error {
 			UAddress:         p.config.GoTlsMasterSecretAddr,
 		})
 
-		// Add TC-related maps
+		// Add TC-related maps for network packet capture
 		maps = append(maps, &manager.Map{Name: "skb_events"})
 		maps = append(maps, &manager.Map{Name: "skb_data_buffer_heap"})
 		maps = append(maps, &manager.Map{Name: "network_map"})
