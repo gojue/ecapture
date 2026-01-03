@@ -31,14 +31,8 @@ type Probe struct {
 	*base.BaseProbe
 	config *Config
 
-	// Handlers for different output modes
-	textHandler   *handlers.TextHandler
-	keylogHandler *handlers.KeylogHandler
-	pcapHandler   *handlers.PcapHandler
-
-	// Files for different modes
-	keylogFile *os.File
-	pcapFile   *os.File
+	// Handler for text output
+	textHandler *handlers.TextHandler
 }
 
 // NewProbe creates a new NSPR probe
@@ -68,33 +62,8 @@ func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration, dispat
 
 	p.config = nsprConfig
 
-	// Initialize handler based on capture mode
-	switch nsprConfig.CaptureMode {
-	case "text":
-		// For text mode, use stdout
-		p.textHandler = handlers.NewTextHandler(os.Stdout)
-
-	case "keylog":
-		// For keylog mode, open keylog file
-		file, err := os.OpenFile(nsprConfig.KeylogFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
-		if err != nil {
-			return errors.Wrap(errors.ErrCodeResourceAllocation, "failed to open keylog file", err)
-		}
-		p.keylogFile = file
-		p.keylogHandler = handlers.NewKeylogHandler(file)
-
-	case "pcap":
-		// For pcap mode, open pcap file
-		file, err := os.OpenFile(nsprConfig.PcapFile, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
-		if err != nil {
-			return errors.Wrap(errors.ErrCodeResourceAllocation, "failed to open pcap file", err)
-		}
-		p.pcapFile = file
-		p.pcapHandler = handlers.NewPcapHandler(file)
-
-	default:
-		return errors.NewConfigurationError("invalid capture mode", nil)
-	}
+	// Initialize text handler for stdout
+	p.textHandler = handlers.NewTextHandler(os.Stdout)
 
 	// Load eBPF bytecode
 	bpfFileName := "bytecode/nspr_kern.o"
@@ -107,13 +76,10 @@ func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration, dispat
 	// Manager includes:
 	// - Probes: PR_Send, PR_Recv hooks
 	// - Event maps for TLS data capture
-	// - Keylog mode: master secret capture hooks
-	// - PCAP mode: TC classifier for packet capture
 
 	p.Logger().Info().
 		Str("nss_path", nsprConfig.NSSPath).
 		Str("nspr_path", nsprConfig.NSPRPath).
-		Str("capture_mode", nsprConfig.CaptureMode).
 		Msg("NSPR probe initialized")
 
 	return nil
@@ -157,24 +123,7 @@ func (p *Probe) Events() []*ebpf.Map {
 
 // Close closes the probe and releases resources
 func (p *Probe) Close() error {
-	// Close keylog file if open
-	if p.keylogFile != nil {
-		if err := p.keylogFile.Close(); err != nil {
-			p.Logger().Warn().Err(err).Msg("Failed to close keylog file")
-		}
-		p.keylogFile = nil
-	}
-
-	// Close pcap file if open
-	if p.pcapFile != nil {
-		if err := p.pcapFile.Close(); err != nil {
-			p.Logger().Warn().Err(err).Msg("Failed to close pcap file")
-		}
-		p.pcapFile = nil
-	}
-
 	// Unload eBPF program and clean up resources when implemented
-
 	return p.BaseProbe.Close()
 }
 

@@ -50,8 +50,8 @@ func init() {
 
 // nssCommandFunc executes the "nspr" command using the new probe architecture.
 func nssCommandFunc(command *cobra.Command, args []string) error {
-	// Set global config (note: nspr Config doesn't extend BaseConfig)
-	nsprConfig.PID = uint32(globalConf.Pid)
+	// Set global config from BaseConfig
+	nsprConfig.Pid = globalConf.Pid
 
 	// Run probe using the common entry point
 	return runProbe(factory.ProbeTypeNSPR, nsprConfig)

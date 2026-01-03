@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
-	"path/filepath"
 	"testing"
 )
 
@@ -58,31 +57,6 @@ func TestProbe_Initialize_TextMode(t *testing.T) {
 	}
 
 	cfg := NewConfig()
-	cfg.CaptureMode = "text"
-	// Set dummy paths to skip library detection
-	cfg.NSSPath = "/usr/lib/libnss3.so"
-	cfg.NSPRPath = "/usr/lib/libnspr4.so"
-
-	ctx := context.Background()
-
-	// This will fail because the libraries don't exist, but it validates the flow
-	err = probe.Initialize(ctx, cfg, nil)
-	// We expect this to fail during validation since we're using dummy paths
-	if err == nil {
-		t.Log("Initialize() succeeded (libraries might exist on this system)")
-	}
-}
-
-func TestProbe_Initialize_KeylogMode(t *testing.T) {
-	probe, err := NewProbe()
-	if err != nil {
-		t.Fatalf("NewProbe() failed: %v", err)
-	}
-
-	tempDir := t.TempDir()
-	cfg := NewConfig()
-	cfg.CaptureMode = "keylog"
-	cfg.KeylogFile = filepath.Join(tempDir, "test_keylog.log")
 	// Set dummy paths to skip library detection
 	cfg.NSSPath = "/usr/lib/libnss3.so"
 	cfg.NSPRPath = "/usr/lib/libnspr4.so"

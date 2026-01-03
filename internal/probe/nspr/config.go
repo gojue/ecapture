@@ -18,9 +18,7 @@ import (
 	"debug/elf"
 	"encoding/json"
 	"fmt"
-	"net"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -37,28 +35,12 @@ type Config struct {
 
 	// NSPRPath is the path to the NSPR library (libnspr4.so)
 	NSPRPath string `json:"nspr_path"`
-
-	// CaptureMode determines the output format: "text", "keylog", or "pcap"
-	CaptureMode string `json:"capture_mode"`
-
-	// KeylogFile is the path to write NSS Key Log Format output (keylog mode)
-	KeylogFile string `json:"keylog_file"`
-
-	// PcapFile is the path to write PCAPNG format output (pcap mode)
-	PcapFile string `json:"pcap_file"`
-
-	// Ifname is the network interface name for packet capture (pcap mode)
-	Ifname string `json:"ifname"`
-
-	// PcapFilter is an optional BPF filter expression (pcap mode)
-	PcapFilter string `json:"pcap_filter"`
 }
 
 // NewConfig creates a new NSPR config with default values
 func NewConfig() *Config {
 	return &Config{
-		BaseConfig:  config.NewBaseConfig(),
-		CaptureMode: "text",
+		BaseConfig: config.NewBaseConfig(),
 	}
 }
 
@@ -112,11 +94,6 @@ func (c *Config) Validate() error {
 
 	if !c.isSupportedVersion(version) {
 		return errors.NewConfigurationError(fmt.Sprintf("unsupported NSS version: %s (supported: 3.x)", version), nil)
-	}
-
-	// Validate capture mode
-	if err := c.validateCaptureMode(); err != nil {
-		return err
 	}
 
 	return nil
@@ -212,120 +189,13 @@ func (c *Config) selectBPFFileName(version string) string {
 	return "nspr_kern.o"
 }
 
-// validateCaptureMode validates the capture mode and related configuration
-func (c *Config) validateCaptureMode() error {
-	switch c.CaptureMode {
-	case "text":
-		// Text mode requires no additional configuration
-		return nil
-
-	case "keylog":
-		// Keylog mode requires KeylogFile
-		if c.KeylogFile == "" {
-			return errors.NewConfigurationError("keylog mode requires KeylogFile to be set", nil)
-		}
-
-		// Validate parent directory exists and is writable
-		dir := filepath.Dir(c.KeylogFile)
-		if _, err := os.Stat(dir); os.IsNotExist(err) {
-			return errors.NewConfigurationError(fmt.Sprintf("keylog file directory does not exist: %s", dir), nil)
-		}
-
-		// Check if directory is writable
-		testFile := filepath.Join(dir, ".write_test")
-		if err := os.WriteFile(testFile, []byte("test"), 0644); err != nil {
-			return errors.NewConfigurationError(fmt.Sprintf("keylog file directory is not writable: %s", dir), err)
-		}
-		os.Remove(testFile)
-
-		return nil
-
-	case "pcap":
-		// Pcap mode requires PcapFile and Ifname
-		if c.PcapFile == "" {
-			return errors.NewConfigurationError("pcap mode requires PcapFile to be set", nil)
-		}
-		if c.Ifname == "" {
-			return errors.NewConfigurationError("pcap mode requires Ifname to be set", nil)
-		}
-
-		// Validate parent directory exists and is writable
-		dir := filepath.Dir(c.PcapFile)
-		if _, err := os.Stat(dir); os.IsNotExist(err) {
-			return errors.NewConfigurationError(fmt.Sprintf("pcap file directory does not exist: %s", dir), nil)
-		}
-
-		// Check if directory is writable
-		testFile := filepath.Join(dir, ".write_test")
-		if err := os.WriteFile(testFile, []byte("test"), 0644); err != nil {
-			return errors.NewConfigurationError(fmt.Sprintf("pcap file directory is not writable: %s", dir), err)
-		}
-		os.Remove(testFile)
-
-		// Validate network interface
-		if err := c.validateNetworkInterface(); err != nil {
-			return err
-		}
-
-		// Check TC support
-		if err := c.checkTCSupport(); err != nil {
-			return errors.NewConfigurationError("TC classifier support check failed", err)
-		}
-
-		return nil
-
-	default:
-		return errors.NewConfigurationError(fmt.Sprintf("invalid capture mode: %s (must be 'text', 'keylog', or 'pcap')", c.CaptureMode), nil)
-	}
-}
-
-// validateNetworkInterface validates that the network interface exists and is up
-func (c *Config) validateNetworkInterface() error {
-	iface, err := net.InterfaceByName(c.Ifname)
-	if err != nil {
-		return errors.NewConfigurationError(fmt.Sprintf("network interface '%s' not found", c.Ifname), err)
-	}
-
-	// Check if interface is UP
-	if iface.Flags&net.FlagUp == 0 {
-		return errors.NewConfigurationError(fmt.Sprintf("network interface '%s' is not up", c.Ifname), nil)
-	}
-
-	return nil
-}
-
-// checkTCSupport performs basic validation of TC (Traffic Control) classifier support
-func (c *Config) checkTCSupport() error {
-	// Check if /proc/sys/net/core exists (basic networking support)
-	if _, err := os.Stat("/proc/sys/net/core"); os.IsNotExist(err) {
-		return fmt.Errorf("system networking support not available: /proc/sys/net/core not found")
-	}
-
-	// Check if /sys/class/net exists (network device management)
-	if _, err := os.Stat("/sys/class/net"); os.IsNotExist(err) {
-		return fmt.Errorf("network device management not available: /sys/class/net not found")
-	}
-
-	// Check if the interface exists in sysfs
-	ifacePath := filepath.Join("/sys/class/net", c.Ifname)
-	if _, err := os.Stat(ifacePath); os.IsNotExist(err) {
-		return fmt.Errorf("network interface '%s' not found in sysfs", c.Ifname)
-	}
-
-	// Note: Full TC validation (checking for clsact qdisc, eBPF TC program support, etc.)
-	// should be done during probe initialization when actually attaching TC hooks.
-	// This is just a basic sanity check.
-
-	return nil
-}
-
 // Bytes serializes the configuration to JSON bytes (required by domain.Configuration interface)
 func (c *Config) Bytes() []byte {
 	data, err := json.Marshal(c)
 	if err != nil {
 		// Fallback to simple format if marshaling fails
-		return []byte(fmt.Sprintf(`{"nss_path":"%s","nspr_path":"%s","capture_mode":"%s","keylog_file":"%s","pcap_file":"%s","ifname":"%s","pcap_filter":"%s","pid":%d}`,
-			c.NSSPath, c.NSPRPath, c.CaptureMode, c.KeylogFile, c.PcapFile, c.Ifname, c.PcapFilter, c.Pid))
+		return []byte(fmt.Sprintf(`{"nss_path":"%s","nspr_path":"%s","pid":%d}`,
+			c.NSSPath, c.NSPRPath, c.Pid))
 	}
 	return data
 }
