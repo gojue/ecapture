@@ -363,6 +363,12 @@ func (m *MOpenSSLProbe) constantEditor() []manager.ConstantEditor {
 	if !m.isKernelLess5_2 {
 		kernelLess52 = 0
 	}
+	// use_ringbuf: 0 = use perf event, 1 = use ring buffer
+	// ring buffer is supported since Linux 5.8
+	var useRingbuf uint64 = 1
+	if m.IsKernelLess58() {
+		useRingbuf = 0
+	}
 	editor := []manager.ConstantEditor{
 		{
 			Name:  "target_pid",
@@ -376,6 +382,10 @@ func (m *MOpenSSLProbe) constantEditor() []manager.ConstantEditor {
 		{
 			Name:  "less52",
 			Value: kernelLess52,
+		},
+		{
+			Name:  "use_ringbuf",
+			Value: useRingbuf,
 		},
 	}
 

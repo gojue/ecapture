@@ -196,6 +196,10 @@ func (g *MGnutlsProbe) constantEditor() []manager.ConstantEditor {
 	if !g.isKernelLess5_2 {
 		kernelLess52 = 0
 	}
+	var useRingbuf uint64 = 1
+	if g.IsKernelLess58() {
+		useRingbuf = 0
+	}
 	var editor = []manager.ConstantEditor{
 		{
 			Name:  "target_pid",
@@ -205,6 +209,10 @@ func (g *MGnutlsProbe) constantEditor() []manager.ConstantEditor {
 		{
 			Name:  "less52",
 			Value: kernelLess52,
+		},
+		{
+			Name:  "use_ringbuf",
+			Value: useRingbuf,
 		},
 	}
 
