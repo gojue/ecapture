@@ -25,6 +25,9 @@ import (
 
 // Config holds the configuration for GoTLS probe
 type Config struct {
+	// ElfPath is the path to the Go binary ELF file
+	ElfPath string
+
 	// CaptureMode specifies the output mode: "text", "keylog", or "pcap"
 	CaptureMode string
 

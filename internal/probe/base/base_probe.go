@@ -105,6 +105,18 @@ func (p *BaseProbe) Stop(ctx context.Context) error {
 	return nil
 }
 
+// GetBPFName returns the appropriate eBPF bytecode filename.
+func (p *BaseProbe) GetBPFName(baseName string) string {
+	// Determine if we should use core or non-core bytecode
+	useCoreMode := p.config.GetBTF() == 1 // BTFModeCore
+
+	// Replace .o extension
+	if useCoreMode {
+		return baseName[:len(baseName)-2] + "_core.o"
+	}
+	return baseName[:len(baseName)-2] + "_noncore.o"
+}
+
 // Close releases all resources.
 func (p *BaseProbe) Close() error {
 	p.isRunning.Store(false)

@@ -20,12 +20,16 @@ import (
 	"os"
 
 	"github.com/cilium/ebpf"
+
+	"github.com/gojue/ecapture/internal/probe/base"
+
 	"github.com/gojue/ecapture/assets"
 	"github.com/gojue/ecapture/internal/probe/base/handlers"
 )
 
 // Probe represents the GoTLS probe
 type Probe struct {
+	*base.BaseProbe
 	config *Config
 
 	// Handlers for different output modes
@@ -44,7 +48,7 @@ func NewProbe() (*Probe, error) {
 }
 
 // Initialize initializes the probe with the given configuration
-func (p *Probe) Initialize(ctx context.Context, config interface{}, dispatcher interface{}) error {
+func (p *Probe) Initialize(ctx context.Context, config any, dispatcher any) error {
 	cfg, ok := config.(*Config)
 	if !ok {
 		return fmt.Errorf("invalid config type: expected *gotls.Config")
@@ -93,13 +97,19 @@ func (p *Probe) Initialize(ctx context.Context, config interface{}, dispatcher i
 	// 4. Master secret capture for keylog mode
 	// 5. Event map setup and polling
 	// Full implementation integrated in this probe
-	
+
 	// Example asset loading (when bytecode is available):
-	// bytecode, err := assets.Asset(cfg.selectBPFFileName())
-	// if err != nil {
-	//     return fmt.Errorf("failed to load eBPF bytecode: %w", err)
-	// }
-	_ = assets.Asset // Suppress unused import warning until full implementation
+	bpfFileName := p.BaseProbe.GetBPFName("bytecode/gotls_kern.o")
+	p.Logger().Info().Str("file", bpfFileName).Msg("Loading eBPF bytecode")
+
+	// TODO named variable, and use it when eBPF implementation is integrated
+	_, err := assets.Asset(bpfFileName)
+	if err != nil {
+		p.Logger().Error().Err(err).Strs("bytecode files", assets.AssetNames()).Msg("couldn't find bpf bytecode file")
+		return err
+	}
+
+	// TODO: Setup eBPF manager, load programs, attach uprobes, setup event maps, etc.
 
 	return nil
 }

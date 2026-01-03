@@ -80,9 +80,9 @@ func (p *Probe) Start(ctx context.Context) error {
 	}
 
 	// Load eBPF bytecode
-	bpfFileName := p.getBPFName("bytecode/bash_kern.o")
+	bpfFileName := p.BaseProbe.GetBPFName("bytecode/bash_kern.o")
 	p.Logger().Info().Str("file", bpfFileName).Msg("Loading eBPF bytecode")
-	
+
 	// Load from assets
 	byteBuf, err := assets.Asset(bpfFileName)
 	if err != nil {
@@ -147,7 +147,7 @@ func (p *Probe) Decode(em *ebpf.Map, data []byte) (domain.Event, error) {
 
 	// Handle multi-line commands
 	p.handleEvent(event)
-	
+
 	// Only return completed commands
 	if event.AllLines == "" {
 		return nil, nil // Not ready yet
@@ -169,7 +169,7 @@ func (p *Probe) GetDecoder(em *ebpf.Map) (domain.Event, bool) {
 // handleEvent processes bash events and manages multi-line commands.
 func (p *Probe) handleEvent(event *Event) {
 	uuid := event.UUID()
-	
+
 	p.lineMutex.Lock()
 	defer p.lineMutex.Unlock()
 
@@ -183,40 +183,28 @@ func (p *Probe) handleEvent(event *Event) {
 		} else {
 			p.lineMap[uuid] = newLine
 		}
-		
+
 	case BashEventTypeRetval:
 		// Command completed
 		line := p.lineMap[uuid]
 		delete(p.lineMap, uuid)
-		
+
 		// Skip empty lines or default error returns
 		if line == "" || event.ReturnValue == uint32(p.config.ErrNo) {
 			return
 		}
 		event.AllLines = line
-		
+
 	case BashEventTypeExitOrExec:
 		// Exit or exec event
 		line := p.lineMap[uuid]
 		delete(p.lineMap, uuid)
-		
+
 		if line == "" {
 			return
 		}
 		event.AllLines = line
 	}
-}
-
-// getBPFName returns the appropriate eBPF bytecode filename.
-func (p *Probe) getBPFName(baseName string) string {
-	// Determine if we should use core or non-core bytecode
-	useCoreMode := p.config.GetBTF() == 1 // BTFModeCore
-	
-	// Replace .o extension
-	if useCoreMode {
-		return baseName[:len(baseName)-2] + "_core.o"
-	}
-	return baseName[:len(baseName)-2] + "_noncore.o"
 }
 
 // setupManager configures the eBPF manager with probes.
@@ -310,5 +298,3 @@ func (p *Probe) getManagerOptions() manager.Options {
 
 	return opts
 }
-
-
