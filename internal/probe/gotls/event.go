@@ -25,15 +25,15 @@ import (
 )
 
 // TLSDataEvent represents a TLS data read/write event from GoTLS
-// This structure matches the eBPF event structure
+// This structure matches the eBPF event structure: struct go_tls_event
 type TLSDataEvent struct {
-	Timestamp uint64     // Timestamp in nanoseconds
-	Pid       uint32     // Process ID
-	Tid       uint32     // Thread ID
-	DataLen   uint32     // Length of actual data
-	EventType uint8      // 0 = write, 1 = read
-	Comm      [16]byte   // Process name
-	Data      [4096]byte // TLS data buffer (max 4KB per event)
+	Timestamp uint64       // ts_ns: Timestamp in nanoseconds
+	Pid       uint32       // pid: Process ID
+	Tid       uint32       // tid: Thread ID
+	DataLen   int32        // data_len: Length of actual data (signed int32 to match kernel)
+	EventType uint8        // event_type: 0 = write, 1 = read
+	Comm      [16]byte     // comm[TASK_COMM_LEN]: Process name
+	Data      [16384]byte  // data[MAX_DATA_SIZE_OPENSSL]: TLS data buffer (max 16KB per event)
 }
 
 // DecodeFromBytes deserializes the event from raw eBPF data.
@@ -75,14 +75,17 @@ func (e *TLSDataEvent) DecodeFromBytes(data []byte) error {
 	}
 
 	// Read data
-	if e.DataLen > 4096 {
-		e.DataLen = 4096
+	if e.DataLen > 16384 {
+		e.DataLen = 16384
+	}
+	if e.DataLen < 0 {
+		e.DataLen = 0
 	}
 
 	remaining := buf.Len()
 	if remaining > 0 {
-		if remaining > 4096 {
-			remaining = 4096
+		if remaining > 16384 {
+			remaining = 16384
 		}
 		copy(e.Data[:], buf.Next(remaining))
 	}
@@ -103,8 +106,11 @@ func (e *TLSDataEvent) GetPid() uint32 {
 // GetData returns the TLS data
 func (e *TLSDataEvent) GetData() []byte {
 	dataLen := e.DataLen
-	if dataLen > 4096 {
-		dataLen = 4096
+	if dataLen < 0 {
+		dataLen = 0
+	}
+	if dataLen > 16384 {
+		dataLen = 16384
 	}
 	return e.Data[:dataLen]
 }
@@ -170,8 +176,11 @@ func (e *TLSDataEvent) UUID() string {
 
 // Validate checks if the event data is valid.
 func (e *TLSDataEvent) Validate() error {
-	if e.DataLen > 4096 {
-		return fmt.Errorf("data length %d exceeds maximum 4096", e.DataLen)
+	if e.DataLen > 16384 {
+		return fmt.Errorf("data length %d exceeds maximum 16384", e.DataLen)
+	}
+	if e.DataLen < 0 {
+		return fmt.Errorf("data length %d is negative", e.DataLen)
 	}
 	return nil
 }

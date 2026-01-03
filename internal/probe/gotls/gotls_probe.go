@@ -283,60 +283,65 @@ func (p *Probe) setupManager() error {
 	p.Logger().Info().
 		Str("elf_path", elfPath).
 		Bool("register_abi", p.config.IsRegisterABI).
+		Str("capture_mode", p.config.CaptureMode).
 		Str("write_section", writeSection).
 		Str("read_section", readSection).
 		Msg("Setting up eBPF probes")
 
-	// Initialize probes list - write probe first as per maintainer's comment
-	probes := []*manager.Probe{
-		{
+	// Initialize probes list and maps based on capture mode
+	// Only one mode should be active at a time
+	var probes []*manager.Probe
+	var maps []*manager.Map
+
+	// For text and keylog modes, we need TLS read/write probes
+	if p.config.CaptureMode == "text" || p.config.CaptureMode == "keylog" {
+		// Add write probe first as per maintainer's comment
+		probes = append(probes, &manager.Probe{
 			Section:          writeSection,
 			EbpfFuncName:     writeFunc,
 			AttachToFuncName: "crypto/tls.(*Conn).writeRecordLocked",
 			BinaryPath:       elfPath,
 			UAddress:         p.config.GoTlsWriteAddr,
-		},
-	}
+		})
 
-	p.Logger().Debug().
-		Uint64("write_address", p.config.GoTlsWriteAddr).
-		Msg("Added write probe")
+		p.Logger().Debug().
+			Uint64("write_address", p.config.GoTlsWriteAddr).
+			Msg("Added write probe")
 
-	// Initialize Maps - events map first
-	maps := []*manager.Map{
-		{Name: "events"},
-	}
+		// Initialize events map
+		maps = append(maps, &manager.Map{Name: "events"})
 
-	// Add read probes using ReadTlsAddrs array
-	// Each address in ReadTlsAddrs represents a RET instruction offset for uretprobe
-	if len(p.config.ReadTlsAddrs) > 0 {
-		for i, addr := range p.config.ReadTlsAddrs {
+		// Add read probes using ReadTlsAddrs array
+		// Each address in ReadTlsAddrs represents a RET instruction offset for uretprobe
+		if len(p.config.ReadTlsAddrs) > 0 {
+			for i, addr := range p.config.ReadTlsAddrs {
+				probes = append(probes, &manager.Probe{
+					Section:          readSection,
+					EbpfFuncName:     readFunc,
+					AttachToFuncName: "crypto/tls.(*Conn).Read",
+					BinaryPath:       elfPath,
+					UAddress:         addr,
+				})
+				p.Logger().Debug().
+					Int("index", i).
+					Uint64("address", addr).
+					Msg("Added read probe")
+			}
+		} else {
+			// Fallback: if ReadTlsAddrs is empty, add a single probe at address 0
+			p.Logger().Warn().Msg("ReadTlsAddrs is empty, using fallback read probe at address 0")
 			probes = append(probes, &manager.Probe{
 				Section:          readSection,
 				EbpfFuncName:     readFunc,
 				AttachToFuncName: "crypto/tls.(*Conn).Read",
 				BinaryPath:       elfPath,
-				UAddress:         addr,
+				UAddress:         0,
 			})
-			p.Logger().Debug().
-				Int("index", i).
-				Uint64("address", addr).
-				Msg("Added read probe")
 		}
-	} else {
-		// Fallback: if ReadTlsAddrs is empty, add a single probe at address 0
-		p.Logger().Warn().Msg("ReadTlsAddrs is empty, using fallback read probe at address 0")
-		probes = append(probes, &manager.Probe{
-			Section:          readSection,
-			EbpfFuncName:     readFunc,
-			AttachToFuncName: "crypto/tls.(*Conn).Read",
-			BinaryPath:       elfPath,
-			UAddress:         0,
-		})
 	}
 
 	// Add master secret probe if in keylog mode
-	if p.config.CaptureMode == "keylog" {
+	if p.config.CaptureMode == "keylog" || p.config.CaptureMode == "key" {
 		probes = append(probes, &manager.Probe{
 			Section:          masterSecretSection,
 			EbpfFuncName:     masterSecretFunc,
@@ -351,25 +356,51 @@ func (p *Probe) setupManager() error {
 			Msg("Added master secret probe")
 	}
 
-	// Add TC (Traffic Control) probes if in pcap mode
-	if p.config.CaptureMode == "pcap" {
+	// Add TC (Traffic Control) probes if in pcap/pcapng mode
+	if p.config.CaptureMode == "pcap" || p.config.CaptureMode == "pcapng" {
 		if p.config.Ifname == "" {
 			return errors.NewConfigurationError("ifname is required for pcap mode", nil)
 		}
 
+		// For pcap mode, we also need TLS probes to correlate packets
+		// Add write probe
+		probes = append(probes, &manager.Probe{
+			Section:          writeSection,
+			EbpfFuncName:     writeFunc,
+			AttachToFuncName: "crypto/tls.(*Conn).writeRecordLocked",
+			BinaryPath:       elfPath,
+			UAddress:         p.config.GoTlsWriteAddr,
+		})
+
+		// Add read probes
+		if len(p.config.ReadTlsAddrs) > 0 {
+			for _, addr := range p.config.ReadTlsAddrs {
+				probes = append(probes, &manager.Probe{
+					Section:          readSection,
+					EbpfFuncName:     readFunc,
+					AttachToFuncName: "crypto/tls.(*Conn).Read",
+					BinaryPath:       elfPath,
+					UAddress:         addr,
+				})
+			}
+		}
+
+		// Add events map for TLS events
+		maps = append(maps, &manager.Map{Name: "events"})
+
 		// Add ingress TC probe
 		probes = append(probes, &manager.Probe{
-			Section:      "classifier",
-			EbpfFuncName: "ingress_cls_func",
-			Ifname:       p.config.Ifname,
+			Section:          "classifier",
+			EbpfFuncName:     "ingress_cls_func",
+			Ifname:           p.config.Ifname,
 			NetworkDirection: manager.Ingress,
 		})
 
 		// Add egress TC probe
 		probes = append(probes, &manager.Probe{
-			Section:      "classifier",
-			EbpfFuncName: "egress_cls_func",
-			Ifname:       p.config.Ifname,
+			Section:          "classifier",
+			EbpfFuncName:     "egress_cls_func",
+			Ifname:           p.config.Ifname,
 			NetworkDirection: manager.Egress,
 		})
 
