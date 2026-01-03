@@ -20,132 +20,115 @@ import (
 	"encoding/hex"
 	"fmt"
 	"time"
+
+	"github.com/gojue/ecapture/internal/domain"
+	"github.com/gojue/ecapture/internal/errors"
 )
 
 // MasterSecretEvent represents a TLS master secret event from GoTLS
 // This structure matches the eBPF event structure for TLS key material
 type MasterSecretEvent struct {
-	Timestamp                    uint64     // Timestamp in nanoseconds
-	Pid                          uint32     // Process ID
-	Tid                          uint32     // Thread ID
-	ClientRandom                 [32]byte   // Client random (32 bytes)
-	MasterKey                    [48]byte   // Master key for TLS 1.2 (48 bytes)
-	ClientHandshakeTrafficSecret [64]byte   // Client handshake traffic secret for TLS 1.3
-	ServerHandshakeTrafficSecret [64]byte   // Server handshake traffic secret for TLS 1.3
-	ClientAppTrafficSecret       [64]byte   // Client application traffic secret for TLS 1.3
-	ServerAppTrafficSecret       [64]byte   // Server application traffic secret for TLS 1.3
-	ExporterMasterSecret         [64]byte   // Exporter master secret for TLS 1.3
+	Timestamp                    uint64   // Timestamp in nanoseconds
+	Pid                          uint32   // Process ID
+	Tid                          uint32   // Thread ID
+	ClientRandom                 [32]byte // Client random (32 bytes)
+	MasterKey                    [48]byte // Master key for TLS 1.2 (48 bytes)
+	ClientHandshakeTrafficSecret [64]byte // Client handshake traffic secret for TLS 1.3
+	ServerHandshakeTrafficSecret [64]byte // Server handshake traffic secret for TLS 1.3
+	ClientAppTrafficSecret       [64]byte // Client application traffic secret for TLS 1.3
+	ServerAppTrafficSecret       [64]byte // Server application traffic secret for TLS 1.3
+	ExporterMasterSecret         [64]byte // Exporter master secret for TLS 1.3
 }
 
-// Decode decodes the binary event data
-func (e *MasterSecretEvent) Decode(data []byte) error {
+// DecodeFromBytes deserializes the event from raw eBPF data.
+func (e *MasterSecretEvent) DecodeFromBytes(data []byte) error {
 	expectedSize := 8 + 4 + 4 + 32 + 48 + 64*5 // 406 bytes
 	if len(data) < expectedSize {
-		return fmt.Errorf("data too short: got %d bytes, need at least %d", len(data), expectedSize)
+		return errors.NewEventDecodeError("gotls.MasterSecretEvent", 
+			fmt.Errorf("data too short: got %d bytes, need at least %d", len(data), expectedSize))
 	}
 
-	buf := bytes.NewReader(data)
+	buf := bytes.NewBuffer(data)
 
 	// Read timestamp
 	if err := binary.Read(buf, binary.LittleEndian, &e.Timestamp); err != nil {
-		return fmt.Errorf("failed to read timestamp: %w", err)
+		return errors.NewEventDecodeError("gotls.Timestamp", err)
 	}
 
 	// Read PID
 	if err := binary.Read(buf, binary.LittleEndian, &e.Pid); err != nil {
-		return fmt.Errorf("failed to read PID: %w", err)
+		return errors.NewEventDecodeError("gotls.Pid", err)
 	}
 
 	// Read TID
 	if err := binary.Read(buf, binary.LittleEndian, &e.Tid); err != nil {
-		return fmt.Errorf("failed to read TID: %w", err)
+		return errors.NewEventDecodeError("gotls.Tid", err)
 	}
 
 	// Read client random
 	if _, err := buf.Read(e.ClientRandom[:]); err != nil {
-		return fmt.Errorf("failed to read client random: %w", err)
+		return errors.NewEventDecodeError("gotls.ClientRandom", err)
 	}
 
 	// Read master key (TLS 1.2)
 	if _, err := buf.Read(e.MasterKey[:]); err != nil {
-		return fmt.Errorf("failed to read master key: %w", err)
+		return errors.NewEventDecodeError("gotls.MasterKey", err)
 	}
 
 	// Read TLS 1.3 secrets
 	if _, err := buf.Read(e.ClientHandshakeTrafficSecret[:]); err != nil {
-		return fmt.Errorf("failed to read client handshake traffic secret: %w", err)
+		return errors.NewEventDecodeError("gotls.ClientHandshakeTrafficSecret", err)
 	}
 
 	if _, err := buf.Read(e.ServerHandshakeTrafficSecret[:]); err != nil {
-		return fmt.Errorf("failed to read server handshake traffic secret: %w", err)
+		return errors.NewEventDecodeError("gotls.ServerHandshakeTrafficSecret", err)
 	}
 
 	if _, err := buf.Read(e.ClientAppTrafficSecret[:]); err != nil {
-		return fmt.Errorf("failed to read client app traffic secret: %w", err)
+		return errors.NewEventDecodeError("gotls.ClientAppTrafficSecret", err)
 	}
 
 	if _, err := buf.Read(e.ServerAppTrafficSecret[:]); err != nil {
-		return fmt.Errorf("failed to read server app traffic secret: %w", err)
+		return errors.NewEventDecodeError("gotls.ServerAppTrafficSecret", err)
 	}
 
 	if _, err := buf.Read(e.ExporterMasterSecret[:]); err != nil {
-		return fmt.Errorf("failed to read exporter master secret: %w", err)
+		return errors.NewEventDecodeError("gotls.ExporterMasterSecret", err)
 	}
 
 	return nil
 }
 
-// Encode encodes the event to binary format
-func (e *MasterSecretEvent) Encode() ([]byte, error) {
-	buf := new(bytes.Buffer)
+// String returns a human-readable representation of the event.
+func (e *MasterSecretEvent) String() string {
+	return fmt.Sprintf("PID:%d, TID:%d, ClientRandom:%s",
+		e.Pid, e.Tid, hex.EncodeToString(e.ClientRandom[:]))
+}
 
-	// Write timestamp
-	if err := binary.Write(buf, binary.LittleEndian, e.Timestamp); err != nil {
-		return nil, fmt.Errorf("failed to write timestamp: %w", err)
-	}
+// StringHex returns a hexadecimal representation of the event.
+func (e *MasterSecretEvent) StringHex() string {
+	return e.String() // Master secrets are already in hex
+}
 
-	// Write PID
-	if err := binary.Write(buf, binary.LittleEndian, e.Pid); err != nil {
-		return nil, fmt.Errorf("failed to write PID: %w", err)
-	}
+// Clone creates a new instance of the event.
+func (e *MasterSecretEvent) Clone() domain.Event {
+	return &MasterSecretEvent{}
+}
 
-	// Write TID
-	if err := binary.Write(buf, binary.LittleEndian, e.Tid); err != nil {
-		return nil, fmt.Errorf("failed to write TID: %w", err)
-	}
+// Type returns the event type (ModuleData for master secret events).
+func (e *MasterSecretEvent) Type() domain.EventType {
+	return domain.EventTypeModuleData
+}
 
-	// Write client random
-	if _, err := buf.Write(e.ClientRandom[:]); err != nil {
-		return nil, fmt.Errorf("failed to write client random: %w", err)
-	}
+// UUID returns a unique identifier for this event.
+func (e *MasterSecretEvent) UUID() string {
+	return fmt.Sprintf("%d_%d_%d", e.Pid, e.Tid, e.Timestamp)
+}
 
-	// Write master key
-	if _, err := buf.Write(e.MasterKey[:]); err != nil {
-		return nil, fmt.Errorf("failed to write master key: %w", err)
-	}
-
-	// Write TLS 1.3 secrets
-	if _, err := buf.Write(e.ClientHandshakeTrafficSecret[:]); err != nil {
-		return nil, fmt.Errorf("failed to write client handshake traffic secret: %w", err)
-	}
-
-	if _, err := buf.Write(e.ServerHandshakeTrafficSecret[:]); err != nil {
-		return nil, fmt.Errorf("failed to write server handshake traffic secret: %w", err)
-	}
-
-	if _, err := buf.Write(e.ClientAppTrafficSecret[:]); err != nil {
-		return nil, fmt.Errorf("failed to write client app traffic secret: %w", err)
-	}
-
-	if _, err := buf.Write(e.ServerAppTrafficSecret[:]); err != nil {
-		return nil, fmt.Errorf("failed to write server app traffic secret: %w", err)
-	}
-
-	if _, err := buf.Write(e.ExporterMasterSecret[:]); err != nil {
-		return nil, fmt.Errorf("failed to write exporter master secret: %w", err)
-	}
-
-	return buf.Bytes(), nil
+// Validate checks if the event data is valid.
+func (e *MasterSecretEvent) Validate() error {
+	// Master secret events are always valid if decoded successfully
+	return nil
 }
 
 // GetTimestamp returns the event timestamp as time.Time
@@ -191,13 +174,4 @@ func (e *MasterSecretEvent) GetServerAppTrafficSecret() []byte {
 // GetExporterMasterSecret returns the TLS 1.3 exporter master secret
 func (e *MasterSecretEvent) GetExporterMasterSecret() []byte {
 	return e.ExporterMasterSecret[:]
-}
-
-// String returns a string representation of the event
-func (e *MasterSecretEvent) String() string {
-	return fmt.Sprintf("MasterSecretEvent{ts=%s, pid=%d, tid=%d, client_random=%s}",
-		e.GetTimestamp().Format(time.RFC3339Nano),
-		e.Pid,
-		e.Tid,
-		hex.EncodeToString(e.ClientRandom[:8])+"...")
 }

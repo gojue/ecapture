@@ -21,46 +21,56 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"github.com/gojue/ecapture/internal/config"
 )
 
-// Config holds the configuration for GoTLS probe
+// Config extends BaseConfig with GoTLS-specific configuration.
 type Config struct {
+	*config.BaseConfig
+
 	// ElfPath is the path to the Go binary ELF file
-	ElfPath string
+	ElfPath string `json:"elf_path"`
 
 	// CaptureMode specifies the output mode: "text", "keylog", or "pcap"
-	CaptureMode string
+	CaptureMode string `json:"capture_mode"`
 
 	// KeylogFile is the path to write TLS keylog output (for keylog mode)
-	KeylogFile string
+	KeylogFile string `json:"keylog_file"`
 
 	// PcapFile is the path to write pcap output (for pcap mode)
-	PcapFile string
+	PcapFile string `json:"pcap_file"`
 
 	// Ifname is the network interface name for packet capture (for pcap mode)
-	Ifname string
+	Ifname string `json:"ifname"`
 
 	// PcapFilter is an optional BPF filter expression (for pcap mode)
-	PcapFilter string
+	PcapFilter string `json:"pcap_filter"`
 
 	// GoVersion is the detected Go runtime version
-	GoVersion string
+	GoVersion string `json:"go_version"`
 
-	// Pid is the target process ID (0 means capture all processes)
-	Pid uint32
+	// IsRegisterABI indicates whether to use register-based ABI (Go 1.17+)
+	IsRegisterABI bool `json:"is_register_abi"`
 }
 
 // NewConfig creates a new GoTLS config with default values
 func NewConfig() *Config {
 	return &Config{
-		CaptureMode: "text",
-		GoVersion:   "",
-		Pid:         0,
+		BaseConfig:    config.NewBaseConfig(),
+		CaptureMode:   "text",
+		GoVersion:     "",
+		IsRegisterABI: false,
 	}
 }
 
 // Validate validates the configuration
 func (c *Config) Validate() error {
+	// Validate BaseConfig first
+	if err := c.BaseConfig.Validate(); err != nil {
+		return fmt.Errorf("base config validation failed: %w", err)
+	}
+
 	// Detect Go version
 	if c.GoVersion == "" {
 		version := detectGoVersion()
@@ -74,6 +84,9 @@ func (c *Config) Validate() error {
 	if !isGoVersionSupported(c.GoVersion) {
 		return fmt.Errorf("unsupported Go version: %s (require Go 1.17+)", c.GoVersion)
 	}
+
+	// Determine ABI based on Go version
+	c.IsRegisterABI = isRegisterABI(c.GoVersion)
 
 	// Validate capture mode
 	if err := c.validateCaptureMode(); err != nil {
@@ -228,54 +241,32 @@ func isGoVersionSupported(version string) bool {
 	return false
 }
 
-// GetHex returns whether to use hex encoding for output (always false for GoTLS)
-func (c *Config) GetHex() bool {
+// isRegisterABI checks if the Go version uses register-based ABI
+// Go 1.17+ uses register-based ABI, earlier versions use stack-based ABI
+func isRegisterABI(version string) bool {
+	// Remove "go" prefix
+	version = strings.TrimPrefix(version, "go")
+
+	// Parse major.minor version
+	var major, minor int
+	_, err := fmt.Sscanf(version, "%d.%d", &major, &minor)
+	if err != nil {
+		return false
+	}
+
+	// Go 1.17+ uses register-based ABI
+	if major > 1 {
+		return true
+	}
+	if major == 1 && minor >= 17 {
+		return true
+	}
+
 	return false
 }
 
-// GetPid returns the target process ID
-func (c *Config) GetPid() uint64 {
-	return uint64(c.Pid)
-}
-
-// GetUid returns the target user ID (not used for GoTLS)
-func (c *Config) GetUid() uint64 {
-	return 0
-}
-
-// GetDebug returns whether debug mode is enabled (not used for GoTLS)
-func (c *Config) GetDebug() bool {
-	return false
-}
-
-// GetBTF returns the BTF mode (not used for GoTLS)
-func (c *Config) GetBTF() uint8 {
-	return 0
-}
-
-// GetPerCpuMapSize returns the eBPF map size per CPU (not used for GoTLS)
-func (c *Config) GetPerCpuMapSize() int {
-	return 0
-}
-
-// GetTruncateSize returns the maximum size for truncating captured data (not used for GoTLS)
-func (c *Config) GetTruncateSize() uint64 {
-	return 0
-}
-
-// EnableGlobalVar checks if kernel supports global variables (not used for GoTLS)
-func (c *Config) EnableGlobalVar() bool {
-	return false
-}
-
-// GetByteCodeFileMode returns the bytecode file selection mode (not used for GoTLS)
-func (c *Config) GetByteCodeFileMode() uint8 {
-	return 0
-}
-
-// Bytes serializes the configuration to JSON bytes (required by domain.Configuration interface)
+// Bytes serializes the configuration to JSON bytes (using BaseConfig implementation)
 func (c *Config) Bytes() []byte {
-	// Implement simple JSON-like serialization for HTTP interface compatibility
-	return []byte(fmt.Sprintf(`{"capture_mode":"%s","keylog_file":"%s","pcap_file":"%s","ifname":"%s","pcap_filter":"%s","go_version":"%s","pid":%d}`,
-		c.CaptureMode, c.KeylogFile, c.PcapFile, c.Ifname, c.PcapFilter, c.GoVersion, c.Pid))
+	// Use BaseConfig's Bytes method which handles JSON serialization properly
+	return c.BaseConfig.Bytes()
 }
