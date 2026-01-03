@@ -33,8 +33,8 @@
  * length
  *    The length (in bytes) of the following TLSPlaintext.fragment.  The length MUST NOT exceed 2^14.
  *
- * OpenSSL : SSL3_RT_MAX_PLAIN_LENGTH (16384). These functions will only accept a value in the range 512 - SSL3_RT_MAX_PLAIN_LENGTH.
- * https://docs.openssl.org/1.1.1/man3/SSL_CTX_set_split_send_fragment/#description
+ * OpenSSL : SSL3_RT_MAX_PLAIN_LENGTH (16384). These functions will only accept a value in the range 512 -
+ * SSL3_RT_MAX_PLAIN_LENGTH. https://docs.openssl.org/1.1.1/man3/SSL_CTX_set_split_send_fragment/#description
  */
 #define MAX_DATA_SIZE_OPENSSL 1024 * 16
 #define MAX_DATA_SIZE_MYSQL 256
@@ -68,8 +68,6 @@ const volatile u64 less52 = 1;
 const volatile u64 target_pid = 0;
 const volatile u64 target_uid = 0;
 const volatile u64 target_errno = BASH_ERRNO_DEFAULT;
-
-
 
 // fix  4.19.91-27.7.al7.x86_64/source/include/linux/kernel.h:140:9: warning: 'roundup' macro redefined
 #ifndef roundup

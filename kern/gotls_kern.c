@@ -110,9 +110,7 @@ static __always_inline int gotls_write(struct pt_regs *ctx, bool is_register_abi
         return 0;
     }
 
-    event->data_len =
-        (len < MAX_DATA_SIZE_OPENSSL ? (len & (MAX_DATA_SIZE_OPENSSL - 1))
-                                     : MAX_DATA_SIZE_OPENSSL);
+    event->data_len = (len < MAX_DATA_SIZE_OPENSSL ? (len & (MAX_DATA_SIZE_OPENSSL - 1)) : MAX_DATA_SIZE_OPENSSL);
     int ret = bpf_probe_read_user(&event->data, event->data_len, (void *)str);
     if (ret < 0) {
         debug_bpf_printk("gotls_write bpf_probe_read_user_str failed, ret:%d, str:%d\n", ret, str);
@@ -166,8 +164,7 @@ static __always_inline int gotls_read(struct pt_regs *ctx, bool is_register_abi)
     }
 
     event->data_len =
-        (ret_len < MAX_DATA_SIZE_OPENSSL ? (ret_len & (MAX_DATA_SIZE_OPENSSL - 1))
-                                     : MAX_DATA_SIZE_OPENSSL);
+        (ret_len < MAX_DATA_SIZE_OPENSSL ? (ret_len & (MAX_DATA_SIZE_OPENSSL - 1)) : MAX_DATA_SIZE_OPENSSL);
     event->event_type = GOTLS_EVENT_TYPE_READ;
     int ret = bpf_probe_read_user(&event->data, event->data_len, (void *)str);
     if (ret < 0) {
