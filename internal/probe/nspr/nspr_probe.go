@@ -16,16 +16,19 @@ package nspr
 
 import (
 	"context"
-	"fmt"
 	"os"
 
 	"github.com/cilium/ebpf"
 	"github.com/gojue/ecapture/assets"
+	"github.com/gojue/ecapture/internal/domain"
+	"github.com/gojue/ecapture/internal/errors"
+	"github.com/gojue/ecapture/internal/probe/base"
 	"github.com/gojue/ecapture/internal/probe/base/handlers"
 )
 
 // Probe represents the NSPR/NSS probe
 type Probe struct {
+	*base.BaseProbe
 	config *Config
 
 	// Handlers for different output modes
@@ -40,72 +43,90 @@ type Probe struct {
 
 // NewProbe creates a new NSPR probe
 func NewProbe() (*Probe, error) {
-	return &Probe{}, nil
+	return &Probe{
+		BaseProbe: base.NewBaseProbe("nspr"),
+	}, nil
 }
 
 // Initialize initializes the probe with the given configuration
-func (p *Probe) Initialize(ctx context.Context, config interface{}, dispatcher interface{}) error {
-	cfg, ok := config.(*Config)
+func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration, dispatcher domain.EventDispatcher) error {
+	// Initialize base probe first
+	if err := p.BaseProbe.Initialize(ctx, cfg, dispatcher); err != nil {
+		return err
+	}
+
+	// Type assert to NSPR-specific config
+	nsprConfig, ok := cfg.(*Config)
 	if !ok {
-		return fmt.Errorf("invalid config type: expected *nspr.Config")
+		return errors.NewConfigurationError("invalid config type for nspr probe", nil)
 	}
 
 	// Validate configuration
-	if err := cfg.Validate(); err != nil {
-		return fmt.Errorf("config validation failed: %w", err)
+	if err := nsprConfig.Validate(); err != nil {
+		return errors.NewConfigurationError("nspr config validation failed", err)
 	}
 
-	p.config = cfg
+	p.config = nsprConfig
 
 	// Initialize handler based on capture mode
-	switch cfg.CaptureMode {
+	switch nsprConfig.CaptureMode {
 	case "text":
 		// For text mode, use stdout
 		p.textHandler = handlers.NewTextHandler(os.Stdout)
 
 	case "keylog":
 		// For keylog mode, open keylog file
-		file, err := os.OpenFile(cfg.KeylogFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+		file, err := os.OpenFile(nsprConfig.KeylogFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 		if err != nil {
-			return fmt.Errorf("failed to open keylog file: %w", err)
+			return errors.Wrap(errors.ErrCodeResourceAllocation, "failed to open keylog file", err)
 		}
 		p.keylogFile = file
 		p.keylogHandler = handlers.NewKeylogHandler(file)
 
 	case "pcap":
 		// For pcap mode, open pcap file
-		file, err := os.OpenFile(cfg.PcapFile, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+		file, err := os.OpenFile(nsprConfig.PcapFile, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 		if err != nil {
-			return fmt.Errorf("failed to open pcap file: %w", err)
+			return errors.Wrap(errors.ErrCodeResourceAllocation, "failed to open pcap file", err)
 		}
 		p.pcapFile = file
 		p.pcapHandler = handlers.NewPcapHandler(file)
 
 	default:
-		return fmt.Errorf("invalid capture mode: %s", cfg.CaptureMode)
+		return errors.NewConfigurationError("invalid capture mode", nil)
 	}
 
 	// Load eBPF bytecode
 	bpfFileName := "bytecode/nspr_kern.o"
 	_, err := assets.Asset(bpfFileName)
 	if err != nil {
-		return fmt.Errorf("couldn't find asset %w", err)
+		return errors.NewEBPFLoadError(bpfFileName, err)
 	}
 
-	// eBPF manager setup, event maps, and hooks are implemented
+	// eBPF manager setup, event maps, and hooks will be implemented
 	// Manager includes:
 	// - Probes: PR_Send, PR_Recv hooks
 	// - Event maps for TLS data capture
 	// - Keylog mode: master secret capture hooks
 	// - PCAP mode: TC classifier for packet capture
 
+	p.Logger().Info().
+		Str("nss_path", nsprConfig.NSSPath).
+		Str("nspr_path", nsprConfig.NSPRPath).
+		Str("capture_mode", nsprConfig.CaptureMode).
+		Msg("NSPR probe initialized")
+
 	return nil
 }
 
 // Start starts the probe
 func (p *Probe) Start(ctx context.Context) error {
+	if err := p.BaseProbe.Start(ctx); err != nil {
+		return err
+	}
+
 	if p.config == nil {
-		return fmt.Errorf("probe not initialized")
+		return errors.NewProbeStartError("nspr", nil)
 	}
 
 	// Start eBPF event processing when implemented
@@ -114,6 +135,7 @@ func (p *Probe) Start(ctx context.Context) error {
 	// - Process master secret events (keylog mode)
 	// - Process packet events (pcap mode)
 
+	p.Logger().Info().Msg("NSPR probe started")
 	return nil
 }
 
@@ -124,7 +146,7 @@ func (p *Probe) Stop(ctx context.Context) error {
 	// - Detach eBPF programs
 	// - Clean up event maps
 
-	return nil
+	return p.BaseProbe.Stop(ctx)
 }
 
 // Events returns the eBPF maps for event collection.
@@ -133,18 +155,12 @@ func (p *Probe) Events() []*ebpf.Map {
 	return []*ebpf.Map{}
 }
 
-// IsRunning returns whether the probe is currently running.
-func (p *Probe) IsRunning() bool {
-	// Track running state when eBPF is implemented
-	return false
-}
-
 // Close closes the probe and releases resources
 func (p *Probe) Close() error {
 	// Close keylog file if open
 	if p.keylogFile != nil {
 		if err := p.keylogFile.Close(); err != nil {
-			return fmt.Errorf("failed to close keylog file: %w", err)
+			p.Logger().Warn().Err(err).Msg("Failed to close keylog file")
 		}
 		p.keylogFile = nil
 	}
@@ -152,17 +168,36 @@ func (p *Probe) Close() error {
 	// Close pcap file if open
 	if p.pcapFile != nil {
 		if err := p.pcapFile.Close(); err != nil {
-			return fmt.Errorf("failed to close pcap file: %w", err)
+			p.Logger().Warn().Err(err).Msg("Failed to close pcap file")
 		}
 		p.pcapFile = nil
 	}
 
 	// Unload eBPF program and clean up resources when implemented
 
-	return nil
+	return p.BaseProbe.Close()
 }
 
-// Name returns the probe name
-func (p *Probe) Name() string {
-	return "nspr"
+// Decode implements EventDecoder interface for decoding eBPF events
+func (p *Probe) Decode(em *ebpf.Map, data []byte) (domain.Event, error) {
+	// Determine event type based on map name
+	// For now, default to TLSDataEvent
+	event := &TLSDataEvent{}
+	if err := event.Decode(data); err != nil {
+		return nil, errors.NewEventDecodeError("nspr.TLSDataEvent", err)
+	}
+
+	// Handle event based on mode
+	if p.textHandler != nil {
+		// Write to text handler
+		// p.textHandler.Handle(event)
+	}
+
+	return event, nil
+}
+
+// GetDecoder returns the event decoder (self-reference)
+func (p *Probe) GetDecoder(em *ebpf.Map) (domain.Event, bool) {
+	// Return an empty event for decoding
+	return &TLSDataEvent{}, true
 }

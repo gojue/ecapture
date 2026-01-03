@@ -30,8 +30,8 @@ func TestNewConfig(t *testing.T) {
 		t.Errorf("Expected default CaptureMode 'text', got '%s'", cfg.CaptureMode)
 	}
 
-	if cfg.PID != 0 {
-		t.Errorf("Expected default PID 0, got %d", cfg.PID)
+	if cfg.Pid != 0 {
+		t.Errorf("Expected default Pid 0, got %d", cfg.Pid)
 	}
 }
 

@@ -19,6 +19,9 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+
+	"github.com/gojue/ecapture/internal/domain"
+	"github.com/gojue/ecapture/internal/errors"
 )
 
 const (
@@ -112,46 +115,99 @@ func (e *MasterSecretEvent) HasClientHandshakeTrafficSecret() bool {
 	return false
 }
 
-// Decode decodes a MasterSecretEvent from binary data
-func (e *MasterSecretEvent) Decode(data []byte) error {
+// DecodeFromBytes implements domain.Event interface
+func (e *MasterSecretEvent) DecodeFromBytes(data []byte) error {
 	buf := bytes.NewReader(data)
 
 	// Read ClientRandom
 	if err := binary.Read(buf, binary.LittleEndian, &e.ClientRandom); err != nil {
-		return fmt.Errorf("failed to read client random: %w", err)
+		return errors.NewEventDecodeError("nspr.ClientRandom", err)
 	}
 
 	// Read MasterKey
 	if err := binary.Read(buf, binary.LittleEndian, &e.MasterKey); err != nil {
-		return fmt.Errorf("failed to read master key: %w", err)
+		return errors.NewEventDecodeError("nspr.MasterKey", err)
 	}
 
 	// Read ClientHandshakeTrafficSecret
 	if err := binary.Read(buf, binary.LittleEndian, &e.ClientHandshakeTrafficSecret); err != nil {
-		return fmt.Errorf("failed to read client handshake traffic secret: %w", err)
+		return errors.NewEventDecodeError("nspr.ClientHandshakeTrafficSecret", err)
 	}
 
 	// Read ServerHandshakeTrafficSecret
 	if err := binary.Read(buf, binary.LittleEndian, &e.ServerHandshakeTrafficSecret); err != nil {
-		return fmt.Errorf("failed to read server handshake traffic secret: %w", err)
+		return errors.NewEventDecodeError("nspr.ServerHandshakeTrafficSecret", err)
 	}
 
 	// Read ClientAppTrafficSecret
 	if err := binary.Read(buf, binary.LittleEndian, &e.ClientAppTrafficSecret); err != nil {
-		return fmt.Errorf("failed to read client app traffic secret: %w", err)
+		return errors.NewEventDecodeError("nspr.ClientAppTrafficSecret", err)
 	}
 
 	// Read ServerAppTrafficSecret
 	if err := binary.Read(buf, binary.LittleEndian, &e.ServerAppTrafficSecret); err != nil {
-		return fmt.Errorf("failed to read server app traffic secret: %w", err)
+		return errors.NewEventDecodeError("nspr.ServerAppTrafficSecret", err)
 	}
 
 	// Read ExporterMasterSecret
 	if err := binary.Read(buf, binary.LittleEndian, &e.ExporterMasterSecret); err != nil {
-		return fmt.Errorf("failed to read exporter master secret: %w", err)
+		return errors.NewEventDecodeError("nspr.ExporterMasterSecret", err)
 	}
 
 	return nil
+}
+
+// String implements domain.Event interface
+func (e *MasterSecretEvent) String() string {
+	clientRandom := hex.EncodeToString(e.ClientRandom[:])
+
+	result := fmt.Sprintf("MasterSecretEvent{ClientRandom: %s", clientRandom)
+
+	if e.HasMasterKey() {
+		result += ", MasterKey: <present>"
+	}
+
+	if e.HasClientHandshakeTrafficSecret() {
+		result += ", TLS1.3 secrets: <present>"
+	}
+
+	result += "}"
+	return result
+}
+
+// StringHex implements domain.Event interface
+func (e *MasterSecretEvent) StringHex() string {
+	// Same as String for master secret events
+	return e.String()
+}
+
+// Clone implements domain.Event interface
+func (e *MasterSecretEvent) Clone() domain.Event {
+	return &MasterSecretEvent{}
+}
+
+// Type implements domain.Event interface
+func (e *MasterSecretEvent) Type() domain.EventType {
+	return domain.EventTypeModuleData
+}
+
+// UUID implements domain.Event interface
+func (e *MasterSecretEvent) UUID() string {
+	return hex.EncodeToString(e.ClientRandom[:])
+}
+
+// Validate implements domain.Event interface
+func (e *MasterSecretEvent) Validate() error {
+	// Check if at least one secret is present
+	if !e.HasMasterKey() && !e.HasClientHandshakeTrafficSecret() {
+		return fmt.Errorf("no secrets present in master secret event")
+	}
+	return nil
+}
+
+// Decode is kept for backward compatibility
+func (e *MasterSecretEvent) Decode(data []byte) error {
+	return e.DecodeFromBytes(data)
 }
 
 // Encode encodes a MasterSecretEvent to binary data
@@ -194,22 +250,4 @@ func (e *MasterSecretEvent) Encode() ([]byte, error) {
 	}
 
 	return buf.Bytes(), nil
-}
-
-// String returns a string representation of the event
-func (e *MasterSecretEvent) String() string {
-	clientRandom := hex.EncodeToString(e.ClientRandom[:])
-
-	result := fmt.Sprintf("MasterSecretEvent{ClientRandom: %s", clientRandom)
-
-	if e.HasMasterKey() {
-		result += ", MasterKey: <present>"
-	}
-
-	if e.HasClientHandshakeTrafficSecret() {
-		result += ", TLS1.3 secrets: <present>"
-	}
-
-	result += "}"
-	return result
 }
