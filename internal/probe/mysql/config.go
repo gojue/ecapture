@@ -86,12 +86,22 @@ func (c *Config) Validate() error {
 		return err
 	}
 
-	// Check if MySQL path is provided
+	// Check if MySQL path is provided, if not, try to detect from PID
 	if c.MysqlPath == "" || len(strings.TrimSpace(c.MysqlPath)) == 0 {
-		return errors.NewConfigurationError(
-			"MySQL path cannot be empty",
-			fmt.Errorf("empty mysql path"),
-		).WithContext("path", c.MysqlPath)
+		// If PID is provided, try to detect binary path from it
+		if c.GetPid() > 0 {
+			if detectedPath, err := c.detectBinaryPathFromPid(c.GetPid()); err == nil && detectedPath != "" {
+				c.MysqlPath = detectedPath
+			}
+		}
+		
+		// If still empty after detection attempt, return error
+		if c.MysqlPath == "" || len(strings.TrimSpace(c.MysqlPath)) == 0 {
+			return errors.NewConfigurationError(
+				"MySQL path cannot be empty and cannot be auto-detected",
+				fmt.Errorf("empty mysql path and no PID provided for auto-detection"),
+			).WithContext("path", c.MysqlPath).WithContext("pid", fmt.Sprintf("%d", c.GetPid()))
+		}
 	}
 
 	// Check if MySQL binary exists
@@ -218,6 +228,24 @@ func (c *Config) detectMysqlVersion(rodataData []byte) (MysqlVersion, string) {
 	}
 
 	return MysqlVersionUnknown, ""
+}
+
+// detectBinaryPathFromPid attempts to detect the MySQL binary path from a process ID
+func (c *Config) detectBinaryPathFromPid(pid uint64) (string, error) {
+	// Read the /proc/<pid>/exe symlink to get the binary path
+	exePath := fmt.Sprintf("/proc/%d/exe", pid)
+	binaryPath, err := os.Readlink(exePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read exe symlink for PID %d: %w", pid, err)
+	}
+	
+	// Verify it's a MySQL/MariaDB binary by checking the name
+	baseName := strings.ToLower(binaryPath)
+	if !strings.Contains(baseName, "mysqld") && !strings.Contains(baseName, "mariadbd") {
+		return "", fmt.Errorf("PID %d does not appear to be a MySQL/MariaDB process (binary: %s)", pid, binaryPath)
+	}
+	
+	return binaryPath, nil
 }
 
 // GetFuncName returns the function name to hook
