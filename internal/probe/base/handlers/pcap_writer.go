@@ -15,7 +15,6 @@
 package handlers
 
 import (
-	"encoding/binary"
 	"fmt"
 	"io"
 	"time"
@@ -70,15 +69,6 @@ func (pw *PcapWriter) WritePacket(data []byte, timestamp time.Time) error {
 	return pw.writer.WritePacket(captureInfo, data)
 }
 
-// DSB secret types for Decryption Secrets Block
-const (
-	DSB_SECRETS_TYPE_TLS            uint32 = 0x544c534b // TLS Key Log
-	DSB_SECRETS_TYPE_SSH            uint32 = 0x5353484b // SSH Key Log
-	DSB_SECRETS_TYPE_WIREGUARD      uint32 = 0x57474b4c // WireGuard Key Log
-	DSB_SECRETS_TYPE_ZIGBEE_NWK_KEY uint32 = 0x5a4e574b // Zigbee NWK Key
-	DSB_SECRETS_TYPE_ZIGBEE_APS_KEY uint32 = 0x5a415053 // Zigbee APS Key
-)
-
 // WriteMasterSecret writes TLS master secret as a Decryption Secrets Block (DSB)
 func (pw *PcapWriter) WriteMasterSecret(label, clientRandom, secret []byte) error {
 	// Format: "LABEL CLIENTRANDOM SECRET\n"
@@ -90,15 +80,18 @@ func (pw *PcapWriter) WriteMasterSecret(label, clientRandom, secret []byte) erro
 
 	// Write as DSB (Decryption Secrets Block) using custom gopacket implementation
 	// The cfc4n/gopacket fork includes WriteDecryptionSecretsBlock method
-	// Use DSB_SECRETS_TYPE_TLS for TLS key logs
-	return pw.writer.WriteDecryptionSecretsBlock(DSB_SECRETS_TYPE_TLS, []byte(keylogLine))
+	// Use pcapgo.DSB_SECRETS_TYPE_TLS for TLS key logs
+	return pw.writer.WriteDecryptionSecretsBlock(pcapgo.DSB_SECRETS_TYPE_TLS, []byte(keylogLine))
 }
 
 // Flush ensures all buffered data is written to disk
 func (pw *PcapWriter) Flush() error {
 	// Flush the underlying writer if it supports flushing
-	if flusher, ok := pw.writer.(interface{ Flush() error }); ok {
-		return flusher.Flush()
+	type flusher interface {
+		Flush() error
+	}
+	if f, ok := interface{}(pw.writer).(flusher); ok {
+		return f.Flush()
 	}
 	return nil
 }
@@ -112,7 +105,7 @@ func (pw *PcapWriter) Close() error {
 	}
 	
 	// Close the writer if it implements io.Closer
-	if closer, ok := pw.writer.(io.Closer); ok {
+	if closer, ok := interface{}(pw.writer).(io.Closer); ok {
 		return closer.Close()
 	}
 	
@@ -127,116 +120,4 @@ func nullTerminatedString(data []byte) string {
 		}
 	}
 	return string(data)
-}
-
-// PacketEvent represents a network packet event from TC eBPF probes
-type PacketEvent struct {
-	Timestamp      uint64
-	InterfaceIndex uint32
-	PacketLen      uint32
-	PacketData     []byte
-	SrcIP          [16]byte
-	DstIP          [16]byte
-	SrcPort        uint16
-	DstPort        uint16
-	IsIPv6         bool
-}
-
-// DecodeFromBytes decodes packet event from raw bytes
-func (pe *PacketEvent) DecodeFromBytes(data []byte) error {
-	if len(data) < 56 { // Minimum size for the event structure
-		return fmt.Errorf("packet event data too small: %d bytes", len(data))
-	}
-
-	pe.Timestamp = binary.LittleEndian.Uint64(data[0:8])
-	pe.InterfaceIndex = binary.LittleEndian.Uint32(data[8:12])
-	pe.PacketLen = binary.LittleEndian.Uint32(data[12:16])
-	
-	// Copy IP addresses
-	copy(pe.SrcIP[:], data[16:32])
-	copy(pe.DstIP[:], data[32:48])
-	
-	pe.SrcPort = binary.LittleEndian.Uint16(data[48:50])
-	pe.DstPort = binary.LittleEndian.Uint16(data[50:52])
-	
-	if len(data) > 52 {
-		pe.IsIPv6 = data[52] != 0
-	}
-	
-	// Packet data follows the header
-	if len(data) > 56 {
-		pe.PacketData = data[56:]
-	}
-
-	return nil
-}
-
-// GetTimestamp implements domain.Event interface
-func (pe *PacketEvent) GetTimestamp() uint64 {
-	return pe.Timestamp
-}
-
-// GetPacketData returns the packet payload
-func (pe *PacketEvent) GetPacketData() []byte {
-	return pe.PacketData
-}
-
-// GetPacketLen returns the packet length
-func (pe *PacketEvent) GetPacketLen() uint32 {
-	return pe.PacketLen
-}
-
-// GetInterfaceIndex returns the interface index
-func (pe *PacketEvent) GetInterfaceIndex() uint32 {
-	return pe.InterfaceIndex
-}
-
-// String returns a string representation of the event
-func (pe *PacketEvent) String() string {
-	return fmt.Sprintf("PacketEvent{ts=%d, iface=%d, len=%d, %s:%d -> %s:%d}",
-		pe.Timestamp, pe.InterfaceIndex, pe.PacketLen,
-		pe.GetSrcIP(), pe.SrcPort,
-		pe.GetDstIP(), pe.DstPort)
-}
-
-// GetSrcIP returns source IP as string
-func (pe *PacketEvent) GetSrcIP() string {
-	if pe.IsIPv6 {
-		return fmt.Sprintf("%x:%x:%x:%x:%x:%x:%x:%x",
-			binary.BigEndian.Uint16(pe.SrcIP[0:2]),
-			binary.BigEndian.Uint16(pe.SrcIP[2:4]),
-			binary.BigEndian.Uint16(pe.SrcIP[4:6]),
-			binary.BigEndian.Uint16(pe.SrcIP[6:8]),
-			binary.BigEndian.Uint16(pe.SrcIP[8:10]),
-			binary.BigEndian.Uint16(pe.SrcIP[10:12]),
-			binary.BigEndian.Uint16(pe.SrcIP[12:14]),
-			binary.BigEndian.Uint16(pe.SrcIP[14:16]))
-	}
-	return fmt.Sprintf("%d.%d.%d.%d", pe.SrcIP[0], pe.SrcIP[1], pe.SrcIP[2], pe.SrcIP[3])
-}
-
-// GetDstIP returns destination IP as string
-func (pe *PacketEvent) GetDstIP() string {
-	if pe.IsIPv6 {
-		return fmt.Sprintf("%x:%x:%x:%x:%x:%x:%x:%x",
-			binary.BigEndian.Uint16(pe.DstIP[0:2]),
-			binary.BigEndian.Uint16(pe.DstIP[2:4]),
-			binary.BigEndian.Uint16(pe.DstIP[4:6]),
-			binary.BigEndian.Uint16(pe.DstIP[6:8]),
-			binary.BigEndian.Uint16(pe.DstIP[8:10]),
-			binary.BigEndian.Uint16(pe.DstIP[10:12]),
-			binary.BigEndian.Uint16(pe.DstIP[12:14]),
-			binary.BigEndian.Uint16(pe.DstIP[14:16]))
-	}
-	return fmt.Sprintf("%d.%d.%d.%d", pe.DstIP[0], pe.DstIP[1], pe.DstIP[2], pe.DstIP[3])
-}
-
-// GetSrcPort returns source port
-func (pe *PacketEvent) GetSrcPort() uint16 {
-	return pe.SrcPort
-}
-
-// GetDstPort returns destination port
-func (pe *PacketEvent) GetDstPort() uint16 {
-	return pe.DstPort
 }
