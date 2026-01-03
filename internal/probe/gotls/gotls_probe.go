@@ -261,58 +261,66 @@ func (p *Probe) setupManager() error {
 	}
 
 	// Determine which uprobes to attach based on ABI
-	var writeProbeSection, readProbeSection string
+	var writeSection, readSection, masterSecretSection string
+	var writeFunc, readFunc, masterSecretFunc string
+	
 	if p.config.IsRegisterABI {
-		writeProbeSection = "uprobe/gotls_write_register"
-		readProbeSection = "uprobe/gotls_read_register"
+		writeSection = "uprobe/gotls_write_register"
+		writeFunc = "gotls_write_register"
+		readSection = "uprobe/gotls_read_register"
+		readFunc = "gotls_read_register"
+		masterSecretSection = "uprobe/gotls_mastersecret_register"
+		masterSecretFunc = "gotls_mastersecret_register"
 	} else {
-		writeProbeSection = "uprobe/gotls_write_stack"
-		readProbeSection = "uprobe/gotls_read_stack"
+		writeSection = "uprobe/gotls_write_stack"
+		writeFunc = "gotls_write_stack"
+		readSection = "uprobe/gotls_read_stack"
+		readFunc = "gotls_read_stack"
+		masterSecretSection = "uprobe/gotls_mastersecret_stack"
+		masterSecretFunc = "gotls_mastersecret_stack"
 	}
 
 	p.Logger().Info().
 		Str("elf_path", elfPath).
 		Bool("register_abi", p.config.IsRegisterABI).
-		Str("write_probe", writeProbeSection).
-		Str("read_probe", readProbeSection).
+		Str("write_section", writeSection).
+		Str("read_section", readSection).
 		Msg("Setting up eBPF probes")
 
+	// Initialize probes list - write probe first as per maintainer's comment
 	probes := []*manager.Probe{
 		{
-			Section:          writeProbeSection,
-			EbpfFuncName:     writeProbeSection[len("uprobe/"):],
+			Section:          writeSection,
+			EbpfFuncName:     writeFunc,
 			AttachToFuncName: "crypto/tls.(*Conn).writeRecordLocked",
 			BinaryPath:       elfPath,
 		},
-		{
-			Section:          readProbeSection,
-			EbpfFuncName:     readProbeSection[len("uprobe/"):],
-			AttachToFuncName: "crypto/tls.(*Conn).Read",
-			BinaryPath:       elfPath,
-			UprobeOffset:     0,
-		},
 	}
 
-	// Add master secret probe if in keylog mode
-	if p.config.CaptureMode == "keylog" {
-		masterSecretProbeSection := "uprobe/gotls_mastersecret_register"
-		if !p.config.IsRegisterABI {
-			masterSecretProbeSection = "uprobe/gotls_mastersecret_stack"
-		}
-
-		probes = append(probes, &manager.Probe{
-			Section:          masterSecretProbeSection,
-			EbpfFuncName:     masterSecretProbeSection[len("uprobe/"):],
-			AttachToFuncName: "crypto/tls.(*Config).writeKeyLog",
-			BinaryPath:       elfPath,
-		})
-	}
-
+	// Initialize Maps - events map first
 	maps := []*manager.Map{
 		{Name: "events"},
 	}
 
+	// Add read probe
+	// TODO: Handle multiple ReadTlsAddrs as an array when that feature is implemented
+	// For now, using single read probe at offset 0
+	probes = append(probes, &manager.Probe{
+		Section:          readSection,
+		EbpfFuncName:     readFunc,
+		AttachToFuncName: "crypto/tls.(*Conn).Read",
+		BinaryPath:       elfPath,
+		UprobeOffset:     0,
+	})
+
+	// Add master secret probe if in keylog mode
 	if p.config.CaptureMode == "keylog" {
+		probes = append(probes, &manager.Probe{
+			Section:          masterSecretSection,
+			EbpfFuncName:     masterSecretFunc,
+			AttachToFuncName: "crypto/tls.(*Config).writeKeyLog",
+			BinaryPath:       elfPath,
+		})
 		maps = append(maps, &manager.Map{Name: "mastersecret_go_events"})
 	}
 
