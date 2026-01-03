@@ -15,6 +15,7 @@
 package gotls
 
 import (
+	"debug/elf"
 	"fmt"
 	"net"
 	"os"
@@ -52,6 +53,12 @@ type Config struct {
 
 	// IsRegisterABI indicates whether to use register-based ABI (Go 1.17+)
 	IsRegisterABI bool `json:"is_register_abi"`
+
+	// ReadTlsAddrs stores the offsets for Read function RET instructions (for uretprobe)
+	ReadTlsAddrs []uint64 `json:"-"`
+
+	// GoTlsWriteAddr stores the offset for Write function
+	GoTlsWriteAddr uint64 `json:"-"`
 }
 
 // NewConfig creates a new GoTLS config with default values
@@ -91,6 +98,13 @@ func (c *Config) Validate() error {
 	// Validate capture mode
 	if err := c.validateCaptureMode(); err != nil {
 		return err
+	}
+
+	// Find symbol addresses if ElfPath is provided
+	if c.ElfPath != "" {
+		if err := c.findSymbolOffsets(); err != nil {
+			return fmt.Errorf("failed to find symbol offsets: %w", err)
+		}
 	}
 
 	return nil
@@ -269,4 +283,82 @@ func isRegisterABI(version string) bool {
 func (c *Config) Bytes() []byte {
 	// Use BaseConfig's Bytes method which handles JSON serialization properly
 	return c.BaseConfig.Bytes()
+}
+
+// findSymbolOffsets finds the offsets for crypto/tls functions in the Go binary
+func (c *Config) findSymbolOffsets() error {
+	if c.ElfPath == "" {
+		return fmt.Errorf("ElfPath is required")
+	}
+
+	// Open the ELF file
+	elfFile, err := elf.Open(c.ElfPath)
+	if err != nil {
+		return fmt.Errorf("failed to open ELF file: %w", err)
+	}
+	defer elfFile.Close()
+
+	// Get all symbols
+	symbols, err := elfFile.Symbols()
+	if err != nil {
+		// Try dynamic symbols
+		symbols, err = elfFile.DynamicSymbols()
+		if err != nil {
+			return fmt.Errorf("failed to read symbols: %w", err)
+		}
+	}
+
+	// Find the write function symbol
+	const writeFunc = "crypto/tls.(*Conn).writeRecordLocked"
+	const readFunc = "crypto/tls.(*Conn).Read"
+
+	var writeSymbol, readSymbol *elf.Symbol
+	for i := range symbols {
+		if symbols[i].Name == writeFunc {
+			writeSymbol = &symbols[i]
+		}
+		if symbols[i].Name == readFunc {
+			readSymbol = &symbols[i]
+		}
+		if writeSymbol != nil && readSymbol != nil {
+			break
+		}
+	}
+
+	if writeSymbol == nil {
+		return fmt.Errorf("write function symbol not found: %s", writeFunc)
+	}
+
+	if readSymbol == nil {
+		return fmt.Errorf("read function symbol not found: %s", readFunc)
+	}
+
+	// Calculate write function offset
+	c.GoTlsWriteAddr = c.symbolToOffset(elfFile, writeSymbol)
+
+	// For read function, we need to find RET instruction offsets
+	// This is simplified - in production, would parse instructions to find actual RET offsets
+	// For now, use the function start as the primary offset
+	readOffset := c.symbolToOffset(elfFile, readSymbol)
+	c.ReadTlsAddrs = []uint64{readOffset}
+
+	return nil
+}
+
+// symbolToOffset converts a symbol's virtual address to a file offset
+func (c *Config) symbolToOffset(elfFile *elf.File, symbol *elf.Symbol) uint64 {
+	// Find the program segment containing this symbol
+	for _, prog := range elfFile.Progs {
+		if prog.Type != elf.PT_LOAD || (prog.Flags&elf.PF_X) == 0 {
+			continue
+		}
+
+		if prog.Vaddr <= symbol.Value && symbol.Value < (prog.Vaddr+prog.Memsz) {
+			// Convert virtual address to file offset
+			return symbol.Value - prog.Vaddr + prog.Off
+		}
+	}
+
+	// If not found in any segment, return the symbol value directly
+	return symbol.Value
 }

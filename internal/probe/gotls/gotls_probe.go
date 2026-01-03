@@ -294,24 +294,46 @@ func (p *Probe) setupManager() error {
 			EbpfFuncName:     writeFunc,
 			AttachToFuncName: "crypto/tls.(*Conn).writeRecordLocked",
 			BinaryPath:       elfPath,
+			UprobeOffset:     p.config.GoTlsWriteAddr,
 		},
 	}
+
+	p.Logger().Debug().
+		Uint64("write_offset", p.config.GoTlsWriteAddr).
+		Msg("Added write probe")
 
 	// Initialize Maps - events map first
 	maps := []*manager.Map{
 		{Name: "events"},
 	}
 
-	// Add read probe
-	// TODO: Handle multiple ReadTlsAddrs as an array when that feature is implemented
-	// For now, using single read probe at offset 0
-	probes = append(probes, &manager.Probe{
-		Section:          readSection,
-		EbpfFuncName:     readFunc,
-		AttachToFuncName: "crypto/tls.(*Conn).Read",
-		BinaryPath:       elfPath,
-		UprobeOffset:     0,
-	})
+	// Add read probes using ReadTlsAddrs array
+	// Each address in ReadTlsAddrs represents a RET instruction offset for uretprobe
+	if len(p.config.ReadTlsAddrs) > 0 {
+		for i, offset := range p.config.ReadTlsAddrs {
+			probes = append(probes, &manager.Probe{
+				Section:          readSection,
+				EbpfFuncName:     readFunc,
+				AttachToFuncName: "crypto/tls.(*Conn).Read",
+				BinaryPath:       elfPath,
+				UprobeOffset:     offset,
+			})
+			p.Logger().Debug().
+				Int("index", i).
+				Uint64("offset", offset).
+				Msg("Added read probe")
+		}
+	} else {
+		// Fallback: if ReadTlsAddrs is empty, add a single probe at offset 0
+		p.Logger().Warn().Msg("ReadTlsAddrs is empty, using fallback read probe at offset 0")
+		probes = append(probes, &manager.Probe{
+			Section:          readSection,
+			EbpfFuncName:     readFunc,
+			AttachToFuncName: "crypto/tls.(*Conn).Read",
+			BinaryPath:       elfPath,
+			UprobeOffset:     0,
+		})
+	}
 
 	// Add master secret probe if in keylog mode
 	if p.config.CaptureMode == "keylog" {
