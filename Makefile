@@ -283,6 +283,11 @@ e2e-gotls-advanced:
 e2e-bash-advanced:
 	bash ./test/e2e/bash_advanced_test.sh
 
+# run advanced MySQL tests
+.PHONY: e2e-mysql-advanced
+e2e-mysql-advanced:
+	bash ./test/e2e/mysql_advanced_test.sh
+
 # run edge cases and error handling tests
 .PHONY: e2e-edge-cases
 e2e-edge-cases:
@@ -295,7 +300,7 @@ e2e-basic: e2e-bash e2e-zsh e2e-mysql e2e-postgres e2e-tls e2e-gnutls e2e-gotls
 
 # run all advanced e2e tests
 .PHONY: e2e-advanced
-e2e-advanced: e2e-tls-text-advanced e2e-tls-pcap-advanced e2e-tls-keylog-advanced e2e-gotls-advanced e2e-bash-advanced e2e-edge-cases
+e2e-advanced: e2e-tls-text-advanced e2e-tls-pcap-advanced e2e-tls-keylog-advanced e2e-gotls-advanced e2e-bash-advanced e2e-mysql-advanced e2e-edge-cases
 	@echo "All advanced e2e tests completed"
 
 # run all comprehensive e2e tests (basic + advanced)
