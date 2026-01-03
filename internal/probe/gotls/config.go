@@ -15,7 +15,11 @@
 package gotls
 
 import (
+	"bytes"
+	"debug/buildinfo"
 	"debug/elf"
+	"debug/gosym"
+	"encoding/binary"
 	"fmt"
 	"net"
 	"os"
@@ -298,67 +302,130 @@ func (c *Config) findSymbolOffsets() error {
 	}
 	defer elfFile.Close()
 
-	// Get all symbols
-	symbols, err := elfFile.Symbols()
+	// Read build info to get Go version
+	buildInfo, err := buildinfo.ReadFile(c.ElfPath)
 	if err != nil {
-		// Try dynamic symbols
-		symbols, err = elfFile.DynamicSymbols()
-		if err != nil {
-			return fmt.Errorf("failed to read symbols: %w", err)
-		}
+		return fmt.Errorf("failed to read build info: %w", err)
 	}
 
-	// Find the write function symbol
+	// Read the Go symbol table
+	symTable, err := c.readGoSymbolTable(elfFile, buildInfo.GoVersion)
+	if err != nil {
+		return fmt.Errorf("failed to read Go symbol table: %w", err)
+	}
+
+	// Find function symbols
 	const writeFunc = "crypto/tls.(*Conn).writeRecordLocked"
 	const readFunc = "crypto/tls.(*Conn).Read"
 
-	var writeSymbol, readSymbol *elf.Symbol
-	for i := range symbols {
-		if symbols[i].Name == writeFunc {
-			writeSymbol = &symbols[i]
-		}
-		if symbols[i].Name == readFunc {
-			readSymbol = &symbols[i]
-		}
-		if writeSymbol != nil && readSymbol != nil {
-			break
-		}
-	}
-
+	writeSymbol := symTable.LookupFunc(writeFunc)
 	if writeSymbol == nil {
 		return fmt.Errorf("write function symbol not found: %s", writeFunc)
 	}
 
+	readSymbol := symTable.LookupFunc(readFunc)
 	if readSymbol == nil {
 		return fmt.Errorf("read function symbol not found: %s", readFunc)
 	}
 
-	// Calculate write function offset
-	c.GoTlsWriteAddr = c.symbolToOffset(elfFile, writeSymbol)
-
-	// For read function, we need to find RET instruction offsets
-	// This is simplified - in production, would parse instructions to find actual RET offsets
-	// For now, use the function start as the primary offset
-	readOffset := c.symbolToOffset(elfFile, readSymbol)
+	// Convert virtual addresses to file offsets
+	c.GoTlsWriteAddr = c.addrToOffset(elfFile, writeSymbol.Entry)
+	
+	// For read function, use the entry point as the offset
+	// In a full implementation, we would parse instructions to find RET offsets
+	readOffset := c.addrToOffset(elfFile, readSymbol.Entry)
 	c.ReadTlsAddrs = []uint64{readOffset}
 
 	return nil
 }
 
-// symbolToOffset converts a symbol's virtual address to a file offset
-func (c *Config) symbolToOffset(elfFile *elf.File, symbol *elf.Symbol) uint64 {
-	// Find the program segment containing this symbol
+// readGoSymbolTable reads the Go symbol table from the ELF file
+func (c *Config) readGoSymbolTable(elfFile *elf.File, goVersion string) (*gosym.Table, error) {
+	// Try different section names for gopclntab
+	sectionNames := []string{".gopclntab", ".data.rel.ro.gopclntab", ".data.rel.ro"}
+	
+	var pclnData []byte
+	for _, name := range sectionNames {
+		section := elfFile.Section(name)
+		if section != nil {
+			data, err := section.Data()
+			if err != nil {
+				continue
+			}
+			
+			// Find gopclntab by magic number
+			magic := magicNumber(goVersion)
+			index := bytes.Index(data, magic)
+			if index >= 0 {
+				pclnData = data[index:]
+				break
+			}
+		}
+	}
+	
+	if pclnData == nil {
+		return nil, fmt.Errorf("gopclntab not found in ELF file")
+	}
+
+	// Extract text start address from pclntab
+	ptrSize := uint32(pclnData[7])
+	var textStart uint64
+	if ptrSize == 4 {
+		textStart = uint64(binary.LittleEndian.Uint32(pclnData[8+2*ptrSize:]))
+	} else {
+		textStart = binary.LittleEndian.Uint64(pclnData[8+2*ptrSize:])
+	}
+
+	// Create line table and symbol table
+	lineTable := gosym.NewLineTable(pclnData, textStart)
+	symTable, err := gosym.NewTable([]byte{}, lineTable)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create symbol table: %w", err)
+	}
+
+	return symTable, nil
+}
+
+// magicNumber returns the magic number for the given Go version
+func magicNumber(goVersion string) []byte {
+	const (
+		go12magic  = 0xfffffffb
+		go116magic = 0xfffffffa
+		go118magic = 0xfffffff0
+		go120magic = 0xfffffff1
+	)
+
+	bs := make([]byte, 4)
+	var magic uint32
+	
+	if strings.Compare(goVersion, "go1.20") >= 0 {
+		magic = go120magic
+	} else if strings.Compare(goVersion, "go1.18") >= 0 {
+		magic = go118magic
+	} else if strings.Compare(goVersion, "go1.16") >= 0 {
+		magic = go116magic
+	} else {
+		magic = go12magic
+	}
+	
+	binary.LittleEndian.PutUint32(bs, magic)
+	return bs
+}
+
+// addrToOffset converts a virtual address to a file offset
+func (c *Config) addrToOffset(elfFile *elf.File, addr uint64) uint64 {
+	// Find the program segment containing this address
 	for _, prog := range elfFile.Progs {
 		if prog.Type != elf.PT_LOAD || (prog.Flags&elf.PF_X) == 0 {
 			continue
 		}
 
-		if prog.Vaddr <= symbol.Value && symbol.Value < (prog.Vaddr+prog.Memsz) {
+		if prog.Vaddr <= addr && addr < (prog.Vaddr+prog.Memsz) {
 			// Convert virtual address to file offset
-			return symbol.Value - prog.Vaddr + prog.Off
+			return addr - prog.Vaddr + prog.Off
 		}
 	}
 
-	// If not found in any segment, return the symbol value directly
-	return symbol.Value
+	// If not found in any segment, return the address directly
+	return addr
 }
