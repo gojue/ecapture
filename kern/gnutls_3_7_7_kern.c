@@ -43,6 +43,7 @@
 // version_entry_st->id
 #define VERSION_ENTRY_ST_ID 0x8
 
+
 #include "gnutls.h"
 #include "gnutls_masterkey.h"
 
