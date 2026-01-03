@@ -81,19 +81,36 @@ func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration, dispat
 // openOutputFiles opens output files based on capture mode
 func (p *Probe) openOutputFiles() error {
 	switch p.config.CaptureMode {
-	case "keylog":
+	case "keylog", "key":
+		if p.config.KeylogFile == "" {
+			return errors.NewConfigurationError("keylog_file is required for keylog mode", nil)
+		}
 		file, err := os.OpenFile(p.config.KeylogFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 		if err != nil {
 			return errors.NewConfigurationError("failed to open keylog file", err)
 		}
 		p.keylogFile = file
 
-	case "pcap":
+	case "pcap", "pcapng":
+		if p.config.PcapFile == "" {
+			return errors.NewConfigurationError("pcap_file is required for pcap mode", nil)
+		}
 		file, err := os.OpenFile(p.config.PcapFile, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 		if err != nil {
 			return errors.NewConfigurationError("failed to open pcap file", err)
 		}
 		p.pcapFile = file
+		
+		// For pcapng mode, optionally open keylog file if specified
+		// Master secrets can be embedded in PCAPNG DSB blocks or written to separate keylog
+		if p.config.KeylogFile != "" {
+			keylogFile, err := os.OpenFile(p.config.KeylogFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+			if err != nil {
+				p.Logger().Warn().Err(err).Msg("Failed to open keylog file for pcapng mode, will embed in DSB only")
+			} else {
+				p.keylogFile = keylogFile
+			}
+		}
 
 	case "text":
 		// Text mode uses stdout, no file to open
@@ -229,11 +246,76 @@ func (p *Probe) Decode(em *ebpf.Map, data []byte) (domain.Event, error) {
 				if err := event.DecodeFromBytes(data); err != nil {
 					return nil, err
 				}
+				// Write master secret to keylog file if in keylog or pcapng mode
+				if err := p.writeMasterSecretToFile(event); err != nil {
+					p.Logger().Warn().Err(err).Msg("Failed to write master secret to file")
+				}
 				return event, nil
 			}
 		}
 	}
 	return nil, fmt.Errorf("unknown eBPF map: %s", em.String())
+}
+
+// writeMasterSecretToFile writes a master secret event to the appropriate output file
+func (p *Probe) writeMasterSecretToFile(event *MasterSecretEvent) error {
+	if event == nil {
+		return nil
+	}
+
+	// Only write to keylog file in keylog or pcapng mode
+	if p.config.CaptureMode != "keylog" && p.config.CaptureMode != "key" && 
+	   p.config.CaptureMode != "pcap" && p.config.CaptureMode != "pcapng" {
+		return nil
+	}
+
+	// Ensure we have a file to write to
+	var file *os.File
+	if p.config.CaptureMode == "keylog" || p.config.CaptureMode == "key" {
+		file = p.keylogFile
+	} else if p.config.CaptureMode == "pcap" || p.config.CaptureMode == "pcapng" {
+		// For pcapng mode, we also write to keylog file (DSB block handling)
+		// If keylogFile is set, use it; otherwise, pcapFile will handle DSB internally
+		file = p.keylogFile
+		if file == nil {
+			// TODO: In pcapng mode, master secrets should be written to DSB blocks
+			// For now, we'll just log them
+			p.Logger().Debug().
+				Str("label", event.GetLabel()).
+				Int("client_random_len", len(event.GetClientRandom())).
+				Int("secret_len", len(event.GetSecret())).
+				Msg("Master secret event (will be added to PCAPNG DSB)")
+			return nil
+		}
+	}
+
+	if file == nil {
+		return fmt.Errorf("keylog file not open")
+	}
+
+	// Format: LABEL CLIENTRANDOM SECRET
+	// This follows the NSS Key Log Format used by Wireshark
+	label := event.GetLabel()
+	clientRandom := fmt.Sprintf("%x", event.GetClientRandom())
+	secret := fmt.Sprintf("%x", event.GetSecret())
+
+	keylogLine := fmt.Sprintf("%s %s %s\n", label, clientRandom, secret)
+	
+	if _, err := file.WriteString(keylogLine); err != nil {
+		return fmt.Errorf("failed to write to keylog file: %w", err)
+	}
+
+	// Sync to ensure data is written
+	if err := file.Sync(); err != nil {
+		p.Logger().Warn().Err(err).Msg("Failed to sync keylog file")
+	}
+
+	p.Logger().Debug().
+		Str("label", label).
+		Str("client_random", clientRandom[:16]+"..."). // Log only first 16 chars
+		Msg("Master secret written to keylog file")
+
+	return nil
 }
 
 // GetDecoder implements EventDecoder interface.
