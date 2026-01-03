@@ -18,7 +18,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"time"
+	"hash/fnv"
 
 	"github.com/gojue/ecapture/internal/domain"
 	"github.com/gojue/ecapture/internal/errors"
@@ -36,6 +36,8 @@ const (
 // This event contains the master secret and related cryptographic material
 // needed to decrypt TLS traffic.
 //
+// The structure must match the kernel's mastersecret_t exactly.
+//
 // For TLS 1.2 and earlier:
 //   - ClientRandom: 32-byte client random value
 //   - MasterKey: 48-byte master secret
@@ -44,20 +46,21 @@ const (
 //   - ClientRandom: 32-byte client random value
 //   - Multiple traffic secrets (handshake, application, exporter)
 type MasterSecretEvent struct {
-	Version   int32  `json:"version"`   // TLS version (0x0303 = TLS 1.2, 0x0304 = TLS 1.3)
-	Timestamp uint64 `json:"timestamp"` // Event timestamp
+	// TLS version (0x0303 = TLS 1.2, 0x0304 = TLS 1.3)
+	Version int32 `json:"version"`
 
 	// TLS 1.2 and earlier
 	ClientRandom [Ssl3RandomSize]byte     `json:"clientRandom"` // Client random value
 	MasterKey    [MasterSecretMaxLen]byte `json:"masterKey"`    // Master secret
 
 	// TLS 1.3 secrets
-	CipherId                     uint32             `json:"cipherId"`                     // Cipher suite ID
-	ClientHandshakeTrafficSecret [EvpMaxMdSize]byte `json:"clientHandshakeTrafficSecret"` // CLIENT_HANDSHAKE_TRAFFIC_SECRET
-	ServerHandshakeTrafficSecret [EvpMaxMdSize]byte `json:"serverHandshakeTrafficSecret"` // SERVER_HANDSHAKE_TRAFFIC_SECRET
-	ClientAppTrafficSecret       [EvpMaxMdSize]byte `json:"clientAppTrafficSecret"`       // CLIENT_TRAFFIC_SECRET_0
-	ServerAppTrafficSecret       [EvpMaxMdSize]byte `json:"serverAppTrafficSecret"`       // SERVER_TRAFFIC_SECRET_0
-	ExporterMasterSecret         [EvpMaxMdSize]byte `json:"exporterMasterSecret"`         // EXPORTER_SECRET
+	CipherId               uint32             `json:"cipherId"`               // Cipher suite ID
+	EarlySecret            [EvpMaxMdSize]byte `json:"earlySecret"`            // EARLY_EXPORTER_SECRET
+	HandshakeSecret        [EvpMaxMdSize]byte `json:"handshakeSecret"`        // Handshake secret (internal)
+	HandshakeTrafficHash   [EvpMaxMdSize]byte `json:"handshakeTrafficHash"`   // Handshake traffic hash
+	ClientAppTrafficSecret [EvpMaxMdSize]byte `json:"clientAppTrafficSecret"` // CLIENT_TRAFFIC_SECRET_0
+	ServerAppTrafficSecret [EvpMaxMdSize]byte `json:"serverAppTrafficSecret"` // SERVER_TRAFFIC_SECRET_0
+	ExporterMasterSecret   [EvpMaxMdSize]byte `json:"exporterMasterSecret"`   // EXPORTER_SECRET
 }
 
 // DecodeFromBytes deserializes the master secret event from raw eBPF data.
@@ -67,16 +70,6 @@ func (e *MasterSecretEvent) DecodeFromBytes(data []byte) error {
 	// Read TLS version
 	if err := binary.Read(buf, binary.LittleEndian, &e.Version); err != nil {
 		return errors.NewEventDecodeError("masterSecret.Version", err)
-	}
-
-	// Read timestamp (if included in eBPF event)
-	if buf.Len() >= 8 {
-		if err := binary.Read(buf, binary.LittleEndian, &e.Timestamp); err != nil {
-			// Timestamp might not be present in all eBPF versions
-			e.Timestamp = uint64(time.Now().UnixNano())
-		}
-	} else {
-		e.Timestamp = uint64(time.Now().UnixNano())
 	}
 
 	// Read client random
@@ -90,7 +83,7 @@ func (e *MasterSecretEvent) DecodeFromBytes(data []byte) error {
 	}
 
 	// For TLS 1.3, read additional secrets if available
-	if buf.Len() > 0 {
+	if buf.Len() >= 4 {
 		if err := binary.Read(buf, binary.LittleEndian, &e.CipherId); err != nil {
 			// CipherId might not be present
 			e.CipherId = 0
@@ -98,13 +91,19 @@ func (e *MasterSecretEvent) DecodeFromBytes(data []byte) error {
 	}
 
 	if buf.Len() >= EvpMaxMdSize {
-		if err := binary.Read(buf, binary.LittleEndian, &e.ClientHandshakeTrafficSecret); err != nil {
+		if err := binary.Read(buf, binary.LittleEndian, &e.EarlySecret); err != nil {
 			// Not all TLS 1.3 secrets might be present
 		}
 	}
 
 	if buf.Len() >= EvpMaxMdSize {
-		if err := binary.Read(buf, binary.LittleEndian, &e.ServerHandshakeTrafficSecret); err != nil {
+		if err := binary.Read(buf, binary.LittleEndian, &e.HandshakeSecret); err != nil {
+			// Not all TLS 1.3 secrets might be present
+		}
+	}
+
+	if buf.Len() >= EvpMaxMdSize {
+		if err := binary.Read(buf, binary.LittleEndian, &e.HandshakeTrafficHash); err != nil {
 			// Not all TLS 1.3 secrets might be present
 		}
 	}
@@ -141,7 +140,7 @@ func (e *MasterSecretEvent) String() string {
 
 	return fmt.Sprintf("TLS Version: %s, ClientRandom: %x",
 		versionStr,
-		e.ClientRandom[:16]) // Show first 16 bytes of client random
+		e.ClientRandom[:]) // Show full 32 bytes of client random
 }
 
 // StringHex returns a hexadecimal representation of the event.
@@ -165,7 +164,10 @@ func (e *MasterSecretEvent) Type() domain.EventType {
 
 // UUID returns a unique identifier for this event.
 func (e *MasterSecretEvent) UUID() string {
-	return fmt.Sprintf("ms_%x_%d", e.ClientRandom[:8], e.Timestamp)
+	// Use hash of full ClientRandom for better uniqueness
+	h := fnv.New64a()
+	h.Write(e.ClientRandom[:])
+	return fmt.Sprintf("ms_%x", h.Sum64())
 }
 
 // Validate checks if the event data is valid.
@@ -213,14 +215,19 @@ func (e *MasterSecretEvent) GetCipherId() uint32 {
 	return e.CipherId
 }
 
-// GetClientHandshakeTrafficSecret returns the client handshake traffic secret (TLS 1.3).
-func (e *MasterSecretEvent) GetClientHandshakeTrafficSecret() []byte {
-	return e.ClientHandshakeTrafficSecret[:]
+// GetEarlySecret returns the early secret (TLS 1.3).
+func (e *MasterSecretEvent) GetEarlySecret() []byte {
+	return e.EarlySecret[:]
 }
 
-// GetServerHandshakeTrafficSecret returns the server handshake traffic secret (TLS 1.3).
-func (e *MasterSecretEvent) GetServerHandshakeTrafficSecret() []byte {
-	return e.ServerHandshakeTrafficSecret[:]
+// GetHandshakeSecret returns the handshake secret (TLS 1.3, internal).
+func (e *MasterSecretEvent) GetHandshakeSecret() []byte {
+	return e.HandshakeSecret[:]
+}
+
+// GetHandshakeTrafficHash returns the handshake traffic hash (TLS 1.3).
+func (e *MasterSecretEvent) GetHandshakeTrafficHash() []byte {
+	return e.HandshakeTrafficHash[:]
 }
 
 // GetClientAppTrafficSecret returns the client application traffic secret (TLS 1.3).
