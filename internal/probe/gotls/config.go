@@ -63,6 +63,9 @@ type Config struct {
 
 	// GoTlsWriteAddr stores the offset for Write function
 	GoTlsWriteAddr uint64 `json:"-"`
+
+	// GoTlsMasterSecretAddr stores the offset for master secret function (keylog mode)
+	GoTlsMasterSecretAddr uint64 `json:"-"`
 }
 
 // NewConfig creates a new GoTLS config with default values
@@ -317,6 +320,7 @@ func (c *Config) findSymbolOffsets() error {
 	// Find function symbols
 	const writeFunc = "crypto/tls.(*Conn).writeRecordLocked"
 	const readFunc = "crypto/tls.(*Conn).Read"
+	const masterSecretFunc = "crypto/tls.(*Config).writeKeyLog"
 
 	writeSymbol := symTable.LookupFunc(writeFunc)
 	if writeSymbol == nil {
@@ -326,6 +330,12 @@ func (c *Config) findSymbolOffsets() error {
 	readSymbol := symTable.LookupFunc(readFunc)
 	if readSymbol == nil {
 		return fmt.Errorf("read function symbol not found: %s", readFunc)
+	}
+
+	// Master secret function is optional (only used in keylog mode)
+	masterSecretSymbol := symTable.LookupFunc(masterSecretFunc)
+	if masterSecretSymbol != nil {
+		c.GoTlsMasterSecretAddr = c.addrToOffset(elfFile, masterSecretSymbol.Entry)
 	}
 
 	// Convert virtual addresses to file offsets
