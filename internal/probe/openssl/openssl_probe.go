@@ -511,9 +511,38 @@ func (p *Probe) setupManager() error {
 
 	case "pcap":
 		// PCAP mode: TC probes for network capture + master secret probe
-		// TODO: Add TC (Traffic Control) classifier probes for packet capture
-		// For now, we'll add the basic probes and master secret extraction
+		// Validate network interface is configured
+		if p.config.Ifname == "" {
+			return errors.NewConfigurationError("ifname is required for pcap mode", nil)
+		}
+		
 		maps = append(maps, &manager.Map{Name: "mastersecret_events"})
+		
+		// Add TC (Traffic Control) classifier probes for packet capture
+		// Ingress: packets coming into the network interface
+		probes = append(probes,
+			&manager.Probe{
+				Section:          "classifier",
+				EbpfFuncName:     "ingress_cls_func",
+				Ifname:           p.config.Ifname,
+				NetworkDirection: manager.Ingress,
+			},
+		)
+		
+		// Egress: packets going out of the network interface
+		probes = append(probes,
+			&manager.Probe{
+				Section:          "classifier",
+				EbpfFuncName:     "egress_cls_func",
+				Ifname:           p.config.Ifname,
+				NetworkDirection: manager.Egress,
+			},
+		)
+		
+		// Add TC-related maps for network packet capture
+		maps = append(maps, &manager.Map{Name: "skb_events"})
+		maps = append(maps, &manager.Map{Name: "skb_data_buffer_heap"})
+		maps = append(maps, &manager.Map{Name: "network_map"})
 
 		// Add SSL_read/SSL_write for connection tracking
 		probes = append(probes,
@@ -563,6 +592,10 @@ func (p *Probe) setupManager() error {
 				},
 			)
 		}
+		
+		p.Logger().Debug().
+			Str("ifname", p.config.Ifname).
+			Msg("Added TC probes, SSL probes, and master secret probe for pcap mode")
 	}
 
 	p.Logger().Info().
