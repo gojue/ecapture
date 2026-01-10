@@ -121,7 +121,13 @@ publish: \
 	@$(CMD_CD) $(OUTPUT_DIR)
 	@$(CMD_CHECKSUM) ecapture*v* | $(CMD_SED) 's/.\/bin\///g' > $(OUT_CHECKSUMS)
 	@FILES=$$(ls ecapture-*.tar.gz ecapture*.deb checksum-*.txt)
-	@$(CMD_GITHUB) release create $(DEB_VERSION) $$FILES --title "eCapture $(DEB_VERSION)"  --notes-file $(RELEASE_NOTES)
+	@if [ "$(IS_PRERELEASE)" = "true" ]; then \
+		echo "🚧 Publishing as pre-release: $(DEB_VERSION)"; \
+		$(CMD_GITHUB) release create $(DEB_VERSION) $$FILES --title "eCapture $(DEB_VERSION)" --notes-file $(RELEASE_NOTES) --prerelease; \
+	else \
+		echo "📦 Publishing as stable release: $(DEB_VERSION)"; \
+		$(CMD_GITHUB) release create $(DEB_VERSION) $$FILES --title "eCapture $(DEB_VERSION)" --notes-file $(RELEASE_NOTES); \
+	fi
 
 .PHONY: clean
 clean:
