@@ -73,7 +73,7 @@ func (pw *PcapWriter) WritePacket(data []byte, timestamp time.Time) error {
 func (pw *PcapWriter) WriteMasterSecret(label, clientRandom, secret []byte) error {
 	// Format: "LABEL CLIENTRANDOM SECRET\n"
 	// This follows the NSS SSLKEYLOGFILE format
-	keylogLine := fmt.Sprintf("%s %x %x\n", 
+	keylogLine := fmt.Sprintf("%s %x %x\n",
 		nullTerminatedString(label),
 		clientRandom,
 		secret)
@@ -103,12 +103,12 @@ func (pw *PcapWriter) Close() error {
 	if err := pw.Flush(); err != nil {
 		return err
 	}
-	
+
 	// Close the writer if it implements io.Closer
 	if closer, ok := interface{}(pw.writer).(io.Closer); ok {
 		return closer.Close()
 	}
-	
+
 	return nil
 }
 

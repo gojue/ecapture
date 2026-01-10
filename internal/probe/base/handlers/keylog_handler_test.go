@@ -22,6 +22,27 @@ import (
 	"github.com/gojue/ecapture/internal/domain"
 )
 
+// mockKeylogWriter wraps bytes.Buffer to implement OutputWriter for testing
+type mockKeylogWriter struct {
+	*bytes.Buffer
+}
+
+func newMockKeylogWriter() *mockKeylogWriter {
+	return &mockKeylogWriter{Buffer: &bytes.Buffer{}}
+}
+
+func (m *mockKeylogWriter) Close() error {
+	return nil
+}
+
+func (m *mockKeylogWriter) Name() string {
+	return "mock-keylog-writer"
+}
+
+func (m *mockKeylogWriter) Flush() error {
+	return nil
+}
+
 // mockMasterSecretEvent is a mock implementation of MasterSecretEvent for testing.
 type mockMasterSecretEvent struct {
 	version                int32
@@ -62,13 +83,10 @@ func (m *mockMasterSecretEvent) Type() domain.EventType            { return doma
 func (m *mockMasterSecretEvent) UUID() string                      { return "" }
 
 func TestNewKeylogHandler(t *testing.T) {
-	buf := &bytes.Buffer{}
-	handler := NewKeylogHandler(buf)
+	writer := newMockKeylogWriter()
+	handler := NewKeylogHandler(writer)
 	if handler == nil {
 		t.Fatal("NewKeylogHandler returned nil")
-	}
-	if handler.writer != buf {
-		t.Error("KeylogHandler writer not set correctly")
 	}
 	if handler.seenKeys == nil {
 		t.Error("seenKeys map not initialized")
@@ -86,8 +104,8 @@ func TestNewKeylogHandler_NilWriter(t *testing.T) {
 }
 
 func TestKeylogHandler_Handle_TLS12(t *testing.T) {
-	buf := &bytes.Buffer{}
-	handler := NewKeylogHandler(buf)
+	writer := newMockKeylogWriter()
+	handler := NewKeylogHandler(writer)
 
 	// Create a TLS 1.2 event (version 0x0303)
 	clientRandom := make([]byte, Ssl3RandomSize)
@@ -110,7 +128,7 @@ func TestKeylogHandler_Handle_TLS12(t *testing.T) {
 		t.Fatalf("Handle returned error: %v", err)
 	}
 
-	output := buf.String()
+	output := writer.String()
 	if !strings.HasPrefix(output, "CLIENT_RANDOM ") {
 		t.Errorf("Output should start with CLIENT_RANDOM, got: %s", output)
 	}
@@ -120,8 +138,8 @@ func TestKeylogHandler_Handle_TLS12(t *testing.T) {
 }
 
 func TestKeylogHandler_Handle_TLS13(t *testing.T) {
-	buf := &bytes.Buffer{}
-	handler := NewKeylogHandler(buf)
+	writer := newMockKeylogWriter()
+	handler := NewKeylogHandler(writer)
 
 	// Create a TLS 1.3 event (version 0x0304)
 	clientRandom := make([]byte, Ssl3RandomSize)
@@ -150,7 +168,7 @@ func TestKeylogHandler_Handle_TLS13(t *testing.T) {
 		t.Fatalf("Handle returned error: %v", err)
 	}
 
-	output := buf.String()
+	output := writer.String()
 	if !strings.Contains(output, "CLIENT_TRAFFIC_SECRET_0") {
 		t.Errorf("Output should contain CLIENT_TRAFFIC_SECRET_0, got: %s", output)
 	}
@@ -160,8 +178,8 @@ func TestKeylogHandler_Handle_TLS13(t *testing.T) {
 }
 
 func TestKeylogHandler_Handle_Deduplication(t *testing.T) {
-	buf := &bytes.Buffer{}
-	handler := NewKeylogHandler(buf)
+	writer := newMockKeylogWriter()
+	handler := NewKeylogHandler(writer)
 
 	// Create identical events
 	clientRandom := make([]byte, Ssl3RandomSize)
@@ -185,15 +203,15 @@ func TestKeylogHandler_Handle_Deduplication(t *testing.T) {
 		t.Fatalf("First Handle returned error: %v", err)
 	}
 
-	firstOutput := buf.String()
-	buf.Reset()
+	firstOutput := writer.String()
+	writer.Reset()
 
 	err = handler.Handle(event)
 	if err != nil {
 		t.Fatalf("Second Handle returned error: %v", err)
 	}
 
-	secondOutput := buf.String()
+	secondOutput := writer.String()
 	if secondOutput != "" {
 		t.Error("Duplicate event should not produce output")
 	}
@@ -203,8 +221,8 @@ func TestKeylogHandler_Handle_Deduplication(t *testing.T) {
 }
 
 func TestKeylogHandler_Handle_NilEvent(t *testing.T) {
-	buf := &bytes.Buffer{}
-	handler := NewKeylogHandler(buf)
+	writer := newMockKeylogWriter()
+	handler := NewKeylogHandler(writer)
 
 	err := handler.Handle(nil)
 	if err == nil {
@@ -224,8 +242,8 @@ func (m *mockNonMasterSecretEvent) Type() domain.EventType            { return d
 func (m *mockNonMasterSecretEvent) UUID() string                      { return "" }
 
 func TestKeylogHandler_Handle_InvalidEventType(t *testing.T) {
-	buf := &bytes.Buffer{}
-	handler := NewKeylogHandler(buf)
+	writer := newMockKeylogWriter()
+	handler := NewKeylogHandler(writer)
 
 	var event domain.Event = &mockNonMasterSecretEvent{}
 	err := handler.Handle(event)
@@ -235,8 +253,8 @@ func TestKeylogHandler_Handle_InvalidEventType(t *testing.T) {
 }
 
 func TestKeylogHandler_Handle_ShortClientRandom(t *testing.T) {
-	buf := &bytes.Buffer{}
-	handler := NewKeylogHandler(buf)
+	writer := newMockKeylogWriter()
+	handler := NewKeylogHandler(writer)
 
 	// Client random too short
 	event := &mockMasterSecretEvent{
@@ -252,8 +270,8 @@ func TestKeylogHandler_Handle_ShortClientRandom(t *testing.T) {
 }
 
 func TestKeylogHandler_Handle_ShortMasterKey(t *testing.T) {
-	buf := &bytes.Buffer{}
-	handler := NewKeylogHandler(buf)
+	writer := newMockKeylogWriter()
+	handler := NewKeylogHandler(writer)
 
 	// Master key too short
 	event := &mockMasterSecretEvent{
@@ -269,8 +287,8 @@ func TestKeylogHandler_Handle_ShortMasterKey(t *testing.T) {
 }
 
 func TestKeylogHandler_Handle_TLS13_SkipZeroSecrets(t *testing.T) {
-	buf := &bytes.Buffer{}
-	handler := NewKeylogHandler(buf)
+	writer := newMockKeylogWriter()
+	handler := NewKeylogHandler(writer)
 
 	// TLS 1.3 event with zero secrets (should be skipped)
 	clientRandom := make([]byte, Ssl3RandomSize)
@@ -290,15 +308,15 @@ func TestKeylogHandler_Handle_TLS13_SkipZeroSecrets(t *testing.T) {
 		t.Fatalf("Handle returned error: %v", err)
 	}
 
-	output := buf.String()
+	output := writer.String()
 	if output != "" {
 		t.Error("Zero secrets should not produce output")
 	}
 }
 
 func TestKeylogHandler_Close(t *testing.T) {
-	buf := &bytes.Buffer{}
-	handler := NewKeylogHandler(buf)
+	writer := newMockKeylogWriter()
+	handler := NewKeylogHandler(writer)
 
 	// Add a key to seenKeys
 	handler.seenKeys["test"] = true
@@ -322,6 +340,14 @@ type mockKeylogClosableWriter struct {
 
 func (m *mockKeylogClosableWriter) Close() error {
 	m.closed = true
+	return nil
+}
+
+func (m *mockKeylogClosableWriter) Name() string {
+	return "mock-closable-writer"
+}
+
+func (m *mockKeylogClosableWriter) Flush() error {
 	return nil
 }
 
@@ -361,8 +387,8 @@ func Test_isZeroBytes(t *testing.T) {
 }
 
 func TestKeylogHandler_Concurrent(t *testing.T) {
-	buf := &bytes.Buffer{}
-	handler := NewKeylogHandler(buf)
+	writer := newMockKeylogWriter()
+	handler := NewKeylogHandler(writer)
 
 	// Test concurrent writes
 	done := make(chan bool)
@@ -393,7 +419,7 @@ func TestKeylogHandler_Concurrent(t *testing.T) {
 		<-done
 	}
 
-	output := buf.String()
+	output := writer.String()
 	if output == "" {
 		t.Error("Concurrent writes should produce output")
 	}

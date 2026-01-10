@@ -21,15 +21,16 @@ import (
 	"testing"
 
 	"github.com/gojue/ecapture/internal/domain"
+	"github.com/gojue/ecapture/internal/probe/base/handlers"
 )
 
 // mockDispatcher implements domain.EventDispatcher for testing
 type mockDispatcher struct{}
 
-func (m *mockDispatcher) Register(handler domain.EventHandler) error   { return nil }
-func (m *mockDispatcher) Unregister(handlerName string) error          { return nil }
-func (m *mockDispatcher) Dispatch(event domain.Event) error            { return nil }
-func (m *mockDispatcher) Close() error                                 { return nil }
+func (m *mockDispatcher) Register(handler domain.EventHandler) error { return nil }
+func (m *mockDispatcher) Unregister(handlerName string) error        { return nil }
+func (m *mockDispatcher) Dispatch(event domain.Event) error          { return nil }
+func (m *mockDispatcher) Close() error                               { return nil }
 
 func TestNewProbe(t *testing.T) {
 	probe, err := NewProbe()
@@ -79,7 +80,7 @@ func TestProbe_Initialize_KeylogMode(t *testing.T) {
 	keylogFile := filepath.Join(tmpDir, "keylog.txt")
 
 	cfg := NewConfig()
-	cfg.CaptureMode = "keylog"
+	cfg.CaptureMode = handlers.ModeKeylog
 	cfg.KeylogFile = keylogFile
 
 	ctx := context.Background()
@@ -122,7 +123,7 @@ func TestProbe_Initialize_PcapMode(t *testing.T) {
 	pcapFile := filepath.Join(tmpDir, "capture.pcapng")
 
 	cfg := NewConfig()
-	cfg.CaptureMode = "pcap"
+	cfg.CaptureMode = handlers.ModePcap
 	cfg.PcapFile = pcapFile
 	cfg.Ifname = ifname
 
@@ -155,7 +156,7 @@ func TestProbe_Close(t *testing.T) {
 	keylogFile := filepath.Join(tmpDir, "keylog.txt")
 
 	cfg := NewConfig()
-	cfg.CaptureMode = "keylog"
+	cfg.CaptureMode = handlers.ModeKeylog
 	cfg.KeylogFile = keylogFile
 
 	ctx := context.Background()

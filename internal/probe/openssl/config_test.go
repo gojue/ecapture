@@ -17,6 +17,8 @@ package openssl
 import (
 	"os"
 	"testing"
+
+	"github.com/gojue/ecapture/internal/probe/base/handlers"
 )
 
 func TestNewConfig(t *testing.T) {
@@ -214,7 +216,7 @@ func TestConfig_ValidateCaptureMode_Pcap(t *testing.T) {
 	cfg.SslVersion = Version_3_0
 
 	// Test pcap mode validation with valid settings
-	cfg.CaptureMode = "pcap"
+	cfg.CaptureMode = handlers.ModePcap
 	cfg.PcapFile = "/tmp/test.pcapng"
 	cfg.Ifname = "lo"
 

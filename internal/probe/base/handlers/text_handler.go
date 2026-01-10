@@ -15,12 +15,14 @@
 package handlers
 
 import (
+	"encoding/hex"
 	"fmt"
-	"io"
 	"time"
 
 	"github.com/gojue/ecapture/internal/domain"
 	"github.com/gojue/ecapture/internal/errors"
+	"github.com/gojue/ecapture/internal/output/encoders"
+	"github.com/gojue/ecapture/internal/output/writers"
 )
 
 // TLSDataEvent defines the interface for TLS data events.
@@ -35,17 +37,25 @@ type TLSDataEvent interface {
 }
 
 // TextHandler handles TLS events by formatting them as readable text output.
+// It uses OutputWriter for destination and Encoder for format.
 type TextHandler struct {
-	writer io.Writer
+	writer  writers.OutputWriter
+	encoder encoders.Encoder
+	useHex  bool
 }
 
-// NewTextHandler creates a new TextHandler that writes to the provided writer.
-func NewTextHandler(writer io.Writer) *TextHandler {
+// NewTextHandler creates a new TextHandler with the provided writer and encoder.
+func NewTextHandler(writer writers.OutputWriter, encoder encoders.Encoder, useHex bool) *TextHandler {
 	if writer == nil {
-		writer = io.Discard
+		writer = writers.NewStdoutWriter()
+	}
+	if encoder == nil {
+		encoder = encoders.NewPlainEncoder(useHex)
 	}
 	return &TextHandler{
-		writer: writer,
+		writer:  writer,
+		encoder: encoder,
+		useHex:  useHex,
 	}
 }
 
@@ -58,9 +68,11 @@ func (h *TextHandler) Handle(event domain.Event) error {
 	// Type assert to TLS data event
 	tlsEvent, ok := event.(TLSDataEvent)
 	if !ok {
-		return errors.New(errors.ErrCodeEventValidation, "event is not a TLS data event")
+		// Not a TLS data event, skip silently (other handlers will process it)
+		return nil
 	}
 
+	// Format using custom text format (not encoder, as this is TLS-specific formatting)
 	// Format timestamp
 	ts := time.Unix(0, int64(tlsEvent.GetTimestamp()))
 	timestamp := ts.Format("2006-01-02 15:04:05.000")
@@ -71,13 +83,24 @@ func (h *TextHandler) Handle(event domain.Event) error {
 		direction = "<<<"
 	}
 
+	// Format data based on hex mode
+	var dataOutput string
+	data := tlsEvent.GetData()
+	if h.useHex {
+		// Hex mode: format as hexadecimal
+		dataOutput = hex.Dump(data)
+	} else {
+		// Text mode: convert to string (may contain non-ASCII characters)
+		dataOutput = string(data)
+	}
+
 	// Format output
 	output := fmt.Sprintf("[%s] [PID: %d] [%s] %s\n%s\n",
 		timestamp,
 		tlsEvent.GetPid(),
 		tlsEvent.GetComm(),
 		direction,
-		string(tlsEvent.GetData()),
+		dataOutput,
 	)
 
 	// Write to output
@@ -91,9 +114,13 @@ func (h *TextHandler) Handle(event domain.Event) error {
 
 // Close closes the handler and releases resources.
 func (h *TextHandler) Close() error {
-	// Check if writer implements io.Closer
-	if closer, ok := h.writer.(io.Closer); ok {
-		return closer.Close()
+	if h.writer != nil {
+		return h.writer.Close()
 	}
 	return nil
+}
+
+// Name returns the handler's identifier.
+func (h *TextHandler) Name() string {
+	return ModeText
 }

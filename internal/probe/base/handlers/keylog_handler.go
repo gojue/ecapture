@@ -16,11 +16,11 @@ package handlers
 
 import (
 	"fmt"
-	"io"
 	"sync"
 
 	"github.com/gojue/ecapture/internal/domain"
 	"github.com/gojue/ecapture/internal/errors"
+	"github.com/gojue/ecapture/internal/output/writers"
 )
 
 const (
@@ -47,6 +47,15 @@ type MasterSecretEvent interface {
 	GetExporterMasterSecret() []byte
 }
 
+// GoTLSMasterSecretEvent defines the interface for GoTLS-style master secret events.
+// GoTLS uses a label-based format (e.g., "CLIENT_HANDSHAKE_TRAFFIC_SECRET").
+type GoTLSMasterSecretEvent interface {
+	domain.Event
+	GetLabel() string
+	GetClientRandom() []byte
+	GetSecret() []byte
+}
+
 // KeylogHandler handles TLS master secret events by writing them in NSS Key Log Format.
 // The output format is compatible with Wireshark for TLS decryption.
 //
@@ -59,15 +68,15 @@ type MasterSecretEvent interface {
 //	SERVER_TRAFFIC_SECRET_0 <64 hex digits> <64+ hex digits>
 //	EXPORTER_SECRET <64 hex digits> <64+ hex digits>
 type KeylogHandler struct {
-	writer   io.Writer
+	writer   writers.OutputWriter
 	mu       sync.Mutex
 	seenKeys map[string]bool // Deduplicate keys
 }
 
-// NewKeylogHandler creates a new KeylogHandler that writes to the provided writer.
-func NewKeylogHandler(writer io.Writer) *KeylogHandler {
+// NewKeylogHandler creates a new KeylogHandler with the provided writer.
+func NewKeylogHandler(writer writers.OutputWriter) *KeylogHandler {
 	if writer == nil {
-		writer = io.Discard
+		writer = writers.NewStdoutWriter()
 	}
 	return &KeylogHandler{
 		writer:   writer,
@@ -81,14 +90,19 @@ func (h *KeylogHandler) Handle(event domain.Event) error {
 		return errors.New(errors.ErrCodeEventValidation, "event cannot be nil")
 	}
 
-	// Type assert to master secret event
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	// Try GoTLS-style event first (label-based format)
+	if goEvent, ok := event.(GoTLSMasterSecretEvent); ok {
+		return h.handleGoTLS(goEvent)
+	}
+
+	// Try OpenSSL-style event (version-based format)
 	msEvent, ok := event.(MasterSecretEvent)
 	if !ok {
 		return errors.New(errors.ErrCodeEventValidation, "event is not a master secret event")
 	}
-
-	h.mu.Lock()
-	defer h.mu.Unlock()
 
 	version := msEvent.GetVersion()
 
@@ -119,6 +133,41 @@ func (h *KeylogHandler) handleTLS12(event MasterSecretEvent) error {
 	line := fmt.Sprintf("CLIENT_RANDOM %x %x\n",
 		clientRandom[:Ssl3RandomSize],
 		masterKey[:MasterSecretMaxLen])
+
+	// Check if we've already written this key
+	if h.seenKeys[line] {
+		return nil // Skip duplicate
+	}
+
+	// Write to output
+	if _, err := h.writer.Write([]byte(line)); err != nil {
+		return errors.Wrap(errors.ErrCodeEventDispatch, "failed to write keylog entry", err)
+	}
+
+	h.seenKeys[line] = true
+	return nil
+}
+
+// handleGoTLS writes GoTLS-style master secrets using label-based format.
+// Format: LABEL CLIENT_RANDOM SECRET
+func (h *KeylogHandler) handleGoTLS(event GoTLSMasterSecretEvent) error {
+	label := event.GetLabel()
+	clientRandom := event.GetClientRandom()
+	secret := event.GetSecret()
+
+	if label == "" {
+		return errors.New(errors.ErrCodeEventValidation, "label is empty")
+	}
+	if len(clientRandom) == 0 {
+		return errors.New(errors.ErrCodeEventValidation, "client random is empty")
+	}
+	if len(secret) == 0 {
+		return errors.New(errors.ErrCodeEventValidation, "secret is empty")
+	}
+
+	// Format: LABEL <client_random_hex> <secret_hex>
+	// This is the standard NSS Key Log Format used by Wireshark
+	line := fmt.Sprintf("%s %x %x\n", label, clientRandom, secret)
 
 	// Check if we've already written this key
 	if h.seenKeys[line] {
@@ -186,9 +235,9 @@ func (h *KeylogHandler) Close() error {
 	// Clear the seen keys map
 	h.seenKeys = make(map[string]bool)
 
-	// Check if writer implements io.Closer
-	if closer, ok := h.writer.(io.Closer); ok {
-		return closer.Close()
+	// Close the writer
+	if h.writer != nil {
+		return h.writer.Close()
 	}
 	return nil
 }
@@ -201,4 +250,9 @@ func isZeroBytes(data []byte) bool {
 		}
 	}
 	return true
+}
+
+// Name returns the handler's identifier.
+func (h *KeylogHandler) Name() string {
+	return ModeKeylog
 }

@@ -24,6 +24,8 @@ import (
 	manager "github.com/gojue/ebpfmanager"
 	"golang.org/x/sys/unix"
 
+	"github.com/gojue/ecapture/internal/factory"
+
 	"github.com/gojue/ecapture/assets"
 	"github.com/gojue/ecapture/internal/domain"
 	"github.com/gojue/ecapture/internal/errors"
@@ -42,7 +44,7 @@ type Probe struct {
 // NewProbe creates a new MySQL probe instance
 func NewProbe() *Probe {
 	return &Probe{
-		BaseProbe: base.NewBaseProbe("mysql"),
+		BaseProbe: base.NewBaseProbe(string(factory.ProbeTypeMySQL)),
 	}
 }
 

@@ -28,6 +28,7 @@ import (
 	"strings"
 
 	"github.com/gojue/ecapture/internal/config"
+	"github.com/gojue/ecapture/internal/probe/base/handlers"
 )
 
 // Config extends BaseConfig with GoTLS-specific configuration.
@@ -124,7 +125,7 @@ func (c *Config) validateCaptureMode() error {
 		// Text mode has no additional requirements
 		return nil
 
-	case "keylog":
+	case handlers.ModeKeylog:
 		// Keylog mode requires KeylogFile
 		if c.KeylogFile == "" {
 			return fmt.Errorf("keylog mode requires KeylogFile to be set")
@@ -145,7 +146,7 @@ func (c *Config) validateCaptureMode() error {
 
 		return nil
 
-	case "pcap":
+	case handlers.ModePcap:
 		// Pcap mode requires PcapFile and Ifname
 		if c.PcapFile == "" {
 			return fmt.Errorf("pcap mode requires PcapFile to be set")
@@ -340,7 +341,7 @@ func (c *Config) findSymbolOffsets() error {
 
 	// Convert virtual addresses to file offsets
 	c.GoTlsWriteAddr = c.addrToOffset(elfFile, writeSymbol.Entry)
-	
+
 	// For read function, use the entry point as the offset
 	// In a full implementation, we would parse instructions to find RET offsets
 	readOffset := c.addrToOffset(elfFile, readSymbol.Entry)
@@ -353,7 +354,7 @@ func (c *Config) findSymbolOffsets() error {
 func (c *Config) readGoSymbolTable(elfFile *elf.File, goVersion string) (*gosym.Table, error) {
 	// Try different section names for gopclntab
 	sectionNames := []string{".gopclntab", ".data.rel.ro.gopclntab", ".data.rel.ro"}
-	
+
 	var pclnData []byte
 	for _, name := range sectionNames {
 		section := elfFile.Section(name)
@@ -362,7 +363,7 @@ func (c *Config) readGoSymbolTable(elfFile *elf.File, goVersion string) (*gosym.
 			if err != nil {
 				continue
 			}
-			
+
 			// Find gopclntab by magic number
 			magic := magicNumber(goVersion)
 			index := bytes.Index(data, magic)
@@ -372,7 +373,7 @@ func (c *Config) readGoSymbolTable(elfFile *elf.File, goVersion string) (*gosym.
 			}
 		}
 	}
-	
+
 	if pclnData == nil {
 		return nil, fmt.Errorf("gopclntab not found in ELF file")
 	}
@@ -407,7 +408,7 @@ func magicNumber(goVersion string) []byte {
 
 	bs := make([]byte, 4)
 	var magic uint32
-	
+
 	if strings.Compare(goVersion, "go1.20") >= 0 {
 		magic = go120magic
 	} else if strings.Compare(goVersion, "go1.18") >= 0 {
@@ -417,7 +418,7 @@ func magicNumber(goVersion string) []byte {
 	} else {
 		magic = go12magic
 	}
-	
+
 	binary.LittleEndian.PutUint32(bs, magic)
 	return bs
 }
@@ -438,4 +439,19 @@ func (c *Config) addrToOffset(elfFile *elf.File, addr uint64) uint64 {
 
 	// If not found in any segment, return the address directly
 	return addr
+}
+
+// GetCaptureMode returns the capture mode (text, keylog, or pcap).
+func (c *Config) GetCaptureMode() string {
+	return c.CaptureMode
+}
+
+// GetPcapFile returns the pcap file path.
+func (c *Config) GetPcapFile() string {
+	return c.PcapFile
+}
+
+// GetKeylogFile returns the keylog file path.
+func (c *Config) GetKeylogFile() string {
+	return c.KeylogFile
 }

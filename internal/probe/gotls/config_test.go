@@ -19,6 +19,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+
+	"github.com/gojue/ecapture/internal/probe/base/handlers"
 )
 
 func TestNewConfig(t *testing.T) {
@@ -69,7 +71,7 @@ func TestConfig_Validate_KeylogMode(t *testing.T) {
 	keylogFile := filepath.Join(tmpDir, "keylog.txt")
 
 	cfg := NewConfig()
-	cfg.CaptureMode = "keylog"
+	cfg.CaptureMode = handlers.ModeKeylog
 	cfg.KeylogFile = keylogFile
 
 	if err := cfg.Validate(); err != nil {
@@ -79,7 +81,7 @@ func TestConfig_Validate_KeylogMode(t *testing.T) {
 
 func TestConfig_Validate_KeylogMode_MissingFile(t *testing.T) {
 	cfg := NewConfig()
-	cfg.CaptureMode = "keylog"
+	cfg.CaptureMode = handlers.ModeKeylog
 	cfg.KeylogFile = ""
 
 	if err := cfg.Validate(); err == nil {
@@ -179,7 +181,7 @@ func TestConfig_ValidateNetworkInterface(t *testing.T) {
 	ifname := ifaces[0].Name()
 
 	cfg := NewConfig()
-	cfg.CaptureMode = "pcap"
+	cfg.CaptureMode = handlers.ModePcap
 	cfg.PcapFile = filepath.Join(t.TempDir(), "capture.pcapng")
 	cfg.Ifname = ifname
 

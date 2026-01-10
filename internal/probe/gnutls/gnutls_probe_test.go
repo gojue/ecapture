@@ -18,6 +18,8 @@ import (
 	"bytes"
 	"context"
 	"testing"
+
+	"github.com/gojue/ecapture/internal/probe/base/handlers"
 )
 
 func TestNewProbe(t *testing.T) {
@@ -39,7 +41,7 @@ func TestProbe_Initialize_TextMode(t *testing.T) {
 	cfg := NewConfig()
 	cfg.GnutlsPath = "/usr/lib/libgnutls.so.30"
 	cfg.GnuVersion = "3.7.10"
-	cfg.CaptureMode = "text"
+	cfg.CaptureMode = handlers.ModeText
 	probe.output = &bytes.Buffer{}
 
 	ctx := context.Background()
@@ -52,18 +54,13 @@ func TestProbe_Initialize_TextMode(t *testing.T) {
 
 func TestProbe_Close(t *testing.T) {
 	probe, _ := NewProbe()
-	// Close handlers individually since BaseProbe might not be fully initialized
-	// This is a stub implementation test
-	if probe.textHandler != nil {
-		probe.textHandler.Close()
+	// Handlers are managed by dispatcher, not by probe
+	// Just test that Close doesn't panic
+	err := probe.Close()
+	if err != nil {
+		t.Logf("Close returned error: %v", err)
 	}
-	if probe.keylogHandler != nil {
-		probe.keylogHandler.Close()
-	}
-	if probe.pcapHandler != nil {
-		probe.pcapHandler.Close()
-	}
-	t.Log("Close test completed for stub implementation")
+	t.Log("Close test completed")
 }
 
 func TestProbe_Events(t *testing.T) {

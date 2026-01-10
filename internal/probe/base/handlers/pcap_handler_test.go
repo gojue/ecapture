@@ -16,11 +16,31 @@ package handlers
 
 import (
 	"bytes"
-	"strings"
 	"testing"
 
 	"github.com/gojue/ecapture/internal/domain"
 )
+
+// mockPcapWriter wraps bytes.Buffer to implement OutputWriter for testing
+type mockPcapWriter struct {
+	*bytes.Buffer
+}
+
+func newMockPcapWriter() *mockPcapWriter {
+	return &mockPcapWriter{Buffer: &bytes.Buffer{}}
+}
+
+func (m *mockPcapWriter) Close() error {
+	return nil
+}
+
+func (m *mockPcapWriter) Name() string {
+	return "mock-pcap-writer"
+}
+
+func (m *mockPcapWriter) Flush() error {
+	return nil
+}
 
 // mockPacketEvent is a mock implementation of PacketEvent for testing.
 type mockPacketEvent struct {
@@ -51,71 +71,72 @@ func (m *mockPacketEvent) Type() domain.EventType            { return domain.Eve
 func (m *mockPacketEvent) UUID() string                      { return "" }
 
 func TestNewPcapHandler(t *testing.T) {
-	buf := &bytes.Buffer{}
-	handler := NewPcapHandler(buf)
+	writer := newMockPcapWriter()
+	handler, err := NewPcapHandler(writer)
+	if err != nil {
+		t.Fatalf("NewPcapHandler returned error: %v", err)
+	}
 	if handler == nil {
 		t.Fatal("NewPcapHandler returned nil")
 	}
-	if handler.writer != buf {
-		t.Error("PcapHandler writer not set correctly")
-	}
-	if handler.interfaces == nil {
-		t.Error("interfaces map not initialized")
+	if handler.pcapWriter == nil {
+		t.Error("PcapHandler pcapWriter not set correctly")
 	}
 }
 
 func TestNewPcapHandler_NilWriter(t *testing.T) {
-	handler := NewPcapHandler(nil)
+	handler, err := NewPcapHandler(nil)
+	if err != nil {
+		t.Fatalf("NewPcapHandler returned error: %v", err)
+	}
 	if handler == nil {
 		t.Fatal("NewPcapHandler returned nil with nil writer")
 	}
-	if handler.writer == nil {
-		t.Error("PcapHandler writer should not be nil")
+	if handler.pcapWriter == nil {
+		t.Error("PcapHandler pcapWriter should not be nil")
 	}
 }
 
 func TestPcapHandler_Handle(t *testing.T) {
-	buf := &bytes.Buffer{}
-	handler := NewPcapHandler(buf)
+	writer := newMockPcapWriter()
+	handler, err := NewPcapHandler(writer)
+	if err != nil {
+		t.Fatalf("NewPcapHandler returned error: %v", err)
+	}
 
 	event := &mockPacketEvent{
-		timestamp:      1234567890,
+		timestamp:      1234567890000000000, // nanoseconds
 		packetData:     []byte{0x45, 0x00, 0x00, 0x3c}, // IP header start
 		packetLen:      60,
-		interfaceIndex: 1,
+		interfaceIndex: 0,
 		srcIP:          "192.168.1.100",
 		dstIP:          "192.168.1.1",
 		srcPort:        12345,
 		dstPort:        443,
 	}
 
-	err := handler.Handle(event)
+	err = handler.Handle(event)
 	if err != nil {
 		t.Fatalf("Handle returned error: %v", err)
 	}
 
-	output := buf.String()
-	if !strings.Contains(output, "192.168.1.100") {
-		t.Errorf("Output should contain source IP, got: %s", output)
-	}
-	if !strings.Contains(output, "192.168.1.1") {
-		t.Errorf("Output should contain destination IP, got: %s", output)
-	}
-	if !strings.Contains(output, "12345") {
-		t.Errorf("Output should contain source port, got: %s", output)
-	}
-	if !strings.Contains(output, "443") {
-		t.Errorf("Output should contain destination port, got: %s", output)
+	// PCAPNG data is binary, just verify something was written
+	if writer.Len() == 0 {
+		t.Error("Expected data to be written to pcap file")
 	}
 }
 
 func TestPcapHandler_Handle_NilEvent(t *testing.T) {
-	buf := &bytes.Buffer{}
-	handler := NewPcapHandler(buf)
+	writer := newMockPcapWriter()
+	handler, err := NewPcapHandler(writer)
+	if err != nil {
+		t.Fatalf("NewPcapHandler returned error: %v", err)
+	}
 
-	err := handler.Handle(nil)
-	if err == nil {
-		t.Error("Handle should return error for nil event")
+	err = handler.Handle(nil)
+	// Should return nil (skip silently) for nil events
+	if err != nil {
+		t.Errorf("Handle should skip nil events silently, got error: %v", err)
 	}
 }
 
@@ -131,136 +152,17 @@ func (m *mockNonPacketEvent) Type() domain.EventType            { return domain.
 func (m *mockNonPacketEvent) UUID() string                      { return "" }
 
 func TestPcapHandler_Handle_InvalidEventType(t *testing.T) {
-	buf := &bytes.Buffer{}
-	handler := NewPcapHandler(buf)
+	writer := newMockPcapWriter()
+	handler, err := NewPcapHandler(writer)
+	if err != nil {
+		t.Fatalf("NewPcapHandler returned error: %v", err)
+	}
 
 	var event domain.Event = &mockNonPacketEvent{}
-	err := handler.Handle(event)
-	if err == nil {
-		t.Error("Handle should return error for non-packet event")
-	}
-}
-
-func TestPcapHandler_AddInterface(t *testing.T) {
-	buf := &bytes.Buffer{}
-	handler := NewPcapHandler(buf)
-
-	err := handler.AddInterface(1, "eth0")
+	err = handler.Handle(event)
+	// Should return nil (skip silently) for non-packet events
 	if err != nil {
-		t.Errorf("AddInterface returned error: %v", err)
-	}
-
-	// Check that interface was added
-	if len(handler.interfaces) != 1 {
-		t.Error("Interface not added to map")
-	}
-	if handler.interfaces[1] != "eth0" {
-		t.Errorf("Interface name not set correctly, got: %s", handler.interfaces[1])
+		t.Errorf("Handle should skip non-packet events silently, got error: %v", err)
 	}
 }
 
-func TestPcapHandler_AddInterface_Multiple(t *testing.T) {
-	buf := &bytes.Buffer{}
-	handler := NewPcapHandler(buf)
-
-	handler.AddInterface(1, "eth0")
-	handler.AddInterface(2, "wlan0")
-	handler.AddInterface(3, "lo")
-
-	if len(handler.interfaces) != 3 {
-		t.Errorf("Expected 3 interfaces, got %d", len(handler.interfaces))
-	}
-}
-
-func TestPcapHandler_WriteFileHeader(t *testing.T) {
-	buf := &bytes.Buffer{}
-	handler := NewPcapHandler(buf)
-
-	err := handler.WriteFileHeader()
-	if err != nil {
-		t.Errorf("WriteFileHeader returned error: %v", err)
-	}
-
-	output := buf.String()
-	if output == "" {
-		t.Error("WriteFileHeader should write some output")
-	}
-}
-
-func TestPcapHandler_Close(t *testing.T) {
-	buf := &bytes.Buffer{}
-	handler := NewPcapHandler(buf)
-
-	// Add some interfaces
-	handler.AddInterface(1, "eth0")
-	handler.AddInterface(2, "wlan0")
-
-	err := handler.Close()
-	if err != nil {
-		t.Errorf("Close returned error: %v", err)
-	}
-
-	// Check that interfaces were cleared
-	if len(handler.interfaces) != 0 {
-		t.Error("Interfaces should be cleared after Close")
-	}
-}
-
-// mockPcapClosableWriter is a writer that implements io.Closer
-type mockPcapClosableWriter struct {
-	*bytes.Buffer
-	closed bool
-}
-
-func (m *mockPcapClosableWriter) Close() error {
-	m.closed = true
-	return nil
-}
-
-func TestPcapHandler_Close_ClosableWriter(t *testing.T) {
-	writer := &mockPcapClosableWriter{Buffer: &bytes.Buffer{}}
-	handler := NewPcapHandler(writer)
-
-	err := handler.Close()
-	if err != nil {
-		t.Errorf("Close returned error: %v", err)
-	}
-	if !writer.closed {
-		t.Error("Writer should be closed")
-	}
-}
-
-func TestPcapHandler_Concurrent(t *testing.T) {
-	buf := &bytes.Buffer{}
-	handler := NewPcapHandler(buf)
-
-	// Test concurrent writes
-	done := make(chan bool)
-	for i := 0; i < 10; i++ {
-		go func(id int) {
-			event := &mockPacketEvent{
-				timestamp:      uint64(id),
-				packetData:     []byte{byte(id)},
-				packetLen:      1,
-				interfaceIndex: uint32(id),
-				srcIP:          "192.168.1.100",
-				dstIP:          "192.168.1.1",
-				srcPort:        uint16(10000 + id),
-				dstPort:        443,
-			}
-
-			handler.Handle(event)
-			done <- true
-		}(i)
-	}
-
-	// Wait for all goroutines
-	for i := 0; i < 10; i++ {
-		<-done
-	}
-
-	output := buf.String()
-	if output == "" {
-		t.Error("Concurrent writes should produce output")
-	}
-}

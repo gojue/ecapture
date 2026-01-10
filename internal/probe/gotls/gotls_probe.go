@@ -23,20 +23,24 @@ import (
 
 	"github.com/cilium/ebpf"
 	manager "github.com/gojue/ebpfmanager"
+	"github.com/gojue/ecapture/internal/factory"
 	"golang.org/x/sys/unix"
 
 	"github.com/gojue/ecapture/assets"
 	"github.com/gojue/ecapture/internal/domain"
 	"github.com/gojue/ecapture/internal/errors"
 	"github.com/gojue/ecapture/internal/probe/base"
+	"github.com/gojue/ecapture/internal/probe/base/handlers"
 )
 
 // Probe represents the GoTLS probe
 type Probe struct {
 	*base.BaseProbe
-	config     *Config
-	bpfManager *manager.Manager
-	eventMaps  []*ebpf.Map
+	config           *Config
+	bpfManager       *manager.Manager
+	eventFuncMaps    map[*ebpf.Map]domain.EventDecoder
+	mapNameToDecoder map[string]domain.EventDecoder // Maps configured in setupManager
+	eventMaps        []*ebpf.Map
 
 	// File handles for different capture modes
 	keylogFile *os.File
@@ -46,7 +50,9 @@ type Probe struct {
 // NewProbe creates a new GoTLS probe
 func NewProbe() (*Probe, error) {
 	return &Probe{
-		BaseProbe: base.NewBaseProbe("gotls"),
+		BaseProbe:        base.NewBaseProbe(string(factory.ProbeTypeGoTLS)),
+		eventFuncMaps:    make(map[*ebpf.Map]domain.EventDecoder),
+		mapNameToDecoder: make(map[string]domain.EventDecoder),
 	}, nil
 }
 
@@ -81,12 +87,12 @@ func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration, dispat
 // openOutputFiles opens output files based on capture mode
 func (p *Probe) openOutputFiles() error {
 	// Normalize capture mode: treat "pcapng" as "pcap"
-	if p.config.CaptureMode == "pcapng" {
-		p.config.CaptureMode = "pcap"
+	if handlers.IsModePcapng(p.config.CaptureMode) {
+		p.config.CaptureMode = handlers.ModePcap
 	}
 
 	switch p.config.CaptureMode {
-	case "keylog", "key":
+	case handlers.ModeKeylog, handlers.ModeKey:
 		if p.config.KeylogFile == "" {
 			return errors.NewConfigurationError("keylog_file is required for keylog mode", nil)
 		}
@@ -96,7 +102,7 @@ func (p *Probe) openOutputFiles() error {
 		}
 		p.keylogFile = file
 
-	case "pcap":
+	case handlers.ModePcap:
 		// PCAP mode requires pcap file for storing TC probe network packets
 		if p.config.PcapFile == "" {
 			return errors.NewConfigurationError("pcap_file is required for pcap mode", nil)
@@ -106,7 +112,7 @@ func (p *Probe) openOutputFiles() error {
 			return errors.NewConfigurationError("failed to open pcap file", err)
 		}
 		p.pcapFile = file
-		
+
 		// For pcapng mode, optionally open keylog file if specified
 		// Master secrets can be embedded in PCAPNG DSB blocks or written to separate keylog
 		if p.config.KeylogFile != "" {
@@ -158,46 +164,51 @@ func (p *Probe) Start(ctx context.Context) error {
 		return errors.NewEBPFAttachError("gotls manager start", err)
 	}
 
-	// Get event maps
-	eventsMap, found, err := p.bpfManager.GetMap("events")
-	if err != nil {
-		return errors.Wrap(errors.ErrCodeEBPFMapAccess, "failed to get events map", err)
-	}
-	if !found {
-		return errors.NewResourceNotFoundError("eBPF map: events")
-	}
-
-	// Get master secret events map if in keylog mode
-	var masterSecretMap *ebpf.Map
-	if p.config.CaptureMode == "keylog" {
-		masterSecretMap, found, err = p.bpfManager.GetMap("mastersecret_go_events")
-		if err != nil {
-			return errors.Wrap(errors.ErrCodeEBPFMapAccess, "failed to get mastersecret_go_events map", err)
-		}
-		if !found {
-			p.Logger().Warn().Msg("Master secret map not found, keylog capture may be incomplete")
-		}
-	}
-
-	// Store event maps
-	if masterSecretMap != nil {
-		p.eventMaps = []*ebpf.Map{eventsMap, masterSecretMap}
-	} else {
-		p.eventMaps = []*ebpf.Map{eventsMap}
-	}
-
-	// Start event readers
-	if err := p.StartPerfEventReader(eventsMap, p); err != nil {
+	// Retrieve eBPF maps and associate with decoders (configured in setupManager)
+	if err := p.retrieveEventMaps(); err != nil {
 		return err
 	}
 
-	if masterSecretMap != nil {
-		if err := p.StartPerfEventReader(masterSecretMap, p); err != nil {
+	// Start event readers for all configured maps
+	for em, decoder := range p.eventFuncMaps {
+		if err := p.StartPerfEventReader(em, decoder); err != nil {
 			return err
 		}
+		p.Logger().Debug().
+			Str("map", em.String()).
+			Msg("Started perf event reader")
 	}
 
 	p.Logger().Info().Msg("GoTLS probe started successfully")
+	return nil
+}
+
+// retrieveEventMaps retrieves eBPF maps from the manager and creates eventFuncMaps.
+// The decoder mapping by name (mapNameToDecoder) is already configured in setupManager().
+func (p *Probe) retrieveEventMaps() error {
+	// Retrieve all maps that were configured in setupManager
+	for mapName, decoder := range p.mapNameToDecoder {
+		em, found, err := p.bpfManager.GetMap(mapName)
+		if err != nil {
+			return errors.Wrap(errors.ErrCodeEBPFMapAccess, fmt.Sprintf("failed to get %s map", mapName), err)
+		}
+		if !found {
+			// Some maps might not be found (edge case)
+			p.Logger().Warn().Str("map", mapName).Msg("Map not found but was configured")
+			continue
+		}
+
+		// Add to eventMaps and map the actual *ebpf.Map to decoder
+		p.eventMaps = append(p.eventMaps, em)
+		p.eventFuncMaps[em] = decoder
+	}
+
+	p.Logger().Info().
+		Int("num_maps", len(p.eventMaps)).
+		Int("num_decoders", len(p.eventFuncMaps)).
+		Str("capture_mode", p.config.CaptureMode).
+		Msg("Event maps retrieved and decoders mapped")
+
 	return nil
 }
 
@@ -233,36 +244,6 @@ func (p *Probe) Close() error {
 	return p.BaseProbe.Close()
 }
 
-// Decode implements EventDecoder interface.
-func (p *Probe) Decode(em *ebpf.Map, data []byte) (domain.Event, error) {
-	// Determine event type based on map
-	for i, m := range p.eventMaps {
-		if m == em {
-			// First map is always events (TLS data)
-			if i == 0 || len(p.eventMaps) == 1 {
-				event := &TLSDataEvent{}
-				if err := event.DecodeFromBytes(data); err != nil {
-					return nil, err
-				}
-				return event, nil
-			}
-			// Second map is mastersecret_go_events (if exists)
-			if i == 1 {
-				event := &MasterSecretEvent{}
-				if err := event.DecodeFromBytes(data); err != nil {
-					return nil, err
-				}
-				// Write master secret to keylog file if in keylog or pcapng mode
-				if err := p.writeMasterSecretToFile(event); err != nil {
-					p.Logger().Warn().Err(err).Msg("Failed to write master secret to file")
-				}
-				return event, nil
-			}
-		}
-	}
-	return nil, fmt.Errorf("unknown eBPF map: %s", em.String())
-}
-
 // writeMasterSecretToFile writes a master secret event to the appropriate output file
 func (p *Probe) writeMasterSecretToFile(event *MasterSecretEvent) error {
 	if event == nil {
@@ -270,16 +251,15 @@ func (p *Probe) writeMasterSecretToFile(event *MasterSecretEvent) error {
 	}
 
 	// Only write to keylog file in keylog or pcap mode
-	if p.config.CaptureMode != "keylog" && p.config.CaptureMode != "key" && 
-	   p.config.CaptureMode != "pcap" {
+	if !handlers.IsModeKeylog(p.config.CaptureMode) && !handlers.IsModePcapng(p.config.CaptureMode) {
 		return nil
 	}
 
 	// Ensure we have a file to write to
 	var file *os.File
-	if p.config.CaptureMode == "keylog" || p.config.CaptureMode == "key" {
+	if handlers.IsModeKeylog(p.config.CaptureMode) {
 		file = p.keylogFile
-	} else if p.config.CaptureMode == "pcap" {
+	} else if handlers.IsModePcapng(p.config.CaptureMode) {
 		// For pcap mode, we also write to keylog file (DSB block handling)
 		// If keylogFile is set, use it; otherwise, pcapFile will handle DSB internally
 		file = p.keylogFile
@@ -306,7 +286,7 @@ func (p *Probe) writeMasterSecretToFile(event *MasterSecretEvent) error {
 	secret := fmt.Sprintf("%x", event.GetSecret())
 
 	keylogLine := fmt.Sprintf("%s %s %s\n", label, clientRandom, secret)
-	
+
 	if _, err := file.WriteString(keylogLine); err != nil {
 		return fmt.Errorf("failed to write to keylog file: %w", err)
 	}
@@ -351,7 +331,7 @@ func (p *Probe) setupManager() error {
 	// Determine which uprobes to attach based on ABI
 	var writeSection, readSection, masterSecretSection string
 	var writeFunc, readFunc, masterSecretFunc string
-	
+
 	if p.config.IsRegisterABI {
 		writeSection = "uprobe/gotls_write_register"
 		writeFunc = "gotls_write_register"
@@ -426,10 +406,11 @@ func (p *Probe) setupManager() error {
 
 		// Initialize events map
 		maps = append(maps, &manager.Map{Name: "events"})
+		p.mapNameToDecoder["events"] = &tlsDataEventDecoder{probe: p}
 	}
 
 	// KEYLOG MODE: Capture TLS master secrets only
-	if p.config.CaptureMode == "keylog" || p.config.CaptureMode == "key" {
+	if handlers.IsModeKeylog(p.config.CaptureMode) {
 		probes = append(probes, &manager.Probe{
 			Section:          masterSecretSection,
 			EbpfFuncName:     masterSecretFunc,
@@ -438,7 +419,8 @@ func (p *Probe) setupManager() error {
 			UAddress:         p.config.GoTlsMasterSecretAddr,
 		})
 		maps = append(maps, &manager.Map{Name: "mastersecret_go_events"})
-		
+		p.mapNameToDecoder["mastersecret_go_events"] = &masterSecretEventDecoder{probe: p}
+
 		p.Logger().Debug().
 			Uint64("master_secret_address", p.config.GoTlsMasterSecretAddr).
 			Msg("Added master secret probe")
@@ -446,7 +428,7 @@ func (p *Probe) setupManager() error {
 
 	// PCAP MODE: Capture network packets with TC + master secrets for DSB
 	// Note: "pcapng" is normalized to "pcap" in openOutputFiles()
-	if p.config.CaptureMode == "pcap" {
+	if handlers.IsModePcapng(p.config.CaptureMode) {
 		if p.config.Ifname == "" {
 			return errors.NewConfigurationError("ifname is required for pcap mode", nil)
 		}
@@ -478,11 +460,15 @@ func (p *Probe) setupManager() error {
 
 		// Add TC-related maps for network packet capture
 		maps = append(maps, &manager.Map{Name: "skb_events"})
+		p.mapNameToDecoder["skb_events"] = &packetEventDecoder{}
+
+		// These maps don't need decoders (used internally by eBPF)
 		maps = append(maps, &manager.Map{Name: "skb_data_buffer_heap"})
 		maps = append(maps, &manager.Map{Name: "network_map"})
-		
+
 		// Add master secret events map for PCAPNG DSB
 		maps = append(maps, &manager.Map{Name: "mastersecret_go_events"})
+		p.mapNameToDecoder["mastersecret_go_events"] = &masterSecretEventDecoder{probe: p}
 
 		p.Logger().Debug().
 			Str("ifname", p.config.Ifname).
@@ -522,4 +508,67 @@ func (p *Probe) getManagerOptions() manager.Options {
 	}
 
 	return opts
+}
+
+func (p *Probe) DecodeFun(em *ebpf.Map) (domain.EventDecoder, bool) {
+	fun, found := p.eventFuncMaps[em]
+	return fun, found
+}
+
+// Event decoder implementations
+
+// tlsDataEventDecoder implements domain.EventDecoder for TLS data events
+type tlsDataEventDecoder struct {
+	probe *Probe
+}
+
+func (d *tlsDataEventDecoder) Decode(_ *ebpf.Map, data []byte) (domain.Event, error) {
+	event := &TLSDataEvent{}
+	if err := event.DecodeFromBytes(data); err != nil {
+		return nil, err
+	}
+	return event, nil
+}
+
+func (d *tlsDataEventDecoder) GetDecoder(_ *ebpf.Map) (domain.Event, bool) {
+	return &TLSDataEvent{}, true
+}
+
+// masterSecretEventDecoder implements domain.EventDecoder for master secret events
+type masterSecretEventDecoder struct {
+	probe *Probe
+}
+
+func (d *masterSecretEventDecoder) Decode(_ *ebpf.Map, data []byte) (domain.Event, error) {
+	event := &MasterSecretEvent{}
+	if err := event.DecodeFromBytes(data); err != nil {
+		return nil, err
+	}
+
+	// Event will be dispatched to registered handlers:
+	// - KeylogHandler: writes master secret to keylog file
+	// - MasterSecretInfoHandler: prints summary to stdout
+	return event, nil
+}
+
+func (d *masterSecretEventDecoder) GetDecoder(_ *ebpf.Map) (domain.Event, bool) {
+	return &MasterSecretEvent{}, true
+}
+
+// packetEventDecoder implements domain.EventDecoder for packet events
+type packetEventDecoder struct{}
+
+func (d *packetEventDecoder) Decode(_ *ebpf.Map, data []byte) (domain.Event, error) {
+	event := &PacketEvent{}
+	if err := event.DecodeFromBytes(data); err != nil {
+		return nil, err
+	}
+	if err := event.Validate(); err != nil {
+		return nil, err
+	}
+	return event, nil
+}
+
+func (d *packetEventDecoder) GetDecoder(_ *ebpf.Map) (domain.Event, bool) {
+	return &PacketEvent{}, true
 }

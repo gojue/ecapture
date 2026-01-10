@@ -22,6 +22,7 @@ import (
 
 	"github.com/cilium/ebpf"
 	manager "github.com/gojue/ebpfmanager"
+	"github.com/gojue/ecapture/internal/factory"
 	"golang.org/x/sys/unix"
 
 	"github.com/gojue/ecapture/assets"
@@ -40,7 +41,7 @@ type Probe struct {
 // NewProbe creates a new PostgreSQL probe instance
 func NewProbe() *Probe {
 	return &Probe{
-		BaseProbe: base.NewBaseProbe("postgres"),
+		BaseProbe: base.NewBaseProbe(string(factory.ProbeTypePostgres)),
 	}
 }
 

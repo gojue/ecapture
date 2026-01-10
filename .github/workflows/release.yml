@@ -17,6 +17,24 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.24.6'
+      - name: Check Release Type
+        id: release_type
+        run: |
+          TAG_NAME=${{ github.ref_name }}
+          if [[ "$TAG_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "IS_PRERELEASE=false" >> $GITHUB_OUTPUT
+            echo "RELEASE_TYPE=stable" >> $GITHUB_OUTPUT
+            echo "📦 Stable release detected: $TAG_NAME"
+          elif [[ "$TAG_NAME" =~ (alpha|beta|rc) ]]; then
+            echo "IS_PRERELEASE=true" >> $GITHUB_OUTPUT
+            echo "RELEASE_TYPE=prerelease" >> $GITHUB_OUTPUT
+            echo "🚧 Pre-release detected: $TAG_NAME"
+          else
+            echo "IS_PRERELEASE=false" >> $GITHUB_OUTPUT
+            echo "RELEASE_TYPE=stable" >> $GITHUB_OUTPUT
+            echo "📦 Release: $TAG_NAME"
+          fi
+        shell: bash
       - name: Install Compilers
         run: |
           sudo apt-get update
@@ -96,6 +114,8 @@ jobs:
           make env
           CROSS_ARCH=arm64 make -f builder/Makefile.release release SNAPSHOT_VERSION=${{ github.ref_name }}
       - name: Publish
+        env:
+          IS_PRERELEASE: ${{ steps.release_type.outputs.IS_PRERELEASE }}
         run: |
           make -f builder/Makefile.release publish SNAPSHOT_VERSION=${{ github.ref_name }}
   build-docker-image:
@@ -103,6 +123,18 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Check Release Type
+        id: release_type
+        run: |
+          TAG_NAME=${{ github.ref_name }}
+          if [[ "$TAG_NAME" =~ (alpha|beta|rc) ]]; then
+            echo "IS_PRERELEASE=true" >> $GITHUB_OUTPUT
+            echo "🚧 Pre-release detected for Docker: $TAG_NAME"
+          else
+            echo "IS_PRERELEASE=false" >> $GITHUB_OUTPUT
+            echo "📦 Stable release detected for Docker: $TAG_NAME"
+          fi
+        shell: bash
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
@@ -114,6 +146,20 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       - name: Update submodule
         run: git submodule update --init
+      - name: Prepare Docker Tags
+        id: docker_tags
+        run: |
+          TAGS="${{ secrets.DOCKERHUB_USERNAME }}/ecapture:${{ github.ref_name }}"
+          if [[ "${{ steps.release_type.outputs.IS_PRERELEASE }}" == "false" ]]; then
+            TAGS="${TAGS}
+          ${{ secrets.DOCKERHUB_USERNAME }}/ecapture:latest"
+            echo "📦 Adding 'latest' tag for stable release"
+          else
+            echo "🚧 Skipping 'latest' tag for pre-release"
+          fi
+          echo "TAGS<<EOF" >> $GITHUB_OUTPUT
+          echo "$TAGS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
@@ -124,6 +170,4 @@ jobs:
           push: true
           cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/ecapture:buildcache
           cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/ecapture:buildcache,mode=max
-          tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/ecapture:${{ github.ref_name }}
-            ${{ secrets.DOCKERHUB_USERNAME }}/ecapture:latest
+          tags: ${{ steps.docker_tags.outputs.TAGS }}

@@ -244,3 +244,15 @@ func (e *MasterSecretEvent) GetServerAppTrafficSecret() []byte {
 func (e *MasterSecretEvent) GetExporterMasterSecret() []byte {
 	return e.ExporterMasterSecret[:]
 }
+
+// Decode implements domain.EventDecoder interface for master secret events.
+func (e *MasterSecretEvent) Decode(data []byte) (domain.Event, error) {
+	event := &MasterSecretEvent{}
+	if err := event.DecodeFromBytes(data); err != nil {
+		return nil, err
+	}
+	if err := event.Validate(); err != nil {
+		return nil, err
+	}
+	return event, nil
+}

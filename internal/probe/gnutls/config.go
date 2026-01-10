@@ -26,6 +26,7 @@ import (
 
 	"github.com/gojue/ecapture/internal/config"
 	"github.com/gojue/ecapture/internal/errors"
+	"github.com/gojue/ecapture/internal/probe/base/handlers"
 )
 
 // GnuTLS version constants
@@ -66,7 +67,7 @@ type Config struct {
 func NewConfig() *Config {
 	return &Config{
 		BaseConfig:  config.NewBaseConfig(),
-		CaptureMode: "text", // Default to text mode
+		CaptureMode: handlers.ModeText, // Default to text mode
 	}
 }
 
@@ -137,11 +138,11 @@ func (c *Config) validateCaptureMode() error {
 	mode := strings.ToLower(c.CaptureMode)
 
 	switch mode {
-	case "text", "":
-		c.CaptureMode = "text"
+	case handlers.ModeText, "":
+		c.CaptureMode = handlers.ModeText
 		return nil
-	case "keylog", "key":
-		c.CaptureMode = "keylog"
+	case handlers.ModeKeylog, handlers.ModeKey:
+		c.CaptureMode = handlers.ModeKeylog
 		if c.KeylogFile == "" {
 			return fmt.Errorf("keylog mode requires KeylogFile to be set")
 		}
@@ -150,8 +151,8 @@ func (c *Config) validateCaptureMode() error {
 			return fmt.Errorf("keylog directory does not exist: %s", dir)
 		}
 		return nil
-	case "pcap", "pcapng":
-		c.CaptureMode = "pcap"
+	case handlers.ModePcap, handlers.ModePcapng:
+		c.CaptureMode = handlers.ModePcap
 		if c.PcapFile == "" {
 			return fmt.Errorf("pcap mode requires PcapFile to be set")
 		}

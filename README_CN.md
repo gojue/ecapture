@@ -300,7 +300,7 @@ https://github.com/user-attachments/assets/c8b7a84d-58eb-4fdb-9843-f775c97bdbfb
 # 二次开发
 ## 自行编译
 你可以定制自己想要的功能，比如设定`uprobe`
-的偏移地址，用来支持被静态编译的Openssl类库。编译方法可以参考 [COMPILATION](./COMPILATION_CN.md)的介绍。
+的偏移地址，用来支持被静态编译的Openssl类库。编译方法可以参考 [编译指南](./docs/compilation-cn.md) 的介绍。
 
 ## 动态修改配置
 当eCapture运行后，你可以通过HTTP接口动态修改配置，参考[HTTP API 文档](./docs/remote-config-update-api_CN.md)。

@@ -290,3 +290,7 @@ func (p *BaseProbe) ringbufEventLoop(rd *ringbuf.Reader, em *ebpf.Map, decoder d
 		}
 	}
 }
+
+func (p *BaseProbe) DecodeFun(em *ebpf.Map) (domain.EventDecoder, bool) {
+	panic("not implemented")
+}

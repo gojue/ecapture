@@ -16,29 +16,32 @@ package nspr
 
 import (
 	"context"
-	"os"
 
 	"github.com/cilium/ebpf"
+
+	"github.com/gojue/ecapture/internal/factory"
+
 	"github.com/gojue/ecapture/assets"
 	"github.com/gojue/ecapture/internal/domain"
 	"github.com/gojue/ecapture/internal/errors"
 	"github.com/gojue/ecapture/internal/probe/base"
-	"github.com/gojue/ecapture/internal/probe/base/handlers"
 )
 
 // Probe represents the NSPR/NSS probe
 type Probe struct {
 	*base.BaseProbe
-	config *Config
-
-	// Handler for text output
-	textHandler *handlers.TextHandler
+	config           *Config
+	eventFuncMaps    map[*ebpf.Map]domain.EventDecoder
+	mapNameToDecoder map[string]domain.EventDecoder // Maps configured in setupManager
+	eventMaps        []*ebpf.Map
 }
 
 // NewProbe creates a new NSPR probe
 func NewProbe() (*Probe, error) {
 	return &Probe{
-		BaseProbe: base.NewBaseProbe("nspr"),
+		BaseProbe:        base.NewBaseProbe(string(factory.ProbeTypeNSPR)),
+		eventFuncMaps:    make(map[*ebpf.Map]domain.EventDecoder),
+		mapNameToDecoder: make(map[string]domain.EventDecoder),
 	}, nil
 }
 
@@ -61,9 +64,6 @@ func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration, dispat
 	}
 
 	p.config = nsprConfig
-
-	// Initialize text handler for stdout
-	p.textHandler = handlers.NewTextHandler(os.Stdout)
 
 	// Load eBPF bytecode
 	bpfFileName := "bytecode/nspr_kern.o"
@@ -95,6 +95,11 @@ func (p *Probe) Start(ctx context.Context) error {
 		return errors.NewProbeStartError("nspr", nil)
 	}
 
+	// Retrieve eBPF maps and associate with decoders (configured in setupManager)
+	if err := p.retrieveEventMaps(); err != nil {
+		return err
+	}
+
 	// Start eBPF event processing when implemented
 	// - Start reading from perf buffers
 	// - Process TLS data events and forward to appropriate handler
@@ -102,6 +107,27 @@ func (p *Probe) Start(ctx context.Context) error {
 	// - Process packet events (pcap mode)
 
 	p.Logger().Info().Msg("NSPR probe started")
+	return nil
+}
+
+// retrieveEventMaps retrieves eBPF maps from the manager and creates eventFuncMaps.
+// The decoder mapping by name (mapNameToDecoder) is already configured in setupManager().
+// This will be populated when eBPF implementation is complete.
+func (p *Probe) retrieveEventMaps() error {
+	// TODO: When eBPF is implemented, retrieve actual maps
+	// for mapName, decoder := range p.mapNameToDecoder {
+	//     em, found, err := p.bpfManager.GetMap(mapName)
+	//     if found {
+	//         p.eventMaps = append(p.eventMaps, em)
+	//         p.eventFuncMaps[em] = decoder
+	//     }
+	// }
+
+	p.Logger().Info().
+		Int("num_maps", len(p.eventMaps)).
+		Int("num_decoders", len(p.eventFuncMaps)).
+		Msg("Event maps retrieved and decoders mapped")
+
 	return nil
 }
 
@@ -116,9 +142,8 @@ func (p *Probe) Stop(ctx context.Context) error {
 }
 
 // Events returns the eBPF maps for event collection.
-// Return actual event maps when eBPF implementation is integrated
 func (p *Probe) Events() []*ebpf.Map {
-	return []*ebpf.Map{}
+	return p.eventMaps
 }
 
 // Close closes the probe and releases resources
@@ -127,26 +152,26 @@ func (p *Probe) Close() error {
 	return p.BaseProbe.Close()
 }
 
-// Decode implements EventDecoder interface for decoding eBPF events
-func (p *Probe) Decode(em *ebpf.Map, data []byte) (domain.Event, error) {
-	// Determine event type based on map name
-	// For now, default to TLSDataEvent
+func (p *Probe) DecodeFun(em *ebpf.Map) (domain.EventDecoder, bool) {
+	fun, found := p.eventFuncMaps[em]
+	return fun, found
+}
+
+// nsprEventDecoder implements domain.EventDecoder for NSPR TLS data events
+type nsprEventDecoder struct {
+	probe *Probe
+}
+
+func (d *nsprEventDecoder) Decode(_ *ebpf.Map, data []byte) (domain.Event, error) {
 	event := &TLSDataEvent{}
 	if err := event.Decode(data); err != nil {
 		return nil, errors.NewEventDecodeError("nspr.TLSDataEvent", err)
 	}
 
-	// Handle event based on mode
-	if p.textHandler != nil {
-		// Write to text handler
-		// p.textHandler.Handle(event)
-	}
-
+	// Event will be handled by dispatcher
 	return event, nil
 }
 
-// GetDecoder returns the event decoder (self-reference)
-func (p *Probe) GetDecoder(em *ebpf.Map) (domain.Event, bool) {
-	// Return an empty event for decoding
+func (d *nsprEventDecoder) GetDecoder(_ *ebpf.Map) (domain.Event, bool) {
 	return &TLSDataEvent{}, true
 }
