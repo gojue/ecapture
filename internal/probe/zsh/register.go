@@ -20,7 +20,7 @@ import (
 )
 
 func init() {
-	factory.RegisterProbe(factory.ProbeTypeZsh, func() (domain.Probe, error) {
+	_ = factory.RegisterProbe(factory.ProbeTypeZsh, func() (domain.Probe, error) {
 		return NewProbe(), nil
 	})
 }

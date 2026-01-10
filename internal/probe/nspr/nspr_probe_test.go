@@ -88,14 +88,14 @@ func TestTLSDataEventDecode(t *testing.T) {
 
 	// Create minimal valid data
 	buf := new(bytes.Buffer)
-	_ = binary.Write(buf, binary.LittleEndian, uint64(12345))   // Timestamp
-	_ = binary.Write(buf, binary.LittleEndian, uint32(1234))    // PID
-	_ = binary.Write(buf, binary.LittleEndian, uint32(5678))    // TID
-	binary.Write(buf, binary.LittleEndian, [16]byte{'t'})       // Comm
-	binary.Write(buf, binary.LittleEndian, int32(10))           // FD
-	binary.Write(buf, binary.LittleEndian, uint32(100))         // DataLen
-	binary.Write(buf, binary.LittleEndian, uint32(1))           // Direction
-	binary.Write(buf, binary.LittleEndian, [MaxDataSize]byte{}) // Data
+	_ = binary.Write(buf, binary.LittleEndian, uint64(12345))       // Timestamp
+	_ = binary.Write(buf, binary.LittleEndian, uint32(1234))        // PID
+	_ = binary.Write(buf, binary.LittleEndian, uint32(5678))        // TID
+	_ = binary.Write(buf, binary.LittleEndian, [16]byte{'t'})       // Comm
+	_ = binary.Write(buf, binary.LittleEndian, int32(10))           // FD
+	_ = binary.Write(buf, binary.LittleEndian, uint32(100))         // DataLen
+	_ = binary.Write(buf, binary.LittleEndian, uint32(1))           // Direction
+	_ = binary.Write(buf, binary.LittleEndian, [MaxDataSize]byte{}) // Data
 
 	err := event.DecodeFromBytes(buf.Bytes())
 	if err != nil {

@@ -67,7 +67,7 @@ func TestProbe_Initialize_TextMode(t *testing.T) {
 	}
 
 	// Clean up
-	probe.Close()
+	_ = probe.Close()
 }
 
 func TestProbe_Initialize_KeylogMode(t *testing.T) {
