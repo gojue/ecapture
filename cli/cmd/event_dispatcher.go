@@ -89,7 +89,7 @@ func newEventDispatcherWithConfig(zlogger *zerolog.Logger, probeConfig domain.Co
 		}
 
 		// Register text handler with default settings (no hex mode)
-		textHandler := handlers.NewTextHandler(textWriter, nil, false)
+		textHandler := handlers.NewTextHandler(textWriter, false)
 		if err := dispatcher.Register(textHandler); err != nil {
 			_ = textWriter.Close()
 			return nil, fmt.Errorf("failed to register text handler: %w", err)
@@ -199,7 +199,7 @@ func newEventDispatcherWithConfig(zlogger *zerolog.Logger, probeConfig domain.Co
 			}
 		}
 
-		textHandler := handlers.NewTextHandler(textWriter, nil, useHex)
+		textHandler := handlers.NewTextHandler(textWriter, useHex)
 		if err := dispatcher.Register(textHandler); err != nil {
 			_ = textWriter.Close()
 			return nil, fmt.Errorf("failed to register text handler: %w", err)

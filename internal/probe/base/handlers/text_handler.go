@@ -17,30 +17,25 @@ package handlers
 import (
 	"github.com/gojue/ecapture/internal/domain"
 	"github.com/gojue/ecapture/internal/errors"
-	"github.com/gojue/ecapture/internal/output/encoders"
 	"github.com/gojue/ecapture/internal/output/writers"
 )
 
 // TextHandler handles events by writing their encoded output to a destination.
 // It delegates formatting to the event itself via String() or StringHex() methods.
 type TextHandler struct {
-	writer  writers.OutputWriter
-	encoder encoders.Encoder
-	useHex  bool
+	writer writers.OutputWriter
+	useHex bool
 }
 
-// NewTextHandler creates a new TextHandler with the provided writer and encoder.
-func NewTextHandler(writer writers.OutputWriter, encoder encoders.Encoder, useHex bool) *TextHandler {
+// NewTextHandler creates a new TextHandler with the provided writer.
+// Events format themselves via String() or StringHex() methods.
+func NewTextHandler(writer writers.OutputWriter, useHex bool) *TextHandler {
 	if writer == nil {
 		writer = writers.NewStdoutWriter()
 	}
-	if encoder == nil {
-		encoder = encoders.NewPlainEncoder(useHex)
-	}
 	return &TextHandler{
-		writer:  writer,
-		encoder: encoder,
-		useHex:  useHex,
+		writer: writer,
+		useHex: useHex,
 	}
 }
 

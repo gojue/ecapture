@@ -111,14 +111,14 @@ func (m *mockTLSDataEvent) UUID() string {
 
 func TestNewTextHandler(t *testing.T) {
 	writer := newMockWriter()
-	handler := NewTextHandler(writer, nil, false)
+	handler := NewTextHandler(writer, false)
 	if handler == nil {
 		t.Fatal("NewTextHandler returned nil")
 	}
 }
 
 func TestNewTextHandler_NilWriter(t *testing.T) {
-	handler := NewTextHandler(nil, nil, false)
+	handler := NewTextHandler(nil, false)
 	if handler == nil {
 		t.Fatal("NewTextHandler returned nil with nil writer")
 	}
@@ -130,7 +130,7 @@ func TestNewTextHandler_NilWriter(t *testing.T) {
 
 func TestTextHandler_Handle_Write(t *testing.T) {
 	writer := newMockWriter()
-	handler := NewTextHandler(writer, nil, false)
+	handler := NewTextHandler(writer, false)
 
 	event := &mockTLSDataEvent{
 		pid:       1234,
@@ -163,7 +163,7 @@ func TestTextHandler_Handle_Write(t *testing.T) {
 
 func TestTextHandler_Handle_Read(t *testing.T) {
 	writer := newMockWriter()
-	handler := NewTextHandler(writer, nil, false)
+	handler := NewTextHandler(writer, false)
 
 	event := &mockTLSDataEvent{
 		pid:       5678,
@@ -190,7 +190,7 @@ func TestTextHandler_Handle_Read(t *testing.T) {
 
 func TestTextHandler_Handle_NilEvent(t *testing.T) {
 	writer := newMockWriter()
-	handler := NewTextHandler(writer, nil, false)
+	handler := NewTextHandler(writer, false)
 
 	err := handler.Handle(nil)
 	if err == nil {
@@ -211,7 +211,7 @@ func (m *mockNonTLSEvent) UUID() string                      { return "" }
 
 func TestTextHandler_Handle_InvalidEventType(t *testing.T) {
 	writer := newMockWriter()
-	handler := NewTextHandler(writer, nil, false)
+	handler := NewTextHandler(writer, false)
 
 	var event domain.Event = &mockNonTLSEvent{}
 	err := handler.Handle(event)
@@ -223,7 +223,7 @@ func TestTextHandler_Handle_InvalidEventType(t *testing.T) {
 
 func TestTextHandler_Close(t *testing.T) {
 	writer := newMockWriter()
-	handler := NewTextHandler(writer, nil, false)
+	handler := NewTextHandler(writer, false)
 
 	err := handler.Close()
 	if err != nil {
@@ -252,7 +252,7 @@ func (m *mockClosableWriter) Flush() error {
 
 func TestTextHandler_Close_ClosableWriter(t *testing.T) {
 	writer := &mockClosableWriter{Buffer: &bytes.Buffer{}}
-	handler := NewTextHandler(writer, nil, false)
+	handler := NewTextHandler(writer, false)
 
 	err := handler.Close()
 	if err != nil {
