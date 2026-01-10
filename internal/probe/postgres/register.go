@@ -21,7 +21,7 @@ import (
 
 func init() {
 	// Register PostgreSQL probe with the factory
-	factory.RegisterProbe(factory.ProbeTypePostgres, func() (domain.Probe, error) {
+	_ = factory.RegisterProbe(factory.ProbeTypePostgres, func() (domain.Probe, error) {
 		return NewProbe(), nil
 	})
 }

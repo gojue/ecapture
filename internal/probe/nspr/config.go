@@ -82,9 +82,8 @@ func (c *Config) Validate() error {
 	// Warn if NSPR functions are found in libnss3.so instead of libnspr4.so
 	// In normal circumstances, PR_Write/PR_Read should be in libnspr4.so
 	// For more information, see: https://github.com/gojue/ecapture/issues/662
-	if strings.Contains(c.NSPRPath, "libnss3.so") || strings.Contains(c.NSPRPath, "libnss.so") {
-		// This is acceptable but may require explicit --nspr path specification
-	}
+	// This is acceptable but may require explicit --nspr path specification
+	_ = strings.Contains(c.NSPRPath, "libnss3.so") || strings.Contains(c.NSPRPath, "libnss.so")
 
 	// Detect and validate NSS version
 	version, err := c.readNSSVersion(c.NSSPath)

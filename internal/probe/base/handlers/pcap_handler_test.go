@@ -105,7 +105,7 @@ func TestPcapHandler_Handle(t *testing.T) {
 	}
 
 	event := &mockPacketEvent{
-		timestamp:      1234567890000000000, // nanoseconds
+		timestamp:      1234567890000000000,            // nanoseconds
 		packetData:     []byte{0x45, 0x00, 0x00, 0x3c}, // IP header start
 		packetLen:      60,
 		interfaceIndex: 0,
@@ -165,4 +165,3 @@ func TestPcapHandler_Handle_InvalidEventType(t *testing.T) {
 		t.Errorf("Handle should skip non-packet events silently, got error: %v", err)
 	}
 }
-

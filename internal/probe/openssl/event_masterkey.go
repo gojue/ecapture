@@ -91,39 +91,33 @@ func (e *MasterSecretEvent) DecodeFromBytes(data []byte) error {
 	}
 
 	if buf.Len() >= EvpMaxMdSize {
-		if err := binary.Read(buf, binary.LittleEndian, &e.EarlySecret); err != nil {
-			// Not all TLS 1.3 secrets might be present
-		}
+		_ = binary.Read(buf, binary.LittleEndian, &e.EarlySecret)
+		// Not all TLS 1.3 secrets might be present
 	}
 
 	if buf.Len() >= EvpMaxMdSize {
-		if err := binary.Read(buf, binary.LittleEndian, &e.HandshakeSecret); err != nil {
-			// Not all TLS 1.3 secrets might be present
-		}
+		_ = binary.Read(buf, binary.LittleEndian, &e.HandshakeSecret)
+		// Not all TLS 1.3 secrets might be present
 	}
 
 	if buf.Len() >= EvpMaxMdSize {
-		if err := binary.Read(buf, binary.LittleEndian, &e.HandshakeTrafficHash); err != nil {
-			// Not all TLS 1.3 secrets might be present
-		}
+		_ = binary.Read(buf, binary.LittleEndian, &e.HandshakeTrafficHash)
+		// Not all TLS 1.3 secrets might be present
 	}
 
 	if buf.Len() >= EvpMaxMdSize {
-		if err := binary.Read(buf, binary.LittleEndian, &e.ClientAppTrafficSecret); err != nil {
-			// Not all TLS 1.3 secrets might be present
-		}
+		_ = binary.Read(buf, binary.LittleEndian, &e.ClientAppTrafficSecret)
+		// Not all TLS 1.3 secrets might be present
 	}
 
 	if buf.Len() >= EvpMaxMdSize {
-		if err := binary.Read(buf, binary.LittleEndian, &e.ServerAppTrafficSecret); err != nil {
-			// Not all TLS 1.3 secrets might be present
-		}
+		_ = binary.Read(buf, binary.LittleEndian, &e.ServerAppTrafficSecret)
+		// Not all TLS 1.3 secrets might be present
 	}
 
 	if buf.Len() >= EvpMaxMdSize {
-		if err := binary.Read(buf, binary.LittleEndian, &e.ExporterMasterSecret); err != nil {
-			// Not all TLS 1.3 secrets might be present
-		}
+		_ = binary.Read(buf, binary.LittleEndian, &e.ExporterMasterSecret)
+		// Not all TLS 1.3 secrets might be present
 	}
 
 	return nil

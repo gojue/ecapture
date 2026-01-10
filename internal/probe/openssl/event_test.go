@@ -29,15 +29,15 @@ func TestEvent_DecodeFromBytes(t *testing.T) {
 	buf := new(bytes.Buffer)
 
 	// Write test data in the same order as the struct
-	binary.Write(buf, binary.LittleEndian, int64(DataTypeWrite))          // DataType
-	binary.Write(buf, binary.LittleEndian, uint64(time.Now().UnixNano())) // Timestamp
-	binary.Write(buf, binary.LittleEndian, uint32(1234))                  // Pid
-	binary.Write(buf, binary.LittleEndian, uint32(5678))                  // Tid
+	_ = binary.Write(buf, binary.LittleEndian, int64(DataTypeWrite))          // DataType
+	_ = binary.Write(buf, binary.LittleEndian, uint64(time.Now().UnixNano())) // Timestamp
+	_ = binary.Write(buf, binary.LittleEndian, uint32(1234))                  // Pid
+	_ = binary.Write(buf, binary.LittleEndian, uint32(5678))                  // Tid
 
 	// Write data array
 	data := [MaxDataSize]byte{}
 	copy(data[:], []byte("GET / HTTP/1.1\r\n"))
-	binary.Write(buf, binary.LittleEndian, data)
+	_ = binary.Write(buf, binary.LittleEndian, data)
 
 	binary.Write(buf, binary.LittleEndian, int32(16)) // DataLen
 

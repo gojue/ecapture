@@ -216,7 +216,9 @@ func (c *Config) detectVersion() error {
 	if err != nil {
 		return fmt.Errorf("failed to open openssl binary: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		_ = file.Close()
+	}()
 
 	// Check for version-specific symbols
 	symbols, err := file.DynamicSymbols()

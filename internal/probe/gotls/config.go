@@ -166,7 +166,7 @@ func (c *Config) validateCaptureMode() error {
 		if err := os.WriteFile(testFile, []byte("test"), 0644); err != nil {
 			return fmt.Errorf("pcap directory is not writable: %s", dir)
 		}
-		os.Remove(testFile)
+		_ = os.Remove(testFile)
 
 		// Validate network interface
 		if err := c.validateNetworkInterface(); err != nil {

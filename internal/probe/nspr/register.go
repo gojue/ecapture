@@ -21,7 +21,7 @@ import (
 
 func init() {
 	// Register NSPR probe with the factory
-	factory.RegisterProbe(factory.ProbeTypeNSPR, func() (domain.Probe, error) {
+	_ = factory.RegisterProbe(factory.ProbeTypeNSPR, func() (domain.Probe, error) {
 		return NewProbe()
 	})
 }

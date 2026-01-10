@@ -118,9 +118,8 @@ func (e *MasterSecretEvent) DecodeFromBytes(data []byte) error {
 	}
 
 	if buf.Len() >= EvpMaxMdSize {
-		if err := binary.Read(buf, binary.LittleEndian, &e.ExporterMasterSecret); err != nil {
-			// Not all TLS 1.3 secrets might be present
-		}
+		_ = binary.Read(buf, binary.LittleEndian, &e.ExporterMasterSecret)
+		// Not all TLS 1.3 secrets might be present
 	}
 
 	return nil

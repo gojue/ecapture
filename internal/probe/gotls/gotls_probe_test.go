@@ -94,7 +94,7 @@ func TestProbe_Initialize_KeylogMode(t *testing.T) {
 	}
 
 	// Clean up
-	probe.Close()
+	_ = probe.Close()
 
 	// Check if file was created
 	if _, err := os.Stat(keylogFile); os.IsNotExist(err) {
