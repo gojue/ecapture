@@ -32,6 +32,7 @@ import (
 	"github.com/gojue/ecapture/internal/errors"
 	"github.com/gojue/ecapture/internal/probe/base"
 	"github.com/gojue/ecapture/internal/probe/base/handlers"
+	"github.com/gojue/ecapture/pkg/util/kernel"
 )
 
 // Probe implements the OpenSSL TLS tracing probe.
@@ -379,9 +380,16 @@ func (p *Probe) getManagerOptions() manager.Options {
 
 	// Add constant editors if kernel supports global variables
 	if p.config.EnableGlobalVar() {
+		kv, _ := kernel.HostVersion()
+		kernelLess52 := uint64(0)
+		if kv < kernel.VersionCode(5, 2, 0) {
+			kernelLess52 = 1
+		}
+
 		opts.ConstantEditors = []manager.ConstantEditor{
 			{Name: "target_pid", Value: p.config.GetPid()},
 			{Name: "target_uid", Value: p.config.GetUid()},
+			{Name: "less52", Value: kernelLess52},
 		}
 	}
 

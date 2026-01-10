@@ -52,7 +52,55 @@ func newEventDispatcherWithConfig(zlogger *zerolog.Logger, probeConfig domain.Co
 
 	cfg, ok := probeConfig.(captureConfig)
 	if !ok {
-		return dispatcher, fmt.Errorf("probe configuration must be of type captureConfig")
+		// Some probes (like bash, zsh) don't have capture mode
+		// Register a default text handler for them
+		zlogger.Debug().Msg("Probe does not support capture mode, registering default text handler")
+
+		// Determine event output address (eventaddr or fallback to logaddr)
+		eventAddr := globalConf.EventCollectorAddr
+		if eventAddr == "" {
+			eventAddr = globalConf.LoggerAddr
+		}
+
+		// Create writer factory for creating output writers
+		writerFactory := writers.NewWriterFactory()
+
+		// Configure rotation for file writers (from --eventroratesize and --eventroratetime flags)
+		var rotateConfig *writers.RotateConfig
+		if rorateSize > 0 || rorateTime > 0 {
+			rotateConfig = &writers.RotateConfig{
+				EnableRotate: true,
+				MaxSizeMB:    int(rorateSize),
+				MaxInterval:  time.Duration(rorateTime) * time.Second,
+			}
+		}
+
+		// Create output writer based on eventAddr (or stdout if empty)
+		var textWriter writers.OutputWriter
+		var err error
+
+		if eventAddr == "" || eventAddr == "stdout" {
+			textWriter = writers.NewStdoutWriter()
+		} else {
+			textWriter, err = writerFactory.CreateWriter(eventAddr, rotateConfig)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create text output writer: %w", err)
+			}
+		}
+
+		// Register text handler with default settings (no hex mode)
+		textHandler := handlers.NewTextHandler(textWriter, nil, false)
+		if err := dispatcher.Register(textHandler); err != nil {
+			_ = textWriter.Close()
+			return nil, fmt.Errorf("failed to register text handler: %w", err)
+		}
+
+		zlogger.Info().
+			Str("mode", "text").
+			Str("output", textWriter.Name()).
+			Msg("Default text handler registered for probe without capture mode support")
+
+		return dispatcher, nil
 	}
 
 	captureMode := cfg.GetCaptureMode()

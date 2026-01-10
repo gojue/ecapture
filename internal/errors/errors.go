@@ -40,6 +40,7 @@ const (
 	ErrCodeEventDecode ErrorCode = 301
 	ErrCodeEventDispatch
 	ErrCodeEventValidation
+	ErrCodeEventNotReady
 
 	// eBPF errors (4xx)
 	ErrCodeEBPFLoad ErrorCode = 401
@@ -100,6 +101,8 @@ func Wrap(code ErrorCode, message string, cause error) *Error {
 		Context: make(map[string]interface{}),
 	}
 }
+
+var ErrEventNotReady = New(ErrCodeEventNotReady, "event not ready yet")
 
 // NewConfigurationError creates a configuration error.
 func NewConfigurationError(message string, cause error) *Error {

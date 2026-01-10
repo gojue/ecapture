@@ -324,7 +324,7 @@ func (d *bashEventDecoder) Decode(_ *ebpf.Map, data []byte) (domain.Event, error
 
 	// Only return completed commands
 	if event.AllLines == "" {
-		return nil, nil // Not ready yet
+		//return nil, errors.ErrEventNotReady // Not ready yet
 	}
 
 	return event, nil

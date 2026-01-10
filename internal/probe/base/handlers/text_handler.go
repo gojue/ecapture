@@ -59,20 +59,55 @@ func NewTextHandler(writer writers.OutputWriter, encoder encoders.Encoder, useHe
 	}
 }
 
-// Handle processes a TLS event and writes formatted text output.
+// Handle processes an event and writes formatted text output.
 func (h *TextHandler) Handle(event domain.Event) error {
 	if event == nil {
 		return errors.New(errors.ErrCodeEventValidation, "event cannot be nil")
 	}
 
-	// Type assert to TLS data event
+	// Try to handle as TLS data event first
 	tlsEvent, ok := event.(TLSDataEvent)
-	if !ok {
-		// Not a TLS data event, skip silently (other handlers will process it)
+	if ok {
+		return h.handleTLSEvent(tlsEvent)
+	}
+
+	// Handle generic events using their String() or StringHex() methods
+	var output string
+	if h.useHex {
+		// Try StringHex() method first
+		type hexStringer interface {
+			StringHex() string
+		}
+		if hs, ok := event.(hexStringer); ok {
+			output = hs.StringHex()
+		} else {
+			output = event.String()
+		}
+	} else {
+		output = event.String()
+	}
+
+	// Skip empty output (event not ready)
+	if output == "" {
 		return nil
 	}
 
-	// Format using custom text format (not encoder, as this is TLS-specific formatting)
+	// Add newline if not present
+	if output[len(output)-1] != '\n' {
+		output += "\n"
+	}
+
+	// Write to output
+	_, err := h.writer.Write([]byte(output))
+	if err != nil {
+		return errors.Wrap(errors.ErrCodeEventDispatch, "failed to write event", err)
+	}
+
+	return nil
+}
+
+// handleTLSEvent processes TLS-specific events with detailed formatting
+func (h *TextHandler) handleTLSEvent(tlsEvent TLSDataEvent) error {
 	// Format timestamp
 	ts := time.Unix(0, int64(tlsEvent.GetTimestamp()))
 	timestamp := ts.Format("2006-01-02 15:04:05.000")
