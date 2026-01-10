@@ -319,7 +319,7 @@ See [CONTRIBUTING](./CONTRIBUTING.md) for details on submitting patches and the 
 # Compilation
 ## Custom Compilation
 
-You can customize the features you want, such as setting the offset address for `uprobe` to support statically compiled OpenSSL libraries. Refer to the [COMPILATION](./COMPILATION.md) introduction for compilation instructions.
+You can customize the features you want, such as setting the offset address for `uprobe` to support statically compiled OpenSSL libraries. Refer to the [compilation guide](./docs/compilation.md) for compilation instructions.
 
 ## Configurations Remote Update
 
