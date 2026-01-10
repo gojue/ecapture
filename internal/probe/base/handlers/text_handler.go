@@ -15,29 +15,14 @@
 package handlers
 
 import (
-	"encoding/hex"
-	"fmt"
-	"time"
-
 	"github.com/gojue/ecapture/internal/domain"
 	"github.com/gojue/ecapture/internal/errors"
 	"github.com/gojue/ecapture/internal/output/encoders"
 	"github.com/gojue/ecapture/internal/output/writers"
 )
 
-// TLSDataEvent defines the interface for TLS data events.
-type TLSDataEvent interface {
-	domain.Event
-	GetPid() uint32
-	GetComm() string
-	GetData() []byte
-	GetDataLen() uint32
-	GetTimestamp() uint64
-	IsRead() bool
-}
-
-// TextHandler handles TLS events by formatting them as readable text output.
-// It uses OutputWriter for destination and Encoder for format.
+// TextHandler handles events by writing their encoded output to a destination.
+// It delegates formatting to the event itself via String() or StringHex() methods.
 type TextHandler struct {
 	writer  writers.OutputWriter
 	encoder encoders.Encoder
@@ -59,89 +44,45 @@ func NewTextHandler(writer writers.OutputWriter, encoder encoders.Encoder, useHe
 	}
 }
 
-// Handle processes an event and writes formatted text output.
+// Handle processes an event and writes its formatted output.
+// The event is responsible for its own formatting via String() or StringHex() methods.
 func (h *TextHandler) Handle(event domain.Event) error {
 	if event == nil {
 		return errors.New(errors.ErrCodeEventValidation, "event cannot be nil")
 	}
 
-	// Try to handle as TLS data event first
-	tlsEvent, ok := event.(TLSDataEvent)
-	if ok {
-		return h.handleTLSEvent(tlsEvent)
-	}
-
-	// Handle generic events using their String() or StringHex() methods
+	// Let the event format itself based on hex mode
 	var output string
 	if h.useHex {
-		// Try StringHex() method first
+		// Try StringHex() method first for hex mode
 		type hexStringer interface {
 			StringHex() string
 		}
 		if hs, ok := event.(hexStringer); ok {
 			output = hs.StringHex()
 		} else {
+			// Fallback to regular String() if StringHex() not available
 			output = event.String()
 		}
 	} else {
+		// Regular text mode
 		output = event.String()
 	}
 
-	// Skip empty output (event not ready)
+	// Skip empty output (event not ready or filtered out)
 	if output == "" {
 		return nil
 	}
 
-	// Add newline if not present
+	// Ensure output ends with newline for readability
 	if output[len(output)-1] != '\n' {
 		output += "\n"
 	}
 
-	// Write to output
+	// Write to output destination
 	_, err := h.writer.Write([]byte(output))
 	if err != nil {
-		return errors.Wrap(errors.ErrCodeEventDispatch, "failed to write event", err)
-	}
-
-	return nil
-}
-
-// handleTLSEvent processes TLS-specific events with detailed formatting
-func (h *TextHandler) handleTLSEvent(tlsEvent TLSDataEvent) error {
-	// Format timestamp
-	ts := time.Unix(0, int64(tlsEvent.GetTimestamp()))
-	timestamp := ts.Format("2006-01-02 15:04:05.000")
-
-	// Determine direction
-	direction := ">>>"
-	if tlsEvent.IsRead() {
-		direction = "<<<"
-	}
-
-	// Format data based on hex mode
-	var dataOutput string
-	data := tlsEvent.GetData()
-	if h.useHex {
-		// Hex mode: format as hexadecimal
-		dataOutput = hex.Dump(data)
-	} else {
-		// Text mode: convert to string (may contain non-ASCII characters)
-		dataOutput = string(data)
-	}
-
-	// Format output
-	output := fmt.Sprintf("[%s] [PID: %d] [%s] %s\n%s\n",
-		timestamp,
-		tlsEvent.GetPid(),
-		tlsEvent.GetComm(),
-		direction,
-		dataOutput,
-	)
-
-	// Write to output
-	_, err := h.writer.Write([]byte(output))
-	if err != nil {
-		return errors.Wrap(errors.ErrCodeEventDispatch, "failed to write event", err)
+		return errors.Wrap(errors.ErrCodeEventDispatch, "failed to write event output", err)
 	}
 
 	return nil
