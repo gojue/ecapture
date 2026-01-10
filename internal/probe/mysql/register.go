@@ -21,7 +21,7 @@ import (
 
 func init() {
 	// Register MySQL probe with the factory
-	factory.RegisterProbe(factory.ProbeTypeMySQL, func() (domain.Probe, error) {
+	_ = factory.RegisterProbe(factory.ProbeTypeMySQL, func() (domain.Probe, error) {
 		return NewProbe(), nil
 	})
 }

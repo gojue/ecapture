@@ -110,7 +110,9 @@ func (c *Config) verifyFunction() error {
 	if err != nil {
 		return fmt.Errorf("failed to open ELF file: %w", err)
 	}
-	defer elfFile.Close()
+	defer func() {
+		_ = elfFile.Close()
+	}()
 
 	// Get symbols
 	symbols, err := elfFile.Symbols()

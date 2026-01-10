@@ -21,7 +21,7 @@ import (
 
 func init() {
 	// Register GnuTLS probe with the factory
-	factory.RegisterProbe(factory.ProbeTypeGnuTLS, func() (domain.Probe, error) {
+	_ = factory.RegisterProbe(factory.ProbeTypeGnuTLS, func() (domain.Probe, error) {
 		return NewProbe()
 	})
 }

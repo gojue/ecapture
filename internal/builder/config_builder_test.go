@@ -95,5 +95,5 @@ func TestConfigBuilderMustBuildPanic(t *testing.T) {
 
 	builder := NewConfigBuilder()
 	builder.config.PerCpuMapSize = -1 // Invalid value
-	builder.MustBuild()                // Should panic
+	builder.MustBuild()               // Should panic
 }

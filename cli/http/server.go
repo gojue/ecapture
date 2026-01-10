@@ -25,14 +25,14 @@ import (
 
 type HttpServer struct {
 	//
-	loadTime   int64  // 加载时间，防止短时间内多次加载
-	loadStat   int8   // 加载状态，重启完成后，进行再次加载
-	ProbeType  string //当前加载探针类型
-	probeConf  any    //探针配置
-	confChan   chan domain.Configuration
-	ge         *gin.Engine
-	addr       string
-	logger     zerolog.Logger
+	loadTime  int64  // 加载时间，防止短时间内多次加载
+	loadStat  int8   // 加载状态，重启完成后，进行再次加载
+	ProbeType string //当前加载探针类型
+	probeConf any    //探针配置
+	confChan  chan domain.Configuration
+	ge        *gin.Engine
+	addr      string
+	logger    zerolog.Logger
 }
 
 func NewHttpServer(addr string, confChan chan domain.Configuration, zerologger zerolog.Logger) *HttpServer {

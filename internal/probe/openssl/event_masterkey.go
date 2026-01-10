@@ -131,11 +131,14 @@ func (e *MasterSecretEvent) DecodeFromBytes(data []byte) error {
 
 // String returns a human-readable representation of the master secret event.
 func (e *MasterSecretEvent) String() string {
-	versionStr := fmt.Sprintf("0x%04x", e.Version)
-	if e.Version == 0x0303 {
+	var versionStr string
+	switch e.Version {
+	case 0x0303:
 		versionStr = "TLS 1.2"
-	} else if e.Version == 0x0304 {
+	case 0x0304:
 		versionStr = "TLS 1.3"
+	default:
+		versionStr = fmt.Sprintf("0x%04x", e.Version)
 	}
 
 	return fmt.Sprintf("TLS Version: %s, ClientRandom: %x",

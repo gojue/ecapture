@@ -138,7 +138,7 @@ func TestProbe_Initialize_PcapMode(t *testing.T) {
 	}
 
 	// Clean up
-	probe.Close()
+	_ = probe.Close()
 
 	// Check if file was created
 	if _, err := os.Stat(pcapFile); os.IsNotExist(err) {

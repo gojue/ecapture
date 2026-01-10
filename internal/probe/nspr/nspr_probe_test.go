@@ -88,9 +88,9 @@ func TestTLSDataEventDecode(t *testing.T) {
 
 	// Create minimal valid data
 	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, uint64(12345))       // Timestamp
-	binary.Write(buf, binary.LittleEndian, uint32(1234))        // PID
-	binary.Write(buf, binary.LittleEndian, uint32(5678))        // TID
+	_ = binary.Write(buf, binary.LittleEndian, uint64(12345))   // Timestamp
+	_ = binary.Write(buf, binary.LittleEndian, uint32(1234))    // PID
+	_ = binary.Write(buf, binary.LittleEndian, uint32(5678))    // TID
 	binary.Write(buf, binary.LittleEndian, [16]byte{'t'})       // Comm
 	binary.Write(buf, binary.LittleEndian, int32(10))           // FD
 	binary.Write(buf, binary.LittleEndian, uint32(100))         // DataLen

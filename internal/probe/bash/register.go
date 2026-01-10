@@ -21,7 +21,7 @@ import (
 
 func init() {
 	// Register bash probe with the factory
-	factory.RegisterProbe(factory.ProbeTypeBash, func() (domain.Probe, error) {
+	_ = factory.RegisterProbe(factory.ProbeTypeBash, func() (domain.Probe, error) {
 		return NewProbe()
 	})
 }

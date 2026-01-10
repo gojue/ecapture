@@ -304,7 +304,9 @@ func (c *Config) findSymbolOffsets() error {
 	if err != nil {
 		return fmt.Errorf("failed to open ELF file: %w", err)
 	}
-	defer elfFile.Close()
+	defer func() {
+		_ = elfFile.Close()
+	}()
 
 	// Read build info to get Go version
 	buildInfo, err := buildinfo.ReadFile(c.ElfPath)

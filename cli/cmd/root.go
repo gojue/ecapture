@@ -390,7 +390,9 @@ func runProbe(probeType factory.ProbeType, probeConfig domain.Configuration) err
 		}
 
 		// Close dispatcher
-		dispatcher.Close()
+		if err := dispatcher.Close(); err != nil {
+			logger.Warn().Err(err).Msg("dispatcher close failed")
+		}
 
 		// reload
 		if isReload {

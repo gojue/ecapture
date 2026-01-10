@@ -36,7 +36,7 @@ func TestWrap(t *testing.T) {
 	if err.Code != ErrCodeProbeInit {
 		t.Errorf("expected code %d, got %d", ErrCodeProbeInit, err.Code)
 	}
-	if err.Cause != cause {
+	if !errors.Is(err, cause) {
 		t.Error("expected cause to be set")
 	}
 	if !errors.Is(err, cause) {

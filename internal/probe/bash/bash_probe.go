@@ -322,11 +322,7 @@ func (d *bashEventDecoder) Decode(_ *ebpf.Map, data []byte) (domain.Event, error
 	// Handle multi-line commands
 	d.probe.handleEvent(event)
 
-	// Only return completed commands
-	if event.AllLines == "" {
-		//return nil, errors.ErrEventNotReady // Not ready yet
-	}
-
+	// Note: Only return completed commands when AllLines is set
 	return event, nil
 }
 

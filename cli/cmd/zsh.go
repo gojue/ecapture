@@ -20,9 +20,6 @@ package cmd
 import (
 	"github.com/spf13/cobra"
 
-	// Import new probe packages to register them with factory
-	_ "github.com/gojue/ecapture/internal/probe/zsh"
-
 	"github.com/gojue/ecapture/internal/factory"
 	zshProbe "github.com/gojue/ecapture/internal/probe/zsh"
 )

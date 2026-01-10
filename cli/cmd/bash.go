@@ -17,9 +17,6 @@ package cmd
 import (
 	"github.com/spf13/cobra"
 
-	// Import new probe packages to register them with factory
-	_ "github.com/gojue/ecapture/internal/probe/bash"
-
 	"github.com/gojue/ecapture/internal/factory"
 	bashProbe "github.com/gojue/ecapture/internal/probe/bash"
 )

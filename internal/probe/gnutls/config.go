@@ -215,13 +215,17 @@ func readGnuTLSVersion(binaryPath string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("cannot open %s: %w", binaryPath, err)
 	}
-	defer f.Close()
+	defer func() {
+		_ = f.Close()
+	}()
 
 	r, err := elf.NewFile(f)
 	if err != nil {
 		return "", fmt.Errorf("parse ELF file %s failed: %w", binaryPath, err)
 	}
-	defer r.Close()
+	defer func() {
+		_ = r.Close()
+	}()
 
 	switch r.FileHeader.Machine {
 	case elf.EM_X86_64, elf.EM_AARCH64:

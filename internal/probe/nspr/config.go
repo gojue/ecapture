@@ -146,7 +146,9 @@ func (c *Config) readNSSVersion(binaryPath string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to open ELF file: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		_ = file.Close()
+	}()
 
 	// Read .rodata section
 	section := file.Section(".rodata")

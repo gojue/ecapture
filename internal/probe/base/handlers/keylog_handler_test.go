@@ -409,7 +409,7 @@ func TestKeylogHandler_Concurrent(t *testing.T) {
 				masterKey:    masterKey,
 			}
 
-			handler.Handle(event)
+			_ = handler.Handle(event)
 			done <- true
 		}(i)
 	}
