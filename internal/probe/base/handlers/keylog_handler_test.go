@@ -87,6 +87,7 @@ func TestNewKeylogHandler(t *testing.T) {
 	handler := NewKeylogHandler(writer)
 	if handler == nil {
 		t.Fatal("NewKeylogHandler returned nil")
+		return
 	}
 	if handler.seenKeys == nil {
 		t.Error("seenKeys map not initialized")
@@ -97,6 +98,7 @@ func TestNewKeylogHandler_NilWriter(t *testing.T) {
 	handler := NewKeylogHandler(nil)
 	if handler == nil {
 		t.Fatal("NewKeylogHandler returned nil with nil writer")
+		return
 	}
 	if handler.writer == nil {
 		t.Error("KeylogHandler writer should not be nil")

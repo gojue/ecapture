@@ -24,9 +24,11 @@ func TestNewConfigBuilder(t *testing.T) {
 	builder := NewConfigBuilder()
 	if builder == nil {
 		t.Fatal("NewConfigBuilder returned nil")
+		return
 	}
 	if builder.config == nil {
 		t.Fatal("ConfigBuilder.config is nil")
+		return
 	}
 }
 

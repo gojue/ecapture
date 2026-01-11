@@ -78,6 +78,7 @@ func TestNewPcapHandler(t *testing.T) {
 	}
 	if handler == nil {
 		t.Fatal("NewPcapHandler returned nil")
+		return
 	}
 	if handler.pcapWriter == nil {
 		t.Error("PcapHandler pcapWriter not set correctly")
@@ -91,6 +92,7 @@ func TestNewPcapHandler_NilWriter(t *testing.T) {
 	}
 	if handler == nil {
 		t.Fatal("NewPcapHandler returned nil with nil writer")
+		return
 	}
 	if handler.pcapWriter == nil {
 		t.Error("PcapHandler pcapWriter should not be nil")

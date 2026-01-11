@@ -128,4 +128,3 @@ func (e *PacketEvent) GetSrcPort() uint16 {
 func (e *PacketEvent) GetDstPort() uint16 {
 	return 0
 }
-

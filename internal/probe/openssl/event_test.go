@@ -27,31 +27,33 @@ import (
 func TestEvent_DecodeFromBytes(t *testing.T) {
 	// Create a test event in binary format
 	buf := new(bytes.Buffer)
-
+	var err error
 	// Write test data in the same order as the struct
-	_ = binary.Write(buf, binary.LittleEndian, int64(DataTypeWrite))          // DataType
-	_ = binary.Write(buf, binary.LittleEndian, uint64(time.Now().UnixNano())) // Timestamp
-	_ = binary.Write(buf, binary.LittleEndian, uint32(1234))                  // Pid
-	_ = binary.Write(buf, binary.LittleEndian, uint32(5678))                  // Tid
+	err = binary.Write(buf, binary.LittleEndian, int64(DataTypeWrite))          // DataType
+	err = binary.Write(buf, binary.LittleEndian, uint64(time.Now().UnixNano())) // Timestamp
+	err = binary.Write(buf, binary.LittleEndian, uint32(1234))                  // Pid
+	err = binary.Write(buf, binary.LittleEndian, uint32(5678))                  // Tid
 
 	// Write data array
 	data := [MaxDataSize]byte{}
 	copy(data[:], []byte("GET / HTTP/1.1\r\n"))
-	_ = binary.Write(buf, binary.LittleEndian, data)
+	err = binary.Write(buf, binary.LittleEndian, data)
 
-	binary.Write(buf, binary.LittleEndian, int32(16)) // DataLen
+	err = binary.Write(buf, binary.LittleEndian, int32(16)) // DataLen
 
 	// Write comm
 	comm := [16]byte{}
 	copy(comm[:], []byte("curl"))
-	binary.Write(buf, binary.LittleEndian, comm)
+	err = binary.Write(buf, binary.LittleEndian, comm)
 
-	binary.Write(buf, binary.LittleEndian, uint32(3))  // Fd
-	binary.Write(buf, binary.LittleEndian, int32(771)) // Version (TLS 1.2)
-
+	err = binary.Write(buf, binary.LittleEndian, uint32(3))  // Fd
+	err = binary.Write(buf, binary.LittleEndian, int32(771)) // Version (TLS 1.2)
+	if err != nil {
+		t.Fatalf("binary.Write failed: %v", err)
+	}
 	// Decode the event
 	event := &Event{}
-	err := event.DecodeFromBytes(buf.Bytes())
+	err = event.DecodeFromBytes(buf.Bytes())
 	if err != nil {
 		t.Fatalf("DecodeFromBytes failed: %v", err)
 	}

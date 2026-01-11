@@ -85,19 +85,21 @@ func TestProbe_Name(t *testing.T) {
 
 func TestTLSDataEventDecode(t *testing.T) {
 	event := &TLSDataEvent{}
-
+	var err error
 	// Create minimal valid data
 	buf := new(bytes.Buffer)
-	_ = binary.Write(buf, binary.LittleEndian, uint64(12345))       // Timestamp
-	_ = binary.Write(buf, binary.LittleEndian, uint32(1234))        // PID
-	_ = binary.Write(buf, binary.LittleEndian, uint32(5678))        // TID
-	_ = binary.Write(buf, binary.LittleEndian, [16]byte{'t'})       // Comm
-	_ = binary.Write(buf, binary.LittleEndian, int32(10))           // FD
-	_ = binary.Write(buf, binary.LittleEndian, uint32(100))         // DataLen
-	_ = binary.Write(buf, binary.LittleEndian, uint32(1))           // Direction
-	_ = binary.Write(buf, binary.LittleEndian, [MaxDataSize]byte{}) // Data
-
-	err := event.DecodeFromBytes(buf.Bytes())
+	err = binary.Write(buf, binary.LittleEndian, uint64(12345))       // Timestamp
+	err = binary.Write(buf, binary.LittleEndian, uint32(1234))        // PID
+	err = binary.Write(buf, binary.LittleEndian, uint32(5678))        // TID
+	err = binary.Write(buf, binary.LittleEndian, [16]byte{'t'})       // Comm
+	err = binary.Write(buf, binary.LittleEndian, int32(10))           // FD
+	err = binary.Write(buf, binary.LittleEndian, uint32(100))         // DataLen
+	err = binary.Write(buf, binary.LittleEndian, uint32(1))           // Direction
+	err = binary.Write(buf, binary.LittleEndian, [MaxDataSize]byte{}) // Data
+	if err != nil {
+		t.Fatalf("binary.Write failed: %v", err)
+	}
+	err = event.DecodeFromBytes(buf.Bytes())
 	if err != nil {
 		t.Fatalf("DecodeFromBytes failed: %v", err)
 	}
@@ -173,20 +175,25 @@ func TestTLSDataEventValidate(t *testing.T) {
 
 func TestMasterSecretEventDecode(t *testing.T) {
 	event := &MasterSecretEvent{}
+	var err error
 
 	// Create minimal valid data
 	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, [ClientRandomSize]byte{1, 2, 3})
-	binary.Write(buf, binary.LittleEndian, [MasterKeySize]byte{4, 5, 6})
-	binary.Write(buf, binary.LittleEndian, [TrafficSecretSize]byte{})
-	binary.Write(buf, binary.LittleEndian, [TrafficSecretSize]byte{})
-	binary.Write(buf, binary.LittleEndian, [TrafficSecretSize]byte{})
-	binary.Write(buf, binary.LittleEndian, [TrafficSecretSize]byte{})
-	binary.Write(buf, binary.LittleEndian, [TrafficSecretSize]byte{})
-
-	err := event.DecodeFromBytes(buf.Bytes())
+	err = binary.Write(buf, binary.LittleEndian, [ClientRandomSize]byte{1, 2, 3})
+	err = binary.Write(buf, binary.LittleEndian, [MasterKeySize]byte{4, 5, 6})
+	err = binary.Write(buf, binary.LittleEndian, [TrafficSecretSize]byte{})
+	err = binary.Write(buf, binary.LittleEndian, [TrafficSecretSize]byte{})
+	err = binary.Write(buf, binary.LittleEndian, [TrafficSecretSize]byte{})
+	err = binary.Write(buf, binary.LittleEndian, [TrafficSecretSize]byte{})
+	err = binary.Write(buf, binary.LittleEndian, [TrafficSecretSize]byte{})
+	if err != nil {
+		t.Fatalf("binary.Write failed: %v", err)
+		return
+	}
+	err = event.DecodeFromBytes(buf.Bytes())
 	if err != nil {
 		t.Fatalf("DecodeFromBytes failed: %v", err)
+		return
 	}
 
 	if event.ClientRandom[0] != 1 {

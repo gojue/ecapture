@@ -87,13 +87,7 @@ func (pw *PcapWriter) WriteMasterSecret(label, clientRandom, secret []byte) erro
 // Flush ensures all buffered data is written to disk
 func (pw *PcapWriter) Flush() error {
 	// Flush the underlying writer if it supports flushing
-	type flusher interface {
-		Flush() error
-	}
-	if f, ok := interface{}(pw.writer).(flusher); ok {
-		return f.Flush()
-	}
-	return nil
+	return pw.writer.Flush()
 }
 
 // Close closes the PCAPNG writer and flushes any buffered data

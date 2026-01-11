@@ -38,19 +38,19 @@ const SocketLifecycleUUIDPrefix = "sock:"
 type IEventStruct interface {
 	// GetUUID 获取事件的唯一标识符
 	GetUUID() string
-	
+
 	// Payload 获取事件的payload数据
 	Payload() []byte
-	
+
 	// Base 获取事件的基本信息
 	Base() Base
-	
+
 	// ToProtobufEvent 转换为protobuf事件
 	ToProtobufEvent() *pb.Event
-	
+
 	// Clone 克隆事件
 	Clone() IEventStruct
-	
+
 	// EventType 获取事件类型
 	EventType() Type
 }
