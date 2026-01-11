@@ -22,9 +22,11 @@ func TestNewConfig(t *testing.T) {
 	cfg := NewConfig()
 	if cfg == nil {
 		t.Fatal("NewConfig returned nil")
+		return
 	}
 	if cfg.ErrNo != 128 {
 		t.Errorf("expected ErrNo=128, got %d", cfg.ErrNo)
+		return
 	}
 }
 
@@ -67,6 +69,7 @@ func TestCommToString(t *testing.T) {
 			result := commToString(tt.input)
 			if result != tt.expected {
 				t.Errorf("expected %q, got %q", tt.expected, result)
+				return
 			}
 		})
 	}
@@ -81,6 +84,7 @@ func TestEventDecodeFromBytes(t *testing.T) {
 	err := event.DecodeFromBytes(data)
 	if err != nil {
 		t.Fatalf("DecodeFromBytes failed: %v", err)
+		return
 	}
 }
 

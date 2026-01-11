@@ -64,6 +64,7 @@ func TestProbe_Initialize_TextMode(t *testing.T) {
 
 	if probe.config.CaptureMode != "text" {
 		t.Errorf("expected capture mode 'text', got %q", probe.config.CaptureMode)
+		return
 	}
 
 	// Clean up

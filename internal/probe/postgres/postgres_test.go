@@ -27,9 +27,11 @@ func TestNewConfig(t *testing.T) {
 	cfg := NewConfig()
 	if cfg == nil {
 		t.Fatal("Expected non-nil config")
+		return
 	}
 	if cfg.FuncName != "exec_simple_query" {
 		t.Errorf("Expected FuncName to be 'exec_simple_query', got %s", cfg.FuncName)
+		return
 	}
 }
 
@@ -86,6 +88,7 @@ func TestNewProbe(t *testing.T) {
 	probe := NewProbe()
 	if probe == nil {
 		t.Fatal("Expected non-nil probe")
+		return
 	}
 	if probe.Name() != "postgres" {
 		t.Errorf("Expected probe name 'postgres', got %s", probe.Name())
@@ -170,6 +173,7 @@ func TestEventDecode(t *testing.T) {
 	err := event.DecodeFromBytes(testData)
 	if err != nil {
 		t.Fatalf("Failed to decode event: %v", err)
+		return
 	}
 
 	if event.GetPid() != 1234 {
@@ -179,11 +183,13 @@ func TestEventDecode(t *testing.T) {
 	decodedQuery := event.GetQuery()
 	if decodedQuery != query {
 		t.Errorf("Expected query '%s', got '%s'", query, decodedQuery)
+		return
 	}
 
 	decodedComm := event.GetComm()
 	if decodedComm != comm {
 		t.Errorf("Expected comm '%s', got '%s'", comm, decodedComm)
+		return
 	}
 }
 
@@ -196,6 +202,7 @@ func TestEventValidate(t *testing.T) {
 	}
 	if err := event.Validate(); err != nil {
 		t.Errorf("Expected valid event to pass validation, got error: %v", err)
+		return
 	}
 
 	// Invalid event - zero PID
@@ -229,11 +236,13 @@ func TestEventClone(t *testing.T) {
 	cloned := original.Clone()
 	if cloned == nil {
 		t.Fatal("Expected non-nil cloned event")
+		return
 	}
 
 	clonedEvent, ok := cloned.(*Event)
 	if !ok {
 		t.Fatal("Expected cloned event to be *Event type")
+		return
 	}
 
 	if clonedEvent.GetPid() != original.GetPid() {

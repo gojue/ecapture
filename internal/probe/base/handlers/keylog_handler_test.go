@@ -128,11 +128,13 @@ func TestKeylogHandler_Handle_TLS12(t *testing.T) {
 	err := handler.Handle(event)
 	if err != nil {
 		t.Fatalf("Handle returned error: %v", err)
+		return
 	}
 
 	output := writer.String()
 	if !strings.HasPrefix(output, "CLIENT_RANDOM ") {
 		t.Errorf("Output should start with CLIENT_RANDOM, got: %s", output)
+		return
 	}
 	if !strings.Contains(output, "\n") {
 		t.Error("Output should end with newline")
@@ -168,14 +170,17 @@ func TestKeylogHandler_Handle_TLS13(t *testing.T) {
 	err := handler.Handle(event)
 	if err != nil {
 		t.Fatalf("Handle returned error: %v", err)
+		return
 	}
 
 	output := writer.String()
 	if !strings.Contains(output, "CLIENT_TRAFFIC_SECRET_0") {
 		t.Errorf("Output should contain CLIENT_TRAFFIC_SECRET_0, got: %s", output)
+		return
 	}
 	if !strings.Contains(output, "SERVER_TRAFFIC_SECRET_0") {
 		t.Errorf("Output should contain SERVER_TRAFFIC_SECRET_0, got: %s", output)
+		return
 	}
 }
 
@@ -203,6 +208,7 @@ func TestKeylogHandler_Handle_Deduplication(t *testing.T) {
 	err := handler.Handle(event)
 	if err != nil {
 		t.Fatalf("First Handle returned error: %v", err)
+		return
 	}
 
 	firstOutput := writer.String()
@@ -211,6 +217,7 @@ func TestKeylogHandler_Handle_Deduplication(t *testing.T) {
 	err = handler.Handle(event)
 	if err != nil {
 		t.Fatalf("Second Handle returned error: %v", err)
+		return
 	}
 
 	secondOutput := writer.String()
@@ -308,6 +315,7 @@ func TestKeylogHandler_Handle_TLS13_SkipZeroSecrets(t *testing.T) {
 	err := handler.Handle(event)
 	if err != nil {
 		t.Fatalf("Handle returned error: %v", err)
+		return
 	}
 
 	output := writer.String()
@@ -326,6 +334,7 @@ func TestKeylogHandler_Close(t *testing.T) {
 	err := handler.Close()
 	if err != nil {
 		t.Errorf("Close returned error: %v", err)
+		return
 	}
 
 	// Check that seenKeys was cleared
@@ -360,6 +369,7 @@ func TestKeylogHandler_Close_ClosableWriter(t *testing.T) {
 	err := handler.Close()
 	if err != nil {
 		t.Errorf("Close returned error: %v", err)
+		return
 	}
 	if !writer.closed {
 		t.Error("Writer should be closed")

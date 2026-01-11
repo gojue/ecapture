@@ -114,6 +114,7 @@ func TestNewTextHandler(t *testing.T) {
 	handler := NewTextHandler(writer, false)
 	if handler == nil {
 		t.Fatal("NewTextHandler returned nil")
+		return
 	}
 }
 
@@ -121,6 +122,7 @@ func TestNewTextHandler_NilWriter(t *testing.T) {
 	handler := NewTextHandler(nil, false)
 	if handler == nil {
 		t.Fatal("NewTextHandler returned nil with nil writer")
+		return
 	}
 	// Should use StdoutWriter
 	if handler.writer == nil {
@@ -144,20 +146,24 @@ func TestTextHandler_Handle_Write(t *testing.T) {
 	err := handler.Handle(event)
 	if err != nil {
 		t.Fatalf("Handle returned error: %v", err)
+		return
 	}
 
 	output := writer.String()
 	if !strings.Contains(output, "PID: 1234") {
 		t.Errorf("Output should contain PID, got: %s", output)
+		return
 	}
 	if !strings.Contains(output, "test-app") {
 		t.Errorf("Output should contain comm, got: %s", output)
+		return
 	}
 	if !strings.Contains(output, ">>>") {
 		t.Errorf("Output should contain write direction (>>>), got: %s", output)
 	}
 	if !strings.Contains(output, "GET / HTTP/1.1") {
 		t.Errorf("Output should contain data, got: %s", output)
+		return
 	}
 }
 
@@ -177,6 +183,7 @@ func TestTextHandler_Handle_Read(t *testing.T) {
 	err := handler.Handle(event)
 	if err != nil {
 		t.Fatalf("Handle returned error: %v", err)
+		return
 	}
 
 	output := writer.String()
@@ -185,6 +192,7 @@ func TestTextHandler_Handle_Read(t *testing.T) {
 	}
 	if !strings.Contains(output, "HTTP/1.1 200 OK") {
 		t.Errorf("Output should contain data, got: %s", output)
+		return
 	}
 }
 
@@ -218,6 +226,7 @@ func TestTextHandler_Handle_InvalidEventType(t *testing.T) {
 	// Should return nil (skip silently) for non-TLS events
 	if err != nil {
 		t.Errorf("Handle should skip non-TLS events silently, got error: %v", err)
+		return
 	}
 }
 
@@ -228,6 +237,7 @@ func TestTextHandler_Close(t *testing.T) {
 	err := handler.Close()
 	if err != nil {
 		t.Errorf("Close returned error: %v", err)
+		return
 	}
 }
 
@@ -257,6 +267,7 @@ func TestTextHandler_Close_ClosableWriter(t *testing.T) {
 	err := handler.Close()
 	if err != nil {
 		t.Errorf("Close returned error: %v", err)
+		return
 	}
 	if !writer.closed {
 		t.Error("Writer should be closed")

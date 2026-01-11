@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/cilium/ebpf"
+
 	"github.com/gojue/ecapture/internal/domain"
 )
 
@@ -42,6 +43,7 @@ func TestNewProbeFactory(t *testing.T) {
 	factory := NewProbeFactory()
 	if factory == nil {
 		t.Fatal("NewProbeFactory returned nil")
+		return
 	}
 
 	probes := factory.GetSupportedProbes()

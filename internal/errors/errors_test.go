@@ -23,9 +23,11 @@ func TestNew(t *testing.T) {
 	err := New(ErrCodeConfiguration, "test error")
 	if err.Code != ErrCodeConfiguration {
 		t.Errorf("expected code %d, got %d", ErrCodeConfiguration, err.Code)
+		return
 	}
 	if err.Message != "test error" {
 		t.Errorf("expected message 'test error', got '%s'", err.Message)
+		return
 	}
 }
 
@@ -35,6 +37,7 @@ func TestWrap(t *testing.T) {
 
 	if err.Code != ErrCodeProbeInit {
 		t.Errorf("expected code %d, got %d", ErrCodeProbeInit, err.Code)
+		return
 	}
 	if !errors.Is(err, cause) {
 		t.Error("expected cause to be set")
@@ -51,9 +54,11 @@ func TestWithContext(t *testing.T) {
 
 	if err.Context["pid"] != 1234 {
 		t.Errorf("expected pid context to be 1234, got %v", err.Context["pid"])
+		return
 	}
 	if err.Context["probe"] != "openssl" {
 		t.Errorf("expected probe context to be 'openssl', got %v", err.Context["probe"])
+		return
 	}
 }
 
@@ -63,6 +68,7 @@ func TestNewProbeStartError(t *testing.T) {
 
 	if err.Code != ErrCodeProbeStart {
 		t.Errorf("expected code %d, got %d", ErrCodeProbeStart, err.Code)
+		return
 	}
 	if !errors.Is(err, cause) {
 		t.Error("expected errors.Is to find cause")

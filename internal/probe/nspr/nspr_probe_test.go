@@ -28,9 +28,11 @@ func TestNewProbe(t *testing.T) {
 	}
 	if probe == nil {
 		t.Fatal("NewProbe() returned nil")
+		return
 	}
 	if probe.Name() != "nspr" {
 		t.Errorf("expected name 'nspr', got %s", probe.Name())
+		return
 	}
 }
 
@@ -98,20 +100,25 @@ func TestTLSDataEventDecode(t *testing.T) {
 	err = binary.Write(buf, binary.LittleEndian, [MaxDataSize]byte{}) // Data
 	if err != nil {
 		t.Fatalf("binary.Write failed: %v", err)
+		return
 	}
 	err = event.DecodeFromBytes(buf.Bytes())
 	if err != nil {
 		t.Fatalf("DecodeFromBytes failed: %v", err)
+		return
 	}
 
 	if event.PID != 1234 {
 		t.Errorf("expected PID=1234, got %d", event.PID)
+		return
 	}
 	if event.TID != 5678 {
 		t.Errorf("expected TID=5678, got %d", event.TID)
+		return
 	}
 	if event.DataLen != 100 {
 		t.Errorf("expected DataLen=100, got %d", event.DataLen)
+		return
 	}
 	if !event.IsWrite() {
 		t.Error("expected IsWrite() to be true")
@@ -198,6 +205,7 @@ func TestMasterSecretEventDecode(t *testing.T) {
 
 	if event.ClientRandom[0] != 1 {
 		t.Errorf("expected ClientRandom[0]=1, got %d", event.ClientRandom[0])
+		return
 	}
 	if !event.HasMasterKey() {
 		t.Error("expected HasMasterKey() to be true")

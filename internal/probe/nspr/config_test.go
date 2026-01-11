@@ -22,10 +22,12 @@ func TestNewConfig(t *testing.T) {
 	cfg := NewConfig()
 	if cfg == nil {
 		t.Fatal("NewConfig() returned nil")
+		return
 	}
 
 	if cfg.Pid != 0 {
 		t.Errorf("Expected default Pid 0, got %d", cfg.Pid)
+		return
 	}
 
 	if cfg.BaseConfig == nil {

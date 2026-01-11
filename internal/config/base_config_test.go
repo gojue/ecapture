@@ -22,9 +22,11 @@ func TestNewBaseConfig(t *testing.T) {
 	cfg := NewBaseConfig()
 	if cfg == nil {
 		t.Fatal("NewBaseConfig returned nil")
+		return
 	}
 	if cfg.PerCpuMapSize != DefaultMapSizePerCpu {
 		t.Errorf("expected PerCpuMapSize=%d, got %d", DefaultMapSizePerCpu, cfg.PerCpuMapSize)
+		return
 	}
 }
 

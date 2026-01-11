@@ -55,6 +55,7 @@ func TestClient_Write(t *testing.T) {
 	err := client.Dial(url, "", "http://localhost/")
 	if err != nil {
 		t.Fatalf("Failed to dial: %v", err)
+		return
 	}
 	defer func() {
 		_ = client.Close()
@@ -65,6 +66,7 @@ func TestClient_Write(t *testing.T) {
 	n, err := client.Write(testData)
 	if err != nil {
 		t.Errorf("Write failed: %v", err)
+		return
 	}
 	if n != len(testData) {
 		t.Errorf("Expected to write %d bytes, wrote %d", len(testData), n)

@@ -28,6 +28,7 @@ func TestNewProbe(t *testing.T) {
 	}
 	if probe == nil {
 		t.Fatal("NewProbe() returned nil")
+		return
 	}
 	if probe.Name() != "openssl" {
 		t.Errorf("Name() = %v, want 'openssl'", probe.Name())

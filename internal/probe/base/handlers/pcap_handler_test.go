@@ -75,6 +75,7 @@ func TestNewPcapHandler(t *testing.T) {
 	handler, err := NewPcapHandler(writer)
 	if err != nil {
 		t.Fatalf("NewPcapHandler returned error: %v", err)
+		return
 	}
 	if handler == nil {
 		t.Fatal("NewPcapHandler returned nil")
@@ -89,6 +90,7 @@ func TestNewPcapHandler_NilWriter(t *testing.T) {
 	handler, err := NewPcapHandler(nil)
 	if err != nil {
 		t.Fatalf("NewPcapHandler returned error: %v", err)
+		return
 	}
 	if handler == nil {
 		t.Fatal("NewPcapHandler returned nil with nil writer")
@@ -104,6 +106,7 @@ func TestPcapHandler_Handle(t *testing.T) {
 	handler, err := NewPcapHandler(writer)
 	if err != nil {
 		t.Fatalf("NewPcapHandler returned error: %v", err)
+		return
 	}
 
 	event := &mockPacketEvent{
@@ -120,6 +123,7 @@ func TestPcapHandler_Handle(t *testing.T) {
 	err = handler.Handle(event)
 	if err != nil {
 		t.Fatalf("Handle returned error: %v", err)
+		return
 	}
 
 	// PCAPNG data is binary, just verify something was written
@@ -133,12 +137,14 @@ func TestPcapHandler_Handle_NilEvent(t *testing.T) {
 	handler, err := NewPcapHandler(writer)
 	if err != nil {
 		t.Fatalf("NewPcapHandler returned error: %v", err)
+		return
 	}
 
 	err = handler.Handle(nil)
 	// Should return nil (skip silently) for nil events
 	if err != nil {
 		t.Errorf("Handle should skip nil events silently, got error: %v", err)
+		return
 	}
 }
 
@@ -158,6 +164,7 @@ func TestPcapHandler_Handle_InvalidEventType(t *testing.T) {
 	handler, err := NewPcapHandler(writer)
 	if err != nil {
 		t.Fatalf("NewPcapHandler returned error: %v", err)
+		return
 	}
 
 	var event domain.Event = &mockNonPacketEvent{}
@@ -165,5 +172,6 @@ func TestPcapHandler_Handle_InvalidEventType(t *testing.T) {
 	// Should return nil (skip silently) for non-packet events
 	if err != nil {
 		t.Errorf("Handle should skip non-packet events silently, got error: %v", err)
+		return
 	}
 }

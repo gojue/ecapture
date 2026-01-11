@@ -28,6 +28,7 @@ func TestNewBaseProbe(t *testing.T) {
 	probe := NewBaseProbe("test-probe")
 	if probe == nil {
 		t.Fatal("NewBaseProbe returned nil")
+		return
 	}
 	if probe.Name() != "test-probe" {
 		t.Errorf("expected name 'test-probe', got '%s'", probe.Name())

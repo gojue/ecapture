@@ -50,37 +50,46 @@ func TestEvent_DecodeFromBytes(t *testing.T) {
 	err = binary.Write(buf, binary.LittleEndian, int32(771)) // Version (TLS 1.2)
 	if err != nil {
 		t.Fatalf("binary.Write failed: %v", err)
+		return
 	}
 	// Decode the event
 	event := &Event{}
 	err = event.DecodeFromBytes(buf.Bytes())
 	if err != nil {
 		t.Fatalf("DecodeFromBytes failed: %v", err)
+		return
 	}
 
 	// Verify fields
 	if event.DataType != DataTypeWrite {
 		t.Errorf("DataType = %d, want %d", event.DataType, DataTypeWrite)
+		return
 	}
 	if event.Pid != 1234 {
 		t.Errorf("Pid = %d, want 1234", event.Pid)
+		return
 	}
 	if event.Tid != 5678 {
 		t.Errorf("Tid = %d, want 5678", event.Tid)
+		return
 	}
 	if event.DataLen != 16 {
 		t.Errorf("DataLen = %d, want 16", event.DataLen)
+		return
 	}
 	if event.Fd != 3 {
 		t.Errorf("Fd = %d, want 3", event.Fd)
+		return
 	}
 	if event.Version != 771 {
 		t.Errorf("Version = %d, want 771", event.Version)
+		return
 	}
 
 	dataStr := string(event.GetData())
 	if !strings.Contains(dataStr, "GET / HTTP/1.1") {
 		t.Errorf("Data does not contain expected string, got: %s", dataStr)
+		return
 	}
 }
 
@@ -157,11 +166,13 @@ func TestEvent_Clone(t *testing.T) {
 	cloned := original.Clone()
 	if cloned == nil {
 		t.Fatal("Clone() returned nil")
+		return
 	}
 
 	clonedEvent, ok := cloned.(*Event)
 	if !ok {
 		t.Fatal("Clone() did not return an Event")
+		return
 	}
 
 	if clonedEvent.Pid != original.Pid {

@@ -170,6 +170,7 @@ func TestConfig_ValidateCaptureMode_Text(t *testing.T) {
 	err := cfg.validateCaptureMode()
 	if err != nil {
 		t.Errorf("Text mode validation failed: %v", err)
+		return
 	}
 }
 
@@ -183,6 +184,7 @@ func TestConfig_ValidateCaptureMode_Keylog(t *testing.T) {
 	err := cfg.validateCaptureMode()
 	if err != nil {
 		t.Errorf("Keylog mode validation failed: %v", err)
+		return
 	}
 
 	// Test without keylog file

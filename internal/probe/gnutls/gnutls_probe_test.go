@@ -67,6 +67,7 @@ func TestProbe_Events(t *testing.T) {
 	probe, _ := NewProbe()
 	if probe == nil {
 		t.Fatal("NewProbe returned nil")
+		return
 	}
 	events := probe.Events()
 	if events == nil {
@@ -75,5 +76,6 @@ func TestProbe_Events(t *testing.T) {
 	// Stub implementation returns empty slice
 	if len(events) != 0 {
 		t.Errorf("Events() should return empty slice in stub, got %d", len(events))
+		return
 	}
 }

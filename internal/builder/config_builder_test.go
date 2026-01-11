@@ -48,9 +48,11 @@ func TestConfigBuilderFluentAPI(t *testing.T) {
 
 	if cfg.GetPid() != 1234 {
 		t.Errorf("expected Pid=1234, got %d", cfg.GetPid())
+		return
 	}
 	if cfg.GetUid() != 5678 {
 		t.Errorf("expected Uid=5678, got %d", cfg.GetUid())
+		return
 	}
 	if !cfg.GetDebug() {
 		t.Error("expected Debug=true")
@@ -85,6 +87,7 @@ func TestConfigBuilderMustBuild(t *testing.T) {
 
 	if cfg.GetPid() != 1234 {
 		t.Errorf("expected Pid=1234, got %d", cfg.GetPid())
+		return
 	}
 }
 
