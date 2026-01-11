@@ -50,7 +50,7 @@ func NewProbe() *Probe {
 }
 
 // Initialize initializes the MySQL probe with the provided configuration
-func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration, dispatcher domain.EventDispatcher) error {
+func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration) error {
 	// Type assert the configuration
 	mysqlConfig, ok := cfg.(*Config)
 	if !ok {
@@ -68,7 +68,7 @@ func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration, dispat
 	p.config = mysqlConfig
 
 	// Initialize base probe
-	if err := p.BaseProbe.Initialize(ctx, cfg, dispatcher); err != nil {
+	if err := p.BaseProbe.Initialize(ctx, cfg); err != nil {
 		return err
 	}
 

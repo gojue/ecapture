@@ -14,6 +14,8 @@
 
 package domain
 
+import "github.com/gojue/ecapture/internal/output/writers"
+
 // EventType defines the category of an event.
 type EventType uint8
 
@@ -59,6 +61,9 @@ type EventHandler interface {
 
 	// Name returns the handler's identifier.
 	Name() string
+
+	// OutputWriter returns the associated output writer for this handler.
+	Writer() writers.OutputWriter
 }
 
 // EventDispatcher manages event distribution to registered handlers.

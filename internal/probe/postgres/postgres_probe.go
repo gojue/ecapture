@@ -22,8 +22,9 @@ import (
 
 	"github.com/cilium/ebpf"
 	manager "github.com/gojue/ebpfmanager"
-	"github.com/gojue/ecapture/internal/factory"
 	"golang.org/x/sys/unix"
+
+	"github.com/gojue/ecapture/internal/factory"
 
 	"github.com/gojue/ecapture/assets"
 	"github.com/gojue/ecapture/internal/domain"
@@ -47,7 +48,7 @@ func NewProbe() *Probe {
 }
 
 // Initialize initializes the PostgreSQL probe with the provided configuration
-func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration, dispatcher domain.EventDispatcher) error {
+func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration) error {
 	// Type assert configuration
 	config, ok := cfg.(*Config)
 	if !ok {
@@ -56,7 +57,7 @@ func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration, dispat
 	p.config = config
 
 	// Initialize base probe
-	if err := p.BaseProbe.Initialize(ctx, cfg, dispatcher); err != nil {
+	if err := p.BaseProbe.Initialize(ctx, cfg); err != nil {
 		return errors.Wrap(errors.ErrCodeProbeInit, "failed to initialize base probe", err)
 	}
 

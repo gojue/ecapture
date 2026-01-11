@@ -22,8 +22,9 @@ import (
 
 	"github.com/cilium/ebpf"
 	manager "github.com/gojue/ebpfmanager"
-	"github.com/gojue/ecapture/internal/factory"
 	"golang.org/x/sys/unix"
+
+	"github.com/gojue/ecapture/internal/factory"
 
 	"github.com/gojue/ecapture/assets"
 	"github.com/gojue/ecapture/internal/domain"
@@ -53,7 +54,7 @@ func NewProbe() *Probe {
 }
 
 // Initialize initializes the probe with configuration and dispatcher.
-func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration, dispatcher domain.EventDispatcher) error {
+func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration) error {
 	config, ok := cfg.(*Config)
 	if !ok {
 		return errors.NewConfigurationError("invalid config type for zsh probe", nil)
@@ -65,7 +66,7 @@ func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration, dispat
 
 	p.config = config
 
-	if err := p.BaseProbe.Initialize(ctx, cfg, dispatcher); err != nil {
+	if err := p.BaseProbe.Initialize(ctx, cfg); err != nil {
 		return err
 	}
 

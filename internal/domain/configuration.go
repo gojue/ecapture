@@ -48,4 +48,14 @@ type Configuration interface {
 
 	// Bytes serializes configuration to JSON bytes.
 	Bytes() []byte
+
+	// GetLoggerAddr returns the logger address.
+	GetLoggerAddr() string
+
+	SetLoggerAddr(addr string)
+
+	GetEventCollectorAddr() string
+
+	SetEventCollectorAddr(addr string)
+
 }

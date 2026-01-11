@@ -45,7 +45,7 @@ func TestBaseProbeInitialize(t *testing.T) {
 	dispatcher := events.NewDispatcher(log)
 	ctx := context.Background()
 
-	err := probe.Initialize(ctx, cfg, dispatcher)
+	err := probe.Initialize(ctx, cfg)
 	if err != nil {
 		t.Fatalf("Initialize() error = %v", err)
 	}
@@ -70,7 +70,7 @@ func TestBaseProbeInitializeInvalidConfig(t *testing.T) {
 	dispatcher := events.NewDispatcher(log)
 	ctx := context.Background()
 
-	err := probe.Initialize(ctx, cfg, dispatcher)
+	err := probe.Initialize(ctx, cfg)
 	if err == nil {
 		t.Error("Initialize() should return error for invalid config")
 	}
@@ -107,7 +107,7 @@ func TestBaseProbeLifecycle(t *testing.T) {
 	ctx := context.Background()
 
 	// Initialize
-	err := probe.Initialize(ctx, cfg, dispatcher)
+	err := probe.Initialize(ctx, cfg)
 	if err != nil {
 		t.Fatalf("Initialize() error = %v", err)
 	}
@@ -153,7 +153,7 @@ func TestBaseProbeCloseWithReaders(t *testing.T) {
 	dispatcher := events.NewDispatcher(log)
 	ctx := context.Background()
 
-	err := probe.Initialize(ctx, cfg, dispatcher)
+	err := probe.Initialize(ctx, cfg)
 	if err != nil {
 		t.Fatalf("Initialize() error = %v", err)
 	}
@@ -183,7 +183,7 @@ func TestBaseProbeStopAndClose(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
 
-	err := probe.Initialize(ctx, cfg, dispatcher)
+	err := probe.Initialize(ctx, cfg)
 	if err != nil {
 		t.Fatalf("Initialize() error = %v", err)
 	}

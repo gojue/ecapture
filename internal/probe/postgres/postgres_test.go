@@ -107,7 +107,7 @@ func TestProbeInitialize(t *testing.T) {
 	dispatcher := &mockDispatcher{}
 	ctx := context.Background()
 
-	err := probe.Initialize(ctx, cfg, dispatcher)
+	err := probe.Initialize(ctx, cfg)
 	// May fail if PostgreSQL is not installed, which is acceptable in tests
 	_ = err
 }
@@ -121,7 +121,7 @@ func TestProbeInitializeWithInvalidConfig(t *testing.T) {
 	dispatcher := &mockDispatcher{}
 	ctx := context.Background()
 
-	err := probe.Initialize(ctx, cfg, dispatcher)
+	err := probe.Initialize(ctx, cfg)
 	if err == nil {
 		t.Error("Expected error when initializing with invalid config type")
 	}

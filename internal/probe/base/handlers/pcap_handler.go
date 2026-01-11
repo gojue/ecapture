@@ -15,14 +15,17 @@
 package handlers
 
 import (
+	"bytes"
 	"sync"
 	"time"
 
+	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
+
+	"github.com/gojue/ecapture/internal/output/writers"
 
 	"github.com/gojue/ecapture/internal/domain"
 	"github.com/gojue/ecapture/internal/errors"
-	"github.com/gojue/ecapture/internal/output/writers"
 )
 
 // PacketEvent defines the interface for network packet events.
@@ -43,12 +46,29 @@ type PacketEvent interface {
 	GetDstPort() uint16
 }
 
+// packets of TC probe
+type TcPacket struct {
+	info gopacket.CaptureInfo
+	data []byte
+}
+
+type NetCaptureData struct {
+	PacketLength     uint32 `json:"pktLen"`
+	ConfigIfaceIndex uint32 `json:"ifIndex"`
+}
+
 // PcapHandler handles packet events by writing them in PCAPNG format.
 // PCAPNG (Packet Capture Next Generation) is the modern packet capture format
 // that can be analyzed with Wireshark and other network analysis tools.
 type PcapHandler struct {
-	pcapWriter *PcapWriter
-	mu         sync.Mutex
+	writer          writers.OutputWriter
+	pcapWriter      *PcapWriter
+	mu              sync.Mutex
+	masterKeyBuffer *bytes.Buffer
+}
+
+func (h *PcapHandler) Writer() writers.OutputWriter {
+	return h.writer
 }
 
 // NewPcapHandler creates a new PcapHandler with the provided writer.
@@ -64,7 +84,9 @@ func NewPcapHandler(writer writers.OutputWriter) (*PcapHandler, error) {
 	}
 
 	return &PcapHandler{
-		pcapWriter: pcapWriter,
+		writer:          writer,
+		pcapWriter:      pcapWriter,
+		masterKeyBuffer: bytes.NewBuffer(nil),
 	}, nil
 }
 
@@ -102,6 +124,27 @@ func (h *PcapHandler) Handle(event domain.Event) error {
 	return nil
 }
 
+// TODO 未使用
+func (h *PcapHandler) handleKeylog(event domain.Event) error {
+	keylogEvent, ok := event.(GoTLSMasterSecretEvent)
+	if ok {
+		return h.pcapWriter.WriteMasterSecret([]byte(keylogEvent.GetLabel()), keylogEvent.GetClientRandom(), keylogEvent.GetSecret())
+	}
+
+	TLSkeylogEvent, ok := event.(MasterSecretEvent)
+	if ok {
+		var version = TLSkeylogEvent.GetVersion()
+		// TLS 1.2 and earlier use CLIENT_RANDOM format
+		if version <= 0x0303 { // TLS 1.2 = 0x0303
+			return h.pcapWriter.WriteMasterSecret([]byte("CLIENT_RANDOM"), TLSkeylogEvent.GetClientRandom(), TLSkeylogEvent.GetMasterKey())
+		} else {
+			// TODO
+		}
+	}
+
+	return nil
+}
+
 // Close closes the handler and releases resources.
 func (h *PcapHandler) Close() error {
 	h.mu.Lock()
@@ -110,10 +153,15 @@ func (h *PcapHandler) Close() error {
 	if h.pcapWriter != nil {
 		return h.pcapWriter.Close()
 	}
+
 	return nil
 }
 
 // Name returns the handler's identifier.
 func (h *PcapHandler) Name() string {
 	return ModePcapng
+}
+
+func (h *PcapHandler) PcapWriter() *PcapWriter {
+	return h.pcapWriter
 }

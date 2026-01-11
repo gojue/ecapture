@@ -73,6 +73,10 @@ type KeylogHandler struct {
 	seenKeys map[string]bool // Deduplicate keys
 }
 
+func (h *KeylogHandler) Writer() writers.OutputWriter {
+	return h.writer
+}
+
 // NewKeylogHandler creates a new KeylogHandler with the provided writer.
 func NewKeylogHandler(writer writers.OutputWriter) *KeylogHandler {
 	if writer == nil {

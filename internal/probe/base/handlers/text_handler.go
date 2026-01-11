@@ -27,6 +27,10 @@ type TextHandler struct {
 	useHex bool
 }
 
+func (h *TextHandler) Writer() writers.OutputWriter {
+	return h.writer
+}
+
 // NewTextHandler creates a new TextHandler with the provided writer.
 // Events format themselves via String() or StringHex() methods.
 func NewTextHandler(writer writers.OutputWriter, useHex bool) *TextHandler {

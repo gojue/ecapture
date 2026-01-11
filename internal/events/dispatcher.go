@@ -15,6 +15,7 @@
 package events
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/gojue/ecapture/internal/domain"
@@ -44,6 +45,7 @@ func (d *Dispatcher) Register(handler domain.EventHandler) error {
 	if handler == nil {
 		return errors.New(errors.ErrCodeConfiguration, "handler cannot be nil")
 	}
+	d.logger.Debug().Str("event-handler", handler.Name()).Msg("### event handler registered")
 
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -52,7 +54,7 @@ func (d *Dispatcher) Register(handler domain.EventHandler) error {
 		return errors.New(errors.ErrCodeConfiguration, "dispatcher is closed")
 	}
 
-	name := handler.Name()
+	name := fmt.Sprintf("%s-%s", handler.Name(), handler.Writer().Name())
 	if _, exists := d.handlers[name]; exists {
 		return errors.New(errors.ErrCodeConfiguration, "handler already registered").
 			WithContext("handler", name)
@@ -106,17 +108,26 @@ func (d *Dispatcher) Dispatch(event domain.Event) error {
 	}
 
 	var lastErr error
+	var count int
 	for name, handler := range d.handlers {
 		if err := handler.Handle(event); err != nil {
-			d.logger.Warn().
+			d.logger.Debug().
 				Err(err).
 				Str("handler", name).
 				Msg("Handler failed to process event")
 			lastErr = err
+		} else {
+			lastErr = nil
+			count++
 		}
 	}
 
-	return lastErr
+	// 一个都没成功
+	if count == 0 && lastErr != nil {
+		d.logger.Error().Err(lastErr).Str("event", event.String()).Msg("Event handler failed to process event")
+		return lastErr
+	}
+	return nil
 }
 
 // Close stops the dispatcher and releases resources.
