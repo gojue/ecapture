@@ -73,7 +73,7 @@ func (pw *PcapWriter) WritePacket(data []byte, timestamp time.Time) error {
 func (pw *PcapWriter) WriteMasterSecret(label, clientRandom, secret []byte) error {
 	// Format: "LABEL CLIENTRANDOM SECRET\n"
 	// This follows the NSS SSLKEYLOGFILE format
-	keylogLine := fmt.Sprintf("%s %x %x\n", 
+	keylogLine := fmt.Sprintf("%s %x %x\n",
 		nullTerminatedString(label),
 		clientRandom,
 		secret)
@@ -87,13 +87,7 @@ func (pw *PcapWriter) WriteMasterSecret(label, clientRandom, secret []byte) erro
 // Flush ensures all buffered data is written to disk
 func (pw *PcapWriter) Flush() error {
 	// Flush the underlying writer if it supports flushing
-	type flusher interface {
-		Flush() error
-	}
-	if f, ok := interface{}(pw.writer).(flusher); ok {
-		return f.Flush()
-	}
-	return nil
+	return pw.writer.Flush()
 }
 
 // Close closes the PCAPNG writer and flushes any buffered data
@@ -103,12 +97,12 @@ func (pw *PcapWriter) Close() error {
 	if err := pw.Flush(); err != nil {
 		return err
 	}
-	
+
 	// Close the writer if it implements io.Closer
 	if closer, ok := interface{}(pw.writer).(io.Closer); ok {
 		return closer.Close()
 	}
-	
+
 	return nil
 }
 

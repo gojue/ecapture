@@ -39,10 +39,10 @@ const (
 //	    char Comm[TASK_COMM_LEN];
 //	};
 type Event struct {
-	Pid       uint64                      `json:"pid"`
-	Timestamp uint64                      `json:"timestamp"`
-	Query     [MaxDataSizePostgres]uint8  `json:"query"`
-	Comm      [16]uint8                   `json:"comm"`
+	Pid       uint64                     `json:"pid"`
+	Timestamp uint64                     `json:"timestamp"`
+	Query     [MaxDataSizePostgres]uint8 `json:"query"`
+	Comm      [16]uint8                  `json:"comm"`
 }
 
 // Type returns the event type identifier
@@ -103,13 +103,13 @@ func (e *Event) DecodeFromBytes(data []byte) error {
 func (e *Event) String() string {
 	query := unix.ByteSliceToString(e.Query[:])
 	comm := unix.ByteSliceToString(e.Comm[:])
-	
+
 	// Truncate long queries for display
 	if len(query) > 100 {
 		query = query[:100] + "..."
 	}
-	
-	return fmt.Sprintf("PID=%d Comm=%s Query=%s", 
+
+	return fmt.Sprintf("PID=%d Comm=%s Query=%s",
 		e.Pid, comm, query)
 }
 

@@ -100,7 +100,9 @@ file, err := elf.Open(binaryPath)
 if err != nil {
 return fmt.Errorf("failed to open binary %s: %w", binaryPath, err)
 }
-defer file.Close()
+defer func() {
+	_ = file.Close()
+}()
 
 symbols, err := file.DynamicSymbols()
 if err != nil {

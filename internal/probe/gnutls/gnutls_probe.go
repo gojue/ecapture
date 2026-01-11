@@ -18,15 +18,15 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
 
 	"github.com/cilium/ebpf"
+
+	"github.com/gojue/ecapture/internal/factory"
 
 	"github.com/gojue/ecapture/assets"
 	"github.com/gojue/ecapture/internal/domain"
 	"github.com/gojue/ecapture/internal/errors"
 	"github.com/gojue/ecapture/internal/probe/base"
-	"github.com/gojue/ecapture/internal/probe/base/handlers"
 )
 
 // Probe implements the GnuTLS TLS tracing probe.
@@ -35,16 +35,13 @@ import (
 // Full eBPF implementation will be added in future PRs.
 type Probe struct {
 	*base.BaseProbe
-	config        *Config
-	textHandler   *handlers.TextHandler
-	keylogHandler *handlers.KeylogHandler
-	pcapHandler   *handlers.PcapHandler
-	output        io.Writer
-	keylogFile    *os.File
-	pcapFile      *os.File
+	config           *Config
+	eventFuncMaps    map[*ebpf.Map]domain.EventDecoder
+	mapNameToDecoder map[string]domain.EventDecoder // Maps configured in setupManager
+	eventMaps        []*ebpf.Map
+	output           io.Writer
 	// eBPF implementation fields can be added when needed:
 	// bpfManager *manager.Manager
-	// eventMaps  []*ebpf.Map
 	// connTracker *ConnectionTracker
 	// tcClassifier *TCClassifier
 }
@@ -52,7 +49,9 @@ type Probe struct {
 // NewProbe creates a new GnuTLS probe instance.
 func NewProbe() (*Probe, error) {
 	return &Probe{
-		BaseProbe: base.NewBaseProbe("gnutls"),
+		BaseProbe:        base.NewBaseProbe(string(factory.ProbeTypeGnuTLS)),
+		eventFuncMaps:    make(map[*ebpf.Map]domain.EventDecoder),
+		mapNameToDecoder: make(map[string]domain.EventDecoder),
 	}, nil
 }
 
@@ -75,52 +74,6 @@ func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration, dispat
 			fmt.Sprintf("unsupported GnuTLS version: %s", p.config.GnuVersion))
 	}
 
-	// Initialize handlers based on capture mode
-	switch p.config.CaptureMode {
-	case "text":
-		// Initialize text handler
-		if p.output == nil {
-			p.output = io.Discard
-		}
-		p.textHandler = handlers.NewTextHandler(p.output)
-
-	case "keylog":
-		// Initialize keylog handler
-		var err error
-		p.keylogFile, err = os.OpenFile(p.config.KeylogFile,
-			os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o600)
-		if err != nil {
-			return errors.Wrap(errors.ErrCodeResourceAllocation,
-				fmt.Sprintf("failed to open keylog file: %s", p.config.KeylogFile), err)
-		}
-		p.keylogHandler = handlers.NewKeylogHandler(p.keylogFile)
-
-	case "pcap":
-		// Initialize pcap handler
-		var err error
-		p.pcapFile, err = os.OpenFile(p.config.PcapFile,
-			os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
-		if err != nil {
-			return errors.Wrap(errors.ErrCodeResourceAllocation,
-				fmt.Sprintf("failed to open pcap file: %s", p.config.PcapFile), err)
-		}
-		p.pcapHandler = handlers.NewPcapHandler(p.pcapFile)
-
-		// Write PCAPNG file header
-		if err := p.pcapHandler.WriteFileHeader(); err != nil {
-			return errors.Wrap(errors.ErrCodeResourceAllocation,
-				"failed to write pcap file header", err)
-		}
-
-		// Register network interface when needed
-		// Setup TC classifier when needed
-		// Connection tracking can be added when needed
-
-	default:
-		return errors.New(errors.ErrCodeConfiguration,
-			fmt.Sprintf("unsupported capture mode: %s", p.config.CaptureMode))
-	}
-
 	p.Logger().Info().
 		Str("gnutls_path", gnutlsConfig.GnutlsPath).
 		Str("gnutls_version", gnutlsConfig.GnuVersion).
@@ -140,7 +93,7 @@ func (p *Probe) Start(ctx context.Context) error {
 	// The bytecode is generated during build process via 'make ebpf'
 	// eBPF manager setup with gnutls_record_send/gnutls_record_recv hooks:
 	// - uprobe/gnutls_record_send - intercepts TLS send operations
-	// - uprobe/gnutls_record_recv - intercepts TLS receive operations  
+	// - uprobe/gnutls_record_recv - intercepts TLS receive operations
 	// Network connection tracking via kprobes (connect/accept)
 	// Event maps initialization for TLS data capture
 	// Event reader loops for processing captured data
@@ -156,7 +109,33 @@ func (p *Probe) Start(ctx context.Context) error {
 	// established in OpenSSL/NSPR probes.
 	_ = assets.Asset // Reference to indicate assets package usage
 
+	// Retrieve eBPF maps and associate with decoders (configured in setupManager)
+	if err := p.retrieveEventMaps(); err != nil {
+		return err
+	}
+
 	p.Logger().Info().Msg("GnuTLS probe started with eBPF asset loading support")
+
+	return nil
+}
+
+// retrieveEventMaps retrieves eBPF maps from the manager and creates eventFuncMaps.
+// The decoder mapping by name (mapNameToDecoder) is already configured in setupManager().
+// This will be populated when eBPF implementation is complete.
+func (p *Probe) retrieveEventMaps() error {
+	// TODO: When eBPF is implemented, retrieve actual maps
+	// for mapName, decoder := range p.mapNameToDecoder {
+	//     em, found, err := p.bpfManager.GetMap(mapName)
+	//     if found {
+	//         p.eventMaps = append(p.eventMaps, em)
+	//         p.eventFuncMaps[em] = decoder
+	//     }
+	// }
+
+	p.Logger().Info().
+		Int("num_maps", len(p.eventMaps)).
+		Int("num_decoders", len(p.eventFuncMaps)).
+		Msg("Event maps retrieved and decoders mapped")
 
 	return nil
 }
@@ -169,53 +148,34 @@ func (p *Probe) Stop(ctx context.Context) error {
 
 // Events returns the eBPF maps for event collection.
 func (p *Probe) Events() []*ebpf.Map {
-	// Return actual event maps when eBPF implementation is integrated
-	return []*ebpf.Map{}
+	return p.eventMaps
 }
 
 // Close releases all probe resources.
 func (p *Probe) Close() error {
-	// Close text handler
-	if p.textHandler != nil {
-		if err := p.textHandler.Close(); err != nil {
-			p.Logger().Warn().Err(err).Msg("Failed to close text handler")
-		}
-	}
-
-	// Close keylog handler and file
-	if p.keylogHandler != nil {
-		if err := p.keylogHandler.Close(); err != nil {
-			p.Logger().Warn().Err(err).Msg("Failed to close keylog handler")
-		}
-	}
-	if p.keylogFile != nil {
-		if err := p.keylogFile.Close(); err != nil {
-			p.Logger().Warn().Err(err).Msg("Failed to close keylog file")
-		}
-	}
-
-	// Close pcap handler and file
-	if p.pcapHandler != nil {
-		if err := p.pcapHandler.Close(); err != nil {
-			p.Logger().Warn().Err(err).Msg("Failed to close pcap handler")
-		}
-	}
-	if p.pcapFile != nil {
-		if err := p.pcapFile.Close(); err != nil {
-			p.Logger().Warn().Err(err).Msg("Failed to close pcap file")
-		}
-	}
-
 	// Close eBPF manager and other resources when implemented
 
 	return p.BaseProbe.Close()
 }
 
-// Decode implements EventDecoder interface.
-func (p *Probe) Decode(em *ebpf.Map, data []byte) (domain.Event, error) {
+func (p *Probe) DecodeFun(em *ebpf.Map) (domain.EventDecoder, bool) {
+	fun, found := p.eventFuncMaps[em]
+	return fun, found
+}
+
+// gnutlsEventDecoder implements domain.EventDecoder for GnuTLS TLS data events
+type gnutlsEventDecoder struct {
+	probe *Probe
+}
+
+func (d *gnutlsEventDecoder) Decode(_ *ebpf.Map, data []byte) (domain.Event, error) {
 	event := &Event{}
 	if err := event.DecodeFromBytes(data); err != nil {
 		return nil, err
 	}
 	return event, nil
+}
+
+func (d *gnutlsEventDecoder) GetDecoder(_ *ebpf.Map) (domain.Event, bool) {
+	return &Event{}, true
 }

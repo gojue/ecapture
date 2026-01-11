@@ -27,16 +27,18 @@ func TestNewConfig(t *testing.T) {
 	cfg := NewConfig()
 	if cfg == nil {
 		t.Fatal("Expected non-nil config")
+		return
 	}
 	if cfg.FuncName != "exec_simple_query" {
 		t.Errorf("Expected FuncName to be 'exec_simple_query', got %s", cfg.FuncName)
+		return
 	}
 }
 
 // TestConfigValidateWithoutPath tests config validation when path is not set
 func TestConfigValidateWithoutPath(t *testing.T) {
 	cfg := NewConfig()
-	
+
 	// Validation should try auto-detection and may succeed or fail
 	// depending on whether PostgreSQL is installed
 	err := cfg.Validate()
@@ -48,7 +50,7 @@ func TestConfigValidateWithoutPath(t *testing.T) {
 func TestConfigValidateWithInvalidPath(t *testing.T) {
 	cfg := NewConfig()
 	cfg.SetPostgresPath("/nonexistent/postgres")
-	
+
 	err := cfg.Validate()
 	if err == nil {
 		t.Error("Expected validation error for nonexistent path")
@@ -58,21 +60,21 @@ func TestConfigValidateWithInvalidPath(t *testing.T) {
 // TestConfigGettersSetters tests configuration getters and setters
 func TestConfigGettersSetters(t *testing.T) {
 	cfg := NewConfig()
-	
+
 	// Test PostgresPath
 	testPath := "/usr/lib/postgresql/15/bin/postgres"
 	cfg.SetPostgresPath(testPath)
 	if cfg.GetPostgresPath() != testPath {
 		t.Errorf("Expected PostgresPath %s, got %s", testPath, cfg.GetPostgresPath())
 	}
-	
+
 	// Test FuncName
 	testFunc := "custom_function"
 	cfg.SetFuncName(testFunc)
 	if cfg.GetFuncName() != testFunc {
 		t.Errorf("Expected FuncName %s, got %s", testFunc, cfg.GetFuncName())
 	}
-	
+
 	// Test Offset
 	testOffset := uint64(0x12345)
 	cfg.SetOffset(testOffset)
@@ -86,6 +88,7 @@ func TestNewProbe(t *testing.T) {
 	probe := NewProbe()
 	if probe == nil {
 		t.Fatal("Expected non-nil probe")
+		return
 	}
 	if probe.Name() != "postgres" {
 		t.Errorf("Expected probe name 'postgres', got %s", probe.Name())
@@ -100,10 +103,10 @@ func TestProbeInitialize(t *testing.T) {
 	probe := NewProbe()
 	cfg := NewConfig()
 	cfg.SetPostgresPath("/usr/lib/postgresql/15/bin/postgres")
-	
+
 	dispatcher := &mockDispatcher{}
 	ctx := context.Background()
-	
+
 	err := probe.Initialize(ctx, cfg, dispatcher)
 	// May fail if PostgreSQL is not installed, which is acceptable in tests
 	_ = err
@@ -112,12 +115,12 @@ func TestProbeInitialize(t *testing.T) {
 // TestProbeInitializeWithInvalidConfig tests probe initialization with invalid config
 func TestProbeInitializeWithInvalidConfig(t *testing.T) {
 	probe := NewProbe()
-	
+
 	// Pass a base config instead of PostgreSQL config
 	cfg := config.NewBaseConfig()
 	dispatcher := &mockDispatcher{}
 	ctx := context.Background()
-	
+
 	err := probe.Initialize(ctx, cfg, dispatcher)
 	if err == nil {
 		t.Error("Expected error when initializing with invalid config type")
@@ -146,44 +149,47 @@ func (m *mockDispatcher) Close() error {
 // TestEventDecode tests PostgreSQL event decoding
 func TestEventDecode(t *testing.T) {
 	event := &Event{}
-	
+
 	// Create test data matching the C struct layout
 	testData := make([]byte, 296) // 8 + 8 + 256 + 16 + 8 bytes
-	
+
 	// Set PID = 1234 (8 bytes little-endian)
 	testData[0] = 0xD2
 	testData[1] = 0x04
-	
+
 	// Set Timestamp = 1000000 (8 bytes little-endian)
 	testData[8] = 0x40
 	testData[9] = 0x42
 	testData[10] = 0x0F
-	
+
 	// Set Query = "SELECT * FROM users"
 	query := "SELECT * FROM users"
 	copy(testData[16:16+len(query)], []byte(query))
-	
+
 	// Set Comm = "postgres"
 	comm := "postgres"
 	copy(testData[272:272+len(comm)], []byte(comm))
-	
+
 	err := event.DecodeFromBytes(testData)
 	if err != nil {
 		t.Fatalf("Failed to decode event: %v", err)
+		return
 	}
-	
+
 	if event.GetPid() != 1234 {
 		t.Errorf("Expected PID 1234, got %d", event.GetPid())
 	}
-	
+
 	decodedQuery := event.GetQuery()
 	if decodedQuery != query {
 		t.Errorf("Expected query '%s', got '%s'", query, decodedQuery)
+		return
 	}
-	
+
 	decodedComm := event.GetComm()
 	if decodedComm != comm {
 		t.Errorf("Expected comm '%s', got '%s'", comm, decodedComm)
+		return
 	}
 }
 
@@ -196,8 +202,9 @@ func TestEventValidate(t *testing.T) {
 	}
 	if err := event.Validate(); err != nil {
 		t.Errorf("Expected valid event to pass validation, got error: %v", err)
+		return
 	}
-	
+
 	// Invalid event - zero PID
 	invalidEvent := &Event{
 		Pid:       0,
@@ -206,7 +213,7 @@ func TestEventValidate(t *testing.T) {
 	if err := invalidEvent.Validate(); err == nil {
 		t.Error("Expected validation error for zero PID")
 	}
-	
+
 	// Invalid event - zero timestamp
 	invalidEvent2 := &Event{
 		Pid:       1234,
@@ -225,25 +232,27 @@ func TestEventClone(t *testing.T) {
 	}
 	copy(original.Query[:], []byte("SELECT * FROM users"))
 	copy(original.Comm[:], []byte("postgres"))
-	
+
 	cloned := original.Clone()
 	if cloned == nil {
 		t.Fatal("Expected non-nil cloned event")
+		return
 	}
-	
+
 	clonedEvent, ok := cloned.(*Event)
 	if !ok {
 		t.Fatal("Expected cloned event to be *Event type")
+		return
 	}
-	
+
 	if clonedEvent.GetPid() != original.GetPid() {
 		t.Error("Cloned event PID does not match original")
 	}
-	
+
 	if clonedEvent.GetQuery() != original.GetQuery() {
 		t.Error("Cloned event Query does not match original")
 	}
-	
+
 	// Modify clone to ensure deep copy
 	clonedEvent.Pid = 5678
 	if original.Pid == clonedEvent.Pid {
@@ -257,16 +266,16 @@ func TestEventTypeAndUUID(t *testing.T) {
 		Pid:       1234,
 		Timestamp: 1000000,
 	}
-	
+
 	if event.Type() != domain.EventTypeOutput {
 		t.Errorf("Expected type EventTypeOutput, got %v", event.Type())
 	}
-	
+
 	uuid := event.UUID()
 	if uuid == "" {
 		t.Error("Expected non-empty UUID")
 	}
-	
+
 	// UUID should be unique for different events
 	event2 := &Event{
 		Pid:       5678,
@@ -285,7 +294,7 @@ func TestEventIsTruncated(t *testing.T) {
 	if event.IsTruncated() {
 		t.Error("Expected event to not be truncated")
 	}
-	
+
 	// Truncated - non-zero byte at the end
 	truncatedEvent := &Event{}
 	for i := 0; i < MaxDataSizePostgres; i++ {

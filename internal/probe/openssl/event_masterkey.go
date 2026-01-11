@@ -91,39 +91,33 @@ func (e *MasterSecretEvent) DecodeFromBytes(data []byte) error {
 	}
 
 	if buf.Len() >= EvpMaxMdSize {
-		if err := binary.Read(buf, binary.LittleEndian, &e.EarlySecret); err != nil {
-			// Not all TLS 1.3 secrets might be present
-		}
+		_ = binary.Read(buf, binary.LittleEndian, &e.EarlySecret)
+		// Not all TLS 1.3 secrets might be present
 	}
 
 	if buf.Len() >= EvpMaxMdSize {
-		if err := binary.Read(buf, binary.LittleEndian, &e.HandshakeSecret); err != nil {
-			// Not all TLS 1.3 secrets might be present
-		}
+		_ = binary.Read(buf, binary.LittleEndian, &e.HandshakeSecret)
+		// Not all TLS 1.3 secrets might be present
 	}
 
 	if buf.Len() >= EvpMaxMdSize {
-		if err := binary.Read(buf, binary.LittleEndian, &e.HandshakeTrafficHash); err != nil {
-			// Not all TLS 1.3 secrets might be present
-		}
+		_ = binary.Read(buf, binary.LittleEndian, &e.HandshakeTrafficHash)
+		// Not all TLS 1.3 secrets might be present
 	}
 
 	if buf.Len() >= EvpMaxMdSize {
-		if err := binary.Read(buf, binary.LittleEndian, &e.ClientAppTrafficSecret); err != nil {
-			// Not all TLS 1.3 secrets might be present
-		}
+		_ = binary.Read(buf, binary.LittleEndian, &e.ClientAppTrafficSecret)
+		// Not all TLS 1.3 secrets might be present
 	}
 
 	if buf.Len() >= EvpMaxMdSize {
-		if err := binary.Read(buf, binary.LittleEndian, &e.ServerAppTrafficSecret); err != nil {
-			// Not all TLS 1.3 secrets might be present
-		}
+		_ = binary.Read(buf, binary.LittleEndian, &e.ServerAppTrafficSecret)
+		// Not all TLS 1.3 secrets might be present
 	}
 
 	if buf.Len() >= EvpMaxMdSize {
-		if err := binary.Read(buf, binary.LittleEndian, &e.ExporterMasterSecret); err != nil {
-			// Not all TLS 1.3 secrets might be present
-		}
+		_ = binary.Read(buf, binary.LittleEndian, &e.ExporterMasterSecret)
+		// Not all TLS 1.3 secrets might be present
 	}
 
 	return nil
@@ -131,11 +125,14 @@ func (e *MasterSecretEvent) DecodeFromBytes(data []byte) error {
 
 // String returns a human-readable representation of the master secret event.
 func (e *MasterSecretEvent) String() string {
-	versionStr := fmt.Sprintf("0x%04x", e.Version)
-	if e.Version == 0x0303 {
+	var versionStr string
+	switch e.Version {
+	case 0x0303:
 		versionStr = "TLS 1.2"
-	} else if e.Version == 0x0304 {
+	case 0x0304:
 		versionStr = "TLS 1.3"
+	default:
+		versionStr = fmt.Sprintf("0x%04x", e.Version)
 	}
 
 	return fmt.Sprintf("TLS Version: %s, ClientRandom: %x",
@@ -243,4 +240,16 @@ func (e *MasterSecretEvent) GetServerAppTrafficSecret() []byte {
 // GetExporterMasterSecret returns the exporter master secret (TLS 1.3).
 func (e *MasterSecretEvent) GetExporterMasterSecret() []byte {
 	return e.ExporterMasterSecret[:]
+}
+
+// Decode implements domain.EventDecoder interface for master secret events.
+func (e *MasterSecretEvent) Decode(data []byte) (domain.Event, error) {
+	event := &MasterSecretEvent{}
+	if err := event.DecodeFromBytes(data); err != nil {
+		return nil, err
+	}
+	if err := event.Validate(); err != nil {
+		return nil, err
+	}
+	return event, nil
 }

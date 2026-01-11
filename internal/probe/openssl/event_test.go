@@ -27,58 +27,69 @@ import (
 func TestEvent_DecodeFromBytes(t *testing.T) {
 	// Create a test event in binary format
 	buf := new(bytes.Buffer)
-
+	var err error
 	// Write test data in the same order as the struct
-	binary.Write(buf, binary.LittleEndian, int64(DataTypeWrite))          // DataType
-	binary.Write(buf, binary.LittleEndian, uint64(time.Now().UnixNano())) // Timestamp
-	binary.Write(buf, binary.LittleEndian, uint32(1234))                  // Pid
-	binary.Write(buf, binary.LittleEndian, uint32(5678))                  // Tid
+	err = binary.Write(buf, binary.LittleEndian, int64(DataTypeWrite))          // DataType
+	err = binary.Write(buf, binary.LittleEndian, uint64(time.Now().UnixNano())) // Timestamp
+	err = binary.Write(buf, binary.LittleEndian, uint32(1234))                  // Pid
+	err = binary.Write(buf, binary.LittleEndian, uint32(5678))                  // Tid
 
 	// Write data array
 	data := [MaxDataSize]byte{}
 	copy(data[:], []byte("GET / HTTP/1.1\r\n"))
-	binary.Write(buf, binary.LittleEndian, data)
+	err = binary.Write(buf, binary.LittleEndian, data)
 
-	binary.Write(buf, binary.LittleEndian, int32(16)) // DataLen
+	err = binary.Write(buf, binary.LittleEndian, int32(16)) // DataLen
 
 	// Write comm
 	comm := [16]byte{}
 	copy(comm[:], []byte("curl"))
-	binary.Write(buf, binary.LittleEndian, comm)
+	err = binary.Write(buf, binary.LittleEndian, comm)
 
-	binary.Write(buf, binary.LittleEndian, uint32(3))  // Fd
-	binary.Write(buf, binary.LittleEndian, int32(771)) // Version (TLS 1.2)
-
+	err = binary.Write(buf, binary.LittleEndian, uint32(3))  // Fd
+	err = binary.Write(buf, binary.LittleEndian, int32(771)) // Version (TLS 1.2)
+	if err != nil {
+		t.Fatalf("binary.Write failed: %v", err)
+		return
+	}
 	// Decode the event
 	event := &Event{}
-	err := event.DecodeFromBytes(buf.Bytes())
+	err = event.DecodeFromBytes(buf.Bytes())
 	if err != nil {
 		t.Fatalf("DecodeFromBytes failed: %v", err)
+		return
 	}
 
 	// Verify fields
 	if event.DataType != DataTypeWrite {
 		t.Errorf("DataType = %d, want %d", event.DataType, DataTypeWrite)
+		return
 	}
 	if event.Pid != 1234 {
 		t.Errorf("Pid = %d, want 1234", event.Pid)
+		return
 	}
 	if event.Tid != 5678 {
 		t.Errorf("Tid = %d, want 5678", event.Tid)
+		return
 	}
 	if event.DataLen != 16 {
 		t.Errorf("DataLen = %d, want 16", event.DataLen)
+		return
 	}
 	if event.Fd != 3 {
 		t.Errorf("Fd = %d, want 3", event.Fd)
+		return
 	}
 	if event.Version != 771 {
 		t.Errorf("Version = %d, want 771", event.Version)
+		return
 	}
 
 	dataStr := string(event.GetData())
 	if !strings.Contains(dataStr, "GET / HTTP/1.1") {
 		t.Errorf("Data does not contain expected string, got: %s", dataStr)
+		return
 	}
 }
 
@@ -155,11 +166,13 @@ func TestEvent_Clone(t *testing.T) {
 	cloned := original.Clone()
 	if cloned == nil {
 		t.Fatal("Clone() returned nil")
+		return
 	}
 
 	clonedEvent, ok := cloned.(*Event)
 	if !ok {
 		t.Fatal("Clone() did not return an Event")
+		return
 	}
 
 	if clonedEvent.Pid != original.Pid {

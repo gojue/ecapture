@@ -60,6 +60,7 @@ func TestNewDispatcher(t *testing.T) {
 
 	if disp == nil {
 		t.Fatal("NewDispatcher returned nil")
+		return
 	}
 	if disp.HandlerCount() != 0 {
 		t.Errorf("expected 0 handlers, got %d", disp.HandlerCount())

@@ -25,14 +25,14 @@ import (
 type ProbeType string
 
 const (
-	ProbeTypeBash     ProbeType = "bash"
-	ProbeTypeZsh      ProbeType = "zsh"
-	ProbeTypeMySQL    ProbeType = "mysql"
+	ProbeTypeBash     ProbeType = "Bash"
+	ProbeTypeZsh      ProbeType = "Zsh"
+	ProbeTypeMySQL    ProbeType = "MySQL"
 	ProbeTypePostgres ProbeType = "postgres"
-	ProbeTypeOpenSSL  ProbeType = "openssl"
-	ProbeTypeGnuTLS   ProbeType = "gnutls"
-	ProbeTypeNSPR     ProbeType = "nspr"
-	ProbeTypeGoTLS    ProbeType = "gotls"
+	ProbeTypeOpenSSL  ProbeType = "OpenSSL"
+	ProbeTypeGnuTLS   ProbeType = "GnuTLS"
+	ProbeTypeNSPR     ProbeType = "NSPR"
+	ProbeTypeGoTLS    ProbeType = "GoTLS"
 )
 
 // ProbeFactory defines the interface for creating probes.

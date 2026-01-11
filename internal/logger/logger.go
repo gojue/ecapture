@@ -69,3 +69,8 @@ func (l *Logger) WithPid(pid uint64) *Logger {
 	child := l.Logger.With().Uint64("pid", pid).Logger()
 	return &Logger{&child}
 }
+
+func (l *Logger) Write(p []byte) (n int, err error) {
+	l.Logger.Info().Msg(string(p))
+	return len(p), nil
+}

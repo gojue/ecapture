@@ -27,13 +27,13 @@ import (
 // TLSDataEvent represents a TLS data read/write event from GoTLS
 // This structure matches the eBPF event structure: struct go_tls_event
 type TLSDataEvent struct {
-	Timestamp uint64       // ts_ns: Timestamp in nanoseconds
-	Pid       uint32       // pid: Process ID
-	Tid       uint32       // tid: Thread ID
-	DataLen   int32        // data_len: Length of actual data (signed int32 to match kernel)
-	EventType uint8        // event_type: 0 = write, 1 = read
-	Comm      [16]byte     // comm[TASK_COMM_LEN]: Process name
-	Data      [16384]byte  // data[MAX_DATA_SIZE_OPENSSL]: TLS data buffer (max 16KB per event)
+	Timestamp uint64      // ts_ns: Timestamp in nanoseconds
+	Pid       uint32      // pid: Process ID
+	Tid       uint32      // tid: Thread ID
+	DataLen   int32       // data_len: Length of actual data (signed int32 to match kernel)
+	EventType uint8       // event_type: 0 = write, 1 = read
+	Comm      [16]byte    // comm[TASK_COMM_LEN]: Process name
+	Data      [16384]byte // data[MAX_DATA_SIZE_OPENSSL]: TLS data buffer (max 16KB per event)
 }
 
 // DecodeFromBytes deserializes the event from raw eBPF data.
@@ -90,17 +90,30 @@ func (e *TLSDataEvent) DecodeFromBytes(data []byte) error {
 		copy(e.Data[:], buf.Next(remaining))
 	}
 
+	if e.Timestamp == 0 {
+		e.Timestamp = uint64(time.Now().UnixNano())
+	}
 	return nil
 }
 
-// GetTimestamp returns the event timestamp as time.Time
-func (e *TLSDataEvent) GetTimestamp() time.Time {
+// GetTimestamp returns the event timestamp in nanoseconds
+func (e *TLSDataEvent) GetTimestamp() uint64 {
+	return e.Timestamp
+}
+
+// GetTimestampTime returns the event timestamp as time.Time
+func (e *TLSDataEvent) GetTimestampTime() time.Time {
 	return time.Unix(0, int64(e.Timestamp))
 }
 
 // GetPid returns the process ID
 func (e *TLSDataEvent) GetPid() uint32 {
 	return e.Pid
+}
+
+// GetComm returns the process name as a string (compatible with handlers.TLSDataEvent interface)
+func (e *TLSDataEvent) GetComm() string {
+	return commToString(e.Comm[:])
 }
 
 // GetData returns the TLS data
@@ -113,6 +126,14 @@ func (e *TLSDataEvent) GetData() []byte {
 		dataLen = 16384
 	}
 	return e.Data[:dataLen]
+}
+
+// GetDataLen returns the length of the TLS data (compatible with handlers.TLSDataEvent interface)
+func (e *TLSDataEvent) GetDataLen() uint32 {
+	if e.DataLen < 0 {
+		return 0
+	}
+	return uint32(e.DataLen)
 }
 
 // IsRead returns true if this is a read event
@@ -171,7 +192,7 @@ func (e *TLSDataEvent) Type() domain.EventType {
 
 // UUID returns a unique identifier for this event.
 func (e *TLSDataEvent) UUID() string {
-	return fmt.Sprintf("%d_%d_%s_%d", e.Pid, e.Tid, commToString(e.Comm[:]), e.Timestamp)
+	return fmt.Sprintf("%d_%d_%s_%d", e.Pid, e.Tid, e.GetComm(), e.Timestamp)
 }
 
 // Validate checks if the event data is valid.

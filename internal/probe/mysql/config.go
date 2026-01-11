@@ -94,7 +94,7 @@ func (c *Config) Validate() error {
 				c.MysqlPath = detectedPath
 			}
 		}
-		
+
 		// If still empty after detection attempt, return error
 		if c.MysqlPath == "" || len(strings.TrimSpace(c.MysqlPath)) == 0 {
 			return errors.NewConfigurationError(
@@ -148,7 +148,9 @@ func (c *Config) detectFunctionAndVersion() error {
 			err,
 		).WithContext("path", c.MysqlPath)
 	}
-	defer elfFile.Close()
+	defer func() {
+		_ = elfFile.Close()
+	}()
 
 	// Read dynamic symbols
 	dynamicSymbols, err := elfFile.DynamicSymbols()
@@ -238,13 +240,13 @@ func (c *Config) detectBinaryPathFromPid(pid uint64) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to read exe symlink for PID %d: %w", pid, err)
 	}
-	
+
 	// Verify it's a MySQL/MariaDB binary by checking the name
 	baseName := strings.ToLower(binaryPath)
 	if !strings.Contains(baseName, "mysqld") && !strings.Contains(baseName, "mariadbd") {
 		return "", fmt.Errorf("PID %d does not appear to be a MySQL/MariaDB process (binary: %s)", pid, binaryPath)
 	}
-	
+
 	return binaryPath, nil
 }
 

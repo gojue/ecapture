@@ -21,7 +21,7 @@ import (
 
 func init() {
 	// Register OpenSSL probe with the factory
-	factory.RegisterProbe(factory.ProbeTypeOpenSSL, func() (domain.Probe, error) {
+	_ = factory.RegisterProbe(factory.ProbeTypeOpenSSL, func() (domain.Probe, error) {
 		return NewProbe()
 	})
 }

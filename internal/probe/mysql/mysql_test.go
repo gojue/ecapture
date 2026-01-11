@@ -126,6 +126,7 @@ func TestEvent_DecodeFromBytes(t *testing.T) {
 	// This test just validates the structure exists and can be instantiated.
 	if event.Pid != 12345 {
 		t.Errorf("Event.Pid = %d, want 12345", event.Pid)
+		return
 	}
 }
 
@@ -218,6 +219,7 @@ func TestEvent_Methods(t *testing.T) {
 		}
 		if _, ok := cloned.(*Event); !ok {
 			t.Errorf("Event.Clone() returned wrong type: %T", cloned)
+			return
 		}
 	})
 }
@@ -246,6 +248,7 @@ func TestProbe_Initialize(t *testing.T) {
 	err := probe.Initialize(ctx, config, dispatcher)
 	if err != nil {
 		t.Errorf("Initialize failed: %v", err)
+		return
 	}
 
 	// Verify probe name
@@ -259,10 +262,12 @@ func TestProbe_FactoryRegistration(t *testing.T) {
 	probe, err := factory.CreateProbe(factory.ProbeTypeMySQL)
 	if err != nil {
 		t.Fatalf("Failed to create MySQL probe from factory: %v", err)
+		return
 	}
 
 	if probe == nil {
 		t.Fatal("Factory returned nil probe")
+		return
 	}
 
 	if probe.Name() != "mysql" {

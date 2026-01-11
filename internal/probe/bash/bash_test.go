@@ -22,15 +22,17 @@ func TestNewConfig(t *testing.T) {
 	cfg := NewConfig()
 	if cfg == nil {
 		t.Fatal("NewConfig returned nil")
+		return
 	}
 	if cfg.ErrNo != 128 {
 		t.Errorf("expected ErrNo=128, got %d", cfg.ErrNo)
+		return
 	}
 }
 
 func TestConfigValidation(t *testing.T) {
 	cfg := NewConfig()
-	
+
 	// Test with invalid PerCpuMapSize
 	cfg.PerCpuMapSize = -1
 	err := cfg.Validate()
@@ -67,6 +69,7 @@ func TestCommToString(t *testing.T) {
 			result := commToString(tt.input)
 			if result != tt.expected {
 				t.Errorf("expected %q, got %q", tt.expected, result)
+				return
 			}
 		})
 	}
@@ -74,13 +77,14 @@ func TestCommToString(t *testing.T) {
 
 func TestEventDecodeFromBytes(t *testing.T) {
 	event := &Event{}
-	
+
 	// Create minimal valid data
 	data := make([]byte, 4+4+4+256+4+16) // BashType+Pid+Uid+Line+ReturnValue+Comm
-	
+
 	err := event.DecodeFromBytes(data)
 	if err != nil {
 		t.Fatalf("DecodeFromBytes failed: %v", err)
+		return
 	}
 }
 
@@ -138,9 +142,9 @@ func TestNewProbe(t *testing.T) {
 }
 
 func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && 
+	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) &&
 		(s[:len(substr)] == substr || s[len(s)-len(substr):] == substr ||
-		 containsSubstring(s, substr)))
+			containsSubstring(s, substr)))
 }
 
 func containsSubstring(s, substr string) bool {

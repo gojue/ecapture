@@ -30,7 +30,7 @@ const (
 	BashEventTypeRetval = 1
 	// BashEventTypeExitOrExec indicates an exit or exec event
 	BashEventTypeExitOrExec = 2
-	
+
 	// MaxDataSizeBash is the maximum line size from eBPF
 	MaxDataSizeBash = 256
 )
@@ -49,7 +49,7 @@ type Event struct {
 // DecodeFromBytes deserializes the event from raw eBPF data.
 func (e *Event) DecodeFromBytes(data []byte) error {
 	buf := bytes.NewBuffer(data)
-	
+
 	// Read fields in order matching the eBPF structure
 	if err := binary.Read(buf, binary.LittleEndian, &e.BashType); err != nil {
 		return errors.NewEventDecodeError("bash.BashType", err)
@@ -69,7 +69,7 @@ func (e *Event) DecodeFromBytes(data []byte) error {
 	if err := binary.Read(buf, binary.LittleEndian, &e.Comm); err != nil {
 		return errors.NewEventDecodeError("bash.Comm", err)
 	}
-	
+
 	return nil
 }
 

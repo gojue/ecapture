@@ -16,6 +16,8 @@ package gnutls
 
 import (
 	"testing"
+
+	"github.com/gojue/ecapture/internal/probe/base/handlers"
 )
 
 func TestConfig_IsSupportedVersion(t *testing.T) {
@@ -163,11 +165,12 @@ func TestConfig_ValidateCaptureMode_Text(t *testing.T) {
 	cfg := NewConfig()
 	cfg.GnutlsPath = "/usr/lib/libgnutls.so.30"
 	cfg.GnuVersion = "3.7.10"
-	cfg.CaptureMode = "text"
+	cfg.CaptureMode = handlers.ModeText
 
 	err := cfg.validateCaptureMode()
 	if err != nil {
 		t.Errorf("Text mode validation failed: %v", err)
+		return
 	}
 }
 
@@ -175,12 +178,13 @@ func TestConfig_ValidateCaptureMode_Keylog(t *testing.T) {
 	cfg := NewConfig()
 	cfg.GnutlsPath = "/usr/lib/libgnutls.so.30"
 	cfg.GnuVersion = "3.7.10"
-	cfg.CaptureMode = "keylog"
+	cfg.CaptureMode = handlers.ModeKeylog
 	cfg.KeylogFile = "/tmp/test_keylog.log"
 
 	err := cfg.validateCaptureMode()
 	if err != nil {
 		t.Errorf("Keylog mode validation failed: %v", err)
+		return
 	}
 
 	// Test without keylog file
@@ -195,7 +199,7 @@ func TestConfig_ValidateCaptureMode_Pcap(t *testing.T) {
 	cfg := NewConfig()
 	cfg.GnutlsPath = "/usr/lib/libgnutls.so.30"
 	cfg.GnuVersion = "3.7.10"
-	cfg.CaptureMode = "pcap"
+	cfg.CaptureMode = handlers.ModePcap
 	cfg.PcapFile = "/tmp/test.pcapng"
 	cfg.Ifname = "lo"
 

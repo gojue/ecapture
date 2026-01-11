@@ -25,7 +25,8 @@ func TestBpfConfig(t *testing.T) {
 	isContainer, err := IsContainer()
 	if err != nil {
 		t.Fatal("Check container error:", err)
-	}
+return
+}
 
 	if isContainer {
 		t.Logf("Your environment is a container. We will not detect the BTF config.")

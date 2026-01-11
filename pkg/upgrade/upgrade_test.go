@@ -58,7 +58,8 @@ func TestCheckLatest(t *testing.T) {
 	verMatch := rex.FindStringSubmatch(ver)
 	if len(verMatch) <= 2 {
 		t.Fatalf("Error matching version: %s", ver)
-	}
+	return
+}
 	t.Logf("match Version: %v", verMatch)
 	var os = "linux"
 	if strings.Contains(verMatch[1], "androidgki") {

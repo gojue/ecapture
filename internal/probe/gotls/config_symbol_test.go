@@ -39,7 +39,8 @@ func TestFindSymbolOffsets(t *testing.T) {
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("Failed to build test binary: %v\nOutput: %s", err, output)
-	}
+	return
+}
 
 	// Create config and set ElfPath
 	cfg := NewConfig()
@@ -49,7 +50,8 @@ func TestFindSymbolOffsets(t *testing.T) {
 	err = cfg.findSymbolOffsets()
 	if err != nil {
 		t.Fatalf("findSymbolOffsets failed: %v", err)
-	}
+	return
+}
 
 	// Verify that offsets were found
 	if cfg.GoTlsWriteAddr == 0 {
@@ -94,7 +96,8 @@ int main() {
 	err := os.WriteFile(cFile, []byte(cCode), 0644)
 	if err != nil {
 		t.Fatalf("Failed to write C file: %v", err)
-	}
+	return
+}
 
 	// Compile it
 	cmd := exec.Command("gcc", "-o", binaryPath, cFile)
@@ -130,7 +133,8 @@ func TestReadGoSymbolTable(t *testing.T) {
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("Failed to build test binary: %v\nOutput: %s", err, output)
-	}
+	return
+}
 
 	// The test validates that we can read the symbol table
 	// The actual implementation is tested via findSymbolOffsets

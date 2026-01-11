@@ -24,9 +24,11 @@ func TestNewConfigBuilder(t *testing.T) {
 	builder := NewConfigBuilder()
 	if builder == nil {
 		t.Fatal("NewConfigBuilder returned nil")
+		return
 	}
 	if builder.config == nil {
 		t.Fatal("ConfigBuilder.config is nil")
+		return
 	}
 }
 
@@ -46,9 +48,11 @@ func TestConfigBuilderFluentAPI(t *testing.T) {
 
 	if cfg.GetPid() != 1234 {
 		t.Errorf("expected Pid=1234, got %d", cfg.GetPid())
+		return
 	}
 	if cfg.GetUid() != 5678 {
 		t.Errorf("expected Uid=5678, got %d", cfg.GetUid())
+		return
 	}
 	if !cfg.GetDebug() {
 		t.Error("expected Debug=true")
@@ -83,6 +87,7 @@ func TestConfigBuilderMustBuild(t *testing.T) {
 
 	if cfg.GetPid() != 1234 {
 		t.Errorf("expected Pid=1234, got %d", cfg.GetPid())
+		return
 	}
 }
 
@@ -95,5 +100,5 @@ func TestConfigBuilderMustBuildPanic(t *testing.T) {
 
 	builder := NewConfigBuilder()
 	builder.config.PerCpuMapSize = -1 // Invalid value
-	builder.MustBuild()                // Should panic
+	builder.MustBuild()               // Should panic
 }

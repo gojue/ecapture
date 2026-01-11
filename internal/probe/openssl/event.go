@@ -80,6 +80,9 @@ func (e *Event) DecodeFromBytes(data []byte) error {
 		return errors.NewEventDecodeError("openssl.Version", err)
 	}
 
+	if e.Timestamp == 0 {
+		e.Timestamp = uint64(time.Now().UnixNano())
+	}
 	return nil
 }
 
@@ -204,4 +207,16 @@ func commToString(data []byte) string {
 		}
 	}
 	return string(data)
+}
+
+// Decode implements domain.EventDecoder interface for TLS data events.
+func (e *Event) Decode(data []byte) (domain.Event, error) {
+	event := &Event{}
+	if err := event.DecodeFromBytes(data); err != nil {
+		return nil, err
+	}
+	if err := event.Validate(); err != nil {
+		return nil, err
+	}
+	return event, nil
 }

@@ -17,6 +17,7 @@ package bash
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"math"
 	"sync"
@@ -24,6 +25,8 @@ import (
 	"github.com/cilium/ebpf"
 	manager "github.com/gojue/ebpfmanager"
 	"golang.org/x/sys/unix"
+
+	"github.com/gojue/ecapture/internal/factory"
 
 	"github.com/gojue/ecapture/assets"
 	"github.com/gojue/ecapture/internal/domain"
@@ -35,19 +38,23 @@ import (
 // Probe implements the bash command tracing probe.
 type Probe struct {
 	*base.BaseProbe
-	config     *Config
-	bpfManager *manager.Manager
-	eventMaps  []*ebpf.Map
-	lineMap    map[string]string
-	lineMutex  sync.RWMutex
-	output     io.Writer
+	config           *Config
+	bpfManager       *manager.Manager
+	eventFuncMaps    map[*ebpf.Map]domain.EventDecoder
+	mapNameToDecoder map[string]domain.EventDecoder // Maps configured in setupManager
+	eventMaps        []*ebpf.Map
+	lineMap          map[string]string
+	lineMutex        sync.RWMutex
+	output           io.Writer
 }
 
 // NewProbe creates a new Bash probe instance.
 func NewProbe() (*Probe, error) {
 	return &Probe{
-		BaseProbe: base.NewBaseProbe("bash"),
-		lineMap:   make(map[string]string),
+		BaseProbe:        base.NewBaseProbe(string(factory.ProbeTypeBash)),
+		eventFuncMaps:    make(map[*ebpf.Map]domain.EventDecoder),
+		mapNameToDecoder: make(map[string]domain.EventDecoder),
+		lineMap:          make(map[string]string),
 	}, nil
 }
 
@@ -104,22 +111,44 @@ func (p *Probe) Start(ctx context.Context) error {
 		return errors.NewEBPFAttachError("bash manager start", err)
 	}
 
-	// Get event maps
-	eventsMap, found, err := p.bpfManager.GetMap("events")
-	if err != nil {
-		return errors.Wrap(errors.ErrCodeEBPFMapAccess, "failed to get events map", err)
-	}
-	if !found {
-		return errors.NewResourceNotFoundError("eBPF map: events")
-	}
-	p.eventMaps = []*ebpf.Map{eventsMap}
-
-	// Start event reader
-	if err := p.StartPerfEventReader(eventsMap, p); err != nil {
+	// Retrieve eBPF maps and associate with decoders (configured in setupManager)
+	if err := p.retrieveEventMaps(); err != nil {
 		return err
 	}
 
+	// Start event readers for all configured maps
+	for em, decoder := range p.eventFuncMaps {
+		if err := p.StartPerfEventReader(em, decoder); err != nil {
+			return err
+		}
+	}
+
 	p.Logger().Info().Msg("Bash probe started successfully")
+	return nil
+}
+
+// retrieveEventMaps retrieves eBPF maps from the manager and creates eventFuncMaps.
+// The decoder mapping by name (mapNameToDecoder) is already configured in setupManager().
+func (p *Probe) retrieveEventMaps() error {
+	for mapName, decoder := range p.mapNameToDecoder {
+		em, found, err := p.bpfManager.GetMap(mapName)
+		if err != nil {
+			return errors.Wrap(errors.ErrCodeEBPFMapAccess, fmt.Sprintf("failed to get %s map", mapName), err)
+		}
+		if !found {
+			p.Logger().Warn().Str("map", mapName).Msg("Map not found but was configured")
+			continue
+		}
+
+		p.eventMaps = append(p.eventMaps, em)
+		p.eventFuncMaps[em] = decoder
+	}
+
+	p.Logger().Info().
+		Int("num_maps", len(p.eventMaps)).
+		Int("num_decoders", len(p.eventFuncMaps)).
+		Msg("Event maps retrieved and decoders mapped")
+
 	return nil
 }
 
@@ -136,34 +165,6 @@ func (p *Probe) Close() error {
 		}
 	}
 	return p.BaseProbe.Close()
-}
-
-// Decode implements EventDecoder interface.
-func (p *Probe) Decode(em *ebpf.Map, data []byte) (domain.Event, error) {
-	event := &Event{}
-	if err := event.DecodeFromBytes(data); err != nil {
-		return nil, err
-	}
-
-	// Handle multi-line commands
-	p.handleEvent(event)
-
-	// Only return completed commands
-	if event.AllLines == "" {
-		return nil, nil // Not ready yet
-	}
-
-	return event, nil
-}
-
-// GetDecoder implements EventDecoder interface.
-func (p *Probe) GetDecoder(em *ebpf.Map) (domain.Event, bool) {
-	for _, m := range p.eventMaps {
-		if m == em {
-			return &Event{}, true
-		}
-	}
-	return nil, false
 }
 
 // handleEvent processes bash events and manages multi-line commands.
@@ -262,6 +263,9 @@ func (p *Probe) setupManager() error {
 		},
 	}
 
+	// Configure decoder for events map
+	p.mapNameToDecoder["events"] = &bashEventDecoder{probe: p}
+
 	return nil
 }
 
@@ -297,4 +301,31 @@ func (p *Probe) getManagerOptions() manager.Options {
 	}
 
 	return opts
+}
+
+func (p *Probe) DecodeFun(em *ebpf.Map) (domain.EventDecoder, bool) {
+	fun, found := p.eventFuncMaps[em]
+	return fun, found
+}
+
+// bashEventDecoder implements domain.EventDecoder for bash command events
+type bashEventDecoder struct {
+	probe *Probe
+}
+
+func (d *bashEventDecoder) Decode(_ *ebpf.Map, data []byte) (domain.Event, error) {
+	event := &Event{}
+	if err := event.DecodeFromBytes(data); err != nil {
+		return nil, err
+	}
+
+	// Handle multi-line commands
+	d.probe.handleEvent(event)
+
+	// Note: Only return completed commands when AllLines is set
+	return event, nil
+}
+
+func (d *bashEventDecoder) GetDecoder(_ *ebpf.Map) (domain.Event, bool) {
+	return &Event{}, true
 }

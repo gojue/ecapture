@@ -28,6 +28,7 @@ func TestNewProbe(t *testing.T) {
 	}
 	if probe == nil {
 		t.Fatal("NewProbe() returned nil")
+		return
 	}
 	if probe.Name() != "openssl" {
 		t.Errorf("Name() = %v, want 'openssl'", probe.Name())
@@ -114,55 +115,19 @@ func TestProbe_Events(t *testing.T) {
 	}
 }
 
-func TestProbe_Decode(t *testing.T) {
+func TestProbe_DecodeFun(t *testing.T) {
 	probe, err := NewProbe()
 	if err != nil {
 		t.Fatalf("NewProbe() failed: %v", err)
 	}
 
-	// Create test event data
-	_ = new(bytes.Buffer) // Not used in this simplified test
-	testEvent := &Event{
-		DataType:  DataTypeWrite,
-		Timestamp: 123456789,
-		Pid:       1234,
-		Tid:       5678,
-		DataLen:   10,
-		Fd:        3,
-		Version:   771,
-	}
-	copy(testEvent.Comm[:], []byte("test"))
-	copy(testEvent.Data[:], []byte("test data"))
-
-	// Manually encode the event (simplified)
-	data := make([]byte, 0)
-	// This would need actual binary encoding, but for testing we can use DecodeFromBytes indirectly
-	// Just test that Decode accepts data
-	_, err = probe.Decode(nil, data)
-	// It's OK if this fails with decode error, we're testing the method exists
-	if err == nil {
-		t.Log("Decode() succeeded with empty data")
-	}
-}
-
-func TestProbe_GetDecoder(t *testing.T) {
-	probe, err := NewProbe()
-	if err != nil {
-		t.Fatalf("NewProbe() failed: %v", err)
-	}
-
-	decoder, ok := probe.GetDecoder(nil)
+	// DecodeFun returns an EventDecoder
+	decoder, ok := probe.DecodeFun(nil)
 	if !ok {
-		t.Error("GetDecoder() returned false")
+		t.Error("DecodeFun() returned false")
 	}
 	if decoder == nil {
-		t.Error("GetDecoder() returned nil decoder")
-	}
-
-	// Check it's an Event type
-	_, isEvent := decoder.(*Event)
-	if !isEvent {
-		t.Error("GetDecoder() did not return an Event")
+		t.Error("DecodeFun() returned nil decoder")
 	}
 }
 

@@ -28,19 +28,19 @@ import (
 // MasterSecretEvent represents a TLS master secret event from GoTLS
 // This structure matches the eBPF event structure: struct mastersecret_gotls_t
 type MasterSecretEvent struct {
-	Label            [32]byte // label[MASTER_SECRET_KEY_LEN]: TLS key label
-	LabelLen         uint8    // labellen: Length of label
-	ClientRandom     [64]byte // client_random[EVP_MAX_MD_SIZE]: Client random
-	ClientRandomLen  uint8    // client_random_len: Length of client random
-	Secret           [64]byte // secret_[EVP_MAX_MD_SIZE]: Secret key material
-	SecretLen        uint8    // secret_len: Length of secret
+	Label           [32]byte // label[MASTER_SECRET_KEY_LEN]: TLS key label
+	LabelLen        uint8    // labellen: Length of label
+	ClientRandom    [64]byte // client_random[EVP_MAX_MD_SIZE]: Client random
+	ClientRandomLen uint8    // client_random_len: Length of client random
+	Secret          [64]byte // secret_[EVP_MAX_MD_SIZE]: Secret key material
+	SecretLen       uint8    // secret_len: Length of secret
 }
 
 // DecodeFromBytes deserializes the event from raw eBPF data.
 func (e *MasterSecretEvent) DecodeFromBytes(data []byte) error {
 	expectedSize := 32 + 1 + 64 + 1 + 64 + 1 // 163 bytes
 	if len(data) < expectedSize {
-		return errors.NewEventDecodeError("gotls.MasterSecretEvent", 
+		return errors.NewEventDecodeError("gotls.MasterSecretEvent",
 			fmt.Errorf("data too short: got %d bytes, need at least %d", len(data), expectedSize))
 	}
 
@@ -82,8 +82,9 @@ func (e *MasterSecretEvent) DecodeFromBytes(data []byte) error {
 // String returns a human-readable representation of the event.
 func (e *MasterSecretEvent) String() string {
 	label := string(e.Label[:e.LabelLen])
-	return fmt.Sprintf("Label:%s, ClientRandomLen:%d, SecretLen:%d",
-		label, e.ClientRandomLen, e.SecretLen)
+	clientRandomHex := hex.EncodeToString(e.ClientRandom[:e.ClientRandomLen])
+	return fmt.Sprintf("Label: %s, ClientRandom: %s",
+		label, clientRandomHex)
 }
 
 // StringHex returns a hexadecimal representation of the event.
@@ -148,4 +149,52 @@ func (e *MasterSecretEvent) GetClientRandom() []byte {
 // GetSecret returns the secret key material
 func (e *MasterSecretEvent) GetSecret() []byte {
 	return e.Secret[:e.SecretLen]
+}
+
+// Compatibility methods for KeylogHandler interface (OpenSSL-style)
+// These methods allow GoTLS events to be handled by the unified KeylogHandler
+
+// GetVersion returns 0 for GoTLS (GoTLS uses label-based format, not version-based)
+func (e *MasterSecretEvent) GetVersion() int32 {
+	return 0
+}
+
+// GetMasterKey returns the secret (alias for GetSecret for OpenSSL compatibility)
+func (e *MasterSecretEvent) GetMasterKey() []byte {
+	return e.GetSecret()
+}
+
+// GetCipherId returns 0 (not used in GoTLS keylog format)
+func (e *MasterSecretEvent) GetCipherId() uint32 {
+	return 0
+}
+
+// GetEarlySecret returns empty (GoTLS uses label-based format)
+func (e *MasterSecretEvent) GetEarlySecret() []byte {
+	return nil
+}
+
+// GetHandshakeSecret returns empty (GoTLS uses label-based format)
+func (e *MasterSecretEvent) GetHandshakeSecret() []byte {
+	return nil
+}
+
+// GetHandshakeTrafficHash returns empty (GoTLS uses label-based format)
+func (e *MasterSecretEvent) GetHandshakeTrafficHash() []byte {
+	return nil
+}
+
+// GetClientAppTrafficSecret returns empty (GoTLS uses label-based format)
+func (e *MasterSecretEvent) GetClientAppTrafficSecret() []byte {
+	return nil
+}
+
+// GetServerAppTrafficSecret returns empty (GoTLS uses label-based format)
+func (e *MasterSecretEvent) GetServerAppTrafficSecret() []byte {
+	return nil
+}
+
+// GetExporterMasterSecret returns empty (GoTLS uses label-based format)
+func (e *MasterSecretEvent) GetExporterMasterSecret() []byte {
+	return nil
 }

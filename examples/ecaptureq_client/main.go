@@ -24,9 +24,10 @@ import (
 	"syscall"
 	"time"
 
-	pb "github.com/gojue/ecapture/protobuf/gen/v1"
 	"golang.org/x/net/websocket"
 	"google.golang.org/protobuf/proto"
+
+	pb "github.com/gojue/ecapture/protobuf/gen/v1"
 )
 
 const (
@@ -48,7 +49,8 @@ func main() {
 	// Connect to WebSocket server
 	ws, err := websocket.Dial(*serverURL, "", "http://localhost/")
 	if err != nil {
-		log.Fatalf("Failed to connect to WebSocket server: %v", err)
+		log.t.Fatalf("Failed to connect to WebSocket server: %v", err)
+		return
 	}
 	defer ws.Close()
 

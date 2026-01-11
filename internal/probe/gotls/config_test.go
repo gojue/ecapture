@@ -19,6 +19,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+
+	"github.com/gojue/ecapture/internal/probe/base/handlers"
 )
 
 func TestNewConfig(t *testing.T) {
@@ -29,11 +31,13 @@ func TestNewConfig(t *testing.T) {
 
 	if cfg.CaptureMode != "text" {
 		t.Errorf("expected default CaptureMode='text', got '%s'", cfg.CaptureMode)
-	}
+	return
+}
 
 	if cfg.Pid != 0 {
 		t.Errorf("expected default Pid=0, got %d", cfg.Pid)
-	}
+	return
+}
 }
 
 func TestConfig_Validate_GoVersion(t *testing.T) {
@@ -52,7 +56,8 @@ func TestConfig_Validate_GoVersion(t *testing.T) {
 	expectedVersion := runtime.Version()
 	if cfg.GoVersion != expectedVersion {
 		t.Errorf("expected GoVersion='%s', got '%s'", expectedVersion, cfg.GoVersion)
-	}
+	return
+}
 }
 
 func TestConfig_Validate_TextMode(t *testing.T) {
@@ -69,7 +74,7 @@ func TestConfig_Validate_KeylogMode(t *testing.T) {
 	keylogFile := filepath.Join(tmpDir, "keylog.txt")
 
 	cfg := NewConfig()
-	cfg.CaptureMode = "keylog"
+	cfg.CaptureMode = handlers.ModeKeylog
 	cfg.KeylogFile = keylogFile
 
 	if err := cfg.Validate(); err != nil {
@@ -79,7 +84,7 @@ func TestConfig_Validate_KeylogMode(t *testing.T) {
 
 func TestConfig_Validate_KeylogMode_MissingFile(t *testing.T) {
 	cfg := NewConfig()
-	cfg.CaptureMode = "keylog"
+	cfg.CaptureMode = handlers.ModeKeylog
 	cfg.KeylogFile = ""
 
 	if err := cfg.Validate(); err == nil {
@@ -121,7 +126,8 @@ func TestConfig_GetBPFFileName(t *testing.T) {
 
 			if fileName != "gotls_kern.o" {
 				t.Errorf("expected 'gotls_kern.o', got '%s'", fileName)
-			}
+			return
+}
 		})
 	}
 }
@@ -135,7 +141,8 @@ func TestDetectGoVersion(t *testing.T) {
 	expectedVersion := runtime.Version()
 	if version != expectedVersion {
 		t.Errorf("expected version='%s', got '%s'", expectedVersion, version)
-	}
+	return
+}
 }
 
 func TestIsGoVersionSupported(t *testing.T) {
@@ -179,7 +186,7 @@ func TestConfig_ValidateNetworkInterface(t *testing.T) {
 	ifname := ifaces[0].Name()
 
 	cfg := NewConfig()
-	cfg.CaptureMode = "pcap"
+	cfg.CaptureMode = handlers.ModePcap
 	cfg.PcapFile = filepath.Join(t.TempDir(), "capture.pcapng")
 	cfg.Ifname = ifname
 

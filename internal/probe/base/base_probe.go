@@ -225,7 +225,13 @@ func (p *BaseProbe) perfEventLoop(rd *perf.Reader, em *ebpf.Map, decoder domain.
 		}
 
 		event, err := decoder.Decode(em, record.RawSample)
+		p.logger.Debug().Str("event", event.String()).Msg("Perf event decoded")
 		if err != nil {
+			if stderrors.Is(err, errors.ErrEventNotReady) {
+				p.logger.Debug().Msg("Event not ready, skipping")
+				// Skip incomplete events silently
+				continue
+			}
 			p.logger.Warn().Err(err).Msg("Failed to decode event")
 			continue
 		}
@@ -289,4 +295,8 @@ func (p *BaseProbe) ringbufEventLoop(rd *ringbuf.Reader, em *ebpf.Map, decoder d
 			p.logger.Warn().Err(err).Msg("Failed to dispatch event")
 		}
 	}
+}
+
+func (p *BaseProbe) DecodeFun(em *ebpf.Map) (domain.EventDecoder, bool) {
+	panic("not implemented")
 }

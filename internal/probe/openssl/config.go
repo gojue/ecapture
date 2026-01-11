@@ -25,6 +25,7 @@ import (
 
 	"github.com/gojue/ecapture/internal/config"
 	"github.com/gojue/ecapture/internal/errors"
+	"github.com/gojue/ecapture/internal/probe/base/handlers"
 )
 
 const (
@@ -100,9 +101,9 @@ func (c *Config) validateCaptureMode() error {
 		// Text mode is the default, no additional validation needed
 		c.CaptureMode = "text"
 		return nil
-	case "keylog", "key":
+	case handlers.ModeKeylog, handlers.ModeKey:
 		// Keylog mode requires a keylog file path
-		c.CaptureMode = "keylog"
+		c.CaptureMode = handlers.ModeKeylog
 		if c.KeylogFile == "" {
 			return fmt.Errorf("keylog mode requires KeylogFile to be set")
 		}
@@ -112,9 +113,9 @@ func (c *Config) validateCaptureMode() error {
 			return fmt.Errorf("keylog directory does not exist: %s", dir)
 		}
 		return nil
-	case "pcap", "pcapng":
+	case handlers.ModePcap, handlers.ModePcapng:
 		// Pcap mode requires pcap file path and network interface
-		c.CaptureMode = "pcap"
+		c.CaptureMode = handlers.ModePcap
 		if c.PcapFile == "" {
 			return fmt.Errorf("pcap mode requires PcapFile to be set")
 		}
@@ -215,7 +216,9 @@ func (c *Config) detectVersion() error {
 	if err != nil {
 		return fmt.Errorf("failed to open openssl binary: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		_ = file.Close()
+	}()
 
 	// Check for version-specific symbols
 	symbols, err := file.DynamicSymbols()
@@ -355,4 +358,19 @@ func (c *Config) checkTCSupport() error {
 	// At that point, proper error handling will indicate if TC is not supported.
 
 	return nil
+}
+
+// GetCaptureMode returns the capture mode (text, keylog, or pcap).
+func (c *Config) GetCaptureMode() string {
+	return c.CaptureMode
+}
+
+// GetPcapFile returns the pcap file path.
+func (c *Config) GetPcapFile() string {
+	return c.PcapFile
+}
+
+// GetKeylogFile returns the keylog file path.
+func (c *Config) GetKeylogFile() string {
+	return c.KeylogFile
 }

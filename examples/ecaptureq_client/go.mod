@@ -4,7 +4,7 @@ go 1.24.3
 
 require (
 	github.com/gojue/ecapture v0.0.0
-	golang.org/x/net v0.47.0
+	golang.org/x/net v0.48.0
 	google.golang.org/protobuf v1.36.6
 )
 

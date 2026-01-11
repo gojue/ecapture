@@ -52,11 +52,9 @@ const (
 
 var (
 	// GitVersion default value, eg: linux_arm64:v0.8.10-20241116-fcddaeb:5.15.0-125-generic
-	GitVersion = "os_arch:v0.0.0-20221111-develop:default_kernel"
-	//ReleaseDate = "2022-03-16"
-	ByteCodeFiles = "all" // Indicates the type of bytecode files built by the project, i.e., the file types under the assets/* folder. Default is "all", meaning both types are included.
-	rorateSize    = uint16(0)
-	rorateTime    = uint16(0)
+	GitVersion = "os_arch:v2.0.0-20260101-develop:default_kernel"
+	rorateSize = uint16(0)
+	rorateTime = uint16(0)
 )
 
 const (
@@ -337,7 +335,7 @@ func runProbe(probeType factory.ProbeType, probeConfig domain.Configuration) err
 		}
 
 		// Create event dispatcher
-		dispatcher, err := newEventDispatcherWithLogger(&logger, probeConfig.GetHex())
+		dispatcher, err := newEventDispatcherWithConfig(&logger, probeConfig)
 		if err != nil {
 			logger.Fatal().Err(err).Msg("failed to create event dispatcher")
 		}
@@ -392,7 +390,9 @@ func runProbe(probeType factory.ProbeType, probeConfig domain.Configuration) err
 		}
 
 		// Close dispatcher
-		dispatcher.Close()
+		if err := dispatcher.Close(); err != nil {
+			logger.Warn().Err(err).Msg("dispatcher close failed")
+		}
 
 		// reload
 		if isReload {
@@ -404,106 +404,4 @@ func runProbe(probeType factory.ProbeType, probeConfig domain.Configuration) err
 
 	logger.Info().Msg("bye bye.")
 	return nil
-}
-
-// probeConfigAdapter adapts domain.Configuration to config.IConfig
-type probeConfigAdapter struct {
-	config domain.Configuration
-}
-
-// newProbeConfigAdapter creates a new probe config adapter
-func newProbeConfigAdapter(cfg domain.Configuration) domain.Configuration {
-	return cfg
-}
-
-func (a *probeConfigAdapter) Check() error {
-	return a.config.Validate()
-}
-
-func (a *probeConfigAdapter) GetPid() uint64 {
-	return a.config.GetPid()
-}
-
-func (a *probeConfigAdapter) GetUid() uint64 {
-	return a.config.GetUid()
-}
-
-func (a *probeConfigAdapter) GetDebug() bool {
-	return a.config.GetDebug()
-}
-
-func (a *probeConfigAdapter) GetHex() bool {
-	return a.config.GetHex()
-}
-
-func (a *probeConfigAdapter) GetBTF() uint8 {
-	return a.config.GetBTF()
-}
-
-func (a *probeConfigAdapter) GetPerCpuMapSize() int {
-	return a.config.GetPerCpuMapSize()
-}
-
-func (a *probeConfigAdapter) GetByteCodeFileMode() uint8 {
-	return a.config.GetByteCodeFileMode()
-}
-
-func (a *probeConfigAdapter) EnableGlobalVar() bool {
-	return a.config.EnableGlobalVar()
-}
-
-func (a *probeConfigAdapter) GetTruncateSize() uint64 {
-	return a.config.GetTruncateSize()
-}
-
-func (a *probeConfigAdapter) SetPid(pid uint64) {
-	// Not needed for adapter
-}
-
-func (a *probeConfigAdapter) SetUid(uid uint64) {
-	// Not needed for adapter
-}
-
-func (a *probeConfigAdapter) SetDebug(debug bool) {
-	// Not needed for adapter
-}
-
-func (a *probeConfigAdapter) SetHex(hex bool) {
-	// Not needed for adapter
-}
-
-func (a *probeConfigAdapter) SetBTF(mode uint8) {
-	// Not needed for adapter
-}
-
-func (a *probeConfigAdapter) SetByteCodeFileMode(mode uint8) {
-	// Not needed for adapter
-}
-
-func (a *probeConfigAdapter) SetPerCpuMapSize(size int) {
-	// Not needed for adapter
-}
-
-func (a *probeConfigAdapter) SetTruncateSize(size uint64) {
-	// Not needed for adapter
-}
-
-func (a *probeConfigAdapter) SetAddrType(t uint8) {
-	// Not needed for adapter
-}
-
-func (a *probeConfigAdapter) GetAddrType() uint8 {
-	return 0 // Default to stdout
-}
-
-func (a *probeConfigAdapter) SetEventCollectorAddr(addr string) {
-	// Not needed for adapter
-}
-
-func (a *probeConfigAdapter) GetEventCollectorAddr() string {
-	return "" // Not used in probe architecture
-}
-
-func (a *probeConfigAdapter) Bytes() []byte {
-	return a.config.Bytes()
 }

@@ -20,9 +20,6 @@ package cmd
 import (
 	"github.com/spf13/cobra"
 
-	// Import new probe packages to register them with factory
-	_ "github.com/gojue/ecapture/internal/probe/mysql"
-
 	"github.com/gojue/ecapture/internal/factory"
 	mysqlProbe "github.com/gojue/ecapture/internal/probe/mysql"
 )

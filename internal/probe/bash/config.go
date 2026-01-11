@@ -131,7 +131,9 @@ func (c *Config) checkReadlineFunc() error {
 	if err != nil {
 		return fmt.Errorf("failed to open binary %s: %w", binaryPath, err)
 	}
-	defer file.Close()
+	defer func() {
+		_ = file.Close()
+	}()
 
 	symbols, err := file.DynamicSymbols()
 	if err != nil {
@@ -167,7 +169,9 @@ func getDynPathByElf(elfPath, soName string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer file.Close()
+	defer func() {
+		_ = file.Close()
+	}()
 
 	libs, err := file.ImportedLibraries()
 	if err != nil {

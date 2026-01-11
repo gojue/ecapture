@@ -24,10 +24,13 @@ import (
 	manager "github.com/gojue/ebpfmanager"
 	"golang.org/x/sys/unix"
 
+	"github.com/gojue/ecapture/internal/factory"
+
 	"github.com/gojue/ecapture/assets"
 	"github.com/gojue/ecapture/internal/domain"
 	"github.com/gojue/ecapture/internal/errors"
 	"github.com/gojue/ecapture/internal/probe/base"
+	"github.com/gojue/ecapture/pkg/util/kernel"
 )
 
 // Probe represents the MySQL probe that captures SQL queries
@@ -42,7 +45,7 @@ type Probe struct {
 // NewProbe creates a new MySQL probe instance
 func NewProbe() *Probe {
 	return &Probe{
-		BaseProbe: base.NewBaseProbe("mysql"),
+		BaseProbe: base.NewBaseProbe(string(factory.ProbeTypeMySQL)),
 	}
 }
 
@@ -259,7 +262,7 @@ func (p *Probe) setupManager() error {
 
 // getManagerOptions returns the eBPF manager options
 func (p *Probe) getManagerOptions() manager.Options {
-	return manager.Options{
+	opts := manager.Options{
 		DefaultKProbeMaxActive: 512,
 		VerifierOptions: ebpf.CollectionOptions{
 			Programs: ebpf.ProgramOptions{
@@ -271,6 +274,23 @@ func (p *Probe) getManagerOptions() manager.Options {
 			Max: math.MaxUint64,
 		},
 	}
+
+	// Add constant editors if kernel supports global variables
+	if p.config.EnableGlobalVar() {
+		kv, _ := kernel.HostVersion()
+		kernelLess52 := uint64(0)
+		if kv < kernel.VersionCode(5, 2, 0) {
+			kernelLess52 = 1
+		}
+
+		opts.ConstantEditors = []manager.ConstantEditor{
+			{Name: "target_pid", Value: p.config.GetPid()},
+			{Name: "target_uid", Value: p.config.GetUid()},
+			{Name: "less52", Value: kernelLess52},
+		}
+	}
+
+	return opts
 }
 
 // mysqlEventDecoder implements the EventDecoder interface for MySQL events
