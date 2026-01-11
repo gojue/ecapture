@@ -46,6 +46,11 @@ type mockHandler struct {
 	handleFunc func(event domain.Event) error
 }
 
+func (m *mockHandler) Writer() writers.writers {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (m *mockHandler) Name() string { return m.name }
 func (m *mockHandler) Handle(event domain.Event) error {
 	if m.handleFunc != nil {

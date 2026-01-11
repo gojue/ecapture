@@ -84,6 +84,15 @@ func (pw *PcapWriter) WriteMasterSecret(label, clientRandom, secret []byte) erro
 	return pw.writer.WriteDecryptionSecretsBlock(pcapgo.DSB_SECRETS_TYPE_TLS, []byte(keylogLine))
 }
 
+// WriteKeyLog writes TLS master secret as a Decryption Secrets Block (DSB)
+func (pw *PcapWriter) WriteKeyLog(keylogLine []byte) error {
+
+	// Write as DSB (Decryption Secrets Block) using custom gopacket implementation
+	// The cfc4n/gopacket fork includes WriteDecryptionSecretsBlock method
+	// Use pcapgo.DSB_SECRETS_TYPE_TLS for TLS key logs
+	return pw.writer.WriteDecryptionSecretsBlock(pcapgo.DSB_SECRETS_TYPE_TLS, keylogLine)
+}
+
 // Flush ensures all buffered data is written to disk
 func (pw *PcapWriter) Flush() error {
 	// Flush the underlying writer if it supports flushing
@@ -99,11 +108,15 @@ func (pw *PcapWriter) Close() error {
 	}
 
 	// Close the writer if it implements io.Closer
-	if closer, ok := interface{}(pw.writer).(io.Closer); ok {
+	if closer, ok := any(pw.writer).(io.Closer); ok {
 		return closer.Close()
 	}
 
 	return nil
+}
+
+func (pw *PcapWriter) Name() string {
+	return "pcap_writer"
 }
 
 // nullTerminatedString returns the string up to the first null byte

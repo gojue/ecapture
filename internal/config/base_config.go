@@ -41,27 +41,37 @@ const DefaultMapSizePerCpu = 8 * 1024 * 1024
 
 // BaseConfig provides common configuration for all probes.
 type BaseConfig struct {
-	Pid              uint64 `json:"pid"`
-	Uid              uint64 `json:"uid"`
-	Debug            bool   `json:"debug"`
-	IsHex            bool   `json:"is_hex"`
-	BtfMode          uint8  `json:"btf_mode"`
-	ByteCodeFileMode uint8  `json:"byte_code_file_mode"`
-	PerCpuMapSize    int    `json:"per_cpu_map_size"`
-	TruncateSize     uint64 `json:"truncate_size"`
+	Pid                uint64 `json:"pid"`
+	Uid                uint64 `json:"uid"`
+	Debug              bool   `json:"debug"`
+	IsHex              bool   `json:"is_hex"`
+	BtfMode            uint8  `json:"btf_mode"`
+	ByteCodeFileMode   uint8  `json:"byte_code_file_mode"`
+	PerCpuMapSize      int    `json:"per_cpu_map_size"`
+	TruncateSize       uint64 `json:"truncate_size"`
+	LoggerAddr         string `json:"logger_addr"`
+	EventCollectorAddr string `json:"event_collector_addr"`
+	EcaptureQ          string `json:"ecapture_q"`
+	Listen             string `json:"listen"`
+	AddrType           uint8  `json:"addr_type"`
 }
 
 // NewBaseConfig creates a new BaseConfig with default values.
 func NewBaseConfig() *BaseConfig {
 	return &BaseConfig{
-		Pid:              0,
-		Uid:              0,
-		Debug:            false,
-		IsHex:            false,
-		BtfMode:          BTFModeAutoDetect,
-		ByteCodeFileMode: ByteCodeFileAll,
-		PerCpuMapSize:    DefaultMapSizePerCpu,
-		TruncateSize:     0,
+		Pid:                0,
+		Uid:                0,
+		Debug:              false,
+		IsHex:              false,
+		BtfMode:            BTFModeAutoDetect,
+		ByteCodeFileMode:   ByteCodeFileAll,
+		PerCpuMapSize:      DefaultMapSizePerCpu,
+		TruncateSize:       0,
+		LoggerAddr:         "",
+		EventCollectorAddr: "",
+		EcaptureQ:          "",
+		Listen:             "localhost:28256",
+		AddrType:           0,
 	}
 }
 
@@ -175,4 +185,54 @@ func (c *BaseConfig) SetPerCpuMapSize(size int) {
 // SetTruncateSize sets the truncate size.
 func (c *BaseConfig) SetTruncateSize(size uint64) {
 	c.TruncateSize = size
+}
+
+// GetLoggerAddr returns the logger address.
+func (c *BaseConfig) GetLoggerAddr() string {
+	return c.LoggerAddr
+}
+
+// SetLoggerAddr sets the logger address.
+func (c *BaseConfig) SetLoggerAddr(addr string) {
+	c.LoggerAddr = addr
+}
+
+// GetEventCollectorAddr returns the event collector address.
+func (c *BaseConfig) GetEventCollectorAddr() string {
+	return c.EventCollectorAddr
+}
+
+// SetEventCollectorAddr sets the event collector address.
+func (c *BaseConfig) SetEventCollectorAddr(addr string) {
+	c.EventCollectorAddr = addr
+}
+
+// GetEcaptureQ returns the eCaptureQ address.
+func (c *BaseConfig) GetEcaptureQ() string {
+	return c.EcaptureQ
+}
+
+// SetEcaptureQ sets the eCaptureQ address.
+func (c *BaseConfig) SetEcaptureQ(addr string) {
+	c.EcaptureQ = addr
+}
+
+// GetListen returns the HTTP listen address.
+func (c *BaseConfig) GetListen() string {
+	return c.Listen
+}
+
+// SetListen sets the HTTP listen address.
+func (c *BaseConfig) SetListen(addr string) {
+	c.Listen = addr
+}
+
+// GetAddrType returns the logger address type.
+func (c *BaseConfig) GetAddrType() uint8 {
+	return c.AddrType
+}
+
+// SetAddrType sets the logger address type.
+func (c *BaseConfig) SetAddrType(t uint8) {
+	c.AddrType = t
 }

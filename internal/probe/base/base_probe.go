@@ -225,7 +225,6 @@ func (p *BaseProbe) perfEventLoop(rd *perf.Reader, em *ebpf.Map, decoder domain.
 		}
 
 		event, err := decoder.Decode(em, record.RawSample)
-		p.logger.Debug().Str("event", event.String()).Msg("Perf event decoded")
 		if err != nil {
 			if stderrors.Is(err, errors.ErrEventNotReady) {
 				p.logger.Debug().Msg("Event not ready, skipping")
@@ -235,6 +234,7 @@ func (p *BaseProbe) perfEventLoop(rd *perf.Reader, em *ebpf.Map, decoder domain.
 			p.logger.Warn().Err(err).Msg("Failed to decode event")
 			continue
 		}
+		p.logger.Debug().Str("event", event.String()).Msg("Perf event decoded")
 
 		if err := p.dispatcher.Dispatch(event); err != nil {
 			p.logger.Warn().Err(err).Msg("Failed to dispatch event")

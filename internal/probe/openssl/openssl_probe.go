@@ -25,6 +25,8 @@ import (
 	manager "github.com/gojue/ebpfmanager"
 	"golang.org/x/sys/unix"
 
+	"github.com/gojue/ecapture/internal/output/writers"
+
 	"github.com/gojue/ecapture/internal/factory"
 
 	"github.com/gojue/ecapture/assets"
@@ -73,6 +75,11 @@ func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration, dispat
 	if !p.config.IsSupportedVersion() {
 		return errors.New(errors.ErrCodeConfiguration,
 			fmt.Sprintf("unsupported OpenSSL version: %s", p.config.SslVersion))
+	}
+
+	keylogFile := opensslConfig.GetKeylogFile()
+	if keylogFile == "" {
+		return fmt.Errorf("keylog mode requires keylog file path")
 	}
 
 	// Log initialization
@@ -203,10 +210,7 @@ func (p *Probe) SetOutput(w io.Writer) {
 	p.output = w
 }
 
-// setupManager configures the eBPF manager with probes and maps.
-// This method also configures decoder mappings by map name (mapNameToDecoder).
-// The actual *ebpf.Map to decoder mapping (eventFuncMaps) is created in retrieveEventMaps().
-func (p *Probe) setupManager() error {
+func (p *Probe) setupManagerText() error {
 	opensslPath := p.config.OpensslPath
 	if opensslPath == "" {
 		return errors.NewConfigurationError("openssl_path is required for OpenSSL probe", nil)
@@ -214,150 +218,249 @@ func (p *Probe) setupManager() error {
 
 	var probes []*manager.Probe
 	var maps []*manager.Map
-
 	// Base TLS events map (used by all modes for SSL_read/SSL_write data)
 	maps = append(maps, &manager.Map{Name: "tls_events"})
 	p.mapNameToDecoder["tls_events"] = &tlsEventDecoder{probe: p}
 
-	// Mode-specific probe and map setup
-	switch p.config.CaptureMode {
-	case handlers.ModeText:
-		// TEXT mode: Only SSL_read/SSL_write probes for data capture
-		probes = append(probes,
-			&manager.Probe{
-				Section:          "uprobe/SSL_write",
-				EbpfFuncName:     "probe_entry_SSL_write",
-				AttachToFuncName: "SSL_write",
-				BinaryPath:       opensslPath,
-			},
-			&manager.Probe{
-				Section:          "uretprobe/SSL_write",
-				EbpfFuncName:     "probe_ret_SSL_write",
-				AttachToFuncName: "SSL_write",
-				BinaryPath:       opensslPath,
-			},
-			&manager.Probe{
-				Section:          "uprobe/SSL_read",
-				EbpfFuncName:     "probe_entry_SSL_read",
-				AttachToFuncName: "SSL_read",
-				BinaryPath:       opensslPath,
-			},
-			&manager.Probe{
-				Section:          "uretprobe/SSL_read",
-				EbpfFuncName:     "probe_ret_SSL_read",
-				AttachToFuncName: "SSL_read",
-				BinaryPath:       opensslPath,
-			},
-		)
-
-	case handlers.ModeKeylog, handlers.ModeKey:
-		// KEYLOG mode: Master secret extraction probes
-		maps = append(maps, &manager.Map{Name: "mastersecret_events"})
-		p.mapNameToDecoder["mastersecret_events"] = &masterSecretEventDecoder{probe: p}
-
-		// Add master secret extraction probes based on OpenSSL version
-		if p.config.IsBoringSSL {
-			// BoringSSL uses different function names
-			probes = append(probes,
-				&manager.Probe{
-					Section:          "uprobe/SSL_get_wbio",
-					EbpfFuncName:     "probe_ssl_master_key",
-					AttachToFuncName: "SSL_get_wbio",
-					BinaryPath:       opensslPath,
-				},
-			)
-		} else {
-			// OpenSSL 1.1.1+ and 3.x
-			probes = append(probes,
-				&manager.Probe{
-					Section:          "uprobe/SSL_do_handshake",
-					EbpfFuncName:     "probe_ssl_master_key",
-					AttachToFuncName: "SSL_do_handshake",
-					BinaryPath:       opensslPath,
-				},
-			)
-		}
-
-	case handlers.ModePcap, handlers.ModePcapng:
-		// PCAP mode: TC probes for network capture + master secret probe
-		// Validate network interface is configured
-		if p.config.Ifname == "" {
-			return errors.NewConfigurationError("ifname is required for pcap mode", nil)
-		}
-
-		// Master secret events map for keylog in pcapng
-		maps = append(maps, &manager.Map{Name: "mastersecret_events"})
-		p.mapNameToDecoder["mastersecret_events"] = &masterSecretEventDecoder{probe: p}
-
-		// Add TC (Traffic Control) classifier probes for packet capture
-		// Ingress: packets coming into the network interface
-		probes = append(probes,
-			&manager.Probe{
-				Section:          "classifier",
-				EbpfFuncName:     "ingress_cls_func",
-				Ifname:           p.config.Ifname,
-				NetworkDirection: manager.Ingress,
-			},
-		)
-
-		// Egress: packets going out of the network interface
-		probes = append(probes,
-			&manager.Probe{
-				Section:          "classifier",
-				EbpfFuncName:     "egress_cls_func",
-				Ifname:           p.config.Ifname,
-				NetworkDirection: manager.Egress,
-			},
-		)
-
-		// Add TC-related maps for network packet capture
-		maps = append(maps, &manager.Map{Name: "skb_events"})
-		p.mapNameToDecoder["skb_events"] = &packetEventDecoder{}
-
-		// These maps don't need decoders (used internally by eBPF)
-		maps = append(maps, &manager.Map{Name: "skb_data_buffer_heap"})
-		maps = append(maps, &manager.Map{Name: "network_map"})
-
-		// Add master secret extraction
-		if p.config.IsBoringSSL {
-			probes = append(probes,
-				&manager.Probe{
-					Section:          "uprobe/SSL_get_wbio",
-					EbpfFuncName:     "probe_ssl_master_key",
-					AttachToFuncName: "SSL_get_wbio",
-					BinaryPath:       opensslPath,
-				},
-			)
-		} else {
-			probes = append(probes,
-				&manager.Probe{
-					Section:          "uprobe/SSL_do_handshake",
-					EbpfFuncName:     "probe_ssl_master_key",
-					AttachToFuncName: "SSL_do_handshake",
-					BinaryPath:       opensslPath,
-				},
-			)
-		}
-
-		p.Logger().Debug().
-			Str("ifname", p.config.Ifname).
-			Msg("Added TC probes, SSL probes, and master secret probe for pcap mode")
-	}
-
-	p.Logger().Info().
-		Str("openssl_path", opensslPath).
-		Str("capture_mode", p.config.CaptureMode).
-		Int("num_probes", len(probes)).
-		Int("num_maps", len(maps)).
-		Msg("Setting up eBPF probes")
-
-	for _, e := range probes {
-		p.Logger().Debug().Str("probe", e.AttachToFuncName).Msg("Configured eBPF probe")
-	}
+	// TEXT mode: Only SSL_read/SSL_write probes for data capture
+	probes = append(probes,
+		&manager.Probe{
+			Section:          "uprobe/SSL_write",
+			EbpfFuncName:     "probe_entry_SSL_write",
+			AttachToFuncName: "SSL_write",
+			BinaryPath:       opensslPath,
+		},
+		&manager.Probe{
+			Section:          "uretprobe/SSL_write",
+			EbpfFuncName:     "probe_ret_SSL_write",
+			AttachToFuncName: "SSL_write",
+			BinaryPath:       opensslPath,
+		},
+		&manager.Probe{
+			Section:          "uprobe/SSL_read",
+			EbpfFuncName:     "probe_entry_SSL_read",
+			AttachToFuncName: "SSL_read",
+			BinaryPath:       opensslPath,
+		},
+		&manager.Probe{
+			Section:          "uretprobe/SSL_read",
+			EbpfFuncName:     "probe_ret_SSL_read",
+			AttachToFuncName: "SSL_read",
+			BinaryPath:       opensslPath,
+		},
+	)
 
 	p.bpfManager = &manager.Manager{
 		Probes: probes,
 		Maps:   maps,
+	}
+
+	return nil
+}
+
+func (p *Probe) setupManagerPcapNG() error {
+	opensslPath := p.config.OpensslPath
+	var probes []*manager.Probe
+	var maps []*manager.Map
+	// PCAP mode: TC probes for network capture + master secret probe
+	// Validate network interface is configured
+	if p.config.Ifname == "" {
+		return errors.NewConfigurationError("ifname is required for pcap mode", nil)
+	}
+
+	// Master secret events map for keylog in pcapng
+	maps = append(maps, &manager.Map{Name: "mastersecret_events"})
+	p.mapNameToDecoder["mastersecret_events"] = &masterSecretEventDecoder{probe: p}
+
+	// Add TC (Traffic Control) classifier probes for packet capture
+	// Ingress: packets coming into the network interface
+	probes = append(probes,
+		&manager.Probe{
+			Section:          "classifier",
+			EbpfFuncName:     "ingress_cls_func",
+			Ifname:           p.config.Ifname,
+			NetworkDirection: manager.Ingress,
+		},
+	)
+
+	// Egress: packets going out of the network interface
+	probes = append(probes,
+		&manager.Probe{
+			Section:          "classifier",
+			EbpfFuncName:     "egress_cls_func",
+			Ifname:           p.config.Ifname,
+			NetworkDirection: manager.Egress,
+		},
+	)
+
+	// Add TC-related maps for network packet capture
+	maps = append(maps, &manager.Map{Name: "skb_events"})
+	p.mapNameToDecoder["skb_events"] = &packetEventDecoder{}
+
+	// These maps don't need decoders (used internally by eBPF)
+	maps = append(maps, &manager.Map{Name: "skb_data_buffer_heap"})
+	maps = append(maps, &manager.Map{Name: "network_map"})
+
+	// Add master secret extraction
+	if p.config.IsBoringSSL {
+		probes = append(probes,
+			&manager.Probe{
+				Section:          "uprobe/SSL_get_wbio",
+				EbpfFuncName:     "probe_ssl_master_key",
+				AttachToFuncName: "SSL_get_wbio",
+				BinaryPath:       opensslPath,
+			},
+		)
+	} else {
+		probes = append(probes,
+			&manager.Probe{
+				Section:          "uprobe/SSL_do_handshake",
+				EbpfFuncName:     "probe_ssl_master_key",
+				AttachToFuncName: "SSL_do_handshake",
+				BinaryPath:       opensslPath,
+			},
+		)
+	}
+
+	// Create writer factory for creating output writers
+	writerFactory := writers.NewWriterFactory()
+	// Create file writer for keylog
+	keylogWriter, err := writerFactory.CreateWriter(p.config.GetKeylogFile(), &writers.RotateConfig{false, 0, 300})
+	if err != nil {
+		p.Logger().Warn().Err(err).Str("keylog file", p.config.GetKeylogFile()).Msg("Failed to create keylog handler, continuing without keylog")
+	} else {
+		keylogHandler := handlers.NewKeylogHandler(keylogWriter)
+		if err := p.BaseProbe.Dispatcher().Register(keylogHandler); err != nil {
+			_ = keylogWriter.Close()
+			return fmt.Errorf("failed to register keylog handler: %w", err)
+		}
+	}
+
+	pcapFile := p.config.GetPcapFile()
+	if pcapFile == "" {
+		return fmt.Errorf("pcap mode requires pcap file path")
+	}
+
+	// Create file writer for pcap (use O_TRUNC to overwrite existing file)
+	// Note: pcap files should not use rotation
+	pcapWriter, err := writers.NewFileWriter(writers.FileWriterConfig{
+		Path:       pcapFile,
+		BufferSize: 65536, // 64KB buffer for better pcap write performance
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create pcap writer: %w", err)
+	}
+
+	pcapHandler, err := handlers.NewPcapHandler(pcapWriter)
+	if err != nil {
+		_ = pcapWriter.Close()
+		return fmt.Errorf("failed to create pcap handler: %w", err)
+	}
+
+	if err := p.BaseProbe.Dispatcher().Register(pcapHandler); err != nil {
+		_ = pcapHandler.Close()
+		_ = pcapWriter.Close()
+		return fmt.Errorf("failed to register pcap handler: %w", err)
+	}
+
+	// Pcapng 的 Keylog writer
+	pcapKeylogWriter := handlers.NewPcapKeylogWriter(pcapHandler.PcapWriter())
+	pcapKeylogHandler := handlers.NewKeylogHandler(pcapKeylogWriter)
+	if err := p.BaseProbe.Dispatcher().Register(pcapKeylogHandler); err != nil {
+		_ = pcapHandler.Close()
+		_ = pcapWriter.Close()
+		return fmt.Errorf("failed to register pcapkeylog handler: %w", err)
+	}
+	p.Logger().Info().Str("pcap_file", pcapFile).Msg("Pcap handler registered")
+	p.Logger().Debug().
+		Str("ifname", p.config.Ifname).
+		Msg("Added TC probes, SSL probes, and master secret probe for pcap mode")
+	p.bpfManager = &manager.Manager{
+		Probes: probes,
+		Maps:   maps,
+	}
+	return nil
+}
+
+func (p *Probe) setupManagerKeyLog() error {
+	opensslPath := p.config.OpensslPath
+	var probes []*manager.Probe
+	var maps []*manager.Map
+	// KEYLOG mode: Master secret extraction probes
+	maps = append(maps, &manager.Map{Name: "mastersecret_events"})
+	p.mapNameToDecoder["mastersecret_events"] = &masterSecretEventDecoder{probe: p}
+
+	// Add master secret extraction probes based on OpenSSL version
+	if p.config.IsBoringSSL {
+		// BoringSSL uses different function names
+		probes = append(probes,
+			&manager.Probe{
+				Section:          "uprobe/SSL_get_wbio",
+				EbpfFuncName:     "probe_ssl_master_key",
+				AttachToFuncName: "SSL_get_wbio",
+				BinaryPath:       opensslPath,
+			},
+		)
+	} else {
+		// OpenSSL 1.1.1+ and 3.x
+		probes = append(probes,
+			&manager.Probe{
+				Section:          "uprobe/SSL_do_handshake",
+				EbpfFuncName:     "probe_ssl_master_key",
+				AttachToFuncName: "SSL_do_handshake",
+				BinaryPath:       opensslPath,
+			},
+		)
+	}
+	// Create writer factory for creating output writers
+	writerFactory := writers.NewWriterFactory()
+
+	// Create file writer for keylog
+	keylogWriter, err := writerFactory.CreateWriter(p.config.GetKeylogFile(), &writers.RotateConfig{false, 0, 300})
+	if err != nil {
+		return fmt.Errorf("failed to create keylog writer: %w", err)
+	}
+
+	keylogHandler := handlers.NewKeylogHandler(keylogWriter)
+	if err := p.BaseProbe.Dispatcher().Register(keylogHandler); err != nil {
+		_ = keylogWriter.Close()
+		return fmt.Errorf("failed to register keylog handler: %w", err)
+	}
+	p.Logger().Info().Str("keylog_file", p.config.GetKeylogFile()).Msg("Keylog handler registered")
+
+	p.bpfManager = &manager.Manager{
+		Probes: probes,
+		Maps:   maps,
+	}
+	return nil
+}
+
+// setupManager configures the eBPF manager with probes and maps.
+// This method also configures decoder mappings by map name (mapNameToDecoder).
+// The actual *ebpf.Map to decoder mapping (eventFuncMaps) is created in retrieveEventMaps().
+func (p *Probe) setupManager() error {
+	var err error
+	// Mode-specific probe and map setup
+	switch p.config.CaptureMode {
+	case handlers.ModeText:
+		err = p.setupManagerText()
+	case handlers.ModeKeylog, handlers.ModeKey:
+		err = p.setupManagerKeyLog()
+	case handlers.ModePcap, handlers.ModePcapng:
+		err = p.setupManagerPcapNG()
+	}
+	if err != nil {
+		return err
+	}
+	p.Logger().Info().
+		Str("openssl_path", p.config.OpensslPath).
+		Str("capture_mode", p.config.CaptureMode).
+		Int("num_probes", len(p.bpfManager.Probes)).
+		Int("num_maps", len(p.bpfManager.Maps)).
+		Msg("Setting up eBPF probes")
+
+	for _, e := range p.bpfManager.Probes {
+		p.Logger().Debug().Str("probe", e.AttachToFuncName).Msg("Configured eBPF probe")
 	}
 
 	return nil
@@ -400,8 +503,6 @@ func (p *Probe) DecodeFun(em *ebpf.Map) (domain.EventDecoder, bool) {
 	fun, found := p.eventFuncMaps[em]
 	return fun, found
 }
-
-// Event decoder implementations
 
 // tlsEventDecoder implements domain.EventDecoder for TLS data events
 type tlsEventDecoder struct {
