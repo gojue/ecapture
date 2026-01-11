@@ -20,14 +20,10 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"os"
 
 	"github.com/cilium/ebpf"
 	manager "github.com/gojue/ebpfmanager"
 	"golang.org/x/sys/unix"
-
-	"github.com/gojue/ecapture/internal/events"
-	"github.com/gojue/ecapture/internal/logger"
 
 	"github.com/gojue/ecapture/internal/output/writers"
 
@@ -79,11 +75,6 @@ func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration) error 
 	if !p.config.IsSupportedVersion() {
 		return errors.New(errors.ErrCodeConfiguration,
 			fmt.Sprintf("unsupported OpenSSL version: %s", p.config.SslVersion))
-	}
-
-	keylogFile := opensslConfig.GetKeylogFile()
-	if keylogFile == "" {
-		return fmt.Errorf("keylog mode requires keylog file path")
 	}
 
 	// Log initialization
@@ -258,37 +249,6 @@ func (p *Probe) setupManagerText() error {
 		Probes: probes,
 		Maps:   maps,
 	}
-
-	// Create internal logger wrapper from zerolog
-	log := logger.New(os.Stdout, p.config.GetDebug())
-
-	// Create dispatcher
-	dispatcher := events.NewDispatcher(log)
-	// Create writer factory for creating output writers
-	writerFactory := writers.NewWriterFactory()
-
-	// Configure rotation for file writers (from --eventroratesize and --eventroratetime flags)
-	var rotateConfig *writers.RotateConfig
-
-	// Create output writer based on eventAddr (or stdout if empty)
-	var textWriter writers.OutputWriter
-	var err error
-	var eventAddr = p.config.GetEventCollectorAddr()
-	if eventAddr == "" || eventAddr == "stdout" {
-		textWriter = writers.NewStdoutWriter()
-	} else {
-		textWriter, err = writerFactory.CreateWriter(eventAddr, rotateConfig)
-		if err != nil {
-			return fmt.Errorf("failed to create text output writer: %w", err)
-		}
-	}
-	p.Logger().Info().Str("eventAddr", eventAddr).Str("LoggerAddr", p.config.LoggerAddr).Msg("Text output writer created")
-	textHandler := handlers.NewTextHandler(textWriter, p.config.IsHex)
-	if err := dispatcher.Register(textHandler); err != nil {
-		_ = textWriter.Close()
-		return fmt.Errorf("failed to register text handler: %w", err)
-	}
-	p.BaseProbe.SetDispatcher(dispatcher)
 	return nil
 }
 
@@ -417,6 +377,12 @@ func (p *Probe) setupManagerPcapNG() error {
 }
 
 func (p *Probe) setupManagerKeyLog() error {
+
+	keylogFile := p.config.GetKeylogFile()
+	if keylogFile == "" {
+		return fmt.Errorf("keylog mode requires keylog file path")
+	}
+
 	opensslPath := p.config.OpensslPath
 	var probes []*manager.Probe
 	var maps []*manager.Map

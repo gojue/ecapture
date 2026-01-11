@@ -20,6 +20,7 @@ import (
 
 	"github.com/gojue/ecapture/internal/domain"
 	"github.com/gojue/ecapture/internal/logger"
+	"github.com/gojue/ecapture/internal/output/writers"
 )
 
 // mockEvent implements domain.Event for testing
@@ -46,9 +47,8 @@ type mockHandler struct {
 	handleFunc func(event domain.Event) error
 }
 
-func (m *mockHandler) Writer() writers.writers {
-	//TODO implement me
-	panic("implement me")
+func (m *mockHandler) Writer() writers.OutputWriter {
+	return m.Writer()
 }
 
 func (m *mockHandler) Name() string { return m.name }

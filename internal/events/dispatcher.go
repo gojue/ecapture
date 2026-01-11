@@ -54,7 +54,7 @@ func (d *Dispatcher) Register(handler domain.EventHandler) error {
 		return errors.New(errors.ErrCodeConfiguration, "dispatcher is closed")
 	}
 
-	name := fmt.Sprintf("%s-%s",handler.Name(), handler.Writer().Name())
+	name := fmt.Sprintf("%s-%s", handler.Name(), handler.Writer().Name())
 	if _, exists := d.handlers[name]; exists {
 		return errors.New(errors.ErrCodeConfiguration, "handler already registered").
 			WithContext("handler", name)
@@ -123,7 +123,7 @@ func (d *Dispatcher) Dispatch(event domain.Event) error {
 	}
 
 	// 一个都没成功
-	if count ==0 && lastErr != nil {
+	if count == 0 && lastErr != nil {
 		d.logger.Error().Err(lastErr).Str("event", event.String()).Msg("Event handler failed to process event")
 		return lastErr
 	}

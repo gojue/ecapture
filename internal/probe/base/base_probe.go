@@ -18,12 +18,14 @@ import (
 	"context"
 	stderrors "errors"
 	"fmt"
-	"os"
 	"sync/atomic"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/perf"
 	"github.com/cilium/ebpf/ringbuf"
+
+	"github.com/gojue/ecapture/internal/output/writers"
+	"github.com/gojue/ecapture/internal/probe/base/handlers"
 
 	"github.com/gojue/ecapture/internal/events"
 
@@ -58,31 +60,57 @@ func NewBaseProbe(name string) *BaseProbe {
 }
 
 // Initialize sets up the probe with configuration and dependencies.
-func (p *BaseProbe) Initialize(ctx context.Context, config domain.Configuration) error {
-	if config == nil {
+func (p *BaseProbe) Initialize(ctx context.Context, cfg domain.Configuration) error {
+	if cfg == nil {
 		return errors.NewConfigurationError("configuration cannot be nil", nil)
 	}
 
-	if err := config.Validate(); err != nil {
+	if err := cfg.Validate(); err != nil {
 		return errors.NewConfigurationError("invalid configuration", err)
 	}
 
 	p.ctx = ctx
-	p.config = config
+	p.config = cfg
 
 	// Create a logger with probe name
-	p.logger = logger.New(nil, config.GetDebug()).WithProbe(p.name)
+	p.logger = logger.New(nil, p.config.GetDebug()).WithProbe(p.name)
 
 	p.logger.Info().
-		Uint64("pid", config.GetPid()).
-		Uint64("uid", config.GetUid()).
+		Uint64("pid", p.config.GetPid()).
+		Uint64("uid", p.config.GetUid()).
 		Msg("Probe initialized")
 
-	log := logger.New(os.Stdout, p.config.GetDebug())
+	// Create internal logger wrapper from zerolog
+	// Create dispatcher
+	dispatcher := events.NewDispatcher(p.Logger())
+	// Create writer factory for creating output writers
+	writerFactory := writers.NewWriterFactory()
+
+	// Configure rotation for file writers (from --eventroratesize and --eventroratetime flags)
+	var rotateConfig *writers.RotateConfig
+
+	// Create output writer based on eventAddr (or stdout if empty)
+	var textWriter writers.OutputWriter
+	var err error
+	var eventAddr = cfg.GetEventCollectorAddr()
+	if eventAddr == "" || eventAddr == "stdout" {
+		textWriter = writers.NewStdoutWriter()
+	} else {
+		textWriter, err = writerFactory.CreateWriter(eventAddr, rotateConfig)
+		if err != nil {
+			return fmt.Errorf("failed to create text output writer: %w", err)
+		}
+	}
+	p.Logger().Info().Str("eventAddr", eventAddr).Str("LoggerAddr", cfg.GetLoggerAddr()).Msg("Text output writer created")
+	textHandler := handlers.NewTextHandler(textWriter, p.config.GetHex())
+	if err := dispatcher.Register(textHandler); err != nil {
+		_ = textWriter.Close()
+		return fmt.Errorf("failed to register text handler: %w", err)
+	}
 
 	// Create dispatcher
-	p.dispatcher = events.NewDispatcher(log)
-	
+	p.dispatcher = dispatcher
+
 	return nil
 }
 

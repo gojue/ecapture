@@ -124,6 +124,7 @@ func (h *PcapHandler) Handle(event domain.Event) error {
 	return nil
 }
 
+// TODO 未使用
 func (h *PcapHandler) handleKeylog(event domain.Event) error {
 	keylogEvent, ok := event.(GoTLSMasterSecretEvent)
 	if ok {
@@ -137,7 +138,7 @@ func (h *PcapHandler) handleKeylog(event domain.Event) error {
 		if version <= 0x0303 { // TLS 1.2 = 0x0303
 			return h.pcapWriter.WriteMasterSecret([]byte("CLIENT_RANDOM"), TLSkeylogEvent.GetClientRandom(), TLSkeylogEvent.GetMasterKey())
 		} else {
-
+			// TODO
 		}
 	}
 
