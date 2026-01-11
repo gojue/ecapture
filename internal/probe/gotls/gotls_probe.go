@@ -23,8 +23,9 @@ import (
 
 	"github.com/cilium/ebpf"
 	manager "github.com/gojue/ebpfmanager"
-	"github.com/gojue/ecapture/internal/factory"
 	"golang.org/x/sys/unix"
+
+	"github.com/gojue/ecapture/internal/factory"
 
 	"github.com/gojue/ecapture/assets"
 	"github.com/gojue/ecapture/internal/domain"
@@ -58,8 +59,8 @@ func NewProbe() (*Probe, error) {
 }
 
 // Initialize initializes the probe with the given configuration
-func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration, dispatcher domain.EventDispatcher) error {
-	if err := p.BaseProbe.Initialize(ctx, cfg, dispatcher); err != nil {
+func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration) error {
+	if err := p.BaseProbe.Initialize(ctx, cfg); err != nil {
 		return err
 	}
 

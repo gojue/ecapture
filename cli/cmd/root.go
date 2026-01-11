@@ -334,14 +334,14 @@ func runProbe(probeType factory.ProbeType, probeConfig domain.Configuration) err
 			logger.Fatal().Err(err).Msg("failed to create probe")
 		}
 
-		// Create event dispatcher
-		dispatcher, err := newEventDispatcherWithConfig(&logger, probeConfig)
-		if err != nil {
-			logger.Fatal().Err(err).Msg("failed to create event dispatcher")
-		}
+		//// Create event dispatcher
+		//dispatcher, err := newEventDispatcherWithConfig(&logger, probeConfig)
+		//if err != nil {
+		//	logger.Fatal().Err(err).Msg("failed to create event dispatcher")
+		//}
 
 		// Initialize probe
-		err = probe.Initialize(ctx, probeConfig, dispatcher)
+		err = probe.Initialize(ctx, probeConfig)
 		if err != nil {
 			logger.Fatal().Err(err).Bool("isReload", isReload).Msg("probe initialization failed")
 		}
@@ -387,11 +387,6 @@ func runProbe(probeType factory.ProbeType, probeConfig domain.Configuration) err
 		err = probe.Close()
 		if err != nil {
 			logger.Warn().Err(err).Msg("probe close failed")
-		}
-
-		// Close dispatcher
-		if err := dispatcher.Close(); err != nil {
-			logger.Warn().Err(err).Msg("dispatcher close failed")
 		}
 
 		// reload

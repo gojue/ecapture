@@ -18,11 +18,14 @@ import (
 	"context"
 	stderrors "errors"
 	"fmt"
+	"os"
 	"sync/atomic"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/perf"
 	"github.com/cilium/ebpf/ringbuf"
+
+	"github.com/gojue/ecapture/internal/events"
 
 	"github.com/gojue/ecapture/internal/domain"
 	"github.com/gojue/ecapture/internal/errors"
@@ -55,12 +58,9 @@ func NewBaseProbe(name string) *BaseProbe {
 }
 
 // Initialize sets up the probe with configuration and dependencies.
-func (p *BaseProbe) Initialize(ctx context.Context, config domain.Configuration, dispatcher domain.EventDispatcher) error {
+func (p *BaseProbe) Initialize(ctx context.Context, config domain.Configuration) error {
 	if config == nil {
 		return errors.NewConfigurationError("configuration cannot be nil", nil)
-	}
-	if dispatcher == nil {
-		return errors.NewConfigurationError("dispatcher cannot be nil", nil)
 	}
 
 	if err := config.Validate(); err != nil {
@@ -69,7 +69,6 @@ func (p *BaseProbe) Initialize(ctx context.Context, config domain.Configuration,
 
 	p.ctx = ctx
 	p.config = config
-	p.dispatcher = dispatcher
 
 	// Create a logger with probe name
 	p.logger = logger.New(nil, config.GetDebug()).WithProbe(p.name)
@@ -79,6 +78,11 @@ func (p *BaseProbe) Initialize(ctx context.Context, config domain.Configuration,
 		Uint64("uid", config.GetUid()).
 		Msg("Probe initialized")
 
+	log := logger.New(os.Stdout, p.config.GetDebug())
+
+	// Create dispatcher
+	p.dispatcher = events.NewDispatcher(log)
+	
 	return nil
 }
 
@@ -132,6 +136,10 @@ func (p *BaseProbe) Close() error {
 	}
 
 	p.readers = nil
+	err := p.dispatcher.Close()
+	if err != nil {
+		p.logger.Warn().Err(err).Msg("Failed to close dispatcher")
+	}
 	p.logger.Info().Msg("Probe closed")
 	return nil
 }
@@ -165,6 +173,10 @@ func (p *BaseProbe) Logger() *logger.Logger {
 // Dispatcher returns the event dispatcher.
 func (p *BaseProbe) Dispatcher() domain.EventDispatcher {
 	return p.dispatcher
+}
+
+func (p *BaseProbe) SetDispatcher(dispatcher domain.EventDispatcher) {
+	p.dispatcher = dispatcher
 }
 
 // Context returns the probe's context.

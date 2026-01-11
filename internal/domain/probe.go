@@ -26,7 +26,7 @@ import (
 type Probe interface {
 	// Initialize sets up the probe with the provided context, configuration, and event dispatcher.
 	// It prepares all necessary resources but does not start the probe.
-	Initialize(ctx context.Context, config Configuration, dispatcher EventDispatcher) error
+	Initialize(ctx context.Context, config Configuration) error
 
 	// Start begins the probe's operation, attaching eBPF programs and starting event collection.
 	Start(ctx context.Context) error

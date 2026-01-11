@@ -29,7 +29,7 @@ type mockProbe struct {
 	name string
 }
 
-func (m *mockProbe) Initialize(ctx context.Context, config domain.Configuration, dispatcher domain.EventDispatcher) error {
+func (m *mockProbe) Initialize(ctx context.Context, config domain.Configuration) error {
 	return nil
 }
 func (m *mockProbe) Start(ctx context.Context) error { return nil }

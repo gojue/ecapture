@@ -59,8 +59,8 @@ func NewProbe() (*Probe, error) {
 }
 
 // Initialize sets up the probe with configuration and dispatcher.
-func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration, dispatcher domain.EventDispatcher) error {
-	if err := p.BaseProbe.Initialize(ctx, cfg, dispatcher); err != nil {
+func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration) error {
+	if err := p.BaseProbe.Initialize(ctx, cfg); err != nil {
 		return err
 	}
 

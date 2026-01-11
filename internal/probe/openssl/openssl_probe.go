@@ -20,10 +20,14 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"os"
 
 	"github.com/cilium/ebpf"
 	manager "github.com/gojue/ebpfmanager"
 	"golang.org/x/sys/unix"
+
+	"github.com/gojue/ecapture/internal/events"
+	"github.com/gojue/ecapture/internal/logger"
 
 	"github.com/gojue/ecapture/internal/output/writers"
 
@@ -59,8 +63,8 @@ func NewProbe() (*Probe, error) {
 }
 
 // Initialize sets up the probe with configuration and dispatcher.
-func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration, dispatcher domain.EventDispatcher) error {
-	if err := p.BaseProbe.Initialize(ctx, cfg, dispatcher); err != nil {
+func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration) error {
+	if err := p.BaseProbe.Initialize(ctx, cfg); err != nil {
 		return err
 	}
 
@@ -255,6 +259,36 @@ func (p *Probe) setupManagerText() error {
 		Maps:   maps,
 	}
 
+	// Create internal logger wrapper from zerolog
+	log := logger.New(os.Stdout, p.config.GetDebug())
+
+	// Create dispatcher
+	dispatcher := events.NewDispatcher(log)
+	// Create writer factory for creating output writers
+	writerFactory := writers.NewWriterFactory()
+
+	// Configure rotation for file writers (from --eventroratesize and --eventroratetime flags)
+	var rotateConfig *writers.RotateConfig
+
+	// Create output writer based on eventAddr (or stdout if empty)
+	var textWriter writers.OutputWriter
+	var err error
+	var eventAddr = p.config.GetEventCollectorAddr()
+	if eventAddr == "" || eventAddr == "stdout" {
+		textWriter = writers.NewStdoutWriter()
+	} else {
+		textWriter, err = writerFactory.CreateWriter(eventAddr, rotateConfig)
+		if err != nil {
+			return fmt.Errorf("failed to create text output writer: %w", err)
+		}
+	}
+	p.Logger().Info().Str("eventAddr", eventAddr).Str("LoggerAddr", p.config.LoggerAddr).Msg("Text output writer created")
+	textHandler := handlers.NewTextHandler(textWriter, p.config.IsHex)
+	if err := dispatcher.Register(textHandler); err != nil {
+		_ = textWriter.Close()
+		return fmt.Errorf("failed to register text handler: %w", err)
+	}
+	p.BaseProbe.SetDispatcher(dispatcher)
 	return nil
 }
 
