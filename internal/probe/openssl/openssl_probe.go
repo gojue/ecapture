@@ -25,6 +25,8 @@ import (
 	manager "github.com/gojue/ebpfmanager"
 	"golang.org/x/sys/unix"
 
+	pkgebpf "github.com/gojue/ecapture/pkg/util/ebpf"
+
 	"github.com/gojue/ecapture/internal/output/writers"
 
 	"github.com/gojue/ecapture/internal/factory"
@@ -37,6 +39,11 @@ import (
 	"github.com/gojue/ecapture/pkg/util/kernel"
 )
 
+const (
+	tcFuncNameIngress = "ingress_cls_func"
+	tcFuncNameEgress  = "egress_cls_func"
+)
+
 // Probe implements the OpenSSL TLS tracing probe.
 // Supports Text mode, Keylog mode, and Pcap mode.
 type Probe struct {
@@ -47,6 +54,7 @@ type Probe struct {
 	mapNameToDecoder map[string]domain.EventDecoder // Maps configured in setupManager
 	eventMaps        []*ebpf.Map
 	output           io.Writer
+	closer           []io.Closer
 }
 
 // NewProbe creates a new OpenSSL probe instance.
@@ -55,6 +63,7 @@ func NewProbe() (*Probe, error) {
 		BaseProbe:        base.NewBaseProbe(string(factory.ProbeTypeOpenSSL)),
 		eventFuncMaps:    make(map[*ebpf.Map]domain.EventDecoder),
 		mapNameToDecoder: make(map[string]domain.EventDecoder),
+		closer:           make([]io.Closer, 0),
 	}, nil
 }
 
@@ -193,7 +202,11 @@ func (p *Probe) Close() error {
 		}
 		p.Logger().Debug().Msg("eBPF manager stopped")
 	}
-
+	for _, closer := range p.closer {
+		if err := closer.Close(); err != nil {
+			p.Logger().Warn().Err(err).Msg("Failed to close resource")
+		}
+	}
 	p.Logger().Debug().Msg("Calling BaseProbe.Close()")
 	err := p.BaseProbe.Close()
 	p.Logger().Debug().Msg("OpenSSL probe closed")
@@ -271,7 +284,7 @@ func (p *Probe) setupManagerPcapNG() error {
 	probes = append(probes,
 		&manager.Probe{
 			Section:          "classifier",
-			EbpfFuncName:     "ingress_cls_func",
+			EbpfFuncName:     tcFuncNameIngress,
 			Ifname:           p.config.Ifname,
 			NetworkDirection: manager.Ingress,
 		},
@@ -281,7 +294,7 @@ func (p *Probe) setupManagerPcapNG() error {
 	probes = append(probes,
 		&manager.Probe{
 			Section:          "classifier",
-			EbpfFuncName:     "egress_cls_func",
+			EbpfFuncName:     tcFuncNameEgress,
 			Ifname:           p.config.Ifname,
 			NetworkDirection: manager.Egress,
 		},
@@ -328,6 +341,8 @@ func (p *Probe) setupManagerPcapNG() error {
 			_ = keylogWriter.Close()
 			return fmt.Errorf("failed to register keylog handler: %w", err)
 		}
+		p.closer = append(p.closer, keylogWriter)
+		p.Logger().Info().Str("Writer", keylogWriter.Name()).Msg("Keylog handler registered for pcapng mode")
 	}
 
 	pcapFile := p.config.GetPcapFile()
@@ -356,15 +371,18 @@ func (p *Probe) setupManagerPcapNG() error {
 		_ = pcapWriter.Close()
 		return fmt.Errorf("failed to register pcap handler: %w", err)
 	}
+	p.closer = append(p.closer, pcapWriter)
+	p.Logger().Info().Str("Writer", pcapWriter.Name()).Msg("Pcap handler registered")
 
 	// Pcapng 的 Keylog writer
-	pcapKeylogWriter := handlers.NewPcapKeylogWriter(pcapHandler.PcapWriter())
+	pcapKeylogWriter := writers.NewPcapKeylogWriter(pcapHandler.PcapWriter())
 	pcapKeylogHandler := handlers.NewKeylogHandler(pcapKeylogWriter)
 	if err := p.BaseProbe.Dispatcher().Register(pcapKeylogHandler); err != nil {
 		_ = pcapHandler.Close()
 		_ = pcapWriter.Close()
 		return fmt.Errorf("failed to register pcapkeylog handler: %w", err)
 	}
+	p.closer = append(p.closer, pcapKeylogWriter)
 	p.Logger().Info().Str("pcap_file", pcapFile).Msg("Pcap handler registered")
 	p.Logger().Debug().
 		Str("ifname", p.config.Ifname).
@@ -426,7 +444,8 @@ func (p *Probe) setupManagerKeyLog() error {
 		_ = keylogWriter.Close()
 		return fmt.Errorf("failed to register keylog handler: %w", err)
 	}
-	p.Logger().Info().Str("keylog_file", p.config.GetKeylogFile()).Msg("Keylog handler registered")
+	p.closer = append(p.closer, keylogWriter)
+	p.Logger().Info().Str("Writer", keylogWriter.Name()).Msg("Keylog handler registered")
 
 	p.bpfManager = &manager.Manager{
 		Probes: probes,
@@ -448,6 +467,11 @@ func (p *Probe) setupManager() error {
 		err = p.setupManagerKeyLog()
 	case handlers.ModePcap, handlers.ModePcapng:
 		err = p.setupManagerPcapNG()
+		if err == nil && p.config.PcapFilter != "" {
+			p.Logger().Info().Str("filter", p.config.PcapFilter).Msg("Applying BPF filter to TC probes")
+			ebpfFuncs := []string{tcFuncNameIngress, tcFuncNameEgress}
+			p.bpfManager.InstructionPatchers = pkgebpf.PrepareInsnPatchers(p.bpfManager, ebpfFuncs, p.config.PcapFilter)
+		}
 	}
 	if err != nil {
 		return err

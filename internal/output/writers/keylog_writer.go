@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package handlers
+package writers
 
 // TcpWriter writes output to a TCP socket.
 type PcapKeylogWriter struct {
@@ -24,8 +24,7 @@ func (w *PcapKeylogWriter) Name() string {
 }
 
 func (w *PcapKeylogWriter) Flush() error {
-	//w.PcapWriter.Flush()
-	return nil
+	return w.PcapWriter.Flush()
 }
 
 func NewPcapKeylogWriter(pw *PcapWriter) *PcapKeylogWriter {

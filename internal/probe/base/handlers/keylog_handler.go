@@ -30,6 +30,16 @@ const (
 	EvpMaxMdSize       = 64
 )
 
+const (
+	KeyLogLabelTLS12                   = "CLIENT_RANDOM"
+	KeyLogLabelClientEarlyTafficSecret = "CLIENT_EARLY_TRAFFIC_SECRET"
+
+	KeyLogLabelServerHandshake = "SERVER_HANDSHAKE_TRAFFIC_SECRET"
+	KeyLogLabelClientTraffic   = "CLIENT_TRAFFIC_SECRET_0"
+	KeyLogLabelServerTraffic   = "SERVER_TRAFFIC_SECRET_0"
+	KeyLogLabelExporterSecret  = "EXPORTER_SECRET"
+)
+
 // MasterSecretEvent defines the interface for master secret key events.
 // This follows the NSS Key Log Format used by Wireshark and other tools.
 type MasterSecretEvent interface {
@@ -134,7 +144,8 @@ func (h *KeylogHandler) handleTLS12(event MasterSecretEvent) error {
 	}
 
 	// Format: CLIENT_RANDOM <client_random> <master_secret>
-	line := fmt.Sprintf("CLIENT_RANDOM %x %x\n",
+	line := fmt.Sprintf("%s %x %x\n",
+		KeyLogLabelTLS12,
 		clientRandom[:Ssl3RandomSize],
 		masterKey[:MasterSecretMaxLen])
 
@@ -202,9 +213,12 @@ func (h *KeylogHandler) handleTLS13(event MasterSecretEvent) error {
 		label string
 		data  []byte
 	}{
-		{"CLIENT_TRAFFIC_SECRET_0", event.GetClientAppTrafficSecret()},
-		{"SERVER_TRAFFIC_SECRET_0", event.GetServerAppTrafficSecret()},
-		{"EXPORTER_SECRET", event.GetExporterMasterSecret()},
+
+		{KeyLogLabelClientTraffic, event.GetClientAppTrafficSecret()},
+		{KeyLogLabelServerTraffic, event.GetServerAppTrafficSecret()},
+		{KeyLogLabelExporterSecret, event.GetExporterMasterSecret()},
+		{KeyLogLabelServerHandshake, event.GetHandshakeSecret()},
+		//{KeyLogLabelClientEarlyTafficSecret, event.GetEarlySecret()},
 	}
 
 	for _, secret := range secrets {
@@ -238,6 +252,12 @@ func (h *KeylogHandler) Close() error {
 
 	// Clear the seen keys map
 	h.seenKeys = make(map[string]bool)
+
+	err := h.writer.Flush()
+
+	if err != nil {
+		return err
+	}
 
 	// Close the writer
 	if h.writer != nil {
