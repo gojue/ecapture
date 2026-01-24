@@ -46,7 +46,7 @@ func TestProbe_Initialize_InvalidConfig(t *testing.T) {
 
 	// Pass invalid config type (nil is invalid)
 	invalidConfig := &Config{} // Valid type but nil BaseConfig
-	err = probe.Initialize(ctx, invalidConfig, nil)
+	err = probe.Initialize(ctx, invalidConfig)
 	if err == nil {
 		t.Error("Initialize() should have failed with invalid config")
 	}
@@ -66,7 +66,7 @@ func TestProbe_Initialize_TextMode(t *testing.T) {
 	ctx := context.Background()
 
 	// This will fail because the libraries don't exist, but it validates the flow
-	err = probe.Initialize(ctx, cfg, nil)
+	err = probe.Initialize(ctx, cfg)
 	// We expect this to fail during validation since we're using dummy paths
 	if err == nil {
 		t.Log("Initialize() succeeded (libraries might exist on this system)")

@@ -104,7 +104,6 @@ func TestProbeInitialize(t *testing.T) {
 	cfg := NewConfig()
 	cfg.SetPostgresPath("/usr/lib/postgresql/15/bin/postgres")
 
-	dispatcher := &mockDispatcher{}
 	ctx := context.Background()
 
 	err := probe.Initialize(ctx, cfg)
@@ -118,7 +117,6 @@ func TestProbeInitializeWithInvalidConfig(t *testing.T) {
 
 	// Pass a base config instead of PostgreSQL config
 	cfg := config.NewBaseConfig()
-	dispatcher := &mockDispatcher{}
 	ctx := context.Background()
 
 	err := probe.Initialize(ctx, cfg)

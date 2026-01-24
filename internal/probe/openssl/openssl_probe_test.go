@@ -48,7 +48,7 @@ func TestProbe_Initialize(t *testing.T) {
 	// Test that Initialize requires a dispatcher
 	ctx := context.Background()
 
-	err = probe.Initialize(ctx, cfg, nil)
+	err = probe.Initialize(ctx, cfg)
 	if err == nil {
 		t.Error("Initialize() with nil dispatcher should return error")
 	}
@@ -67,7 +67,7 @@ func TestProbe_Initialize_InvalidConfig(t *testing.T) {
 
 	ctx := context.Background()
 
-	err = probe.Initialize(ctx, cfg, nil)
+	err = probe.Initialize(ctx, cfg)
 	// Will fail due to nil dispatcher first
 	if err == nil {
 		t.Error("Initialize() with nil dispatcher should return error")

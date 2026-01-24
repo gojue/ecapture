@@ -44,12 +44,33 @@ func (m *mockEvent) Validate() error {
 // mockHandler implements domain.EventHandler for testing
 type mockHandler struct {
 	name       string
+	writer     writers.OutputWriter
 	handleFunc func(event domain.Event) error
 }
 
 func (m *mockHandler) Writer() writers.OutputWriter {
-	return m.Writer()
+	if m.writer != nil {
+		return m.writer
+	}
+	// 返回一个简单的 mock writer
+	return &mockWriter{}
+} // mockWriter implements writers.OutputWriter for testing
+
+type mockWriter struct{}
+
+func (m *mockWriter) Write(p []byte) (n int, err error) {
+	return 0, nil
 }
+
+func (m *mockWriter) Flush() error {
+	return nil
+}
+
+func (m *mockWriter) Name() string               { return "mock-writer" }
+func (m *mockWriter) WriteRaw(data []byte) error { return nil }
+func (m *mockWriter) IsReady() bool              { return true }
+func (m *mockWriter) Close() error               { return nil }
+func (m *mockWriter) String() string             { return "mock-writer" }
 
 func (m *mockHandler) Name() string { return m.name }
 func (m *mockHandler) Handle(event domain.Event) error {

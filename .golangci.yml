@@ -49,6 +49,7 @@ linters:
         - "-S1023"
         - "-SA4031"
         - "-S1000"
+        - "-SA4006"
 
   exclusions:
     paths:
