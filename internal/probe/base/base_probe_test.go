@@ -20,8 +20,6 @@ import (
 	"time"
 
 	"github.com/gojue/ecapture/internal/config"
-	"github.com/gojue/ecapture/internal/events"
-	"github.com/gojue/ecapture/internal/logger"
 )
 
 func TestNewBaseProbe(t *testing.T) {
@@ -41,8 +39,6 @@ func TestNewBaseProbe(t *testing.T) {
 func TestBaseProbeInitialize(t *testing.T) {
 	probe := NewBaseProbe("test-probe")
 	cfg := config.NewBaseConfig()
-	log := logger.New(nil, false)
-	dispatcher := events.NewDispatcher(log)
 	ctx := context.Background()
 
 	err := probe.Initialize(ctx, cfg)
@@ -53,8 +49,8 @@ func TestBaseProbeInitialize(t *testing.T) {
 	if probe.Config() != cfg {
 		t.Error("config not set correctly")
 	}
-	if probe.Dispatcher() != dispatcher {
-		t.Error("dispatcher not set correctly")
+	if probe.Dispatcher() == nil {
+		t.Error("dispatcher not initialized")
 	}
 	if probe.Context() != ctx {
 		t.Error("context not set correctly")
@@ -66,8 +62,6 @@ func TestBaseProbeInitializeInvalidConfig(t *testing.T) {
 	cfg := &config.BaseConfig{
 		PerCpuMapSize: -1, // Invalid
 	}
-	log := logger.New(nil, false)
-	dispatcher := events.NewDispatcher(log)
 	ctx := context.Background()
 
 	err := probe.Initialize(ctx, cfg)
@@ -78,11 +72,9 @@ func TestBaseProbeInitializeInvalidConfig(t *testing.T) {
 
 func TestBaseProbeInitializeNilConfig(t *testing.T) {
 	probe := NewBaseProbe("test-probe")
-	log := logger.New(nil, false)
-	dispatcher := events.NewDispatcher(log)
 	ctx := context.Background()
 
-	err := probe.Initialize(ctx, nil, dispatcher)
+	err := probe.Initialize(ctx, nil)
 	if err == nil {
 		t.Error("Initialize() should return error for nil config")
 	}
@@ -93,7 +85,7 @@ func TestBaseProbeInitializeNilDispatcher(t *testing.T) {
 	cfg := config.NewBaseConfig()
 	ctx := context.Background()
 
-	err := probe.Initialize(ctx, cfg, nil)
+	err := probe.Initialize(ctx, cfg)
 	if err == nil {
 		t.Error("Initialize() should return error for nil dispatcher")
 	}
@@ -102,8 +94,6 @@ func TestBaseProbeInitializeNilDispatcher(t *testing.T) {
 func TestBaseProbeLifecycle(t *testing.T) {
 	probe := NewBaseProbe("test-probe")
 	cfg := config.NewBaseConfig()
-	log := logger.New(nil, false)
-	dispatcher := events.NewDispatcher(log)
 	ctx := context.Background()
 
 	// Initialize
@@ -149,8 +139,6 @@ func TestBaseProbeLifecycle(t *testing.T) {
 func TestBaseProbeCloseWithReaders(t *testing.T) {
 	probe := NewBaseProbe("test-probe")
 	cfg := config.NewBaseConfig()
-	log := logger.New(nil, false)
-	dispatcher := events.NewDispatcher(log)
 	ctx := context.Background()
 
 	err := probe.Initialize(ctx, cfg)
@@ -178,8 +166,6 @@ func TestBaseProbeCloseWithReaders(t *testing.T) {
 func TestBaseProbeStopAndClose(t *testing.T) {
 	probe := NewBaseProbe("test-probe")
 	cfg := config.NewBaseConfig()
-	log := logger.New(nil, false)
-	dispatcher := events.NewDispatcher(log)
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
 

@@ -56,7 +56,7 @@ func TestConfig_Validate(t *testing.T) {
 			if tt.setup != nil {
 				tt.setup(cfg)
 			}
-			
+
 			err := cfg.Validate()
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -163,7 +163,7 @@ func TestEvent_Clone(t *testing.T) {
 
 	clone := original.Clone()
 	require.NotNil(t, clone)
-	
+
 	// Clone returns a new empty event
 	cloneEvent, ok := clone.(*Event)
 	require.True(t, ok)

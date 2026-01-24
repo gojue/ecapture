@@ -24,7 +24,7 @@ import (
 func TestFindSymbolOffsets(t *testing.T) {
 	// Build the test Go binary
 	examplePath := filepath.Join("..", "..", "..", "examples", "https_client", "golang_https.go")
-	
+
 	// Check if example file exists
 	if _, err := os.Stat(examplePath); os.IsNotExist(err) {
 		t.Skipf("Example file not found: %s", examplePath)
@@ -39,8 +39,8 @@ func TestFindSymbolOffsets(t *testing.T) {
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("Failed to build test binary: %v\nOutput: %s", err, output)
-	return
-}
+		return
+	}
 
 	// Create config and set ElfPath
 	cfg := NewConfig()
@@ -50,8 +50,8 @@ func TestFindSymbolOffsets(t *testing.T) {
 	err = cfg.findSymbolOffsets()
 	if err != nil {
 		t.Fatalf("findSymbolOffsets failed: %v", err)
-	return
-}
+		return
+	}
 
 	// Verify that offsets were found
 	if cfg.GoTlsWriteAddr == 0 {
@@ -96,8 +96,8 @@ int main() {
 	err := os.WriteFile(cFile, []byte(cCode), 0644)
 	if err != nil {
 		t.Fatalf("Failed to write C file: %v", err)
-	return
-}
+		return
+	}
 
 	// Compile it
 	cmd := exec.Command("gcc", "-o", binaryPath, cFile)
@@ -118,7 +118,7 @@ int main() {
 func TestReadGoSymbolTable(t *testing.T) {
 	// Build the test Go binary
 	examplePath := filepath.Join("..", "..", "..", "examples", "https_client", "golang_https.go")
-	
+
 	// Check if example file exists
 	if _, err := os.Stat(examplePath); os.IsNotExist(err) {
 		t.Skipf("Example file not found: %s", examplePath)
@@ -133,8 +133,8 @@ func TestReadGoSymbolTable(t *testing.T) {
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("Failed to build test binary: %v\nOutput: %s", err, output)
-	return
-}
+		return
+	}
 
 	// The test validates that we can read the symbol table
 	// The actual implementation is tested via findSymbolOffsets
