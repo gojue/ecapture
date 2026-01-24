@@ -46,7 +46,7 @@ func TestProbe_Initialize_TextMode(t *testing.T) {
 
 	ctx := context.Background()
 	// Note: Will fail if GnuTLS not installed, but that's expected
-	err = probe.Initialize(ctx, cfg, nil)
+	err = probe.Initialize(ctx, cfg)
 	if err != nil {
 		t.Logf("Initialize() failed (expected if GnuTLS not installed): %v", err)
 	}

@@ -19,9 +19,7 @@ import (
 	"testing"
 
 	"github.com/gojue/ecapture/internal/domain"
-	"github.com/gojue/ecapture/internal/events"
 	"github.com/gojue/ecapture/internal/factory"
-	"github.com/gojue/ecapture/internal/logger"
 )
 
 func TestMysqlVersion_String(t *testing.T) {
@@ -241,11 +239,10 @@ func TestProbe_Initialize(t *testing.T) {
 	config.MysqlPath = "/usr/sbin/mysqld"
 	config.FuncName = "dispatch_command"
 
-	dispatcher := events.NewDispatcher(logger.New(nil, false))
 	ctx := context.Background()
 
 	// Initialize should succeed with function name provided (no file check during init)
-	err := probe.Initialize(ctx, config, dispatcher)
+	err := probe.Initialize(ctx, config)
 	if err != nil {
 		t.Errorf("Initialize failed: %v", err)
 		return

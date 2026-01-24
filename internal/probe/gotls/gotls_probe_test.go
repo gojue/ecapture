@@ -53,7 +53,6 @@ func TestProbe_Initialize_TextMode(t *testing.T) {
 	cfg.CaptureMode = "text"
 
 	ctx := context.Background()
-	dispatcher := &mockDispatcher{}
 	if err := probe.Initialize(ctx, cfg); err != nil {
 		t.Errorf("Initialize() failed for text mode: %v", err)
 	}
@@ -85,7 +84,6 @@ func TestProbe_Initialize_KeylogMode(t *testing.T) {
 	cfg.KeylogFile = keylogFile
 
 	ctx := context.Background()
-	dispatcher := &mockDispatcher{}
 	if err := probe.Initialize(ctx, cfg); err != nil {
 		t.Errorf("Initialize() failed for keylog mode: %v", err)
 	}
@@ -129,7 +127,6 @@ func TestProbe_Initialize_PcapMode(t *testing.T) {
 	cfg.Ifname = ifname
 
 	ctx := context.Background()
-	dispatcher := &mockDispatcher{}
 	if err := probe.Initialize(ctx, cfg); err != nil {
 		t.Errorf("Initialize() failed for pcap mode: %v", err)
 	}
@@ -161,7 +158,6 @@ func TestProbe_Close(t *testing.T) {
 	cfg.KeylogFile = keylogFile
 
 	ctx := context.Background()
-	dispatcher := &mockDispatcher{}
 	if err := probe.Initialize(ctx, cfg); err != nil {
 		t.Fatalf("Initialize() failed: %v", err)
 	}

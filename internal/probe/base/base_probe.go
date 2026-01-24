@@ -44,6 +44,7 @@ type BaseProbe struct {
 	dispatcher domain.EventDispatcher
 	isRunning  atomic.Bool
 	readers    []closer
+	closers    []closer
 }
 
 // closer interface for resources that need to be closed.
@@ -56,6 +57,7 @@ func NewBaseProbe(name string) *BaseProbe {
 	return &BaseProbe{
 		name:    name,
 		readers: make([]closer, 0),
+		closers: make([]closer, 0),
 	}
 }
 
@@ -94,20 +96,21 @@ func (p *BaseProbe) Initialize(ctx context.Context, cfg domain.Configuration) er
 	var err error
 	var eventAddr = cfg.GetEventCollectorAddr()
 	if eventAddr == "" || eventAddr == "stdout" {
-		textWriter = writers.NewStdoutWriter()
+		//textWriter = writers.NewStdoutWriter()
+		textWriter = writers.NewLoggerWriter(p.logger)
 	} else {
 		textWriter, err = writerFactory.CreateWriter(eventAddr, rotateConfig)
 		if err != nil {
 			return fmt.Errorf("failed to create text output writer: %w", err)
 		}
 	}
-	p.Logger().Info().Str("eventAddr", eventAddr).Str("LoggerAddr", cfg.GetLoggerAddr()).Msg("Text output writer created")
+	p.Logger().Info().Str("writer", textWriter.Name()).Str("LoggerAddr", cfg.GetLoggerAddr()).Msg("Text output writer created")
 	textHandler := handlers.NewTextHandler(textWriter, p.config.GetHex())
 	if err := dispatcher.Register(textHandler); err != nil {
 		_ = textWriter.Close()
 		return fmt.Errorf("failed to register text handler: %w", err)
 	}
-
+	p.closers = append(p.closers, textHandler)
 	// Create dispatcher
 	p.dispatcher = dispatcher
 
@@ -164,6 +167,14 @@ func (p *BaseProbe) Close() error {
 	}
 
 	p.readers = nil
+
+	for _, cler := range p.closers {
+		if err := cler.Close(); err != nil {
+			p.logger.Warn().Err(err).Msg("Failed to close resource")
+		}
+	}
+	p.closers = nil
+
 	err := p.dispatcher.Close()
 	if err != nil {
 		p.logger.Warn().Err(err).Msg("Failed to close dispatcher")

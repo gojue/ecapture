@@ -94,6 +94,11 @@ func (w *FileWriter) Write(p []byte) (n int, err error) {
 
 // Close closes the file and releases resources.
 func (w *FileWriter) Close() error {
+	err := w.Flush()
+	if err != nil {
+		return err
+	}
+
 	if w.rotateLog != nil {
 		return w.rotateLog.Close()
 	}

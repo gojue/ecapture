@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package handlers
+package writers
 
 import (
 	"fmt"
@@ -69,20 +69,20 @@ func (pw *PcapWriter) WritePacket(data []byte, timestamp time.Time) error {
 	return pw.writer.WritePacket(captureInfo, data)
 }
 
-// WriteMasterSecret writes TLS master secret as a Decryption Secrets Block (DSB)
-func (pw *PcapWriter) WriteMasterSecret(label, clientRandom, secret []byte) error {
-	// Format: "LABEL CLIENTRANDOM SECRET\n"
-	// This follows the NSS SSLKEYLOGFILE format
-	keylogLine := fmt.Sprintf("%s %x %x\n",
-		nullTerminatedString(label),
-		clientRandom,
-		secret)
-
-	// Write as DSB (Decryption Secrets Block) using custom gopacket implementation
-	// The cfc4n/gopacket fork includes WriteDecryptionSecretsBlock method
-	// Use pcapgo.DSB_SECRETS_TYPE_TLS for TLS key logs
-	return pw.writer.WriteDecryptionSecretsBlock(pcapgo.DSB_SECRETS_TYPE_TLS, []byte(keylogLine))
-}
+//// WriteMasterSecret writes TLS master secret as a Decryption Secrets Block (DSB)
+//func (pw *PcapWriter) WriteMasterSecret(label, clientRandom, secret []byte) error {
+//	// Format: "LABEL CLIENTRANDOM SECRET\n"
+//	// This follows the NSS SSLKEYLOGFILE format
+//	keylogLine := fmt.Sprintf("%s %x %x\n",
+//		nullTerminatedString(label),
+//		clientRandom,
+//		secret)
+//
+//	// Write as DSB (Decryption Secrets Block) using custom gopacket implementation
+//	// The cfc4n/gopacket fork includes WriteDecryptionSecretsBlock method
+//	// Use pcapgo.DSB_SECRETS_TYPE_TLS for TLS key logs
+//	return pw.writer.WriteDecryptionSecretsBlock(pcapgo.DSB_SECRETS_TYPE_TLS, []byte(keylogLine))
+//}
 
 // WriteKeyLog writes TLS master secret as a Decryption Secrets Block (DSB)
 func (pw *PcapWriter) WriteKeyLog(keylogLine []byte) error {

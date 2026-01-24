@@ -57,5 +57,4 @@ type Configuration interface {
 	GetEventCollectorAddr() string
 
 	SetEventCollectorAddr(addr string)
-
 }

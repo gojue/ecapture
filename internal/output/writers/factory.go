@@ -62,7 +62,7 @@ func (f *WriterFactory) CreateWriter(addr string, rotateConfig *RotateConfig) (O
 	// Default to file
 	config := FileWriterConfig{
 		Path:       addr,
-		BufferSize: 4096, // 4KB buffer for files
+		BufferSize: 0, // 0KB buffer for files
 	}
 
 	// Apply rotation config if provided

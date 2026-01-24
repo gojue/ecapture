@@ -62,7 +62,7 @@ type NetCaptureData struct {
 // that can be analyzed with Wireshark and other network analysis tools.
 type PcapHandler struct {
 	writer          writers.OutputWriter
-	pcapWriter      *PcapWriter
+	pcapWriter      *writers.PcapWriter
 	mu              sync.Mutex
 	masterKeyBuffer *bytes.Buffer
 }
@@ -74,11 +74,11 @@ func (h *PcapHandler) Writer() writers.OutputWriter {
 // NewPcapHandler creates a new PcapHandler with the provided writer.
 func NewPcapHandler(writer writers.OutputWriter) (*PcapHandler, error) {
 	if writer == nil {
-		writer = writers.NewStdoutWriter()
+		return nil, errors.New(errors.ErrCodeResourceAllocation, "output writer cannot be nil")
 	}
 
 	// Create pcap writer with Ethernet link type and 65535 snaplen
-	pcapWriter, err := NewPcapWriter(writer, 65535, layers.LinkTypeEthernet)
+	pcapWriter, err := writers.NewPcapWriter(writer, 65535, layers.LinkTypeEthernet)
 	if err != nil {
 		return nil, errors.Wrap(errors.ErrCodeResourceAllocation, "failed to create pcap writer", err)
 	}
@@ -124,32 +124,14 @@ func (h *PcapHandler) Handle(event domain.Event) error {
 	return nil
 }
 
-// TODO 未使用
-func (h *PcapHandler) handleKeylog(event domain.Event) error {
-	keylogEvent, ok := event.(GoTLSMasterSecretEvent)
-	if ok {
-		return h.pcapWriter.WriteMasterSecret([]byte(keylogEvent.GetLabel()), keylogEvent.GetClientRandom(), keylogEvent.GetSecret())
-	}
-
-	TLSkeylogEvent, ok := event.(MasterSecretEvent)
-	if ok {
-		var version = TLSkeylogEvent.GetVersion()
-		// TLS 1.2 and earlier use CLIENT_RANDOM format
-		if version <= 0x0303 { // TLS 1.2 = 0x0303
-			return h.pcapWriter.WriteMasterSecret([]byte("CLIENT_RANDOM"), TLSkeylogEvent.GetClientRandom(), TLSkeylogEvent.GetMasterKey())
-		} else {
-			// TODO
-		}
-	}
-
-	return nil
-}
-
 // Close closes the handler and releases resources.
 func (h *PcapHandler) Close() error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-
+	err := h.pcapWriter.Flush()
+	if err != nil {
+		return err
+	}
 	if h.pcapWriter != nil {
 		return h.pcapWriter.Close()
 	}
@@ -162,6 +144,6 @@ func (h *PcapHandler) Name() string {
 	return ModePcapng
 }
 
-func (h *PcapHandler) PcapWriter() *PcapWriter {
+func (h *PcapHandler) PcapWriter() *writers.PcapWriter {
 	return h.pcapWriter
 }
