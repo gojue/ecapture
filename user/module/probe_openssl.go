@@ -237,7 +237,7 @@ func (m *MOpenSSLProbe) getSslBpfFile(soPath, sslVersion string) error {
 				m.logger.Warn().Err(err).Str("soPath", soPath).Str("imported", libcryptoName).Msgf("OpenSSL(libcrypto.so.3) version not found.%s", fmt.Sprintf(OpensslNoticeUsedDefault, OpensslNoticeVersionGuideLinux))
 				return err
 			}
-			if errors.Is(err, ErrProbeOpensslVerNotFound) {
+			if err == nil {
 				m.logger.Info().Str("soPath", soPath).Str("imported", libcryptoName).Str("version", verString).Msg("OpenSSL/BoringSSL version found from imported libcrypto.so")
 			}
 		}
