@@ -1,12 +1,11 @@
 <img src="./images/ecapture-logo.png" alt="eCapture Logo" width="300" height="300"/>
 
-[简体中文](./README_CN.md) | English | [日本語](./README_JA.md)
+[汉字](README-zh_Hans.md) | English 
 
 [![GitHub stars](https://img.shields.io/github/stars/gojue/ecapture.svg?label=Stars&logo=github)](https://github.com/gojue/ecapture)
 [![GitHub forks](https://img.shields.io/github/forks/gojue/ecapture?label=Forks&logo=github)](https://github.com/gojue/ecapture)
 [![CI](https://github.com/gojue/ecapture/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/gojue/ecapture/actions/workflows/code-analysis.yml)
 [![Github Version](https://img.shields.io/github/v/release/gojue/ecapture?display_name=tag&include_prereleases&sort=semver)](https://github.com/gojue/ecapture/releases)
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/gojue/ecapture)
 
 ### eCapture(旁观者): capture SSL/TLS text content without a CA certificate using eBPF.
 

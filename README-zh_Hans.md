@@ -1,12 +1,11 @@
 <img src="./images/ecapture-logo.png" alt="eCapture Logo" width="300" height="300"/>
 
-简体中文 | [English](./README.md) | [日本語](./README_JA.md)
+ 汉字 | [English](./README.md) 
 
 [![GitHub stars](https://img.shields.io/github/stars/gojue/ecapture.svg?label=Stars&logo=github)](https://github.com/gojue/ecapture)
 [![GitHub forks](https://img.shields.io/github/forks/gojue/ecapture?label=Forks&logo=github)](https://github.com/gojue/ecapture)
 [![CI](https://github.com/gojue/ecapture/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/gojue/ecapture/actions/workflows/code-analysis.yml)
 [![Github Version](https://img.shields.io/github/v/release/gojue/ecapture?display_name=tag&include_prereleases&sort=semver)](https://github.com/gojue/ecapture/releases)
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/gojue/ecapture)
 [![QQ 群](https://img.shields.io/badge/QQ群-%2312B7F5?logo=tencent-qq&logoColor=white&style=flat-square)](https://qm.qq.com/cgi-bin/qm/qr?k=iCu561fq4zdbHVdntQLFV0Xugrnf7Hpv&jump_from=webapi&authKey=YamGv189Cg+KFdQt1Qnsw6GZlpx8BYA+G2WZFezohY4M03V+l0eElZWOhZj/wR/5)
 
 ### eCapture(旁观者): 基于eBPF技术实现SSL/TLS加密的明文捕获，无需CA证书。
@@ -39,7 +38,7 @@
 
 # 介绍
 
-eCapture的中文名字为**旁观者**，即「**当局者迷，旁观者清**」，与其本身功能**旁路、观察**
+eCapture的汉字名字为**旁观者**，即「**当局者迷，旁观者清**」，与其本身功能**旁路、观察**
 契合，且发音与英文有相似之处。eCapture使用eBPF `Uprobe`/`Traffic Control`技术，实现各种用户空间/内核空间的数据捕获，无需改动原程序。
 
 
@@ -287,7 +286,7 @@ https://github.com/user-attachments/assets/c8b7a84d-58eb-4fdb-9843-f775c97bdbfb
 
 关于 eCapture/eCaptureQ 使用的 Protobuf 日志模式的详细信息，请参见：
 
-- [protobuf/PROTOCOLS_CN.md](./protobuf/PROTOCOLS_CN.md)
+- [protobuf/PROTOCOLS-zh_Hans.md](protobuf/PROTOCOLS-zh_Hans.md)
 
 ## 星标成长曲线
 
@@ -300,13 +299,13 @@ https://github.com/user-attachments/assets/c8b7a84d-58eb-4fdb-9843-f775c97bdbfb
 # 二次开发
 ## 自行编译
 你可以定制自己想要的功能，比如设定`uprobe`
-的偏移地址，用来支持被静态编译的Openssl类库。编译方法可以参考 [编译指南](./docs/compilation-cn.md) 的介绍。
+的偏移地址，用来支持被静态编译的Openssl类库。编译方法可以参考 [编译指南](docs/compilation-zh_Hans.md) 的介绍。
 
 ## 动态修改配置
-当eCapture运行后，你可以通过HTTP接口动态修改配置，参考[HTTP API 文档](./docs/remote-config-update-api_CN.md)。
+当eCapture运行后，你可以通过HTTP接口动态修改配置，参考[HTTP API 文档](docs/remote-config-update-api-zh_Hans.md)。
 
 ## 事件转发
-eCapture支持多种事件转发方式，你可以将事件转发至Burp Suite等抓包软件，详情参考[事件转发API 文档](./docs/event-forward-api_CN.md)。
+eCapture支持多种事件转发方式，你可以将事件转发至Burp Suite等抓包软件，详情参考[事件转发API 文档](docs/event-forward-api-zh_Hans.md)。
 
 # 微信公众号
 ![](./images/wechat_gzhh.png)

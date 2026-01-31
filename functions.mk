@@ -70,7 +70,7 @@ define release_tar
 	$(CMD_CP) LICENSE $(TAR_DIR)/LICENSE
 	$(CMD_CP) CHANGELOG.md $(TAR_DIR)/CHANGELOG.md
 	$(CMD_CP) README.md $(TAR_DIR)/README.md
-	$(CMD_CP) README_CN.md $(TAR_DIR)/README_CN.md
+	$(CMD_CP) README-zh_Hans.md $(TAR_DIR)/README-zh_Hans.md
 	$(CMD_CP) $(OUTPUT_DIR)/ecapture $(TAR_DIR)/ecapture
 	$(CMD_TAR) -czf $(OUT_ARCHIVE) $(TAR_DIR)
 endef

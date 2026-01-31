@@ -6,7 +6,7 @@ This directory contains comprehensive documentation for the eCapture project.
 
 ### Getting Started
 - [**compilation.md**](compilation.md) - Build and compilation guide (English)
-- [**compilation-cn.md**](compilation-cn.md) - 编译指南 (中文)
+- [**compilation-zh_Hans.md**](compilation-zh_Hans.md) - 编译指南 (汉字)
 
 ### Architecture & Development
 - [**refactoring-guide.md**](refactoring-guide.md) - Probe refactoring patterns and best practices
@@ -19,9 +19,9 @@ This directory contains comprehensive documentation for the eCapture project.
 
 ### API Documentation
 - [**event-forward-api.md**](event-forward-api.md) - Event forwarding API documentation (English)
-- [**event-forward-api_CN.md**](event-forward-api_CN.md) - 事件转发API文档 (中文)
+- [**event-forward-api-zh_Hans.md**](event-forward-api-zh_Hans.md) - 事件转发API文档 (汉字)
 - [**remote-config-update-api.md**](remote-config-update-api.md) - Remote configuration update API (English)
-- [**remote-config-update-api_CN.md**](remote-config-update-api_CN.md) - 远程配置更新API (中文)
+- [**remote-config-update-api-zh_Hans.md**](remote-config-update-api-zh_Hans.md) - 远程配置更新API (汉字)
 
 ### Integration
 - [**event-forward.md**](event-forward.md) - Event forwarding applications and GUI clients
@@ -61,10 +61,6 @@ When adding new documentation:
 
 ## Language Versions
 
-Chinese versions of documents are indicated with a `-cn` suffix:
-- `compilation.md` (English) / `compilation-cn.md` (中文)
-- `event-forward-api.md` (English) / `event-forward-api_CN.md` (中文)
-
-Japanese versions use `-ja` suffix:
-- `README.md` (English) / `README_JA.md` (日本語)
-
+Chinese versions of documents are indicated with a `-zh_Hans` suffix:
+- `compilation.md` (English) / `compilation-zh_Hans.md` (汉字)
+- `event-forward-api.md` (English) / `event-forward-api-zh_Hans.md` (汉字)
