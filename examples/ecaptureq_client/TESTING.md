@@ -76,7 +76,7 @@ You should immediately see:
 Connecting to eCapture WebSocket server at ws://127.0.0.1:28257/
 Connected successfully!
 2025-01-15T10:30:45Z INF AppName="eCapture(旁观者)"
-2025-01-15T10:30:45Z INF HomePage=https://ecapture.cc
+2025-01-15T10:30:45Z INF HomePage=https://v2.ecapture.cc
 ...
 ```
 
