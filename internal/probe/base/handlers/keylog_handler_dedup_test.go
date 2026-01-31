@@ -8,7 +8,7 @@ import (
 
 // Test that all-zero master secrets are filtered out
 func TestKeylogHandler_FilterZeroMasterSecret(t *testing.T) {
-	writer := &mockKeylogWriter{}
+	writer := &mockKeylogDedupWriter{}
 	handler := NewKeylogHandler(writer)
 
 	// Create event with all-zero master key
@@ -38,7 +38,7 @@ func TestKeylogHandler_FilterZeroMasterSecret(t *testing.T) {
 
 // Test that valid master secrets are written
 func TestKeylogHandler_WriteValidMasterSecret(t *testing.T) {
-	writer := &mockKeylogWriter{}
+	writer := &mockKeylogDedupWriter{}
 	handler := NewKeylogHandler(writer)
 
 	// Create event with valid master key
@@ -79,7 +79,7 @@ func TestKeylogHandler_WriteValidMasterSecret(t *testing.T) {
 
 // Test deduplication based on client_random
 func TestKeylogHandler_DeduplicateByClientRandom(t *testing.T) {
-	writer := &mockKeylogWriter{}
+	writer := &mockKeylogDedupWriter{}
 	handler := NewKeylogHandler(writer)
 
 	clientRandom := make([]byte, 32)
@@ -144,11 +144,11 @@ func TestKeylogHandler_DeduplicateByClientRandom(t *testing.T) {
 }
 
 // Mock writer that records what was written
-type mockKeylogWriter struct {
+type mockKeylogDedupWriter struct {
 	written [][]byte
 }
 
-func (m *mockKeylogWriter) Write(p []byte) (n int, err error) {
+func (m *mockKeylogDedupWriter) Write(p []byte) (n int, err error) {
 	// Make a copy since the caller might reuse the buffer
 	data := make([]byte, len(p))
 	copy(data, p)
@@ -156,29 +156,29 @@ func (m *mockKeylogWriter) Write(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
-func (m *mockKeylogWriter) Flush() error {
+func (m *mockKeylogDedupWriter) Flush() error {
 	return nil
 }
 
-func (m *mockKeylogWriter) Name() string {
+func (m *mockKeylogDedupWriter) Name() string {
 	return "mock-keylog-writer"
 }
 
-func (m *mockKeylogWriter) WriteRaw(data []byte) error {
+func (m *mockKeylogDedupWriter) WriteRaw(data []byte) error {
 	_, err := m.Write(data)
 	return err
 }
 
-func (m *mockKeylogWriter) IsReady() bool {
+func (m *mockKeylogDedupWriter) IsReady() bool {
 	return true
 }
 
-func (m *mockKeylogWriter) Close() error {
+func (m *mockKeylogDedupWriter) Close() error {
 	return nil
 }
 
-func (m *mockKeylogWriter) String() string {
+func (m *mockKeylogDedupWriter) String() string {
 	return "mock-keylog-writer"
 }
 
-var _ writers.OutputWriter = (*mockKeylogWriter)(nil)
+var _ writers.OutputWriter = (*mockKeylogDedupWriter)(nil)
