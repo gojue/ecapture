@@ -196,3 +196,70 @@ func TestDispatcherClose(t *testing.T) {
 		t.Error("Dispatch() should return error when dispatcher is closed")
 	}
 }
+
+// mockClosableHandler implements domain.EventHandler with Close() method
+type mockClosableHandler struct {
+	mockHandler
+	closed bool
+}
+
+func (m *mockClosableHandler) Close() error {
+	m.closed = true
+	return nil
+}
+
+func TestDispatcherCloseHandlers(t *testing.T) {
+	log := logger.New(nil, false)
+	disp := NewDispatcher(log)
+
+	// Register a closable handler
+	handler := &mockClosableHandler{
+		mockHandler: mockHandler{name: "test-closable-handler"},
+	}
+	err := disp.Register(handler)
+	if err != nil {
+		t.Fatalf("Register() error = %v", err)
+	}
+
+	// Close the dispatcher
+	err = disp.Close()
+	if err != nil {
+		t.Fatalf("Close() error = %v", err)
+	}
+
+	// Verify handler was closed
+	if !handler.closed {
+		t.Error("handler Close() method was not called during dispatcher Close()")
+	}
+}
+
+// mockFailingClosableHandler implements domain.EventHandler with Close() that returns error
+type mockFailingClosableHandler struct {
+	mockHandler
+}
+
+func (m *mockFailingClosableHandler) Close() error {
+	return errors.New("close failed")
+}
+
+func TestDispatcherCloseHandlersWithError(t *testing.T) {
+	log := logger.New(nil, false)
+	disp := NewDispatcher(log)
+
+	// Register a handler that fails to close
+	handler := &mockFailingClosableHandler{
+		mockHandler: mockHandler{name: "test-failing-handler"},
+	}
+	err := disp.Register(handler)
+	if err != nil {
+		t.Fatalf("Register() error = %v", err)
+	}
+
+	// Close the dispatcher - should return the error from handler.Close()
+	err = disp.Close()
+	if err == nil {
+		t.Error("Close() should return error when handler Close() fails")
+	} else if err.Error() != "close failed" {
+		t.Errorf("expected error 'close failed', got '%v'", err)
+	}
+}

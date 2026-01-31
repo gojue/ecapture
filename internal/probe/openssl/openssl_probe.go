@@ -341,7 +341,8 @@ func (p *Probe) setupManagerPcapNG() error {
 			_ = keylogWriter.Close()
 			return fmt.Errorf("failed to register keylog handler: %w", err)
 		}
-		p.closer = append(p.closer, keylogWriter)
+		// Note: keylogWriter will be closed through keylogHandler.Close() when dispatcher closes
+		// Don't add it to p.closer to avoid double-close
 		p.Logger().Info().Str("Writer", keylogWriter.Name()).Msg("Keylog handler registered for pcapng mode")
 	}
 
@@ -371,7 +372,8 @@ func (p *Probe) setupManagerPcapNG() error {
 		_ = pcapWriter.Close()
 		return fmt.Errorf("failed to register pcap handler: %w", err)
 	}
-	p.closer = append(p.closer, pcapWriter)
+	// Note: pcapWriter will be closed through pcapHandler.Close() when dispatcher closes
+	// Don't add it to p.closer to avoid double-close
 	p.Logger().Info().Str("Writer", pcapWriter.Name()).Msg("Pcap handler registered")
 
 	// Pcapng 的 Keylog writer
@@ -382,7 +384,8 @@ func (p *Probe) setupManagerPcapNG() error {
 		_ = pcapWriter.Close()
 		return fmt.Errorf("failed to register pcapkeylog handler: %w", err)
 	}
-	p.closer = append(p.closer, pcapKeylogWriter)
+	// Note: pcapKeylogWriter will be closed through pcapKeylogHandler.Close()
+	// Don't add it to p.closer to avoid double-close
 	p.Logger().Info().Str("pcap_file", pcapFile).Msg("Pcap handler registered")
 	p.Logger().Debug().
 		Str("ifname", p.config.Ifname).
@@ -444,7 +447,8 @@ func (p *Probe) setupManagerKeyLog() error {
 		_ = keylogWriter.Close()
 		return fmt.Errorf("failed to register keylog handler: %w", err)
 	}
-	p.closer = append(p.closer, keylogWriter)
+	// Note: keylogWriter will be closed through keylogHandler.Close() when dispatcher closes
+	// Don't add it to p.closer to avoid double-close
 	p.Logger().Info().Str("Writer", keylogWriter.Name()).Msg("Keylog handler registered")
 
 	p.bpfManager = &manager.Manager{

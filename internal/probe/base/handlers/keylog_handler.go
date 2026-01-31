@@ -143,23 +143,34 @@ func (h *KeylogHandler) handleTLS12(event MasterSecretEvent) error {
 			fmt.Sprintf("master key too short: %d bytes", len(masterKey)))
 	}
 
+	// Skip if master key is all zeros (eBPF captured before handshake completion)
+	if isZeroBytes(masterKey[:MasterSecretMaxLen]) {
+		return nil // Silently skip - not an error, just captured too early
+	}
+
 	// Format: CLIENT_RANDOM <client_random> <master_secret>
 	line := fmt.Sprintf("%s %x %x\n",
 		KeyLogLabelTLS12,
 		clientRandom[:Ssl3RandomSize],
 		masterKey[:MasterSecretMaxLen])
 
-	// Check if we've already written this key
-	if h.seenKeys[line] {
-		return nil // Skip duplicate
+	// Use client_random as dedup key to avoid multiple captures of same connection
+	// This ensures we only write the first valid (non-zero) master secret
+	dedupKey := fmt.Sprintf("%s_%x", KeyLogLabelTLS12, clientRandom[:Ssl3RandomSize])
+	if h.seenKeys[dedupKey] {
+		return nil // Skip duplicate - already captured this connection
 	}
 
 	// Write to output
 	if _, err := h.writer.Write([]byte(line)); err != nil {
 		return errors.Wrap(errors.ErrCodeEventDispatch, "failed to write keylog entry", err)
 	}
-
-	h.seenKeys[line] = true
+	err := h.writer.Flush()
+	if err != nil {
+		return errors.Wrap(errors.ErrCodeEventDispatch, "failed to flush keylog entry", err)
+	}
+	// Mark this client_random as seen
+	h.seenKeys[dedupKey] = true
 	return nil
 }
 
@@ -180,13 +191,19 @@ func (h *KeylogHandler) handleGoTLS(event GoTLSMasterSecretEvent) error {
 		return errors.New(errors.ErrCodeEventValidation, "secret is empty")
 	}
 
+	// Skip if secret is all zeros (eBPF captured before handshake completion)
+	if isZeroBytes(secret) {
+		return nil // Silently skip - not an error, just captured too early
+	}
+
 	// Format: LABEL <client_random_hex> <secret_hex>
 	// This is the standard NSS Key Log Format used by Wireshark
 	line := fmt.Sprintf("%s %x %x\n", label, clientRandom, secret)
 
-	// Check if we've already written this key
-	if h.seenKeys[line] {
-		return nil // Skip duplicate
+	// Use label+client_random as dedup key to avoid multiple captures
+	dedupKey := fmt.Sprintf("%s_%x", label, clientRandom)
+	if h.seenKeys[dedupKey] {
+		return nil // Skip duplicate - already captured
 	}
 
 	// Write to output
@@ -194,7 +211,8 @@ func (h *KeylogHandler) handleGoTLS(event GoTLSMasterSecretEvent) error {
 		return errors.Wrap(errors.ErrCodeEventDispatch, "failed to write keylog entry", err)
 	}
 
-	h.seenKeys[line] = true
+	// Mark as seen
+	h.seenKeys[dedupKey] = true
 	return nil
 }
 
@@ -218,7 +236,6 @@ func (h *KeylogHandler) handleTLS13(event MasterSecretEvent) error {
 		{KeyLogLabelServerTraffic, event.GetServerAppTrafficSecret()},
 		{KeyLogLabelExporterSecret, event.GetExporterMasterSecret()},
 		{KeyLogLabelServerHandshake, event.GetHandshakeSecret()},
-		//{KeyLogLabelClientEarlyTafficSecret, event.GetEarlySecret()},
 	}
 
 	for _, secret := range secrets {
@@ -226,12 +243,13 @@ func (h *KeylogHandler) handleTLS13(event MasterSecretEvent) error {
 			continue // Skip empty or zero secrets
 		}
 
-		line := fmt.Sprintf("%s %s %x\n", secret.label, clientRandomHex, secret.data)
-
-		// Check for duplicate
-		if h.seenKeys[line] {
-			continue
+		// Use label+client_random as dedup key
+		dedupKey := fmt.Sprintf("%s_%s", secret.label, clientRandomHex)
+		if h.seenKeys[dedupKey] {
+			continue // Already written this secret type for this connection
 		}
+
+		line := fmt.Sprintf("%s %s %x\n", secret.label, clientRandomHex, secret.data)
 
 		// Write to output
 		if _, err := h.writer.Write([]byte(line)); err != nil {
@@ -239,7 +257,7 @@ func (h *KeylogHandler) handleTLS13(event MasterSecretEvent) error {
 				fmt.Sprintf("failed to write %s", secret.label), err)
 		}
 
-		h.seenKeys[line] = true
+		h.seenKeys[dedupKey] = true
 	}
 
 	return nil
