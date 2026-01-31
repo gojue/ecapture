@@ -128,12 +128,22 @@ func (h *PcapHandler) Handle(event domain.Event) error {
 func (h *PcapHandler) Close() error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	err := h.pcapWriter.Flush()
-	if err != nil {
+
+	// First flush the pcap writer (NgWriter)
+	if err := h.pcapWriter.Flush(); err != nil {
 		return err
 	}
+
+	// Then close the pcap writer (NgWriter)
 	if h.pcapWriter != nil {
-		return h.pcapWriter.Close()
+		if err := h.pcapWriter.Close(); err != nil {
+			return err
+		}
+	}
+
+	// Finally close the underlying file writer
+	if h.writer != nil {
+		return h.writer.Close()
 	}
 
 	return nil
