@@ -236,7 +236,6 @@ func (h *KeylogHandler) handleTLS13(event MasterSecretEvent) error {
 		{KeyLogLabelServerTraffic, event.GetServerAppTrafficSecret()},
 		{KeyLogLabelExporterSecret, event.GetExporterMasterSecret()},
 		{KeyLogLabelServerHandshake, event.GetHandshakeSecret()},
-		//{KeyLogLabelClientEarlyTafficSecret, event.GetEarlySecret()},
 	}
 
 	for _, secret := range secrets {

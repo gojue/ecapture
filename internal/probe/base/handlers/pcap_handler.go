@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"github.com/google/gopacket"
-	"github.com/google/gopacket/layers"
 
 	"github.com/gojue/ecapture/internal/output/writers"
 
@@ -65,6 +64,8 @@ type PcapHandler struct {
 	pcapWriter      *writers.PcapWriter
 	mu              sync.Mutex
 	masterKeyBuffer *bytes.Buffer
+	ifName          string
+	filter          string
 }
 
 func (h *PcapHandler) Writer() writers.OutputWriter {
@@ -77,8 +78,12 @@ func NewPcapHandler(writer writers.OutputWriter) (*PcapHandler, error) {
 		return nil, errors.New(errors.ErrCodeResourceAllocation, "output writer cannot be nil")
 	}
 
+	// TODO
+	ifName := ""
+	filter := ""
+
 	// Create pcap writer with Ethernet link type and 65535 snaplen
-	pcapWriter, err := writers.NewPcapWriter(writer, 65535, layers.LinkTypeEthernet)
+	pcapWriter, err := writers.NewPcapWriter(writer, 65535, ifName, filter)
 	if err != nil {
 		return nil, errors.Wrap(errors.ErrCodeResourceAllocation, "failed to create pcap writer", err)
 	}
