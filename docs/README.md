@@ -61,10 +61,6 @@ When adding new documentation:
 
 ## Language Versions
 
-Chinese versions of documents are indicated with a `-cn` suffix:
+Chinese versions of documents are indicated with a `-zh_Hans` suffix:
 - `compilation.md` (English) / `compilation-zh_Hans.md` (汉字)
 - `event-forward-api.md` (English) / `event-forward-api-zh_Hans.md` (汉字)
-
-Japanese versions use `-ja` suffix:
-- `README.md` (English) / `README_JA.md` (日本語)
-

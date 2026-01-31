@@ -1,6 +1,6 @@
 <img src="./images/ecapture-logo.png" alt="eCapture Logo" width="300" height="300"/>
 
-[ 汉字 ](README-zh_Hans.md) | English 
+[汉字](README-zh_Hans.md) | English 
 
 [![GitHub stars](https://img.shields.io/github/stars/gojue/ecapture.svg?label=Stars&logo=github)](https://github.com/gojue/ecapture)
 [![GitHub forks](https://img.shields.io/github/forks/gojue/ecapture?label=Forks&logo=github)](https://github.com/gojue/ecapture)
