@@ -140,9 +140,32 @@ func (d *Dispatcher) Close() error {
 	}
 
 	d.closed = true
+
+	// Close all handlers that implement io.Closer interface
+	var closeErrors []error
+	for name, handler := range d.handlers {
+		if closer, ok := handler.(interface{ Close() error }); ok {
+			d.logger.Debug().Str("handler", name).Msg("Closing handler")
+			if err := closer.Close(); err != nil {
+				d.logger.Debug().
+					Err(err).
+					Str("handler", name).
+					Msg("Failed to close handler")
+				closeErrors = append(closeErrors, err)
+			} else {
+				d.logger.Info().Str("handler", name).Msg("Handler closed successfully")
+			}
+		}
+	}
+
 	d.handlers = nil
 
 	d.logger.Info().Msg("Event dispatcher closed")
+
+	// Return the first error if any occurred
+	if len(closeErrors) > 0 {
+		return closeErrors[0]
+	}
 	return nil
 }
 
