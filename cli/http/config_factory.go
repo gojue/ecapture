@@ -19,26 +19,13 @@ import (
 
 	"github.com/gojue/ecapture/internal/domain"
 	bashProbe "github.com/gojue/ecapture/internal/probe/bash"
-	gnutlsProbe "github.com/gojue/ecapture/internal/probe/gnutls"
 	gotlsProbe "github.com/gojue/ecapture/internal/probe/gotls"
-	mysqlProbe "github.com/gojue/ecapture/internal/probe/mysql"
-	nsprProbe "github.com/gojue/ecapture/internal/probe/nspr"
 	opensslProbe "github.com/gojue/ecapture/internal/probe/openssl"
-	postgresProbe "github.com/gojue/ecapture/internal/probe/postgres"
 )
 
 // createOpensslConfig creates and decodes OpenSSL probe configuration from HTTP request
 func createOpensslConfig(c *gin.Context) (domain.Configuration, error) {
 	conf := opensslProbe.NewConfig()
-	if err := c.ShouldBindJSON(conf); err != nil {
-		return nil, err
-	}
-	return conf, nil
-}
-
-// createGnutlsConfig creates and decodes GnuTLS probe configuration from HTTP request
-func createGnutlsConfig(c *gin.Context) (domain.Configuration, error) {
-	conf := gnutlsProbe.NewConfig()
 	if err := c.ShouldBindJSON(conf); err != nil {
 		return nil, err
 	}
@@ -54,15 +41,6 @@ func createGotlsConfig(c *gin.Context) (domain.Configuration, error) {
 	return conf, nil
 }
 
-// createNsprConfig creates and decodes NSPR probe configuration from HTTP request
-func createNsprConfig(c *gin.Context) (domain.Configuration, error) {
-	conf := nsprProbe.NewConfig()
-	if err := c.ShouldBindJSON(conf); err != nil {
-		return nil, err
-	}
-	return conf, nil
-}
-
 // createBashConfig creates and decodes Bash probe configuration from HTTP request
 func createBashConfig(c *gin.Context) (domain.Configuration, error) {
 	conf := bashProbe.NewConfig()
@@ -72,20 +50,3 @@ func createBashConfig(c *gin.Context) (domain.Configuration, error) {
 	return conf, nil
 }
 
-// createMysqlConfig creates and decodes MySQL probe configuration from HTTP request
-func createMysqlConfig(c *gin.Context) (domain.Configuration, error) {
-	conf := mysqlProbe.NewConfig()
-	if err := c.ShouldBindJSON(conf); err != nil {
-		return nil, err
-	}
-	return conf, nil
-}
-
-// createPostgresConfig creates and decodes Postgres probe configuration from HTTP request
-func createPostgresConfig(c *gin.Context) (domain.Configuration, error) {
-	conf := postgresProbe.NewConfig()
-	if err := c.ShouldBindJSON(conf); err != nil {
-		return nil, err
-	}
-	return conf, nil
-}

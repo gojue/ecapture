@@ -15,7 +15,6 @@
 package openssl
 
 import (
-	"debug/elf"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -69,15 +68,18 @@ func (c *Config) Validate() error {
 		return errors.NewConfigurationError("openssl config validation failed", err)
 	}
 
-	// Detect OpenSSL library
+	// Detect OpenSSL library (platform-specific)
 	if err := c.detectOpenSSL(); err != nil {
 		return errors.NewConfigurationError("openssl detection failed", err)
 	}
 
-	// Detect version
+	// Detect version (platform-specific)
 	if err := c.detectVersion(); err != nil {
 		return errors.NewConfigurationError("openssl version detection failed", err)
 	}
+
+	// Set default interface name if needed (Android-specific)
+	c.setDefaultIfname()
 
 	// If unsupported version is detected, users should report it
 	// See: https://github.com/gojue/ecapture/issues for reporting new versions
@@ -144,108 +146,6 @@ func (c *Config) validateCaptureMode() error {
 	}
 }
 
-// detectOpenSSL locates the OpenSSL library.
-func (c *Config) detectOpenSSL() error {
-	// If OpenSSL path is configured, validate it
-	if c.OpensslPath != "" {
-		if _, err := os.Stat(c.OpensslPath); err != nil {
-			return fmt.Errorf("openssl path not found: %w", err)
-		}
-		return nil
-	}
-
-	// Try common library paths
-	commonPaths := []string{
-		"/usr/lib/x86_64-linux-gnu/libssl.so.1.1",
-		"/usr/lib/x86_64-linux-gnu/libssl.so.3",
-		"/usr/lib/aarch64-linux-gnu/libssl.so.1.1",
-		"/usr/lib/aarch64-linux-gnu/libssl.so.3",
-		"/lib/x86_64-linux-gnu/libssl.so.1.1",
-		"/lib/x86_64-linux-gnu/libssl.so.3",
-		"/lib/aarch64-linux-gnu/libssl.so.1.1",
-		"/lib/aarch64-linux-gnu/libssl.so.3",
-		"/usr/lib64/libssl.so.1.1",
-		"/usr/lib64/libssl.so.3",
-		"/usr/lib/libssl.so.1.1",
-		"/usr/lib/libssl.so.3",
-	}
-
-	for _, path := range commonPaths {
-		if _, err := os.Stat(path); err == nil {
-			c.OpensslPath = path
-			return nil
-		}
-	}
-
-	// Try to find libssl.so via ldconfig or locate
-	// This is a simplified detection - production code might need more robust detection
-	return fmt.Errorf("cannot find libssl.so in common paths")
-}
-
-// detectVersion determines the OpenSSL version.
-func (c *Config) detectVersion() error {
-	if c.OpensslPath == "" {
-		return fmt.Errorf("openssl path not set")
-	}
-
-	// Check if it's BoringSSL
-	if strings.Contains(c.OpensslPath, "boringssl") {
-		c.IsBoringSSL = true
-		c.SslVersion = Version_1_1_1 // BoringSSL is similar to 1.1.1
-		return nil
-	}
-
-	// Extract version from library path or symbols
-	// Simplified version detection based on path
-	if strings.Contains(c.OpensslPath, "libssl.so.1.1") {
-		c.SslVersion = Version_1_1_1
-		return nil
-	}
-	if strings.Contains(c.OpensslPath, "libssl.so.3") {
-		// Could be 3.0, 3.1, or 3.2+
-		// For now, detect between 3.0 and 3.1 by checking symbols
-		if err := c.detectVersion3x(); err != nil {
-			// Fallback to 3.0
-			c.SslVersion = Version_3_0
-		}
-		return nil
-	}
-
-	// Try to detect version from ELF symbols
-	file, err := elf.Open(c.OpensslPath)
-	if err != nil {
-		return fmt.Errorf("failed to open openssl binary: %w", err)
-	}
-	defer func() {
-		_ = file.Close()
-	}()
-
-	// Check for version-specific symbols
-	symbols, err := file.DynamicSymbols()
-	if err != nil {
-		// If we can't read symbols, make a best guess based on path
-		c.SslVersion = Version_1_1_1
-		return nil
-	}
-
-	// Look for version-specific symbols
-	// OpenSSL 3.0+ has different symbol patterns
-	hasProviders := false
-	for _, sym := range symbols {
-		if strings.Contains(sym.Name, "OSSL_PROVIDER") {
-			hasProviders = true
-			break
-		}
-	}
-
-	if hasProviders {
-		c.SslVersion = Version_3_0
-	} else {
-		c.SslVersion = Version_1_1_1
-	}
-
-	return nil
-}
 
 // detectVersion3x attempts to distinguish between OpenSSL 3.0 and 3.1
 func (c *Config) detectVersion3x() error {

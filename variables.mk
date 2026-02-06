@@ -63,7 +63,7 @@ ifndef ANDROID
 endif
 
 ifeq ($(ANDROID),1)
-	TARGET_TAG := androidgki
+	TARGET_TAG := ecap_android
 	TARGET_OS = android
 endif
 
@@ -210,9 +210,9 @@ TARGETS += kern/openssl_3_4_0
 TARGETS += kern/openssl_3_4_1
 TARGETS += kern/openssl_3_5_0
 TARGETS += kern/gotls
+TARGETS += kern/bash
 
 ifeq ($(ANDROID),0)
-	TARGETS += kern/bash
 	TARGETS += kern/zsh
 	TARGETS += kern/gnutls_3_6_12
 	TARGETS += kern/gnutls_3_6_13

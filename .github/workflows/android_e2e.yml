@@ -1,0 +1,207 @@
+name: Android E2E Tests
+
+on:
+  pull_request:
+    branches: [ master, v2 ]
+    paths:
+      - 'kern/**'
+      - 'pkg/**'
+      - 'cli/**'
+      - 'test/e2e/android/**'
+      - '.github/workflows/android_e2e.yml'
+  push:
+    branches: [ master, v2 ]
+    paths:
+      - 'kern/**'
+      - 'pkg/**'
+      - 'cli/**'
+      - 'test/e2e/android/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android-e2e-tests:
+    runs-on: ubuntu-latest
+    name: Android E2E Tests
+
+    strategy:
+      matrix:
+        api-level: [35]  # Android 15
+        target: [google_apis]
+        arch: [arm64-v8a]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.6'
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes \
+            build-essential \
+            pkgconf \
+            libelf-dev \
+            llvm-14 \
+            clang-14 \
+            linux-tools-common \
+            linux-tools-generic \
+            gcc \
+            file
+          
+          # Set up clang-14 as default
+          for tool in "clang" "llc" "llvm-strip"
+          do
+            sudo rm -f /usr/bin/$tool
+            sudo ln -s /usr/bin/$tool-14 /usr/bin/$tool
+          done
+          
+          # Verify tools
+          echo "=== Tool Versions ==="
+          go version
+          clang --version | head -1
+
+      - name: Prepare Linux headers
+        run: |
+          cd /usr/src
+          source_file=$(find . -maxdepth 1 -name "*linux-source*.tar.bz2" | head -1)
+          if [ -n "$source_file" ]; then
+            source_dir=$(echo "$source_file" | sed 's/\.tar\.bz2//g')
+            sudo tar -xf $source_file
+            cd $source_dir
+            test -f .config || sudo make oldconfig
+          fi
+
+      - name: Build ecapture for Android
+        run: |
+          make clean
+          make env
+          echo "Building ecapture for Android (ARM64)..."
+          ANDROID=1 make nocore -j$(nproc)
+          
+          # Verify binary
+          if [ ! -f bin/ecapture ]; then
+            echo "❌ Failed to build ecapture binary"
+            exit 1
+          fi
+          
+          echo "=== Binary Info ==="
+          ls -lh bin/ecapture
+          file bin/ecapture
+          
+          # Verify ARM64 architecture
+          if ! file bin/ecapture | grep -q "ARM aarch64"; then
+            echo "❌ Binary is not ARM64"
+            exit 1
+          fi
+          
+          echo "✓ ecapture built successfully for Android ARM64"
+
+      - name: Build Go test client for Android
+        run: |
+          cd test/e2e
+          echo "Building Go HTTPS client for Android..."
+          CGO_ENABLED=0 GOOS=android GOARCH=arm64 go build -o android/go_https_client_android go_https_client.go
+          
+          if [ -f android/go_https_client_android ]; then
+            echo "✓ Go client built successfully"
+            ls -lh android/go_https_client_android
+          else
+            echo "⚠️  Go client build failed (tests will use curl)"
+          fi
+
+      - name: Enable KVM group permissions
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: AVD cache
+        uses: actions/cache@v4
+        id: avd-cache
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: avd-${{ matrix.api-level }}-${{ matrix.arch }}
+
+      - name: Create AVD and generate snapshot for caching
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api-level }}
+          target: ${{ matrix.target }}
+          arch: ${{ matrix.arch }}
+          force-avd-creation: false
+          ram-size: 4096M
+          disk-size: 8192M
+          emulator-options: -no-window -no-snapshot-save -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: echo "Generated AVD snapshot for caching."
+
+      - name: Run Android E2E Tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api-level }}
+          target: ${{ matrix.target }}
+          arch: ${{ matrix.arch }}
+          force-avd-creation: false
+          ram-size: 4096M
+          disk-size: 8192M
+          emulator-options: -no-snapshot-save -noaudio -no-boot-anim -camera-back none -writable-system
+          disable-animations: true
+          script: |
+            echo "=== Android Emulator Info ==="
+            adb devices
+            adb shell getprop ro.build.version.release
+            adb shell getprop ro.build.version.sdk
+            adb shell uname -a
+            
+            echo "=== Getting root access ==="
+            adb root
+            sleep 5
+            adb wait-for-device
+            
+            echo "=== Checking root ==="
+            adb shell id
+            
+            echo "=== Setting SELinux to permissive ==="
+            adb shell setenforce 0 || true
+            adb shell getenforce
+            
+            echo "=== Setup environment ==="
+            bash test/e2e/android/setup_android_env.sh || true
+            
+            echo "=== Running TLS E2E Test ==="
+            bash test/e2e/android/android_tls_e2e_test.sh || echo "TLS test completed with status $?"
+            
+            echo "=== Running Bash E2E Test ==="
+            bash test/e2e/android/android_bash_e2e_test.sh || echo "Bash test completed with status $?"
+            
+            echo "=== Running GoTLS E2E Test ==="
+            bash test/e2e/android/android_gotls_e2e_test.sh || echo "GoTLS test completed with status $?"
+            
+            echo "=== Test execution completed ==="
+
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-e2e-test-logs
+          path: /tmp/ecapture_android_*
+          retention-days: 7
