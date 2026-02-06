@@ -50,7 +50,7 @@ jobs:
         with:
           go-version: '1.24.6'
 
-      - name: Install build dependencies
+      - name: Install Required Tools
         run: |
           sudo apt-get update
           sudo apt-get install --yes \
@@ -62,24 +62,32 @@ jobs:
             linux-tools-common \
             linux-tools-generic \
             gcc \
-            file
-          
+            curl \
+            wget \
+            netcat-openbsd \
+            openssl \
+            libssl-dev \
+            ca-certificates
+
           # Set up clang-14 as default
           for tool in "clang" "llc" "llvm-strip"
           do
             sudo rm -f /usr/bin/$tool
             sudo ln -s /usr/bin/$tool-14 /usr/bin/$tool
           done
-          
-          # Verify tools
-          echo "=== Tool Versions ==="
+
+          # Verify tools are installed
+          echo "=== Installed Tool Versions ==="
           go version
           clang --version | head -1
+          curl --version | head -1
+          wget --version | head -1
+          openssl version
 
-      - name: Prepare Linux headers
+      - name: Prepare Linux Headers
         run: |
           cd /usr/src
-          source_file=$(find . -maxdepth 1 -name "*linux-source*.tar.bz2" | head -1)
+          source_file=$(find . -maxdepth 1 -name "*linux-source*.tar.bz2")
           if [ -n "$source_file" ]; then
             source_dir=$(echo "$source_file" | sed 's/\.tar\.bz2//g')
             sudo tar -xf $source_file
@@ -87,12 +95,17 @@ jobs:
             test -f .config || sudo make oldconfig
           fi
 
+      - uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+          fetch-depth: 0
+
       - name: Build ecapture for Android
         run: |
           make clean
           make env
           echo "Building ecapture for Android (ARM64)..."
-          ANDROID=1 make nocore -j$(nproc)
+          CROSS_ARCH=arm64 ANDROID=1 make nocore -j$(nproc)
           
           # Verify binary
           if [ ! -f bin/ecapture ]; then

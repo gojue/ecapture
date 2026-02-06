@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -51,7 +52,7 @@ func main() {
 
 		// Read block type
 		err := binary.Read(file, binary.LittleEndian, &blockType)
-		if err == io.EOF {
+		if errors.Is(err,io.EOF) {
 			break
 		}
 		if err != nil {
