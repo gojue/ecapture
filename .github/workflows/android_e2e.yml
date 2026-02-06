@@ -53,47 +53,21 @@ jobs:
       - name: Install Required Tools
         run: |
           sudo apt-get update
-          sudo apt-get install --yes \
-            build-essential \
-            pkgconf \
-            libelf-dev \
-            llvm-14 \
-            clang-14 \
-            linux-tools-common \
-            linux-tools-generic \
-            gcc \
-            curl \
-            wget \
-            netcat-openbsd \
-            openssl \
-            libssl-dev \
-            ca-certificates
-
-          # Set up clang-14 as default
+          sudo apt-get install --yes build-essential pkgconf libelf-dev llvm-14 clang-14 flex bison linux-tools-common linux-tools-generic gcc gcc-aarch64-linux-gnu libssl-dev linux-source
           for tool in "clang" "llc" "llvm-strip"
           do
-            sudo rm -f /usr/bin/$tool
-            sudo ln -s /usr/bin/$tool-14 /usr/bin/$tool
+          sudo rm -f /usr/bin/$tool
+          sudo ln -s /usr/bin/$tool-14 /usr/bin/$tool
           done
-
-          # Verify tools are installed
-          echo "=== Installed Tool Versions ==="
-          go version
-          clang --version | head -1
-          curl --version | head -1
-          wget --version | head -1
-          openssl version
-
-      - name: Prepare Linux Headers
-        run: |
           cd /usr/src
           source_file=$(find . -maxdepth 1 -name "*linux-source*.tar.bz2")
-          if [ -n "$source_file" ]; then
-            source_dir=$(echo "$source_file" | sed 's/\.tar\.bz2//g')
-            sudo tar -xf $source_file
-            cd $source_dir
-            test -f .config || sudo make oldconfig
-          fi
+          source_dir=$(echo "$source_file" | sed 's/\.tar\.bz2//g')  
+          sudo tar -xf $source_file
+          cd $source_dir
+          test -f .config || sudo make oldconfig
+          sudo make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- prepare V=0
+          ls -al /usr/src/$source_dir
+        shell: bash
 
       - uses: actions/checkout@v4
         with:
@@ -102,8 +76,8 @@ jobs:
 
       - name: Build ecapture for Android
         run: |
-          make clean
-          make env
+          CROSS_ARCH=arm64 ANDROID=1 make clean
+          CROSS_ARCH=arm64 ANDROID=1 make env
           echo "Building ecapture for Android (ARM64)..."
           CROSS_ARCH=arm64 ANDROID=1 make nocore -j$(nproc)
           
