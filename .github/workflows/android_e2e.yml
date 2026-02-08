@@ -36,7 +36,7 @@ jobs:
       matrix:
         api-level: [35]  # Android 15
         target: [google_apis]
-        arch: [arm64-v8a]
+        arch: [x86_64]  # Use x86_64 for emulator (host arch matches)
 
     steps:
       - name: Checkout code
@@ -76,10 +76,11 @@ jobs:
 
       - name: Build ecapture for Android
         run: |
-          CROSS_ARCH=arm64 ANDROID=1 make clean
-          CROSS_ARCH=arm64 ANDROID=1 make env
-          echo "Building ecapture for Android (ARM64)..."
-          CROSS_ARCH=arm64 ANDROID=1 make nocore -j$(nproc)
+          # Build for x86_64 (for emulator testing)
+          ANDROID=1 make clean
+          ANDROID=1 make env
+          echo "Building ecapture for Android (x86_64)..."
+          CROSS_ARCH=amd64 ANDROID=1 make nocore -j$(nproc)
           
           # Verify binary
           if [ ! -f bin/ecapture ]; then
@@ -91,19 +92,19 @@ jobs:
           ls -lh bin/ecapture
           file bin/ecapture
           
-          # Verify ARM64 architecture
-          if ! file bin/ecapture | grep -q "ARM aarch64"; then
-            echo "❌ Binary is not ARM64"
+          # Verify x86_64 architecture
+          if ! file bin/ecapture | grep -q "x86-64\|x86_64"; then
+            echo "❌ Binary is not x86_64"
             exit 1
           fi
           
-          echo "✓ ecapture built successfully for Android ARM64"
+          echo "✓ ecapture built successfully for Android x86_64"
 
       - name: Build Go test client for Android
         run: |
           cd test/e2e
           echo "Building Go HTTPS client for Android..."
-          CGO_ENABLED=0 GOOS=android GOARCH=arm64 go build -o android/go_https_client_android go_https_client.go
+          CGO_ENABLED=0 GOOS=android GOARCH=amd64 go build -o android/go_https_client_android go_https_client.go
           
           if [ -f android/go_https_client_android ]; then
             echo "✓ Go client built successfully"

@@ -58,7 +58,7 @@ type Error struct {
 	Code    ErrorCode
 	Message string
 	Cause   error
-	Context map[string]interface{}
+	Context	map[string]interface{ }
 }
 
 // Error implements the error interface.

@@ -49,4 +49,3 @@ func createBashConfig(c *gin.Context) (domain.Configuration, error) {
 	}
 	return conf, nil
 }
-
