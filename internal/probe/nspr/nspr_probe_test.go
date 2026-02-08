@@ -30,7 +30,7 @@ func TestNewProbe(t *testing.T) {
 		t.Fatal("NewProbe() returned nil")
 		return
 	}
-	if probe.Name() != "nspr" {
+	if probe.Name() != "NSPR" {
 		t.Errorf("expected name 'nspr', got %s", probe.Name())
 		return
 	}

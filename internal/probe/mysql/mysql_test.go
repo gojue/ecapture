@@ -228,8 +228,8 @@ func TestProbe_Creation(t *testing.T) {
 		t.Fatal("NewProbe() returned nil")
 	}
 
-	if probe.Name() != "mysql" {
-		t.Errorf("Probe.Name() = %v, want %v", probe.Name(), "mysql")
+	if probe.Name() != "MySQL" {
+		t.Errorf("Probe.Name() = %v, want %v", probe.Name(), "MySQL")
 	}
 }
 
@@ -249,7 +249,7 @@ func TestProbe_Initialize(t *testing.T) {
 	}
 
 	// Verify probe name
-	if probe.Name() != "mysql" {
+	if probe.Name() != "MySQL" {
 		t.Errorf("Probe name = %s, want mysql", probe.Name())
 	}
 }
@@ -267,7 +267,7 @@ func TestProbe_FactoryRegistration(t *testing.T) {
 		return
 	}
 
-	if probe.Name() != "mysql" {
+	if probe.Name() != "MySQL" {
 		t.Errorf("Factory probe name = %v, want %v", probe.Name(), "mysql")
 	}
 }

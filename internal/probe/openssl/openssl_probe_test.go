@@ -30,8 +30,8 @@ func TestNewProbe(t *testing.T) {
 		t.Fatal("NewProbe() returned nil")
 		return
 	}
-	if probe.Name() != "openssl" {
-		t.Errorf("Name() = %v, want 'openssl'", probe.Name())
+	if probe.Name() != "OpenSSL" {
+		t.Errorf("Name() = %v, want 'OpenSSL'", probe.Name())
 	}
 }
 
@@ -143,8 +143,8 @@ func TestProbe_Lifecycle(t *testing.T) {
 	probe.SetOutput(&buf)
 
 	// Just test that basic methods work
-	if probe.Name() != "openssl" {
-		t.Errorf("Name() = %v, want 'openssl'", probe.Name())
+	if probe.Name() != "OpenSSL" {
+		t.Errorf("Name() = %v, want 'OpenSSL'", probe.Name())
 	}
 }
 

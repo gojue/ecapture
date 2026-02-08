@@ -53,7 +53,7 @@ jobs:
       - name: Install Required Tools
         run: |
           sudo apt-get update
-          sudo apt-get install --yes build-essential pkgconf libelf-dev llvm-14 clang-14 flex bison linux-tools-common linux-tools-generic gcc libssl-dev linux-source libpulse0
+          sudo apt-get install --yes build-essential pkgconf libelf-dev llvm-14 clang-14 flex bison linux-tools-common linux-tools-generic gcc libssl-dev linux-source libpulse0 xvfb libxcb-cursor0 libxkbcommon-x11-0
           for tool in "clang" "llc" "llvm-strip"
           do
           sudo rm -f /usr/bin/$tool
@@ -110,6 +110,14 @@ jobs:
           else
             echo "⚠️  Go client build failed (tests will use curl)"
           fi
+
+      - name: Start Xvfb for headless display
+        run: |
+          echo "Starting Xvfb virtual display..."
+          sudo Xvfb :99 -screen 0 1024x768x24 > /dev/null 2>&1 &
+          echo "DISPLAY=:99" >> $GITHUB_ENV
+          sleep 2
+          echo "✓ Xvfb started on display :99"
 
       - name: Enable KVM group permissions
         run: |

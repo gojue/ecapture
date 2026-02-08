@@ -174,5 +174,5 @@ func TestNewProbe(t *testing.T) {
 	probe := NewProbe()
 	assert.NotNil(t, probe)
 	assert.NotNil(t, probe.BaseProbe)
-	assert.Equal(t, "zsh", probe.Name())
+	assert.Equal(t, "Zsh", probe.Name())
 }
