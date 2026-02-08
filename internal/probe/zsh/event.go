@@ -21,13 +21,14 @@ import (
 	"fmt"
 	"strings"
 
+	"golang.org/x/sys/unix"
+
 	"github.com/gojue/ecapture/internal/domain"
 	"github.com/gojue/ecapture/internal/errors"
-	"golang.org/x/sys/unix"
 )
 
 const (
-	MaxDataSizeZsh = 256
+	MaxDataSizeZsh       = 256
 	ZshEventTypeReadline = 0
 )
 
@@ -47,23 +48,23 @@ func (e *Event) DecodeFromBytes(data []byte) error {
 	}
 
 	buf := bytes.NewBuffer(data)
-	
+
 	if err := binary.Read(buf, binary.LittleEndian, &e.ZshType); err != nil {
 		return errors.NewEventDecodeError("zsh event: ZshType", err)
 	}
-	
+
 	if err := binary.Read(buf, binary.LittleEndian, &e.Pid); err != nil {
 		return errors.NewEventDecodeError("zsh event: Pid", err)
 	}
-	
+
 	if err := binary.Read(buf, binary.LittleEndian, &e.Uid); err != nil {
 		return errors.NewEventDecodeError("zsh event: Uid", err)
 	}
-	
+
 	if err := binary.Read(buf, binary.LittleEndian, &e.Comm); err != nil {
 		return errors.NewEventDecodeError("zsh event: Comm", err)
 	}
-	
+
 	if err := binary.Read(buf, binary.LittleEndian, &e.Line); err != nil {
 		return errors.NewEventDecodeError("zsh event: Line", err)
 	}
@@ -80,7 +81,7 @@ func (e *Event) Validate() error {
 // String returns a formatted string representation of the event.
 func (e *Event) String() string {
 	line := strings.TrimSuffix(unix.ByteSliceToString(e.Line[:]), "\n")
-	return fmt.Sprintf("PID:%d, UID:%d, \tComm:%s, \tLine:\n%s", 
+	return fmt.Sprintf("PID:%d, UID:%d, \tComm:%s, \tLine:\n%s",
 		e.Pid, e.Uid, commToString(e.Comm[:]), line)
 }
 
@@ -88,7 +89,7 @@ func (e *Event) String() string {
 func (e *Event) StringHex() string {
 	line := strings.TrimSuffix(unix.ByteSliceToString(e.Line[:]), "\n")
 	hexData := fmt.Sprintf("%x", []byte(line))
-	return fmt.Sprintf("PID:%d, UID:%d, \tComm:%s, \tLine(hex):\n%s", 
+	return fmt.Sprintf("PID:%d, UID:%d, \tComm:%s, \tLine(hex):\n%s",
 		e.Pid, e.Uid, commToString(e.Comm[:]), hexData)
 }
 

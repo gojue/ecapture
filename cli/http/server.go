@@ -49,8 +49,28 @@ func NewHttpServer(addr string, confChan chan domain.Configuration, zerologger z
 		addr:     addr,
 		logger:   zerologger,
 	}
-	hs.attach()
+	// Attach all endpoints - unavailable probes won't be registered due to build tags
+	hs.attachEndpoints()
 	return hs
+}
+
+func (hs *HttpServer) attachEndpoints() {
+	// TLS/SSL related endpoints (available on both Linux and Android)
+	hs.ge.POST("/tls", hs.Tls)
+	hs.ge.POST("/openssl", hs.Tls)
+	hs.ge.POST("/boringssl", hs.Tls)
+	hs.ge.POST("/gotls", hs.Gotls)
+
+	// Shell endpoints (bash available on both, others Linux-only but registered here)
+	hs.ge.POST("/bash", hs.Bash)
+
+	// Database and other Linux-specific endpoints (will fail gracefully if probe not registered)
+	hs.ge.POST("/gnutls", hs.Gnutls)
+	hs.ge.POST("/mysqld", hs.Mysqld)
+	hs.ge.POST("/postgres", hs.Postgress)
+	hs.ge.POST("/postgress", hs.Postgress)
+	hs.ge.POST("/nss", hs.Nss)
+	hs.ge.POST("/nspr", hs.Nss)
 }
 
 func (hs HttpServer) Run() error {
@@ -65,12 +85,24 @@ func (hs *HttpServer) Gnutls(c *gin.Context) {
 	hs.decodeConf(c, "gnutls")
 }
 
+func (hs *HttpServer) Mysqld(c *gin.Context) {
+	hs.decodeConf(c, "mysql")
+}
+
+func (hs *HttpServer) Postgress(c *gin.Context) {
+	hs.decodeConf(c, "postgres")
+}
+
 func (hs *HttpServer) Gotls(c *gin.Context) {
 	hs.decodeConf(c, "gotls")
 }
 
 func (hs *HttpServer) Nss(c *gin.Context) {
 	hs.decodeConf(c, "nspr")
+}
+
+func (hs *HttpServer) Bash(c *gin.Context) {
+	hs.decodeConf(c, "bash")
 }
 
 func (hs *HttpServer) decodeConf(c *gin.Context, probeType string) {

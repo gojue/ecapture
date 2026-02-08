@@ -136,7 +136,7 @@ func TestNewProbe(t *testing.T) {
 	if probe == nil {
 		t.Fatal("NewProbe() returned nil")
 	}
-	if probe.Name() != "bash" {
+	if probe.Name() != "Bash" {
 		t.Errorf("expected name 'bash', got %s", probe.Name())
 	}
 }

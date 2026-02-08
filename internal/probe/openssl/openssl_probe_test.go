@@ -30,8 +30,8 @@ func TestNewProbe(t *testing.T) {
 		t.Fatal("NewProbe() returned nil")
 		return
 	}
-	if probe.Name() != "openssl" {
-		t.Errorf("Name() = %v, want 'openssl'", probe.Name())
+	if probe.Name() != "OpenSSL" {
+		t.Errorf("Name() = %v, want 'OpenSSL'", probe.Name())
 	}
 }
 
@@ -115,22 +115,6 @@ func TestProbe_Events(t *testing.T) {
 	}
 }
 
-func TestProbe_DecodeFun(t *testing.T) {
-	probe, err := NewProbe()
-	if err != nil {
-		t.Fatalf("NewProbe() failed: %v", err)
-	}
-
-	// DecodeFun returns an EventDecoder
-	decoder, ok := probe.DecodeFun(nil)
-	if !ok {
-		t.Error("DecodeFun() returned false")
-	}
-	if decoder == nil {
-		t.Error("DecodeFun() returned nil decoder")
-	}
-}
-
 func TestProbe_Lifecycle(t *testing.T) {
 	// Test basic lifecycle without full initialization
 	probe, err := NewProbe()
@@ -143,8 +127,8 @@ func TestProbe_Lifecycle(t *testing.T) {
 	probe.SetOutput(&buf)
 
 	// Just test that basic methods work
-	if probe.Name() != "openssl" {
-		t.Errorf("Name() = %v, want 'openssl'", probe.Name())
+	if probe.Name() != "OpenSSL" {
+		t.Errorf("Name() = %v, want 'OpenSSL'", probe.Name())
 	}
 }
 

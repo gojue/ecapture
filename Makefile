@@ -307,3 +307,29 @@ e2e-advanced: e2e-tls-text-advanced e2e-tls-pcap-advanced e2e-tls-keylog-advance
 .PHONY: e2e
 e2e: e2e-basic e2e-advanced
 	@echo "All e2e tests completed"
+
+# Android e2e tests
+.PHONY: e2e-android-tls
+e2e-android-tls:
+	bash ./test/e2e/android/android_tls_e2e_test.sh
+
+.PHONY: e2e-android-gotls
+e2e-android-gotls:
+	bash ./test/e2e/android/android_gotls_e2e_test.sh
+
+.PHONY: e2e-android-bash
+e2e-android-bash:
+	bash ./test/e2e/android/android_bash_e2e_test.sh
+
+.PHONY: e2e-android-all
+e2e-android-all: e2e-android-tls e2e-android-gotls e2e-android-bash
+	@echo "All Android e2e tests completed"
+
+.PHONY: build-android-tests
+build-android-tests:
+	bash ./test/e2e/android/build_android_tests.sh
+
+.PHONY: setup-android-env
+setup-android-env:
+	bash ./test/e2e/android/setup_android_env.sh
+

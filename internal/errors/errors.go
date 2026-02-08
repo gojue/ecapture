@@ -58,7 +58,7 @@ type Error struct {
 	Code    ErrorCode
 	Message string
 	Cause   error
-	Context map[string]interface{}
+	Context map[string]any
 }
 
 // Error implements the error interface.
@@ -75,9 +75,9 @@ func (e *Error) Unwrap() error {
 }
 
 // WithContext adds contextual information to the error.
-func (e *Error) WithContext(key string, value interface{}) *Error {
+func (e *Error) WithContext(key string, value any) *Error {
 	if e.Context == nil {
-		e.Context = make(map[string]interface{})
+		e.Context = make(map[string]any)
 	}
 	e.Context[key] = value
 	return e
@@ -88,7 +88,7 @@ func New(code ErrorCode, message string) *Error {
 	return &Error{
 		Code:    code,
 		Message: message,
-		Context: make(map[string]interface{}),
+		Context: make(map[string]any),
 	}
 }
 
@@ -98,7 +98,7 @@ func Wrap(code ErrorCode, message string, cause error) *Error {
 		Code:    code,
 		Message: message,
 		Cause:   cause,
-		Context: make(map[string]interface{}),
+		Context: make(map[string]any),
 	}
 }
 

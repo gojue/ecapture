@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -33,7 +34,10 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Error opening file: %v\n", err)
 		os.Exit(1)
 	}
-	defer file.Close()
+	defer func(file *os.File) {
+		_ = file.Close()
+
+	}(file)
 
 	fmt.Printf("Analyzing PCAPNG file: %s\n", filename)
 	fmt.Println("===========================================")
@@ -48,7 +52,7 @@ func main() {
 
 		// Read block type
 		err := binary.Read(file, binary.LittleEndian, &blockType)
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -107,12 +111,12 @@ func main() {
 							// Skip remaining block data
 							remaining := int(blockLength) - 12 - 4 - 4 - int(secretsLength)
 							if remaining > 0 {
-								file.Seek(int64(remaining), io.SeekCurrent)
+								_, _ = file.Seek(int64(remaining), io.SeekCurrent)
 							}
 							continue
 						} else {
 							// Skip secrets data
-							file.Seek(int64(secretsLength), io.SeekCurrent)
+							_, _ = file.Seek(int64(secretsLength), io.SeekCurrent)
 						}
 					}
 				}

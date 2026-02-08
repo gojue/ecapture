@@ -45,7 +45,7 @@ func TestCheckLatest(t *testing.T) {
 	)
 	t.Logf("User-Agent:%d, %s", len(useragent), useragent)
 	//var ver = "linux_arm64:v0.8.8:5.15.0-125-generic"
-	var ver = "androidgki:v0.8.8:5.15.0-125-generic"
+	var ver = "ecap_android:v0.8.8:5.15.0-125-generic"
 	ver = "linux_arm64:v0.8.10-20241116-fcddaeb:5.15.0-125-generic"
 	ver = "linux_arm64:v0.9.1:6.5.0-1025-azure"
 	var arch = "amd64"
@@ -58,11 +58,11 @@ func TestCheckLatest(t *testing.T) {
 	verMatch := rex.FindStringSubmatch(ver)
 	if len(verMatch) <= 2 {
 		t.Fatalf("Error matching version: %s", ver)
-	return
-}
+		return
+	}
 	t.Logf("match Version: %v", verMatch)
 	var os = "linux"
-	if strings.Contains(verMatch[1], "androidgki") {
+	if strings.Contains(verMatch[1], "ecap_android") {
 		os = "android"
 	}
 

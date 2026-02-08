@@ -1,5 +1,5 @@
-//go:build !androidgki
-// +build !androidgki
+//go:build !ecap_android
+// +build !ecap_android
 
 // Copyright 2022 CFC4N <cfc4n.cs@gmail.com>. All Rights Reserved.
 //
@@ -29,6 +29,7 @@ import (
 var gnutlsConfig = gnutlsProbe.NewConfig()
 
 // gnutlsCmd represents the gnutls command
+// Now available on both Linux and Android (via Termux: pkg install gnutls)
 var gnutlsCmd = &cobra.Command{
 	Use:     "gnutls",
 	Aliases: []string{"gnu"},
@@ -40,6 +41,9 @@ ecapture gnutls -l save.log --pid=3423
 ecapture gnutls --gnutls=/lib/x86_64-linux-gnu/libgnutls.so
 ecapture gnutls -m keylog -k ecapture_gnutls_key.log --ssl_version=3.7.9
 ecapture gnutls -m pcap --pcapfile save.pcapng -i eth0 --gnutls=/lib/x86_64-linux-gnu/libgnutls.so tcp port 443
+
+Android (Termux):
+ecapture gnutls --gnutls=/data/data/com.termux/files/usr/lib/libgnutls.so
 `,
 	RunE: gnuTlsCommandFunc,
 }

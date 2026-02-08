@@ -1,5 +1,5 @@
-//go:build androidgki
-// +build androidgki
+//go:build ecap_android
+// +build ecap_android
 
 // Copyright 2022 CFC4N <cfc4n.cs@gmail.com>. All Rights Reserved.
 //

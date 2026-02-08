@@ -154,7 +154,9 @@ func (p *Probe) Events() []*ebpf.Map {
 // Close releases all probe resources.
 func (p *Probe) Close() error {
 	// Close eBPF manager and other resources when implemented
-
+	if p.BaseProbe == nil {
+		return nil
+	}
 	return p.BaseProbe.Close()
 }
 

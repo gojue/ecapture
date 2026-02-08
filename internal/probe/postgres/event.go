@@ -19,9 +19,10 @@ import (
 	"encoding/binary"
 	"fmt"
 
+	"golang.org/x/sys/unix"
+
 	"github.com/gojue/ecapture/internal/domain"
 	"github.com/gojue/ecapture/internal/errors"
-	"golang.org/x/sys/unix"
 )
 
 const (

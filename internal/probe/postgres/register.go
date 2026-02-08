@@ -1,4 +1,7 @@
-// Copyright 2024 CFC4N <cfc4n.cs@gmail.com>. All Rights Reserved.
+//go:build !ecap_android
+// +build !ecap_android
+
+// Copyright 2022 CFC4N <cfc4n.cs@gmail.com>. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
