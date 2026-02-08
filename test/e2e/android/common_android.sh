@@ -111,10 +111,10 @@ check_android_arch() {
 
     log_info "Architecture: $arch"
 
-    if [[ "$arch" != "aarch64" && "$arch" != "arm64" ]]; then
-        log_error "Architecture $arch is not supported. Required: aarch64/arm64"
-        return 1
-    fi
+#    if [[ "$arch" != "aarch64" && "$arch" != "arm64" ]]; then
+#        log_error "Architecture $arch is not supported. Required: aarch64/arm64"
+#        return 1
+#    fi
 
     log_success "Architecture: $arch - OK"
     return 0

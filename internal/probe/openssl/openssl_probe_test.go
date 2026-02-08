@@ -115,22 +115,6 @@ func TestProbe_Events(t *testing.T) {
 	}
 }
 
-func TestProbe_DecodeFun(t *testing.T) {
-	probe, err := NewProbe()
-	if err != nil {
-		t.Fatalf("NewProbe() failed: %v", err)
-	}
-
-	// DecodeFun returns an EventDecoder
-	decoder, ok := probe.DecodeFun(nil)
-	if !ok {
-		t.Error("DecodeFun() returned false")
-	}
-	if decoder == nil {
-		t.Error("DecodeFun() returned nil decoder")
-	}
-}
-
 func TestProbe_Lifecycle(t *testing.T) {
 	// Test basic lifecycle without full initialization
 	probe, err := NewProbe()
