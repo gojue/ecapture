@@ -53,7 +53,7 @@ jobs:
       - name: Install Required Tools
         run: |
           sudo apt-get update
-          sudo apt-get install --yes build-essential pkgconf libelf-dev llvm-14 clang-14 flex bison linux-tools-common linux-tools-generic gcc gcc-aarch64-linux-gnu libssl-dev linux-source
+          sudo apt-get install --yes build-essential pkgconf libelf-dev llvm-14 clang-14 flex bison linux-tools-common linux-tools-generic gcc libssl-dev linux-source libpulse0
           for tool in "clang" "llc" "llvm-strip"
           do
           sudo rm -f /usr/bin/$tool
@@ -65,8 +65,6 @@ jobs:
           sudo tar -xf $source_file
           cd $source_dir
           test -f .config || sudo make oldconfig
-          sudo make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- prepare V=0
-          ls -al /usr/src/$source_dir
         shell: bash
 
       - uses: actions/checkout@v4

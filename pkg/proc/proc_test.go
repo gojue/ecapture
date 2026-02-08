@@ -45,13 +45,13 @@ func TestExtraceGoVersionGccgo(t *testing.T) {
 	e = os.MkdirAll(goBuildPath, os.ModePerm)
 	if e != nil {
 		t.Fatal(e)
-return
-}
+		return
+	}
 	e = os.MkdirAll(goEnvPath, os.ModePerm)
 	if e != nil {
 		t.Fatal(e)
-return
-}
+		return
+	}
 
 	c := exec.Command("go", "build", "-v", ".")
 
@@ -70,7 +70,7 @@ return
 	t.Logf("Extrace GoVersion from CGO ELF :%s", p1)
 	if err != nil {
 		t.Fatal(err)
-return
-}
+		return
+	}
 	t.Logf("version found :%v", ver)
 }
