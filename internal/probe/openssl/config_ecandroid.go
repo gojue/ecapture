@@ -107,4 +107,3 @@ func (c *Config) setDefaultIfname() {
 		c.Ifname = DefaultIfname
 	}
 }
-

@@ -94,4 +94,3 @@ func (c *Config) detectVersion() error {
 func (c *Config) setDefaultIfname() {
 	// Linux doesn't need a default interface
 }
-

@@ -146,7 +146,6 @@ func (c *Config) validateCaptureMode() error {
 	}
 }
 
-
 // detectVersion3x attempts to distinguish between OpenSSL 3.0 and 3.1
 func (c *Config) detectVersion3x() error {
 	// Read the actual shared library to check version string
