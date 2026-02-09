@@ -22,7 +22,7 @@ type GoVersion struct {
 
 // After returns true if it is greater than major.minor
 func (v *GoVersion) After(major, minor int) bool {
-	if v.major > minor {
+	if v.major > major {
 		return true
 	}
 	if v.major == major && v.minor > minor {

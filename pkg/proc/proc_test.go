@@ -71,3 +71,25 @@ func TestExtraceGoVersionGccgo(t *testing.T) {
 	}
 	t.Logf("version found :%v", ver)
 }
+
+func TestGoVersionAfter(t *testing.T) {
+	tests := []struct {
+		v     GoVersion
+		major int
+		minor int
+		want  bool
+	}{
+		{GoVersion{1, 15}, 1, 14, true},
+		{GoVersion{1, 15}, 1, 15, false},
+		{GoVersion{1, 15}, 1, 16, false},
+		{GoVersion{2, 0}, 1, 20, true},
+		{GoVersion{1, 20}, 2, 0, false},
+	}
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%d.%d After %d.%d", tt.v.major, tt.v.minor, tt.major, tt.minor), func(t *testing.T) {
+			if got := tt.v.After(tt.major, tt.minor); got != tt.want {
+				t.Errorf("GoVersion.After() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
