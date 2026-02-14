@@ -35,8 +35,8 @@ func detectKernel() error {
 			return fmt.Errorf("the Linux/Android Kernel version %v (x86_64) is not supported. Requires a version greater than 4.18", kv)
 		}
 	case "arm64":
-		if kv < kernel.VersionCode(5, 5, 0) {
-			return fmt.Errorf("the Linux/Android Kernel version %v (aarch64) is not supported. Requires a version greater than 5.5", kv)
+		if kv < kernel.VersionCode(4, 19, 0) {
+			return fmt.Errorf("the Linux/Android Kernel version %v (aarch64) is not supported. Requires a version greater than 4.19", kv)
 		}
 	default:
 		return fmt.Errorf("unsupported CPU arch:%v", runtime.GOARCH)
