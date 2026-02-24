@@ -1,4 +1,4 @@
-// Copyright 2024 CFC4N <cfc4n.cs@gmail.com>. All Rights Reserved.
+// Copyright 2022 CFC4N <cfc4n.cs@gmail.com>. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 package gotls
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 
@@ -22,10 +23,18 @@ import (
 	"github.com/gojue/ecapture/internal/errors"
 )
 
+const (
+	TaskCommLen = 16
+	CmdlineLen  = 256
+)
+
 // PacketEvent represents a network packet captured by TC probes.
 // This implements the PacketEvent interface from handlers package.
 type PacketEvent struct {
 	Timestamp      uint64
+	Pid            uint32
+	Comm           [TaskCommLen]byte
+	Cmdline        [CmdlineLen]byte
 	PacketLen      uint32
 	InterfaceIndex uint32
 	PacketData     []byte
@@ -33,21 +42,36 @@ type PacketEvent struct {
 
 // DecodeFromBytes decodes a packet event from raw bytes.
 func (e *PacketEvent) DecodeFromBytes(data []byte) error {
-	if len(data) < 16 {
+	if len(data) < 36 {
 		return errors.New(errors.ErrCodeEventDecode, "packet event data too short")
 	}
-
-	// Decode header
-	e.Timestamp = binary.LittleEndian.Uint64(data[0:8])
-	e.PacketLen = binary.LittleEndian.Uint32(data[8:12])
-	e.InterfaceIndex = binary.LittleEndian.Uint32(data[12:16])
-
-	// Decode packet data
-	if len(data) > 16 {
-		e.PacketData = make([]byte, len(data)-16)
-		copy(e.PacketData, data[16:])
+	var err error
+	buf := bytes.NewBuffer(data)
+	if err = binary.Read(buf, binary.LittleEndian, &e.Timestamp); err != nil {
+		return err
 	}
-
+	if err = binary.Read(buf, binary.LittleEndian, &e.Pid); err != nil {
+		return err
+	}
+	if err = binary.Read(buf, binary.LittleEndian, &e.Comm); err != nil {
+		return err
+	}
+	//if err = binary.Read(buf, binary.LittleEndian, &te.Cmdline); err != nil {
+	//	return
+	//}
+	//TODO
+	e.Cmdline[0] = 91 //ascii 91
+	if err = binary.Read(buf, binary.LittleEndian, &e.PacketLen); err != nil {
+		return err
+	}
+	if err = binary.Read(buf, binary.LittleEndian, &e.InterfaceIndex); err != nil {
+		return err
+	}
+	tmpData := make([]byte, e.PacketLen)
+	if err = binary.Read(buf, binary.LittleEndian, &tmpData); err != nil {
+		return err
+	}
+	e.PacketData = tmpData
 	return nil
 }
 
@@ -127,4 +151,16 @@ func (e *PacketEvent) GetSrcPort() uint16 {
 
 func (e *PacketEvent) GetDstPort() uint16 {
 	return 0
+}
+
+// Decode implements domain.EventDecoder interface for packet events.
+func (e *PacketEvent) Decode(data []byte) (domain.Event, error) {
+	event := &PacketEvent{}
+	if err := event.DecodeFromBytes(data); err != nil {
+		return nil, err
+	}
+	if err := event.Validate(); err != nil {
+		return nil, err
+	}
+	return event, nil
 }

@@ -55,8 +55,13 @@ func goTLSCommandFunc(command *cobra.Command, args []string) error {
 	}
 
 	// Set global config from BaseConfig
-	gotlsConfig.Pid = globalConf.Pid
-
+	gotlsConfig.SetPid(globalConf.Pid)
+	gotlsConfig.SetUid(globalConf.Uid)
+	gotlsConfig.SetDebug(globalConf.Debug)
+	gotlsConfig.SetHex(globalConf.IsHex)
+	gotlsConfig.SetBTF(globalConf.BtfMode)
+	gotlsConfig.SetPerCpuMapSize(globalConf.PerCpuMapSize)
+	gotlsConfig.SetTruncateSize(globalConf.TruncateSize)
 	// Run probe using the common entry point
 	return runProbe(factory.ProbeTypeGoTLS, gotlsConfig)
 }

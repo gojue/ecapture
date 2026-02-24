@@ -21,6 +21,8 @@ import (
 
 	"github.com/google/gopacket"
 
+	"github.com/gojue/ecapture/internal/logger"
+
 	"github.com/gojue/ecapture/internal/output/writers"
 
 	"github.com/gojue/ecapture/internal/domain"
@@ -56,6 +58,33 @@ type NetCaptureData struct {
 	ConfigIfaceIndex uint32 `json:"ifIndex"`
 }
 
+type Option func(*PcapHandler) error
+
+// WithInterfaceName sets the network interface name for the pcap writer.
+func WithInterfaceName(ifName string) Option {
+	return func(h *PcapHandler) error {
+		h.ifName = ifName
+		return nil
+	}
+}
+
+// WithFilter sets the BPF filter for the pcap writer.
+func WithFilter(filter string) Option {
+	return func(h *PcapHandler) error {
+		h.filter = filter
+		return nil
+	}
+}
+
+// WithLogger sets the logger for the PcapHandler (currently unused, but can be used for future logging enhancements).
+func WithLogger(logger *logger.Logger) Option {
+	return func(h *PcapHandler) error {
+		// Currently no logger is used in PcapHandler, but we can add logging in the future if needed.
+		h.logger = logger
+		return nil
+	}
+}
+
 // PcapHandler handles packet events by writing them in PCAPNG format.
 // PCAPNG (Packet Capture Next Generation) is the modern packet capture format
 // that can be analyzed with Wireshark and other network analysis tools.
@@ -66,6 +95,7 @@ type PcapHandler struct {
 	masterKeyBuffer *bytes.Buffer
 	ifName          string
 	filter          string
+	logger          *logger.Logger
 }
 
 func (h *PcapHandler) Writer() writers.OutputWriter {
@@ -73,17 +103,13 @@ func (h *PcapHandler) Writer() writers.OutputWriter {
 }
 
 // NewPcapHandler creates a new PcapHandler with the provided writer.
-func NewPcapHandler(writer writers.OutputWriter) (*PcapHandler, error) {
+func NewPcapHandler(writer writers.OutputWriter, ifName, filter string, lger *logger.Logger) (*PcapHandler, error) {
 	if writer == nil {
 		return nil, errors.New(errors.ErrCodeResourceAllocation, "output writer cannot be nil")
 	}
 
-	// TODO
-	ifName := ""
-	filter := ""
-
 	// Create pcap writer with Ethernet link type and 65535 snaplen
-	pcapWriter, err := writers.NewPcapWriter(writer, 65535, ifName, filter)
+	pcapWriter, err := writers.NewPcapWriter(writer, 65535, ifName, filter, lger)
 	if err != nil {
 		return nil, errors.Wrap(errors.ErrCodeResourceAllocation, "failed to create pcap writer", err)
 	}
@@ -92,6 +118,7 @@ func NewPcapHandler(writer writers.OutputWriter) (*PcapHandler, error) {
 		writer:          writer,
 		pcapWriter:      pcapWriter,
 		masterKeyBuffer: bytes.NewBuffer(nil),
+		logger:          lger,
 	}, nil
 }
 
@@ -104,6 +131,7 @@ func (h *PcapHandler) Handle(event domain.Event) error {
 	// Type assert to packet event
 	pktEvent, ok := event.(PacketEvent)
 	if !ok {
+		h.logger.Debug().Msg("event is not a PacketEvent")
 		// Not a packet event, skip silently (other handlers will process it)
 		return nil
 	}
@@ -114,6 +142,7 @@ func (h *PcapHandler) Handle(event domain.Event) error {
 	// Get packet data
 	packetData := pktEvent.GetPacketData()
 	if len(packetData) == 0 {
+		h.logger.Debug().Msg("packet data is empty")
 		return nil // Empty packet, skip
 	}
 

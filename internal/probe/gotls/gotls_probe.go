@@ -18,12 +18,19 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"math"
+	"net"
 	"os"
+	"strings"
 
 	"github.com/cilium/ebpf"
 	manager "github.com/gojue/ebpfmanager"
 	"golang.org/x/sys/unix"
+
+	"github.com/gojue/ecapture/internal/output/writers"
+
+	pkgebpf "github.com/gojue/ecapture/pkg/util/ebpf"
 
 	"github.com/gojue/ecapture/internal/factory"
 
@@ -35,6 +42,12 @@ import (
 	"github.com/gojue/ecapture/pkg/util/kernel"
 )
 
+const (
+	GoTlsReadFunc         = "crypto/tls.(*Conn).Read"
+	GoTlsWriteFunc        = "crypto/tls.(*Conn).writeRecordLocked"
+	GoTlsMasterSecretFunc = "crypto/tls.(*Config).writeKeyLog"
+)
+
 // Probe represents the GoTLS probe
 type Probe struct {
 	*base.BaseProbe
@@ -43,10 +56,14 @@ type Probe struct {
 	eventFuncMaps    map[*ebpf.Map]domain.EventDecoder
 	mapNameToDecoder map[string]domain.EventDecoder // Maps configured in setupManager
 	eventMaps        []*ebpf.Map
+	closer           []io.Closer
 
 	// File handles for different capture modes
 	keylogFile *os.File
 	pcapFile   *os.File
+	PcapFilter string
+	ifName     string
+	ifIdex     int
 }
 
 // NewProbe creates a new GoTLS probe
@@ -55,6 +72,7 @@ func NewProbe() (*Probe, error) {
 		BaseProbe:        base.NewBaseProbe(string(factory.ProbeTypeGoTLS)),
 		eventFuncMaps:    make(map[*ebpf.Map]domain.EventDecoder),
 		mapNameToDecoder: make(map[string]domain.EventDecoder),
+		closer:           make([]io.Closer, 0),
 	}, nil
 }
 
@@ -77,60 +95,6 @@ func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration) error 
 		Str("capture_mode", gotlsConfig.CaptureMode).
 		Str("elf_path", gotlsConfig.ElfPath).
 		Msg("GoTLS probe initialized")
-
-	// Open output files based on capture mode
-	if err := p.openOutputFiles(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// openOutputFiles opens output files based on capture mode
-func (p *Probe) openOutputFiles() error {
-	// Normalize capture mode: treat "pcapng" as "pcap"
-	if handlers.IsModePcapng(p.config.CaptureMode) {
-		p.config.CaptureMode = handlers.ModePcap
-	}
-
-	switch p.config.CaptureMode {
-	case handlers.ModeKeylog, handlers.ModeKey:
-		if p.config.KeylogFile == "" {
-			return errors.NewConfigurationError("keylog_file is required for keylog mode", nil)
-		}
-		file, err := os.OpenFile(p.config.KeylogFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
-		if err != nil {
-			return errors.NewConfigurationError("failed to open keylog file", err)
-		}
-		p.keylogFile = file
-
-	case handlers.ModePcap:
-		// PCAP mode requires pcap file for storing TC probe network packets
-		if p.config.PcapFile == "" {
-			return errors.NewConfigurationError("pcap_file is required for pcap mode", nil)
-		}
-		file, err := os.OpenFile(p.config.PcapFile, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
-		if err != nil {
-			return errors.NewConfigurationError("failed to open pcap file", err)
-		}
-		p.pcapFile = file
-
-		// For pcapng mode, optionally open keylog file if specified
-		// Master secrets can be embedded in PCAPNG DSB blocks or written to separate keylog
-		if p.config.KeylogFile != "" {
-			keylogFile, err := os.OpenFile(p.config.KeylogFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
-			if err != nil {
-				p.Logger().Warn().Err(err).Msg("Failed to open keylog file for pcapng mode, will embed in DSB only")
-			} else {
-				p.keylogFile = keylogFile
-			}
-		}
-
-	case "text":
-		// Text mode uses stdout, no file to open
-	default:
-		return errors.NewConfigurationError("invalid capture mode", fmt.Errorf("mode: %s", p.config.CaptureMode))
-	}
 
 	return nil
 }
@@ -200,11 +164,14 @@ func (p *Probe) retrieveEventMaps() error {
 			continue
 		}
 
+		p.Logger().Debug().Str("map", mapName).Str("decoder", fmt.Sprintf("%T", decoder)).Msg("Map found and decoder mapped")
 		// Add to eventMaps and map the actual *ebpf.Map to decoder
 		p.eventMaps = append(p.eventMaps, em)
 		p.eventFuncMaps[em] = decoder
 	}
-
+	if len(p.eventFuncMaps) == 0 || len(p.mapNameToDecoder) != len(p.eventFuncMaps) {
+		return errors.Wrap(errors.ErrCodeConfiguration, "no event maps found or decoder mapping mismatch", nil)
+	}
 	p.Logger().Info().
 		Int("num_maps", len(p.eventMaps)).
 		Int("num_decoders", len(p.eventFuncMaps)).
@@ -229,81 +196,15 @@ func (p *Probe) Close() error {
 	}
 
 	// Close file handles
-	if p.keylogFile != nil {
-		if err := p.keylogFile.Close(); err != nil {
-			p.Logger().Warn().Err(err).Msg("Failed to close keylog file")
-		}
-		p.keylogFile = nil
-	}
-
-	if p.pcapFile != nil {
-		if err := p.pcapFile.Close(); err != nil {
-			p.Logger().Warn().Err(err).Msg("Failed to close pcap file")
-		}
-		p.pcapFile = nil
-	}
-
-	return p.BaseProbe.Close()
-}
-
-// writeMasterSecretToFile writes a master secret event to the appropriate output file
-func (p *Probe) writeMasterSecretToFile(event *MasterSecretEvent) error {
-	if event == nil {
-		return nil
-	}
-
-	// Only write to keylog file in keylog or pcap mode
-	if !handlers.IsModeKeylog(p.config.CaptureMode) && !handlers.IsModePcapng(p.config.CaptureMode) {
-		return nil
-	}
-
-	// Ensure we have a file to write to
-	var file *os.File
-	if handlers.IsModeKeylog(p.config.CaptureMode) {
-		file = p.keylogFile
-	} else if handlers.IsModePcapng(p.config.CaptureMode) {
-		// For pcap mode, we also write to keylog file (DSB block handling)
-		// If keylogFile is set, use it; otherwise, pcapFile will handle DSB internally
-		file = p.keylogFile
-		if file == nil {
-			// TODO: In pcapng mode, master secrets should be written to DSB blocks
-			// For now, we'll just log them
-			p.Logger().Debug().
-				Str("label", event.GetLabel()).
-				Int("client_random_len", len(event.GetClientRandom())).
-				Int("secret_len", len(event.GetSecret())).
-				Msg("Master secret event (will be added to PCAPNG DSB)")
-			return nil
+	for _, closer := range p.closer {
+		if err := closer.Close(); err != nil {
+			p.Logger().Warn().Err(err).Msg("Failed to close resource")
 		}
 	}
-
-	if file == nil {
-		return fmt.Errorf("keylog file not open")
-	}
-
-	// Format: LABEL CLIENTRANDOM SECRET
-	// This follows the NSS Key Log Format used by Wireshark
-	label := event.GetLabel()
-	clientRandom := fmt.Sprintf("%x", event.GetClientRandom())
-	secret := fmt.Sprintf("%x", event.GetSecret())
-
-	keylogLine := fmt.Sprintf("%s %s %s\n", label, clientRandom, secret)
-
-	if _, err := file.WriteString(keylogLine); err != nil {
-		return fmt.Errorf("failed to write to keylog file: %w", err)
-	}
-
-	// Sync to ensure data is written
-	if err := file.Sync(); err != nil {
-		p.Logger().Warn().Err(err).Msg("Failed to sync keylog file")
-	}
-
-	p.Logger().Debug().
-		Str("label", label).
-		Str("client_random", clientRandom[:16]+"..."). // Log only first 16 chars
-		Msg("Master secret written to keylog file")
-
-	return nil
+	p.Logger().Debug().Msg("Calling BaseProbe.Close()")
+	err := p.BaseProbe.Close()
+	p.Logger().Debug().Msg("GoTLS probe closed")
+	return err
 }
 
 // GetDecoder implements EventDecoder interface.
@@ -311,7 +212,7 @@ func (p *Probe) GetDecoder(em *ebpf.Map) (domain.Event, bool) {
 	for i, m := range p.eventMaps {
 		if m == em {
 			if i == 0 || len(p.eventMaps) == 1 {
-				return &TLSDataEvent{}, true
+				return &GoTLSDataEvent{}, true
 			}
 			if i == 1 {
 				return &MasterSecretEvent{}, true
@@ -323,11 +224,23 @@ func (p *Probe) GetDecoder(em *ebpf.Map) (domain.Event, bool) {
 
 // setupManager configures the eBPF manager with probes.
 func (p *Probe) setupManager() error {
-	elfPath := p.config.ElfPath
+	var gotlsConf = p.config
+	elfPath := gotlsConf.ElfPath
 	if elfPath == "" {
 		// Try to find Go binary in common locations
 		// For now, we'll require ElfPath to be set
 		return errors.NewConfigurationError("elf_path is required for GoTLS probe", nil)
+	}
+
+	var buildInfo = new(strings.Builder)
+	for _, setting := range gotlsConf.BuildInfo.Settings {
+		if setting.Value == "" {
+			continue
+		}
+		buildInfo.WriteString(" ")
+		buildInfo.WriteString(setting.Key)
+		buildInfo.WriteString("=")
+		buildInfo.WriteString(setting.Value)
 	}
 
 	// Determine which uprobes to attach based on ABI
@@ -350,137 +263,23 @@ func (p *Probe) setupManager() error {
 		masterSecretFunc = "gotls_mastersecret_stack"
 	}
 
-	p.Logger().Info().
-		Str("elf_path", elfPath).
-		Bool("register_abi", p.config.IsRegisterABI).
+	p.Logger().Debug().
 		Str("capture_mode", p.config.CaptureMode).
-		Str("write_section", writeSection).
-		Str("read_section", readSection).
 		Msg("Setting up eBPF probes")
 
-	// Initialize probes list and maps based on capture mode
-	// Only one mode should be active at a time
-	var probes []*manager.Probe
-	var maps []*manager.Map
-
-	// TEXT MODE: Capture TLS plaintext data (read/write)
-	if p.config.CaptureMode == "text" {
-		// Add write probe for crypto/tls.(*Conn).writeRecordLocked
-		probes = append(probes, &manager.Probe{
-			Section:          writeSection,
-			EbpfFuncName:     writeFunc,
-			AttachToFuncName: "crypto/tls.(*Conn).writeRecordLocked",
-			BinaryPath:       elfPath,
-			UAddress:         p.config.GoTlsWriteAddr,
-		})
-
-		p.Logger().Debug().
-			Uint64("write_address", p.config.GoTlsWriteAddr).
-			Msg("Added write probe")
-
-		// Add read probes using ReadTlsAddrs array
-		// Each address in ReadTlsAddrs represents a RET instruction offset for uretprobe
-		if len(p.config.ReadTlsAddrs) > 0 {
-			for i, addr := range p.config.ReadTlsAddrs {
-				probes = append(probes, &manager.Probe{
-					Section:          readSection,
-					EbpfFuncName:     readFunc,
-					AttachToFuncName: "crypto/tls.(*Conn).Read",
-					BinaryPath:       elfPath,
-					UAddress:         addr,
-				})
-				p.Logger().Debug().
-					Int("index", i).
-					Uint64("address", addr).
-					Msg("Added read probe")
-			}
-		} else {
-			// Fallback: if ReadTlsAddrs is empty, add a single probe at address 0
-			p.Logger().Warn().Msg("ReadTlsAddrs is empty, using fallback read probe at address 0")
-			probes = append(probes, &manager.Probe{
-				Section:          readSection,
-				EbpfFuncName:     readFunc,
-				AttachToFuncName: "crypto/tls.(*Conn).Read",
-				BinaryPath:       elfPath,
-				UAddress:         0,
-			})
+	var err error
+	switch gotlsConf.CaptureMode {
+	case handlers.ModeText:
+		err = p.setupManagersText(writeSection, readSection, writeFunc, readFunc)
+	case handlers.ModeKeylog, handlers.ModeKey:
+		err = p.setupManagersKeyLog(masterSecretSection, masterSecretFunc)
+	case handlers.ModePcap, handlers.ModePcapng:
+		err = p.setupManagerPcapNG(masterSecretSection, masterSecretFunc)
+		if err == nil && p.config.PcapFilter != "" {
+			p.Logger().Info().Str("filter", p.config.PcapFilter).Msg("Applying BPF filter to TC probes")
+			ebpfFuncs := []string{base.TcFuncNameIngress, base.TcFuncNameEgress}
+			p.bpfManager.InstructionPatchers = pkgebpf.PrepareInsnPatchers(p.bpfManager, ebpfFuncs, p.config.PcapFilter)
 		}
-
-		// Initialize events map
-		maps = append(maps, &manager.Map{Name: "events"})
-		p.mapNameToDecoder["events"] = &tlsDataEventDecoder{probe: p}
-	}
-
-	// KEYLOG MODE: Capture TLS master secrets only
-	if handlers.IsModeKeylog(p.config.CaptureMode) {
-		probes = append(probes, &manager.Probe{
-			Section:          masterSecretSection,
-			EbpfFuncName:     masterSecretFunc,
-			AttachToFuncName: "crypto/tls.(*Config).writeKeyLog",
-			BinaryPath:       elfPath,
-			UAddress:         p.config.GoTlsMasterSecretAddr,
-		})
-		maps = append(maps, &manager.Map{Name: "mastersecret_go_events"})
-		p.mapNameToDecoder["mastersecret_go_events"] = &masterSecretEventDecoder{probe: p}
-
-		p.Logger().Debug().
-			Uint64("master_secret_address", p.config.GoTlsMasterSecretAddr).
-			Msg("Added master secret probe")
-	}
-
-	// PCAP MODE: Capture network packets with TC + master secrets for DSB
-	// Note: "pcapng" is normalized to "pcap" in openOutputFiles()
-	if handlers.IsModePcapng(p.config.CaptureMode) {
-		if p.config.Ifname == "" {
-			return errors.NewConfigurationError("ifname is required for pcap mode", nil)
-		}
-
-		// Add ingress TC probe
-		probes = append(probes, &manager.Probe{
-			Section:          "classifier",
-			EbpfFuncName:     "ingress_cls_func",
-			Ifname:           p.config.Ifname,
-			NetworkDirection: manager.Ingress,
-		})
-
-		// Add egress TC probe
-		probes = append(probes, &manager.Probe{
-			Section:          "classifier",
-			EbpfFuncName:     "egress_cls_func",
-			Ifname:           p.config.Ifname,
-			NetworkDirection: manager.Egress,
-		})
-
-		// Add master secret probe for PCAPNG DSB (Decryption Secrets Block)
-		probes = append(probes, &manager.Probe{
-			Section:          masterSecretSection,
-			EbpfFuncName:     masterSecretFunc,
-			AttachToFuncName: "crypto/tls.(*Config).writeKeyLog",
-			BinaryPath:       elfPath,
-			UAddress:         p.config.GoTlsMasterSecretAddr,
-		})
-
-		// Add TC-related maps for network packet capture
-		maps = append(maps, &manager.Map{Name: "skb_events"})
-		p.mapNameToDecoder["skb_events"] = &packetEventDecoder{}
-
-		// These maps don't need decoders (used internally by eBPF)
-		maps = append(maps, &manager.Map{Name: "skb_data_buffer_heap"})
-		maps = append(maps, &manager.Map{Name: "network_map"})
-
-		// Add master secret events map for PCAPNG DSB
-		maps = append(maps, &manager.Map{Name: "mastersecret_go_events"})
-		p.mapNameToDecoder["mastersecret_go_events"] = &masterSecretEventDecoder{probe: p}
-
-		p.Logger().Debug().
-			Str("ifname", p.config.Ifname).
-			Uint64("master_secret_address", p.config.GoTlsMasterSecretAddr).
-			Msg("Added TC probes and master secret probe for pcap mode")
-	}
-
-	p.bpfManager = &manager.Manager{
-		Probes: probes,
-		Maps:   maps,
 	}
 
 	return nil
@@ -519,12 +318,222 @@ func (p *Probe) getManagerOptions() manager.Options {
 	return opts
 }
 
+// setupManagersKeyLog configures the eBPF manager for keylog mode (GoTLS data capture)
+func (p *Probe) setupManagersKeyLog(keySection, keyFunc string) error {
+	var gotlsConf = p.config
+
+	p.bpfManager = &manager.Manager{
+		Probes: []*manager.Probe{
+			// gotls master secrets
+			{
+				Section:          keySection,
+				EbpfFuncName:     keyFunc,
+				AttachToFuncName: GoTlsMasterSecretFunc,
+				BinaryPath:       gotlsConf.ElfPath,
+				UID:              "uprobe_gotls_master_secret",
+				UAddress:         gotlsConf.GoTlsMasterSecretAddr,
+			},
+		},
+
+		Maps: []*manager.Map{
+			{
+				Name: "mastersecret_go_events",
+			},
+		},
+	}
+
+	p.mapNameToDecoder["mastersecret_go_events"] = &masterSecretEventDecoder{}
+	p.Logger().Info().Str("Section", keySection).Str("fn", keyFunc).Str("ATFN", GoTlsMasterSecretFunc).Uint64("uaddress", gotlsConf.GoTlsMasterSecretAddr).Send()
+	p.Logger().Info().Str("Hook", GoTlsMasterSecretFunc).Str("section", keySection).
+		Str("Func", keyFunc).Str("GoTlsMasterSecretAddr", fmt.Sprintf("%X", p.config.GoTlsMasterSecretAddr)).
+		Msg("Added master secret probe")
+
+	// Create writer factory for creating output writers
+	writerFactory := writers.NewWriterFactory()
+
+	// Create file writer for keylog
+	keylogWriter, err := writerFactory.CreateWriter(p.config.GetKeylogFile(), &writers.RotateConfig{false, 0, 300})
+	if err != nil {
+		return fmt.Errorf("failed to create keylog writer: %w", err)
+	}
+
+	keylogHandler := handlers.NewKeylogHandler(keylogWriter)
+	if err := p.BaseProbe.Dispatcher().Register(keylogHandler); err != nil {
+		_ = keylogWriter.Close()
+		return fmt.Errorf("failed to register keylog handler: %w", err)
+	}
+
+	return nil
+}
+
+func (p *Probe) setupManagerPcapNG(keySection, keyFunc string) error {
+
+	p.ifName = p.config.Ifname
+	interf, err := net.InterfaceByName(p.ifName)
+	if err != nil {
+		return err
+	}
+
+	p.ifIdex = interf.Index
+
+	pcapFilter := p.config.PcapFilter
+	p.Logger().Info().Str("binrayPath", p.config.ElfPath).Str("IFname", p.ifName).Int("IFindex", p.ifIdex).
+		Str("PcapFilter", pcapFilter).Str("hook", GoTlsMasterSecretFunc).
+		Str("GoTlsMasterSecretAddr", fmt.Sprintf("%X", p.config.GoTlsMasterSecretAddr)).Send()
+
+	var probes []*manager.Probe
+	var maps []*manager.Map
+
+	probes = []*manager.Probe{
+		{
+			Section:          "classifier/egress",
+			EbpfFuncName:     base.TcFuncNameEgress,
+			Ifname:           p.ifName,
+			NetworkDirection: manager.Egress,
+		},
+		{
+			Section:          "classifier/ingress",
+			EbpfFuncName:     base.TcFuncNameIngress,
+			Ifname:           p.ifName,
+			NetworkDirection: manager.Ingress,
+		},
+		// --------------------------------------------------
+
+		// gotls master secrets
+		{
+			Section:          keySection,
+			EbpfFuncName:     keyFunc,
+			AttachToFuncName: GoTlsMasterSecretFunc,
+			BinaryPath:       p.config.ElfPath,
+			UID:              "uprobe_gotls_master_secret",
+			UAddress:         p.config.GoTlsMasterSecretAddr,
+		},
+	}
+
+	maps = []*manager.Map{
+		{
+			Name: "mastersecret_go_events",
+		},
+		{
+			Name: "skb_events",
+		},
+	}
+
+	// Add TC-related maps for network packet capture
+	p.mapNameToDecoder["skb_events"] = &packetEventDecoder{}
+	p.mapNameToDecoder["mastersecret_go_events"] = &masterSecretEventDecoder{}
+
+	// Create writer factory for creating output writers
+	writerFactory := writers.NewWriterFactory()
+	// Create file writer for keylog
+	keylogWriter, err := writerFactory.CreateWriter(p.config.GetKeylogFile(), &writers.RotateConfig{false, 0, 300})
+	if err != nil {
+		p.Logger().Warn().Err(err).Str("keylog file", p.config.GetKeylogFile()).Msg("Failed to create keylog handler, continuing without keylog")
+	} else {
+		keylogHandler := handlers.NewKeylogHandler(keylogWriter)
+		if err := p.BaseProbe.Dispatcher().Register(keylogHandler); err != nil {
+			_ = keylogWriter.Close()
+			return fmt.Errorf("failed to register keylog handler: %w", err)
+		}
+		// Note: keylogWriter will be closed through keylogHandler.Close() when dispatcher closes
+		// Don't add it to p.closer to avoid double-close
+		p.Logger().Info().Str("Writer", keylogWriter.Name()).Msg("Keylog handler registered for pcapng mode")
+	}
+
+	pcapFile := p.config.GetPcapFile()
+	if pcapFile == "" {
+		return fmt.Errorf("pcap mode requires pcap file path")
+	}
+
+	// Create file writer for pcap (use O_TRUNC to overwrite existing file)
+	// Note: pcap files should not use rotation
+	pcapWriter, err := writers.NewFileWriter(writers.FileWriterConfig{
+		Path:       pcapFile,
+		BufferSize: 65536, // 64KB buffer for better pcap write performance
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create pcap writer: %w", err)
+	}
+
+	pcapHandler, err := handlers.NewPcapHandler(pcapWriter, p.config.Ifname, p.config.PcapFilter, p.Logger())
+	if err != nil {
+		_ = pcapWriter.Close()
+		return fmt.Errorf("failed to create pcap handler: %w", err)
+	}
+
+	if err := p.BaseProbe.Dispatcher().Register(pcapHandler); err != nil {
+		_ = pcapHandler.Close()
+		_ = pcapWriter.Close()
+		return fmt.Errorf("failed to register pcap handler: %w", err)
+	}
+	// Note: pcapWriter will be closed through pcapHandler.Close() when dispatcher closes
+	// Don't add it to p.closer to avoid double-close
+	//p.Logger().Info().Str("Writer", pcapWriter.Name()).Msg("Pcap handler registered")
+
+	// Pcapng 的 Keylog writer
+	pcapKeylogWriter := writers.NewPcapKeylogWriter(pcapHandler.PcapWriter())
+	pcapKeylogHandler := handlers.NewKeylogHandler(pcapKeylogWriter)
+	if err := p.BaseProbe.Dispatcher().Register(pcapKeylogHandler); err != nil {
+		_ = pcapHandler.Close()
+		_ = pcapWriter.Close()
+		return fmt.Errorf("failed to register pcapkeylog handler: %w", err)
+	}
+	// Note: pcapKeylogWriter will be closed through pcapKeylogHandler.Close()
+	// Don't add it to p.closer to avoid double-close
+	p.Logger().Info().Str("pcap_file", pcapFile).Msg("Pcap handler registered")
+	p.Logger().Debug().
+		Str("ifname", p.config.Ifname).
+		Msg("Added TC probes, SSL probes, and master secret probe for pcap mode")
+	p.bpfManager = &manager.Manager{
+		Probes: probes,
+		Maps:   maps,
+	}
+	return nil
+}
+
+func (p *Probe) setupManagersText(sec, readSec, fn, readFn string) error {
+	p.bpfManager = &manager.Manager{
+		Probes: []*manager.Probe{
+			{
+				Section:          sec,
+				EbpfFuncName:     fn,
+				AttachToFuncName: GoTlsWriteFunc,
+				BinaryPath:       p.config.ElfPath,
+				UAddress:         p.config.GoTlsWriteAddr,
+			},
+		},
+		Maps: []*manager.Map{
+			{
+				Name: "events",
+			},
+		},
+	}
+	p.mapNameToDecoder["events"] = &tlsDataEventDecoder{probe: p}
+
+	readOffsets := p.config.ReadTlsAddrs
+	//p.bpfManager.Probes = []*manager.Probe{}
+	p.Logger().Info().Str("write_section", sec).
+		Str("read_section", readSec).Str("function", readFn).
+		Str("offsets", fmt.Sprintf("%v", readOffsets)).Msg("golang uretprobe added.")
+	for _, v := range readOffsets {
+		var uid = fmt.Sprintf("%s_%X", readFn, v)
+		p.bpfManager.Probes = append(p.bpfManager.Probes, &manager.Probe{
+			Section:          readSec,
+			EbpfFuncName:     readFn,
+			AttachToFuncName: GoTlsReadFunc,
+			BinaryPath:       p.config.ElfPath,
+			UAddress:         uint64(v),
+			UID:              uid,
+		})
+	}
+
+	return nil
+}
+
 func (p *Probe) DecodeFun(em *ebpf.Map) (domain.EventDecoder, bool) {
 	fun, found := p.eventFuncMaps[em]
 	return fun, found
 }
-
-// Event decoder implementations
 
 // tlsDataEventDecoder implements domain.EventDecoder for TLS data events
 type tlsDataEventDecoder struct {
@@ -532,7 +541,8 @@ type tlsDataEventDecoder struct {
 }
 
 func (d *tlsDataEventDecoder) Decode(_ *ebpf.Map, data []byte) (domain.Event, error) {
-	event := &TLSDataEvent{}
+	event := &GoTLSDataEvent{}
+	fmt.Println("Decoding TLSDataEvent from bytes, data length:", len(data))
 	if err := event.DecodeFromBytes(data); err != nil {
 		return nil, err
 	}
@@ -540,12 +550,12 @@ func (d *tlsDataEventDecoder) Decode(_ *ebpf.Map, data []byte) (domain.Event, er
 }
 
 func (d *tlsDataEventDecoder) GetDecoder(_ *ebpf.Map) (domain.Event, bool) {
-	return &TLSDataEvent{}, true
+	return &GoTLSDataEvent{}, true
 }
 
 // masterSecretEventDecoder implements domain.EventDecoder for master secret events
 type masterSecretEventDecoder struct {
-	probe *Probe
+	//probe *Probe
 }
 
 func (d *masterSecretEventDecoder) Decode(_ *ebpf.Map, data []byte) (domain.Event, error) {

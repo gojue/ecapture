@@ -208,6 +208,13 @@ func (c *Config) validateNetworkInterface() error {
 		return fmt.Errorf("network interface '%s' is not up", c.Ifname)
 	}
 
+	addrs, err := iface.Addrs() // Just to check if we can access interface addresses (basic functionality check)
+	if err != nil {
+		return fmt.Errorf("cannot access addresses for interface '%s': %w", c.Ifname, err)
+	}
+	if len(addrs) == 0 {
+		return fmt.Errorf("network interface '%s' has no addresses", c.Ifname)
+	}
 	return nil
 }
 

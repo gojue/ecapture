@@ -29,6 +29,7 @@ import (
 	"github.com/google/gopacket/pcapgo"
 
 	"github.com/gojue/ecapture/internal/errors"
+	lger "github.com/gojue/ecapture/internal/logger"
 )
 
 type TcPacket struct {
@@ -49,10 +50,11 @@ type PcapWriter struct {
 	packetChan      chan *TcPacket
 	packetCount     int
 	isClosed        bool
+	logger          *lger.Logger
 }
 
 // NewPcapWriter creates a new PCAPNG writer
-func NewPcapWriter(w io.Writer, snaplen uint32, ifName, filter string) (*PcapWriter, error) {
+func NewPcapWriter(w io.Writer, snaplen uint32, ifName, filter string, logger *lger.Logger) (*PcapWriter, error) {
 	// create pcapng writer
 	netIfs, err := net.Interfaces()
 	if err != nil {
@@ -168,7 +170,7 @@ func (pw *PcapWriter) Serve() {
 			}
 			n, e := pw.savePcapng()
 			if e != nil {
-				//t.logger.Warn().Err(e).Int("count", i).Msg("save pcapng err, maybe some packets lost.")
+				pw.logger.Warn().Err(e).Int("count", i).Msg("save pcapng err, maybe some packets lost.")
 			} else {
 				//t.logger.Info().Int("count", n).Msg("packets saved into pcapng file.")
 				pw.packetCount += n
@@ -190,9 +192,9 @@ func (pw *PcapWriter) Serve() {
 			}
 			n, e := pw.savePcapng()
 			if e != nil {
-				//pw.logger.Info().Err(e).Int("count", i).Msg("save pcapng err, maybe some packets lost.")
+				pw.logger.Info().Err(e).Int("count", i).Msg("save pcapng err, maybe some packets lost.")
 			} else {
-				//pw.logger.Info().Int("count", n).Msg("packets saved into pcapng file.")
+				pw.logger.Info().Int("count", n).Msg("packets saved into pcapng file.")
 				pw.packetCount += n
 			}
 			return

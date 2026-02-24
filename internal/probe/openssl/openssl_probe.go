@@ -40,11 +40,6 @@ import (
 	"github.com/gojue/ecapture/pkg/util/kernel"
 )
 
-const (
-	tcFuncNameIngress = "ingress_cls_func"
-	tcFuncNameEgress  = "egress_cls_func"
-)
-
 // Probe implements the OpenSSL TLS tracing probe.
 // Supports Text mode, Keylog mode, and Pcap mode.
 type Probe struct {
@@ -290,17 +285,16 @@ func (p *Probe) setupManagerPcapNG() error {
 	if p.config.Ifname == "" {
 		return errors.NewConfigurationError("ifname is required for pcap mode", nil)
 	}
-
 	// Master secret events map for keylog in pcapng
 	maps = append(maps, &manager.Map{Name: "mastersecret_events"})
-	p.mapNameToDecoder["mastersecret_events"] = &masterSecretEventDecoder{probe: p}
+	p.mapNameToDecoder["mastersecret_events"] = &masterSecretEventDecoder{}
 
 	// Add TC (Traffic Control) classifier probes for packet capture
 	// Ingress: packets coming into the network interface
 	probes = append(probes,
 		&manager.Probe{
 			Section:          "classifier",
-			EbpfFuncName:     tcFuncNameIngress,
+			EbpfFuncName:     base.TcFuncNameIngress,
 			Ifname:           p.config.Ifname,
 			NetworkDirection: manager.Ingress,
 		},
@@ -310,7 +304,7 @@ func (p *Probe) setupManagerPcapNG() error {
 	probes = append(probes,
 		&manager.Probe{
 			Section:          "classifier",
-			EbpfFuncName:     tcFuncNameEgress,
+			EbpfFuncName:     base.TcFuncNameEgress,
 			Ifname:           p.config.Ifname,
 			NetworkDirection: manager.Egress,
 		},
@@ -319,13 +313,15 @@ func (p *Probe) setupManagerPcapNG() error {
 	// Add TC-related maps for network packet capture
 	maps = append(maps, &manager.Map{Name: "skb_events"})
 	p.mapNameToDecoder["skb_events"] = &packetEventDecoder{}
+	p.mapNameToDecoder["mastersecret_events"] = &masterSecretEventDecoder{}
 
 	// These maps don't need decoders (used internally by eBPF)
 	maps = append(maps, &manager.Map{Name: "skb_data_buffer_heap"})
 	maps = append(maps, &manager.Map{Name: "network_map"})
 
+	p.Logger().Info().Str("ifname", p.config.Ifname).Int("decoder", len(p.mapNameToDecoder)).Msg("Configuring TC probes for network capture in pcapng mode")
+
 	// Add master secret extraction
-	probes = make([]*manager.Probe, 0)
 	p.Logger().Info().Strs("keylog_hook_funcs", p.config.MasterHookFuncs).Msg("Configuring master secret extraction probes for pcapNG mode")
 	for _, masterFunc := range p.config.MasterHookFuncs {
 		probes = append(probes, &manager.Probe{
@@ -369,7 +365,7 @@ func (p *Probe) setupManagerPcapNG() error {
 		return fmt.Errorf("failed to create pcap writer: %w", err)
 	}
 
-	pcapHandler, err := handlers.NewPcapHandler(pcapWriter)
+	pcapHandler, err := handlers.NewPcapHandler(pcapWriter, p.config.Ifname, p.config.PcapFilter, p.Logger())
 	if err != nil {
 		_ = pcapWriter.Close()
 		return fmt.Errorf("failed to create pcap handler: %w", err)
@@ -417,7 +413,7 @@ func (p *Probe) setupManagerKeyLog() error {
 	var maps []*manager.Map
 	// KEYLOG mode: Master secret extraction probes
 	maps = append(maps, &manager.Map{Name: "mastersecret_events"})
-	p.mapNameToDecoder["mastersecret_events"] = &masterSecretEventDecoder{probe: p}
+	p.mapNameToDecoder["mastersecret_events"] = &masterSecretEventDecoder{}
 
 	// Add master secret extraction probes based on OpenSSL version
 	p.Logger().Info().Strs("keylog_hook_funcs", p.config.MasterHookFuncs).Msg("Configuring master secret extraction probes for KeyLog mode")
@@ -472,7 +468,7 @@ func (p *Probe) setupManager() error {
 		err = p.setupManagerPcapNG()
 		if err == nil && p.config.PcapFilter != "" {
 			p.Logger().Info().Str("filter", p.config.PcapFilter).Msg("Applying BPF filter to TC probes")
-			ebpfFuncs := []string{tcFuncNameIngress, tcFuncNameEgress}
+			ebpfFuncs := []string{base.TcFuncNameIngress, base.TcFuncNameEgress}
 			p.bpfManager.InstructionPatchers = pkgebpf.PrepareInsnPatchers(p.bpfManager, ebpfFuncs, p.config.PcapFilter)
 		}
 	}
@@ -553,7 +549,7 @@ func (d *tlsEventDecoder) GetDecoder(_ *ebpf.Map) (domain.Event, bool) {
 
 // masterSecretEventDecoder implements domain.EventDecoder for master secret events
 type masterSecretEventDecoder struct {
-	probe *Probe
+	//probe *Probe
 }
 
 func (d *masterSecretEventDecoder) Decode(_ *ebpf.Map, data []byte) (domain.Event, error) {

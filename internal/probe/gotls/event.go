@@ -24,70 +24,56 @@ import (
 	"github.com/gojue/ecapture/internal/errors"
 )
 
-// TLSDataEvent represents a TLS data read/write event from GoTLS
+// GoTLSDataEvent represents a TLS data read/write event from GoTLS
 // This structure matches the eBPF event structure: struct go_tls_event
-type TLSDataEvent struct {
-	Timestamp uint64      // ts_ns: Timestamp in nanoseconds
-	Pid       uint32      // pid: Process ID
-	Tid       uint32      // tid: Thread ID
-	DataLen   int32       // data_len: Length of actual data (signed int32 to match kernel)
-	EventType uint8       // event_type: 0 = write, 1 = read
-	Comm      [16]byte    // comm[TASK_COMM_LEN]: Process name
-	Data      [16384]byte // data[MAX_DATA_SIZE_OPENSSL]: TLS data buffer (max 16KB per event)
+type GoTLSDataEvent struct {
+	Timestamp   uint64   `json:"timestamp"` // Nanosecond timestamp
+	Pid         uint32   `json:"pid"`       // Process ID
+	Tid         uint32   `json:"tid"`       // Thread ID
+	DataLen     int32    `json:"dataLen"`   // Length of actual data
+	PayloadType uint8    `json:"payloadType"`
+	Comm        [16]byte `json:"comm"` // Process name
+	Data        []byte   `json:"data"` // TLS data payload
+
+	DataType uint8  `json:"dataType"`
+	Fd       uint32 `json:"fd"`
 }
 
 // DecodeFromBytes deserializes the event from raw eBPF data.
-func (e *TLSDataEvent) DecodeFromBytes(data []byte) error {
-	if len(data) < 32 { // Minimum size: 8+4+4+4+1+16 = 37, but eBPF struct alignment
-		return errors.NewEventDecodeError("gotls.TLSDataEvent", fmt.Errorf("data too short: got %d bytes", len(data)))
-	}
-
+func (e *GoTLSDataEvent) DecodeFromBytes(data []byte) error {
 	buf := bytes.NewBuffer(data)
 
-	// Read timestamp
+	// Read fields in order matching the eBPF structure
 	if err := binary.Read(buf, binary.LittleEndian, &e.Timestamp); err != nil {
 		return errors.NewEventDecodeError("gotls.Timestamp", err)
 	}
-
-	// Read PID
 	if err := binary.Read(buf, binary.LittleEndian, &e.Pid); err != nil {
 		return errors.NewEventDecodeError("gotls.Pid", err)
 	}
-
-	// Read TID
 	if err := binary.Read(buf, binary.LittleEndian, &e.Tid); err != nil {
 		return errors.NewEventDecodeError("gotls.Tid", err)
 	}
-
-	// Read data length
 	if err := binary.Read(buf, binary.LittleEndian, &e.DataLen); err != nil {
 		return errors.NewEventDecodeError("gotls.DataLen", err)
 	}
-
-	// Read event type
-	if err := binary.Read(buf, binary.LittleEndian, &e.EventType); err != nil {
-		return errors.NewEventDecodeError("gotls.EventType", err)
+	if err := binary.Read(buf, binary.LittleEndian, &e.PayloadType); err != nil {
+		return errors.NewEventDecodeError("gotls.PayloadType", err)
 	}
-
-	// Read comm
 	if err := binary.Read(buf, binary.LittleEndian, &e.Comm); err != nil {
 		return errors.NewEventDecodeError("gotls.Comm", err)
 	}
 
-	// Read data
-	if e.DataLen > 16384 {
-		e.DataLen = 16384
-	}
-	if e.DataLen < 0 {
+	if e.DataLen > 0 {
+		e.Data = make([]byte, e.DataLen)
+		if err := binary.Read(buf, binary.LittleEndian, &e.Data); err != nil {
+			return errors.NewEventDecodeError("gotls.Data", err)
+		}
+	} else {
 		e.DataLen = 0
 	}
 
-	remaining := buf.Len()
-	if remaining > 0 {
-		if remaining > 16384 {
-			remaining = 16384
-		}
-		copy(e.Data[:], buf.Next(remaining))
+	if err := binary.Read(buf, binary.LittleEndian, &e.Comm); err != nil {
+		return errors.NewEventDecodeError("openssl.Comm", err)
 	}
 
 	if e.Timestamp == 0 {
@@ -97,27 +83,27 @@ func (e *TLSDataEvent) DecodeFromBytes(data []byte) error {
 }
 
 // GetTimestamp returns the event timestamp in nanoseconds
-func (e *TLSDataEvent) GetTimestamp() uint64 {
+func (e *GoTLSDataEvent) GetTimestamp() uint64 {
 	return e.Timestamp
 }
 
 // GetTimestampTime returns the event timestamp as time.Time
-func (e *TLSDataEvent) GetTimestampTime() time.Time {
+func (e *GoTLSDataEvent) GetTimestampTime() time.Time {
 	return time.Unix(0, int64(e.Timestamp))
 }
 
 // GetPid returns the process ID
-func (e *TLSDataEvent) GetPid() uint32 {
+func (e *GoTLSDataEvent) GetPid() uint32 {
 	return e.Pid
 }
 
 // GetComm returns the process name as a string (compatible with handlers.TLSDataEvent interface)
-func (e *TLSDataEvent) GetComm() string {
+func (e *GoTLSDataEvent) GetComm() string {
 	return commToString(e.Comm[:])
 }
 
 // GetData returns the TLS data
-func (e *TLSDataEvent) GetData() []byte {
+func (e *GoTLSDataEvent) GetData() []byte {
 	dataLen := e.DataLen
 	if dataLen < 0 {
 		dataLen = 0
@@ -129,7 +115,7 @@ func (e *TLSDataEvent) GetData() []byte {
 }
 
 // GetDataLen returns the length of the TLS data (compatible with handlers.TLSDataEvent interface)
-func (e *TLSDataEvent) GetDataLen() uint32 {
+func (e *GoTLSDataEvent) GetDataLen() uint32 {
 	if e.DataLen < 0 {
 		return 0
 	}
@@ -137,13 +123,13 @@ func (e *TLSDataEvent) GetDataLen() uint32 {
 }
 
 // IsRead returns true if this is a read event
-func (e *TLSDataEvent) IsRead() bool {
-	return e.EventType == 1 // GOTLS_EVENT_TYPE_READ
+func (e *GoTLSDataEvent) IsRead() bool {
+	return e.DataType == 1 // GOTLS_EVENT_TYPE_READ
 }
 
 // IsWrite returns true if this is a write event
-func (e *TLSDataEvent) IsWrite() bool {
-	return e.EventType == 0 // GOTLS_EVENT_TYPE_WRITE
+func (e *GoTLSDataEvent) IsWrite() bool {
+	return e.DataType == 0 // GOTLS_EVENT_TYPE_WRITE
 }
 
 // commToString converts a null-terminated byte array to string.
@@ -158,7 +144,7 @@ func commToString(comm []byte) string {
 }
 
 // String returns a human-readable representation of the event.
-func (e *TLSDataEvent) String() string {
+func (e *GoTLSDataEvent) String() string {
 	direction := "write"
 	if e.IsRead() {
 		direction = "read"
@@ -169,7 +155,7 @@ func (e *TLSDataEvent) String() string {
 }
 
 // StringHex returns a hexadecimal representation of the event.
-func (e *TLSDataEvent) StringHex() string {
+func (e *GoTLSDataEvent) StringHex() string {
 	direction := "write"
 	if e.IsRead() {
 		direction = "read"
@@ -181,22 +167,22 @@ func (e *TLSDataEvent) StringHex() string {
 }
 
 // Clone creates a new instance of the event.
-func (e *TLSDataEvent) Clone() domain.Event {
-	return &TLSDataEvent{}
+func (e *GoTLSDataEvent) Clone() domain.Event {
+	return &GoTLSDataEvent{}
 }
 
 // Type returns the event type (always Output for TLS data events).
-func (e *TLSDataEvent) Type() domain.EventType {
+func (e *GoTLSDataEvent) Type() domain.EventType {
 	return domain.EventTypeOutput
 }
 
 // UUID returns a unique identifier for this event.
-func (e *TLSDataEvent) UUID() string {
+func (e *GoTLSDataEvent) UUID() string {
 	return fmt.Sprintf("%d_%d_%s_%d", e.Pid, e.Tid, e.GetComm(), e.Timestamp)
 }
 
 // Validate checks if the event data is valid.
-func (e *TLSDataEvent) Validate() error {
+func (e *GoTLSDataEvent) Validate() error {
 	if e.DataLen > 16384 {
 		return fmt.Errorf("data length %d exceeds maximum 16384", e.DataLen)
 	}

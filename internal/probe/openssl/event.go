@@ -39,15 +39,16 @@ const (
 
 // Event represents an OpenSSL TLS data event from eBPF.
 type Event struct {
-	DataType  int64             `json:"dataType"`  // 0: read, 1: write
-	Timestamp uint64            `json:"timestamp"` // Nanosecond timestamp
-	Pid       uint32            `json:"pid"`       // Process ID
-	Tid       uint32            `json:"tid"`       // Thread ID
-	Data      [MaxDataSize]byte `json:"data"`      // TLS data payload
-	DataLen   int32             `json:"dataLen"`   // Length of actual data
-	Comm      [16]byte          `json:"comm"`      // Process name
-	Fd        uint32            `json:"fd"`        // File descriptor
-	Version   int32             `json:"version"`   // TLS version
+	Timestamp   uint64            `json:"timestamp"` // Nanosecond timestamp
+	Pid         uint32            `json:"pid"`       // Process ID
+	Tid         uint32            `json:"tid"`       // Thread ID
+	DataLen     int32             `json:"dataLen"`   // Length of actual data
+	PayloadType uint8             `json:"payloadType"`
+	Data        [MaxDataSize]byte `json:"data"` // TLS data payload
+	Comm        [16]byte          `json:"comm"` // Process name
+
+	DataType uint8  `json:"dataType"`
+	Fd       uint32 `json:"fd"`
 }
 
 // DecodeFromBytes deserializes the event from raw eBPF data.
@@ -55,9 +56,6 @@ func (e *Event) DecodeFromBytes(data []byte) error {
 	buf := bytes.NewBuffer(data)
 
 	// Read fields in order matching the eBPF structure
-	if err := binary.Read(buf, binary.LittleEndian, &e.DataType); err != nil {
-		return errors.NewEventDecodeError("openssl.DataType", err)
-	}
 	if err := binary.Read(buf, binary.LittleEndian, &e.Timestamp); err != nil {
 		return errors.NewEventDecodeError("openssl.Timestamp", err)
 	}
@@ -67,19 +65,20 @@ func (e *Event) DecodeFromBytes(data []byte) error {
 	if err := binary.Read(buf, binary.LittleEndian, &e.Tid); err != nil {
 		return errors.NewEventDecodeError("openssl.Tid", err)
 	}
-	if err := binary.Read(buf, binary.LittleEndian, &e.Data); err != nil {
-		return errors.NewEventDecodeError("openssl.Data", err)
-	}
 	if err := binary.Read(buf, binary.LittleEndian, &e.DataLen); err != nil {
 		return errors.NewEventDecodeError("openssl.DataLen", err)
+	}
+	if err := binary.Read(buf, binary.LittleEndian, &e.PayloadType); err != nil {
+		return errors.NewEventDecodeError("openssl.PayloadType", err)
+	}
+	if err := binary.Read(buf, binary.LittleEndian, &e.Data); err != nil {
+		return errors.NewEventDecodeError("openssl.Data", err)
 	}
 	if err := binary.Read(buf, binary.LittleEndian, &e.Comm); err != nil {
 		return errors.NewEventDecodeError("openssl.Comm", err)
 	}
-	if err := binary.Read(buf, binary.LittleEndian, &e.Fd); err != nil {
-		return errors.NewEventDecodeError("openssl.Fd", err)
-	}
-	if err := binary.Read(buf, binary.LittleEndian, &e.Version); err != nil {
+
+	if err := binary.Read(buf, binary.LittleEndian, &e.Comm); err != nil {
 		return errors.NewEventDecodeError("openssl.Version", err)
 	}
 

@@ -34,6 +34,11 @@ import (
 	"github.com/gojue/ecapture/internal/logger"
 )
 
+const (
+	TcFuncNameIngress = "ingress_cls_func"
+	TcFuncNameEgress  = "egress_cls_func"
+)
+
 // BaseProbe provides common functionality for all probes.
 // Concrete probes should embed this struct and implement probe-specific logic.
 type BaseProbe struct {
@@ -274,7 +279,6 @@ func (p *BaseProbe) perfEventLoop(rd *perf.Reader, em *ebpf.Map, decoder domain.
 				Msg("Perf buffer full, samples lost")
 			continue
 		}
-
 		event, err := decoder.Decode(em, record.RawSample)
 		if err != nil {
 			if stderrors.Is(err, errors.ErrEventNotReady) {
