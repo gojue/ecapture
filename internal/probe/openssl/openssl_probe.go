@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"strings"
 
 	"github.com/cilium/ebpf"
 	manager "github.com/gojue/ebpfmanager"
@@ -55,6 +56,10 @@ type Probe struct {
 	eventMaps        []*ebpf.Map
 	output           io.Writer
 	closer           []io.Closer
+
+	sslBpfFile      string
+	isBoringSSL     bool
+	masterHookFuncs []string
 }
 
 // NewProbe creates a new OpenSSL probe instance.
@@ -103,8 +108,19 @@ func (p *Probe) Start(ctx context.Context) error {
 		return err
 	}
 
+	var sslVersion string
+	sslVersion = p.config.SslVersion
+	sslVersion = strings.ToLower(sslVersion)
+
+	if p.config.IsAndroid {
+		p.Logger().Info().Bool("BoringSSL", p.config.IsBoringSSL).Str("sslVersion", sslVersion).Str("SslBpfFile", p.config.SslBpfFile).Str("Android", p.config.AndroidVer).Msg("OpenSSL probe started")
+	} else {
+		p.Logger().Info().Bool("BoringSSL", p.config.IsBoringSSL).Str("sslVersion", sslVersion).Str("SslBpfFile", p.config.SslBpfFile).Msg("OpenSSL probe started")
+	}
 	// Load eBPF bytecode
 	bpfFileName := p.BaseProbe.GetBPFName("bytecode/" + p.config.GetBPFFileName())
+
+	// getSslBpfFile
 	p.Logger().Info().Str("file", bpfFileName).Msg("Loading eBPF bytecode")
 
 	// Load from assets
@@ -309,24 +325,16 @@ func (p *Probe) setupManagerPcapNG() error {
 	maps = append(maps, &manager.Map{Name: "network_map"})
 
 	// Add master secret extraction
-	if p.config.IsBoringSSL {
-		probes = append(probes,
-			&manager.Probe{
-				Section:          "uprobe/SSL_get_wbio",
-				EbpfFuncName:     "probe_ssl_master_key",
-				AttachToFuncName: "SSL_get_wbio",
-				BinaryPath:       opensslPath,
-			},
-		)
-	} else {
-		probes = append(probes,
-			&manager.Probe{
-				Section:          "uprobe/SSL_do_handshake",
-				EbpfFuncName:     "probe_ssl_master_key",
-				AttachToFuncName: "SSL_do_handshake",
-				BinaryPath:       opensslPath,
-			},
-		)
+	probes = make([]*manager.Probe, 0)
+	p.Logger().Info().Strs("keylog_hook_funcs", p.config.MasterHookFuncs).Msg("Configuring master secret extraction probes for pcapNG mode")
+	for _, masterFunc := range p.config.MasterHookFuncs {
+		probes = append(probes, &manager.Probe{
+			Section:          "uprobe/SSL_write_key",
+			EbpfFuncName:     "probe_ssl_master_key",
+			AttachToFuncName: masterFunc,
+			BinaryPath:       opensslPath,
+			UID:              fmt.Sprintf("uprobe_smk_%s", masterFunc),
+		})
 	}
 
 	// Create writer factory for creating output writers
@@ -374,7 +382,7 @@ func (p *Probe) setupManagerPcapNG() error {
 	}
 	// Note: pcapWriter will be closed through pcapHandler.Close() when dispatcher closes
 	// Don't add it to p.closer to avoid double-close
-	p.Logger().Info().Str("Writer", pcapWriter.Name()).Msg("Pcap handler registered")
+	//p.Logger().Info().Str("Writer", pcapWriter.Name()).Msg("Pcap handler registered")
 
 	// Pcapng 的 Keylog writer
 	pcapKeylogWriter := writers.NewPcapKeylogWriter(pcapHandler.PcapWriter())
@@ -412,27 +420,18 @@ func (p *Probe) setupManagerKeyLog() error {
 	p.mapNameToDecoder["mastersecret_events"] = &masterSecretEventDecoder{probe: p}
 
 	// Add master secret extraction probes based on OpenSSL version
-	if p.config.IsBoringSSL {
-		// BoringSSL uses different function names
-		probes = append(probes,
-			&manager.Probe{
-				Section:          "uprobe/SSL_get_wbio",
-				EbpfFuncName:     "probe_ssl_master_key",
-				AttachToFuncName: "SSL_get_wbio",
-				BinaryPath:       opensslPath,
-			},
-		)
-	} else {
-		// OpenSSL 1.1.1+ and 3.x
-		probes = append(probes,
-			&manager.Probe{
-				Section:          "uprobe/SSL_do_handshake",
-				EbpfFuncName:     "probe_ssl_master_key",
-				AttachToFuncName: "SSL_do_handshake",
-				BinaryPath:       opensslPath,
-			},
-		)
+	p.Logger().Info().Strs("keylog_hook_funcs", p.config.MasterHookFuncs).Msg("Configuring master secret extraction probes for KeyLog mode")
+	probes = make([]*manager.Probe, 0)
+	for _, masterFunc := range p.config.MasterHookFuncs {
+		probes = append(probes, &manager.Probe{
+			Section:          "uprobe/SSL_write_key",
+			EbpfFuncName:     "probe_ssl_master_key",
+			AttachToFuncName: masterFunc,
+			BinaryPath:       opensslPath,
+			UID:              fmt.Sprintf("uprobe_smk_%s", masterFunc),
+		})
 	}
+
 	// Create writer factory for creating output writers
 	writerFactory := writers.NewWriterFactory()
 

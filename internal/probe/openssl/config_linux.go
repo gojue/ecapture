@@ -61,16 +61,18 @@ func (c *Config) detectOpenSSL() error {
 	return fmt.Errorf("cannot find libssl.so in common paths")
 }
 
-// Linux-specific version of detectVersion
-func (c *Config) detectVersion() error {
+// Linux-specific version of detectOS
+func (c *Config) detectOS() error {
 	if c.OpensslPath == "" {
 		return fmt.Errorf("openssl path not set")
 	}
 
+	// set Android-specific flags
+	c.IsAndroid = false
+
 	// Check if it's BoringSSL (path-based detection)
 	if strings.Contains(c.OpensslPath, "boringssl") {
 		c.IsBoringSSL = true
-		c.SslVersion = "boringssl"
 		return nil
 	}
 
@@ -78,19 +80,15 @@ func (c *Config) detectVersion() error {
 	// This is a simplified version - production code would use proper ELF parsing
 	c.IsBoringSSL = false
 
-	// Try to detect version from path
-	if strings.Contains(c.OpensslPath, "libssl.so.1.1") {
-		c.SslVersion = "1.1.1"
-	} else if strings.Contains(c.OpensslPath, "libssl.so.3") {
-		c.SslVersion = "3.0"
-	} else {
-		c.SslVersion = "unknown"
-	}
-
 	return nil
 }
 
 // Linux-specific default interface (no-op)
 func (c *Config) setDefaultIfname() {
 	// Linux doesn't need a default interface
+	if c.Ifname != "" {
+		return
+	}
+
+	c.Ifname = "wlan0"
 }

@@ -120,23 +120,23 @@ func TestConfig_DetectVersion(t *testing.T) {
 
 	// Test with a path that suggests version
 	cfg.OpensslPath = "/usr/lib/libssl.so.1.1"
-	err := cfg.detectVersion()
+	err := cfg.detectOS()
 	if err != nil {
-		t.Logf("detectVersion() failed (expected if file doesn't exist): %v", err)
+		t.Logf("detectOS() failed (expected if file doesn't exist): %v", err)
 	}
 
 	// Test with version 3.0 path
 	cfg2 := NewConfig()
 	cfg2.OpensslPath = "/usr/lib/libssl.so.3"
-	err = cfg2.detectVersion()
+	err = cfg2.detectOS()
 	if err != nil {
-		t.Logf("detectVersion() for 3.x failed (expected if file doesn't exist): %v", err)
+		t.Logf("detectOS() for 3.x failed (expected if file doesn't exist): %v", err)
 	}
 
 	// Test BoringSSL detection
 	cfg3 := NewConfig()
 	cfg3.OpensslPath = "/usr/lib/libboringssl.so"
-	err = cfg3.detectVersion()
+	err = cfg3.detectOS()
 	if err == nil && !cfg3.IsBoringSSL {
 		t.Error("BoringSSL not detected correctly")
 	}

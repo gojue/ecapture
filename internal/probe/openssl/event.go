@@ -32,6 +32,9 @@ const (
 	// MaxDataSize is the maximum TLS data size from eBPF
 	// Increased to 16KB, fix: https://github.com/gojue/ecapture/issues/740
 	MaxDataSize = 1024 * 16
+
+	ChunkSize     = 32
+	ChunkSizeHalf = ChunkSize / 2
 )
 
 // Event represents an OpenSSL TLS data event from eBPF.
@@ -116,7 +119,8 @@ func (e *Event) StringHex() string {
 	}
 
 	ts := time.Unix(0, int64(e.Timestamp))
-	hexData := fmt.Sprintf("%x", e.GetData())
+
+	hexData := dumpByteSlice(e.GetData(), "")
 
 	return fmt.Sprintf("[%s] PID:%d TID:%d Comm:%s FD:%d %s (%d bytes, hex):\n%s",
 		ts.Format("2006-01-02 15:04:05.000"),
@@ -219,4 +223,47 @@ func (e *Event) Decode(data []byte) (domain.Event, error) {
 		return nil, err
 	}
 	return event, nil
+}
+
+func dumpByteSlice(b []byte, prefix string) *bytes.Buffer {
+	var a [ChunkSize]byte
+	bb := new(bytes.Buffer)
+	n := (len(b) + (ChunkSize - 1)) &^ (ChunkSize - 1)
+
+	for i := 0; i < n; i++ {
+
+		// 序号列
+		if i%ChunkSize == 0 {
+			bb.WriteString(prefix)
+			_, _ = fmt.Fprintf(bb, "%04X", i)
+		}
+
+		// 长度的一半，则输出4个空格
+		if i%ChunkSizeHalf == 0 {
+			bb.WriteString("  ")
+		} else if i%(ChunkSizeHalf/2) == 0 {
+			bb.WriteString(" ")
+		}
+
+		if i < len(b) {
+			_, _ = fmt.Fprintf(bb, "%02X", b[i])
+		} else {
+			bb.WriteString(" ")
+		}
+
+		// 非ASCII 改为 .
+		if i >= len(b) {
+			a[i%ChunkSize] = ' '
+		} else if b[i] < 32 || b[i] > 126 {
+			a[i%ChunkSize] = '.'
+		} else {
+			a[i%ChunkSize] = b[i]
+		}
+
+		// 如果到达size长度，则换行
+		if i%ChunkSize == (ChunkSize - 1) {
+			_, _ = fmt.Fprintf(bb, "    %s\n", string(a[:]))
+		}
+	}
+	return bb
 }

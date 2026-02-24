@@ -26,7 +26,6 @@ import (
 
 const (
 	// Android-specific default paths
-	DefaultOpensslPath = "/apex/com.android.conscrypt/lib64/libssl.so"
 	DefaultLibcPath    = "/apex/com.android.runtime/lib64/bionic/libc.so"
 	BuildPropPath      = "/system/build.prop"
 	ReleasePrefix      = "ro.build.version.release="
@@ -62,11 +61,14 @@ func (c *Config) detectOpenSSL() error {
 	return fmt.Errorf("cannot find libssl.so (BoringSSL) in Android paths")
 }
 
-// Android-specific version of detectVersion
-func (c *Config) detectVersion() error {
+// Android-specific version of detectOS
+func (c *Config) detectOS() error {
 	if c.OpensslPath == "" {
 		return fmt.Errorf("openssl path not set")
 	}
+
+	// set Android-specific flags
+	c.IsAndroid = true
 
 	// For Android, it's always BoringSSL
 	c.IsBoringSSL = true
@@ -74,9 +76,10 @@ func (c *Config) detectVersion() error {
 	// Detect Android version from build.prop
 	androidVer, err := detectAndroidVersion()
 	if err == nil && androidVer != "" {
-		c.SslVersion = fmt.Sprintf("boringssl_android_%s", androidVer)
+		c.SslVersion = fmt.Sprintf("boringssl_a_%s", androidVer)
+		c.AndroidVer = androidVer
 	} else {
-		c.SslVersion = "boringssl"
+		c.IsBoringSSL = false
 	}
 
 	return nil
