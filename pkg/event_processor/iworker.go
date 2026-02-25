@@ -32,6 +32,21 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+// filterCtrlChars replaces control characters (except \t, \n, \r) with a dot ('.')
+// to prevent terminal emulators from misinterpreting escape sequences or other
+// control codes embedded in captured payload data.
+func filterCtrlChars(b []byte) []byte {
+	result := make([]byte, len(b))
+	for i, c := range b {
+		if (c < 0x20 && c != '\t' && c != '\n' && c != '\r') || c == 0x7f {
+			result[i] = '.'
+		} else {
+			result[i] = c
+		}
+	}
+	return result
+}
+
 type IWorker interface {
 
 	// 定时器1 ，定时判断没有后续包，则解析输出
@@ -191,6 +206,8 @@ func (ew *eventWorker) Display() error {
 
 	if ew.processor.isHex {
 		b = []byte(hex.Dump(b))
+	} else if ew.processor.noCtrlChars {
+		b = filterCtrlChars(b)
 	}
 
 	//iWorker只负责写入，不应该打印。

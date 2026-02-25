@@ -124,7 +124,7 @@ func (m *Module) Init(ctx context.Context, logger *zerolog.Logger, conf config.I
 	} else {
 		m.eventOutputType = codecTypeText
 	}
-	m.processor = event_processor.NewEventProcessor(eventCollector, conf.GetHex(), tsize)
+	m.processor = event_processor.NewEventProcessor(eventCollector, conf.GetHex(), conf.GetNoCtrlChars(), tsize)
 
 	go func() {
 		// 读取错误信息

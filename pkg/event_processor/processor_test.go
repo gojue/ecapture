@@ -28,8 +28,55 @@ type SSLDataEventTmp struct {
 	Data      [16384]byte `json:"Data"`
 }
 
-func TestEventProcessor_Serve(t *testing.T) {
+func Test_filterCtrlChars(t *testing.T) {
+	tests := []struct {
+		name  string
+		input []byte
+		want  []byte
+	}{
+		{
+			name:  "no control chars",
+			input: []byte("Hello, World!"),
+			want:  []byte("Hello, World!"),
+		},
+		{
+			name:  "keep tab newline carriage-return",
+			input: []byte("line1\nline2\ttabbed\rcarriage"),
+			want:  []byte("line1\nline2\ttabbed\rcarriage"),
+		},
+		{
+			name:  "replace ESC and BEL",
+			input: []byte{0x1b, '[', '3', '1', 'm', 0x07, 'A'},
+			want:  []byte{'.', '[', '3', '1', 'm', '.', 'A'},
+		},
+		{
+			name:  "replace DEL (0x7f)",
+			input: []byte{0x7f, 'B'},
+			want:  []byte{'.', 'B'},
+		},
+		{
+			name:  "replace NUL",
+			input: []byte{0x00, 'C'},
+			want:  []byte{'.', 'C'},
+		},
+		{
+			name:  "empty input",
+			input: []byte{},
+			want:  []byte{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := filterCtrlChars(tt.input)
+			if string(got) != string(tt.want) {
+				t.Errorf("filterCtrlChars() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
 
+
+func TestEventProcessor_Serve(t *testing.T) {
 	logger := log.Default()
 	//var buf bytes.Buffer
 	//logger.SetOutput(&buf)
@@ -40,7 +87,7 @@ func TestEventProcessor_Serve(t *testing.T) {
 	}
 	logger.SetOutput(f)
 	// no truncate
-	ep := NewEventProcessor(f, true, 0)
+	ep := NewEventProcessor(f, true, false, 0)
 	go func() {
 		var err error
 		err = ep.Serve()
@@ -123,7 +170,7 @@ func Test_Truncated_EventProcessor_Serve(t *testing.T) {
 	logger.SetOutput(f)
 
 	// truncate 1000 bytes
-	ep := NewEventProcessor(f, true, 1000)
+	ep := NewEventProcessor(f, true, false, 1000)
 	go func() {
 		var err error
 		err = ep.Serve()

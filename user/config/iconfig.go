@@ -67,6 +67,10 @@ type IConfig interface {
 	// Set/Get TruncateSize
 	SetTruncateSize(uint64)
 	GetTruncateSize() uint64
+	// GetNoCtrlChars returns whether to filter control characters from text output
+	GetNoCtrlChars() bool
+	// SetNoCtrlChars sets whether to filter control characters from text output
+	SetNoCtrlChars(bool)
 }
 
 // TLS capture mode constants defining different output formats
@@ -102,6 +106,7 @@ type BaseConfig struct {
 	// eBPF map configuration
 	PerCpuMapSize      int    `json:"per_cpu_map_size"`     // Size of eBPF map per CPU core
 	IsHex              bool   `json:"is_hex"`               // Whether to display output in hexadecimal
+	NoCtrlChars        bool   `json:"no_ctrl_chars"`        // Whether to filter control characters from text output
 	Debug              bool   `json:"debug"`                // Enable debug mode
 	BtfMode            uint8  `json:"btf_mode"`             // BTF mode selection
 	ByteCodeFileMode   uint8  `json:"byte_code_file_mode"`  // assets/* include bytecode file type
@@ -189,6 +194,14 @@ func (c *BaseConfig) SetTruncateSize(TruncateSize uint64) {
 
 func (c *BaseConfig) GetTruncateSize() uint64 {
 	return c.TruncateSize
+}
+
+func (c *BaseConfig) SetNoCtrlChars(noCtrlChars bool) {
+	c.NoCtrlChars = noCtrlChars
+}
+
+func (c *BaseConfig) GetNoCtrlChars() bool {
+	return c.NoCtrlChars
 }
 
 func (c *BaseConfig) EnableGlobalVar() bool {
