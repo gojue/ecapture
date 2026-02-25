@@ -114,19 +114,20 @@ func (h *KeylogHandler) Handle(event domain.Event) error {
 
 	// Try OpenSSL-style event (version-based format)
 	msEvent, ok := event.(MasterSecretEvent)
-	if !ok {
-		return errors.New(errors.ErrCodeEventValidation, "event is not a master secret event")
+	if ok {
+		version := msEvent.GetVersion()
+
+		// TLS 1.2 and earlier use CLIENT_RANDOM format
+		if version <= 0x0303 { // TLS 1.2 = 0x0303
+			return h.handleTLS12(msEvent)
+		}
+
+		// TLS 1.3 uses multiple secret types
+		return h.handleTLS13(msEvent)
 	}
 
-	version := msEvent.GetVersion()
-
-	// TLS 1.2 and earlier use CLIENT_RANDOM format
-	if version <= 0x0303 { // TLS 1.2 = 0x0303
-		return h.handleTLS12(msEvent)
-	}
-
-	// TLS 1.3 uses multiple secret types
-	return h.handleTLS13(msEvent)
+	// event is not a master secret event
+	return errors.New(errors.ErrCodeEventValidation, "event is not a master secret event")
 }
 
 // handleTLS12 writes TLS 1.2 (and earlier) master secrets.

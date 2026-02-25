@@ -23,17 +23,23 @@ import (
 
 	"github.com/gojue/ecapture/internal/domain"
 	"github.com/gojue/ecapture/internal/errors"
+	"github.com/gojue/ecapture/internal/probe/base/handlers"
+)
+
+const (
+	EvpMaxMdSize       = handlers.EvpMaxMdSize // 64 bytes
+	MasterSecretKeyLen = 32
 )
 
 // MasterSecretEvent represents a TLS master secret event from GoTLS
 // This structure matches the eBPF event structure: struct mastersecret_gotls_t
 type MasterSecretEvent struct {
-	Label           [32]byte // label[MASTER_SECRET_KEY_LEN]: TLS key label
-	LabelLen        uint8    // labellen: Length of label
-	ClientRandom    [64]byte // client_random[EVP_MAX_MD_SIZE]: Client random
-	ClientRandomLen uint8    // client_random_len: Length of client random
-	Secret          [64]byte // secret_[EVP_MAX_MD_SIZE]: Secret key material
-	SecretLen       uint8    // secret_len: Length of secret
+	Label           [MasterSecretKeyLen]byte // label[MASTER_SECRET_KEY_LEN]: TLS key label
+	LabelLen        uint8                    // labellen: Length of label
+	ClientRandom    [EvpMaxMdSize]byte       // client_random[EVP_MAX_MD_SIZE]: Client random
+	ClientRandomLen uint8                    // client_random_len: Length of client random
+	Secret          [EvpMaxMdSize]byte       // secret_[EVP_MAX_MD_SIZE]: Secret key material
+	SecretLen       uint8                    // secret_len: Length of secret
 }
 
 // DecodeFromBytes deserializes the event from raw eBPF data.

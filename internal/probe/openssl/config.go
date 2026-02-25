@@ -15,11 +15,15 @@
 package openssl
 
 import (
+	"debug/elf"
 	"encoding/json"
+	goerrors "errors"
 	"fmt"
 	"net"
 	"os"
 	"path/filepath"
+	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/gojue/ecapture/internal/config"
@@ -32,17 +36,12 @@ const (
 	Version_1_1_1 = "1.1.1"
 	Version_3_0   = "3.0"
 	Version_3_1   = "3.1"
-
-	// Default library search paths
-	defaultLibSSLPath = "/usr/lib/x86_64-linux-gnu/libssl.so.1.1"
 )
 
 // Config extends BaseConfig with OpenSSL-specific configuration.
 type Config struct {
 	*config.BaseConfig
 	OpensslPath string `json:"opensslpath"` // Path to libssl.so
-	SslVersion  string `json:"sslversion"`  // Detected OpenSSL version
-	IsBoringSSL bool   `json:"isboringssl"` // Whether this is BoringSSL
 
 	// Capture mode configuration
 	CaptureMode string `json:"capturemode"` // "text", "keylog", or "pcap"
@@ -52,6 +51,14 @@ type Config struct {
 	PcapFile   string `json:"pcapfile"`   // Path to pcap/pcapng file (for pcap mode)
 	Ifname     string `json:"ifname"`     // Network interface name (for pcap mode)
 	PcapFilter string `json:"pcapfilter"` // BPF filter expression (for pcap mode)
+
+	// Detection results
+	SslVersion      string   `json:"sslversion"`      // Detected OpenSSL version
+	IsBoringSSL     bool     `json:"isboringssl"`     // Whether this is BoringSSL
+	MasterHookFuncs []string `json:"masterhookfuncs"` // List of master hook functions to attach
+	SslBpfFile      string   `json:"sslbpffile"`      // Path to the eBPF object file for the detected OpenSSL version
+	IsAndroid       bool     `json:"is_android"`      // Whether the target system is Android (for Android-specific handling)
+	AndroidVer      string   `json:"androidver"`      // Android version (for Android-specific handling)
 }
 
 // NewConfig creates a new OpenSSL probe configuration.
@@ -74,8 +81,16 @@ func (c *Config) Validate() error {
 	}
 
 	// Detect version (platform-specific)
-	if err := c.detectVersion(); err != nil {
+	if err := c.detectOS(); err != nil {
 		return errors.NewConfigurationError("openssl version detection failed", err)
+	}
+
+	if err := c.getSslBpfFile(c.OpensslPath, c.SslVersion); err != nil {
+		return errors.NewConfigurationError("openssl bpf file detection failed", err)
+	}
+
+	if err := c.validateConfig(); err != nil {
+		return errors.NewConfigurationError("openssl config validation failed", err)
 	}
 
 	// Set default interface name if needed (Android-specific)
@@ -89,6 +104,13 @@ func (c *Config) Validate() error {
 		return errors.NewConfigurationError("capture mode validation failed", err)
 	}
 
+	return nil
+}
+
+func (c *Config) validateConfig() error {
+	if c.SslVersion == "" || c.SslBpfFile == "" {
+		return fmt.Errorf("unsupported OpenSSL , version: %s, path: %s", c.SslVersion, c.SslBpfFile)
+	}
 	return nil
 }
 
@@ -146,61 +168,18 @@ func (c *Config) validateCaptureMode() error {
 	}
 }
 
-// detectVersion3x attempts to distinguish between OpenSSL 3.0 and 3.1
-func (c *Config) detectVersion3x() error {
-	// Read the actual shared library to check version string
-	// This is a simplified approach - production code might parse
-	// the version info more carefully
-
-	// Try to resolve the actual file (follow symlinks)
-	realPath, err := filepath.EvalSymlinks(c.OpensslPath)
-	if err != nil {
-		return err
-	}
-
-	// Check if filename contains version info
-	base := filepath.Base(realPath)
-	if strings.Contains(base, "3.1") {
-		c.SslVersion = Version_3_1
-		return nil
-	}
-	if strings.Contains(base, "3.0") {
-		c.SslVersion = Version_3_0
-		return nil
-	}
-
-	// Default to 3.0 for OpenSSL 3.x
-	c.SslVersion = Version_3_0
-	return nil
-}
-
 // IsSupportedVersion checks if the detected version is supported.
 func (c *Config) IsSupportedVersion() bool {
-	switch c.SslVersion {
-	case Version_1_1_1, Version_3_0, Version_3_1:
+	if c.SslVersion != "" {
 		return true
-	default:
-		return false
 	}
+	return false
 }
 
 // GetBPFFileName returns the eBPF object file name for the detected version.
 func (c *Config) GetBPFFileName() string {
 	// Return version-specific eBPF file names
-	if c.IsBoringSSL {
-		return "openssl_kern_boringssl.o"
-	}
-
-	switch c.SslVersion {
-	case Version_1_1_1:
-		return "openssl_1_1_1_kern.o"
-	case Version_3_0:
-		return "openssl_3_0_0_kern.o"
-	case Version_3_1:
-		return "openssl_3_0_0_kern.o" // 3.1 uses same as 3.0
-	default:
-		return "openssl_kern.o"
-	}
+	return c.SslBpfFile
 }
 
 // Bytes serializes the configuration to JSON.
@@ -229,6 +208,13 @@ func (c *Config) validateNetworkInterface() error {
 		return fmt.Errorf("network interface '%s' is not up", c.Ifname)
 	}
 
+	addrs, err := iface.Addrs() // Just to check if we can access interface addresses (basic functionality check)
+	if err != nil {
+		return fmt.Errorf("cannot access addresses for interface '%s': %w", c.Ifname, err)
+	}
+	if len(addrs) == 0 {
+		return fmt.Errorf("network interface '%s' has no addresses", c.Ifname)
+	}
 	return nil
 }
 
@@ -272,4 +258,291 @@ func (c *Config) GetPcapFile() string {
 // GetKeylogFile returns the keylog file path.
 func (c *Config) GetKeylogFile() string {
 	return c.KeylogFile
+}
+
+// getSslBpfFile 根据sslVersion参数，获取对应的bpf文件
+func (c *Config) getSslBpfFile(soPath, sslVersion string) error {
+	defer func() {
+		if strings.Contains(c.SslBpfFile, "boringssl") {
+			c.IsBoringSSL = true
+			c.MasterHookFuncs = []string{MasterKeyHookFuncBoringSSL}
+		}
+
+		if len(c.MasterHookFuncs) == 0 {
+			c.MasterHookFuncs = []string{MasterKeyHookFuncOpenSSL}
+		}
+		// TODO detect sslVersion less then 1.1.0 ,  ref # https://github.com/gojue/ecapture/issues/518
+		tmpSslVer := c.SslVersion
+		if strings.Contains(tmpSslVer, " 1.0.") {
+			// no function named SSL_in_before at openssl 1.0.* , and it is a macro definition， so need to change to SSL_state
+			for i, hookFunc := range c.MasterHookFuncs {
+				if hookFunc == MasterKeyHookFuncSSLBefore {
+					c.MasterHookFuncs[i] = MasterKeyHookFuncSSLState
+					//c.Logger().Info().Str("openssl version", tmpSslVer).Str("hookFunc", MasterKeyHookFuncSSLState).Str("oldHookFunc", MasterKeyHookFuncSSLBefore).Msg("openssl version is less than 1.0.*")
+				}
+			}
+		}
+	}()
+
+	if sslVersion != "" {
+		bpfFile, found := sslVersionBpfMap[sslVersion]
+		if found {
+			//c.Logger().Info().Str("sslVersion", sslVersion).Msg("OpenSSL/BoringSSL version found")
+			c.SslBpfFile = bpfFile
+			return nil
+		}
+	}
+
+	verString, err := detectOpenssl(soPath)
+
+	if err != nil && !goerrors.Is(err, ErrProbeOpensslVerNotFound) {
+		//c.Logger().Error().Str("soPath", soPath).Err(err).Msg("OpenSSL/BoringSSL version check failed")
+		return err
+	}
+
+	if goerrors.Is(err, ErrProbeOpensslVerNotFound) {
+		// 未找到版本号， try libcrypto.so.x
+		if strings.Contains(soPath, "libssl.so.3") {
+			//c.Logger().Warn().Err(err).Str("soPath", soPath).Msg("OpenSSL/BoringSSL version not found.")
+			//c.Logger().Warn().Msg("Try to detect libcrypto.so.3. If you have doubts, See https://github.com/gojue/ecapture/discussions/675 for more information.")
+
+			// 从 libssl.so.3 中获取 libcrypto.so.3 的路径
+			var libcryptoName = "libcrypto.so.3"
+			var imd []string
+			imd, err = getImpNeeded(soPath)
+			if err == nil {
+				for _, im := range imd {
+					// 匹配 包含 libcrypto.so 字符的动态链接库库名
+					if strings.Contains(im, "libcrypto.so") {
+						libcryptoName = im
+						break
+					}
+				}
+			}
+			soPath = strings.Replace(soPath, "libssl.so.3", libcryptoName, 1)
+			//c.Logger().Info().Str("soPath", soPath).Str("imported", libcryptoName).Msg("Try to detect imported libcrypto.so ")
+			verString, err = detectOpenssl(soPath)
+			if err != nil && !goerrors.Is(err, ErrProbeOpensslVerNotFound) {
+				//c.Logger().Warn().Err(err).Str("soPath", soPath).Str("imported", libcryptoName).Msgf("OpenSSL(libcrypto.so.3) version not found.%s", fmt.Sprintf(OpensslNoticeUsedDefault, OpensslNoticeVersionGuideLinux))
+				return err
+			}
+			if goerrors.Is(err, ErrProbeOpensslVerNotFound) {
+				//c.Logger().Info().Str("soPath", soPath).Str("imported", libcryptoName).Str("version", verString).Msg("OpenSSL/BoringSSL version found from imported libcrypto.so")
+			}
+		}
+	}
+
+	var bpfFileKey, bpfFile string
+	isAndroid := c.IsAndroid
+	androidVer := c.AndroidVer
+	bpfFileKey = sslVersion
+	if verString != "" {
+		c.SslVersion = verString
+		//c.Logger().Info().Str("origin versionKey", verString).Str("versionKeyLower", verString).Send()
+		// find the sslVersion bpfFile from sslVersionBpfMap
+		var found bool
+		bpfFileKey = verString
+		if isAndroid {
+			// sometimes,boringssl version always was "boringssl 1.1.1" on android. but offsets are different.
+			// see kern/boringssl_a_13_kern.c and kern/boringssl_a_14_kern.c
+			// Perhaps we can utilize the Android Version to choose a specific version of boringssl.
+			// use the corresponding bpfFile
+			bpfFileKey = fmt.Sprintf("boringssl_a_%s", androidVer)
+		}
+		bpfFile, found = sslVersionBpfMap[bpfFileKey]
+		if found {
+			c.SslBpfFile = bpfFile
+			//c.Logger().Info().Bool("Android", isAndroid).Str("library version", bpfFileKey).Msg("OpenSSL/BoringSSL version found")
+			return nil
+		} else {
+			//c.Logger().Warn().Str("version", bpfFileKey).Err(ErrProbeOpensslVerBytecodeNotFound).Msg("Please send an issue to https://github.com/gojue/ecapture/issues")
+		}
+	}
+
+	bpfFile = c.autoDetectBytecode(bpfFileKey, soPath, isAndroid)
+	c.SslBpfFile = bpfFile
+
+	return nil
+}
+
+func detectOpenssl(soPath string) (string, error) {
+	f, err := os.OpenFile(soPath, os.O_RDONLY, os.ModePerm)
+	if err != nil {
+		return "", fmt.Errorf("can not open %s, with error:%w", soPath, err)
+	}
+	r, e := elf.NewFile(f)
+	if e != nil {
+		return "", fmt.Errorf("parse the ELF file  %s failed, with error:%w", soPath, err)
+	}
+
+	switch r.FileHeader.Machine {
+	case elf.EM_X86_64:
+	case elf.EM_AARCH64:
+	default:
+		return "", fmt.Errorf("unsupported arch library ,ELF Header Machine is :%s, must be one of EM_X86_64 and EM_AARCH64", r.FileHeader.Machine.String())
+	}
+
+	s := r.Section(".rodata")
+	if s == nil {
+		// not found
+		return "", fmt.Errorf("detect openssl version failed, cant read .rodata section from %s", soPath)
+	}
+
+	sectionOffset := int64(s.Offset)
+	sectionSize := s.Size
+
+	_ = r.Close()
+
+	_, err = f.Seek(0, 0)
+	if err != nil {
+		return "", err
+	}
+
+	ret, err := f.Seek(sectionOffset, 0)
+	if ret != sectionOffset || err != nil {
+		return "", err
+	}
+
+	versionKey := ""
+
+	// e.g : OpenSSL 1.1.1j  16 Feb 2021
+	// OpenSSL 3.2.0 23 Nov 2023
+	rex, err := regexp.Compile(`(OpenSSL\s\d\.\d\.[0-9a-z]+)`)
+	if err != nil {
+		return "", err
+	}
+
+	buf := make([]byte, 1024*1024) // 1Mb
+	totalReadCount := 0
+	for totalReadCount < int(sectionSize) {
+		var readCount int
+		readCount, err = f.Read(buf)
+
+		if err != nil {
+			//c.Logger().Error().Err(err).Msg("read openssl version failed")
+			break
+		}
+
+		if readCount == 0 {
+			break
+		}
+
+		match := rex.Find(buf)
+		if match != nil {
+			versionKey = string(match)
+			break
+		}
+
+		// Subtracting OpenSslVersionLen from totalReadCount,
+		// to cover the edge-case in which openssl version string
+		// could be split into two buffers. Subtraction will,
+		// makes sure that last 30 bytes of previous buffer are considered.
+		totalReadCount += readCount - OpenSslVersionLen
+
+		_, err = f.Seek(sectionOffset+int64(totalReadCount), 0)
+		if err != nil {
+			break
+		}
+
+		clear(buf)
+
+	}
+
+	_ = f.Close()
+	//buf = buf[:0]
+
+	if versionKey == "" {
+		return "", ErrProbeOpensslVerNotFound
+	}
+
+	versionKeyLower := strings.ToLower(versionKey)
+
+	return versionKeyLower, nil
+}
+
+func (c *Config) autoDetectBytecode(ver, soPath string, isAndroid bool) string {
+	var bpfFile string
+	var found bool
+	// if not found, use default
+	if isAndroid {
+		c.SslVersion = AndroidDefaultFilename
+		androidVer := c.AndroidVer
+		if androidVer != "" {
+			bpfFileKey := fmt.Sprintf("boringssl_a_%s", androidVer)
+			bpfFile, found = sslVersionBpfMap[bpfFileKey]
+			if found {
+				return bpfFile
+			}
+		}
+		bpfFile, found = sslVersionBpfMap[AndroidDefaultFilename]
+		if !found {
+			//c.Logger().Warn().Str("BoringSSL Version", AndroidDefaultFilename).Msg("Can not find Default BoringSSL version")
+			return ""
+		}
+		//c.Logger().Warn().Msgf("OpenSSL/BoringSSL version not found, Automatically selected.%s", fmt.Sprintf(OpensslNoticeUsedDefault, OpensslNoticeVersionGuideAndroid))
+		return bpfFile
+	}
+
+	// auto downgrade openssl version
+	var isDowngrade bool
+	bpfFile, isDowngrade = c.downgradeOpensslVersion(ver, soPath)
+	if isDowngrade {
+		//c.Logger().Error().Str("OpenSSL Version", ver).Str("bpfFile", bpfFile).Msgf("OpenSSL/BoringSSL version not found, used downgrade version. %s", fmt.Sprintf(OpensslNoticeUsedDefault, OpensslNoticeVersionGuideLinux))
+	} else {
+		//c.Logger().Error().Str("OpenSSL Version", ver).Str("bpfFile", bpfFile).Msgf("OpenSSL/BoringSSL version not found, used default version. %s", fmt.Sprintf(OpensslNoticeUsedDefault, OpensslNoticeVersionGuideLinux))
+	}
+
+	return bpfFile
+}
+
+func getImpNeeded(soPath string) ([]string, error) {
+	var importedNeeded []string
+	f, err := os.OpenFile(soPath, os.O_RDONLY, os.ModePerm)
+	if err != nil {
+		return importedNeeded, fmt.Errorf("can not open %s, with error:%w", soPath, err)
+	}
+
+	elfFile, err := elf.NewFile(f)
+	if err != nil {
+		return importedNeeded, fmt.Errorf("parse the ELF file  %s failed, with error:%w", soPath, err)
+	}
+
+	// 打印外部依赖的动态链接库
+	is, err := elfFile.DynString(elf.DT_NEEDED)
+	//is, err := elfFile.ImportedSymbols()
+	if err != nil {
+		return importedNeeded, err
+	}
+	importedNeeded = append(importedNeeded, is...)
+	return importedNeeded, nil
+}
+
+func (c *Config) downgradeOpensslVersion(ver string, soPath string) (string, bool) {
+	var candidates []string
+	// 未找到时，逐步截取ver查找最相近的
+	for i := len(ver) - 1; i > 0; i-- {
+		prefix := ver[:i]
+
+		// 找到所有匹配前缀的key
+		for libKey := range sslVersionBpfMap {
+			if strings.HasPrefix(libKey, prefix) && isVersionLessOrEqual(libKey, ver) {
+				candidates = append(candidates, libKey)
+			}
+		}
+
+		if len(candidates) > 0 {
+			// 按ASCII顺序排序，取最大的
+			sort.Strings(candidates)
+			return sslVersionBpfMap[candidates[len(candidates)-1]], true
+		}
+	}
+	var bpfFile string
+	if strings.Contains(soPath, "libssl.so.3") {
+		c.SslVersion = LinuxDefaultFilename30
+		bpfFile, _ = sslVersionBpfMap[LinuxDefaultFilename30]
+	} else {
+		c.SslVersion = LinuxDefaultFilename111
+		bpfFile, _ = sslVersionBpfMap[LinuxDefaultFilename111]
+	}
+	return bpfFile, false
 }

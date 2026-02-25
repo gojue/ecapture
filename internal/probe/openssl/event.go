@@ -32,19 +32,24 @@ const (
 	// MaxDataSize is the maximum TLS data size from eBPF
 	// Increased to 16KB, fix: https://github.com/gojue/ecapture/issues/740
 	MaxDataSize = 1024 * 16
+
+	ChunkSize     = 32
+	ChunkSizeHalf = ChunkSize / 2
 )
 
 // Event represents an OpenSSL TLS data event from eBPF.
 type Event struct {
-	DataType  int64             `json:"dataType"`  // 0: read, 1: write
-	Timestamp uint64            `json:"timestamp"` // Nanosecond timestamp
-	Pid       uint32            `json:"pid"`       // Process ID
-	Tid       uint32            `json:"tid"`       // Thread ID
-	Data      [MaxDataSize]byte `json:"data"`      // TLS data payload
-	DataLen   int32             `json:"dataLen"`   // Length of actual data
-	Comm      [16]byte          `json:"comm"`      // Process name
-	Fd        uint32            `json:"fd"`        // File descriptor
-	Version   int32             `json:"version"`   // TLS version
+	Timestamp   uint64            `json:"timestamp"` // Nanosecond timestamp
+	Pid         uint32            `json:"pid"`       // Process ID
+	Tid         uint32            `json:"tid"`       // Thread ID
+	DataLen     int32             `json:"dataLen"`   // Length of actual data
+	PayloadType uint8             `json:"payloadType"`
+	Data        [MaxDataSize]byte `json:"data"` // TLS data payload
+	Comm        [16]byte          `json:"comm"` // Process name
+
+	DataType uint8  `json:"dataType"`
+	Fd       uint32 `json:"fd"`
+	Version  uint32 `json:"version"` // TLS version (e.g., 771 for TLS 1.2)
 }
 
 // DecodeFromBytes deserializes the event from raw eBPF data.
@@ -52,9 +57,6 @@ func (e *Event) DecodeFromBytes(data []byte) error {
 	buf := bytes.NewBuffer(data)
 
 	// Read fields in order matching the eBPF structure
-	if err := binary.Read(buf, binary.LittleEndian, &e.DataType); err != nil {
-		return errors.NewEventDecodeError("openssl.DataType", err)
-	}
 	if err := binary.Read(buf, binary.LittleEndian, &e.Timestamp); err != nil {
 		return errors.NewEventDecodeError("openssl.Timestamp", err)
 	}
@@ -64,19 +66,20 @@ func (e *Event) DecodeFromBytes(data []byte) error {
 	if err := binary.Read(buf, binary.LittleEndian, &e.Tid); err != nil {
 		return errors.NewEventDecodeError("openssl.Tid", err)
 	}
-	if err := binary.Read(buf, binary.LittleEndian, &e.Data); err != nil {
-		return errors.NewEventDecodeError("openssl.Data", err)
-	}
 	if err := binary.Read(buf, binary.LittleEndian, &e.DataLen); err != nil {
 		return errors.NewEventDecodeError("openssl.DataLen", err)
+	}
+	if err := binary.Read(buf, binary.LittleEndian, &e.PayloadType); err != nil {
+		return errors.NewEventDecodeError("openssl.PayloadType", err)
+	}
+	if err := binary.Read(buf, binary.LittleEndian, &e.Data); err != nil {
+		return errors.NewEventDecodeError("openssl.Data", err)
 	}
 	if err := binary.Read(buf, binary.LittleEndian, &e.Comm); err != nil {
 		return errors.NewEventDecodeError("openssl.Comm", err)
 	}
-	if err := binary.Read(buf, binary.LittleEndian, &e.Fd); err != nil {
-		return errors.NewEventDecodeError("openssl.Fd", err)
-	}
-	if err := binary.Read(buf, binary.LittleEndian, &e.Version); err != nil {
+
+	if err := binary.Read(buf, binary.LittleEndian, &e.Comm); err != nil {
 		return errors.NewEventDecodeError("openssl.Version", err)
 	}
 
@@ -116,7 +119,8 @@ func (e *Event) StringHex() string {
 	}
 
 	ts := time.Unix(0, int64(e.Timestamp))
-	hexData := fmt.Sprintf("%x", e.GetData())
+
+	hexData := dumpByteSlice(e.GetData(), "")
 
 	return fmt.Sprintf("[%s] PID:%d TID:%d Comm:%s FD:%d %s (%d bytes, hex):\n%s",
 		ts.Format("2006-01-02 15:04:05.000"),
@@ -219,4 +223,47 @@ func (e *Event) Decode(data []byte) (domain.Event, error) {
 		return nil, err
 	}
 	return event, nil
+}
+
+func dumpByteSlice(b []byte, prefix string) *bytes.Buffer {
+	var a [ChunkSize]byte
+	bb := new(bytes.Buffer)
+	n := (len(b) + (ChunkSize - 1)) &^ (ChunkSize - 1)
+
+	for i := 0; i < n; i++ {
+
+		// 序号列
+		if i%ChunkSize == 0 {
+			bb.WriteString(prefix)
+			_, _ = fmt.Fprintf(bb, "%04X", i)
+		}
+
+		// 长度的一半，则输出4个空格
+		if i%ChunkSizeHalf == 0 {
+			bb.WriteString("  ")
+		} else if i%(ChunkSizeHalf/2) == 0 {
+			bb.WriteString(" ")
+		}
+
+		if i < len(b) {
+			_, _ = fmt.Fprintf(bb, "%02X", b[i])
+		} else {
+			bb.WriteString(" ")
+		}
+
+		// 非ASCII 改为 .
+		if i >= len(b) {
+			a[i%ChunkSize] = ' '
+		} else if b[i] < 32 || b[i] > 126 {
+			a[i%ChunkSize] = '.'
+		} else {
+			a[i%ChunkSize] = b[i]
+		}
+
+		// 如果到达size长度，则换行
+		if i%ChunkSize == (ChunkSize - 1) {
+			_, _ = fmt.Fprintf(bb, "    %s\n", string(a[:]))
+		}
+	}
+	return bb
 }

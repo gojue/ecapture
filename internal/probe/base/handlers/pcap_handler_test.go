@@ -16,9 +16,11 @@ package handlers
 
 import (
 	"bytes"
+	"os"
 	"testing"
 
 	"github.com/gojue/ecapture/internal/domain"
+	"github.com/gojue/ecapture/internal/logger"
 )
 
 // mockPcapWriter wraps bytes.Buffer to implement OutputWriter for testing
@@ -70,9 +72,14 @@ func (m *mockPacketEvent) Clone() domain.Event               { return &mockPacke
 func (m *mockPacketEvent) Type() domain.EventType            { return domain.EventTypeOutput }
 func (m *mockPacketEvent) UUID() string                      { return "" }
 
+func newTestLogger() *logger.Logger {
+	return logger.New(os.Stdout, true)
+}
+
 func TestNewPcapHandler(t *testing.T) {
 	writer := newMockPcapWriter()
-	handler, err := NewPcapHandler(writer)
+
+	handler, err := NewPcapHandler(writer, "test-interface", "tcp port 80", newTestLogger())
 	if err != nil {
 		t.Fatalf("NewPcapHandler returned error: %v", err)
 		return
@@ -87,7 +94,7 @@ func TestNewPcapHandler(t *testing.T) {
 }
 
 func TestNewPcapHandler_NilWriter(t *testing.T) {
-	handler, err := NewPcapHandler(nil)
+	handler, err := NewPcapHandler(nil, "test-interface", "tcp port 80", newTestLogger())
 	if err != nil {
 		t.Fatalf("NewPcapHandler returned error: %v", err)
 		return
@@ -103,7 +110,7 @@ func TestNewPcapHandler_NilWriter(t *testing.T) {
 
 func TestPcapHandler_Handle(t *testing.T) {
 	writer := newMockPcapWriter()
-	handler, err := NewPcapHandler(writer)
+	handler, err := NewPcapHandler(writer, "test-interface", "tcp port 80", newTestLogger())
 	if err != nil {
 		t.Fatalf("NewPcapHandler returned error: %v", err)
 		return
@@ -134,7 +141,7 @@ func TestPcapHandler_Handle(t *testing.T) {
 
 func TestPcapHandler_Handle_NilEvent(t *testing.T) {
 	writer := newMockPcapWriter()
-	handler, err := NewPcapHandler(writer)
+	handler, err := NewPcapHandler(writer, "test-interface", "tcp port 80", newTestLogger())
 	if err != nil {
 		t.Fatalf("NewPcapHandler returned error: %v", err)
 		return
@@ -161,7 +168,7 @@ func (m *mockNonPacketEvent) UUID() string                      { return "" }
 
 func TestPcapHandler_Handle_InvalidEventType(t *testing.T) {
 	writer := newMockPcapWriter()
-	handler, err := NewPcapHandler(writer)
+	handler, err := NewPcapHandler(writer, "test-interface", "tcp port 80", newTestLogger())
 	if err != nil {
 		t.Fatalf("NewPcapHandler returned error: %v", err)
 		return

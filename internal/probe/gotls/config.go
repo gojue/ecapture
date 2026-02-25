@@ -20,6 +20,7 @@ import (
 	"debug/elf"
 	"debug/gosym"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -29,6 +30,17 @@ import (
 
 	"github.com/gojue/ecapture/internal/config"
 	"github.com/gojue/ecapture/internal/probe/base/handlers"
+	"github.com/gojue/ecapture/pkg/proc"
+)
+
+var (
+	ErrorGoBinNotFound            = errors.New("the executable program (compiled by Golang) was not found")
+	ErrorSymbolEmpty              = errors.New("symbol is empty")
+	ErrorSymbolNotFound           = errors.New("symbol not found")
+	ErrorSymbolNotFoundFromTable  = errors.New("symbol not found from table")
+	ErrorNoRetFound               = errors.New("no RET instructions found")
+	ErrorNoFuncFoundFromSymTabFun = errors.New("no function found from golang symbol table with Func Name")
+	ErrorTextSectionNotFound      = errors.New("`.text` section not found")
 )
 
 // Config extends BaseConfig with GoTLS-specific configuration.
@@ -60,13 +72,23 @@ type Config struct {
 	IsRegisterABI bool `json:"is_register_abi"`
 
 	// ReadTlsAddrs stores the offsets for Read function RET instructions (for uretprobe)
-	ReadTlsAddrs []uint64 `json:"-"`
+	ReadTlsAddrs []int `json:"-"`
 
 	// GoTlsWriteAddr stores the offset for Write function
 	GoTlsWriteAddr uint64 `json:"-"`
 
 	// GoTlsMasterSecretAddr stores the offset for master secret function (keylog mode)
 	GoTlsMasterSecretAddr uint64 `json:"-"`
+
+	// BuildInfo stores the build info from the Go binary (for debugging)
+	BuildInfo *buildinfo.BuildInfo `json:"build_info"`
+
+	// IsPieBuildMode indicates whether the Go binary is built in PIE mode (position-independent executable)
+	IsPieBuildMode bool `json:"is_pie_build_mode"`
+
+	goSymTab  *gosym.Table
+	goElfArch string    //
+	goElf     *elf.File //
 }
 
 // NewConfig creates a new GoTLS config with default values
@@ -86,35 +108,136 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("base config validation failed: %w", err)
 	}
 
-	// Detect Go version
-	if c.GoVersion == "" {
-		version := detectGoVersion()
-		if version == "" {
-			return fmt.Errorf("failed to detect Go version")
-		}
-		c.GoVersion = version
+	// Parse the Go ELF file to detect Go version and symbol addresses
+	if err := c.parserGoElf(); err != nil {
+		return fmt.Errorf("failed to parse Go ELF file: %w", err)
 	}
 
-	// Validate Go version (require Go 1.17+)
-	if !isGoVersionSupported(c.GoVersion) {
-		return fmt.Errorf("unsupported Go version: %s (require Go 1.17+)", c.GoVersion)
+	// Validate the rest of the configuration
+	if err := c.validateConf(); err != nil {
+		return fmt.Errorf("configuration validation failed: %w", err)
 	}
-
-	// Determine ABI based on Go version
-	c.IsRegisterABI = isRegisterABI(c.GoVersion)
 
 	// Validate capture mode
 	if err := c.validateCaptureMode(); err != nil {
 		return err
 	}
 
-	// Find symbol addresses if ElfPath is provided
-	if c.ElfPath != "" {
-		if err := c.findSymbolOffsets(); err != nil {
-			return fmt.Errorf("failed to find symbol offsets: %w", err)
+	return nil
+}
+
+func (c *Config) parserGoElf() error {
+	// Detect Go version
+	if c.ElfPath == "" {
+		return fmt.Errorf("no ELF path specified")
+	}
+	var err error
+	_, err = os.Stat(c.ElfPath)
+	if err != nil {
+		return err
+	}
+
+	// Read the build information of the Go application
+	c.BuildInfo, err = buildinfo.ReadFile(c.ElfPath)
+	if err != nil {
+		return err
+	}
+
+	ver, err := proc.ExtraceGoVersion(c.ElfPath)
+	if err != nil {
+		return err
+	}
+
+	// supported at 1.17 via https://github.com/golang/go/issues/40724
+	if ver.After(1, 17) {
+		c.IsRegisterABI = true
+	}
+
+	var goElf *elf.File
+	goElf, err = elf.Open(c.ElfPath)
+	if err != nil {
+		return err
+	}
+
+	var goElfArch, machineStr string
+	machineStr = goElf.FileHeader.Machine.String()
+	switch machineStr {
+	case elf.EM_AARCH64.String():
+		goElfArch = "arm64"
+	case elf.EM_X86_64.String():
+		goElfArch = "amd64"
+	default:
+		goElfArch = "unsupported_arch"
+	}
+
+	if goElfArch != runtime.GOARCH {
+		err = fmt.Errorf("go Application not match, want:%s, have:%s", runtime.GOARCH, goElfArch)
+		return err
+	}
+	switch goElfArch {
+	case "amd64":
+	case "arm64":
+	default:
+		return fmt.Errorf("unsupport CPU arch :%s", goElfArch)
+	}
+	c.goElfArch = goElfArch
+	c.goElf = goElf
+	// If built with PIE and stripped, gopclntab is
+	// unlabeled and nested under .data.rel.ro.
+	for _, bs := range c.BuildInfo.Settings {
+		if bs.Key == "-buildmode" {
+			if bs.Value == "pie" {
+				c.IsPieBuildMode = true
+			}
+			break
 		}
 	}
 
+	c.goSymTab, err = c.ReadTable()
+	if err != nil {
+		return err
+	}
+
+	if c.IsPieBuildMode {
+		var addr uint64
+		addr, err = c.findPieSymbolAddr(GoTlsWriteFunc)
+		if err != nil {
+			return fmt.Errorf("%s symbol address error:%s", GoTlsWriteFunc, err.Error())
+		}
+		c.GoTlsWriteAddr = addr
+		addr, err = c.findPieSymbolAddr(GoTlsMasterSecretFunc)
+		if err != nil {
+			return fmt.Errorf("%s symbol address error:%s", GoTlsMasterSecretFunc, err.Error())
+		}
+		c.GoTlsMasterSecretAddr = addr
+
+		c.ReadTlsAddrs, err = c.findRetOffsetsPie(GoTlsReadFunc)
+		if err != nil {
+			return err
+		}
+	} else {
+		var addr uint64
+		addr, err = c.findSymbolAddr(GoTlsWriteFunc)
+		if err != nil {
+			return fmt.Errorf("%s find symbol addr error:%w", GoTlsWriteFunc, err)
+		}
+		c.GoTlsWriteAddr = addr
+
+		addr, err = c.findSymbolAddr(GoTlsMasterSecretFunc)
+		if err != nil {
+			return fmt.Errorf("%s find symbol addr error:%w", GoTlsMasterSecretFunc, err)
+		}
+		c.GoTlsMasterSecretAddr = addr
+
+		c.ReadTlsAddrs, err = c.findRetOffsets(GoTlsReadFunc)
+		if err == nil {
+			return nil
+		}
+		c.ReadTlsAddrs, err = c.findSymbolRetOffsets(GoTlsReadFunc)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -146,7 +269,7 @@ func (c *Config) validateCaptureMode() error {
 
 		return nil
 
-	case handlers.ModePcap:
+	case handlers.ModePcap, handlers.ModePcapng:
 		// Pcap mode requires PcapFile and Ifname
 		if c.PcapFile == "" {
 			return fmt.Errorf("pcap mode requires PcapFile to be set")
@@ -197,6 +320,29 @@ func (c *Config) validateNetworkInterface() error {
 		return fmt.Errorf("network interface '%s' is not up", c.Ifname)
 	}
 
+	addrs, err := iface.Addrs() // Just to check if we can access interface addresses (basic functionality check)
+	if err != nil {
+		return fmt.Errorf("cannot access addresses for interface '%s': %w", c.Ifname, err)
+	}
+	if len(addrs) == 0 {
+		return fmt.Errorf("network interface '%s' has no addresses", c.Ifname)
+	}
+
+	return nil
+}
+
+func (c *Config) validateConf() error {
+	if c.GoTlsMasterSecretAddr <= 0 {
+		return fmt.Errorf("goTlsMasterSecretAddr must be > 0")
+	}
+
+	if c.GoTlsWriteAddr <= 0 {
+		return fmt.Errorf("goTlsWriteAddr must be > 0")
+	}
+
+	if len(c.ReadTlsAddrs) == 0 {
+		return fmt.Errorf("readTlsAddrs must not be empty")
+	}
 	return nil
 }
 
@@ -291,65 +437,6 @@ func isRegisterABI(version string) bool {
 func (c *Config) Bytes() []byte {
 	// Use BaseConfig's Bytes method which handles JSON serialization properly
 	return c.BaseConfig.Bytes()
-}
-
-// findSymbolOffsets finds the offsets for crypto/tls functions in the Go binary
-func (c *Config) findSymbolOffsets() error {
-	if c.ElfPath == "" {
-		return fmt.Errorf("ElfPath is required")
-	}
-
-	// Open the ELF file
-	elfFile, err := elf.Open(c.ElfPath)
-	if err != nil {
-		return fmt.Errorf("failed to open ELF file: %w", err)
-	}
-	defer func() {
-		_ = elfFile.Close()
-	}()
-
-	// Read build info to get Go version
-	buildInfo, err := buildinfo.ReadFile(c.ElfPath)
-	if err != nil {
-		return fmt.Errorf("failed to read build info: %w", err)
-	}
-
-	// Read the Go symbol table
-	symTable, err := c.readGoSymbolTable(elfFile, buildInfo.GoVersion)
-	if err != nil {
-		return fmt.Errorf("failed to read Go symbol table: %w", err)
-	}
-
-	// Find function symbols
-	const writeFunc = "crypto/tls.(*Conn).writeRecordLocked"
-	const readFunc = "crypto/tls.(*Conn).Read"
-	const masterSecretFunc = "crypto/tls.(*Config).writeKeyLog"
-
-	writeSymbol := symTable.LookupFunc(writeFunc)
-	if writeSymbol == nil {
-		return fmt.Errorf("write function symbol not found: %s", writeFunc)
-	}
-
-	readSymbol := symTable.LookupFunc(readFunc)
-	if readSymbol == nil {
-		return fmt.Errorf("read function symbol not found: %s", readFunc)
-	}
-
-	// Master secret function is optional (only used in keylog mode)
-	masterSecretSymbol := symTable.LookupFunc(masterSecretFunc)
-	if masterSecretSymbol != nil {
-		c.GoTlsMasterSecretAddr = c.addrToOffset(elfFile, masterSecretSymbol.Entry)
-	}
-
-	// Convert virtual addresses to file offsets
-	c.GoTlsWriteAddr = c.addrToOffset(elfFile, writeSymbol.Entry)
-
-	// For read function, use the entry point as the offset
-	// In a full implementation, we would parse instructions to find RET offsets
-	readOffset := c.addrToOffset(elfFile, readSymbol.Entry)
-	c.ReadTlsAddrs = []uint64{readOffset}
-
-	return nil
 }
 
 // readGoSymbolTable reads the Go symbol table from the ELF file
