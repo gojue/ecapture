@@ -46,6 +46,7 @@ type EventProcessor struct {
 
 	// output model
 	isHex        bool
+	noCtrlChars  bool
 	truncateSize uint64
 }
 
@@ -203,11 +204,12 @@ func (ep *EventProcessor) ErrorChan() chan error {
 	return ep.errChan
 }
 
-func NewEventProcessor(logger io.Writer, isHex bool, truncateSize uint64) *EventProcessor {
+func NewEventProcessor(logger io.Writer, isHex bool, noCtrlChars bool, truncateSize uint64) *EventProcessor {
 	var ep *EventProcessor
 	ep = &EventProcessor{}
 	ep.logger = logger
 	ep.isHex = isHex
+	ep.noCtrlChars = noCtrlChars
 	ep.truncateSize = truncateSize
 	ep.isClosed = false
 	ep.init()
