@@ -282,7 +282,7 @@ func (p *Probe) setupManager() error {
 		}
 	}
 
-	return nil
+	return err
 }
 
 // getManagerOptions returns eBPF manager options.

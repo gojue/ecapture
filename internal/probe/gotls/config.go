@@ -225,7 +225,7 @@ func (c *Config) parserGoElf() error {
 
 		addr, err = c.findSymbolAddr(GoTlsMasterSecretFunc)
 		if err != nil {
-			return fmt.Errorf("%s find symbol addr error:%w", GoTlsWriteFunc, err)
+			return fmt.Errorf("%s find symbol addr error:%w", GoTlsMasterSecretFunc, err)
 		}
 		c.GoTlsMasterSecretAddr = addr
 

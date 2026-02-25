@@ -127,6 +127,7 @@ func NewPcapWriter(w io.Writer, snaplen uint32, ifName, filter string, logger *l
 		ctxCancel:  cancel,
 		tcPackets:  []*TcPacket{},
 		isClosed:   false,
+		logger:     logger,
 	}
 	go pw.Serve()
 	return pw, nil

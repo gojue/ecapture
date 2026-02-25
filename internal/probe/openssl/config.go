@@ -267,6 +267,10 @@ func (c *Config) getSslBpfFile(soPath, sslVersion string) error {
 			c.IsBoringSSL = true
 			c.MasterHookFuncs = []string{MasterKeyHookFuncBoringSSL}
 		}
+
+		if len(c.MasterHookFuncs) == 0 {
+			c.MasterHookFuncs = []string{MasterKeyHookFuncOpenSSL}
+		}
 		// TODO detect sslVersion less then 1.1.0 ,  ref # https://github.com/gojue/ecapture/issues/518
 		tmpSslVer := c.SslVersion
 		if strings.Contains(tmpSslVer, " 1.0.") {

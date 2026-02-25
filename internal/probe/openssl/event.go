@@ -49,6 +49,7 @@ type Event struct {
 
 	DataType uint8  `json:"dataType"`
 	Fd       uint32 `json:"fd"`
+	Version  uint32 `json:"version"` // TLS version (e.g., 771 for TLS 1.2)
 }
 
 // DecodeFromBytes deserializes the event from raw eBPF data.

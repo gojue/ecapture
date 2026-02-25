@@ -73,7 +73,7 @@ func (e *GoTLSDataEvent) DecodeFromBytes(data []byte) error {
 	}
 
 	if err := binary.Read(buf, binary.LittleEndian, &e.Comm); err != nil {
-		return errors.NewEventDecodeError("openssl.Comm", err)
+		return errors.NewEventDecodeError("gotls.Comm", err)
 	}
 
 	if e.Timestamp == 0 {
