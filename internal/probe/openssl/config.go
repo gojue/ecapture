@@ -170,10 +170,7 @@ func (c *Config) validateCaptureMode() error {
 
 // IsSupportedVersion checks if the detected version is supported.
 func (c *Config) IsSupportedVersion() bool {
-	if c.SslVersion != "" {
-		return true
-	}
-	return false
+	return c.SslVersion != ""
 }
 
 // GetBPFFileName returns the eBPF object file name for the detected version.
@@ -326,9 +323,6 @@ func (c *Config) getSslBpfFile(soPath, sslVersion string) error {
 				//c.Logger().Warn().Err(err).Str("soPath", soPath).Str("imported", libcryptoName).Msgf("OpenSSL(libcrypto.so.3) version not found.%s", fmt.Sprintf(OpensslNoticeUsedDefault, OpensslNoticeVersionGuideLinux))
 				return err
 			}
-			if goerrors.Is(err, ErrProbeOpensslVerNotFound) {
-				//c.Logger().Info().Str("soPath", soPath).Str("imported", libcryptoName).Str("version", verString).Msg("OpenSSL/BoringSSL version found from imported libcrypto.so")
-			}
 		}
 	}
 
@@ -354,9 +348,8 @@ func (c *Config) getSslBpfFile(soPath, sslVersion string) error {
 			c.SslBpfFile = bpfFile
 			//c.Logger().Info().Bool("Android", isAndroid).Str("library version", bpfFileKey).Msg("OpenSSL/BoringSSL version found")
 			return nil
-		} else {
-			//c.Logger().Warn().Str("version", bpfFileKey).Err(ErrProbeOpensslVerBytecodeNotFound).Msg("Please send an issue to https://github.com/gojue/ecapture/issues")
 		}
+		//c.Logger().Warn().Str("version", bpfFileKey).Err(ErrProbeOpensslVerBytecodeNotFound).Msg("Please send an issue to https://github.com/gojue/ecapture/issues")
 	}
 
 	bpfFile = c.autoDetectBytecode(bpfFileKey, soPath, isAndroid)
@@ -484,13 +477,12 @@ func (c *Config) autoDetectBytecode(ver, soPath string, isAndroid bool) string {
 	}
 
 	// auto downgrade openssl version
-	var isDowngrade bool
-	bpfFile, isDowngrade = c.downgradeOpensslVersion(ver, soPath)
-	if isDowngrade {
-		//c.Logger().Error().Str("OpenSSL Version", ver).Str("bpfFile", bpfFile).Msgf("OpenSSL/BoringSSL version not found, used downgrade version. %s", fmt.Sprintf(OpensslNoticeUsedDefault, OpensslNoticeVersionGuideLinux))
-	} else {
-		//c.Logger().Error().Str("OpenSSL Version", ver).Str("bpfFile", bpfFile).Msgf("OpenSSL/BoringSSL version not found, used default version. %s", fmt.Sprintf(OpensslNoticeUsedDefault, OpensslNoticeVersionGuideLinux))
-	}
+	//var isDowngrade bool
+	bpfFile, _ = c.downgradeOpensslVersion(ver, soPath)
+	//if isDowngrade {
+	//c.Logger().Error().Str("OpenSSL Version", ver).Str("bpfFile", bpfFile).Msgf("OpenSSL/BoringSSL version not found, used downgrade version. %s", fmt.Sprintf(OpensslNoticeUsedDefault, OpensslNoticeVersionGuideLinux))
+	//}
+	//c.Logger().Error().Str("OpenSSL Version", ver).Str("bpfFile", bpfFile).Msgf("OpenSSL/BoringSSL version not found, used default version. %s", fmt.Sprintf(OpensslNoticeUsedDefault, OpensslNoticeVersionGuideLinux))
 
 	return bpfFile
 }

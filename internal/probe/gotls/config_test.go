@@ -25,9 +25,6 @@ import (
 
 func TestNewConfig(t *testing.T) {
 	cfg := NewConfig()
-	if cfg == nil {
-		t.Fatal("NewConfig() returned nil")
-	}
 
 	if cfg.CaptureMode != "text" {
 		t.Errorf("expected default CaptureMode='text', got '%s'", cfg.CaptureMode)
