@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"time"
 
+	"golang.org/x/sys/unix"
+
 	"github.com/gojue/ecapture/internal/domain"
 	"github.com/gojue/ecapture/internal/errors"
 )
@@ -31,31 +33,91 @@ const (
 
 	// MaxDataSize is the maximum TLS data size from eBPF
 	// Increased to 16KB, fix: https://github.com/gojue/ecapture/issues/740
-	MaxDataSize = 1024 * 16
-
+	MaxDataSize   = 1024 * 16
 	ChunkSize     = 32
 	ChunkSizeHalf = ChunkSize / 2
 )
 
+type AttachType int64
+
+const (
+	ProbeEntry AttachType = iota
+	ProbeRet
+)
+
+const (
+	Ssl2Version   = 0x0002
+	Ssl3Version   = 0x0300
+	Tls1Version   = 0x0301
+	Tls11Version  = 0x0302
+	Tls12Version  = 0x0303
+	Tls13Version  = 0x0304
+	Dtls1Version  = 0xFEFF
+	Dtls12Version = 0xFEFD
+)
+
+type TlsVersion struct {
+	Version int32
+}
+
+func (t TlsVersion) String() string {
+	switch t.Version {
+	case Ssl2Version:
+		return "SSL2_VERSION"
+	case Ssl3Version:
+		return "SSL3_VERSION"
+	case Tls1Version:
+		return "TLS1_VERSION"
+	case Tls11Version:
+		return "TLS1_1_VERSION"
+	case Tls12Version:
+		return "TLS1_2_VERSION"
+	case Tls13Version:
+		return "TLS1_3_VERSION"
+	case Dtls1Version:
+		return "DTLS1_VERSION"
+	case Dtls12Version:
+		return "DTLS1_2_VERSION"
+	}
+	return fmt.Sprintf("TLS_VERSION_UNKNOWN_%d", t.Version)
+}
+
+/*
+struct ssl_data_event_t {
+    enum ssl_data_event_type type;
+    u64 timestamp_ns;
+    u32 pid;
+    u32 tid;
+    char data[MAX_DATA_SIZE_OPENSSL];
+    s32 data_len;
+    char comm[TASK_COMM_LEN];
+    u32 fd;
+    s32 version;
+    u32 bio_type;
+};
+*/
 // Event represents an OpenSSL TLS data event from eBPF.
 type Event struct {
-	Timestamp   uint64            `json:"timestamp"` // Nanosecond timestamp
-	Pid         uint32            `json:"pid"`       // Process ID
-	Tid         uint32            `json:"tid"`       // Thread ID
-	DataLen     int32             `json:"dataLen"`   // Length of actual data
-	PayloadType uint8             `json:"payloadType"`
-	Data        [MaxDataSize]byte `json:"data"` // TLS data payload
-	Comm        [16]byte          `json:"comm"` // Process name
-
-	DataType uint8  `json:"dataType"`
-	Fd       uint32 `json:"fd"`
-	Version  uint32 `json:"version"` // TLS version (e.g., 771 for TLS 1.2)
+	DataType  int64             `json:"dataType"`
+	Timestamp uint64            `json:"timestamp"` // Nanosecond timestamp
+	Pid       uint32            `json:"pid"`       // Process ID
+	Tid       uint32            `json:"tid"`       // Thread ID
+	Data      [MaxDataSize]byte `json:"data"`      // TLS data payload
+	DataLen   int32             `json:"dataLen"`   // Length of actual data
+	Comm      [TaskCommLen]byte `json:"comm"`      // Process name
+	Fd        uint32            `json:"fd"`
+	Version   int32             `json:"version"` // TLS version (e.g., 771 for TLS 1.2)
+	Tuple     string
+	BioType   uint32
+	Sock      uint64
 }
 
 // DecodeFromBytes deserializes the event from raw eBPF data.
 func (e *Event) DecodeFromBytes(data []byte) error {
 	buf := bytes.NewBuffer(data)
-
+	if err := binary.Read(buf, binary.LittleEndian, &e.DataType); err != nil {
+		return errors.NewEventDecodeError("openssl.DataType", err)
+	}
 	// Read fields in order matching the eBPF structure
 	if err := binary.Read(buf, binary.LittleEndian, &e.Timestamp); err != nil {
 		return errors.NewEventDecodeError("openssl.Timestamp", err)
@@ -66,26 +128,25 @@ func (e *Event) DecodeFromBytes(data []byte) error {
 	if err := binary.Read(buf, binary.LittleEndian, &e.Tid); err != nil {
 		return errors.NewEventDecodeError("openssl.Tid", err)
 	}
-	if err := binary.Read(buf, binary.LittleEndian, &e.DataLen); err != nil {
-		return errors.NewEventDecodeError("openssl.DataLen", err)
-	}
-	if err := binary.Read(buf, binary.LittleEndian, &e.PayloadType); err != nil {
-		return errors.NewEventDecodeError("openssl.PayloadType", err)
-	}
 	if err := binary.Read(buf, binary.LittleEndian, &e.Data); err != nil {
 		return errors.NewEventDecodeError("openssl.Data", err)
+	}
+	if err := binary.Read(buf, binary.LittleEndian, &e.DataLen); err != nil {
+		return errors.NewEventDecodeError("openssl.DataLen", err)
 	}
 	if err := binary.Read(buf, binary.LittleEndian, &e.Comm); err != nil {
 		return errors.NewEventDecodeError("openssl.Comm", err)
 	}
-
-	if err := binary.Read(buf, binary.LittleEndian, &e.Comm); err != nil {
+	if err := binary.Read(buf, binary.LittleEndian, &e.Fd); err != nil {
+		return errors.NewEventDecodeError("openssl.Fd", err)
+	}
+	if err := binary.Read(buf, binary.LittleEndian, &e.Version); err != nil {
 		return errors.NewEventDecodeError("openssl.Version", err)
 	}
-
-	if e.Timestamp == 0 {
-		e.Timestamp = uint64(time.Now().UnixNano())
+	if err := binary.Read(buf, binary.LittleEndian, &e.BioType); err != nil {
+		return errors.NewEventDecodeError("openssl.BioType", err)
 	}
+
 	return nil
 }
 
@@ -96,11 +157,22 @@ func (e *Event) String() string {
 		direction = "READ"
 	}
 
-	ts := time.Unix(0, int64(e.Timestamp))
+	// 2. 获取时间偏移量
+	offsetNs, err := getClockOffset()
+	if err != nil {
+		panic(err)
+	}
+	// 3. 计算绝对时间戳（纳秒）
+	absoluteTimeNs := int64(e.Timestamp) + offsetNs
+
+	// 4. 将纳秒转换为 Go 的 time.Time 对象
+	// time.Unix(sec, nsec)
+	eventTime := time.Unix(0, absoluteTimeNs)
+
 	dataStr := string(e.GetData())
 
 	return fmt.Sprintf("[%s] PID:%d TID:%d Comm:%s FD:%d %s (%d bytes):\n%s",
-		ts.Format("2006-01-02 15:04:05.000"),
+		eventTime.Format("2006-01-02 15:04:05.000"),
 		e.Pid,
 		e.Tid,
 		e.GetComm(),
@@ -118,7 +190,7 @@ func (e *Event) StringHex() string {
 		direction = "READ"
 	}
 
-	ts := time.Unix(0, int64(e.Timestamp))
+	ts := time.Unix(int64(e.Timestamp), 0)
 
 	hexData := dumpByteSlice(e.GetData(), "")
 
@@ -132,6 +204,25 @@ func (e *Event) StringHex() string {
 		e.DataLen,
 		hexData,
 	)
+}
+
+func (e *Event) BaseInfo() string {
+	addr := "[TODO]"
+	if e.Tuple != "" {
+		addr = e.Tuple
+	}
+	var connInfo string
+	switch AttachType(e.DataType) {
+	case ProbeEntry:
+		connInfo = fmt.Sprintf("Received %d bytes from %s", e.DataLen, addr)
+	case ProbeRet:
+		connInfo = fmt.Sprintf("Send %d bytes to %s", e.DataLen, addr)
+	default:
+		connInfo = fmt.Sprintf("UNKNOWN_%d", e.DataType)
+	}
+	v := TlsVersion{Version: e.Version}
+	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, Version:%s, %s", e.Pid, commStr(e.Comm[:]), e.Tid, v.String(), connInfo)
+	return s
 }
 
 // Clone creates a new instance of the event.
@@ -213,17 +304,17 @@ func commToString(data []byte) string {
 	return string(data)
 }
 
-// Decode implements domain.EventDecoder interface for TLS data events.
-func (e *Event) Decode(data []byte) (domain.Event, error) {
-	event := &Event{}
-	if err := event.DecodeFromBytes(data); err != nil {
-		return nil, err
-	}
-	if err := event.Validate(); err != nil {
-		return nil, err
-	}
-	return event, nil
-}
+//// Decode implements domain.EventDecoder interface for TLS data events.
+//func (e *Event) Decode(data []byte) (domain.Event, error) {
+//	event := &Event{}
+//	if err := event.DecodeFromBytes(data); err != nil {
+//		return nil, err
+//	}
+//	if err := event.Validate(); err != nil {
+//		return nil, err
+//	}
+//	return event, nil
+//}
 
 func dumpByteSlice(b []byte, prefix string) *bytes.Buffer {
 	var a [ChunkSize]byte
@@ -266,4 +357,26 @@ func dumpByteSlice(b []byte, prefix string) *bytes.Buffer {
 		}
 	}
 	return bb
+}
+
+// getClockOffset 计算 CLOCK_REALTIME (绝对时间) 和 CLOCK_MONOTONIC (单调时间) 之间的差值。
+// 这个差值实际上就是系统的启动时间 (Boot Time)。
+func getClockOffset() (int64, error) {
+	var tsReal, tsMono unix.Timespec
+
+	// 获取当前墙上时间 (绝对时间)
+	if err := unix.ClockGettime(unix.CLOCK_REALTIME, &tsReal); err != nil {
+		return 0, fmt.Errorf("failed to get CLOCK_REALTIME: %w", err)
+	}
+
+	// 获取当前单调时间 (自启动以来的时间)
+	if err := unix.ClockGettime(unix.CLOCK_MONOTONIC, &tsMono); err != nil {
+		return 0, fmt.Errorf("failed to get CLOCK_MONOTONIC: %w", err)
+	}
+
+	// 转换为纳秒并计算差值
+	realNs := tsReal.Sec*1e9 + tsReal.Nsec
+	monoNs := tsMono.Sec*1e9 + tsMono.Nsec
+
+	return realNs - monoNs, nil
 }

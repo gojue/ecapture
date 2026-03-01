@@ -224,9 +224,6 @@ func TestEvent_Methods(t *testing.T) {
 
 func TestProbe_Creation(t *testing.T) {
 	probe := NewProbe()
-	if probe == nil {
-		t.Fatal("NewProbe() returned nil")
-	}
 
 	if probe.Name() != "MySQL" {
 		t.Errorf("Probe.Name() = %v, want %v", probe.Name(), "MySQL")

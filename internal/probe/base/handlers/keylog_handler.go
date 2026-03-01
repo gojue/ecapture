@@ -150,7 +150,7 @@ func (h *KeylogHandler) handleTLS12(event MasterSecretEvent) error {
 	}
 
 	// Format: CLIENT_RANDOM <client_random> <master_secret>
-	line := fmt.Sprintf("%s %x %x\n",
+	line := fmt.Sprintf("%s %x %x",
 		KeyLogLabelTLS12,
 		clientRandom[:Ssl3RandomSize],
 		masterKey[:MasterSecretMaxLen])
@@ -199,7 +199,7 @@ func (h *KeylogHandler) handleGoTLS(event GoTLSMasterSecretEvent) error {
 
 	// Format: LABEL <client_random_hex> <secret_hex>
 	// This is the standard NSS Key Log Format used by Wireshark
-	line := fmt.Sprintf("%s %x %x\n", label, clientRandom, secret)
+	line := fmt.Sprintf("%s %x %x", label, clientRandom, secret)
 
 	// Use label+client_random as dedup key to avoid multiple captures
 	dedupKey := fmt.Sprintf("%s_%x", label, clientRandom)
@@ -250,7 +250,7 @@ func (h *KeylogHandler) handleTLS13(event MasterSecretEvent) error {
 			continue // Already written this secret type for this connection
 		}
 
-		line := fmt.Sprintf("%s %s %x\n", secret.label, clientRandomHex, secret.data)
+		line := fmt.Sprintf("%s %s %x", secret.label, clientRandomHex, secret.data)
 
 		// Write to output
 		if _, err := h.writer.Write([]byte(line)); err != nil {
