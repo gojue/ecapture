@@ -239,35 +239,115 @@ func (p *Probe) setupManagerText() error {
 	var maps []*manager.Map
 	// Base TLS events map (used by all modes for SSL_read/SSL_write data)
 	maps = append(maps, &manager.Map{Name: "tls_events"})
+	maps = append(maps, &manager.Map{Name: "connect_events"})
 	p.mapNameToDecoder["tls_events"] = &tlsEventDecoder{probe: p}
+	p.mapNameToDecoder["connect_events"] = &connectDecoder{probe: p}
 
 	// TEXT mode: Only SSL_read/SSL_write probes for data capture
-	probes = append(probes,
-		&manager.Probe{
+	probes = []*manager.Probe{
+		{
 			Section:          "uprobe/SSL_write",
 			EbpfFuncName:     "probe_entry_SSL_write",
 			AttachToFuncName: "SSL_write",
 			BinaryPath:       opensslPath,
 		},
-		&manager.Probe{
+		{
 			Section:          "uretprobe/SSL_write",
 			EbpfFuncName:     "probe_ret_SSL_write",
 			AttachToFuncName: "SSL_write",
 			BinaryPath:       opensslPath,
 		},
-		&manager.Probe{
+		{
 			Section:          "uprobe/SSL_read",
 			EbpfFuncName:     "probe_entry_SSL_read",
 			AttachToFuncName: "SSL_read",
 			BinaryPath:       opensslPath,
 		},
-		&manager.Probe{
+		{
 			Section:          "uretprobe/SSL_read",
 			EbpfFuncName:     "probe_ret_SSL_read",
 			AttachToFuncName: "SSL_read",
 			BinaryPath:       opensslPath,
 		},
-	)
+
+		// --------------------------------------------------
+		{
+			Section:          "kprobe/sys_connect",
+			EbpfFuncName:     "probe_connect",
+			AttachToFuncName: "__sys_connect",
+			UID:              "kprobe_sys_connect",
+		},
+		{
+			Section:          "kprobe/inet_stream_connect",
+			EbpfFuncName:     "probe_inet_stream_connect",
+			AttachToFuncName: "inet_stream_connect",
+			UID:              "kprobe_sys_inet_stream_connect",
+		},
+		{
+			Section:          "kretprobe/sys_connect",
+			EbpfFuncName:     "retprobe_connect",
+			AttachToFuncName: "__sys_connect",
+			UID:              "kretprobe_sys_connect",
+		},
+		{
+			Section:          "kprobe/sys_connect",
+			EbpfFuncName:     "probe_connect",
+			AttachToFuncName: "__sys_accept4",
+			UID:              "kprobe_sys_accept4",
+		},
+		{
+			Section:          "kprobe/inet_accept",
+			EbpfFuncName:     "probe_inet_accept",
+			AttachToFuncName: "inet_accept",
+			UID:              "kprobe_inet_accept",
+		},
+		{
+			Section:          "kretprobe/__sys_accept4",
+			EbpfFuncName:     "retprobe_accept4",
+			AttachToFuncName: "__sys_accept4",
+			UID:              "kretprobe_sys_accept4",
+		},
+		{
+			Section:          "kprobe/tcp_v4_destroy_sock",
+			EbpfFuncName:     "probe_tcp_v4_destroy_sock",
+			AttachToFuncName: "tcp_v4_destroy_sock",
+			UID:              "kprobe_tcp_v4_destroy_sock",
+		},
+
+		// --------------------------------------------------
+
+		// openssl masterkey
+		/*{
+			Section:          "uprobe/SSL_write_key",
+			EbpfFuncName:     "probe_ssl_master_key",
+			AttachToFuncName: m.masterHookFuncs,
+			BinaryPath:       binaryPath,
+			UID:              "uprobe_ssl_master_key",
+		},*/
+
+		// ------------------- SSL_set_fd hook-------------------------------------
+		{
+			Section:          "uprobe/SSL_set_fd",
+			EbpfFuncName:     "probe_SSL_set_fd",
+			AttachToFuncName: "SSL_set_fd",
+			BinaryPath:       opensslPath,
+			UID:              "uprobe_ssl_set_fd",
+		},
+		{
+			Section:          "uprobe/SSL_set_rfd",
+			EbpfFuncName:     "probe_SSL_set_fd",
+			AttachToFuncName: "SSL_set_rfd",
+			BinaryPath:       opensslPath,
+			UID:              "uprobe_ssl_set_rfd",
+		},
+		{
+			Section:          "uprobe/SSL_set_wfd",
+			EbpfFuncName:     "probe_SSL_set_fd",
+			AttachToFuncName: "SSL_set_wfd",
+			BinaryPath:       opensslPath,
+			UID:              "uprobe_ssl_set_wfd",
+		},
+	}
 
 	p.bpfManager = &manager.Manager{
 		Probes: probes,
@@ -527,6 +607,44 @@ func (p *Probe) DecodeFun(em *ebpf.Map) (domain.EventDecoder, bool) {
 	return fun, found
 }
 
+// connectDecoder implements domain.EventDecoder for TLS data events
+type connectDecoder struct {
+	probe *Probe
+}
+
+func (d *connectDecoder) Decode(_ *ebpf.Map, data []byte) (domain.Event, error) {
+	event := &ConnDataEvent{}
+	if err := event.DecodeFromBytes(data); err != nil {
+		return nil, err
+	}
+	if err := event.Validate(); err != nil {
+		return nil, err
+	}
+	return event, nil
+}
+
+func (d *connectDecoder) GetDecoder(_ *ebpf.Map) (domain.Event, bool) {
+	return &ConnDataEvent{}, true
+}
+
+// packetEventDecoder implements domain.EventDecoder for packet events
+type packetEventDecoder struct{}
+
+func (d *packetEventDecoder) Decode(_ *ebpf.Map, data []byte) (domain.Event, error) {
+	event := &PacketEvent{}
+	if err := event.DecodeFromBytes(data); err != nil {
+		return nil, err
+	}
+	if err := event.Validate(); err != nil {
+		return nil, err
+	}
+	return event, nil
+}
+
+func (d *packetEventDecoder) GetDecoder(_ *ebpf.Map) (domain.Event, bool) {
+	return &PacketEvent{}, true
+}
+
 // tlsEventDecoder implements domain.EventDecoder for TLS data events
 type tlsEventDecoder struct {
 	probe *Probe
@@ -569,22 +687,4 @@ func (d *masterSecretEventDecoder) Decode(_ *ebpf.Map, data []byte) (domain.Even
 
 func (d *masterSecretEventDecoder) GetDecoder(_ *ebpf.Map) (domain.Event, bool) {
 	return &MasterSecretEvent{}, true
-}
-
-// packetEventDecoder implements domain.EventDecoder for packet events
-type packetEventDecoder struct{}
-
-func (d *packetEventDecoder) Decode(_ *ebpf.Map, data []byte) (domain.Event, error) {
-	event := &PacketEvent{}
-	if err := event.DecodeFromBytes(data); err != nil {
-		return nil, err
-	}
-	if err := event.Validate(); err != nil {
-		return nil, err
-	}
-	return event, nil
-}
-
-func (d *packetEventDecoder) GetDecoder(_ *ebpf.Map) (domain.Event, bool) {
-	return &PacketEvent{}, true
 }

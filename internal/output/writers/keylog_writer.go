@@ -34,5 +34,6 @@ func NewPcapKeylogWriter(pw *PcapWriter) *PcapKeylogWriter {
 }
 
 func (w *PcapKeylogWriter) Write(p []byte) (n int, err error) {
+	p = append(p, '\n')
 	return len(p), w.PcapWriter.WriteKeyLog(p)
 }

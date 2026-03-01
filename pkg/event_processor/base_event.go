@@ -47,12 +47,12 @@ const (
 	Dtls12Version = 0xFEFD
 )
 
-type tlsVersion struct {
-	version int32
+type TlsVersion struct {
+	Version int32
 }
 
-func (t tlsVersion) String() string {
-	switch t.version {
+func (t TlsVersion) String() string {
+	switch t.Version {
 	case Ssl2Version:
 		return "SSL2_VERSION"
 	case Ssl3Version:
@@ -70,7 +70,7 @@ func (t tlsVersion) String() string {
 	case Dtls12Version:
 		return "DTLS1_2_VERSION"
 	}
-	return fmt.Sprintf("TLS_VERSION_UNKNOWN_%d", t.version)
+	return fmt.Sprintf("TLS_VERSION_UNKNOWN_%d", t.Version)
 }
 
 type BaseEvent struct {
@@ -145,7 +145,7 @@ func (be *BaseEvent) StringHex() string {
 
 	b := dumpByteSlice(be.Data[:be.DataLen], prefix)
 
-	v := tlsVersion{version: be.Version}
+	v := TlsVersion{Version: be.Version}
 	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, %s, Version:%s, Payload:\n%s", be.Pid, CToGoString(be.Comm[:]), be.Tid, connInfo, v.String(), b.String())
 	return s
 }
@@ -161,7 +161,7 @@ func (be *BaseEvent) String() string {
 	default:
 		connInfo = fmt.Sprintf("UNKNOWN_%d", be.DataType)
 	}
-	v := tlsVersion{version: be.Version}
+	v := TlsVersion{Version: be.Version}
 	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, Version:%s, %s, Payload:\n%s", be.Pid, bytes.TrimSpace(be.Comm[:]), be.Tid, v.String(), connInfo, string(be.Data[:be.DataLen]))
 	return s
 }
