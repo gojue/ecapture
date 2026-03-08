@@ -135,8 +135,19 @@ build_go_client() {
 
     cd "$ROOT_DIR/test/e2e"
 
-    log_info "Compiling for Android ARM64..."
-    if CGO_ENABLED=0 GOOS=android GOARCH=arm64 go build -o "$go_output" go_https_client.go; then
+    # Detect target architecture from connected device, default to arm64
+    local target_arch="arm64"
+    if command -v adb >/dev/null 2>&1; then
+        local device_arch
+        device_arch=$(adb shell uname -m 2>/dev/null | tr -d '\r' || echo "")
+        case "$device_arch" in
+            x86_64) target_arch="amd64" ;;
+            aarch64|arm64) target_arch="arm64" ;;
+        esac
+    fi
+
+    log_info "Compiling for Android ($target_arch)..."
+    if CGO_ENABLED=0 GOOS=linux GOARCH="$target_arch" go build -o "$go_output" go_https_client.go; then
         log_success "Go client built successfully"
         log_info "Output: $go_output"
 
