@@ -52,6 +52,7 @@ func NewProbe() (*Probe, error) {
 		BaseProbe:        base.NewBaseProbe(string(factory.ProbeTypeGnuTLS)),
 		eventFuncMaps:    make(map[*ebpf.Map]domain.EventDecoder),
 		mapNameToDecoder: make(map[string]domain.EventDecoder),
+		eventMaps:        make([]*ebpf.Map, 0),
 	}, nil
 }
 

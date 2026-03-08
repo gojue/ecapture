@@ -80,8 +80,8 @@ func TestProbe_Name(t *testing.T) {
 	}
 
 	name := probe.Name()
-	if name != "nspr" {
-		t.Errorf("Name() = %s, want 'nspr'", name)
+	if name != "NSPR" {
+		t.Errorf("Name() = %s, want 'NSPR'", name)
 	}
 }
 

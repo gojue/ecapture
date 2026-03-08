@@ -170,13 +170,32 @@ func (c *Config) validateCaptureMode() error {
 
 // IsSupportedVersion checks if the detected version is supported.
 func (c *Config) IsSupportedVersion() bool {
-	return c.SslVersion != ""
+	switch c.SslVersion {
+	case Version_1_1_1, Version_3_0, Version_3_1:
+		return true
+	default:
+		return false
+	}
 }
 
 // GetBPFFileName returns the eBPF object file name for the detected version.
 func (c *Config) GetBPFFileName() string {
-	// Return version-specific eBPF file names
-	return c.SslBpfFile
+	// If SslBpfFile has already been set (e.g. by getSslBpfFile), use it.
+	if c.SslBpfFile != "" {
+		return c.SslBpfFile
+	}
+	// Derive filename from SslVersion for the supported version constants.
+	if c.IsBoringSSL {
+		return "openssl_kern_boringssl.o"
+	}
+	switch c.SslVersion {
+	case Version_1_1_1:
+		return "openssl_1_1_1_kern.o"
+	case Version_3_0, Version_3_1:
+		return "openssl_3_0_0_kern.o"
+	default:
+		return c.SslBpfFile
+	}
 }
 
 // Bytes serializes the configuration to JSON.

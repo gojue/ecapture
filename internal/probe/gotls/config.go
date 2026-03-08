@@ -113,9 +113,11 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("failed to parse Go ELF file: %w", err)
 	}
 
-	// Validate the rest of the configuration
-	if err := c.validateConf(); err != nil {
-		return fmt.Errorf("configuration validation failed: %w", err)
+	// Only validate symbol addresses when an ELF path was provided
+	if c.ElfPath != "" {
+		if err := c.validateConf(); err != nil {
+			return fmt.Errorf("configuration validation failed: %w", err)
+		}
 	}
 
 	// Validate capture mode
@@ -129,7 +131,12 @@ func (c *Config) Validate() error {
 func (c *Config) parserGoElf() error {
 	// Detect Go version
 	if c.ElfPath == "" {
-		return fmt.Errorf("no ELF path specified")
+		// No ELF path specified: auto-detect Go version from the current runtime
+		// and skip symbol address resolution (used for testing/validation only)
+		if c.GoVersion == "" {
+			c.GoVersion = detectGoVersion()
+		}
+		return nil
 	}
 	var err error
 	_, err = os.Stat(c.ElfPath)

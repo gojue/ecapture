@@ -162,6 +162,7 @@ $(KERN_OBJECTS_NOCORE): %.nocore: %.c \
 .PHONY: assets
 assets: .checkver_$(CMD_GO) ebpf ebpf_noncore
 	$(CMD_GO) run github.com/shuLhan/go-bindata/cmd/go-bindata $(IGNORE_LESS52) -pkg assets -o "assets/ebpf_probe.go" $(wildcard ./bytecode/*.o)
+	sed -i '1s/^\/\/ Code generated/\/\/go:build ebpfassets\n\/\/ Code generated/' assets/ebpf_probe.go
 
 # Generate assets for non-core eBPF bytecode only
 .PHONY: assets_noncore
@@ -169,6 +170,7 @@ assets_noncore: \
 	.checkver_$(CMD_GO) \
 	ebpf_noncore
 	$(CMD_GO) run github.com/shuLhan/go-bindata/cmd/go-bindata $(IGNORE_LESS52) -pkg assets -o "assets/ebpf_probe.go" $(wildcard ./bytecode/*.o)
+	sed -i '1s/^\/\/ Code generated/\/\/go:build ebpfassets\n\/\/ Code generated/' assets/ebpf_probe.go
 
 
 # Build libpcap static library
@@ -221,7 +223,7 @@ test-race: \
 	CGO_CFLAGS='-O2 -g -I$(CURDIR)/lib/libpcap/' \
 	CGO_LDFLAGS='-O2 -g -L$(CURDIR)/lib/libpcap/ -lpcap' \
 	GOOS=linux GOARCH=$(GOARCH) CC=$(CMD_CC_PREFIX)$(CMD_CC) \
-	go test -v -race ./... -coverprofile=coverage.out
+	go test -v -race -tags dynamic,ebpfassets ./... -coverprofile=coverage.out
 
 # run Bash module e2e test
 .PHONY: e2e-bash

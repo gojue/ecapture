@@ -1,3 +1,5 @@
+//go:build dynamic
+
 package ebpf
 
 import (
