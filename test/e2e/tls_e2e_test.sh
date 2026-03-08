@@ -219,9 +219,9 @@ test_keylog_mode() {
     
     # Make multiple HTTPS requests to increase chance of capturing master keys
     log_info "Making HTTPS requests to $TEST_URL"
-    curl -s -o /dev/null "$TEST_URL" 2>&1 || true
+    curl -s -o /dev/null "$TEST_URL" 2>/dev/null || true
     sleep 1
-    curl -s -o /dev/null "$TEST_URL" > "$mode_client" 2>&1 || true
+    curl -s -o /dev/null "$TEST_URL" 2>"$mode_client" || true
     
     # Wait for capture
     sleep 3
@@ -235,7 +235,7 @@ test_keylog_mode() {
     # Verify results
     # Check that ecapture started successfully and configured keylog mode
     local keylog_configured=0
-    if grep -q "Keylog handler registered\|keylog" "$mode_log" 2>/dev/null; then
+    if grep -q "Keylog handler registered\|capture_mode=keylog\|KeyLog mode" "$mode_log" 2>/dev/null; then
         keylog_configured=1
         log_success "Keylog mode was configured successfully"
     fi
