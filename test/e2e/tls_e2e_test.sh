@@ -50,6 +50,12 @@ cleanup_handler() {
 # Setup trap
 setup_cleanup_trap
 
+# Get default network interface (needed for pcap mode)
+get_default_interface() {
+    ip route | grep default | awk '{print $5}' | head -1 || echo ""
+}
+DEFAULT_IFACE=""
+
 # Test text mode - captures plaintext directly
 test_text_mode() {
     log_info "=== Testing Text Mode ==="
@@ -131,8 +137,8 @@ test_pcap_mode() {
     local pcap_file="$OUTPUT_DIR/capture.pcapng"
     
     # Start ecapture in pcap mode
-    log_info "Running: $ECAPTURE_BINARY tls -m pcap --pcapfile=$pcap_file"
-    "$ECAPTURE_BINARY" tls -m pcap --pcapfile="$pcap_file" > "$mode_log" 2>&1 &
+    log_info "Running: $ECAPTURE_BINARY tls -m pcap -i $DEFAULT_IFACE --pcapfile=$pcap_file"
+    "$ECAPTURE_BINARY" tls -m pcap -i "$DEFAULT_IFACE" --pcapfile="$pcap_file" > "$mode_log" 2>&1 &
     local ecapture_pid=$!
     log_info "eCapture PID: $ecapture_pid"
     
@@ -287,6 +293,12 @@ main() {
     
     # Run sub-tests for each mode
     log_info "=== Step 3: Running TLS Mode Tests ==="
+    
+    # Detect default network interface (required for pcap mode)
+    DEFAULT_IFACE=$(get_default_interface)
+    if [ -z "$DEFAULT_IFACE" ]; then
+        log_warn "Could not determine default network interface, pcap tests may fail"
+    fi
     
     # Test text mode
     if test_text_mode; then
