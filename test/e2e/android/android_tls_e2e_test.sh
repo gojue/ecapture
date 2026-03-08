@@ -145,9 +145,7 @@ test_pcap_mode() {
     # Detect default network interface on device (required for pcap mode)
     local device_iface
     device_iface=$(adb shell "ip route | grep default | awk '{print \$5}' | head -1" 2>/dev/null | tr -d '\r' || echo "wlan0")
-    if [ -z "$device_iface" ]; then
-        device_iface="wlan0"
-    fi
+    : "${device_iface:=wlan0}"
     log_info "Using network interface: $device_iface"
     adb shell "cd $DEVICE_OUTPUT_DIR && nohup $DEVICE_ECAPTURE tls -m pcap -i $device_iface -w capture.pcapng > pcap_mode.log 2>&1 &"
 
