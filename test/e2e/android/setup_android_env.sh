@@ -159,11 +159,34 @@ main() {
     if [ -f "$ecapture_bin" ]; then
         log_success "ecapture binary found: $ecapture_bin"
 
-        # Verify it's ARM64
-        if file "$ecapture_bin" | grep -q "ARM aarch64"; then
-            log_success "Binary architecture: ARM64 (correct)"
+        # Get device architecture to validate binary
+        local device_arch
+        device_arch=$(adb shell uname -m | tr -d '\r')
+        local binary_info
+        binary_info=$(file "$ecapture_bin")
+        log_info "Device architecture: $device_arch"
+        log_info "Binary info: $binary_info"
+
+        # Validate binary matches device architecture
+        local arch_ok=0
+        case "$device_arch" in
+            aarch64|arm64)
+                if echo "$binary_info" | grep -q "ARM aarch64"; then
+                    arch_ok=1
+                fi
+                ;;
+            x86_64)
+                if echo "$binary_info" | grep -q "x86-64\|x86_64"; then
+                    arch_ok=1
+                fi
+                ;;
+        esac
+
+        if [ "$arch_ok" -eq 1 ]; then
+            log_success "Binary architecture matches device ($device_arch)"
         else
-            log_error "Binary is not ARM64"
+            log_error "Binary architecture does not match device ($device_arch)"
+            log_info "Binary: $binary_info"
             log_info "Rebuild with: ANDROID=1 make nocore"
             exit 1
         fi

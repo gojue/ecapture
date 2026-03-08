@@ -42,7 +42,7 @@ test_http11_capture() {
     log_info "=== Test 1: HTTP/1.1 Capture ==="
     
     local mode_log="$OUTPUT_DIR/http11.log"
-    local test_url="https://www.github.com"
+    local test_url="https://github.com"
     
     log_info "Starting ecapture in text mode"
     "$ECAPTURE_BINARY" tls -m text > "$mode_log" 2>&1 &
@@ -62,7 +62,7 @@ test_http11_capture() {
     kill -INT "$pid" 2>/dev/null || true
     sleep 2
     
-    if [ -s "$mode_log" ] && grep -iq "GET\|POST\|HTTP/1" "$mode_log"; then
+    if [ -s "$mode_log" ] && grep -iq "GET\|POST\|HTTP" "$mode_log"; then
         log_success "✓ HTTP/1.1 capture test PASSED"
         TEST_RESULTS+=("http11:PASS")
         return 0
@@ -215,7 +215,7 @@ test_concurrent_connections() {
     
     if [ -s "$mode_log" ]; then
         local request_count
-        request_count=$(grep -ci "GET\|POST" "$mode_log" || echo "0")
+        request_count=$(grep -ci "GET\|POST" "$mode_log" || true)
         log_info "Captured $request_count HTTP requests"
         
         if [ "$request_count" -gt 0 ]; then

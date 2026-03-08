@@ -16,8 +16,10 @@ source "$SCRIPT_DIR/common_android.sh"
 TEST_NAME="Android TLS E2E Test"
 TEST_URL="https://www.google.com"
 DEVICE_ECAPTURE="/data/local/tmp/ecapture"
+DEVICE_GO_CLIENT="/data/local/tmp/go_https_client"
 DEVICE_OUTPUT_DIR="/data/local/tmp/ecapture_test"
 LOCAL_OUTPUT_DIR="/tmp/ecapture_android_tls_$$"
+HTTPS_CLIENT_CMD=""  # Set during setup: "curl" or "go_https_client"
 
 # Test results
 TEST_FAILED=0
@@ -64,6 +66,19 @@ cleanup_handler() {
 # Setup trap
 setup_cleanup_trap
 
+# Make HTTPS request on device using available client
+device_https_request() {
+    local url="$1"
+    if [ "$HTTPS_CLIENT_CMD" = "curl" ]; then
+        adb shell "curl -s -o /dev/null \"$url\"" || true
+    elif [ "$HTTPS_CLIENT_CMD" = "go_https_client" ]; then
+        adb shell "$DEVICE_GO_CLIENT -url \"$url\"" > /dev/null 2>&1 || true
+    else
+        log_error "No HTTPS client available on device"
+        return 1
+    fi
+}
+
 # Test text mode - captures plaintext directly
 test_text_mode() {
     log_info "=== Test 1: Text Mode TLS Capture ==="
@@ -87,9 +102,9 @@ test_text_mode() {
 
     log_success "eCapture started successfully"
 
-    # Make HTTPS request using curl on device
+    # Make HTTPS request on device
     log_info "Making HTTPS request to $TEST_URL..."
-    adb shell "curl -s -o /dev/null '$TEST_URL' 2>$DEVICE_OUTPUT_DIR/curl.log" || true
+    device_https_request "$TEST_URL"
 
     # Wait for capture
     sleep 3
@@ -142,7 +157,12 @@ test_pcap_mode() {
 
     # Start ecapture in pcap mode
     log_info "Starting ecapture in pcap mode on device..."
-    adb shell "cd $DEVICE_OUTPUT_DIR && nohup $DEVICE_ECAPTURE tls -m pcap -w capture.pcapng > pcap_mode.log 2>&1 &"
+    # Detect default network interface on device (required for pcap mode)
+    local device_iface
+    device_iface=$(adb shell "ip route | grep default | awk '{print \$5}' | head -1" 2>/dev/null | tr -d '\r' || echo "wlan0")
+    : "${device_iface:=wlan0}"
+    log_info "Using network interface: $device_iface"
+    adb shell "cd $DEVICE_OUTPUT_DIR && nohup $DEVICE_ECAPTURE tls -m pcap -i $device_iface -w capture.pcapng > pcap_mode.log 2>&1 &"
 
     # Wait for initialization
     sleep 5
@@ -158,7 +178,7 @@ test_pcap_mode() {
 
     # Make HTTPS request
     log_info "Making HTTPS request to $TEST_URL..."
-    adb shell "curl -s -o /dev/null '$TEST_URL'" || true
+    device_https_request "$TEST_URL"
 
     # Wait for capture
     sleep 3
@@ -195,36 +215,43 @@ test_pid_filter() {
     TESTS_TOTAL=$((TESTS_TOTAL + 1))
 
     local test_log="$DEVICE_OUTPUT_DIR/pid_filter.log"
+    local client_pid=""
 
-    # Start a curl process in background and get its PID
-    log_info "Starting curl in background..."
-    adb shell "curl -s '$TEST_URL' > /dev/null &"
-    sleep 1
+    # Start ecapture with PID filter for current shell
+    # Use a known PID - start a background HTTPS request first
+    log_info "Starting HTTPS request in background..."
+    if [ "$HTTPS_CLIENT_CMD" = "curl" ]; then
+        adb shell "curl -s \"$TEST_URL\" > /dev/null &"
+        sleep 1
+        client_pid=$(adb_get_pid "curl" || echo "")
+    elif [ "$HTTPS_CLIENT_CMD" = "go_https_client" ]; then
+        adb shell "$DEVICE_GO_CLIENT -url \"$TEST_URL\" &"
+        sleep 1
+        client_pid=$(adb_get_pid "go_https_client" || echo "")
+    fi
 
-    local curl_pid
-    curl_pid=$(adb_get_pid "curl" || echo "")
-
-    if [ -z "$curl_pid" ]; then
-        log_warn "Could not get curl PID, skipping PID filter test"
+    if [ -z "$client_pid" ]; then
+        log_warn "Could not get client PID, skipping PID filter test"
         return 0
     fi
 
-    log_info "Curl PID: $curl_pid"
+    log_info "Client PID: $client_pid"
 
     # Start ecapture with PID filter
     log_info "Starting ecapture with PID filter..."
-    adb shell "cd $DEVICE_OUTPUT_DIR && nohup $DEVICE_ECAPTURE tls -m text --pid=$curl_pid > pid_filter.log 2>&1 &"
+    adb shell "cd $DEVICE_OUTPUT_DIR && nohup $DEVICE_ECAPTURE tls -m text --pid=$client_pid > pid_filter.log 2>&1 &"
 
     sleep 3
 
     # Make another request
-    adb shell "curl -s -o /dev/null '$TEST_URL'" || true
+    device_https_request "$TEST_URL"
 
     sleep 2
 
     # Stop ecapture
     adb_kill_by_name "ecapture"
     adb_kill_by_name "curl"
+    adb_kill_by_name "go_https_client"
 
     sleep 1
 
@@ -259,14 +286,28 @@ main() {
         exit 1
     fi
 
-    # Check if curl is available on device
-    log_info "Checking for curl on device..."
-    if ! adb_command_exists "curl"; then
-        log_error "curl not found on Android device"
-        log_info "Please install curl or use a device with curl pre-installed"
-        exit 1
+    # Check for HTTPS client on device (curl or Go client)
+    log_info "Checking for HTTPS client on device..."
+    if adb_command_exists "curl"; then
+        HTTPS_CLIENT_CMD="curl"
+        log_success "Using curl as HTTPS client"
+    else
+        log_warn "curl not found on device, will try Go HTTPS client"
+        # Check if Go client exists locally and deploy it
+        local go_client_local="$ROOT_DIR/test/e2e/android/go_https_client_android"
+        if [ -f "$go_client_local" ]; then
+            if adb_push "$go_client_local" "$DEVICE_GO_CLIENT"; then
+                HTTPS_CLIENT_CMD="go_https_client"
+                log_success "Using Go HTTPS client as fallback"
+            fi
+        fi
+
+        if [ -z "$HTTPS_CLIENT_CMD" ]; then
+            log_error "No HTTPS client available (neither curl nor Go client)"
+            log_info "Please install curl on device or build Go client with build_android_tests.sh"
+            exit 1
+        fi
     fi
-    log_success "curl is available"
 
     # Create output directory on device
     log_info "=== Step 2: Setup Test Environment ==="

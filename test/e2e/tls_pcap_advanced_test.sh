@@ -32,6 +32,12 @@ cleanup_handler() {
 
 setup_cleanup_trap
 
+# Get default network interface (needed for pcap mode)
+get_default_interface() {
+    ip route | grep default | awk '{print $5}' | head -1 || echo ""
+}
+DEFAULT_IFACE=""
+
 # Verify pcapng file format
 verify_pcapng_file() {
     local pcap_file="$1"
@@ -78,7 +84,7 @@ test_pcapng_basic() {
     local pcap_file="$OUTPUT_DIR/basic.pcapng"
     
     log_info "Starting ecapture in pcapng mode"
-    "$ECAPTURE_BINARY" tls -m pcapng -w "$pcap_file" > "$mode_log" 2>&1 &
+    "$ECAPTURE_BINARY" tls -m pcapng -w "$pcap_file" -i "$DEFAULT_IFACE" > "$mode_log" 2>&1 &
     local pid=$!
     sleep 3
     
@@ -114,7 +120,7 @@ test_pcap_with_port_filter() {
     local pcap_file="$OUTPUT_DIR/port_filter.pcapng"
     
     log_info "Starting ecapture with filter: tcp port 443"
-    "$ECAPTURE_BINARY" tls -m pcap -w "$pcap_file" "tcp port 443" > "$mode_log" 2>&1 &
+    "$ECAPTURE_BINARY" tls -m pcap -w "$pcap_file" -i "$DEFAULT_IFACE" "tcp port 443" > "$mode_log" 2>&1 &
     local pid=$!
     sleep 3
     
@@ -150,7 +156,7 @@ test_pcap_with_host_filter() {
     local pcap_file="$OUTPUT_DIR/host_filter.pcapng"
     
     log_info "Starting ecapture with filter: host github.com"
-    "$ECAPTURE_BINARY" tls -m pcap -w "$pcap_file" "host github.com" > "$mode_log" 2>&1 &
+    "$ECAPTURE_BINARY" tls -m pcap -w "$pcap_file" -i "$DEFAULT_IFACE" "host github.com" > "$mode_log" 2>&1 &
     local pid=$!
     sleep 3
     
@@ -232,7 +238,7 @@ test_pcap_concurrent_connections() {
     local pcap_file="$OUTPUT_DIR/concurrent.pcapng"
     
     log_info "Starting ecapture in pcap mode"
-    "$ECAPTURE_BINARY" tls -m pcap -w "$pcap_file" > "$mode_log" 2>&1 &
+    "$ECAPTURE_BINARY" tls -m pcap -w "$pcap_file" -i "$DEFAULT_IFACE" > "$mode_log" 2>&1 &
     local pid=$!
     sleep 3
     
@@ -278,7 +284,7 @@ test_pcap_pid_filter() {
     local curl_pid=$!
     
     log_info "Starting ecapture with PID filter: $curl_pid"
-    "$ECAPTURE_BINARY" tls -m pcap -w "$pcap_file" -p "$curl_pid" > "$mode_log" 2>&1 &
+    "$ECAPTURE_BINARY" tls -m pcap -w "$pcap_file" -i "$DEFAULT_IFACE" -p "$curl_pid" > "$mode_log" 2>&1 &
     local pid=$!
     sleep 3
     
@@ -319,7 +325,7 @@ test_pcap_tshark_compatibility() {
     local pcap_file="$OUTPUT_DIR/tshark_test.pcapng"
     
     log_info "Starting ecapture in pcap mode"
-    "$ECAPTURE_BINARY" tls -m pcap -w "$pcap_file" > "$mode_log" 2>&1 &
+    "$ECAPTURE_BINARY" tls -m pcap -w "$pcap_file" -i "$DEFAULT_IFACE" > "$mode_log" 2>&1 &
     local pid=$!
     sleep 3
     
@@ -363,7 +369,7 @@ test_pcap_with_mapsize() {
     local mapsize=1024
     
     log_info "Starting ecapture with mapsize: $mapsize"
-    "$ECAPTURE_BINARY" tls -m pcap -w "$pcap_file" --mapsize "$mapsize" > "$mode_log" 2>&1 &
+    "$ECAPTURE_BINARY" tls -m pcap -w "$pcap_file" -i "$DEFAULT_IFACE" --mapsize "$mapsize" > "$mode_log" 2>&1 &
     local pid=$!
     sleep 3
     
@@ -423,6 +429,12 @@ main() {
     
     # Run all tests
     log_info "=== Running Advanced TLS Pcap Mode Tests ==="
+    
+    # Detect default network interface (required for pcap mode)
+    DEFAULT_IFACE=$(get_default_interface)
+    if [ -z "$DEFAULT_IFACE" ]; then
+        log_warn "Could not determine default network interface, pcap tests may fail"
+    fi
     
     test_pcapng_basic || true
     kill_by_pattern "$ECAPTURE_BINARY.*tls" || true

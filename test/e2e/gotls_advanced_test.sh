@@ -39,6 +39,12 @@ cleanup_handler() {
 
 setup_cleanup_trap
 
+# Get default network interface (needed for pcap mode)
+get_default_interface() {
+    ip route | grep default | awk '{print $5}' | head -1 || echo ""
+}
+DEFAULT_IFACE=""
+
 # Build Go test programs
 build_go_test_programs() {
     log_info "=== Building Go Test Programs ==="
@@ -224,7 +230,7 @@ test_gotls_pcap_mode() {
     local client_path="$PROGRAMS_DIR/go_https_client"
     
     log_info "Starting ecapture in pcap mode for $client_path"
-    "$ECAPTURE_BINARY" gotls -m pcap --elfpath="$client_path" -w "$pcap_file" > "$mode_log" 2>&1 &
+    "$ECAPTURE_BINARY" gotls -m pcap --elfpath="$client_path" -w "$pcap_file" -i "$DEFAULT_IFACE" > "$mode_log" 2>&1 &
     local pid=$!
     sleep 3
     
@@ -509,6 +515,12 @@ main() {
     
     # Run all tests
     log_info "=== Running Advanced GoTLS Tests ==="
+    
+    # Detect default network interface (required for pcap mode)
+    DEFAULT_IFACE=$(get_default_interface)
+    if [ -z "$DEFAULT_IFACE" ]; then
+        log_warn "Could not determine default network interface, pcap tests may fail"
+    fi
     
     test_gotls_text_mode || true
     kill_by_pattern "$ECAPTURE_BINARY.*gotls" || true
