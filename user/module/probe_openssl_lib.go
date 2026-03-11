@@ -120,6 +120,10 @@ func (m *MOpenSSLProbe) initOpensslOffset() {
 		m.sslVersionBpfMap["openssl 1.1.1"+string(ch)] = "openssl_1_1_1j_kern.o"
 	}
 
+	// some distros use extended suffix like "openssl 1.1.1zf"
+	// reuse 1.1.1j offset group for them.
+	m.sslVersionBpfMap["openssl 1.1.1zf"] = "openssl_1_1_1j_kern.o"
+
 	// openssl 3.0.0 - 3.0.15
 	for ch := 0; ch <= MaxSupportedOpenSSL30Version; ch++ {
 		m.sslVersionBpfMap[fmt.Sprintf("openssl 3.0.%d", ch)] = "openssl_3_0_0_kern.o"
