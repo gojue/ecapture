@@ -44,9 +44,7 @@ func (d *Dispatcher) Register(handler domain.EventHandler) error {
 	if handler == nil {
 		return errors.New(errors.ErrCodeConfiguration, "handler cannot be nil")
 	}
-
-	name := handler.Name()
-	d.logger.Debug().Str("event-handler", name).Msg("### event handler registered")
+	d.logger.Debug().Str("event-handler", handler.Name()).Msg("### event handler registered")
 
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -55,6 +53,7 @@ func (d *Dispatcher) Register(handler domain.EventHandler) error {
 		return errors.New(errors.ErrCodeConfiguration, "dispatcher is closed")
 	}
 
+	name := handler.Name()
 	if _, exists := d.handlers[name]; exists {
 		return errors.New(errors.ErrCodeConfiguration, "handler already registered").
 			WithContext("handler", name)

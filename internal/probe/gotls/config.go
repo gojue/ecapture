@@ -131,8 +131,9 @@ func (c *Config) Validate() error {
 func (c *Config) parserGoElf() error {
 	// Detect Go version
 	if c.ElfPath == "" {
-		// No ELF path specified: auto-detect Go version from the current runtime
-		// and skip symbol address resolution (used for testing/validation only)
+		// No ELF path specified: auto-detect Go version from the current runtime.
+		// Symbol address resolution is skipped; this is used when validating
+		// configuration without an actual Go binary target (e.g. in tests).
 		if c.GoVersion == "" {
 			c.GoVersion = detectGoVersion()
 		}

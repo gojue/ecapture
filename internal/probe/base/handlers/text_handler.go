@@ -24,8 +24,6 @@ import (
 
 // TLSDataEvent defines the interface for TLS payload data events.
 // Events that carry TLS payload data (reads and writes) implement this interface.
-// GetDataLen and GetTimestamp are part of the contract for downstream consumers
-// (e.g. pcap writers, deduplication) even if the text handler does not use them directly.
 type TLSDataEvent interface {
 	domain.Event
 	GetPid() uint32
