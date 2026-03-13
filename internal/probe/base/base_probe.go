@@ -164,10 +164,12 @@ func (p *BaseProbe) Close() error {
 	// Close all readers in reverse order
 	for i := len(p.readers) - 1; i >= 0; i-- {
 		if err := p.readers[i].Close(); err != nil {
-			p.logger.Warn().
-				Err(err).
-				Int("reader_index", i).
-				Msg("Failed to close reader")
+			if p.logger != nil {
+				p.logger.Warn().
+					Err(err).
+					Int("reader_index", i).
+					Msg("Failed to close reader")
+			}
 		}
 	}
 
@@ -175,16 +177,24 @@ func (p *BaseProbe) Close() error {
 
 	for _, cler := range p.closers {
 		if err := cler.Close(); err != nil {
-			p.logger.Warn().Err(err).Msg("Failed to close resource")
+			if p.logger != nil {
+				p.logger.Warn().Err(err).Msg("Failed to close resource")
+			}
 		}
 	}
 	p.closers = nil
 
-	err := p.dispatcher.Close()
-	if err != nil {
-		p.logger.Warn().Err(err).Msg("Failed to close dispatcher")
+	if p.dispatcher != nil {
+		err := p.dispatcher.Close()
+		if err != nil {
+			if p.logger != nil {
+				p.logger.Warn().Err(err).Msg("Failed to close dispatcher")
+			}
+		}
 	}
-	p.logger.Info().Msg("Probe closed")
+	if p.logger != nil {
+		p.logger.Info().Msg("Probe closed")
+	}
 	return nil
 }
 

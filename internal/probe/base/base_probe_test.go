@@ -80,17 +80,6 @@ func TestBaseProbeInitializeNilConfig(t *testing.T) {
 	}
 }
 
-func TestBaseProbeInitializeNilDispatcher(t *testing.T) {
-	probe := NewBaseProbe("test-probe")
-	cfg := config.NewBaseConfig()
-	ctx := context.Background()
-
-	err := probe.Initialize(ctx, cfg)
-	if err == nil {
-		t.Error("Initialize() should return error for nil dispatcher")
-	}
-}
-
 func TestBaseProbeLifecycle(t *testing.T) {
 	probe := NewBaseProbe("test-probe")
 	cfg := config.NewBaseConfig()

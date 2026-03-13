@@ -47,6 +47,9 @@ func NewConfig() *Config {
 // Validate validates the configuration
 func (c *Config) Validate() error {
 	// Chain base validation first
+	if c.BaseConfig == nil {
+		return errors.NewConfigurationError("base config is nil", nil)
+	}
 	if err := c.BaseConfig.Validate(); err != nil {
 		return errors.NewConfigurationError("nspr base config validation failed", err)
 	}

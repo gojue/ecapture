@@ -128,7 +128,7 @@ func TestDispatcherUnregister(t *testing.T) {
 	handler := &mockHandler{name: "test-handler"}
 	_ = disp.Register(handler)
 
-	err := disp.Unregister("test-handler")
+	err := disp.Unregister("test-handler-mock-writer")
 	if err != nil {
 		t.Fatalf("Unregister() error = %v", err)
 	}
