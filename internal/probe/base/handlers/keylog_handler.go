@@ -150,7 +150,7 @@ func (h *KeylogHandler) handleTLS12(event MasterSecretEvent) error {
 	}
 
 	// Format: CLIENT_RANDOM <client_random> <master_secret>
-	line := fmt.Sprintf("%s %x %x\n",
+	line := fmt.Sprintf("%s %x %x",
 		KeyLogLabelTLS12,
 		clientRandom[:Ssl3RandomSize],
 		masterKey[:MasterSecretMaxLen])

@@ -95,16 +95,12 @@ func TestNewPcapHandler(t *testing.T) {
 
 func TestNewPcapHandler_NilWriter(t *testing.T) {
 	handler, err := NewPcapHandler(nil, "test-interface", "tcp port 80", newTestLogger())
-	if err != nil {
-		t.Fatalf("NewPcapHandler returned error: %v", err)
+	if err == nil {
+		t.Fatal("NewPcapHandler should return error for nil writer")
 		return
 	}
-	if handler == nil {
-		t.Fatal("NewPcapHandler returned nil with nil writer")
-		return
-	}
-	if handler.pcapWriter == nil {
-		t.Error("PcapHandler pcapWriter should not be nil")
+	if handler != nil {
+		t.Fatal("NewPcapHandler should return nil handler for nil writer")
 	}
 }
 

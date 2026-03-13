@@ -105,7 +105,7 @@ func (h *PcapHandler) Writer() writers.OutputWriter {
 // NewPcapHandler creates a new PcapHandler with the provided writer.
 func NewPcapHandler(writer writers.OutputWriter, ifName, filter string, lger *logger.Logger) (*PcapHandler, error) {
 	if writer == nil {
-		writer = writers.NewStdoutWriter()
+		return nil, errors.New(errors.ErrCodeResourceAllocation, "output writer cannot be nil")
 	}
 
 	// Create pcap writer with Ethernet link type and 65535 snaplen

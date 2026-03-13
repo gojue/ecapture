@@ -15,24 +15,10 @@
 package handlers
 
 import (
-	"fmt"
-
 	"github.com/gojue/ecapture/internal/domain"
 	"github.com/gojue/ecapture/internal/errors"
 	"github.com/gojue/ecapture/internal/output/writers"
 )
-
-// TLSDataEvent defines the interface for TLS payload data events.
-// Events that carry TLS payload data (reads and writes) implement this interface.
-type TLSDataEvent interface {
-	domain.Event
-	GetPid() uint32
-	GetComm() string
-	GetData() []byte
-	GetDataLen() uint32
-	GetTimestamp() uint64
-	IsRead() bool
-}
 
 // TextHandler handles events by writing their encoded output to a destination.
 // It delegates formatting to the event itself via String() or StringHex() methods.
@@ -58,38 +44,39 @@ func NewTextHandler(writer writers.OutputWriter, useHex bool) *TextHandler {
 }
 
 // Handle processes an event and writes its formatted output.
-// TLSDataEvents are formatted with PID, comm, direction and payload.
-// Other event types are skipped silently.
+// The event is responsible for its own formatting via String() or StringHex() methods.
 func (h *TextHandler) Handle(event domain.Event) error {
 	if event == nil {
 		return errors.New(errors.ErrCodeEventValidation, "event cannot be nil")
 	}
 
-	// Check if the event carries TLS payload data
-	tlsEvent, ok := event.(TLSDataEvent)
-	if !ok {
-		// Not a TLS data event – skip silently so other handlers can process it
+	// Let the event format itself based on hex mode
+	var output string
+	if h.useHex {
+		// Try StringHex() method first for hex mode
+		type hexStringer interface {
+			StringHex() string
+		}
+		if hs, ok := event.(hexStringer); ok {
+			output = hs.StringHex()
+		} else {
+			// Fallback to regular String() if StringHex() not available
+			output = event.String()
+		}
+	} else {
+		// Regular text mode
+		output = event.String()
+	}
+
+	// Skip empty output (event not ready or filtered out)
+	if output == "" {
 		return nil
 	}
 
-	direction := ">>>"
-	if tlsEvent.IsRead() {
-		direction = "<<<"
+	// Ensure output ends with newline for readability
+	if output[len(output)-1] != '\n' {
+		output += "\n"
 	}
-
-	var payload string
-	if h.useHex {
-		payload = fmt.Sprintf("%x", tlsEvent.GetData())
-	} else {
-		payload = string(tlsEvent.GetData())
-	}
-
-	output := fmt.Sprintf("PID: %d COMM: %s %s\n%s\n",
-		tlsEvent.GetPid(),
-		tlsEvent.GetComm(),
-		direction,
-		payload,
-	)
 
 	// Write to output destination
 	_, err := h.writer.Write([]byte(output))
@@ -102,6 +89,10 @@ func (h *TextHandler) Handle(event domain.Event) error {
 
 // Close closes the handler and releases resources.
 func (h *TextHandler) Close() error {
+	err := h.writer.Close()
+	if err != nil {
+		return err
+	}
 	if h.writer != nil {
 		return h.writer.Close()
 	}

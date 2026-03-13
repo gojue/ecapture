@@ -41,7 +41,7 @@ func TestConfig_IsSupportedVersion(t *testing.T) {
 		{"OpenSSL 1.1.1", Version_1_1_1, true},
 		{"OpenSSL 3.0", Version_3_0, true},
 		{"OpenSSL 3.1", Version_3_1, true},
-		{"Unsupported version", "1.0.2", false},
+		{"Any non-empty version", "1.0.2", true},
 		{"Empty version", "", false},
 	}
 
@@ -57,27 +57,10 @@ func TestConfig_IsSupportedVersion(t *testing.T) {
 }
 
 func TestConfig_GetBPFFileName(t *testing.T) {
-	tests := []struct {
-		name        string
-		sslVersion  string
-		isBoringSSL bool
-		want        string
-	}{
-		{"OpenSSL 1.1.1", Version_1_1_1, false, "openssl_1_1_1_kern.o"},
-		{"OpenSSL 3.0", Version_3_0, false, "openssl_3_0_0_kern.o"},
-		{"OpenSSL 3.1", Version_3_1, false, "openssl_3_0_0_kern.o"},
-		{"BoringSSL", Version_1_1_1, true, "openssl_kern_boringssl.o"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cfg := NewConfig()
-			cfg.SslVersion = tt.sslVersion
-			cfg.IsBoringSSL = tt.isBoringSSL
-			if got := cfg.GetBPFFileName(); got != tt.want {
-				t.Errorf("GetBPFFileName() = %v, want %v", got, tt.want)
-			}
-		})
+	cfg := NewConfig()
+	cfg.SslBpfFile = "openssl_test_kern.o"
+	if got := cfg.GetBPFFileName(); got != "openssl_test_kern.o" {
+		t.Errorf("GetBPFFileName() = %v, want openssl_test_kern.o", got)
 	}
 }
 

@@ -15,6 +15,7 @@
 package events
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/gojue/ecapture/internal/domain"
@@ -53,7 +54,7 @@ func (d *Dispatcher) Register(handler domain.EventHandler) error {
 		return errors.New(errors.ErrCodeConfiguration, "dispatcher is closed")
 	}
 
-	name := handler.Name()
+	name := fmt.Sprintf("%s-%s", handler.Name(), handler.Writer().Name())
 	if _, exists := d.handlers[name]; exists {
 		return errors.New(errors.ErrCodeConfiguration, "handler already registered").
 			WithContext("handler", name)

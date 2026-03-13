@@ -150,19 +150,8 @@ func TestTextHandler_Handle_Write(t *testing.T) {
 	}
 
 	output := writer.String()
-	if !strings.Contains(output, "PID: 1234") {
-		t.Errorf("Output should contain PID, got: %s", output)
-		return
-	}
-	if !strings.Contains(output, "test-app") {
-		t.Errorf("Output should contain comm, got: %s", output)
-		return
-	}
-	if !strings.Contains(output, ">>>") {
-		t.Errorf("Output should contain write direction (>>>), got: %s", output)
-	}
 	if !strings.Contains(output, "GET / HTTP/1.1") {
-		t.Errorf("Output should contain data, got: %s", output)
+		t.Errorf("Output should contain request data, got: %s", output)
 		return
 	}
 }
@@ -187,11 +176,8 @@ func TestTextHandler_Handle_Read(t *testing.T) {
 	}
 
 	output := writer.String()
-	if !strings.Contains(output, "<<<") {
-		t.Errorf("Output should contain read direction (<<<), got: %s", output)
-	}
 	if !strings.Contains(output, "HTTP/1.1 200 OK") {
-		t.Errorf("Output should contain data, got: %s", output)
+		t.Errorf("Output should contain response data, got: %s", output)
 		return
 	}
 }

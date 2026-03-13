@@ -48,6 +48,7 @@ func TestEvent_DecodeFromBytes(t *testing.T) {
 
 	err = binary.Write(buf, binary.LittleEndian, uint32(3))  // Fd
 	err = binary.Write(buf, binary.LittleEndian, int32(771)) // Version (TLS 1.2)
+	err = binary.Write(buf, binary.LittleEndian, uint32(0))  // BioType
 	if err != nil {
 		t.Fatalf("binary.Write failed: %v", err)
 		return

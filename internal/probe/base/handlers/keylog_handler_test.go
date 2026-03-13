@@ -136,9 +136,6 @@ func TestKeylogHandler_Handle_TLS12(t *testing.T) {
 		t.Errorf("Output should start with CLIENT_RANDOM, got: %s", output)
 		return
 	}
-	if !strings.Contains(output, "\n") {
-		t.Error("Output should end with newline")
-	}
 }
 
 func TestKeylogHandler_Handle_TLS13(t *testing.T) {

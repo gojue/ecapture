@@ -143,11 +143,8 @@ func (e *Event) DecodeFromBytes(data []byte) error {
 	if err := binary.Read(buf, binary.LittleEndian, &e.Version); err != nil {
 		return errors.NewEventDecodeError("openssl.Version", err)
 	}
-	// BioType is an optional trailing field; skip if the buffer is already exhausted
-	if buf.Len() > 0 {
-		if err := binary.Read(buf, binary.LittleEndian, &e.BioType); err != nil {
-			return errors.NewEventDecodeError("openssl.BioType", err)
-		}
+	if err := binary.Read(buf, binary.LittleEndian, &e.BioType); err != nil {
+		return errors.NewEventDecodeError("openssl.BioType", err)
 	}
 
 	return nil

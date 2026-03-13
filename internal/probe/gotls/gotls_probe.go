@@ -89,26 +89,6 @@ func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration) error 
 	}
 	p.config = gotlsConfig
 
-	// Open output files based on capture mode
-	switch gotlsConfig.CaptureMode {
-	case handlers.ModeKeylog, handlers.ModeKey:
-		if gotlsConfig.KeylogFile != "" {
-			f, err := os.OpenFile(gotlsConfig.KeylogFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
-			if err != nil {
-				return errors.NewConfigurationError("failed to open keylog file", err)
-			}
-			p.keylogFile = f
-		}
-	case handlers.ModePcap, handlers.ModePcapng:
-		if gotlsConfig.PcapFile != "" {
-			f, err := os.OpenFile(gotlsConfig.PcapFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
-			if err != nil {
-				return errors.NewConfigurationError("failed to open pcap file", err)
-			}
-			p.pcapFile = f
-		}
-	}
-
 	p.Logger().Info().
 		Str("go_version", gotlsConfig.GoVersion).
 		Bool("is_register_abi", gotlsConfig.IsRegisterABI).
@@ -221,24 +201,6 @@ func (p *Probe) Close() error {
 			p.Logger().Warn().Err(err).Msg("Failed to close resource")
 		}
 	}
-	p.closer = nil
-
-	// Close keylog file
-	if p.keylogFile != nil {
-		if err := p.keylogFile.Close(); err != nil {
-			p.Logger().Warn().Err(err).Msg("Failed to close keylog file")
-		}
-		p.keylogFile = nil
-	}
-
-	// Close pcap file
-	if p.pcapFile != nil {
-		if err := p.pcapFile.Close(); err != nil {
-			p.Logger().Warn().Err(err).Msg("Failed to close pcap file")
-		}
-		p.pcapFile = nil
-	}
-
 	p.Logger().Debug().Msg("Calling BaseProbe.Close()")
 	err := p.BaseProbe.Close()
 	p.Logger().Debug().Msg("GoTLS probe closed")
