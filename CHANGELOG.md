@@ -1,8 +1,61 @@
-# v1.5.2 (2025-12-27)
+# v2.0.0 (2026-03-14)
 
 ## What's Changed
 
+### ⚠️ Breaking Changes
+* **Architecture refactoring**: Completely migrated from the legacy `user/` directory to the new `internal/probe` standardized architecture. The old `user/` directory has been deleted. (#911, #912, #913, #914)
+* **Build tag rename**: Build tag `androidgki` has been renamed to `ecap_android`. (#930)
+* **eBPF bytecode directory**: eBPF bytecode assets have been relocated to `ebpfassets/` directory structure.
+
+### 🏗️ Architecture Refactoring (v2 Foundation)
+* Implement clean architecture foundation — Phase 3 complete + Phase 4 Plan B: All simple probes migrated (Bash, Zsh, MySQL, Postgres) by @Copilot in https://github.com/gojue/ecapture/pull/911
+* feat: Phase 4 TLS probe refactoring — Complete all libraries (OpenSSL, GnuTLS, NSPR, GoTLS) with multi-mode support and factory registration by @Copilot in https://github.com/gojue/ecapture/pull/912
+* Complete eCapture v2 Architecture Refactoring (Phases 5-7): E2E Tests, Deprecation, Migration Guide, Complete eBPF Code Migration, and CLI Integration Plan by @Copilot in https://github.com/gojue/ecapture/pull/913
+* Complete migration to `internal/probe` architecture: CLI commands, eCaptureQ HTTP server, eBPF bytecode directory, and `user/` directory deletion (8/8 probes) by @Copilot in https://github.com/gojue/ecapture/pull/914
+* Refactor `pkg/event_processor` to remove user/event dependency and fix CLI compilation by @Copilot in https://github.com/gojue/ecapture/pull/915
+* Refactor gotls probe to follow standardized architecture pattern by @Copilot in https://github.com/gojue/ecapture/pull/916
+* Refactor OpenSSL probe to follow standardized architecture pattern by @Copilot in https://github.com/gojue/ecapture/pull/917
+* refactor(nspr): Complete probe refactoring to standardized architecture by @Copilot in https://github.com/gojue/ecapture/pull/918
+* refactor: Refactor the event dispatcher setup and probe initialization process by @cfc4n in https://github.com/gojue/ecapture/pull/924
+* refactor: migrate build tag from `androidgki` to `ecap_android` by @cfc4n in https://github.com/gojue/ecapture/pull/930
+
+### ✨ New Features
+* feat: add ELF path configuration and refactor eBPF filename handling in GoTLS probe by @cfc4n
+* feat: implement logger writer and enhance output handling in various components by @cfc4n in https://github.com/gojue/ecapture/pull/925
+* feat: implement buffered pcapng packet writing with interface metadata and improved closure handling by @cfc4n in https://github.com/gojue/ecapture/pull/928
+* feat: Optimize GoTLS event handling, enhance OpenSSL configuration (including Android support), and add configuration validation by @cfc4n in https://github.com/gojue/ecapture/pull/936
+* feat: add connection event handling and enhance TLS event structure with additional fields by @cfc4n in https://github.com/gojue/ecapture/pull/938
+
+### 🐛 Bug Fixes & Improvements
+* refactor: rename documentation files and update capture mode handling in configuration by @cfc4n in https://github.com/gojue/ecapture/pull/923
+* refactor: rename Chinese documentation files and update links in README by @cfc4n in https://github.com/gojue/ecapture/pull/927
+* Fix E2E test failures: Android arch detection, missing curl fallback, keylog test tolerance by @Copilot in https://github.com/gojue/ecapture/pull/944
+* Revert non-tag changes, keep ebpfassets/dynamic, minimally fix unit tests by @cfc4n in https://github.com/gojue/ecapture/pull/945
+
+### 🧪 Testing
+* Add comprehensive E2E test suite with 72+ scenarios covering all modules by @Copilot in https://github.com/gojue/ecapture/pull/919
+
+### 🔧 CI/CD & Tooling
+* feat: enhance release workflow with pre-release detection and Docker tagging by @cfc4n
+* docs: add comprehensive documentation for eCapture project and update compilation references by @cfc4n
+
 ## New Contributors
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v1.5.2...v2.0.0
+<hr>
+
+# v1.5.2 (2025-12-27)
+
+## What's Changed
+* add entry for android 16 by @jeromekleinen in https://github.com/gojue/ecapture/pull/899
+* comment out early returns in SSL_write by @jeromekleinen in https://github.com/gojue/ecapture/pull/903
+* Optimized the FD fetch logic of openssl by @cfc4n in https://github.com/gojue/ecapture/pull/905
+* feat(gotls):  support Go binaries built with -ldflags="-s -w" by @wocaolideTwistzz in https://github.com/gojue/ecapture/pull/907
+* refactor: remove kernel version detect for less than 5.2 by @cfc4n in https://github.com/gojue/ecapture/pull/906
+
+## New Contributors
+* @jeromekleinen made their first contribution in https://github.com/gojue/ecapture/pull/899
+* @wocaolideTwistzz made their first contribution in https://github.com/gojue/ecapture/pull/907
 
 **Full Changelog**: https://github.com/gojue/ecapture/compare/v1.5.1...v1.5.2
 <hr>
