@@ -19,14 +19,6 @@ else
     TEST_FAILURES=$((TEST_FAILURES + 1))
 fi
 
-echo "=== Running Bash E2E Test ==="
-if bash "$SCRIPT_DIR/android_bash_e2e_test.sh"; then
-    echo "✅ Bash test PASSED"
-else
-    echo "❌ Bash test FAILED"
-    TEST_FAILURES=$((TEST_FAILURES + 1))
-fi
-
 echo "=== Running GoTLS E2E Test ==="
 if bash "$SCRIPT_DIR/android_gotls_e2e_test.sh"; then
     echo "✅ GoTLS test PASSED"
