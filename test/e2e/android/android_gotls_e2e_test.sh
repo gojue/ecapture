@@ -111,7 +111,7 @@ test_gotls_text_mode() {
 
     # Start ecapture in gotls mode
     log_info "Starting ecapture in GoTLS text mode on device..."
-    adb_start_background "$DEVICE_ECAPTURE gotls -m text" "$DEVICE_OUTPUT_DIR/gotls_text.log"
+    adb_start_background "$DEVICE_ECAPTURE gotls -m text --elfpath=$DEVICE_GO_CLIENT" "$DEVICE_OUTPUT_DIR/gotls_text.log"
 
     # Wait for initialization
     sleep 5
@@ -187,7 +187,7 @@ test_gotls_keylog_mode() {
 
     # Start ecapture in keylog mode
     log_info "Starting ecapture in GoTLS keylog mode..."
-    adb_start_background "$DEVICE_ECAPTURE gotls -m keylog" "$DEVICE_OUTPUT_DIR/gotls_keylog.log"
+    adb_start_background "$DEVICE_ECAPTURE gotls -m keylog --elfpath=$DEVICE_GO_CLIENT" "$DEVICE_OUTPUT_DIR/gotls_keylog.log"
 
     # Wait for initialization
     sleep 5
@@ -251,7 +251,7 @@ test_concurrent_connections() {
 
     # Start ecapture
     log_info "Starting ecapture in text mode..."
-    adb_start_background "$DEVICE_ECAPTURE gotls -m text" "$DEVICE_OUTPUT_DIR/concurrent.log"
+    adb_start_background "$DEVICE_ECAPTURE gotls -m text --elfpath=$DEVICE_GO_CLIENT" "$DEVICE_OUTPUT_DIR/concurrent.log"
 
     sleep 5
 

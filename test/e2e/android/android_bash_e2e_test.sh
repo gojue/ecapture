@@ -15,6 +15,7 @@ source "$SCRIPT_DIR/common_android.sh"
 # Test configuration
 TEST_NAME="Android Bash E2E Test"
 DEVICE_ECAPTURE="/data/local/tmp/ecapture"
+DEVICE_SHELL=""  # Detected at runtime: Android sh path (e.g. /system/bin/sh)
 DEVICE_OUTPUT_DIR="/data/local/tmp/ecapture_bash_test"
 LOCAL_OUTPUT_DIR="/tmp/ecapture_android_bash_$$"
 
@@ -84,7 +85,7 @@ test_basic_bash_capture() {
 
     # Start ecapture for bash (sh on Android)
     log_info "Starting ecapture for bash/sh on device..."
-    adb_start_background "$DEVICE_ECAPTURE bash" "$DEVICE_OUTPUT_DIR/bash_capture.log"
+    adb_start_background "$DEVICE_ECAPTURE bash --bash=$DEVICE_SHELL" "$DEVICE_OUTPUT_DIR/bash_capture.log"
 
     # Wait for initialization
     sleep 5
@@ -173,7 +174,7 @@ test_long_command() {
 
     # Start ecapture
     log_info "Starting ecapture for long command test..."
-    adb_start_background "$DEVICE_ECAPTURE bash" "$DEVICE_OUTPUT_DIR/long_cmd.log"
+    adb_start_background "$DEVICE_ECAPTURE bash --bash=$DEVICE_SHELL" "$DEVICE_OUTPUT_DIR/long_cmd.log"
 
     sleep 5
 
@@ -223,7 +224,7 @@ test_pipe_commands() {
 
     # Start ecapture
     log_info "Starting ecapture for pipe command test..."
-    adb_start_background "$DEVICE_ECAPTURE bash" "$DEVICE_OUTPUT_DIR/pipe_cmd.log"
+    adb_start_background "$DEVICE_ECAPTURE bash --bash=$DEVICE_SHELL" "$DEVICE_OUTPUT_DIR/pipe_cmd.log"
 
     sleep 5
 
@@ -285,13 +286,18 @@ main() {
         exit 1
     fi
 
-    # Check if sh/bash is available on device
+    # Check if sh/bash is available on device and record its path
     log_info "Checking for shell on device..."
     if ! adb_command_exists "sh"; then
         log_error "sh not found on Android device"
         exit 1
     fi
     log_success "Shell is available"
+
+    # Detect shell path on device (bash preferred, fallback to sh)
+    DEVICE_SHELL=$(adb shell "command -v bash 2>/dev/null || command -v sh 2>/dev/null" 2>/dev/null | tr -d '\r')
+    : "${DEVICE_SHELL:=/system/bin/sh}"
+    log_info "Using shell path on device: $DEVICE_SHELL"
 
     # Create output directory on device
     log_info "=== Step 2: Setup Test Environment ==="

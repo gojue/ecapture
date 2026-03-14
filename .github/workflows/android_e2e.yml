@@ -193,16 +193,39 @@ jobs:
             adb shell "ps -A | grep ecapture | awk '{print \$2}' | while read p; do kill -9 \$p; done 2>/dev/null || true"
             echo "--- ecapture diagnostic complete ---"
 
+            # Track overall test failures
+            TEST_FAILURES=0
+
             echo "=== Running TLS E2E Test ==="
-            bash test/e2e/android/android_tls_e2e_test.sh || echo "TLS test completed with status $?"
+            if ! bash test/e2e/android/android_tls_e2e_test.sh; then
+              echo "❌ TLS test FAILED"
+              TEST_FAILURES=$((TEST_FAILURES + 1))
+            else
+              echo "✅ TLS test PASSED"
+            fi
 
             echo "=== Running Bash E2E Test ==="
-            bash test/e2e/android/android_bash_e2e_test.sh || echo "Bash test completed with status $?"
+            if ! bash test/e2e/android/android_bash_e2e_test.sh; then
+              echo "❌ Bash test FAILED"
+              TEST_FAILURES=$((TEST_FAILURES + 1))
+            else
+              echo "✅ Bash test PASSED"
+            fi
 
             echo "=== Running GoTLS E2E Test ==="
-            bash test/e2e/android/android_gotls_e2e_test.sh || echo "GoTLS test completed with status $?"
+            if ! bash test/e2e/android/android_gotls_e2e_test.sh; then
+              echo "❌ GoTLS test FAILED"
+              TEST_FAILURES=$((TEST_FAILURES + 1))
+            else
+              echo "✅ GoTLS test PASSED"
+            fi
 
             echo "=== Test execution completed ==="
+            if [ "$TEST_FAILURES" -gt 0 ]; then
+              echo "❌ $TEST_FAILURES test suite(s) FAILED"
+              exit 1
+            fi
+            echo "✅ All test suites PASSED"
 
       - name: Upload test artifacts
         if: always()

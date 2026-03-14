@@ -256,6 +256,25 @@ adb_show_log() {
     rm -f "$tmp_log"
 }
 
+# Check for FTL (fatal) level errors in a device log file.
+# Returns 0 (success) if no FTL found, 1 if FTL detected.
+# Usage: adb_check_fatal_error "<device log path>"
+adb_check_fatal_error() {
+    local device_log="$1"
+    local tmp_log
+    tmp_log=$(mktemp /tmp/ecapture_fatal_XXXXXX.log)
+    if adb pull "$device_log" "$tmp_log" >/dev/null 2>&1 && [ -s "$tmp_log" ]; then
+        if grep -qE "[[:space:]]FTL[[:space:]]" "$tmp_log"; then
+            log_error "=== Fatal errors detected in $device_log ==="
+            grep -E "[[:space:]]FTL[[:space:]]" "$tmp_log"
+            rm -f "$tmp_log"
+            return 1
+        fi
+    fi
+    rm -f "$tmp_log"
+    return 0
+}
+
 # Kill process by name on Android device
 adb_kill_by_name() {
     local process_name="$1"
