@@ -37,12 +37,16 @@ cleanup_handler() {
     if [ "$TEST_FAILED" = "1" ]; then
         log_error "Test failed. Pulling logs from device..."
         mkdir -p "$LOCAL_OUTPUT_DIR"
-        adb_pull "$DEVICE_OUTPUT_DIR/ecapture.log" "$LOCAL_OUTPUT_DIR/ecapture.log" 2>/dev/null || true
+        for log in gotls_text.log gotls_keylog.log concurrent.log; do
+            adb_pull "$DEVICE_OUTPUT_DIR/$log" "$LOCAL_OUTPUT_DIR/$log" 2>/dev/null || true
+        done
 
-        if [ -f "$LOCAL_OUTPUT_DIR/ecapture.log" ]; then
-            log_info "=== eCapture Log (last 100 lines) ==="
-            tail -100 "$LOCAL_OUTPUT_DIR/ecapture.log"
-        fi
+        for log in gotls_text.log gotls_keylog.log concurrent.log; do
+            if [ -f "$LOCAL_OUTPUT_DIR/$log" ]; then
+                log_info "=== $log (last 50 lines) ==="
+                tail -50 "$LOCAL_OUTPUT_DIR/$log"
+            fi
+        done
     fi
 
     # Clean up device
@@ -107,7 +111,7 @@ test_gotls_text_mode() {
 
     # Start ecapture in gotls mode
     log_info "Starting ecapture in GoTLS text mode on device..."
-    adb shell "cd $DEVICE_OUTPUT_DIR && nohup $DEVICE_ECAPTURE gotls -m text > gotls_text.log 2>&1 &"
+    adb_start_background "$DEVICE_ECAPTURE gotls -m text" "$DEVICE_OUTPUT_DIR/gotls_text.log"
 
     # Wait for initialization
     sleep 5
@@ -115,6 +119,7 @@ test_gotls_text_mode() {
     # Check if ecapture is running
     if ! adb_process_exists "ecapture"; then
         log_error "eCapture process not running"
+        adb_show_log "$DEVICE_OUTPUT_DIR/gotls_text.log"
         TEST_FAILED=1
         return 1
     fi
@@ -182,7 +187,7 @@ test_gotls_keylog_mode() {
 
     # Start ecapture in keylog mode
     log_info "Starting ecapture in GoTLS keylog mode..."
-    adb shell "cd $DEVICE_OUTPUT_DIR && nohup $DEVICE_ECAPTURE gotls -m keylog > gotls_keylog.log 2>&1 &"
+    adb_start_background "$DEVICE_ECAPTURE gotls -m keylog" "$DEVICE_OUTPUT_DIR/gotls_keylog.log"
 
     # Wait for initialization
     sleep 5
@@ -190,6 +195,7 @@ test_gotls_keylog_mode() {
     # Check if ecapture is running
     if ! adb_process_exists "ecapture"; then
         log_error "eCapture process not running"
+        adb_show_log "$DEVICE_OUTPUT_DIR/gotls_keylog.log"
         TEST_FAILED=1
         return 1
     fi
@@ -245,12 +251,13 @@ test_concurrent_connections() {
 
     # Start ecapture
     log_info "Starting ecapture in text mode..."
-    adb shell "cd $DEVICE_OUTPUT_DIR && nohup $DEVICE_ECAPTURE gotls -m text > concurrent.log 2>&1 &"
+    adb_start_background "$DEVICE_ECAPTURE gotls -m text" "$DEVICE_OUTPUT_DIR/concurrent.log"
 
     sleep 5
 
     if ! adb_process_exists "ecapture"; then
         log_error "eCapture process not running"
+        adb_show_log "$DEVICE_OUTPUT_DIR/concurrent.log"
         TEST_FAILED=1
         return 1
     fi

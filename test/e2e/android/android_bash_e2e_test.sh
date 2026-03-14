@@ -43,12 +43,16 @@ cleanup_handler() {
     if [ "$TEST_FAILED" = "1" ]; then
         log_error "Test failed. Pulling logs from device..."
         mkdir -p "$LOCAL_OUTPUT_DIR"
-        adb_pull "$DEVICE_OUTPUT_DIR/ecapture.log" "$LOCAL_OUTPUT_DIR/ecapture.log" 2>/dev/null || true
+        for log in bash_capture.log long_cmd.log pipe_cmd.log; do
+            adb_pull "$DEVICE_OUTPUT_DIR/$log" "$LOCAL_OUTPUT_DIR/$log" 2>/dev/null || true
+        done
 
-        if [ -f "$LOCAL_OUTPUT_DIR/ecapture.log" ]; then
-            log_info "=== eCapture Log (last 100 lines) ==="
-            tail -100 "$LOCAL_OUTPUT_DIR/ecapture.log"
-        fi
+        for log in bash_capture.log long_cmd.log pipe_cmd.log; do
+            if [ -f "$LOCAL_OUTPUT_DIR/$log" ]; then
+                log_info "=== $log (last 50 lines) ==="
+                tail -50 "$LOCAL_OUTPUT_DIR/$log"
+            fi
+        done
     fi
 
     # Clean up device
@@ -80,7 +84,7 @@ test_basic_bash_capture() {
 
     # Start ecapture for bash (sh on Android)
     log_info "Starting ecapture for bash/sh on device..."
-    adb shell "cd $DEVICE_OUTPUT_DIR && nohup $DEVICE_ECAPTURE bash > bash_capture.log 2>&1 &"
+    adb_start_background "$DEVICE_ECAPTURE bash" "$DEVICE_OUTPUT_DIR/bash_capture.log"
 
     # Wait for initialization
     sleep 5
@@ -88,6 +92,7 @@ test_basic_bash_capture() {
     # Check if ecapture is running
     if ! adb_process_exists "ecapture"; then
         log_error "eCapture process not running"
+        adb_show_log "$DEVICE_OUTPUT_DIR/bash_capture.log"
         TEST_FAILED=1
         return 1
     fi
@@ -168,12 +173,13 @@ test_long_command() {
 
     # Start ecapture
     log_info "Starting ecapture for long command test..."
-    adb shell "cd $DEVICE_OUTPUT_DIR && nohup $DEVICE_ECAPTURE bash > long_cmd.log 2>&1 &"
+    adb_start_background "$DEVICE_ECAPTURE bash" "$DEVICE_OUTPUT_DIR/long_cmd.log"
 
     sleep 5
 
     if ! adb_process_exists "ecapture"; then
         log_error "eCapture process not running"
+        adb_show_log "$DEVICE_OUTPUT_DIR/long_cmd.log"
         TEST_FAILED=1
         return 1
     fi
@@ -217,12 +223,13 @@ test_pipe_commands() {
 
     # Start ecapture
     log_info "Starting ecapture for pipe command test..."
-    adb shell "cd $DEVICE_OUTPUT_DIR && nohup $DEVICE_ECAPTURE bash > pipe_cmd.log 2>&1 &"
+    adb_start_background "$DEVICE_ECAPTURE bash" "$DEVICE_OUTPUT_DIR/pipe_cmd.log"
 
     sleep 5
 
     if ! adb_process_exists "ecapture"; then
         log_error "eCapture process not running"
+        adb_show_log "$DEVICE_OUTPUT_DIR/pipe_cmd.log"
         TEST_FAILED=1
         return 1
     fi
