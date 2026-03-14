@@ -187,7 +187,7 @@ test_gotls_keylog_mode() {
 
     # Start ecapture in keylog mode
     log_info "Starting ecapture in GoTLS keylog mode..."
-    adb_start_background "$DEVICE_ECAPTURE gotls -m keylog --elfpath=$DEVICE_GO_CLIENT" "$DEVICE_OUTPUT_DIR/gotls_keylog.log"
+    adb_start_background "$DEVICE_ECAPTURE gotls -m keylog -k $DEVICE_OUTPUT_DIR/gotls_key.log --elfpath=$DEVICE_GO_CLIENT" "$DEVICE_OUTPUT_DIR/gotls_keylog.log"
 
     # Wait for initialization
     sleep 5
