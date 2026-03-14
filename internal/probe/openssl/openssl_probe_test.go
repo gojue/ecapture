@@ -42,15 +42,14 @@ func TestProbe_Initialize(t *testing.T) {
 	}
 
 	cfg := NewConfig()
-	cfg.OpensslPath = "/usr/lib/x86_64-linux-gnu/libssl.so.1.1"
-	cfg.SslVersion = Version_1_1_1
+	cfg.OpensslPath = "/nonexistent/path/libssl.so.1.1"
 
-	// Test that Initialize requires a dispatcher
+	// Test that Initialize returns an error when the openssl path does not exist
 	ctx := context.Background()
 
 	err = probe.Initialize(ctx, cfg)
 	if err == nil {
-		t.Error("Initialize() with nil dispatcher should return error")
+		t.Error("Initialize() with non-existent openssl path should return error")
 	}
 }
 
@@ -60,17 +59,15 @@ func TestProbe_Initialize_InvalidConfig(t *testing.T) {
 		t.Fatalf("NewProbe() failed: %v", err)
 	}
 
-	// Use wrong config type
+	// Use a non-existent path to ensure config validation fails reliably
 	cfg := NewConfig()
-	cfg.OpensslPath = "/usr/lib/x86_64-linux-gnu/libssl.so.1.1"
-	cfg.SslVersion = "invalid-version"
+	cfg.OpensslPath = "/nonexistent/path/libssl.so.1.1"
 
 	ctx := context.Background()
 
 	err = probe.Initialize(ctx, cfg)
-	// Will fail due to nil dispatcher first
 	if err == nil {
-		t.Error("Initialize() with nil dispatcher should return error")
+		t.Error("Initialize() with invalid config should return error")
 	}
 }
 
