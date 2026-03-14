@@ -319,12 +319,8 @@ e2e-android-tls:
 e2e-android-gotls:
 	bash ./test/e2e/android/android_gotls_e2e_test.sh
 
-.PHONY: e2e-android-bash
-e2e-android-bash:
-	bash ./test/e2e/android/android_bash_e2e_test.sh
-
 .PHONY: e2e-android-all
-e2e-android-all: e2e-android-tls e2e-android-gotls e2e-android-bash
+e2e-android-all: e2e-android-tls e2e-android-gotls
 	@echo "All Android e2e tests completed"
 
 .PHONY: build-android-tests

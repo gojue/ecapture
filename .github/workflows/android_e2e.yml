@@ -102,11 +102,12 @@ jobs:
         run: |
           cd test/e2e
           echo "Building Go HTTPS client for Android..."
-          CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -o android/go_https_client_android go_https_client.go
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o android/go_https_client_android go_https_client.go
           
           if [ -f android/go_https_client_android ]; then
             echo "✓ Go client built successfully"
             ls -lh android/go_https_client_android
+            file android/go_https_client_android
           else
             echo "⚠️  Go client build failed (tests will use curl)"
           fi
@@ -165,32 +166,34 @@ jobs:
             adb shell getprop ro.build.version.release
             adb shell getprop ro.build.version.sdk
             adb shell uname -a
-            
+
             echo "=== Getting root access ==="
             adb root
             sleep 5
             adb wait-for-device
-            
+
             echo "=== Checking root ==="
             adb shell id
-            
+
             echo "=== Setting SELinux to permissive ==="
             adb shell setenforce 0 || true
             adb shell getenforce
-            
+
             echo "=== Setup environment ==="
             bash test/e2e/android/setup_android_env.sh || true
-            
-            echo "=== Running TLS E2E Test ==="
-            bash test/e2e/android/android_tls_e2e_test.sh || echo "TLS test completed with status $?"
-            
-            echo "=== Running Bash E2E Test ==="
-            bash test/e2e/android/android_bash_e2e_test.sh || echo "Bash test completed with status $?"
-            
-            echo "=== Running GoTLS E2E Test ==="
-            bash test/e2e/android/android_gotls_e2e_test.sh || echo "GoTLS test completed with status $?"
-            
-            echo "=== Test execution completed ==="
+
+            echo "=== Checking ecapture startup (diagnostic) ==="
+            adb push bin/ecapture /data/local/tmp/ecapture
+            adb shell chmod 755 /data/local/tmp/ecapture
+            echo "--- Verifying eBPF / ecapture can start (3s sample) ---"
+            adb shell "setsid nohup /data/local/tmp/ecapture tls -m text > /data/local/tmp/ecapture_startup.log 2>&1 < /dev/null &"
+            sleep 3
+            adb shell "ps -A | grep ecapture || echo '(no ecapture process found)'"
+            adb shell "cat /data/local/tmp/ecapture_startup.log 2>/dev/null || echo '(no startup log)'"
+            adb shell "ps -A | grep ecapture | awk '{print \$2}' | while read p; do kill -9 \$p; done 2>/dev/null || true"
+            echo "--- ecapture diagnostic complete ---"
+
+            bash test/e2e/android/run_android_e2e_tests.sh
 
       - name: Upload test artifacts
         if: always()

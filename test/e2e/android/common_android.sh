@@ -227,6 +227,54 @@ adb_exec_bg() {
     adb shell "$cmd &" &
 }
 
+# Start a long-running process on Android device in background
+# Uses setsid to create a new session so the process survives when the adb shell exits
+# Usage: adb_start_background "<command with args>" "<absolute log file path on device>"
+adb_start_background() {
+    local cmd="$1"
+    local log_file="$2"
+
+    log_info "Starting background process on device: $cmd"
+    adb shell "setsid nohup $cmd > $log_file 2>&1 < /dev/null &"
+}
+
+# Show device log file content for diagnostics
+adb_show_log() {
+    local device_log="$1"
+    local tmp_log
+    tmp_log=$(mktemp /tmp/ecapture_diag_XXXXXX.log)
+    if adb pull "$device_log" "$tmp_log" >/dev/null 2>&1; then
+        if [ -s "$tmp_log" ]; then
+            log_error "=== Device log: $device_log ==="
+            cat "$tmp_log"
+        else
+            log_error "Log file is empty: $device_log"
+        fi
+    else
+        log_error "Could not pull log file: $device_log"
+    fi
+    rm -f "$tmp_log"
+}
+
+# Check for FTL (fatal) level errors in a device log file.
+# Returns 0 (success) if no FTL found, 1 if FTL detected.
+# Usage: adb_check_fatal_error "<device log path>"
+adb_check_fatal_error() {
+    local device_log="$1"
+    local tmp_log
+    tmp_log=$(mktemp /tmp/ecapture_fatal_XXXXXX.log)
+    if adb pull "$device_log" "$tmp_log" >/dev/null 2>&1 && [ -s "$tmp_log" ]; then
+        if grep -qE "[[:space:]]FTL[[:space:]]" "$tmp_log"; then
+            log_error "=== Fatal errors detected in $device_log ==="
+            grep -E "[[:space:]]FTL[[:space:]]" "$tmp_log"
+            rm -f "$tmp_log"
+            return 1
+        fi
+    fi
+    rm -f "$tmp_log"
+    return 0
+}
+
 # Kill process by name on Android device
 adb_kill_by_name() {
     local process_name="$1"

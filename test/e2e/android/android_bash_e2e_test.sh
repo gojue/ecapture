@@ -15,6 +15,7 @@ source "$SCRIPT_DIR/common_android.sh"
 # Test configuration
 TEST_NAME="Android Bash E2E Test"
 DEVICE_ECAPTURE="/data/local/tmp/ecapture"
+DEVICE_SHELL=""  # Detected at runtime: Android sh path (e.g. /system/bin/sh)
 DEVICE_OUTPUT_DIR="/data/local/tmp/ecapture_bash_test"
 LOCAL_OUTPUT_DIR="/tmp/ecapture_android_bash_$$"
 
@@ -43,12 +44,16 @@ cleanup_handler() {
     if [ "$TEST_FAILED" = "1" ]; then
         log_error "Test failed. Pulling logs from device..."
         mkdir -p "$LOCAL_OUTPUT_DIR"
-        adb_pull "$DEVICE_OUTPUT_DIR/ecapture.log" "$LOCAL_OUTPUT_DIR/ecapture.log" 2>/dev/null || true
+        for log in bash_capture.log long_cmd.log pipe_cmd.log; do
+            adb_pull "$DEVICE_OUTPUT_DIR/$log" "$LOCAL_OUTPUT_DIR/$log" 2>/dev/null || true
+        done
 
-        if [ -f "$LOCAL_OUTPUT_DIR/ecapture.log" ]; then
-            log_info "=== eCapture Log (last 100 lines) ==="
-            tail -100 "$LOCAL_OUTPUT_DIR/ecapture.log"
-        fi
+        for log in bash_capture.log long_cmd.log pipe_cmd.log; do
+            if [ -f "$LOCAL_OUTPUT_DIR/$log" ]; then
+                log_info "=== $log (last 50 lines) ==="
+                tail -50 "$LOCAL_OUTPUT_DIR/$log"
+            fi
+        done
     fi
 
     # Clean up device
@@ -80,7 +85,7 @@ test_basic_bash_capture() {
 
     # Start ecapture for bash (sh on Android)
     log_info "Starting ecapture for bash/sh on device..."
-    adb shell "cd $DEVICE_OUTPUT_DIR && nohup $DEVICE_ECAPTURE bash > bash_capture.log 2>&1 &"
+    adb_start_background "$DEVICE_ECAPTURE bash --bash=$DEVICE_SHELL" "$DEVICE_OUTPUT_DIR/bash_capture.log"
 
     # Wait for initialization
     sleep 5
@@ -88,6 +93,7 @@ test_basic_bash_capture() {
     # Check if ecapture is running
     if ! adb_process_exists "ecapture"; then
         log_error "eCapture process not running"
+        adb_show_log "$DEVICE_OUTPUT_DIR/bash_capture.log"
         TEST_FAILED=1
         return 1
     fi
@@ -168,12 +174,13 @@ test_long_command() {
 
     # Start ecapture
     log_info "Starting ecapture for long command test..."
-    adb shell "cd $DEVICE_OUTPUT_DIR && nohup $DEVICE_ECAPTURE bash > long_cmd.log 2>&1 &"
+    adb_start_background "$DEVICE_ECAPTURE bash --bash=$DEVICE_SHELL" "$DEVICE_OUTPUT_DIR/long_cmd.log"
 
     sleep 5
 
     if ! adb_process_exists "ecapture"; then
         log_error "eCapture process not running"
+        adb_show_log "$DEVICE_OUTPUT_DIR/long_cmd.log"
         TEST_FAILED=1
         return 1
     fi
@@ -217,12 +224,13 @@ test_pipe_commands() {
 
     # Start ecapture
     log_info "Starting ecapture for pipe command test..."
-    adb shell "cd $DEVICE_OUTPUT_DIR && nohup $DEVICE_ECAPTURE bash > pipe_cmd.log 2>&1 &"
+    adb_start_background "$DEVICE_ECAPTURE bash --bash=$DEVICE_SHELL" "$DEVICE_OUTPUT_DIR/pipe_cmd.log"
 
     sleep 5
 
     if ! adb_process_exists "ecapture"; then
         log_error "eCapture process not running"
+        adb_show_log "$DEVICE_OUTPUT_DIR/pipe_cmd.log"
         TEST_FAILED=1
         return 1
     fi
@@ -278,13 +286,18 @@ main() {
         exit 1
     fi
 
-    # Check if sh/bash is available on device
+    # Check if sh/bash is available on device and record its path
     log_info "Checking for shell on device..."
     if ! adb_command_exists "sh"; then
         log_error "sh not found on Android device"
         exit 1
     fi
     log_success "Shell is available"
+
+    # Detect shell path on device (bash preferred, fallback to sh)
+    DEVICE_SHELL=$(adb shell "command -v bash 2>/dev/null || command -v sh 2>/dev/null" 2>/dev/null | tr -d '\r')
+    : "${DEVICE_SHELL:=/system/bin/sh}"
+    log_info "Using shell path on device: $DEVICE_SHELL"
 
     # Create output directory on device
     log_info "=== Step 2: Setup Test Environment ==="
