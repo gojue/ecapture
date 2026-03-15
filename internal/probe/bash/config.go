@@ -137,7 +137,12 @@ func (c *Config) checkReadlineFunc() error {
 
 	symbols, err := file.DynamicSymbols()
 	if err != nil {
-		return fmt.Errorf("failed to read symbols from %s: %w", binaryPath, err)
+		// Binary has no dynamic symbol table (e.g. statically linked or stripped).
+		// Fall back to the standard readline function name and continue.
+		// Note: uprobe attachment will still fail at probe load time if the binary
+		// does not export the expected function — this is caught by the eBPF manager.
+		c.ReadlineFuncName = "readline"
+		return nil
 	}
 
 	// Check for preferred function

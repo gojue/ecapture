@@ -14,7 +14,7 @@ source "$SCRIPT_DIR/common_android.sh"
 
 # Test configuration
 TEST_NAME="Android TLS E2E Test"
-TEST_URL="https://www.google.com"
+TEST_URL="https://github.com"
 DEVICE_ECAPTURE="/data/local/tmp/ecapture"
 DEVICE_GO_CLIENT="/data/local/tmp/go_https_client"
 DEVICE_OUTPUT_DIR="/data/local/tmp/ecapture_test"
@@ -37,12 +37,13 @@ cleanup_handler() {
     if [ "$TEST_FAILED" = "1" ]; then
         log_error "Test failed. Pulling logs from device..."
         mkdir -p "$LOCAL_OUTPUT_DIR"
-        adb_pull "$DEVICE_OUTPUT_DIR/ecapture.log" "$LOCAL_OUTPUT_DIR/ecapture.log" 2>/dev/null || true
-        adb_pull "$DEVICE_OUTPUT_DIR/curl.log" "$LOCAL_OUTPUT_DIR/curl.log" 2>/dev/null || true
+        adb_pull "$DEVICE_OUTPUT_DIR/text_mode.log" "$LOCAL_OUTPUT_DIR/text_mode.log" 2>/dev/null || true
+        adb_pull "$DEVICE_OUTPUT_DIR/pcap_mode.log" "$LOCAL_OUTPUT_DIR/pcap_mode.log" 2>/dev/null || true
+        adb_pull "$DEVICE_OUTPUT_DIR/pid_filter.log" "$LOCAL_OUTPUT_DIR/pid_filter.log" 2>/dev/null || true
 
-        if [ -f "$LOCAL_OUTPUT_DIR/ecapture.log" ]; then
-            log_info "=== eCapture Log (last 100 lines) ==="
-            tail -100 "$LOCAL_OUTPUT_DIR/ecapture.log"
+        if [ -f "$LOCAL_OUTPUT_DIR/text_mode.log" ]; then
+            log_info "=== eCapture TLS Log (last 100 lines) ==="
+            tail -100 "$LOCAL_OUTPUT_DIR/text_mode.log"
         fi
     fi
 
@@ -88,7 +89,7 @@ test_text_mode() {
 
     # Start ecapture in text mode (background)
     log_info "Starting ecapture in text mode on device..."
-    adb shell "cd $DEVICE_OUTPUT_DIR && nohup $DEVICE_ECAPTURE tls -m text > text_mode.log 2>&1 &"
+    adb_start_background "$DEVICE_ECAPTURE tls -m text" "$DEVICE_OUTPUT_DIR/text_mode.log"
 
     # Wait for initialization
     sleep 5
@@ -96,6 +97,7 @@ test_text_mode() {
     # Check if ecapture is running
     if ! adb_process_exists "ecapture"; then
         log_error "eCapture process not running"
+        adb_show_log "$DEVICE_OUTPUT_DIR/text_mode.log"
         TEST_FAILED=1
         return 1
     fi
@@ -162,7 +164,7 @@ test_pcap_mode() {
     device_iface=$(adb shell "ip route | grep default | awk '{print \$5}' | head -1" 2>/dev/null | tr -d '\r' || echo "wlan0")
     : "${device_iface:=wlan0}"
     log_info "Using network interface: $device_iface"
-    adb shell "cd $DEVICE_OUTPUT_DIR && nohup $DEVICE_ECAPTURE tls -m pcap -i $device_iface -w capture.pcapng > pcap_mode.log 2>&1 &"
+    adb_start_background "$DEVICE_ECAPTURE tls -m pcap -i $device_iface -w $DEVICE_OUTPUT_DIR/capture.pcapng" "$DEVICE_OUTPUT_DIR/pcap_mode.log"
 
     # Wait for initialization
     sleep 5
@@ -170,6 +172,7 @@ test_pcap_mode() {
     # Check if ecapture is running
     if ! adb_process_exists "ecapture"; then
         log_error "eCapture process not running"
+        adb_show_log "$DEVICE_OUTPUT_DIR/pcap_mode.log"
         TEST_FAILED=1
         return 1
     fi
@@ -239,7 +242,7 @@ test_pid_filter() {
 
     # Start ecapture with PID filter
     log_info "Starting ecapture with PID filter..."
-    adb shell "cd $DEVICE_OUTPUT_DIR && nohup $DEVICE_ECAPTURE tls -m text --pid=$client_pid > pid_filter.log 2>&1 &"
+    adb_start_background "$DEVICE_ECAPTURE tls -m text --pid=$client_pid" "$DEVICE_OUTPUT_DIR/pid_filter.log"
 
     sleep 3
 

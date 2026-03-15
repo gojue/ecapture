@@ -14,7 +14,7 @@ source "$SCRIPT_DIR/common_android.sh"
 
 # Test configuration
 TEST_NAME="Android GoTLS E2E Test"
-TEST_URL="https://www.google.com"
+TEST_URL="https://github.com"
 DEVICE_ECAPTURE="/data/local/tmp/ecapture"
 DEVICE_GO_CLIENT="/data/local/tmp/go_https_client"
 DEVICE_OUTPUT_DIR="/data/local/tmp/ecapture_gotls_test"
@@ -37,12 +37,16 @@ cleanup_handler() {
     if [ "$TEST_FAILED" = "1" ]; then
         log_error "Test failed. Pulling logs from device..."
         mkdir -p "$LOCAL_OUTPUT_DIR"
-        adb_pull "$DEVICE_OUTPUT_DIR/ecapture.log" "$LOCAL_OUTPUT_DIR/ecapture.log" 2>/dev/null || true
+        for log in gotls_text.log gotls_keylog.log concurrent.log; do
+            adb_pull "$DEVICE_OUTPUT_DIR/$log" "$LOCAL_OUTPUT_DIR/$log" 2>/dev/null || true
+        done
 
-        if [ -f "$LOCAL_OUTPUT_DIR/ecapture.log" ]; then
-            log_info "=== eCapture Log (last 100 lines) ==="
-            tail -100 "$LOCAL_OUTPUT_DIR/ecapture.log"
-        fi
+        for log in gotls_text.log gotls_keylog.log concurrent.log; do
+            if [ -f "$LOCAL_OUTPUT_DIR/$log" ]; then
+                log_info "=== $log (last 50 lines) ==="
+                tail -50 "$LOCAL_OUTPUT_DIR/$log"
+            fi
+        done
     fi
 
     # Clean up device
@@ -107,7 +111,7 @@ test_gotls_text_mode() {
 
     # Start ecapture in gotls mode
     log_info "Starting ecapture in GoTLS text mode on device..."
-    adb shell "cd $DEVICE_OUTPUT_DIR && nohup $DEVICE_ECAPTURE gotls -m text > gotls_text.log 2>&1 &"
+    adb_start_background "$DEVICE_ECAPTURE gotls -m text --elfpath=$DEVICE_GO_CLIENT" "$DEVICE_OUTPUT_DIR/gotls_text.log"
 
     # Wait for initialization
     sleep 5
@@ -115,6 +119,7 @@ test_gotls_text_mode() {
     # Check if ecapture is running
     if ! adb_process_exists "ecapture"; then
         log_error "eCapture process not running"
+        adb_show_log "$DEVICE_OUTPUT_DIR/gotls_text.log"
         TEST_FAILED=1
         return 1
     fi
@@ -123,7 +128,7 @@ test_gotls_text_mode() {
 
     # Run Go HTTPS client on device
     log_info "Running Go HTTPS client..."
-    adb shell "$DEVICE_GO_CLIENT $TEST_URL" > /dev/null 2>&1 || true
+    adb shell "$DEVICE_GO_CLIENT -url $TEST_URL" > /dev/null 2>&1 || true
 
     # Wait for capture
     sleep 3
@@ -182,7 +187,7 @@ test_gotls_keylog_mode() {
 
     # Start ecapture in keylog mode
     log_info "Starting ecapture in GoTLS keylog mode..."
-    adb shell "cd $DEVICE_OUTPUT_DIR && nohup $DEVICE_ECAPTURE gotls -m keylog > gotls_keylog.log 2>&1 &"
+    adb_start_background "$DEVICE_ECAPTURE gotls -m keylog -k $DEVICE_OUTPUT_DIR/gotls_key.log --elfpath=$DEVICE_GO_CLIENT" "$DEVICE_OUTPUT_DIR/gotls_keylog.log"
 
     # Wait for initialization
     sleep 5
@@ -190,6 +195,7 @@ test_gotls_keylog_mode() {
     # Check if ecapture is running
     if ! adb_process_exists "ecapture"; then
         log_error "eCapture process not running"
+        adb_show_log "$DEVICE_OUTPUT_DIR/gotls_keylog.log"
         TEST_FAILED=1
         return 1
     fi
@@ -198,7 +204,7 @@ test_gotls_keylog_mode() {
 
     # Run Go HTTPS client
     log_info "Running Go HTTPS client..."
-    adb shell "$DEVICE_GO_CLIENT $TEST_URL" > /dev/null 2>&1 || true
+    adb shell "$DEVICE_GO_CLIENT -url $TEST_URL" > /dev/null 2>&1 || true
 
     # Wait for capture
     sleep 3
@@ -245,23 +251,24 @@ test_concurrent_connections() {
 
     # Start ecapture
     log_info "Starting ecapture in text mode..."
-    adb shell "cd $DEVICE_OUTPUT_DIR && nohup $DEVICE_ECAPTURE gotls -m text > concurrent.log 2>&1 &"
+    adb_start_background "$DEVICE_ECAPTURE gotls -m text --elfpath=$DEVICE_GO_CLIENT" "$DEVICE_OUTPUT_DIR/concurrent.log"
 
     sleep 5
 
     if ! adb_process_exists "ecapture"; then
         log_error "eCapture process not running"
+        adb_show_log "$DEVICE_OUTPUT_DIR/concurrent.log"
         TEST_FAILED=1
         return 1
     fi
 
     # Run multiple Go clients concurrently
     log_info "Running 3 concurrent Go HTTPS clients..."
-    adb shell "$DEVICE_GO_CLIENT $TEST_URL &" || true
+    adb shell "$DEVICE_GO_CLIENT -url $TEST_URL &" || true
     sleep 0.5
-    adb shell "$DEVICE_GO_CLIENT https://www.github.com &" || true
+    adb shell "$DEVICE_GO_CLIENT -url https://github.com &" || true
     sleep 0.5
-    adb shell "$DEVICE_GO_CLIENT https://api.github.com &" || true
+    adb shell "$DEVICE_GO_CLIENT -url https://api.github.com &" || true
 
     # Wait for all to complete
     sleep 5
