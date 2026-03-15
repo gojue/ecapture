@@ -1,0 +1,261 @@
+// Copyright 2022 CFC4N <cfc4n.cs@gmail.com>. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package handlers
+
+import (
+	"bytes"
+	"fmt"
+	"strings"
+	"testing"
+
+	"github.com/gojue/ecapture/internal/domain"
+)
+
+// mockWriter wraps bytes.Buffer to implement OutputWriter
+type mockWriter struct {
+	*bytes.Buffer
+}
+
+func newMockWriter() *mockWriter {
+	return &mockWriter{Buffer: &bytes.Buffer{}}
+}
+
+func (m *mockWriter) Close() error {
+	return nil
+}
+
+func (m *mockWriter) Name() string {
+	return "mock-writer"
+}
+
+func (m *mockWriter) Flush() error {
+	return nil
+}
+
+// mockTLSDataEvent is a mock implementation of TLSDataEvent for testing.
+type mockTLSDataEvent struct {
+	pid       uint32
+	comm      string
+	data      []byte
+	dataLen   uint32
+	timestamp uint64
+	isRead    bool
+}
+
+func (m *mockTLSDataEvent) GetPid() uint32 {
+	return m.pid
+}
+
+func (m *mockTLSDataEvent) GetComm() string {
+	return m.comm
+}
+
+func (m *mockTLSDataEvent) GetData() []byte {
+	return m.data
+}
+
+func (m *mockTLSDataEvent) GetDataLen() uint32 {
+	return m.dataLen
+}
+
+func (m *mockTLSDataEvent) GetTimestamp() uint64 {
+	return m.timestamp
+}
+
+func (m *mockTLSDataEvent) IsRead() bool {
+	return m.isRead
+}
+
+func (m *mockTLSDataEvent) DecodeFromBytes(data []byte) error {
+	return nil
+}
+
+func (m *mockTLSDataEvent) Validate() error {
+	return nil
+}
+
+func (m *mockTLSDataEvent) String() string {
+	return string(m.data)
+}
+
+func (m *mockTLSDataEvent) StringHex() string {
+	return fmt.Sprintf("%x", m.data)
+}
+
+func (m *mockTLSDataEvent) Clone() domain.Event {
+	clone := *m
+	clone.data = make([]byte, len(m.data))
+	copy(clone.data, m.data)
+	return &clone
+}
+
+func (m *mockTLSDataEvent) Type() domain.EventType {
+	return domain.EventTypeOutput
+}
+
+func (m *mockTLSDataEvent) UUID() string {
+	return "mock-uuid"
+}
+
+func TestNewTextHandler(t *testing.T) {
+	writer := newMockWriter()
+	handler := NewTextHandler(writer, false)
+	if handler == nil {
+		t.Fatal("NewTextHandler returned nil")
+		return
+	}
+}
+
+func TestNewTextHandler_NilWriter(t *testing.T) {
+	handler := NewTextHandler(nil, false)
+	if handler == nil {
+		t.Fatal("NewTextHandler returned nil with nil writer")
+		return
+	}
+	// Should use StdoutWriter
+	if handler.writer == nil {
+		t.Error("TextHandler writer should not be nil")
+	}
+}
+
+func TestTextHandler_Handle_Write(t *testing.T) {
+	writer := newMockWriter()
+	handler := NewTextHandler(writer, false)
+
+	event := &mockTLSDataEvent{
+		pid:       1234,
+		comm:      "test-app",
+		data:      []byte("GET / HTTP/1.1\r\nHost: example.com\r\n\r\n"),
+		dataLen:   42,
+		timestamp: 1704168000000000000, // 2024-01-02 00:00:00 UTC
+		isRead:    false,
+	}
+
+	err := handler.Handle(event)
+	if err != nil {
+		t.Fatalf("Handle returned error: %v", err)
+		return
+	}
+
+	output := writer.String()
+	if !strings.Contains(output, "GET / HTTP/1.1") {
+		t.Errorf("Output should contain request data, got: %s", output)
+		return
+	}
+}
+
+func TestTextHandler_Handle_Read(t *testing.T) {
+	writer := newMockWriter()
+	handler := NewTextHandler(writer, false)
+
+	event := &mockTLSDataEvent{
+		pid:       5678,
+		comm:      "curl",
+		data:      []byte("HTTP/1.1 200 OK\r\n\r\n"),
+		dataLen:   20,
+		timestamp: 1704168000000000000,
+		isRead:    true,
+	}
+
+	err := handler.Handle(event)
+	if err != nil {
+		t.Fatalf("Handle returned error: %v", err)
+		return
+	}
+
+	output := writer.String()
+	if !strings.Contains(output, "HTTP/1.1 200 OK") {
+		t.Errorf("Output should contain response data, got: %s", output)
+		return
+	}
+}
+
+func TestTextHandler_Handle_NilEvent(t *testing.T) {
+	writer := newMockWriter()
+	handler := NewTextHandler(writer, false)
+
+	err := handler.Handle(nil)
+	if err == nil {
+		t.Error("Handle should return error for nil event")
+	}
+}
+
+// mockNonTLSEvent is a mock event that doesn't implement TLSDataEvent
+type mockNonTLSEvent struct{}
+
+func (m *mockNonTLSEvent) DecodeFromBytes(data []byte) error { return nil }
+func (m *mockNonTLSEvent) Validate() error                   { return nil }
+func (m *mockNonTLSEvent) String() string                    { return "" }
+func (m *mockNonTLSEvent) StringHex() string                 { return "" }
+func (m *mockNonTLSEvent) Clone() domain.Event               { return &mockNonTLSEvent{} }
+func (m *mockNonTLSEvent) Type() domain.EventType            { return domain.EventTypeOutput }
+func (m *mockNonTLSEvent) UUID() string                      { return "" }
+
+func TestTextHandler_Handle_InvalidEventType(t *testing.T) {
+	writer := newMockWriter()
+	handler := NewTextHandler(writer, false)
+
+	var event domain.Event = &mockNonTLSEvent{}
+	err := handler.Handle(event)
+	// Should return nil (skip silently) for non-TLS events
+	if err != nil {
+		t.Errorf("Handle should skip non-TLS events silently, got error: %v", err)
+		return
+	}
+}
+
+func TestTextHandler_Close(t *testing.T) {
+	writer := newMockWriter()
+	handler := NewTextHandler(writer, false)
+
+	err := handler.Close()
+	if err != nil {
+		t.Errorf("Close returned error: %v", err)
+		return
+	}
+}
+
+// mockClosableWriter is a writer that implements OutputWriter with Close tracking
+type mockClosableWriter struct {
+	*bytes.Buffer
+	closed bool
+}
+
+func (m *mockClosableWriter) Close() error {
+	m.closed = true
+	return nil
+}
+
+func (m *mockClosableWriter) Name() string {
+	return "mock-closable-writer"
+}
+
+func (m *mockClosableWriter) Flush() error {
+	return nil
+}
+
+func TestTextHandler_Close_ClosableWriter(t *testing.T) {
+	writer := &mockClosableWriter{Buffer: &bytes.Buffer{}}
+	handler := NewTextHandler(writer, false)
+
+	err := handler.Close()
+	if err != nil {
+		t.Errorf("Close returned error: %v", err)
+		return
+	}
+	if !writer.closed {
+		t.Error("Writer should be closed")
+	}
+}

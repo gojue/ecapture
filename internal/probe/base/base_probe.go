@@ -1,0 +1,367 @@
+// Copyright 2022 CFC4N <cfc4n.cs@gmail.com>. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package base
+
+import (
+	"context"
+	stderrors "errors"
+	"fmt"
+	"sync/atomic"
+
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/perf"
+	"github.com/cilium/ebpf/ringbuf"
+
+	"github.com/gojue/ecapture/internal/output/writers"
+	"github.com/gojue/ecapture/internal/probe/base/handlers"
+
+	"github.com/gojue/ecapture/internal/events"
+
+	"github.com/gojue/ecapture/internal/domain"
+	"github.com/gojue/ecapture/internal/errors"
+	"github.com/gojue/ecapture/internal/logger"
+)
+
+const (
+	TcFuncNameIngress = "ingress_cls_func"
+	TcFuncNameEgress  = "egress_cls_func"
+)
+
+// BaseProbe provides common functionality for all probes.
+// Concrete probes should embed this struct and implement probe-specific logic.
+type BaseProbe struct {
+	name       string
+	logger     *logger.Logger
+	ctx        context.Context
+	config     domain.Configuration
+	dispatcher domain.EventDispatcher
+	isRunning  atomic.Bool
+	readers    []closer
+	closers    []closer
+}
+
+// closer interface for resources that need to be closed.
+type closer interface {
+	Close() error
+}
+
+// NewBaseProbe creates a new BaseProbe instance.
+func NewBaseProbe(name string) *BaseProbe {
+	return &BaseProbe{
+		name:    name,
+		readers: make([]closer, 0),
+		closers: make([]closer, 0),
+	}
+}
+
+// Initialize sets up the probe with configuration and dependencies.
+func (p *BaseProbe) Initialize(ctx context.Context, cfg domain.Configuration) error {
+	if cfg == nil {
+		return errors.NewConfigurationError("configuration cannot be nil", nil)
+	}
+
+	if err := cfg.Validate(); err != nil {
+		return errors.NewConfigurationError("invalid configuration", err)
+	}
+
+	p.ctx = ctx
+	p.config = cfg
+
+	// Create a logger with probe name
+	p.logger = logger.New(nil, p.config.GetDebug()).WithProbe(p.name)
+
+	p.logger.Info().
+		Uint64("pid", p.config.GetPid()).
+		Uint64("uid", p.config.GetUid()).
+		Msg("Probe initialized")
+
+	// Create internal logger wrapper from zerolog
+	// Create dispatcher
+	dispatcher := events.NewDispatcher(p.Logger())
+	// Create writer factory for creating output writers
+	writerFactory := writers.NewWriterFactory()
+
+	// Configure rotation for file writers (from --eventroratesize and --eventroratetime flags)
+	var rotateConfig *writers.RotateConfig
+
+	// Create output writer based on eventAddr (or stdout if empty)
+	var textWriter writers.OutputWriter
+	var err error
+	var eventAddr = cfg.GetEventCollectorAddr()
+	if eventAddr == "" || eventAddr == "stdout" {
+		//textWriter = writers.NewStdoutWriter()
+		textWriter = writers.NewLoggerWriter(p.logger)
+	} else {
+		textWriter, err = writerFactory.CreateWriter(eventAddr, rotateConfig)
+		if err != nil {
+			return fmt.Errorf("failed to create text output writer: %w", err)
+		}
+	}
+	p.Logger().Info().Str("writer", textWriter.Name()).Str("LoggerAddr", cfg.GetLoggerAddr()).Msg("Text output writer created")
+	textHandler := handlers.NewTextHandler(textWriter, p.config.GetHex())
+	if err := dispatcher.Register(textHandler); err != nil {
+		_ = textWriter.Close()
+		return fmt.Errorf("failed to register text handler: %w", err)
+	}
+	p.closers = append(p.closers, textHandler)
+	// Create dispatcher
+	p.dispatcher = dispatcher
+
+	return nil
+}
+
+// Start begins the probe's operation.
+// Concrete probes should override this method to implement probe-specific startup.
+func (p *BaseProbe) Start(ctx context.Context) error {
+	if p.isRunning.Load() {
+		return errors.NewProbeStartError(p.name, fmt.Errorf("probe already running"))
+	}
+
+	p.isRunning.Store(true)
+	p.logger.Info().Msg("Probe started")
+	return nil
+}
+
+// Stop gracefully stops the probe.
+func (p *BaseProbe) Stop(ctx context.Context) error {
+	if !p.isRunning.Load() {
+		return nil
+	}
+
+	p.isRunning.Store(false)
+	p.logger.Info().Msg("Probe stopped")
+	return nil
+}
+
+// GetBPFName returns the appropriate eBPF bytecode filename.
+func (p *BaseProbe) GetBPFName(baseName string) string {
+	// Determine if we should use core or non-core bytecode
+	useCoreMode := p.config.GetBTF() == 1 // BTFModeCore
+
+	// Replace .o extension
+	if useCoreMode {
+		return baseName[:len(baseName)-2] + "_core.o"
+	}
+	return baseName[:len(baseName)-2] + "_noncore.o"
+}
+
+// Close releases all resources.
+func (p *BaseProbe) Close() error {
+	p.isRunning.Store(false)
+
+	// Close all readers in reverse order
+	for i := len(p.readers) - 1; i >= 0; i-- {
+		if err := p.readers[i].Close(); err != nil {
+			if p.logger != nil {
+				p.logger.Warn().
+					Err(err).
+					Int("reader_index", i).
+					Msg("Failed to close reader")
+			}
+		}
+	}
+
+	p.readers = nil
+
+	for _, cler := range p.closers {
+		if err := cler.Close(); err != nil {
+			if p.logger != nil {
+				p.logger.Warn().Err(err).Msg("Failed to close resource")
+			}
+		}
+	}
+	p.closers = nil
+
+	if p.dispatcher != nil {
+		err := p.dispatcher.Close()
+		if err != nil {
+			if p.logger != nil {
+				p.logger.Warn().Err(err).Msg("Failed to close dispatcher")
+			}
+		}
+	}
+	if p.logger != nil {
+		p.logger.Info().Msg("Probe closed")
+	}
+	return nil
+}
+
+// Name returns the probe's identifier.
+func (p *BaseProbe) Name() string {
+	return p.name
+}
+
+// IsRunning returns whether the probe is currently active.
+func (p *BaseProbe) IsRunning() bool {
+	return p.isRunning.Load()
+}
+
+// Events returns the eBPF maps used for event collection.
+// Concrete probes should override this method.
+func (p *BaseProbe) Events() []*ebpf.Map {
+	return nil
+}
+
+// Config returns the probe's configuration.
+func (p *BaseProbe) Config() domain.Configuration {
+	return p.config
+}
+
+// Logger returns the probe's logger.
+func (p *BaseProbe) Logger() *logger.Logger {
+	return p.logger
+}
+
+// Dispatcher returns the event dispatcher.
+func (p *BaseProbe) Dispatcher() domain.EventDispatcher {
+	return p.dispatcher
+}
+
+func (p *BaseProbe) SetDispatcher(dispatcher domain.EventDispatcher) {
+	p.dispatcher = dispatcher
+}
+
+// Context returns the probe's context.
+func (p *BaseProbe) Context() context.Context {
+	return p.ctx
+}
+
+// StartPerfEventReader starts a perf event reader for the given map.
+func (p *BaseProbe) StartPerfEventReader(em *ebpf.Map, decoder domain.EventDecoder) error {
+	if em == nil {
+		return errors.New(errors.ErrCodeEBPFMapAccess, "eBPF map cannot be nil")
+	}
+	if decoder == nil {
+		return errors.New(errors.ErrCodeConfiguration, "event decoder cannot be nil")
+	}
+
+	mapSize := p.config.GetPerCpuMapSize()
+	rd, err := perf.NewReader(em, mapSize)
+	if err != nil {
+		return errors.NewEBPFAttachError(em.String(), err)
+	}
+
+	p.readers = append(p.readers, rd)
+
+	p.logger.Info().
+		Str("map", em.String()).
+		Int("size_mb", mapSize/1024/1024).
+		Msg("Perf event reader started")
+
+	go p.perfEventLoop(rd, em, decoder)
+	return nil
+}
+
+// perfEventLoop reads events from a perf buffer.
+func (p *BaseProbe) perfEventLoop(rd *perf.Reader, em *ebpf.Map, decoder domain.EventDecoder) {
+	for {
+		select {
+		case <-p.ctx.Done():
+			p.logger.Debug().Msg("Perf event reader stopping")
+			return
+		default:
+		}
+
+		record, err := rd.Read()
+		if err != nil {
+			if stderrors.Is(err, perf.ErrClosed) {
+				return
+			}
+			p.logger.Warn().Err(err).Msg("Error reading from perf buffer")
+			continue
+		}
+
+		if record.LostSamples != 0 {
+			p.logger.Warn().
+				Uint64("lost_samples", record.LostSamples).
+				Msg("Perf buffer full, samples lost")
+			continue
+		}
+		event, err := decoder.Decode(em, record.RawSample)
+		if err != nil {
+			if stderrors.Is(err, errors.ErrEventNotReady) {
+				p.logger.Debug().Msg("Event not ready, skipping")
+				// Skip incomplete events silently
+				continue
+			}
+			p.logger.Warn().Err(err).Msg("Failed to decode event")
+			continue
+		}
+		p.logger.Debug().Str("event", event.String()).Msg("Perf event decoded")
+
+		if err := p.dispatcher.Dispatch(event); err != nil {
+			p.logger.Warn().Err(err).Msg("Failed to dispatch event")
+		}
+	}
+}
+
+// StartRingbufReader starts a ringbuf reader for the given map.
+func (p *BaseProbe) StartRingbufReader(em *ebpf.Map, decoder domain.EventDecoder) error {
+	if em == nil {
+		return errors.New(errors.ErrCodeEBPFMapAccess, "eBPF map cannot be nil")
+	}
+	if decoder == nil {
+		return errors.New(errors.ErrCodeConfiguration, "event decoder cannot be nil")
+	}
+
+	rd, err := ringbuf.NewReader(em)
+	if err != nil {
+		return errors.NewEBPFAttachError(em.String(), err)
+	}
+
+	p.readers = append(p.readers, rd)
+
+	p.logger.Info().
+		Str("map", em.String()).
+		Msg("Ringbuf reader started")
+
+	go p.ringbufEventLoop(rd, em, decoder)
+	return nil
+}
+
+// ringbufEventLoop reads events from a ringbuf.
+func (p *BaseProbe) ringbufEventLoop(rd *ringbuf.Reader, em *ebpf.Map, decoder domain.EventDecoder) {
+	for {
+		select {
+		case <-p.ctx.Done():
+			p.logger.Debug().Msg("Ringbuf reader stopping")
+			return
+		default:
+		}
+
+		record, err := rd.Read()
+		if err != nil {
+			if stderrors.Is(err, ringbuf.ErrClosed) {
+				return
+			}
+			p.logger.Warn().Err(err).Msg("Error reading from ringbuf")
+			continue
+		}
+
+		event, err := decoder.Decode(em, record.RawSample)
+		if err != nil {
+			p.logger.Warn().Err(err).Msg("Failed to decode event")
+			continue
+		}
+
+		if err := p.dispatcher.Dispatch(event); err != nil {
+			p.logger.Warn().Err(err).Msg("Failed to dispatch event")
+		}
+	}
+}
+
+func (p *BaseProbe) DecodeFun(em *ebpf.Map) (domain.EventDecoder, bool) {
+	panic("not implemented")
+}

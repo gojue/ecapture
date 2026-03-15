@@ -25,6 +25,7 @@ func TestBpfConfig(t *testing.T) {
 	isContainer, err := IsContainer()
 	if err != nil {
 		t.Fatal("Check container error:", err)
+		return
 	}
 
 	if isContainer {

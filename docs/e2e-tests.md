@@ -1,11 +1,18 @@
 # eCapture End-to-End (E2E) Tests
 
-This document describes the comprehensive end-to-end test suite for eCapture's TLS/SSL capture modules.
+This document describes the comprehensive end-to-end test suite for eCapture modules.
 
 ## Overview
 
-The e2e test suite validates that eCapture can successfully capture plaintext SSL/TLS traffic from various encryption libraries:
+The e2e test suite validates that eCapture can successfully capture various types of system activity:
 
+### Simple Probe Modules
+- **Bash Module** (`bash`): Tests bash command capture
+- **Zsh Module** (`zsh`): Tests zsh command capture
+- **MySQL Module** (`mysqld`): Tests MySQL query capture
+- **PostgreSQL Module** (`postgres`): Tests PostgreSQL query capture
+
+### TLS/SSL Modules
 - **TLS Module** (`tls`): Tests OpenSSL/BoringSSL traffic capture
 - **GnuTLS Module** (`gnutls`): Tests GnuTLS library traffic capture
 - **GoTLS Module** (`gotls`): Tests Go's native TLS implementation capture
@@ -27,6 +34,10 @@ All modules:
 - `clang` - Clang compiler (version 12 or newer)
 
 Module-specific:
+- **Bash test**: bash shell
+- **Zsh test**: zsh shell (optional)
+- **MySQL test**: mysql client, MySQL/MariaDB server (optional)
+- **PostgreSQL test**: psql client, PostgreSQL server (optional)
 - **TLS/GnuTLS tests**: `python3`, `curl`
 - **GnuTLS test**: `wget` (optional, for GnuTLS-based client)
 - **GoTLS test**: Go compiler for building test server/client
@@ -50,14 +61,16 @@ sudo make e2e
 Run specific module tests:
 
 ```bash
-# Test TLS/OpenSSL capture
-sudo make e2e-tls
+# Simple probe tests
+sudo make e2e-bash      # Test Bash command capture
+sudo make e2e-zsh       # Test Zsh command capture (requires zsh)
+sudo make e2e-mysql     # Test MySQL query capture (requires MySQL/MariaDB)
+sudo make e2e-postgres  # Test PostgreSQL query capture (requires PostgreSQL)
 
-# Test GnuTLS capture
-sudo make e2e-gnutls
-
-# Test GoTLS capture
-sudo make e2e-gotls
+# TLS/SSL probe tests
+sudo make e2e-tls       # Test TLS/OpenSSL capture
+sudo make e2e-gnutls    # Test GnuTLS capture
+sudo make e2e-gotls     # Test GoTLS capture
 ```
 
 ### Direct Script Execution
@@ -69,6 +82,10 @@ You can also run test scripts directly:
 chmod +x test/e2e/*.sh
 
 # Run individual tests
+sudo bash test/e2e/bash_e2e_test.sh
+sudo bash test/e2e/zsh_e2e_test.sh
+sudo bash test/e2e/mysql_e2e_test.sh
+sudo bash test/e2e/postgres_e2e_test.sh
 sudo bash test/e2e/tls_e2e_test.sh
 sudo bash test/e2e/gnutls_e2e_test.sh
 sudo bash test/e2e/gotls_e2e_test.sh
@@ -116,21 +133,45 @@ Shared functions for all tests:
 - Process management (kill by pattern)
 - Output verification
 
-#### TLS Test (`test/e2e/tls_e2e_test.sh`)
+#### Simple Probe Tests
 
+**Bash Test** (`test/e2e/bash_e2e_test.sh`)
+- **Target**: Current bash processes
+- **Client**: bash shell execution
+- **Validates**: Bash command capture via readline hooks
+
+**Zsh Test** (`test/e2e/zsh_e2e_test.sh`)
+- **Target**: Zsh shell processes
+- **Client**: zsh shell execution
+- **Validates**: Zsh command capture
+- **Note**: Requires zsh to be installed
+
+**MySQL Test** (`test/e2e/mysql_e2e_test.sh`)
+- **Target**: MySQL/MariaDB server
+- **Client**: mysql command-line client
+- **Validates**: MySQL query capture
+- **Note**: Requires MySQL/MariaDB server running
+
+**PostgreSQL Test** (`test/e2e/postgres_e2e_test.sh`)
+- **Target**: PostgreSQL server
+- **Client**: psql command-line client
+- **Validates**: PostgreSQL query capture
+- **Note**: Requires PostgreSQL server running
+
+#### TLS/SSL Probe Tests
+
+**TLS Test** (`test/e2e/tls_e2e_test.sh`)
 - **Target**: https://github.com
 - **Client**: curl (uses system OpenSSL/BoringSSL)
 - **Validates**: OpenSSL/BoringSSL plaintext capture
 
-#### GnuTLS Test (`test/e2e/gnutls_e2e_test.sh`)
-
+**GnuTLS Test** (`test/e2e/gnutls_e2e_test.sh`)
 - **Target**: https://github.com
 - **Client**: wget (may use GnuTLS) or curl (fallback)
 - **Validates**: GnuTLS plaintext capture
 - **Note**: Requires GnuTLS library installed for full test
 
-#### GoTLS Test (`test/e2e/gotls_e2e_test.sh`)
-
+**GoTLS Test** (`test/e2e/gotls_e2e_test.sh`)
 - **Target**: https://github.com
 - **Client**: Custom Go HTTPS client (`test/e2e/go_https_client.go`)
 - **Validates**: Go crypto/tls plaintext capture

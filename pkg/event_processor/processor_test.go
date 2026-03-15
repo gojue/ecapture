@@ -37,6 +37,7 @@ func TestEventProcessor_Serve(t *testing.T) {
 	f, e := os.Create(output)
 	if e != nil {
 		t.Fatal(e)
+		return
 	}
 	logger.SetOutput(f)
 	// no truncate
@@ -83,6 +84,7 @@ func TestEventProcessor_Serve(t *testing.T) {
 	bufString, e := os.ReadFile(output)
 	if e != nil {
 		t.Fatal(e)
+		return
 	}
 
 	lines = strings.Split(string(bufString), "\n")
@@ -105,6 +107,7 @@ func TestEventProcessor_Serve(t *testing.T) {
 
 	if !ok {
 		t.Fatalf("some errors occurred")
+		return
 	}
 	//t.Log(string(bufString))
 	t.Log("done")
@@ -119,6 +122,7 @@ func Test_Truncated_EventProcessor_Serve(t *testing.T) {
 	f, e := os.Create(output)
 	if e != nil {
 		t.Fatal(e)
+		return
 	}
 	logger.SetOutput(f)
 
@@ -167,6 +171,7 @@ func Test_Truncated_EventProcessor_Serve(t *testing.T) {
 	bufString, e := os.ReadFile(output)
 	if e != nil {
 		t.Fatal(e)
+		return
 	}
 
 	lines = strings.Split(string(bufString), "\n")
@@ -184,6 +189,7 @@ func Test_Truncated_EventProcessor_Serve(t *testing.T) {
 
 	if !ok {
 		t.Fatalf("some errors occurred")
+		return
 	}
 	//t.Log(string(bufString))
 	t.Log("done")

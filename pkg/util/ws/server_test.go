@@ -37,6 +37,7 @@ func TestServer_HandleWebSocket(t *testing.T) {
 		err := server.Start()
 		if err != nil {
 			t.Errorf("Failed to start server: %v", err)
+			return
 		}
 	}()
 
@@ -52,6 +53,7 @@ func TestServer_HandleWebSocket(t *testing.T) {
 	conn, err := websocket.Dial(url, "", "http://localhost/")
 	if err != nil {
 		t.Fatalf("Failed to dial: %v", err)
+		return
 	}
 	defer func() {
 		_ = conn.Close()
@@ -61,6 +63,7 @@ func TestServer_HandleWebSocket(t *testing.T) {
 	err = websocket.Message.Send(conn, "ping")
 	if err != nil {
 		t.Fatalf("Failed to send message: %v", err)
+		return
 	}
 
 	go func() {
@@ -83,6 +86,7 @@ func TestServer_HandleWebSocket(t *testing.T) {
 	case <-done:
 		if receivedData != "pong" {
 			t.Errorf("Expected %s, got %s", "pong", receivedData)
+			return
 		}
 	case <-time.After(3 * time.Second):
 		t.Error("Timeout waiting for data processing")
@@ -97,6 +101,7 @@ func TestServer_Start(t *testing.T) {
 		err := server.Start()
 		if err != nil {
 			t.Errorf("Failed to start server: %v", err)
+			return
 		}
 	}()
 

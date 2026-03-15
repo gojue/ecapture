@@ -18,8 +18,6 @@ import (
 	"fmt"
 	"io"
 	"sync"
-
-	"github.com/gojue/ecapture/user/event"
 )
 
 const (
@@ -31,7 +29,7 @@ type EventProcessor struct {
 	sync.Mutex
 	isClosed bool // 是否已关闭
 	// 收包，来自调用者发来的新事件
-	incoming chan event.IEventStruct
+	incoming chan IEventStruct
 	// send to output
 	outComing chan []byte
 	// destroyConn sock
@@ -54,7 +52,7 @@ func (ep *EventProcessor) GetLogger() io.Writer {
 }
 
 func (ep *EventProcessor) init() {
-	ep.incoming = make(chan event.IEventStruct, MaxIncomingChanLen)
+	ep.incoming = make(chan IEventStruct, MaxIncomingChanLen)
 	ep.outComing = make(chan []byte, MaxIncomingChanLen)
 	ep.destroyConn = make(chan uint64, MaxIncomingChanLen)
 	ep.closeChan = make(chan bool)
@@ -88,7 +86,7 @@ func (ep *EventProcessor) Serve() error {
 	}
 }
 
-func (ep *EventProcessor) dispatch(e event.IEventStruct) error {
+func (ep *EventProcessor) dispatch(e IEventStruct) error {
 	//ep.logger.Printf("event ID:%s", e.GetUUID())
 	var uuid = e.GetUUID()
 	found, eWorker := ep.getWorkerByUUID(uuid)
@@ -162,7 +160,7 @@ func (ep *EventProcessor) clearAllWorkers() {
 
 // Write event
 // 外部调用者调用该方法
-func (ep *EventProcessor) Write(e event.IEventStruct) {
+func (ep *EventProcessor) Write(e IEventStruct) {
 	if ep.isClosed {
 		return
 	}

@@ -49,7 +49,7 @@ define gobuild
 	CGO_CFLAGS='-O2 -g -gdwarf-4 -I$(CURDIR)/lib/libpcap/' \
 	CGO_LDFLAGS='-O2 -g -L$(CURDIR)/lib/libpcap/ -lpcap -static' \
 	GOOS=linux GOARCH=$(GOARCH) CC=$(CMD_CC_PREFIX)$(CMD_CC) \
-	$(CMD_GO) build -trimpath -buildmode=pie -mod=readonly -tags '$(TARGET_TAG),netgo' -ldflags "-w -s -X 'github.com/gojue/ecapture/cli/cmd.GitVersion=$(TARGET_TAG)_$(GOARCH):$(VERSION_NUM):$(VERSION_FLAG)' -X 'github.com/gojue/ecapture/cli/cmd.ByteCodeFiles=$(BYTECODE_FILES)' -linkmode=external -extldflags -static " -o $(OUT_BIN)
+	$(CMD_GO) build -trimpath -buildmode=pie -mod=readonly -tags '$(TARGET_TAG),netgo,ebpfassets,dynamic' -ldflags "-w -s -X 'github.com/gojue/ecapture/cli/cmd.GitVersion=$(TARGET_TAG)_$(GOARCH):$(VERSION_NUM):$(VERSION_FLAG)' -X 'github.com/gojue/ecapture/cli/cmd.ByteCodeFiles=$(BYTECODE_FILES)' -linkmode=external -extldflags -static " -o $(OUT_BIN)
 	$(CMD_FILE) $(OUT_BIN)
 endef
 
@@ -70,7 +70,7 @@ define release_tar
 	$(CMD_CP) LICENSE $(TAR_DIR)/LICENSE
 	$(CMD_CP) CHANGELOG.md $(TAR_DIR)/CHANGELOG.md
 	$(CMD_CP) README.md $(TAR_DIR)/README.md
-	$(CMD_CP) README_CN.md $(TAR_DIR)/README_CN.md
+	$(CMD_CP) README-zh_Hans.md $(TAR_DIR)/README-zh_Hans.md
 	$(CMD_CP) $(OUTPUT_DIR)/ecapture $(TAR_DIR)/ecapture
 	$(CMD_TAR) -czf $(OUT_ARCHIVE) $(TAR_DIR)
 endef

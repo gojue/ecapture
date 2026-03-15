@@ -1,7 +1,7 @@
 name: PR Build (Debug)
 on:
   pull_request:
-    branches: [ master, main ]
+    branches: [ master, v2 ]
     types: [ opened, synchronize, reopened ]
 
 permissions:

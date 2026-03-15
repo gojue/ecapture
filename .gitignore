@@ -32,6 +32,8 @@ bin/*
 /.check*
 /deps/*
 /assets/probe.go
+docs/blog/*
 
 # Example binaries
 /examples/ecaptureq_client/ecaptureq_client
+pkg/proc/go_elf/go_elf

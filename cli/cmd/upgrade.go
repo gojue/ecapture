@@ -44,7 +44,7 @@ func upgradeCheck(ctx context.Context) (string, string, error) {
 		return "", "", fmt.Errorf("error matching version: %s, verMatch:%v", GitVersion, verMatch)
 	}
 	var os = "linux"
-	if strings.Contains(verMatch[1], "androidgki") {
+	if strings.Contains(verMatch[1], "ecap_android") {
 		os = "android"
 	}
 	githubResp, err := upgrade.GetLatestVersion(useragent, fmt.Sprintf("%s%s?ver=%s", urlReleasesCN, apiReleases, GitVersion), ctx)

@@ -20,7 +20,6 @@ import (
 	"fmt"
 
 	pb "github.com/gojue/ecapture/protobuf/gen/v1"
-	"github.com/gojue/ecapture/user/event"
 )
 
 type AttachType int64
@@ -48,12 +47,12 @@ const (
 	Dtls12Version = 0xFEFD
 )
 
-type tlsVersion struct {
-	version int32
+type TlsVersion struct {
+	Version int32
 }
 
-func (t tlsVersion) String() string {
-	switch t.version {
+func (t TlsVersion) String() string {
+	switch t.Version {
 	case Ssl2Version:
 		return "SSL2_VERSION"
 	case Ssl3Version:
@@ -71,11 +70,11 @@ func (t tlsVersion) String() string {
 	case Dtls12Version:
 		return "DTLS1_2_VERSION"
 	}
-	return fmt.Sprintf("TLS_VERSION_UNKNOWN_%d", t.version)
+	return fmt.Sprintf("TLS_VERSION_UNKNOWN_%d", t.Version)
 }
 
 type BaseEvent struct {
-	eventType event.Type
+	eventType Type
 	DataType  int64
 	Timestamp uint64
 	Pid       uint32
@@ -146,7 +145,7 @@ func (be *BaseEvent) StringHex() string {
 
 	b := dumpByteSlice(be.Data[:be.DataLen], prefix)
 
-	v := tlsVersion{version: be.Version}
+	v := TlsVersion{Version: be.Version}
 	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, %s, Version:%s, Payload:\n%s", be.Pid, CToGoString(be.Comm[:]), be.Tid, connInfo, v.String(), b.String())
 	return s
 }
@@ -162,19 +161,19 @@ func (be *BaseEvent) String() string {
 	default:
 		connInfo = fmt.Sprintf("UNKNOWN_%d", be.DataType)
 	}
-	v := tlsVersion{version: be.Version}
+	v := TlsVersion{Version: be.Version}
 	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, Version:%s, %s, Payload:\n%s", be.Pid, bytes.TrimSpace(be.Comm[:]), be.Tid, v.String(), connInfo, string(be.Data[:be.DataLen]))
 	return s
 }
 
-func (be *BaseEvent) Clone() event.IEventStruct {
+func (be *BaseEvent) Clone() IEventStruct {
 	e := new(BaseEvent)
-	e.eventType = event.TypeOutput
+	e.eventType = TypeOutput
 	return e
 }
 
-func (be *BaseEvent) Base() event.Base {
-	return event.Base{
+func (be *BaseEvent) Base() Base {
+	return Base{
 		Timestamp: int64(be.Timestamp),
 		UUID:      be.GetUUID(),
 		PID:       int64(be.Pid),
@@ -193,7 +192,7 @@ func (be *BaseEvent) ToProtobufEvent() *pb.Event {
 	}
 }
 
-func (be *BaseEvent) EventType() event.Type {
+func (be *BaseEvent) EventType() Type {
 	return be.eventType
 }
 

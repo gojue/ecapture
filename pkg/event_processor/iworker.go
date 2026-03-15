@@ -27,7 +27,6 @@ import (
 	"time"
 
 	pb "github.com/gojue/ecapture/protobuf/gen/v1"
-	"github.com/gojue/ecapture/user/event"
 
 	"google.golang.org/protobuf/proto"
 )
@@ -39,7 +38,7 @@ type IWorker interface {
 	// 定时器2， 定时判断没后续包，则通知上层销毁自己
 
 	// 收包
-	Write(event.IEventStruct) error
+	Write(IEventStruct) error
 	GetUUID() string
 	GetDestroyUUID() uint64
 	IfUsed() bool
@@ -68,9 +67,9 @@ var (
 )
 
 type eventWorker struct {
-	incoming chan event.IEventStruct
+	incoming chan IEventStruct
 	//events      []user.IEventStruct
-	originEvent      event.IEventStruct
+	originEvent      IEventStruct
 	outComing        chan []byte
 	status           ProcessStatus
 	packetType       PacketType
@@ -103,7 +102,7 @@ func (ew *eventWorker) uuidParse(uuid string) {
 	ew.ewLifeCycleState = LifeCycleStateDefault
 	ew.closeChan = nil
 
-	if !strings.HasPrefix(uuid, event.SocketLifecycleUUIDPrefix) {
+	if !strings.HasPrefix(uuid, SocketLifecycleUUIDPrefix) {
 		return
 	}
 
@@ -114,7 +113,7 @@ func (ew *eventWorker) uuidParse(uuid string) {
 		return
 	}
 
-	core := strings.TrimPrefix(uuid, event.SocketLifecycleUUIDPrefix)
+	core := strings.TrimPrefix(uuid, SocketLifecycleUUIDPrefix)
 	ew.uuidOutput = core[:strings.LastIndex(core, "_")]
 	ew.DestroyUUID = sock
 	ew.ewLifeCycleState = LifeCycleStateSock
@@ -124,7 +123,7 @@ func (ew *eventWorker) uuidParse(uuid string) {
 
 func (ew *eventWorker) init(uuid string, processor *EventProcessor) {
 	ew.ticker = time.NewTicker(time.Millisecond * 100)
-	ew.incoming = make(chan event.IEventStruct, MaxChanLen)
+	ew.incoming = make(chan IEventStruct, MaxChanLen)
 	ew.outComing = processor.outComing
 	ew.status = ProcessStateInit
 	ew.UUID = uuid
@@ -151,7 +150,7 @@ func (ew *eventWorker) GetDestroyUUID() uint64 {
 	return ew.DestroyUUID
 }
 
-func (ew *eventWorker) Write(e event.IEventStruct) error {
+func (ew *eventWorker) Write(e IEventStruct) error {
 	var err error
 	select {
 	case ew.incoming <- e:
@@ -195,9 +194,9 @@ func (ew *eventWorker) Display() error {
 
 	//iWorker只负责写入，不应该打印。
 	var err error
-	_, ok := ew.processor.logger.(event.CollectorWriter)
+	_, ok := ew.processor.logger.(CollectorWriter)
 	if ok {
-		eb := new(event.Base)
+		eb := new(Base)
 		oeb := ew.originEvent.Base()
 		eb = &oeb
 		eb.Type = uint32(ew.parser.ParserType())
@@ -227,7 +226,7 @@ func (ew *eventWorker) Display() error {
 	}
 }
 
-func (ew *eventWorker) writeEvent(e event.IEventStruct) {
+func (ew *eventWorker) writeEvent(e IEventStruct) {
 	if ew.status != ProcessStateInit && ew.ewLifeCycleState == LifeCycleStateDefault {
 		ew.Log(fmt.Sprintf("write events failed, unknow eventWorker status: %d", ew.status))
 		return

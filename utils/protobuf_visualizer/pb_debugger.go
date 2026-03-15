@@ -396,6 +396,7 @@ func main() {
 	visualizer, err := NewProtobufVisualizer(*wsURL, *showHex, *maxPayload, useColor, *compact)
 	if err != nil {
 		log.Fatalf("Failed to create visualizer: %v", err)
+		return
 	}
 	defer func() {
 		visualizer.printStats()

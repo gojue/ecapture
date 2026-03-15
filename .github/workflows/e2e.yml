@@ -2,10 +2,10 @@ name: E2E Tests
 
 on:
   pull_request:
-    branches: [ master, main ]
+    branches: [ master, v2 ]
     types: [ opened, synchronize, reopened ]
   push:
-    branches: [ master, main ]
+    branches: [ master, v2 ]
 
 permissions:
   contents: read
