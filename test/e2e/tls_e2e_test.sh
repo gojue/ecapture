@@ -94,9 +94,21 @@ test_text_mode() {
     # Verify results
     local test_passed=0
     local content_verified=0
+    local decode_errors=0
     if [ -s "$mode_log" ]; then
         log_info "Text mode log size: $(wc -c < "$mode_log") bytes"
-        
+
+        # Check for eBPF event decode errors (regression for ConnDataEvent.Sock EOF bug)
+        local decode_error_count
+        decode_error_count=$(grep -c "Failed to decode event" "$mode_log" 2>/dev/null || true)
+        if [ "${decode_error_count:-0}" -gt 0 ]; then
+            log_error "Found $decode_error_count eBPF event decode error(s) in log (ConnDataEvent struct size mismatch regression)"
+            grep "Failed to decode event" "$mode_log" | head -5
+            decode_errors=1
+        else
+            log_success "No eBPF event decode errors found"
+        fi
+
         # Check for HTTP plaintext
         if grep -iq "GET\|POST\|HTTP" "$mode_log"; then
             log_success "Found HTTP plaintext in text mode output"
@@ -116,7 +128,10 @@ test_text_mode() {
         return 1
     fi
     
-    if [ $test_passed -eq 1 ] && [ $content_verified -eq 1 ]; then
+    if [ $decode_errors -eq 1 ]; then
+        log_error "✗ Text mode test FAILED - eBPF event decode errors detected"
+        return 1
+    elif [ $test_passed -eq 1 ] && [ $content_verified -eq 1 ]; then
         log_success "✓ Text mode test PASSED"
         return 0
     elif [ $test_passed -eq 1 ] && [ $content_verified -eq 0 ]; then
