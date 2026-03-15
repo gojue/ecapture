@@ -75,7 +75,7 @@ func New(out io.Writer, debug bool) *Logger {
 	// When writing to stdout, encode control characters as escape sequences to prevent
 	// terminal corruption (#931), following the same convention as Linux strace.
 	if out == os.Stdout {
-		consoleWriter.FormatMessage = func(i interface{}) string {
+		consoleWriter.FormatMessage = func(i any) string {
 			if i == nil {
 				return ""
 			}
