@@ -71,7 +71,7 @@
 
 #endif
 
-void* go_get_argument_by_reg(struct pt_regs *ctx, int index) {
+static __always_inline void* go_get_argument_by_reg(struct pt_regs *ctx, int index) {
     switch (index) {
         case 1:
             return (void*)GO_PARAM1(ctx);
@@ -94,13 +94,13 @@ void* go_get_argument_by_reg(struct pt_regs *ctx, int index) {
     }
 }
 
-void* go_get_argument_by_stack(struct pt_regs *ctx, int index) {
+static __always_inline void* go_get_argument_by_stack(struct pt_regs *ctx, int index) {
     void* ptr = 0;
     bpf_probe_read(&ptr, sizeof(ptr), (void *)(PT_REGS_SP(ctx)+(index*8)));
     return ptr;
 }
 
-void* go_get_argument(struct pt_regs *ctx,bool is_register_abi, int index) {
+static __always_inline void* go_get_argument(struct pt_regs *ctx, bool is_register_abi, int index) {
     if (is_register_abi) {
         return go_get_argument_by_reg(ctx, index);
     }
