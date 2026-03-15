@@ -18,8 +18,11 @@ import (
 )
 
 type connDataEvent struct {
-	Saddr       [32]byte `json:"saddr"`
-	Daddr       [32]byte `json:"daddr"`
+	// Saddr/Daddr match the C struct's `unsigned __int128` (16 bytes each).
+	// IPv4: address in bytes 0-3 (little-endian), rest zeros.
+	// IPv6: full 128-bit address in bytes 0-15.
+	Saddr       [16]byte `json:"saddr"`
+	Daddr       [16]byte `json:"daddr"`
 	Comm        [16]byte `json:"Comm"`
 	TimestampNs uint64   `json:"timestampNs"`
 	Sock        uint64   `json:"sock"`
@@ -88,7 +91,7 @@ func (e *ConnDataEvent) DecodeFromBytes(payload []byte) (err error) {
 		saddr, daddr := netip.AddrFrom4([4]byte(e.Saddr[:4])), netip.AddrFrom4([4]byte(e.Daddr[:4]))
 		e.Tuple = fmt.Sprintf("[%s]:%d->[%s]:%d", saddr, e.Sport, daddr, e.Dport)
 	} else {
-		saddr, daddr := netip.AddrFrom16([16]byte(e.Saddr[16:32])), netip.AddrFrom16([16]byte(e.Daddr[16:32]))
+		saddr, daddr := netip.AddrFrom16(e.Saddr), netip.AddrFrom16(e.Daddr)
 		e.Tuple = fmt.Sprintf("[%s]:%d->[%s]:%d", saddr, e.Sport, daddr, e.Dport)
 	}
 
