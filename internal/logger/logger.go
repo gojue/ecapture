@@ -15,8 +15,10 @@
 package logger
 
 import (
+	"fmt"
 	"io"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -25,6 +27,18 @@ import (
 // Logger wraps zerolog.Logger to provide a consistent logging interface.
 type Logger struct {
 	*zerolog.Logger
+}
+
+// stripCtrlChars removes non-printable control characters from a string,
+// keeping tabs and newlines which are safe for terminal output.
+func stripCtrlChars(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		if r == '\n' || r == '\t' || (r >= 0x20 && r != 0x7F) {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
 }
 
 // New creates a new Logger instance.
@@ -36,6 +50,20 @@ func New(out io.Writer, debug bool) *Logger {
 	consoleWriter := zerolog.ConsoleWriter{
 		Out:        out,
 		TimeFormat: time.RFC3339,
+	}
+
+	// When writing to stdout, filter control characters to prevent terminal corruption (#931).
+	if out == os.Stdout {
+		consoleWriter.FormatMessage = func(i interface{}) string {
+			if i == nil {
+				return ""
+			}
+			msg, ok := i.(string)
+			if !ok {
+				msg = fmt.Sprint(i)
+			}
+			return stripCtrlChars(msg)
+		}
 	}
 
 	level := zerolog.InfoLevel
