@@ -15,8 +15,10 @@
 package logger
 
 import (
+	"fmt"
 	"io"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -25,6 +27,38 @@ import (
 // Logger wraps zerolog.Logger to provide a consistent logging interface.
 type Logger struct {
 	*zerolog.Logger
+}
+
+// escapeCtrlChars encodes non-printable control characters as escape sequences,
+// following the same convention as Linux strace when displaying string arguments.
+// Actual newlines and tabs are preserved so log output remains human-readable;
+// all other control characters (0x00-0x1F except \t/\n, plus DEL 0x7F) are
+// replaced with named escapes (\a \b \f \r \v) or \xHH hex escapes.
+func escapeCtrlChars(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		switch r {
+		case '\n', '\t':
+			b.WriteRune(r) // preserve newline and tab for readability
+		case '\a':
+			b.WriteString(`\a`)
+		case '\b':
+			b.WriteString(`\b`)
+		case '\f':
+			b.WriteString(`\f`)
+		case '\r':
+			b.WriteString(`\r`)
+		case '\v':
+			b.WriteString(`\v`)
+		default:
+			if r < 0x20 || r == 0x7F {
+				fmt.Fprintf(&b, `\x%02x`, r)
+			} else {
+				b.WriteRune(r)
+			}
+		}
+	}
+	return b.String()
 }
 
 // New creates a new Logger instance.
@@ -36,6 +70,21 @@ func New(out io.Writer, debug bool) *Logger {
 	consoleWriter := zerolog.ConsoleWriter{
 		Out:        out,
 		TimeFormat: time.RFC3339,
+	}
+
+	// When writing to stdout, encode control characters as escape sequences to prevent
+	// terminal corruption (#931), following the same convention as Linux strace.
+	if out == os.Stdout {
+		consoleWriter.FormatMessage = func(i any) string {
+			if i == nil {
+				return ""
+			}
+			msg, ok := i.(string)
+			if !ok {
+				msg = fmt.Sprint(i)
+			}
+			return escapeCtrlChars(msg)
+		}
 	}
 
 	level := zerolog.InfoLevel
