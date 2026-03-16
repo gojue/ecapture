@@ -2,20 +2,10 @@ name: Android E2E Tests
 
 on:
   pull_request:
-    branches: [ master, v2 ]
-    paths:
-      - 'kern/**'
-      - 'pkg/**'
-      - 'cli/**'
-      - 'test/e2e/android/**'
-      - '.github/workflows/android_e2e.yml'
+    branches: [ master, v2, v1 ]
+
   push:
-    branches: [ master, v2 ]
-    paths:
-      - 'kern/**'
-      - 'pkg/**'
-      - 'cli/**'
-      - 'test/e2e/android/**'
+    branches: [ master, v2, v1 ]
   workflow_dispatch:
 
 permissions:

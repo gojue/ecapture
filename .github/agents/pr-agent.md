@@ -103,10 +103,10 @@ Agent 禁止的事项（严格）：
         - 运行 `bin/ecapture --help` 与一个最小子命令进行 smoke-test；
         - 提供可选的 Docker 模式（注释或开关）以便做更完整的运行时测试（需要 root/特权容器）。
 
-4. CI 要求（建议）
+4. CI 要求（必需）
     - 在 CI 流程中至少运行：
         - 运行 `make test-race`进行项目的单元测试与竞态检测；
-        - 语法检查、`go vet`、`golangci-lint`（若仓库已有）；
+        - 语法检查、`go vet`、`golangci-lint`；
         - 轻量 e2e 脚本以验证二进制基本可用性。
     - 如涉及 eBPF 运行的严格验证，建议维护者决定是否启用带特权的 runner。
 

@@ -1,9 +1,9 @@
 name: GO/C/C++ CI
 on:
   push:
-    branches: [ master, v2 ]
+    branches: [ master, v2, v1 ]
   pull_request:
-    branches: [ master, v2 ]
+    branches: [ master, v2, v1 ]
 
 jobs:
   build-on-ubuntu2204:

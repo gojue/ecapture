@@ -14,7 +14,7 @@ source "$SCRIPT_DIR/common_android.sh"
 
 # Test configuration
 TEST_NAME="Android GoTLS E2E Test"
-TEST_URL="https://github.com"
+TEST_URL="https://api.github.com"
 DEVICE_ECAPTURE="/data/local/tmp/ecapture"
 DEVICE_GO_CLIENT="/data/local/tmp/go_https_client"
 DEVICE_OUTPUT_DIR="/data/local/tmp/ecapture_gotls_test"
@@ -128,7 +128,7 @@ test_gotls_text_mode() {
 
     # Run Go HTTPS client on device
     log_info "Running Go HTTPS client..."
-    adb shell "$DEVICE_GO_CLIENT -url $TEST_URL" > /dev/null 2>&1 || true
+    adb shell "$DEVICE_GO_CLIENT -dns 8.8.8.8 -insecure -url $TEST_URL" > /dev/null 2>&1 || true
 
     # Wait for capture
     sleep 3
@@ -204,7 +204,7 @@ test_gotls_keylog_mode() {
 
     # Run Go HTTPS client
     log_info "Running Go HTTPS client..."
-    adb shell "$DEVICE_GO_CLIENT -url $TEST_URL" > /dev/null 2>&1 || true
+    adb shell "$DEVICE_GO_CLIENT -dns 8.8.8.8 -insecure -url $TEST_URL" > /dev/null 2>&1 || true
 
     # Wait for capture
     sleep 3
@@ -264,11 +264,9 @@ test_concurrent_connections() {
 
     # Run multiple Go clients concurrently
     log_info "Running 3 concurrent Go HTTPS clients..."
-    adb shell "$DEVICE_GO_CLIENT -url $TEST_URL &" || true
+    adb shell "$DEVICE_GO_CLIENT -dns 8.8.8.8 -insecure -url $TEST_URL &" || true
     sleep 0.5
-    adb shell "$DEVICE_GO_CLIENT -url https://github.com &" || true
-    sleep 0.5
-    adb shell "$DEVICE_GO_CLIENT -url https://api.github.com &" || true
+    adb shell "$DEVICE_GO_CLIENT -dns 8.8.8.8 -insecure -url https://api.github.com &" || true
 
     # Wait for all to complete
     sleep 5

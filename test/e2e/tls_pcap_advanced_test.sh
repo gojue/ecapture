@@ -95,7 +95,7 @@ test_pcapng_basic() {
     fi
     
     log_info "Making HTTPS request"
-    curl -v "https://github.com" >/dev/null 2>&1 || true
+    curl -v "https://api.github.com" >/dev/null 2>&1 || true
     sleep 2
     
     kill -INT "$pid" 2>/dev/null || true
@@ -131,7 +131,7 @@ test_pcap_with_port_filter() {
     fi
     
     log_info "Making HTTPS request to port 443"
-    curl -v "https://github.com" >/dev/null 2>&1 || true
+    curl -v "https://api.github.com" >/dev/null 2>&1 || true
     sleep 2
     
     kill -INT "$pid" 2>/dev/null || true
@@ -167,7 +167,7 @@ test_pcap_with_host_filter() {
     fi
     
     log_info "Making HTTPS request to github.com"
-    curl -v "https://github.com" >/dev/null 2>&1 || true
+    curl -v "https://api.github.com" >/dev/null 2>&1 || true
     sleep 2
     
     kill -INT "$pid" 2>/dev/null || true
@@ -213,7 +213,7 @@ test_pcap_with_interface() {
     fi
     
     log_info "Making HTTPS request"
-    curl -v "https://github.com" >/dev/null 2>&1 || true
+    curl -v "https://api.github.com" >/dev/null 2>&1 || true
     sleep 2
     
     kill -INT "$pid" 2>/dev/null || true
@@ -249,7 +249,7 @@ test_pcap_concurrent_connections() {
     fi
     
     log_info "Making multiple concurrent HTTPS requests"
-    curl "https://github.com" >/dev/null 2>&1 &
+    curl "https://api.github.com" >/dev/null 2>&1 &
     curl "https://www.google.com" >/dev/null 2>&1 &
     curl "https://www.cloudflare.com" >/dev/null 2>&1 &
     
@@ -280,7 +280,7 @@ test_pcap_pid_filter() {
     local pcap_file="$OUTPUT_DIR/pid_filter.pcapng"
     
     # Start curl in background
-    curl "https://github.com" >/dev/null 2>&1 &
+    curl "https://api.github.com" >/dev/null 2>&1 &
     local curl_pid=$!
     
     log_info "Starting ecapture with PID filter: $curl_pid"
@@ -336,7 +336,7 @@ test_pcap_tshark_compatibility() {
     fi
     
     log_info "Making HTTPS request"
-    curl -v "https://github.com" >/dev/null 2>&1 || true
+    curl -v "https://api.github.com" >/dev/null 2>&1 || true
     sleep 2
     
     kill -INT "$pid" 2>/dev/null || true
@@ -380,7 +380,7 @@ test_pcap_with_mapsize() {
     fi
     
     log_info "Making HTTPS request"
-    curl -v "https://github.com" >/dev/null 2>&1 || true
+    curl -v "https://api.github.com" >/dev/null 2>&1 || true
     sleep 2
     
     kill -INT "$pid" 2>/dev/null || true

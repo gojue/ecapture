@@ -13,7 +13,7 @@ source "$SCRIPT_DIR/common.sh"
 
 # Test configuration
 TEST_NAME="GnuTLS E2E Test"
-TEST_URL="https://github.com"
+TEST_URL="https://api.github.com"
 ECAPTURE_BINARY="$ROOT_DIR/bin/ecapture"
 TMP_DIR="/tmp/ecapture_gnutls_e2e_$$"
 OUTPUT_DIR="$TMP_DIR/output"

@@ -68,7 +68,7 @@ import (
 )
 
 func main() {
-	url := flag.String("url", "https://github.com", "URL to request")
+	url := flag.String("url", "https://api.github.com", "URL to request")
 	insecure := flag.Bool("insecure", true, "Skip TLS verification")
 	flag.Parse()
 
@@ -204,7 +204,7 @@ test_gotls_text_mode() {
     fi
     
     log_info "Running Go HTTPS client"
-    "$client_path" -url "https://github.com" >/dev/null 2>&1 || true
+    "$client_path" -url "https://api.github.com" >/dev/null 2>&1 || true
     sleep 2
     
     kill -INT "$pid" 2>/dev/null || true
@@ -241,7 +241,7 @@ test_gotls_pcap_mode() {
     fi
     
     log_info "Running Go HTTPS client"
-    "$client_path" -url "https://github.com" >/dev/null 2>&1 || true
+    "$client_path" -url "https://api.github.com" >/dev/null 2>&1 || true
     sleep 2
     
     kill -INT "$pid" 2>/dev/null || true
@@ -278,7 +278,7 @@ test_gotls_keylog_mode() {
     fi
     
     log_info "Running Go HTTPS client"
-    "$client_path" -url "https://github.com" >/dev/null 2>&1 || true
+    "$client_path" -url "https://api.github.com" >/dev/null 2>&1 || true
     sleep 2
     
     kill -INT "$pid" 2>/dev/null || true
@@ -369,7 +369,7 @@ test_gotls_multiple_connections() {
     fi
     
     log_info "Running multiple Go HTTPS clients"
-    "$client_path" -url "https://github.com" >/dev/null 2>&1 &
+    "$client_path" -url "https://api.github.com" >/dev/null 2>&1 &
     "$client_path" -url "https://www.google.com" >/dev/null 2>&1 &
     "$client_path" -url "https://www.cloudflare.com" >/dev/null 2>&1 &
     
@@ -422,7 +422,7 @@ test_gotls_static_binary() {
     fi
     
     log_info "Running static Go HTTPS client"
-    "$static_client" -url "https://github.com" >/dev/null 2>&1 || true
+    "$static_client" -url "https://api.github.com" >/dev/null 2>&1 || true
     sleep 2
     
     kill -INT "$pid" 2>/dev/null || true
@@ -458,7 +458,7 @@ test_gotls_debug_mode() {
     fi
     
     log_info "Running Go HTTPS client"
-    "$client_path" -url "https://github.com" >/dev/null 2>&1 || true
+    "$client_path" -url "https://api.github.com" >/dev/null 2>&1 || true
     sleep 2
     
     kill -INT "$pid" 2>/dev/null || true
