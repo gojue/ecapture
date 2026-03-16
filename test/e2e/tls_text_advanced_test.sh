@@ -42,7 +42,7 @@ test_http11_capture() {
     log_info "=== Test 1: HTTP/1.1 Capture ==="
     
     local mode_log="$OUTPUT_DIR/http11.log"
-    local test_url="https://github.com"
+    local test_url="https://api.github.com"
     
     log_info "Starting ecapture in text mode"
     "$ECAPTURE_BINARY" tls -m text > "$mode_log" 2>&1 &
@@ -114,7 +114,7 @@ test_pid_filtering() {
     log_info "=== Test 3: PID Filtering ==="
     
     local mode_log="$OUTPUT_DIR/pid_filter.log"
-    local test_url="https://github.com"
+    local test_url="https://api.github.com"
     
     # Start a background curl process
     curl "$test_url" >/dev/null 2>&1 &
@@ -169,7 +169,7 @@ test_uid_filtering() {
     fi
     
     log_info "Making HTTPS request"
-    curl -v "https://github.com" >/dev/null 2>&1 || true
+    curl -v "https://api.github.com" >/dev/null 2>&1 || true
     sleep 2
     
     kill -INT "$pid" 2>/dev/null || true
@@ -204,7 +204,7 @@ test_concurrent_connections() {
     fi
     
     log_info "Making multiple concurrent HTTPS requests"
-    curl "https://github.com" >/dev/null 2>&1 &
+    curl "https://api.github.com" >/dev/null 2>&1 &
     curl "https://www.google.com" >/dev/null 2>&1 &
     curl "https://www.cloudflare.com" >/dev/null 2>&1 &
     
@@ -249,7 +249,7 @@ test_text_truncation() {
     fi
     
     log_info "Making HTTPS request"
-    curl -v "https://github.com" >/dev/null 2>&1 || true
+    curl -v "https://api.github.com" >/dev/null 2>&1 || true
     sleep 2
     
     kill -INT "$pid" 2>/dev/null || true
@@ -284,7 +284,7 @@ test_debug_mode() {
     fi
     
     log_info "Making HTTPS request"
-    curl -v "https://github.com" >/dev/null 2>&1 || true
+    curl -v "https://api.github.com" >/dev/null 2>&1 || true
     sleep 2
     
     kill -INT "$pid" 2>/dev/null || true
@@ -320,7 +320,7 @@ test_hex_output() {
     fi
     
     log_info "Making HTTPS request"
-    curl -v "https://github.com" >/dev/null 2>&1 || true
+    curl -v "https://api.github.com" >/dev/null 2>&1 || true
     sleep 2
     
     kill -INT "$pid" 2>/dev/null || true

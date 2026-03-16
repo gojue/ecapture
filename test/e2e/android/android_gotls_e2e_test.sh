@@ -14,7 +14,7 @@ source "$SCRIPT_DIR/common_android.sh"
 
 # Test configuration
 TEST_NAME="Android GoTLS E2E Test"
-TEST_URL="https://github.com"
+TEST_URL="https://api.github.com"
 DEVICE_ECAPTURE="/data/local/tmp/ecapture"
 DEVICE_GO_CLIENT="/data/local/tmp/go_https_client"
 DEVICE_OUTPUT_DIR="/data/local/tmp/ecapture_gotls_test"

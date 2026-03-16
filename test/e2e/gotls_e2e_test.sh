@@ -13,7 +13,7 @@ source "$SCRIPT_DIR/common.sh"
 
 # Test configuration
 TEST_NAME="GoTLS E2E Test"
-TEST_URL="https://github.com"
+TEST_URL="https://api.github.com"
 ECAPTURE_BINARY="$ROOT_DIR/bin/ecapture"
 GO_CLIENT="$SCRIPT_DIR/go_https_client"
 TMP_DIR="/tmp/ecapture_gotls_e2e_$$"

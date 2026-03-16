@@ -84,7 +84,7 @@ test_keylog_basic() {
     fi
     
     log_info "Making HTTPS request"
-    curl -v "https://github.com" >/dev/null 2>&1 || true
+    curl -v "https://api.github.com" >/dev/null 2>&1 || true
     sleep 2
     
     kill -INT "$pid" 2>/dev/null || true
@@ -128,8 +128,8 @@ test_keylog_tls12() {
     
     log_info "Making TLS 1.2 HTTPS request"
     # Try to force TLS 1.2
-    curl -v --tlsv1.2 --tls-max 1.2 "https://github.com" >/dev/null 2>&1 || \
-    curl -v "https://github.com" >/dev/null 2>&1 || true
+    curl -v --tlsv1.2 --tls-max 1.2 "https://api.github.com" >/dev/null 2>&1 || \
+    curl -v "https://api.github.com" >/dev/null 2>&1 || true
     sleep 2
     
     kill -INT "$pid" 2>/dev/null || true
@@ -203,7 +203,7 @@ test_keylog_concurrent() {
     fi
     
     log_info "Making multiple concurrent HTTPS requests"
-    curl "https://github.com" >/dev/null 2>&1 &
+    curl "https://api.github.com" >/dev/null 2>&1 &
     curl "https://www.google.com" >/dev/null 2>&1 &
     curl "https://www.cloudflare.com" >/dev/null 2>&1 &
     
@@ -237,7 +237,7 @@ test_keylog_pid_filter() {
     local keylog_file="$OUTPUT_DIR/pid_filter.keylog"
     
     # Start curl in background
-    curl "https://github.com" >/dev/null 2>&1 &
+    curl "https://api.github.com" >/dev/null 2>&1 &
     local curl_pid=$!
     
     log_info "Starting ecapture with PID filter: $curl_pid"
@@ -287,7 +287,7 @@ test_keylog_format_validation() {
     fi
     
     log_info "Making HTTPS requests to generate keys"
-    curl "https://github.com" >/dev/null 2>&1 || true
+    curl "https://api.github.com" >/dev/null 2>&1 || true
     curl "https://www.google.com" >/dev/null 2>&1 || true
     sleep 2
     
@@ -347,7 +347,7 @@ test_keylog_uid_filter() {
     fi
     
     log_info "Making HTTPS request"
-    curl -v "https://github.com" >/dev/null 2>&1 || true
+    curl -v "https://api.github.com" >/dev/null 2>&1 || true
     sleep 2
     
     kill -INT "$pid" 2>/dev/null || true
@@ -396,7 +396,7 @@ test_keylog_with_tcpdump() {
     fi
     
     log_info "Making HTTPS request (captured by both tools)"
-    curl -v "https://github.com" >/dev/null 2>&1 || true
+    curl -v "https://api.github.com" >/dev/null 2>&1 || true
     sleep 2
     
     # Stop both tools
