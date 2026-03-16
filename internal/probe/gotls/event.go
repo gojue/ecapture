@@ -27,16 +27,15 @@ import (
 // GoTLSDataEvent represents a TLS data read/write event from GoTLS
 // This structure matches the eBPF event structure: struct go_tls_event
 type GoTLSDataEvent struct {
-	Timestamp   uint64   `json:"timestamp"` // Nanosecond timestamp
-	Pid         uint32   `json:"pid"`       // Process ID
-	Tid         uint32   `json:"tid"`       // Thread ID
-	DataLen     int32    `json:"dataLen"`   // Length of actual data
-	PayloadType uint8    `json:"payloadType"`
-	Comm        [16]byte `json:"comm"` // Process name
-	Data        []byte   `json:"data"` // TLS data payload
-
-	DataType uint8  `json:"dataType"`
-	Fd       uint32 `json:"fd"`
+	Timestamp   uint64   `json:"timestamp"`   // Nanosecond timestamp
+	Pid         uint32   `json:"pid"`         // Process ID
+	Tid         uint32   `json:"tid"`         // Thread ID
+	DataLen     int32    `json:"dataLen"`     // Length of actual data
+	DataType    uint8    `json:"dataType"`    // Event type: 0=WRITE, 1=READ (u8 event_type)
+	Fd          uint32   `json:"fd"`          // File descriptor (u32 fd)
+	Comm        [16]byte `json:"comm"`        // Process name (char comm[16])
+	Data        []byte   `json:"data"`        // TLS data payload
+	PayloadType uint8    `json:"payloadType"` // Deprecated, kept for compatibility
 }
 
 // DecodeFromBytes deserializes the event from raw eBPF data.
@@ -59,6 +58,16 @@ func (e *GoTLSDataEvent) DecodeFromBytes(data []byte) error {
 	if err := binary.Read(buf, binary.LittleEndian, &e.PayloadType); err != nil {
 		return errors.NewEventDecodeError("gotls.PayloadType", err)
 	}
+
+	// Skip 3 bytes of padding for alignment
+	var pad [3]byte
+	if err := binary.Read(buf, binary.LittleEndian, &pad); err != nil {
+		return errors.NewEventDecodeError("gotls.Padding", err)
+	}
+
+	if err := binary.Read(buf, binary.LittleEndian, &e.Fd); err != nil {
+		return errors.NewEventDecodeError("gotls.Fd", err)
+	}
 	if err := binary.Read(buf, binary.LittleEndian, &e.Comm); err != nil {
 		return errors.NewEventDecodeError("gotls.Comm", err)
 	}
@@ -70,10 +79,6 @@ func (e *GoTLSDataEvent) DecodeFromBytes(data []byte) error {
 		}
 	} else {
 		e.DataLen = 0
-	}
-
-	if err := binary.Read(buf, binary.LittleEndian, &e.Comm); err != nil {
-		return errors.NewEventDecodeError("gotls.Comm", err)
 	}
 
 	if e.Timestamp == 0 {
