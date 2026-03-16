@@ -5,6 +5,9 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"net"
+	"strconv"
+	"strings"
 
 	pb "github.com/gojue/ecapture/protobuf/gen/v1"
 )
@@ -15,12 +18,16 @@ type inner struct {
 	Tid         uint32   `json:"tid"`
 	Len         int32    `json:"Len"`
 	PayloadType uint8    `json:"payloadType"`
+	Pad         [3]byte  `json:"-"` // Padding for alignment with C struct
+	Fd          uint32   `json:"fd"`
 	Comm        [16]byte `json:"Comm"`
 }
 
 type GoTLSEvent struct {
 	inner
-	Data []byte `json:"data"`
+	Data  []byte `json:"data"`
+	Tuple string `json:"tuple"`
+	Sock  uint64 `json:"sock"`
 }
 
 func (ge *GoTLSEvent) Decode(payload []byte) error {
@@ -59,33 +66,48 @@ func (ge *GoTLSEvent) StringHex() string {
 }
 
 func (ge *GoTLSEvent) Base() Base {
-	return Base{
+	base := Base{
 		Timestamp: int64(ge.TimestampNS),
 		UUID:      ge.GetUUID(),
-		SrcIP:     "127.0.0.1", // GoTLS events do not have SrcIP
-		SrcPort:   0,           // GoTLS events do not have SrcPort
-		DstIP:     "127.0.0.1", // GoTLS events do not have DstIP
-		DstPort:   0,           // GoTLS events do not have DstPort
 		PID:       int64(ge.Pid),
 		PName:     commStr(ge.Comm[:]),
 		Type:      uint32(ge.inner.PayloadType),
 		Length:    uint32(ge.Len),
 	}
+
+	ips := strings.Split(ge.Tuple, "-")
+	if len(ips) == 2 {
+		if srcHost, srcPort, err := net.SplitHostPort(ips[0]); err == nil {
+			base.SrcIP = srcHost
+			if port, err := strconv.ParseInt(srcPort, 10, 32); err == nil {
+				base.SrcPort = uint32(port)
+			}
+		}
+		if dstHost, dstPort, err := net.SplitHostPort(ips[1]); err == nil {
+			base.DstIP = dstHost
+			if port, err := strconv.ParseInt(dstPort, 10, 32); err == nil {
+				base.DstPort = uint32(port)
+			}
+		}
+	}
+
+	return base
 }
 
 func (ge *GoTLSEvent) ToProtobufEvent() *pb.Event {
+	b := ge.Base()
 	return &pb.Event{
-		Timestamp: int64(ge.TimestampNS),
-		Uuid:      ge.GetUUID(),
-		SrcIp:     "127.0.0.1", // GoTLS events do not have SrcIP
-		SrcPort:   0,           // GoTLS events do not have SrcPort
-		DstIp:     "127.0.0.1", // GoTLS events do not have DstIP
-		DstPort:   0,           // GoTLS events do not have DstPort
-		Pid:       int64(ge.Pid),
-		Pname:     commStr(ge.Comm[:]),
-		Type:      uint32(ge.inner.PayloadType),
-		Length:    uint32(ge.Len),
-		Payload:   ge.Data[:ge.Len],
+		Timestamp: b.Timestamp,
+		Uuid:      b.UUID,
+		SrcIp:     b.SrcIP,
+		SrcPort:   b.SrcPort,
+		DstIp:     b.DstIP,
+		DstPort:   b.DstPort,
+		Pid:       b.PID,
+		Pname:     b.PName,
+		Type:      b.Type,
+		Length:    b.Length,
+		Payload:   ge.Payload(),
 	}
 }
 
@@ -98,7 +120,7 @@ func (ge *GoTLSEvent) EventType() Type {
 }
 
 func (ge *GoTLSEvent) GetUUID() string {
-	return fmt.Sprintf("%d_%d_%s", ge.Pid, ge.Tid, ge.Comm)
+	return fmt.Sprintf("gotls:%d_%d_%s_%d_%s_%d", ge.Pid, ge.Tid, commStr(ge.Comm[:]), ge.Fd, ge.Tuple, ge.Sock)
 }
 
 func (ge *GoTLSEvent) Payload() []byte {
