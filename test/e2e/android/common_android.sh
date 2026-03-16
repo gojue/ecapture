@@ -465,8 +465,9 @@ build_ecapture_android() {
 # Fix DNS resolution on Android emulator.
 # The emulator's default /etc/resolv.conf often points to [::1]:53 (IPv6 loopback)
 # which is not listening, causing "connection refused" errors.
-# This function overwrites resolv.conf and sets the net.dns1 system property
-# to use Google's 8.8.8.8 DNS server instead.
+# This function sets Android system properties and uses ndc to configure DNS.
+# Note: /etc/resolv.conf on Android is typically on a read-only partition;
+#       Android's native resolver reads net.dns1/net.dns2 properties instead.
 fix_android_dns() {
     log_info "Checking DNS configuration on device..."
 
@@ -496,29 +497,36 @@ fix_android_dns() {
 
     log_info "Fixing DNS configuration..."
 
-    # Set system DNS properties
+    # Method 1: Set Android system DNS properties (primary method, works without /system write)
     adb shell "setprop net.dns1 8.8.8.8" 2>/dev/null || true
     adb shell "setprop net.dns2 8.8.4.4" 2>/dev/null || true
+    # Also set for each network interface slot Android may use
+    adb shell "setprop net.eth0.dns1 8.8.8.8" 2>/dev/null || true
+    adb shell "setprop net.wlan0.dns1 8.8.8.8" 2>/dev/null || true
 
-    # Overwrite resolv.conf (requires root, remount if needed)
-    adb shell "mount -o remount,rw /system 2>/dev/null || true"
-    adb shell "echo 'nameserver 8.8.8.8' > /etc/resolv.conf 2>/dev/null || \
-               echo 'nameserver 8.8.8.8' > /data/local/tmp/resolv.conf && \
-               mount --bind /data/local/tmp/resolv.conf /etc/resolv.conf 2>/dev/null || true"
+    # Method 2: Use ndc (network daemon client) to flush and set DNS
+    adb shell "ndc resolver setnetdns 100 \"\" 8.8.8.8 8.8.4.4" 2>/dev/null || true
+
+    # Method 3: Try to write resolv.conf only if /data path is available
+    # (avoids the read-only /system/etc error seen on emulators)
+    adb shell "
+        if [ -w /etc/resolv.conf ] 2>/dev/null; then
+            echo 'nameserver 8.8.8.8' > /etc/resolv.conf
+            echo 'nameserver 8.8.4.4' >> /etc/resolv.conf
+        fi
+    " 2>/dev/null || true
 
     # Verify the fix
     local new_dns
     new_dns=$(adb shell "getprop net.dns1" | tr -d '\r')
-    log_info "Updated net.dns1: $new_dns"
+    log_info "Updated net.dns1: ${new_dns:-(not set)}"
 
-    # Quick connectivity test
-    log_info "Testing DNS resolution..."
-    if adb shell "nslookup github.com 8.8.8.8 >/dev/null 2>&1 || \
-                  getent hosts github.com >/dev/null 2>&1 || \
-                  ping -c 1 -W 3 8.8.8.8 >/dev/null 2>&1"; then
-        log_success "DNS/network connectivity verified"
+    # Quick connectivity test using explicit DNS to avoid relying on fixed resolver
+    log_info "Testing network connectivity (direct IP ping)..."
+    if adb shell "ping -c 1 -W 3 8.8.8.8 >/dev/null 2>&1"; then
+        log_success "Network connectivity verified (8.8.8.8 reachable)"
     else
-        log_warn "DNS test inconclusive — tests may still fail if network is unavailable"
+        log_warn "Cannot reach 8.8.8.8 — network may be unavailable in this environment"
     fi
 }
 
