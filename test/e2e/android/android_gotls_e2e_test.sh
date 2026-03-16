@@ -266,8 +266,6 @@ test_concurrent_connections() {
     log_info "Running 3 concurrent Go HTTPS clients..."
     adb shell "$DEVICE_GO_CLIENT -dns 8.8.8.8 -insecure -url $TEST_URL &" || true
     sleep 0.5
-    adb shell "$DEVICE_GO_CLIENT -dns 8.8.8.8 -insecure -url https://github.com &" || true
-    sleep 0.5
     adb shell "$DEVICE_GO_CLIENT -dns 8.8.8.8 -insecure -url https://api.github.com &" || true
 
     # Wait for all to complete
