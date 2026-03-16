@@ -71,9 +71,11 @@ setup_cleanup_trap
 device_https_request() {
     local url="$1"
     if [ "$HTTPS_CLIENT_CMD" = "curl" ]; then
-        adb shell "curl -s -o /dev/null \"$url\"" || true
+        # Use --dns-servers to bypass broken Android emulator resolv.conf ([::1]:53)
+        adb shell "curl -s -o /dev/null --dns-servers 8.8.8.8 \"$url\" 2>/dev/null || \
+                   curl -s -o /dev/null \"$url\"" || true
     elif [ "$HTTPS_CLIENT_CMD" = "go_https_client" ]; then
-        adb shell "$DEVICE_GO_CLIENT -url \"$url\"" > /dev/null 2>&1 || true
+        adb shell "$DEVICE_GO_CLIENT -dns 8.8.8.8 -url \"$url\"" > /dev/null 2>&1 || true
     else
         log_error "No HTTPS client available on device"
         return 1
@@ -224,11 +226,11 @@ test_pid_filter() {
     # Use a known PID - start a background HTTPS request first
     log_info "Starting HTTPS request in background..."
     if [ "$HTTPS_CLIENT_CMD" = "curl" ]; then
-        adb shell "curl -s \"$TEST_URL\" > /dev/null &"
+        adb shell "curl -s --dns-servers 8.8.8.8 \"$TEST_URL\" > /dev/null 2>/dev/null || curl -s \"$TEST_URL\" > /dev/null &"
         sleep 1
         client_pid=$(adb_get_pid "curl" || echo "")
     elif [ "$HTTPS_CLIENT_CMD" = "go_https_client" ]; then
-        adb shell "$DEVICE_GO_CLIENT -url \"$TEST_URL\" &"
+        adb shell "$DEVICE_GO_CLIENT -dns 8.8.8.8 -url \"$TEST_URL\" &"
         sleep 1
         client_pid=$(adb_get_pid "go_https_client" || echo "")
     fi

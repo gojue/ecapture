@@ -462,6 +462,66 @@ build_ecapture_android() {
     return 1
 }
 
+# Fix DNS resolution on Android emulator.
+# The emulator's default /etc/resolv.conf often points to [::1]:53 (IPv6 loopback)
+# which is not listening, causing "connection refused" errors.
+# This function overwrites resolv.conf and sets the net.dns1 system property
+# to use Google's 8.8.8.8 DNS server instead.
+fix_android_dns() {
+    log_info "Checking DNS configuration on device..."
+
+    local current_dns
+    current_dns=$(adb shell "getprop net.dns1" | tr -d '\r')
+    log_info "Current net.dns1: ${current_dns:-(not set)}"
+
+    # Check if resolv.conf has IPv6 loopback as nameserver
+    local resolv_content
+    resolv_content=$(adb shell "cat /etc/resolv.conf 2>/dev/null" | tr -d '\r' || echo "")
+    log_info "Current /etc/resolv.conf: ${resolv_content:-(empty or missing)}"
+
+    local needs_fix=0
+    if echo "$resolv_content" | grep -q "::1"; then
+        log_warn "Detected IPv6 loopback (::1) in resolv.conf — DNS will fail"
+        needs_fix=1
+    fi
+    if [ -z "$current_dns" ] || [ "$current_dns" = "::1" ] || [ "$current_dns" = "fe80::1" ]; then
+        log_warn "net.dns1 is missing or set to loopback — DNS will fail"
+        needs_fix=1
+    fi
+
+    if [ "$needs_fix" -eq 0 ]; then
+        log_success "DNS configuration looks OK"
+        return 0
+    fi
+
+    log_info "Fixing DNS configuration..."
+
+    # Set system DNS properties
+    adb shell "setprop net.dns1 8.8.8.8" 2>/dev/null || true
+    adb shell "setprop net.dns2 8.8.4.4" 2>/dev/null || true
+
+    # Overwrite resolv.conf (requires root, remount if needed)
+    adb shell "mount -o remount,rw /system 2>/dev/null || true"
+    adb shell "echo 'nameserver 8.8.8.8' > /etc/resolv.conf 2>/dev/null || \
+               echo 'nameserver 8.8.8.8' > /data/local/tmp/resolv.conf && \
+               mount --bind /data/local/tmp/resolv.conf /etc/resolv.conf 2>/dev/null || true"
+
+    # Verify the fix
+    local new_dns
+    new_dns=$(adb shell "getprop net.dns1" | tr -d '\r')
+    log_info "Updated net.dns1: $new_dns"
+
+    # Quick connectivity test
+    log_info "Testing DNS resolution..."
+    if adb shell "nslookup github.com 8.8.8.8 >/dev/null 2>&1 || \
+                  getent hosts github.com >/dev/null 2>&1 || \
+                  ping -c 1 -W 3 8.8.8.8 >/dev/null 2>&1"; then
+        log_success "DNS/network connectivity verified"
+    else
+        log_warn "DNS test inconclusive — tests may still fail if network is unavailable"
+    fi
+}
+
 # Wait for Android device to be ready
 wait_for_device() {
     log_info "Waiting for device..."

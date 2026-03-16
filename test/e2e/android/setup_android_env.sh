@@ -114,8 +114,12 @@ main() {
         log_success "SELinux is permissive or disabled"
     fi
 
-    # Step 9: Check available tools
-    log_info "=== Step 9: Check Available Tools on Device ==="
+    # Step 9: Fix DNS resolution
+    log_info "=== Step 9: Fix DNS Resolution ==="
+    fix_android_dns
+
+    # Step 10: Check available tools
+    log_info "=== Step 10: Check Available Tools on Device ==="
 
     local tools_available=0
     local tools_missing=0
@@ -152,8 +156,8 @@ main() {
         log_info "Consider using a device with busybox or similar tools installed."
     fi
 
-    # Step 10: Check binaries
-    log_info "=== Step 10: Check Test Binaries ==="
+    # Step 11: Check binaries
+    log_info "=== Step 11: Check Test Binaries ==="
 
     local ecapture_bin="$ROOT_DIR/bin/ecapture"
     if [ -f "$ecapture_bin" ]; then
@@ -206,7 +210,7 @@ main() {
         log_info "Build it with: $SCRIPT_DIR/build_android_tests.sh"
     fi
 
-    # Step 11: Summary
+    # Step 12: Summary
     log_info "=== Setup Summary ==="
     log_success "✓ ADB available"
     log_success "✓ Android device connected"
