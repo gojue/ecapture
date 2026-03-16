@@ -34,6 +34,8 @@ struct go_tls_event {
     u32 tid;
     s32 data_len;
     u8 event_type;
+    u8 pad[3];      // Explicit padding for alignment
+    u32 fd;
     char comm[TASK_COMM_LEN];
     char data[MAX_DATA_SIZE_OPENSSL];
 };
@@ -81,9 +83,62 @@ static __always_inline struct go_tls_event *get_gotls_event() {
     event->pid = id >> 32;
     event->tid = (__u32)id;
     event->event_type = GOTLS_EVENT_TYPE_WRITE;
+    event->fd = 0;
     bpf_get_current_comm(event->comm, sizeof(event->comm));
 
     return event;
+}
+
+static __always_inline int extract_fd_from_tls_conn(void *tls_conn_ptr, const char *caller) {
+    if (!tls_conn_ptr) {
+        debug_bpf_printk("extract_fd [%s]: tls_conn_ptr is NULL\n", caller);
+        return 0;
+    }
+    
+    debug_bpf_printk("extract_fd [%s]: tls_conn_ptr=%p\n", caller, tls_conn_ptr);
+    
+    // Step 1: tls.Conn.conn is the first field (offset 0), it's an interface (16 bytes: type ptr + data ptr)
+    // Read the data pointer (second 8 bytes of the interface)
+    void *net_conn_ptr = NULL;
+    int ret = bpf_probe_read_user(&net_conn_ptr, sizeof(net_conn_ptr), (void *)((u64)tls_conn_ptr + 8));
+    if (ret < 0 || !net_conn_ptr) {
+        debug_bpf_printk("extract_fd [%s]: failed to read net.Conn interface data ptr, ret:%d\n", caller, ret);
+        return 0;
+    }
+    debug_bpf_printk("extract_fd [%s]: net_conn_ptr=%p\n", caller, net_conn_ptr);
+    
+    // Step 2: net.TCPConn.conn (embedded field at offset 0)
+    // net.conn.fd is *netFD at offset 0
+    void *netfd_ptr = NULL;
+    ret = bpf_probe_read_user(&netfd_ptr, sizeof(netfd_ptr), net_conn_ptr);
+    if (ret < 0 || !netfd_ptr) {
+        debug_bpf_printk("extract_fd [%s]: failed to read netfd ptr, ret:%d, net_conn_ptr=%p\n", caller, ret, net_conn_ptr);
+        return 0;
+    }
+    debug_bpf_printk("extract_fd [%s]: netfd_ptr=%p\n", caller, netfd_ptr);
+    
+    // Step 3: net.netFD.pfd is internal/poll.FD (VALUE type at offset 0, size 56)
+    // internal/poll.FD structure:
+    //   fdmu fdMutex  // offset 0, size 16 (state uint64 + rsema uint32 + wsema uint32)
+    //   Sysfd int     // offset 16, size 8 (on 64-bit systems, Go's int is 8 bytes!)
+    // So we read from netfd_ptr + 16
+    // IMPORTANT: Use s64 (8 bytes) not int (4 bytes) because Go's int is 8 bytes on 64-bit
+    s64 fd = 0;
+    ret = bpf_probe_read_user(&fd, sizeof(fd), (void *)((u64)netfd_ptr + 16));
+    if (ret < 0) {
+        debug_bpf_printk("extract_fd [%s]: failed to read Sysfd, ret:%d, netfd_ptr=%p\n", caller, ret, netfd_ptr);
+        return 0;
+    }
+    
+    debug_bpf_printk("extract_fd [%s]: extracted fd=%lld (0x%llx)\n", caller, fd, fd);
+
+    // Sanity check: fd should be a non-negative integer
+    if (fd < 0) {
+        debug_bpf_printk("extract_fd [%s]: invalid fd value %lld, returning 0\n", caller, fd);
+        return 0;
+    }
+    
+    return (int)fd;
 }
 
 static __always_inline int gotls_write(struct pt_regs *ctx, bool is_register_abi) {
@@ -91,6 +146,10 @@ static __always_inline int gotls_write(struct pt_regs *ctx, bool is_register_abi
     const char *str;
     void *record_type_ptr;
     void *len_ptr;
+    void *tls_conn_ptr;
+
+    tls_conn_ptr = (void *)go_get_argument(ctx, is_register_abi, 1);
+    
     record_type_ptr = (void *)go_get_argument(ctx, is_register_abi, 2);
     bpf_probe_read_kernel(&record_type, sizeof(record_type), (void *)&record_type_ptr);
     str = (void *)go_get_argument(ctx, is_register_abi, 3);
@@ -109,6 +168,9 @@ static __always_inline int gotls_write(struct pt_regs *ctx, bool is_register_abi
     if (!event) {
         return 0;
     }
+
+    // Extract fd from tls.Conn
+    event->fd = extract_fd_from_tls_conn(tls_conn_ptr, "WRITE");
 
     event->data_len =
         (len < MAX_DATA_SIZE_OPENSSL ? (len & (MAX_DATA_SIZE_OPENSSL - 1))
@@ -138,6 +200,9 @@ static __always_inline int gotls_read(struct pt_regs *ctx, bool is_register_abi)
     s32 record_type, ret_len;
     const char *str;
     void *len_ptr, *ret_len_ptr;
+    void *tls_conn_ptr;
+
+    tls_conn_ptr = (void *)go_get_argument(ctx, false, 1);
 
     // golang
     // uretprobe的实现，为选择目标函数中，汇编指令的RET指令地址，即调用子函数的返回后的触发点，此时，此函数参数等地址存放在SP(stack
@@ -165,6 +230,9 @@ static __always_inline int gotls_read(struct pt_regs *ctx, bool is_register_abi)
         return 0;
     }
 
+
+    event->fd = extract_fd_from_tls_conn(tls_conn_ptr, "READ");
+
     event->data_len =
         (ret_len < MAX_DATA_SIZE_OPENSSL ? (ret_len & (MAX_DATA_SIZE_OPENSSL - 1))
                                      : MAX_DATA_SIZE_OPENSSL);
@@ -174,6 +242,7 @@ static __always_inline int gotls_read(struct pt_regs *ctx, bool is_register_abi)
         debug_bpf_printk("gotls_text bpf_probe_read_user_str failed, ret:%d, str:%d\n", ret, str);
         return 0;
     }
+
     bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, event, sizeof(struct go_tls_event));
     return 0;
 }
