@@ -1,0 +1,24 @@
+repos:
+  # 1. 基础检查：检查大文件、私钥、行尾符等
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0  # 2026年建议使用最新版本
+    hooks:
+      - id: check-yaml          # 检查 YAML 语法
+      - id: end-of-file-fixer   # 确保文件以换行符结尾
+      - id: trailing-whitespace  # 修剪行尾空格
+      - id: check-added-large-files # 防止提交超大文件
+      - id: detect-private-key  # 自动检测是否泄露了私钥文件
+
+  # 3. 代码格式化：使用 Black (Python 界的标准)
+  - repo: https://github.com/psf/black
+    rev: 25.12.0
+    hooks:
+      - id: black
+        language_version: python3
+
+  # 2. 隐私安全：扫描代码中的 API 密钥、密码等
+  # - repo: file:///home/hossom/Documents/hook_repo/gitleaks
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.0
+    hooks:
+      - id: gitleaks
