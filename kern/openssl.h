@@ -395,8 +395,6 @@ int probe_inet_stream_connect(struct pt_regs* ctx) {
 static __inline int kretprobe_connect(struct pt_regs *ctx, int fd, struct sock *sk, const bool active) {
     u64 current_pid_tgid = bpf_get_current_pid_tgid();
     u32 pid = current_pid_tgid >> 32;
-    u64 current_uid_gid = bpf_get_current_uid_gid();
-    u32 uid = current_uid_gid;
     u16 address_family = 0;
     unsigned __int128 saddr;
     unsigned __int128 daddr;
@@ -530,11 +528,6 @@ int probe_tcp_v4_destroy_sock(struct pt_regs* ctx) {
 // int SSL_set_wfd(SSL *s, int fd)
 SEC("uprobe/SSL_set_fd")
 int probe_SSL_set_fd(struct pt_regs* ctx) {
-    u64 current_pid_tgid = bpf_get_current_pid_tgid();
-    u32 pid = current_pid_tgid >> 32;
-    u64 current_uid_gid = bpf_get_current_uid_gid();
-    u32 uid = current_uid_gid;
-
     u64 ssl_addr = (u64)PT_REGS_PARM1(ctx);
     u64 fd = (u64)PT_REGS_PARM2(ctx);
     bpf_map_update_elem(&ssl_st_fd, &ssl_addr, &fd, BPF_ANY);
