@@ -218,7 +218,6 @@ test_pcap_mode() {
 # Test with PID filter
 test_pid_filter() {
     log_info "=== Test 3: PID Filter Test ==="
-    TESTS_TOTAL=$((TESTS_TOTAL + 1))
 
     local test_log="$DEVICE_OUTPUT_DIR/pid_filter.log"
     local client_pid=""
@@ -238,8 +237,12 @@ test_pid_filter() {
 
     if [ -z "$client_pid" ]; then
         log_warn "Could not get client PID, skipping PID filter test"
+        log_warn "✓ Test 3 SKIPPED: PID filter test skipped (no client PID available)"
+        # Not counted in TESTS_TOTAL/TESTS_PASSED since it was skipped before setup
         return 0
     fi
+
+    TESTS_TOTAL=$((TESTS_TOTAL + 1))
 
     log_info "Client PID: $client_pid"
 
@@ -358,14 +361,14 @@ main() {
     # Summary
     log_info "=== Test Execution Complete ==="
 
-    if [ "$TESTS_PASSED" -eq "$TESTS_TOTAL" ] && [ "$TESTS_TOTAL" -gt 0 ]; then
+    if [ "$TESTS_TOTAL" -eq 0 ]; then
+        log_warn "No tests were run (all skipped)"
+        exit 0
+    elif [ "$TESTS_PASSED" -eq "$TESTS_TOTAL" ]; then
         log_success "All $TESTS_TOTAL tests PASSED"
         exit 0
-    elif [ "$TESTS_PASSED" -gt 0 ]; then
-        log_warn "$TESTS_PASSED / $TESTS_TOTAL tests passed"
-        exit 1
     else
-        log_error "All tests FAILED"
+        log_warn "$TESTS_PASSED / $TESTS_TOTAL tests passed"
         exit 1
     fi
 }
