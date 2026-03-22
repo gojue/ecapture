@@ -1,3 +1,24 @@
+# v2.0.1 (2026-03-22)
+
+## What's Changed
+
+### ✨ New Features
+* feat(gotls): add fd extraction from tls.Conn for connection tuple support by @zenyanle in https://github.com/gojue/ecapture/pull/947
+
+### 🐛 Bug Fixes & Improvements
+* fix: GoVersion After function logic error by @Carl Chen in https://github.com/gojue/ecapture/pull/932
+* fix: correct ConnDataEvent Saddr/Daddr size from [32]byte to [16]byte to match C struct by @Copilot in https://github.com/gojue/ecapture/pull/954
+* fix: improve DNS resolution for Android emulator by using custom DNS server by @cfc4n in https://github.com/gojue/ecapture/pull/957
+
+### 🧪 Testing
+* fix: adjust test counting logic to handle skipped tests in android_tls_e2e_test.sh by @Copilot in https://github.com/gojue/ecapture/pull/963
+
+## New Contributors
+* @Carl Chen made their first contribution in https://github.com/gojue/ecapture/pull/932
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v2.0.0...v2.0.1
+<hr>
+
 # v2.0.0 (2026-03-14)
 
 ## What's Changed
