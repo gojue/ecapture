@@ -36,6 +36,13 @@ struct go_tls_event {
     u8 event_type;
     u8 pad[3];      // Explicit padding for alignment
     u32 fd;
+    u8 src_ip[16];  // Support both IPv4 and IPv6
+    u16 src_port;
+    u16 pad2;       // Explicit padding for alignment
+    u8 dst_ip[16];  // Support both IPv4 and IPv6
+    u16 dst_port;
+    u8 ip_version;  // 4 for IPv4, 6 for IPv6
+    u8 pad3;        // Explicit padding for alignment
     char comm[TASK_COMM_LEN];
     char data[MAX_DATA_SIZE_OPENSSL];
 };
@@ -86,59 +93,158 @@ static __always_inline struct go_tls_event *get_gotls_event() {
     event->fd = 0;
     bpf_get_current_comm(event->comm, sizeof(event->comm));
 
+    // Zero tuple fields explicitly: the struct is reused from a per-cpu map,
+    // so stale values from a previous event would produce incorrect tuples if
+    // fill_fd_and_addr_from_tls_conn() early-returns on any failure path.
+    __builtin_memset(event->src_ip, 0, sizeof(event->src_ip));
+    __builtin_memset(event->dst_ip, 0, sizeof(event->dst_ip));
+    event->src_port = 0;
+    event->dst_port = 0;
+    event->ip_version = 0;
+
     return event;
 }
 
-static __always_inline int extract_fd_from_tls_conn(void *tls_conn_ptr, const char *caller) {
+static __always_inline void *get_netfd_ptr_from_tls_conn(void *tls_conn_ptr, const char *caller) {
     if (!tls_conn_ptr) {
-        debug_bpf_printk("extract_fd [%s]: tls_conn_ptr is NULL\n", caller);
-        return 0;
+        return NULL;
     }
-    
-    debug_bpf_printk("extract_fd [%s]: tls_conn_ptr=%p\n", caller, tls_conn_ptr);
-    
+
     // Step 1: tls.Conn.conn is the first field (offset 0), it's an interface (16 bytes: type ptr + data ptr)
     // Read the data pointer (second 8 bytes of the interface)
     void *net_conn_ptr = NULL;
     int ret = bpf_probe_read_user(&net_conn_ptr, sizeof(net_conn_ptr), (void *)((u64)tls_conn_ptr + 8));
     if (ret < 0 || !net_conn_ptr) {
-        debug_bpf_printk("extract_fd [%s]: failed to read net.Conn interface data ptr, ret:%d\n", caller, ret);
-        return 0;
+        return NULL;
     }
-    debug_bpf_printk("extract_fd [%s]: net_conn_ptr=%p\n", caller, net_conn_ptr);
-    
+
     // Step 2: net.TCPConn.conn (embedded field at offset 0)
     // net.conn.fd is *netFD at offset 0
     void *netfd_ptr = NULL;
     ret = bpf_probe_read_user(&netfd_ptr, sizeof(netfd_ptr), net_conn_ptr);
     if (ret < 0 || !netfd_ptr) {
-        debug_bpf_printk("extract_fd [%s]: failed to read netfd ptr, ret:%d, net_conn_ptr=%p\n", caller, ret, net_conn_ptr);
-        return 0;
+        return NULL;
     }
-    debug_bpf_printk("extract_fd [%s]: netfd_ptr=%p\n", caller, netfd_ptr);
-    
-    // Step 3: net.netFD.pfd is internal/poll.FD (VALUE type at offset 0, size 56)
+
+    return netfd_ptr;
+}
+
+static __always_inline int extract_fd_from_netfd_ptr(void *netfd_ptr) {
+    // net.netFD.pfd is internal/poll.FD (VALUE type at offset 0, size 56)
     // internal/poll.FD structure:
     //   fdmu fdMutex  // offset 0, size 16 (state uint64 + rsema uint32 + wsema uint32)
     //   Sysfd int     // offset 16, size 8 (on 64-bit systems, Go's int is 8 bytes!)
-    // So we read from netfd_ptr + 16
     // IMPORTANT: Use s64 (8 bytes) not int (4 bytes) because Go's int is 8 bytes on 64-bit
     s64 fd = 0;
-    ret = bpf_probe_read_user(&fd, sizeof(fd), (void *)((u64)netfd_ptr + 16));
-    if (ret < 0) {
-        debug_bpf_printk("extract_fd [%s]: failed to read Sysfd, ret:%d, netfd_ptr=%p\n", caller, ret, netfd_ptr);
+    int ret = bpf_probe_read_user(&fd, sizeof(fd), (void *)((u64)netfd_ptr + 16));
+    if (ret < 0 || fd < 0) {
         return 0;
     }
-    
-    debug_bpf_printk("extract_fd [%s]: extracted fd=%lld (0x%llx)\n", caller, fd, fd);
-
-    // Sanity check: fd should be a non-negative integer
-    if (fd < 0) {
-        debug_bpf_printk("extract_fd [%s]: invalid fd value %lld, returning 0\n", caller, fd);
-        return 0;
-    }
-    
     return (int)fd;
+}
+
+// Extract IP and port from an already-resolved net.netFD pointer.
+//
+// net.netFD layout (from net/fd_posix.go, 64-bit only):
+//   pfd poll.FD        // offset 0, size 56
+//   family int         // offset 56, size 8
+//   sotype int         // offset 64, size 8
+//   isConnected bool   // offset 72, size 1
+//   pad [7]byte        // offset 73, size 7
+//   net string         // offset 80, size 16 (ptr + len)
+//   laddr Addr         // offset 96, size 16 (interface: itab ptr + data ptr)
+//   raddr Addr         // offset 112, size 16 (interface: itab ptr + data ptr)
+//
+// net.TCPAddr layout:
+//   IP   net.IP  // offset 0,  []byte: ptr(8)+len(8)+cap(8) = 24 bytes
+//   Port int     // offset 24, size 8
+//   Zone string  // offset 32, size 16
+static __always_inline void extract_addr_from_netfd_ptr(void *netfd_ptr,
+                                                         u8 *src_ip, u16 *src_port,
+                                                         u8 *dst_ip, u16 *dst_port,
+                                                         u8 *ip_version) {
+    // Read laddr data ptr (interface layout: itab_ptr+8 = data_ptr)
+    void *laddr_ptr = NULL;
+    int ret = bpf_probe_read_user(&laddr_ptr, sizeof(laddr_ptr),
+                                   (void *)((u64)netfd_ptr + 96 + 8));
+    if (ret < 0 || !laddr_ptr) {
+        return;
+    }
+
+    // Read raddr data ptr at offset 112
+    void *raddr_ptr = NULL;
+    ret = bpf_probe_read_user(&raddr_ptr, sizeof(raddr_ptr),
+                              (void *)((u64)netfd_ptr + 112 + 8));
+    if (ret < 0 || !raddr_ptr) {
+        return;
+    }
+
+    // TCPAddr.IP is a []byte slice at offset 0: ptr(8)+len(8)+cap(8)
+    void *lip_ptr = NULL, *rip_ptr = NULL;
+    u64 lip_len = 0, rip_len = 0;
+
+    ret = bpf_probe_read_user(&lip_ptr, sizeof(lip_ptr), laddr_ptr);
+    if (ret < 0) return;
+    ret = bpf_probe_read_user(&lip_len, sizeof(lip_len), (void *)((u64)laddr_ptr + 8));
+    if (ret < 0) return;
+    ret = bpf_probe_read_user(&rip_ptr, sizeof(rip_ptr), raddr_ptr);
+    if (ret < 0) return;
+    ret = bpf_probe_read_user(&rip_len, sizeof(rip_len), (void *)((u64)raddr_ptr + 8));
+    if (ret < 0) return;
+
+    u8 version = 0;
+    if (lip_len == 4 && rip_len == 4) {
+        version = 4;
+    } else if (lip_len == 16 && rip_len == 16) {
+        version = 6;
+    } else {
+        return;
+    }
+
+    debug_bpf_printk("extract_addr: IP version=%d, lip_len=%llu\n", version, lip_len);
+
+    if (version == 4) {
+        ret = bpf_probe_read_user(src_ip, 4, lip_ptr);
+        if (ret < 0) return;
+        ret = bpf_probe_read_user(dst_ip, 4, rip_ptr);
+        if (ret < 0) return;
+    } else {
+        ret = bpf_probe_read_user(src_ip, 16, lip_ptr);
+        if (ret < 0) return;
+        ret = bpf_probe_read_user(dst_ip, 16, rip_ptr);
+        if (ret < 0) return;
+    }
+
+    // TCPAddr.Port is at offset 24
+    s64 lport = 0, rport = 0;
+    ret = bpf_probe_read_user(&lport, sizeof(lport), (void *)((u64)laddr_ptr + 24));
+    if (ret < 0) return;
+    ret = bpf_probe_read_user(&rport, sizeof(rport), (void *)((u64)raddr_ptr + 24));
+    if (ret < 0) return;
+
+    *src_port = (u16)lport;
+    *dst_port = (u16)rport;
+    *ip_version = version;
+
+    debug_bpf_printk("extract_addr: success version=%d sport=%u\n", version, (u16)lport);
+}
+
+// Resolve netfd_ptr once from tls_conn_ptr, then fill fd + addr into the event.
+// This avoids walking tls.Conn -> net.Conn -> netFD twice per event.
+static __always_inline void fill_fd_and_addr_from_tls_conn(void *tls_conn_ptr,
+                                                             u32 *fd_out,
+                                                             u8 *src_ip, u16 *src_port,
+                                                             u8 *dst_ip, u16 *dst_port,
+                                                             u8 *ip_version,
+                                                             const char *caller) {
+    void *netfd_ptr = get_netfd_ptr_from_tls_conn(tls_conn_ptr, caller);
+    if (!netfd_ptr) {
+        return;
+    }
+    debug_bpf_printk("fill_fd_and_addr [%s]: netfd_ptr=%p\n", caller, netfd_ptr);
+
+    *fd_out = (u32)extract_fd_from_netfd_ptr(netfd_ptr);
+    extract_addr_from_netfd_ptr(netfd_ptr, src_ip, src_port, dst_ip, dst_port, ip_version);
 }
 
 static __always_inline int gotls_write(struct pt_regs *ctx, bool is_register_abi) {
@@ -149,7 +255,7 @@ static __always_inline int gotls_write(struct pt_regs *ctx, bool is_register_abi
     void *tls_conn_ptr;
 
     tls_conn_ptr = (void *)go_get_argument(ctx, is_register_abi, 1);
-    
+
     record_type_ptr = (void *)go_get_argument(ctx, is_register_abi, 2);
     bpf_probe_read_kernel(&record_type, sizeof(record_type), (void *)&record_type_ptr);
     str = (void *)go_get_argument(ctx, is_register_abi, 3);
@@ -169,17 +275,20 @@ static __always_inline int gotls_write(struct pt_regs *ctx, bool is_register_abi
         return 0;
     }
 
-    // Extract fd from tls.Conn
-    event->fd = extract_fd_from_tls_conn(tls_conn_ptr, "WRITE");
+    fill_fd_and_addr_from_tls_conn(tls_conn_ptr, &event->fd,
+                                    event->src_ip, &event->src_port,
+                                    event->dst_ip, &event->dst_port,
+                                    &event->ip_version, "WRITE");
 
     event->data_len =
         (len < MAX_DATA_SIZE_OPENSSL ? (len & (MAX_DATA_SIZE_OPENSSL - 1))
                                      : MAX_DATA_SIZE_OPENSSL);
     int ret = bpf_probe_read_user(&event->data, event->data_len, (void *)str);
     if (ret < 0) {
-        debug_bpf_printk("gotls_write bpf_probe_read_user_str failed, ret:%d, str:%d\n", ret, str);
         return 0;
     }
+    debug_bpf_printk("gotls_write: pid=%u fd=%u ip_version=%u\n",
+                     event->pid, event->fd, event->ip_version);
     bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, event, sizeof(struct go_tls_event));
     return 0;
 }
@@ -230,8 +339,10 @@ static __always_inline int gotls_read(struct pt_regs *ctx, bool is_register_abi)
         return 0;
     }
 
-
-    event->fd = extract_fd_from_tls_conn(tls_conn_ptr, "READ");
+    fill_fd_and_addr_from_tls_conn(tls_conn_ptr, &event->fd,
+                                    event->src_ip, &event->src_port,
+                                    event->dst_ip, &event->dst_port,
+                                    &event->ip_version, "READ");
 
     event->data_len =
         (ret_len < MAX_DATA_SIZE_OPENSSL ? (ret_len & (MAX_DATA_SIZE_OPENSSL - 1))
@@ -239,9 +350,10 @@ static __always_inline int gotls_read(struct pt_regs *ctx, bool is_register_abi)
     event->event_type = GOTLS_EVENT_TYPE_READ;
     int ret = bpf_probe_read_user(&event->data, event->data_len, (void *)str);
     if (ret < 0) {
-        debug_bpf_printk("gotls_text bpf_probe_read_user_str failed, ret:%d, str:%d\n", ret, str);
         return 0;
     }
+    debug_bpf_printk("gotls_read: pid=%u fd=%u ip_version=%u\n",
+                     event->pid, event->fd, event->ip_version);
 
     bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, event, sizeof(struct go_tls_event));
     return 0;
