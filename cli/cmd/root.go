@@ -276,7 +276,7 @@ func runProbe(probeType factory.ProbeType, probeConfig domain.Configuration) err
 
 		// Set the ecaptureQ event writer on the probe config so events
 		// are dispatched to the ecaptureQ WebSocket server.
-		eqEventWriter := ecaptureQEventWriter{es: es}
+		eqEventWriter := &ecaptureQEventWriter{es: es}
 		probeConfig.SetEventWriter(eqEventWriter)
 	} else {
 		logger, err = initLogger(globalConf.LoggerAddr, probeConfig.GetDebug(), false)

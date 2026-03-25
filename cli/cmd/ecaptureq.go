@@ -33,7 +33,7 @@ type ecaptureQEventWriter struct {
 	es *ecaptureq.Server
 }
 
-func (eew ecaptureQEventWriter) Write(data []byte) (n int, e error) {
+func (eew *ecaptureQEventWriter) Write(data []byte) (n int, e error) {
 	le := &pb.LogEntry{
 		LogType: pb.LogType_LOG_TYPE_EVENT,
 		Payload: &pb.LogEntry_EventPayload{
