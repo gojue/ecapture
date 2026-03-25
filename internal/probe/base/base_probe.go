@@ -116,6 +116,19 @@ func (p *BaseProbe) Initialize(ctx context.Context, cfg domain.Configuration) er
 		return fmt.Errorf("failed to register text handler: %w", err)
 	}
 	p.closers = append(p.closers, textHandler)
+
+	// Register an additional event handler for ecaptureQ event writer if configured.
+	if eventWriter := cfg.GetEventWriter(); eventWriter != nil {
+		eqWriter := writers.NewIOWriterAdapter(eventWriter, "ecaptureQ")
+		eqHandler := handlers.NewTextHandler(eqWriter, p.config.GetHex())
+		if err := dispatcher.Register(eqHandler); err != nil {
+			_ = eqWriter.Close()
+			return fmt.Errorf("failed to register ecaptureQ event handler: %w", err)
+		}
+		p.closers = append(p.closers, eqHandler)
+		p.Logger().Info().Msg("ecaptureQ event handler registered")
+	}
+
 	// Create dispatcher
 	p.dispatcher = dispatcher
 

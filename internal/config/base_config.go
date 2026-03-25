@@ -17,6 +17,7 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/gojue/ecapture/pkg/util/kernel"
@@ -41,19 +42,20 @@ const DefaultMapSizePerCpu = 8 * 1024 * 1024
 
 // BaseConfig provides common configuration for all probes.
 type BaseConfig struct {
-	Pid                uint64 `json:"pid"`
-	Uid                uint64 `json:"uid"`
-	Debug              bool   `json:"debug"`
-	IsHex              bool   `json:"is_hex"`
-	BtfMode            uint8  `json:"btf_mode"`
-	ByteCodeFileMode   uint8  `json:"byte_code_file_mode"`
-	PerCpuMapSize      int    `json:"per_cpu_map_size"`
-	TruncateSize       uint64 `json:"truncate_size"`
-	LoggerAddr         string `json:"logger_addr"`
-	EventCollectorAddr string `json:"event_collector_addr"`
-	EcaptureQ          string `json:"ecapture_q"`
-	Listen             string `json:"listen"`
-	AddrType           uint8  `json:"addr_type"`
+	Pid                uint64    `json:"pid"`
+	Uid                uint64    `json:"uid"`
+	Debug              bool      `json:"debug"`
+	IsHex              bool      `json:"is_hex"`
+	BtfMode            uint8     `json:"btf_mode"`
+	ByteCodeFileMode   uint8     `json:"byte_code_file_mode"`
+	PerCpuMapSize      int       `json:"per_cpu_map_size"`
+	TruncateSize       uint64    `json:"truncate_size"`
+	LoggerAddr         string    `json:"logger_addr"`
+	EventCollectorAddr string    `json:"event_collector_addr"`
+	EcaptureQ          string    `json:"ecapture_q"`
+	Listen             string    `json:"listen"`
+	AddrType           uint8     `json:"addr_type"`
+	EventWriter        io.Writer `json:"-"`
 }
 
 // NewBaseConfig creates a new BaseConfig with default values.
@@ -235,4 +237,14 @@ func (c *BaseConfig) GetAddrType() uint8 {
 // SetAddrType sets the logger address type.
 func (c *BaseConfig) SetAddrType(t uint8) {
 	c.AddrType = t
+}
+
+// GetEventWriter returns the pre-configured event writer (e.g., for ecaptureQ).
+func (c *BaseConfig) GetEventWriter() io.Writer {
+	return c.EventWriter
+}
+
+// SetEventWriter sets a pre-configured event writer.
+func (c *BaseConfig) SetEventWriter(w io.Writer) {
+	c.EventWriter = w
 }

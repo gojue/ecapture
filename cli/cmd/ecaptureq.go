@@ -16,6 +16,8 @@ package cmd
 
 import (
 	"github.com/gojue/ecapture/pkg/ecaptureq"
+	pb "github.com/gojue/ecapture/protobuf/gen/v1"
+	"google.golang.org/protobuf/proto"
 )
 
 // ecaptureQLogWriter
@@ -32,5 +34,18 @@ type ecaptureQEventWriter struct {
 }
 
 func (eew ecaptureQEventWriter) Write(data []byte) (n int, e error) {
-	return eew.es.WriteEvent(data)
+	le := &pb.LogEntry{
+		LogType: pb.LogType_LOG_TYPE_EVENT,
+		Payload: &pb.LogEntry_EventPayload{
+			EventPayload: &pb.Event{
+				Payload: data,
+				Length:  uint32(len(data)),
+			},
+		},
+	}
+	encodedData, err := proto.Marshal(le)
+	if err != nil {
+		return 0, err
+	}
+	return eew.es.WriteEvent(encodedData)
 }
