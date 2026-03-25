@@ -106,8 +106,20 @@ func (s *Server) WriteLog(data []byte) (n int, e error) {
 
 // WriteEvent writes an event to the WebSocket server.
 func (s *Server) WriteEvent(data []byte) (n int, e error) {
-
-	s.hub.broadcastMessage(data)
+	le := &pb.LogEntry{
+		LogType: pb.LogType_LOG_TYPE_EVENT,
+		Payload: &pb.LogEntry_EventPayload{
+			EventPayload: &pb.Event{
+				Payload: data,
+				Length:  uint32(len(data)),
+			},
+		},
+	}
+	encodedData, err := proto.Marshal(le)
+	if err != nil {
+		return 0, err
+	}
+	s.hub.broadcastMessage(encodedData)
 	return len(data), nil
 }
 

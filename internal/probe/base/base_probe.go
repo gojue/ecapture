@@ -96,17 +96,25 @@ func (p *BaseProbe) Initialize(ctx context.Context, cfg domain.Configuration) er
 	// Configure rotation for file writers (from --eventroratesize and --eventroratetime flags)
 	var rotateConfig *writers.RotateConfig
 
-	// Create output writer based on eventAddr (or stdout if empty)
+	// Create output writer based on configuration priority:
+	// 1. If --ecaptureq EventWriter is configured, use it (replaces file/socket handler)
+	// 2. If eventAddr is empty/stdout, use logger writer
+	// 3. Otherwise, create writer from eventAddr (file/tcp/websocket)
 	var textWriter writers.OutputWriter
 	var err error
-	var eventAddr = cfg.GetEventCollectorAddr()
-	if eventAddr == "" || eventAddr == "stdout" {
-		//textWriter = writers.NewStdoutWriter()
-		textWriter = writers.NewLoggerWriter(p.logger)
+	if eventWriter := cfg.GetEventWriter(); eventWriter != nil {
+		// ecaptureQ mode: use the pre-configured event writer
+		textWriter = writers.NewIOWriterAdapter(eventWriter, "ecaptureQ")
 	} else {
-		textWriter, err = writerFactory.CreateWriter(eventAddr, rotateConfig)
-		if err != nil {
-			return fmt.Errorf("failed to create text output writer: %w", err)
+		var eventAddr = cfg.GetEventCollectorAddr()
+		if eventAddr == "" || eventAddr == "stdout" {
+			//textWriter = writers.NewStdoutWriter()
+			textWriter = writers.NewLoggerWriter(p.logger)
+		} else {
+			textWriter, err = writerFactory.CreateWriter(eventAddr, rotateConfig)
+			if err != nil {
+				return fmt.Errorf("failed to create text output writer: %w", err)
+			}
 		}
 	}
 	p.Logger().Info().Str("writer", textWriter.Name()).Str("LoggerAddr", cfg.GetLoggerAddr()).Msg("Text output writer created")
@@ -116,18 +124,6 @@ func (p *BaseProbe) Initialize(ctx context.Context, cfg domain.Configuration) er
 		return fmt.Errorf("failed to register text handler: %w", err)
 	}
 	p.closers = append(p.closers, textHandler)
-
-	// Register an additional event handler for ecaptureQ event writer if configured.
-	if eventWriter := cfg.GetEventWriter(); eventWriter != nil {
-		eqWriter := writers.NewIOWriterAdapter(eventWriter, "ecaptureQ")
-		eqHandler := handlers.NewTextHandler(eqWriter, p.config.GetHex())
-		if err := dispatcher.Register(eqHandler); err != nil {
-			_ = eqWriter.Close()
-			return fmt.Errorf("failed to register ecaptureQ event handler: %w", err)
-		}
-		p.closers = append(p.closers, eqHandler)
-		p.Logger().Info().Msg("ecaptureQ event handler registered")
-	}
 
 	// Create dispatcher
 	p.dispatcher = dispatcher
