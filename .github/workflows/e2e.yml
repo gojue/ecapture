@@ -91,6 +91,13 @@ jobs:
           ls -lh bin/ecapture
           file bin/ecapture
 
+      - name: Build ecaptureq_client
+        run: |
+          cd examples/ecaptureq_client
+          go build -o ../../bin/ecaptureq_client .
+          ls -lh ../../bin/ecaptureq_client
+          echo "✅ ecaptureq_client built successfully"
+
       - name: Run E2E Tests
         run: |
           echo "=== Running E2E Tests ==="
@@ -152,6 +159,7 @@ jobs:
             - TLS/OpenSSL Module (curl → github.com)
             - GnuTLS Module (wget/curl → github.com)
             - GoTLS Module (Go client → github.com)
+            - ecaptureQ Module (WebSocket event streaming)
             
             ${testResult === 'success' ? 
               '✅ All e2e tests passed successfully! The TLS capture functionality is working correctly.' : 
