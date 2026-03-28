@@ -49,7 +49,7 @@ func main() {
 	// Connect to WebSocket server
 	ws, err := websocket.Dial(*serverURL, "", "http://localhost/")
 	if err != nil {
-		log.t.Fatalf("Failed to connect to WebSocket server: %v", err)
+		log.Fatalf("Failed to connect to WebSocket server: %v", err)
 		return
 	}
 	defer ws.Close()
