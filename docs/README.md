@@ -17,6 +17,12 @@ This directory contains comprehensive documentation for the eCapture project.
 ### Testing
 - [**e2e-tests.md**](e2e-tests.md) - End-to-end testing guide
 
+### Security & Operations
+- [**defense-detection.md**](defense-detection.md) - Detection and defense against unauthorized eBPF tool usage
+- [**minimum-privileges.md**](minimum-privileges.md) - Required Linux capabilities and least-privilege configuration
+- [**performance-benchmarks.md**](performance-benchmarks.md) - Performance overhead measurement methodology
+- [**release-verification.md**](release-verification.md) - How to verify release artifact integrity
+
 ### API Documentation
 - [**event-forward-api.md**](event-forward-api.md) - Event forwarding API documentation (English)
 - [**event-forward-api-zh_Hans.md**](event-forward-api-zh_Hans.md) - 事件转发API文档 (汉字)
@@ -25,6 +31,9 @@ This directory contains comprehensive documentation for the eCapture project.
 
 ### Integration
 - [**event-forward.md**](event-forward.md) - Event forwarding applications and GUI clients
+
+### Examples
+- [**example-outputs.md**](example-outputs.md) - Detailed output examples for all eCapture modes and modules
 
 ## Document Organization
 
