@@ -15,6 +15,8 @@
 package event_processor
 
 import (
+	"fmt"
+
 	pb "github.com/gojue/ecapture/protobuf/gen/v1"
 )
 
@@ -98,4 +100,13 @@ func FormatTLSData(payload []byte) []byte {
 	return b
 }
 
-
+// FormatTLSEvent runs protocol detection on a TLS data provider and
+// returns the formatted string with PID/Comm header and detected payload.
+func FormatTLSEvent(provider TLSDataProvider, uuid string) string {
+	data := provider.GetData()
+	if len(data) == 0 {
+		return ""
+	}
+	formatted := FormatTLSData(data)
+	return fmt.Sprintf("PID:%d, Comm:%s,\n%s", provider.GetPid(), provider.GetComm(), string(formatted))
+}
