@@ -66,6 +66,8 @@ SEC("uretprobe/bash_retval")
 int uretprobe_bash_retval(struct pt_regs *ctx) {
     u64 pid_tgid = bpf_get_current_pid_tgid();
     u32 pid = pid_tgid >> 32;
+    u64 current_uid_gid = bpf_get_current_uid_gid();
+    u32 uid = current_uid_gid;
     int retval = (int)PT_REGS_RC(ctx);
 
     if (!passes_filter(ctx)) {

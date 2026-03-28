@@ -63,6 +63,8 @@ int mysql56_query(struct pt_regs *ctx) {
 
     u64 current_pid_tgid = bpf_get_current_pid_tgid();
     u32 pid = current_pid_tgid >> 32;
+    u64 current_uid_gid = bpf_get_current_uid_gid();
+    u32 uid = current_uid_gid;
 
     if (!passes_filter(ctx)) {
         return 0;
@@ -107,6 +109,8 @@ int mysql56_query_return(struct pt_regs *ctx) {
 
     u64 current_pid_tgid = bpf_get_current_pid_tgid();
     u32 pid = current_pid_tgid >> 32;
+    u64 current_uid_gid = bpf_get_current_uid_gid();
+    u32 uid = current_uid_gid;
 
     if (!passes_filter(ctx)) {
         return 0;
@@ -176,6 +180,8 @@ int mysql57_query(struct pt_regs *ctx) {
 
     u64 current_pid_tgid = bpf_get_current_pid_tgid();
     u32 pid = current_pid_tgid >> 32;
+    u64 current_uid_gid = bpf_get_current_uid_gid();
+    u32 uid = current_uid_gid;
 
     if (!passes_filter(ctx)) {
         return 0;
@@ -211,6 +217,8 @@ SEC("uretprobe/dispatch_command_57")
 int mysql57_query_return(struct pt_regs *ctx) {
     u64 current_pid_tgid = bpf_get_current_pid_tgid();
     u32 pid = current_pid_tgid >> 32;
+    u64 current_uid_gid = bpf_get_current_uid_gid();
+    u32 uid = current_uid_gid;
 
     if (!passes_filter(ctx)) {
         return 0;
