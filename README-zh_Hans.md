@@ -13,7 +13,7 @@
 
 > [!TIP]
 > 支持Linux系统内核x86_64 4.18及以上版本，aarch64 5.5及以上版本；
-> 需要ROOT权限；
+> 需要ROOT权限或特定的 [Linux capabilities](docs/minimum-privileges.md)；
 > 不支持Windows、macOS系统；
 
 ----
@@ -31,6 +31,7 @@
     - [其他模块](#其他模块)
   - [使用演示](#使用演示)
 - [星标成长曲线](#星标成长曲线)
+- [安全与运维](#安全与运维)
 - [贡献](#贡献)
 - [二次开发](#二次开发)
 - [微信公众号](#微信公众号)
@@ -66,6 +67,8 @@ docker pull gojue/ecapture:latest
 docker run --rm --privileged=true --net=host -v ${宿主机文件路径}:${容器内路径} gojue/ecapture ARGS
 ```
 
+> **⚠️ 安全提醒**: `--privileged=true` 会授予容器完整的宿主机访问权限。在生产环境中，建议使用特定的 capabilities 替代。参阅 [最小权限指南](docs/minimum-privileges.md#method-3-docker-with-specific-capabilities)。
+
 ## 小试身手
 
 ![](./images/ecapture-help-v0.8.9.svg)
@@ -74,56 +77,22 @@ docker run --rm --privileged=true --net=host -v ${宿主机文件路径}:${容�
 
 ```shell
 sudo ecapture tls
-2024-09-15T11:50:28Z INF AppName="eCapture(旁观者)"
-2024-09-15T11:50:28Z INF HomePage=https://ecapture.cc
-2024-09-15T11:50:28Z INF Repository=https://github.com/gojue/ecapture
-2024-09-15T11:50:28Z INF Author="CFC4N <cfc4ncs@gmail.com>"
-2024-09-15T11:50:28Z INF Description="Capturing SSL/TLS plaintext without a CA certificate using eBPF. Supported on Linux/Android kernels for amd64/arm64."
-2024-09-15T11:50:28Z INF Version=linux_arm64:0.8.6-20240915-d87ae48:5.15.0-113-generic
-2024-09-15T11:50:28Z INF Listen=localhost:28256
-2024-09-15T11:50:28Z INF eCapture running logs logger=
-2024-09-15T11:50:28Z INF the file handler that receives the captured event eventCollector=
-2024-09-15T11:50:28Z WRN ========== module starting. ==========
-2024-09-15T11:50:28Z INF listen=localhost:28256
-2024-09-15T11:50:28Z INF https server starting...You can update the configuration file via the HTTP interface.
-2024-09-15T11:50:28Z INF Kernel Info=5.15.152 Pid=233458
-2024-09-15T11:50:28Z INF BTF bytecode mode: CORE. btfMode=0
-2024-09-15T11:50:28Z INF master key keylogger has been set. eBPFProgramType=Text keylogger=
-2024-09-15T11:50:28Z INF module initialization. isReload=false moduleName=EBPFProbeOPENSSL
-2024-09-15T11:50:28Z INF Module.Run()
-2024-09-15T11:50:28Z WRN OpenSSL/BoringSSL version not found from shared library file, used default version OpenSSL Version=linux_default_3_0
-2024-09-15T11:50:28Z INF Hook masterKey function ElfType=2 Functions=["SSL_get_wbio","SSL_in_before","SSL_do_handshake"] binrayPath=/usr/lib/aarch64-linux-gnu/libssl.so.3
-2024-09-15T11:50:28Z INF target all process.
-2024-09-15T11:50:28Z INF target all users.
-2024-09-15T11:50:28Z INF setupManagers eBPFProgramType=Text
-2024-09-15T11:50:28Z INF BPF bytecode file is matched. bpfFileName=user/bytecode/openssl_3_0_0_kern_core.o
-2024-09-15T11:50:28Z INF perfEventReader created mapSize(MB)=4
-2024-09-15T11:50:28Z INF perfEventReader created mapSize(MB)=4
-2024-09-15T11:50:28Z INF module started successfully. isReload=false moduleName=EBPFProbeOPENSSL
-2024-09-15T11:50:31Z ??? UUID:233479_233479_curl_5_1_39.156.66.10:443, Name:HTTPRequest, Type:1, Length:73
+```
+
+eCapture 会自动检测系统的 OpenSSL 库并开始捕获明文。当你发起 HTTPS 请求时（如 `curl https://baidu.com`），捕获到的请求和响应将会显示：
+
+```
+...
+INF module started successfully. moduleName=EBPFProbeOPENSSL
+??? UUID:233479_233479_curl_5_1_39.156.66.10:443, Name:HTTPRequest, Type:1, Length:73
 GET / HTTP/1.1
 Host: baidu.com
 Accept: */*
 User-Agent: curl/7.81.0
-
-
-2024-09-15T11:50:32Z ??? UUID:233479_233479_curl_5_0_39.156.66.10:443, Name:HTTPResponse, Type:3, Length:357
-HTTP/1.1 302 Moved Temporarily
-Content-Length: 161
-Connection: keep-alive
-Content-Type: text/html
-Date: Sun, 15 Sep 2024 11:50:30 GMT
-Location: http://www.baidu.com/
-Server: bfe/1.0.8.18
-
-<html>
-<head><title>302 Found</title></head>
-<body bgcolor="white">
-<center><h1>302 Found</h1></center>
-<hr><center>bfe/1.0.8.18</center>
-</body>
-</html>
+...
 ```
+
+> 📄 完整的输出示例请参阅 [docs/example-outputs.md](docs/example-outputs.md)。
 
 ## 模块介绍
 eCapture 有8个模块，分别支持openssl/gnutls/nspr/boringssl/gotls等类库的TLS/SSL加密类库的明文捕获、Bash、Mysql、PostGres软件审计。
@@ -159,46 +128,9 @@ openssl模块支持3种捕获模式
 你可以通过`-m pcap`或`-m pcapng`参数来指定，需要配合`--pcapfile`、`-i`参数使用。其中`--pcapfile`参数的默认值为`ecapture_openssl.pcapng`。
 ```shell
 sudo ecapture tls -m pcap -i eth0 --pcapfile=ecapture.pcapng tcp port 443
-2024-09-15T06:54:12Z INF AppName="eCapture(旁观者)"
-2024-09-15T06:54:12Z INF HomePage=https://ecapture.cc
-2024-09-15T06:54:12Z INF Repository=https://github.com/gojue/ecapture
-2024-09-15T06:54:12Z INF Author="CFC4N <cfc4ncs@gmail.com>"
-2024-09-15T06:54:12Z INF Description="Capturing SSL/TLS plaintext without a CA certificate using eBPF. Supported on Linux/Android kernels for amd64/arm64."
-2024-09-15T06:54:12Z INF Version=linux_arm64:0.8.6-20240915-d87ae48:5.15.0-113-generic
-2024-09-15T06:54:12Z INF Listen=localhost:28256
-2024-09-15T06:54:12Z INF eCapture running logs logger=
-2024-09-15T06:54:12Z INF the file handler that receives the captured event eventCollector=
-2024-09-15T06:54:12Z WRN ========== module starting. ==========
-2024-09-15T06:54:12Z INF Kernel Info=5.15.152 Pid=230440
-2024-09-15T06:54:12Z INF BTF bytecode mode: CORE. btfMode=0
-2024-09-15T06:54:12Z INF listen=localhost:28256
-2024-09-15T06:54:12Z INF module initialization. isReload=false moduleName=EBPFProbeOPENSSL
-2024-09-15T06:54:12Z INF Module.Run()
-2024-09-15T06:54:12Z INF https server starting...You can update the configuration file via the HTTP interface.
-2024-09-15T06:54:12Z WRN OpenSSL/BoringSSL version not found from shared library file, used default version OpenSSL Version=linux_default_3_0
-2024-09-15T06:54:12Z INF HOOK type:Openssl elf ElfType=2 IFindex=2 IFname=ens160 PcapFilter= binrayPath=/usr/lib/aarch64-linux-gnu/libssl.so.3
-2024-09-15T06:54:12Z INF Hook masterKey function Functions=["SSL_get_wbio","SSL_in_before","SSL_do_handshake"]
-2024-09-15T06:54:12Z INF target all process.
-2024-09-15T06:54:12Z INF target all users.
-2024-09-15T06:54:12Z INF setupManagers eBPFProgramType=PcapNG
-2024-09-15T06:54:12Z INF BPF bytecode file is matched. bpfFileName=user/bytecode/openssl_3_0_0_kern_core.o
-2024-09-15T06:54:12Z INF packets saved into pcapng file. pcapng path=/home/ecapture/ecapture.pcapng
-2024-09-15T06:54:12Z INF perfEventReader created mapSize(MB)=4
-2024-09-15T06:54:12Z INF perfEventReader created mapSize(MB)=4
-2024-09-15T06:54:12Z INF module started successfully. isReload=false moduleName=EBPFProbeOPENSSL
-2024-09-15T06:54:14Z INF packets saved into pcapng file. count=4
-2024-09-15T06:54:16Z INF non-TLSv1.3 cipher suite found CLientRandom=f08e8d784962d1693c042f9fe266345507ccfaba58b823904a357f30dbfa1e71 CipherId=0
-2024-09-15T06:54:16Z INF non-TLSv1.3 cipher suite found CLientRandom=f08e8d784962d1693c042f9fe266345507ccfaba58b823904a357f30dbfa1e71 CipherId=0
-2024-09-15T06:54:16Z INF packets saved into pcapng file. count=183
-2024-09-15T06:54:16Z INF CLIENT_RANDOM save success CLientRandom=f08e8d784962d1693c042f9fe266345507ccfaba58b823904a357f30dbfa1e71 TlsVersion=TLS1_2_VERSION bytes=176
-2024-09-15T06:54:18Z INF packets saved into pcapng file. count=65
-^C2024-09-15T06:54:18Z INF module close.
-2024-09-15T06:54:18Z INF packets saved into pcapng file. count=3
-2024-09-15T06:54:18Z INF packets saved into pcapng file. count=255
-2024-09-15T06:54:18Z INF Module closed,message recived from Context
-2024-09-15T06:54:18Z INF iModule module close
-2024-09-15T06:54:18Z INF bye bye.
 ```
+
+> 📄 完整的 pcapng 模式输出请参阅 [docs/example-outputs.md](docs/example-outputs.md#tls-module--pcapng-mode)。
 
 将捕获的明文数据包保存为pcapng文件，再使用`Wireshark`打开查看，之后就可以看到明文的网络包了。
 
@@ -292,6 +224,14 @@ https://github.com/user-attachments/assets/c8b7a84d-58eb-4fdb-9843-f775c97bdbfb
 ## 星标成长曲线
 
 [![星标成长曲线](https://starchart.cc/gojue/ecapture.svg)](https://starchart.cc/gojue/ecapture)
+
+# 安全与运维
+
+- [**安全策略**](SECURITY.md) — 漏洞报告流程与支持的版本
+- [**最小权限指南**](docs/minimum-privileges.md) — 所需的 Linux capabilities 与最小权限配置
+- [**防御与检测**](docs/defense-detection.md) — 如何检测和防御未经授权的使用
+- [**性能基准测试**](docs/performance-benchmarks.md) — 性能开销测量方法与预期特征
+- [**发布验证**](docs/release-verification.md) — 如何验证发布产物的完整性
 
 # 贡献
 
