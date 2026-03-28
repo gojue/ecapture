@@ -118,12 +118,17 @@ func (p *BaseProbe) Initialize(ctx context.Context, cfg domain.Configuration) er
 		}
 	}
 	p.Logger().Info().Str("writer", textWriter.Name()).Str("LoggerAddr", cfg.GetLoggerAddr()).Msg("Text output writer created")
-	textHandler := handlers.NewTextHandler(textWriter, p.config.GetHex())
-	if err := dispatcher.Register(textHandler); err != nil {
+	// Use ProcessorHandler to route TLS data events through event_processor
+	// for protocol detection (HTTP, HTTP/2, etc.), while passing non-TLS events
+	// directly through String() output. This follows v1.x architecture where
+	// internal/ code only does raw TLS decryption and event_processor handles
+	// protocol type guessing.
+	processorHandler := handlers.NewProcessorHandler(textWriter, p.config.GetHex(), p.config.GetTruncateSize())
+	if err := dispatcher.Register(processorHandler); err != nil {
 		_ = textWriter.Close()
-		return fmt.Errorf("failed to register text handler: %w", err)
+		return fmt.Errorf("failed to register processor handler: %w", err)
 	}
-	p.closers = append(p.closers, textHandler)
+	p.closers = append(p.closers, processorHandler)
 
 	// Create dispatcher
 	p.dispatcher = dispatcher
