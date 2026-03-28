@@ -23,6 +23,7 @@ import (
 
 	"github.com/gojue/ecapture/internal/domain"
 	"github.com/gojue/ecapture/internal/errors"
+	"github.com/gojue/ecapture/internal/httpformat"
 )
 
 const (
@@ -294,13 +295,14 @@ func (e *GoTLSDataEvent) String() string {
 	if e.IsRead() {
 		direction = "READ"
 	}
+	dataStr := httpformat.FormatPayload(e.GetData())
 	tuple := e.GetTuple()
 	if tuple == "" {
 		return fmt.Sprintf("PID:%d, TID:%d, Comm:%s, FD:%d, Type:%s, Len:%d\nData:\n%s",
-			e.Pid, e.Tid, commToString(e.Comm[:]), e.Fd, direction, e.DataLen, string(e.GetData()))
+			e.Pid, e.Tid, commToString(e.Comm[:]), e.Fd, direction, e.DataLen, dataStr)
 	}
 	return fmt.Sprintf("PID:%d, TID:%d, Comm:%s, FD:%d, Tuple:%s, Type:%s, Len:%d\nData:\n%s",
-		e.Pid, e.Tid, commToString(e.Comm[:]), e.Fd, tuple, direction, e.DataLen, string(e.GetData()))
+		e.Pid, e.Tid, commToString(e.Comm[:]), e.Fd, tuple, direction, e.DataLen, dataStr)
 }
 
 // StringHex returns a hexadecimal representation of the event.
