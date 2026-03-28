@@ -22,7 +22,6 @@ import (
 
 	"github.com/gojue/ecapture/internal/domain"
 	"github.com/gojue/ecapture/internal/errors"
-	"github.com/gojue/ecapture/internal/httpformat"
 )
 
 const (
@@ -91,7 +90,7 @@ func (e *Event) String() string {
 	}
 
 	ts := time.Unix(0, int64(e.Timestamp))
-	dataStr := httpformat.FormatPayload(e.GetData())
+	dataStr := string(e.GetData())
 
 	return fmt.Sprintf("[%s] PID:%d TID:%d Comm:%s FD:%d %s (%d bytes):\n%s",
 		ts.Format("2006-01-02 15:04:05.000"),
