@@ -1,3 +1,21 @@
+# v2.1.0 (2026-03-28)
+
+## What's Changed
+
+### ✨ New Features
+* feat: gotls Get tuple information by @zenyanle in https://github.com/gojue/ecapture/pull/960
+
+### 🐛 Bug Fixes & Improvements
+* Fix ecaptureQ remote mode: wire event writer to probe dispatcher by @Copilot in https://github.com/gojue/ecapture/pull/964
+
+### 📚 Documentation
+* feat: enhance documentation with security and operations guidelines by @cfc4n in https://github.com/gojue/ecapture/pull/966
+
+## New Contributors
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v2.0.1...v2.1.0
+<hr>
+
 # v2.0.1 (2026-03-22)
 
 ## What's Changed
