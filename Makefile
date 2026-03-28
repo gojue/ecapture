@@ -295,6 +295,11 @@ e2e-mysql-advanced:
 e2e-edge-cases:
 	bash ./test/e2e/edge_cases_test.sh
 
+# run ecaptureQ WebSocket event streaming e2e test
+.PHONY: e2e-ecaptureq
+e2e-ecaptureq:
+	bash ./test/e2e/ecaptureq_e2e_test.sh
+
 # run all basic e2e tests
 .PHONY: e2e-basic
 e2e-basic: e2e-bash e2e-tls e2e-gnutls e2e-gotls
@@ -302,7 +307,7 @@ e2e-basic: e2e-bash e2e-tls e2e-gnutls e2e-gotls
 
 # run all advanced e2e tests
 .PHONY: e2e-advanced
-e2e-advanced: e2e-tls-text-advanced e2e-tls-pcap-advanced e2e-tls-keylog-advanced e2e-gotls-advanced e2e-bash-advanced e2e-edge-cases
+e2e-advanced: e2e-tls-text-advanced e2e-tls-pcap-advanced e2e-tls-keylog-advanced e2e-gotls-advanced e2e-bash-advanced e2e-edge-cases e2e-ecaptureq
 	@echo "All advanced e2e tests completed"
 
 # run all comprehensive e2e tests (basic + advanced)

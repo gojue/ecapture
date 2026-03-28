@@ -14,6 +14,8 @@
 
 package domain
 
+import "io"
+
 // Configuration defines the interface for probe configuration.
 type Configuration interface {
 	// Validate checks if the configuration is valid.
@@ -57,4 +59,11 @@ type Configuration interface {
 	GetEventCollectorAddr() string
 
 	SetEventCollectorAddr(addr string)
+
+	// GetEventWriter returns the pre-configured event writer (e.g., for ecaptureQ).
+	// Returns nil if no event writer is configured.
+	GetEventWriter() io.Writer
+
+	// SetEventWriter sets a pre-configured event writer.
+	SetEventWriter(w io.Writer)
 }
