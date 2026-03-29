@@ -149,6 +149,7 @@ test_ecaptureq_event_capture() {
         # Force kill if still running
         kill -9 "$client_pid" 2>/dev/null || true
     fi
+    wait "$client_pid" 2>/dev/null || true
 
     log_info "Stopping eCapture..."
     if kill -0 "$ecapture_pid" 2>/dev/null; then
@@ -156,6 +157,7 @@ test_ecaptureq_event_capture() {
         sleep 2
         kill -9 "$ecapture_pid" 2>/dev/null || true
     fi
+    wait "$ecapture_pid" 2>/dev/null || true
 
     # Step 5: Verify results
     log_info "Verifying ecaptureQ event capture results..."
@@ -200,6 +202,7 @@ test_ecaptureq_event_capture() {
     # Determine test result
     if [ $client_connected -eq 1 ] && [ $events_received -eq 1 ] && [ $content_verified -eq 1 ]; then
         log_success "✓ ecaptureQ event capture test PASSED (full verification)"
+        print_captured_content "$CLIENT_LOG"
         return 0
     elif [ $client_connected -eq 1 ] && [ $events_received -eq 1 ]; then
         log_warn "⚠ ecaptureQ event capture test PASSED (events received, content not verified)"
@@ -242,9 +245,9 @@ test_ecaptureq_connectivity() {
         return 1
     fi
 
-    # Try to connect client
+    # Try to connect client (suppress "Killed" message from timeout)
     log_info "Connecting ecaptureq_client..."
-    timeout 10 "$ECAPTUREQ_CLIENT_BINARY" -server "$WS_URL" > "$OUTPUT_DIR/conn_client.log" 2>&1 &
+    ( timeout 10 "$ECAPTUREQ_CLIENT_BINARY" -server "$WS_URL" > "$OUTPUT_DIR/conn_client.log" 2>&1 || true ) &
     client_pid=$!
 
     sleep 3
@@ -262,12 +265,14 @@ test_ecaptureq_connectivity() {
         log_success "Client log confirms successful connection"
     fi
 
-    # Cleanup
+    # Cleanup (suppress background job "Killed" message)
     kill -INT "$client_pid" 2>/dev/null || true
     kill -9 "$client_pid" 2>/dev/null || true
+    wait "$client_pid" 2>/dev/null || true
     kill -INT "$ecapture_pid" 2>/dev/null || true
     sleep 1
     kill -9 "$ecapture_pid" 2>/dev/null || true
+    wait "$ecapture_pid" 2>/dev/null || true
 
     if [ $connected -eq 1 ]; then
         log_success "✓ ecaptureQ connectivity test PASSED"
@@ -369,8 +374,8 @@ main() {
         log_success "✓ All ecaptureQ E2E tests PASSED"
         return 0
     else
-        log_warn "⚠ $failed_count test(s) failed"
-        return 0
+        log_error "✗ $failed_count test(s) failed"
+        return 1
     fi
 }
 

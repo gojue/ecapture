@@ -534,8 +534,8 @@ main() {
         log_success "✓ All edge case tests PASSED"
         return 0
     else
-        log_warn "⚠ Some tests failed"
-        return 0
+        log_error "✗ Some tests failed ($fail_count failures)"
+        return 1
     fi
 }
 

@@ -133,6 +133,7 @@ test_text_mode() {
         return 1
     elif [ $test_passed -eq 1 ] && [ $content_verified -eq 1 ]; then
         log_success "✓ Text mode test PASSED"
+        print_captured_content "$mode_log"
         return 0
     elif [ $test_passed -eq 1 ] && [ $content_verified -eq 0 ]; then
         log_error "✗ Text mode test FAILED - content verification failed"
@@ -390,8 +391,8 @@ main() {
         log_success "✓ All TLS E2E tests PASSED"
         return 0
     else
-        log_warn "⚠ $failed_count test(s) failed"
-        return 0
+        log_error "✗ $failed_count test(s) failed"
+        return 1
     fi
 }
 

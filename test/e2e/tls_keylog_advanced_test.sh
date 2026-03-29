@@ -165,9 +165,9 @@ test_keylog_tls13() {
     fi
     
     log_info "Making TLS 1.3 HTTPS request"
-    # Modern sites like cloudflare typically support TLS 1.3
-    curl -v --tlsv1.3 "https://www.cloudflare.com" >/dev/null 2>&1 || \
-    curl -v "https://www.cloudflare.com" >/dev/null 2>&1 || true
+    # api.github.com supports TLS 1.3
+    curl -v --tlsv1.3 "https://api.github.com/zen" >/dev/null 2>&1 || \
+    curl -v "https://api.github.com/zen" >/dev/null 2>&1 || true
     sleep 2
     
     kill -INT "$pid" 2>/dev/null || true
@@ -203,12 +203,21 @@ test_keylog_concurrent() {
     fi
     
     log_info "Making multiple concurrent HTTPS requests"
+    local curl_pids=()
     curl "https://api.github.com" >/dev/null 2>&1 &
-    curl "https://www.google.com" >/dev/null 2>&1 &
-    curl "https://www.cloudflare.com" >/dev/null 2>&1 &
-    
-    sleep 3
-    
+    curl_pids+=($!)
+    curl "https://api.github.com/zen" >/dev/null 2>&1 &
+    curl_pids+=($!)
+    curl "https://api.github.com/octocat" >/dev/null 2>&1 &
+    curl_pids+=($!)
+
+    # Wait for all curl processes to complete
+    for cpid in "${curl_pids[@]}"; do
+        wait "$cpid" 2>/dev/null || true
+    done
+
+    sleep 2
+
     kill -INT "$pid" 2>/dev/null || true
     sleep 2
     
@@ -288,7 +297,7 @@ test_keylog_format_validation() {
     
     log_info "Making HTTPS requests to generate keys"
     curl "https://api.github.com" >/dev/null 2>&1 || true
-    curl "https://www.google.com" >/dev/null 2>&1 || true
+    curl "https://api.github.com/zen" >/dev/null 2>&1 || true
     sleep 2
     
     kill -INT "$pid" 2>/dev/null || true
@@ -526,8 +535,8 @@ main() {
         log_success "✓ All TLS keylog mode advanced tests PASSED"
         return 0
     else
-        log_warn "⚠ Some tests failed"
-        return 0
+        log_error "✗ Some tests failed ($fail_count failures)"
+        return 1
     fi
 }
 
