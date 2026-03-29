@@ -90,11 +90,11 @@ struct ipv6hdr {
 #include "common.h"
 
 
-static __inline bool filter_rejects(u32 pid, u32 uid) {
+static __always_inline bool filter_rejects(u32 pid, u32 uid) {
     if (less52 == 1) {
         return false;
     }
-    // if target_ppid is 0 then we target all pids
+    // if target_pid is 0 then we target all pids
     if (target_pid != 0 && target_pid != pid) {
         return true;
     }
@@ -104,9 +104,9 @@ static __inline bool filter_rejects(u32 pid, u32 uid) {
     return false;
 }
 
-// 是否通过过滤要求
+// Check whether the current process passes the PID/UID filter.
 static __always_inline bool passes_filter(struct pt_regs *ctx) {
-    // 先判断内核版本是不是小于等于 5.2
+    // On kernels <= 5.2, .rodata is not supported; skip filtering.
     if (less52 == 1) {
         return true;
     }

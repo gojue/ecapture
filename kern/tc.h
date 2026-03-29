@@ -90,9 +90,9 @@ static __always_inline void get_proc_cmdline(struct task_struct *task, char *cmd
 }
 
 static __always_inline struct skb_data_event_t *make_skb_data_event() {
-    u32 kZero = 0;
+    u32 zero = 0;
     struct skb_data_event_t *event =
-        bpf_map_lookup_elem(&skb_data_buffer_heap, &kZero);
+        bpf_map_lookup_elem(&skb_data_buffer_heap, &zero);
     if (event == NULL) {
         return NULL;
     }
@@ -282,8 +282,10 @@ int ingress_cls_func(struct __sk_buff *skb) {
     return capture_packets(skb, true);
 };
 
-SEC("kprobe/tcp_sendmsg")
-int tcp_sendmsg(struct pt_regs *ctx){
+// Shared helper for tcp_sendmsg / udp_sendmsg kprobes.
+// Extracts the 5-tuple from the socket and stores the PID/UID context in
+// network_map so that TC classifier can correlate packets to processes.
+static __always_inline int trace_sendmsg(struct pt_regs *ctx, u32 protocol) {
     u32 pid = bpf_get_current_pid_tgid() >> 32;
     u64 current_uid_gid = bpf_get_current_uid_gid();
     u32 uid = current_uid_gid;
@@ -303,7 +305,7 @@ int tcp_sendmsg(struct pt_regs *ctx){
         bpf_probe_read(&src_ip6, sizeof(src_ip6), &sk->__sk_common.skc_v6_rcv_saddr);
         bpf_probe_read(&dst_ip6, sizeof(dst_ip6), &sk->__sk_common.skc_v6_daddr);
 
-        conn_id.protocol = IPPROTO_TCP;
+        conn_id.protocol = protocol;
         conn_id.src_port = lport;
         conn_id.dst_port = bpf_ntohs(dport);
         __builtin_memcpy(conn_id.src_ip6, src_ip6, sizeof(src_ip6));
@@ -315,7 +317,7 @@ int tcp_sendmsg(struct pt_regs *ctx){
         bpf_probe_read(&src_ip4, sizeof(src_ip4), &sk->__sk_common.skc_rcv_saddr);
         bpf_probe_read(&dst_ip4, sizeof(dst_ip4), &sk->__sk_common.skc_daddr);
 
-        conn_id.protocol = IPPROTO_TCP;
+        conn_id.protocol = protocol;
         conn_id.src_port = lport;
         conn_id.src_ip4 = src_ip4;
         conn_id.dst_port = bpf_ntohs(dport);
@@ -327,57 +329,17 @@ int tcp_sendmsg(struct pt_regs *ctx){
     net_ctx.uid = uid;
     bpf_get_current_comm(&net_ctx.comm, sizeof(net_ctx.comm));
 
-    debug_bpf_printk("tcp_sendmsg pid : %d, comm :%s\n", net_ctx.pid, net_ctx.comm);
+    debug_bpf_printk("trace_sendmsg pid: %d, comm: %s\n", net_ctx.pid, net_ctx.comm);
     bpf_map_update_elem(&network_map, &conn_id, &net_ctx, BPF_ANY);
     return 0;
+}
+
+SEC("kprobe/tcp_sendmsg")
+int tcp_sendmsg(struct pt_regs *ctx) {
+    return trace_sendmsg(ctx, IPPROTO_TCP);
 };
 
 SEC("kprobe/udp_sendmsg")
-int udp_sendmsg(struct pt_regs *ctx){
-    u32 pid = bpf_get_current_pid_tgid() >> 32;
-    u64 current_uid_gid = bpf_get_current_uid_gid();
-    u32 uid = current_uid_gid;
-    struct sock *sk = (struct sock *)PT_REGS_PARM1(ctx);
-    if (sk == NULL) {
-        return 0;
-    }
-
-    u16 family, lport, dport;
-    struct net_id_t conn_id = {0};
-    bpf_probe_read(&family, sizeof(family), &sk->__sk_common.skc_family);
-
-    if (family == AF_INET6) {
-        u32 src_ip6[4], dst_ip6[4];
-        bpf_probe_read(&lport, sizeof(lport), &sk->__sk_common.skc_num);
-        bpf_probe_read(&dport, sizeof(dport), &sk->__sk_common.skc_dport);
-        bpf_probe_read(&src_ip6, sizeof(src_ip6), &sk->__sk_common.skc_v6_rcv_saddr);
-        bpf_probe_read(&dst_ip6, sizeof(dst_ip6), &sk->__sk_common.skc_v6_daddr);
-
-        conn_id.protocol = IPPROTO_UDP;
-        conn_id.src_port = lport;
-        conn_id.dst_port = bpf_ntohs(dport);
-        __builtin_memcpy(conn_id.src_ip6, src_ip6, sizeof(src_ip6));
-        __builtin_memcpy(conn_id.dst_ip6, dst_ip6, sizeof(dst_ip6));
-    } else if (family == AF_INET) {
-        u32 src_ip4, dst_ip4;
-        bpf_probe_read(&lport, sizeof(lport), &sk->__sk_common.skc_num);
-        bpf_probe_read(&dport, sizeof(dport), &sk->__sk_common.skc_dport);
-        bpf_probe_read(&src_ip4, sizeof(src_ip4), &sk->__sk_common.skc_rcv_saddr);
-        bpf_probe_read(&dst_ip4, sizeof(dst_ip4), &sk->__sk_common.skc_daddr);
-
-        conn_id.protocol = IPPROTO_UDP;
-        conn_id.src_port = lport;
-        conn_id.src_ip4 = src_ip4;
-        conn_id.dst_port = bpf_ntohs(dport);
-        conn_id.dst_ip4 = dst_ip4;
-    }
-
-    struct net_ctx_t net_ctx;
-    net_ctx.pid = pid;
-    net_ctx.uid = uid;
-    bpf_get_current_comm(&net_ctx.comm, sizeof(net_ctx.comm));
-
-    debug_bpf_printk("udp_sendmsg pid: %d, comm: %s\n", net_ctx.pid, net_ctx.comm);
-    bpf_map_update_elem(&network_map, &conn_id, &net_ctx, BPF_ANY);
-    return 0;
+int udp_sendmsg(struct pt_regs *ctx) {
+    return trace_sendmsg(ctx, IPPROTO_UDP);
 };

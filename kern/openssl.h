@@ -22,8 +22,8 @@
 
 enum ssl_data_event_type { kSSLRead, kSSLWrite };
 
-const u32 invalidFD = 0;
-const u32 defaultBioType = 0;
+#define INVALID_FD 0
+#define DEFAULT_BIO_TYPE 0
 
 struct ssl_data_event_t {
     enum ssl_data_event_type type;
@@ -138,21 +138,20 @@ struct {
  * General helper functions
  ***********************************************************/
 
-static __inline struct ssl_data_event_t* create_ssl_data_event(
+static __always_inline struct ssl_data_event_t* create_ssl_data_event(
     u64 current_pid_tgid) {
-    u32 kZero = 0;
+    u32 zero = 0;
     struct ssl_data_event_t* event =
-        bpf_map_lookup_elem(&data_buffer_heap, &kZero);
+        bpf_map_lookup_elem(&data_buffer_heap, &zero);
     if (event == NULL) {
         return NULL;
     }
 
-    const u32 kMask32b = 0xffffffff;
     event->timestamp_ns = bpf_ktime_get_ns();
     event->pid = current_pid_tgid >> 32;
-    event->tid = current_pid_tgid & kMask32b;
-    event->fd = invalidFD;
-    event->bio_type = defaultBioType;
+    event->tid = current_pid_tgid & 0xffffffff;
+    event->fd = INVALID_FD;
+    event->bio_type = DEFAULT_BIO_TYPE;
 
     return event;
 }
@@ -204,7 +203,7 @@ static u32 process_BIO_type(u64 ssl_bio_addr) {
         debug_bpf_printk(
             "(OPENSSL) process_BIO_type: bpf_probe_read ssl_bio_method_ptr failed, ret: %d\n",
             ret);
-        return defaultBioType;
+        return DEFAULT_BIO_TYPE;
     }
 
     // get ssl->bio->method->type
@@ -215,7 +214,7 @@ static u32 process_BIO_type(u64 ssl_bio_addr) {
         debug_bpf_printk(
             "(OPENSSL) process_BIO_type: bpf_probe_read ssl_bio_method_type_ptr failed, ret: %d\n",
             ret);
-        return defaultBioType;
+        return DEFAULT_BIO_TYPE;
     }
 
     debug_bpf_printk("openssl process_BIO_type bio_type: %d\n", bio_type);
@@ -265,7 +264,7 @@ static int process_SSL_bio(void *ssl, int bio_offset, u32 *fd, u32 *bio_type) {
     return 0;
 }
 
-static __inline int probe_entry_SSL(struct pt_regs* ctx, void *map, int bio_offset) {
+static __always_inline int probe_entry_SSL(struct pt_regs* ctx, void *map, int bio_offset) {
     if (!passes_filter(ctx)) {
         return 0;
     }
@@ -298,12 +297,11 @@ static __inline int probe_entry_SSL(struct pt_regs* ctx, void *map, int bio_offs
     active_ssl_buf_t.buf = buf;
     active_ssl_buf_t.bio_type = bio_type;
     u64 current_pid_tgid = bpf_get_current_pid_tgid();
-    u32 pid = current_pid_tgid >> 32;
     bpf_map_update_elem(map, &current_pid_tgid, &active_ssl_buf_t, BPF_ANY);
     return 0;
 }
 
-static __inline int probe_ret_SSL(struct pt_regs* ctx, void *map, enum ssl_data_event_type type) {
+static __always_inline int probe_ret_SSL(struct pt_regs* ctx, void *map, enum ssl_data_event_type type) {
     if (!passes_filter(ctx)) {
         return 0;
     }
@@ -351,13 +349,13 @@ int probe_ret_SSL_read(struct pt_regs* ctx) {
 }
 
 
-static __inline struct tcp_fd_info *find_fd_info(struct pt_regs *regs) {
+static __always_inline struct tcp_fd_info *find_fd_info(struct pt_regs *regs) {
     u64 pid_tgid = bpf_get_current_pid_tgid();
 
     return bpf_map_lookup_elem(&tcp_fd_infos, &pid_tgid);
 }
 
-static __inline struct tcp_fd_info *lookup_and_delete_fd_info(struct pt_regs *regs) {
+static __always_inline struct tcp_fd_info *lookup_and_delete_fd_info(struct pt_regs *regs) {
     struct tcp_fd_info *fd_info;
     u64 pid_tgid;
 
@@ -392,11 +390,9 @@ int probe_inet_stream_connect(struct pt_regs* ctx) {
     return 0;
 }
 
-static __inline int kretprobe_connect(struct pt_regs *ctx, int fd, struct sock *sk, const bool active) {
+static __always_inline int kretprobe_connect(struct pt_regs *ctx, int fd, struct sock *sk, const bool active) {
     u64 current_pid_tgid = bpf_get_current_pid_tgid();
     u32 pid = current_pid_tgid >> 32;
-    u64 current_uid_gid = bpf_get_current_uid_gid();
-    u32 uid = current_uid_gid;
     u16 address_family = 0;
     unsigned __int128 saddr;
     unsigned __int128 daddr;
@@ -530,10 +526,6 @@ int probe_tcp_v4_destroy_sock(struct pt_regs* ctx) {
 // int SSL_set_wfd(SSL *s, int fd)
 SEC("uprobe/SSL_set_fd")
 int probe_SSL_set_fd(struct pt_regs* ctx) {
-    u64 current_pid_tgid = bpf_get_current_pid_tgid();
-    u32 pid = current_pid_tgid >> 32;
-    u64 current_uid_gid = bpf_get_current_uid_gid();
-    u32 uid = current_uid_gid;
 
     u64 ssl_addr = (u64)PT_REGS_PARM1(ctx);
     u64 fd = (u64)PT_REGS_PARM2(ctx);

@@ -146,7 +146,8 @@ struct {
 } bpf_context_gen SEC(".maps");
 
 /////////////////////////COMMON FUNCTIONS ////////////////////////////////
-// 这个函数用来规避512字节栈空间限制，通过在堆上创建内存的方式，避开限制
+// Allocate a gnutls_mastersecret_st on the BPF "heap" to work around
+// the 512-byte stack limit.
 static __always_inline struct gnutls_mastersecret_st *make_event() {
     u32 key_gen = 0;
     struct gnutls_mastersecret_st *bpf_ctx = bpf_map_lookup_elem(&bpf_context_gen, &key_gen);
@@ -161,8 +162,6 @@ SEC("uprobe/gnutls_handshake")
 int uprobe_gnutls_master_key(struct pt_regs *ctx) {
     u64 current_pid_tgid = bpf_get_current_pid_tgid();
     u32 pid = current_pid_tgid >> 32;
-    u64 current_uid_gid = bpf_get_current_uid_gid();
-    u32 uid = current_uid_gid;
 
     if (!passes_filter(ctx)) {
         return 0;
@@ -177,8 +176,6 @@ SEC("uretprobe/gnutls_handshake")
 int uretprobe_gnutls_master_key(struct pt_regs *ctx) {
     u64 current_pid_tgid = bpf_get_current_pid_tgid();
     u32 pid = current_pid_tgid >> 32;
-    u64 current_uid_gid = bpf_get_current_uid_gid();
-    u32 uid = current_uid_gid;
 
     if (!passes_filter(ctx)) {
         return 0;

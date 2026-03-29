@@ -13,81 +13,22 @@
 // limitations under the License.
 
 #include "ecapture.h"
+#include "include/openssl_masterkey_common.h"
 
 // https://wiki.openssl.org/index.php/TLS1.3
-// 仅openssl 1.1.1 后才支持 TLS 1.3 协议
-
-// openssl 1.1.1.X 版本相关的常量
-#define SSL3_RANDOM_SIZE 32
-#define MASTER_SECRET_MAX_LEN 48
-#define EVP_MAX_MD_SIZE 64
-
-struct mastersecret_t {
-    // TLS 1.2 or older
-    s32 version;
-    u8 client_random[SSL3_RANDOM_SIZE];
-    u8 master_key[MASTER_SECRET_MAX_LEN];
-
-    // TLS 1.3
-    u32 cipher_id;
-    u8 early_secret[EVP_MAX_MD_SIZE];
-    u8 handshake_secret[EVP_MAX_MD_SIZE];
-    u8 handshake_traffic_hash[EVP_MAX_MD_SIZE];
-    u8 client_app_traffic_secret[EVP_MAX_MD_SIZE];
-    u8 server_app_traffic_secret[EVP_MAX_MD_SIZE];
-    u8 exporter_master_secret[EVP_MAX_MD_SIZE];
-};
-
-#define TLS1_1_VERSION 0x0302
-#define TLS1_2_VERSION 0x0303
-#define TLS1_3_VERSION 0x0304
+// Only OpenSSL >= 1.1.1 supports TLS 1.3
 
 #define SSL_TYPE_SSL_CONNECTION 0
 #define SSL_TYPE_QUIC_CONNECTION 1
 #define SSL_TYPE_QUIC_XSO 2
 
-/////////////////////////BPF MAPS ////////////////////////////////
-
-// bpf map
-struct {
-    __uint(type, BPF_MAP_TYPE_PERF_EVENT_ARRAY);
-    __uint(key_size, sizeof(u32));
-    __uint(value_size, sizeof(u32));
-    __uint(max_entries, 1024);
-} mastersecret_events SEC(".maps");
-
-struct {
-    __uint(type, BPF_MAP_TYPE_LRU_HASH);
-    __type(key, u64);
-    __type(value, struct mastersecret_t);
-    __uint(max_entries, 2048);
-} bpf_context SEC(".maps");
-
-struct {
-    __uint(type, BPF_MAP_TYPE_ARRAY);
-    __type(key, u32);
-    __type(value, struct mastersecret_t);
-    __uint(max_entries, 1);
-} bpf_context_gen SEC(".maps");
-
-/////////////////////////COMMON FUNCTIONS ////////////////////////////////
-// 这个函数用来规避512字节栈空间限制，通过在堆上创建内存的方式，避开限制
-static __always_inline struct mastersecret_t *make_event() {
-    u32 key_gen = 0;
-    struct mastersecret_t *bpf_ctx = bpf_map_lookup_elem(&bpf_context_gen, &key_gen);
-    if (!bpf_ctx) return 0;
-    u64 id = bpf_get_current_pid_tgid();
-    bpf_map_update_elem(&bpf_context, &id, bpf_ctx, BPF_ANY);
-    return bpf_map_lookup_elem(&bpf_context, &id);
-}
-
-/////////////////////////BPF FUNCTIONS ////////////////////////////////
+/***********************************************************
+ * BPF probe function (OpenSSL 3.2+)
+ ***********************************************************/
 SEC("uprobe/SSL_write_key")
 int probe_ssl_master_key(struct pt_regs *ctx) {
     u64 current_pid_tgid = bpf_get_current_pid_tgid();
     u32 pid = current_pid_tgid >> 32;
-    u64 current_uid_gid = bpf_get_current_uid_gid();
-    u32 uid = current_uid_gid;
 
     if (!passes_filter(ctx)) {
         return 0;
@@ -102,10 +43,9 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
         debug_bpf_printk("mastersecret is null\n");
         return 0;
     }
-    // TODO 检查 ssl->type, 参考 ssl/ssl_local.h的 SSL_CONNECTION_FROM_SSL_int 宏
+    // TODO: check ssl->type, see ssl/ssl_local.h SSL_CONNECTION_FROM_SSL_int macro
     int type = 0;
     if (type == SSL_TYPE_QUIC_CONNECTION) {
-        // 重新获取 ssl->tls 的地址作为 SSL_CONNECTION的地址
         // Reget the address of the ssl->tls as the address of the SSL_CONNECTION
         debug_bpf_printk("unsupported type: SSL_CONNECTION, coming soon.\n");
         return 0;
@@ -120,7 +60,7 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
         debug_bpf_printk("bpf_probe_read tls_version failed, ret :%d\n", ret);
         return 0;
     }
-    mastersecret->version = version;  // int version;
+    mastersecret->version = version;
     debug_bpf_printk("TLS version :%d\n", mastersecret->version);
 
     u64 *ssl_client_random_ptr = (u64 *)(ssl_st_ptr + SSL_CONNECTION_ST_S3_CLIENT_RANDOM);

@@ -1,5 +1,5 @@
-#ifndef ECAPTURE_BORINGSSL_CONST_H
-#define ECAPTURE_BORINGSSL_CONST_H
+// SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause
+#pragma once
 
 /////////////////////////////////////////// DON'T REMOVE THIS CODE BLOCK. //////////////////////////////////////////
 // SSL_MAX_MD_SIZE is size of the largest hash function used in TLS, SHA-384.
@@ -25,11 +25,12 @@
   uint8_t server_traffic_secret_0_[SSL_MAX_MD_SIZE] = {0};
   uint8_t expected_client_finished_[SSL_MAX_MD_SIZE] = {0};
   */
-// boringssl中的 TLS 1.3 密钥是 private属性，无法直接offset计算。
-// 所以，计算private前面的属性地址，再手动相加。
-// private 前面的属性是max_version ，offset是30
-// private 第一个属性是size_t hash_len_，内存对齐后，offset就是32
-// secret的offset即 32 + sizeof(size_t) ，即 40 。其他的累加 SSL_MAX_MD_SIZE长度即可。
+// In BoringSSL, TLS 1.3 keys are private fields, so direct offsetof
+// calculation is not possible.  Compute the offset by finding the address
+// of the field preceding the private section (max_version at offset 30),
+// then the first private field (size_t hash_len_) sits at offset 32 after
+// alignment. secret_ is at 32 + sizeof(size_t) = 40, and subsequent
+// fields are at SSL_MAX_MD_SIZE increments.
 
 
 //   uint16_t max_version = 0;
@@ -59,5 +60,3 @@
 #define SSL_HANDSHAKE_EXPECTED_CLIENT_FINISHED_ SSL_HANDSHAKE_SECRET_+SSL_MAX_MD_SIZE*6
 
 ///////////////////////////  END   ///////////////////////////
-
-#endif
