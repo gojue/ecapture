@@ -39,6 +39,7 @@ type FileWriterConfig struct {
 	MaxSizeMB    int           // Maximum file size in MB (for rotation)
 	MaxInterval  time.Duration // Maximum time interval (for rotation)
 	BufferSize   int           // Buffer size in bytes (0 = unbuffered)
+	Truncate     bool          // Truncate file on open (instead of append)
 }
 
 // NewFileWriter creates a new file writer.
@@ -64,7 +65,13 @@ func NewFileWriter(config FileWriterConfig) (*FileWriter, error) {
 	}
 
 	// Use regular file
-	file, err := os.OpenFile(config.Path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	flags := os.O_CREATE | os.O_WRONLY
+	if config.Truncate {
+		flags |= os.O_TRUNC
+	} else {
+		flags |= os.O_APPEND
+	}
+	file, err := os.OpenFile(config.Path, flags, 0644)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open file %s: %w", config.Path, err)
 	}

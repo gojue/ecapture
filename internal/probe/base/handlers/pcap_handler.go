@@ -163,12 +163,7 @@ func (h *PcapHandler) Close() error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	// First flush the pcap writer (NgWriter)
-	if err := h.pcapWriter.Flush(); err != nil {
-		return err
-	}
-
-	// Then close the pcap writer (NgWriter)
+	// Close the pcap writer (waits for Serve goroutine to drain and flush internally)
 	if h.pcapWriter != nil {
 		if err := h.pcapWriter.Close(); err != nil {
 			return err

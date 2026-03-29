@@ -450,6 +450,7 @@ func (p *Probe) setupManagerPcapNG(keySection, keyFunc string) error {
 	pcapWriter, err := writers.NewFileWriter(writers.FileWriterConfig{
 		Path:       pcapFile,
 		BufferSize: 65536, // 64KB buffer for better pcap write performance
+		Truncate:   true,  // Overwrite existing pcapng file on new capture
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create pcap writer: %w", err)
