@@ -1,3 +1,18 @@
+# v2.2.0 (2026-03-29)
+
+## What's Changed
+
+* fix(pcapwriter): serialize DSB keylog writes and fix race condition in Close() by @cfc4n in https://github.com/gojue/ecapture/pull/971
+* refactor(kern): deduplicate headers, unify style, translate comments to English by @cfc4n in https://github.com/gojue/ecapture/pull/970
+* fix(e2e): fix test failures and improve test reliability by @cfc4n in https://github.com/gojue/ecapture/pull/972
+* docs: add AGENTS.md for AI coding agent guidance by @cfc4n in https://github.com/gojue/ecapture/pull/969
+* chore: add Devin DeepWiki configuration by @cfc4n in https://github.com/gojue/ecapture/pull/968
+
+## New Contributors
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v2.1.0...v2.2.0
+<hr>
+
 # v2.1.0 (2026-03-28)
 
 ## What's Changed
