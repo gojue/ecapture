@@ -42,13 +42,14 @@ type PcapWriter struct {
 	ctx       context.Context
 	ctxCancel context.CancelFunc
 
-	tcPackets   []*TcPacket
-	packetChan  chan *TcPacket
-	keylogChan  chan []byte // channel for DSB (keylog) writes, serialized with packet writes
-	serveDone   chan struct{}
-	packetCount int
-	isClosed    bool
-	logger      *lger.Logger
+	tcPackets       []*TcPacket
+	packetChan      chan *TcPacket
+	keylogChan      chan []byte // channel for DSB (keylog) writes, serialized with packet writes
+	serveDone       chan struct{}
+	packetCount     int
+	firstDSBWritten bool // true after the first DSB has been written to the file
+	isClosed        bool
+	logger          *lger.Logger
 }
 
 // NewPcapWriter creates a new PCAPNG writer
@@ -163,11 +164,22 @@ func (pw *PcapWriter) Serve() {
 	ti := time.NewTicker(2 * time.Second)
 	defer ti.Stop()
 
+	// dsbGraceDeadline: don't flush packets to disk until the first DSB arrives
+	// or this deadline passes, so the DSB appears before packets in the pcapng file.
+	// Wireshark processes blocks sequentially and needs the DSB before encrypted packets.
+	// 3 seconds is sufficient since TLS handshakes typically complete in under 1 second.
+	dsbGraceDeadline := time.Now().Add(3 * time.Second)
+
 	var i int
 	for {
 		select {
 		case <-ti.C:
 			if i == 0 || len(pw.tcPackets) == 0 {
+				continue
+			}
+			// Delay flushing packets until the first DSB is written (or grace period expires).
+			// This ensures the DSB precedes packets in the pcapng file so Wireshark can decrypt.
+			if !pw.firstDSBWritten && time.Now().Before(dsbGraceDeadline) {
 				continue
 			}
 			n, e := pw.savePcapng()
@@ -202,23 +214,27 @@ func (pw *PcapWriter) Serve() {
 				pw.keylogChan = nil
 				continue
 			}
-			// Flush any pending packets before writing DSB to maintain correct block order
-			if len(pw.tcPackets) > 0 {
-				n, e := pw.savePcapng()
-				if e != nil {
-					pw.logger.Warn().Err(e).Int("count", i).Msg("save pcapng err before DSB, maybe some packets lost.")
-				} else {
-					pw.packetCount += n
-				}
-				i = 0
-				pw.tcPackets = pw.tcPackets[:0]
-			}
-			// Write DSB (Decryption Secrets Block) - all NgWriter access in this goroutine
+			// Write DSB (Decryption Secrets Block) BEFORE flushing pending packets.
+			// Wireshark processes pcapng blocks sequentially and needs the DSB to appear
+			// before the encrypted packet blocks in order to decrypt them.
 			if e := pw.writer.WriteDecryptionSecretsBlock(pcapgo.DSB_SECRETS_TYPE_TLS, keylogLine); e != nil {
 				pw.logger.Warn().Err(e).Msg("failed to write DSB to pcapng")
 			}
 			if e := pw.writer.Flush(); e != nil {
 				pw.logger.Warn().Err(e).Msg("failed to flush after DSB write")
+			}
+			pw.firstDSBWritten = true
+
+			// Now flush any pending (buffered) packets AFTER the DSB
+			if len(pw.tcPackets) > 0 {
+				n, e := pw.savePcapng()
+				if e != nil {
+					pw.logger.Warn().Err(e).Int("count", i).Msg("save pcapng err after DSB, maybe some packets lost.")
+				} else {
+					pw.packetCount += n
+				}
+				i = 0
+				pw.tcPackets = pw.tcPackets[:0]
 			}
 		case <-pw.ctx.Done():
 			// Context canceled — drain all remaining data from channels before exiting
@@ -230,8 +246,9 @@ func (pw *PcapWriter) Serve() {
 
 // drainOnShutdown drains remaining packets and keylogs from channels and writes
 // them to the PCAPNG file. Called only from Serve() on context cancellation.
+// DSBs are written before packets to ensure Wireshark can decrypt the traffic.
 func (pw *PcapWriter) drainOnShutdown() {
-	// Drain remaining packets from packetChan
+	// Drain remaining packets from packetChan into buffer (don't write yet)
 drainPackets:
 	for {
 		select {
@@ -245,19 +262,7 @@ drainPackets:
 		}
 	}
 
-	// Save all buffered packets
-	if len(pw.tcPackets) > 0 {
-		n, e := pw.savePcapng()
-		if e != nil {
-			pw.logger.Info().Err(e).Msg("save pcapng err on shutdown, maybe some packets lost.")
-		} else {
-			pw.logger.Info().Int("count", n).Msg("packets saved into pcapng file on shutdown.")
-			pw.packetCount += n
-		}
-		pw.tcPackets = pw.tcPackets[:0]
-	}
-
-	// Drain remaining keylogs from keylogChan
+	// Drain remaining keylogs and write DSBs FIRST (before packets)
 drainKeylogs:
 	for {
 		select {
@@ -271,6 +276,18 @@ drainKeylogs:
 		default:
 			break drainKeylogs
 		}
+	}
+
+	// Now save all buffered packets (after DSBs)
+	if len(pw.tcPackets) > 0 {
+		n, e := pw.savePcapng()
+		if e != nil {
+			pw.logger.Info().Err(e).Msg("save pcapng err on shutdown, maybe some packets lost.")
+		} else {
+			pw.logger.Info().Int("count", n).Msg("packets saved into pcapng file on shutdown.")
+			pw.packetCount += n
+		}
+		pw.tcPackets = pw.tcPackets[:0]
 	}
 
 	// Final flush after draining all data
