@@ -63,8 +63,6 @@ int mysql56_query(struct pt_regs *ctx) {
 
     u64 current_pid_tgid = bpf_get_current_pid_tgid();
     u32 pid = current_pid_tgid >> 32;
-    u64 current_uid_gid = bpf_get_current_uid_gid();
-    u32 uid = current_uid_gid;
 
     if (!passes_filter(ctx)) {
         return 0;
@@ -81,7 +79,7 @@ int mysql56_query(struct pt_regs *ctx) {
     data.timestamp = bpf_ktime_get_ns();
     data.retval = -1;
     len = (len < MAX_DATA_SIZE_MYSQL ? (len & (MAX_DATA_SIZE_MYSQL - 1)) : MAX_DATA_SIZE_MYSQL);
-    data.len = len;  // only process id
+    data.len = len;
     bpf_get_current_comm(&data.comm, sizeof(data.comm));
 
     bpf_probe_read_user(&data.query, len, (void *)PT_REGS_PARM3(ctx));
@@ -109,8 +107,6 @@ int mysql56_query_return(struct pt_regs *ctx) {
 
     u64 current_pid_tgid = bpf_get_current_pid_tgid();
     u32 pid = current_pid_tgid >> 32;
-    u64 current_uid_gid = bpf_get_current_uid_gid();
-    u32 uid = current_uid_gid;
 
     if (!passes_filter(ctx)) {
         return 0;
@@ -180,8 +176,6 @@ int mysql57_query(struct pt_regs *ctx) {
 
     u64 current_pid_tgid = bpf_get_current_pid_tgid();
     u32 pid = current_pid_tgid >> 32;
-    u64 current_uid_gid = bpf_get_current_uid_gid();
-    u32 uid = current_uid_gid;
 
     if (!passes_filter(ctx)) {
         return 0;
@@ -217,8 +211,6 @@ SEC("uretprobe/dispatch_command_57")
 int mysql57_query_return(struct pt_regs *ctx) {
     u64 current_pid_tgid = bpf_get_current_pid_tgid();
     u32 pid = current_pid_tgid >> 32;
-    u64 current_uid_gid = bpf_get_current_uid_gid();
-    u32 uid = current_uid_gid;
 
     if (!passes_filter(ctx)) {
         return 0;

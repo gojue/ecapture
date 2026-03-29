@@ -13,14 +13,10 @@
 // limitations under the License.
 
 #include "ecapture.h"
+#include "include/tls_constants.h"
 
 // https://wiki.openssl.org/index.php/TLS1.3
-// 仅openssl/boringssl 1.1.1 后才支持 TLS 1.3 协议
-
-// boringssl 1.1.1 版本相关的常量
-#define SSL3_RANDOM_SIZE 32
-#define MASTER_SECRET_MAX_LEN 48
-#define EVP_MAX_MD_SIZE 64
+// Only BoringSSL >= 1.1.1 supports TLS 1.3
 
 // tls13_state is the internal state for the TLS 1.3 handshake.
 // values depend on enum client_hs_state_t
@@ -58,7 +54,7 @@ struct mastersecret_bssl_t {
 // ssl/internal.h line 2653   SSL3_STATE
 struct ssl3_state_st {
     u64 read_sequence;
-    //  确保BORINGSSL的state_st 中client_random 的偏移量是48
+    // Ensure BoringSSL state_st client_random offset is at 48
     u64 write_sequence;
     unsigned char server_random[SSL3_RANDOM_SIZE];
     unsigned char client_random[SSL3_RANDOM_SIZE];
@@ -97,9 +93,6 @@ struct ssl3_handshake_st {
     s32 tls13_state;
 };
 
-#define TLS1_1_VERSION 0x0302
-#define TLS1_2_VERSION 0x0303
-#define TLS1_3_VERSION 0x0304
 
 /////////////////////////BPF MAPS ////////////////////////////////
 
@@ -126,7 +119,8 @@ struct {
 } bpf_context_gen SEC(".maps");
 
 /////////////////////////COMMON FUNCTIONS ////////////////////////////////
-// 这个函数用来规避512字节栈空间限制，通过在堆上创建内存的方式，避开限制
+// Allocate a mastersecret_bssl_t on the BPF "heap" to work around
+// the 512-byte stack limit.
 static __always_inline struct mastersecret_bssl_t *make_event() {
     u32 key_gen = 0;
     struct mastersecret_bssl_t *bpf_ctx = bpf_map_lookup_elem(&bpf_context_gen, &key_gen);
@@ -170,8 +164,6 @@ SEC("uprobe/SSL_write_key")
 int probe_ssl_master_key(struct pt_regs *ctx) {
     u64 current_pid_tgid = bpf_get_current_pid_tgid();
     u32 pid = current_pid_tgid >> 32;
-    u64 current_uid_gid = bpf_get_current_uid_gid();
-    u32 uid = current_uid_gid;
 
     if (!passes_filter(ctx)) {
         return 0;
@@ -267,7 +259,7 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
     debug_bpf_printk("client_version:%d, state:%d, tls13_state:%d\n", client_version, ssl3_hs_state.state,
         ssl3_hs_state.tls13_state);
     debug_bpf_printk("TLS version :%d, hash_len:%d, \n", mastersecret->version, hash_len);
-    // 判断当前tls链接状态
+    // Determine current TLS connection state
     // handshake->handshake_finalized = hs_st_addr + BSSL__SSL_HANDSHAKE_HINTS +
     s32 all_bool;
     u64 *hs_ptr_ab = (u64 *)(ssl_hs_st_addr + BSSL__SSL_HANDSHAKE_HINTS + 8);

@@ -36,14 +36,14 @@
  * OpenSSL : SSL3_RT_MAX_PLAIN_LENGTH (16384). These functions will only accept a value in the range 512 - SSL3_RT_MAX_PLAIN_LENGTH.
  * https://docs.openssl.org/1.1.1/man3/SSL_CTX_set_split_send_fragment/#description
  */
-#define MAX_DATA_SIZE_OPENSSL 1024 * 16
+#define MAX_DATA_SIZE_OPENSSL (1024 * 16)
 #define MAX_DATA_SIZE_MYSQL 256
 #define MAX_DATA_SIZE_POSTGRES 256
 #define MAX_DATA_SIZE_BASH 256
 #define MAX_DATA_SIZE_ZSH 256
 
 // enum_server_command, via
-// https://dev.mysql.com/doc/internals/en/com-query.html COM_QUERT command 03
+// https://dev.mysql.com/doc/internals/en/com-query.html COM_QUERY command 03
 #define COM_QUERY 3
 
 #define AF_INET 2
