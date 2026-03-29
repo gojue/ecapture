@@ -209,6 +209,7 @@ main() {
     if [ $found_http -eq 1 ] && [ $content_verified -eq 1 ]; then
         log_success "✓ GoTLS E2E test PASSED"
         log_success "eCapture successfully captured GoTLS plaintext traffic"
+        print_captured_content "$ECAPTURE_LOG"
         return 0
     elif [ $found_http -eq 1 ] && [ $content_verified -eq 0 ]; then
         log_error "✗ GoTLS E2E test FAILED"

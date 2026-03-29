@@ -155,8 +155,8 @@ test_pcap_with_host_filter() {
     local mode_log="$OUTPUT_DIR/pcap_host_filter.log"
     local pcap_file="$OUTPUT_DIR/host_filter.pcapng"
     
-    log_info "Starting ecapture with filter: host github.com"
-    "$ECAPTURE_BINARY" tls -m pcap -w "$pcap_file" -i "$DEFAULT_IFACE" "host github.com" > "$mode_log" 2>&1 &
+    log_info "Starting ecapture with filter: host api.github.com"
+    "$ECAPTURE_BINARY" tls -m pcap -w "$pcap_file" -i "$DEFAULT_IFACE" "host api.github.com" > "$mode_log" 2>&1 &
     local pid=$!
     sleep 3
     
@@ -166,7 +166,7 @@ test_pcap_with_host_filter() {
         return 1
     fi
     
-    log_info "Making HTTPS request to github.com"
+    log_info "Making HTTPS request to api.github.com"
     curl -v "https://api.github.com" >/dev/null 2>&1 || true
     sleep 2
     
@@ -249,12 +249,21 @@ test_pcap_concurrent_connections() {
     fi
     
     log_info "Making multiple concurrent HTTPS requests"
+    local curl_pids=()
     curl "https://api.github.com" >/dev/null 2>&1 &
-    curl "https://www.google.com" >/dev/null 2>&1 &
-    curl "https://www.cloudflare.com" >/dev/null 2>&1 &
-    
-    sleep 3
-    
+    curl_pids+=($!)
+    curl "https://api.github.com/zen" >/dev/null 2>&1 &
+    curl_pids+=($!)
+    curl "https://api.github.com/octocat" >/dev/null 2>&1 &
+    curl_pids+=($!)
+
+    # Wait for all curl processes to complete
+    for cpid in "${curl_pids[@]}"; do
+        wait "$cpid" 2>/dev/null || true
+    done
+
+    sleep 2
+
     kill -INT "$pid" 2>/dev/null || true
     sleep 2
     
@@ -500,8 +509,8 @@ main() {
         log_success "✓ All TLS pcap mode advanced tests PASSED"
         return 0
     else
-        log_warn "⚠ Some tests failed"
-        return 0
+        log_error "✗ Some tests failed ($fail_count failures)"
+        return 1
     fi
 }
 

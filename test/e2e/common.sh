@@ -183,6 +183,36 @@ extract_plaintext() {
     grep -E "$pattern" "$output_file" || true
 }
 
+# Print brief captured content preview (HTTP headers or first 100 bytes)
+print_captured_content() {
+    local output_file="$1"
+    local max_lines="${2:-15}"
+
+    if [ ! -f "$output_file" ] || [ ! -s "$output_file" ]; then
+        return
+    fi
+
+    log_info "--- Captured Content Preview (first ${max_lines} matching lines) ---"
+
+    # First strip ecapture log lines (timestamps with INF/DBG/WRN/ERR), then search for HTTP patterns
+    local preview
+    preview=$(grep -v "^[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}T.*\(INF\|DBG\|WRN\|ERR\)" "$output_file" 2>/dev/null \
+        | grep -E "(GET |POST |PUT |DELETE |PATCH |HEAD |HTTP/[0-9]|Host:|Content-Type:|Server:|Date:|User-Agent:|Content-Length:)" 2>/dev/null \
+        | head -n "$max_lines" || true)
+
+    if [ -n "$preview" ]; then
+        echo "$preview"
+    else
+        # Fall back: show first non-log lines (captured plaintext)
+        preview=$(grep -v "^[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}T.*\(INF\|DBG\|WRN\|ERR\)" "$output_file" 2>/dev/null | head -c 200 || true)
+        if [ -n "$preview" ]; then
+            echo "$preview"
+        fi
+    fi
+
+    log_info "--- End Preview ---"
+}
+
 # Check if a binary is linked against a specific library
 check_library_linkage() {
     local binary="$1"

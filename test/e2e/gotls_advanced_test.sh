@@ -370,9 +370,9 @@ test_gotls_multiple_connections() {
     
     log_info "Running multiple Go HTTPS clients"
     "$client_path" -url "https://api.github.com" >/dev/null 2>&1 &
-    "$client_path" -url "https://www.google.com" >/dev/null 2>&1 &
-    "$client_path" -url "https://www.cloudflare.com" >/dev/null 2>&1 &
-    
+    "$client_path" -url "https://api.github.com/zen" >/dev/null 2>&1 &
+    "$client_path" -url "https://api.github.com/octocat" >/dev/null 2>&1 &
+
     sleep 3
     
     kill -INT "$pid" 2>/dev/null || true
@@ -582,8 +582,8 @@ main() {
         log_success "✓ All GoTLS advanced tests PASSED"
         return 0
     else
-        log_warn "⚠ Some tests failed"
-        return 0
+        log_error "✗ Some tests failed ($fail_count failures)"
+        return 1
     fi
 }
 

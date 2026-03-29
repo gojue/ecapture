@@ -64,6 +64,7 @@ test_http11_capture() {
     
     if [ -s "$mode_log" ] && grep -iq "GET\|POST\|HTTP" "$mode_log"; then
         log_success "✓ HTTP/1.1 capture test PASSED"
+        print_captured_content "$mode_log"
         TEST_RESULTS+=("http11:PASS")
         return 0
     else
@@ -78,8 +79,8 @@ test_http2_capture() {
     log_info "=== Test 2: HTTP/2 Capture ==="
     
     local mode_log="$OUTPUT_DIR/http2.log"
-    local test_url="https://www.google.com"
-    
+    local test_url="https://api.github.com/zen"
+
     log_info "Starting ecapture in text mode"
     "$ECAPTURE_BINARY" tls -m text > "$mode_log" 2>&1 &
     local pid=$!
@@ -98,8 +99,9 @@ test_http2_capture() {
     kill -INT "$pid" 2>/dev/null || true
     sleep 2
     
-    if [ -s "$mode_log" ] && grep -iq "HTTP\|GET\|google" "$mode_log"; then
+    if [ -s "$mode_log" ] && grep -iq "HTTP\|GET\|github" "$mode_log"; then
         log_success "✓ HTTP/2 capture test PASSED"
+        print_captured_content "$mode_log"
         TEST_RESULTS+=("http2:PASS")
         return 0
     else
@@ -177,6 +179,7 @@ test_uid_filtering() {
     
     if [ -s "$mode_log" ] && grep -iq "GET\|POST\|HTTP" "$mode_log"; then
         log_success "✓ UID filtering test PASSED"
+        print_captured_content "$mode_log"
         TEST_RESULTS+=("uid_filter:PASS")
         return 0
     else
@@ -188,8 +191,8 @@ test_uid_filtering() {
 
 # Test 5: Multiple concurrent connections
 test_concurrent_connections() {
-    log_info "=== Test 5: Concurrent Connections ==="
-    
+    log_info "=== Test 5: Multiple Connections ==="
+
     local mode_log="$OUTPUT_DIR/concurrent.log"
     
     log_info "Starting ecapture in text mode"
@@ -203,13 +206,13 @@ test_concurrent_connections() {
         return 1
     fi
     
-    log_info "Making multiple concurrent HTTPS requests"
-    curl "https://api.github.com" >/dev/null 2>&1 &
-    curl "https://www.google.com" >/dev/null 2>&1 &
-    curl "https://www.cloudflare.com" >/dev/null 2>&1 &
-    
+    log_info "Making multiple HTTPS requests"
+    curl -s "https://api.github.com" >/dev/null 2>&1 || true
+    curl -s "https://api.github.com/zen" >/dev/null 2>&1 || true
+    curl -s "https://api.github.com/octocat" >/dev/null 2>&1 || true
+
     sleep 3
-    
+
     kill -INT "$pid" 2>/dev/null || true
     sleep 2
     
@@ -219,13 +222,14 @@ test_concurrent_connections() {
         log_info "Captured $request_count HTTP requests"
         
         if [ "$request_count" -gt 0 ]; then
-            log_success "✓ Concurrent connections test PASSED"
+            log_success "✓ Multiple connections test PASSED"
+            print_captured_content "$mode_log"
             TEST_RESULTS+=("concurrent:PASS")
             return 0
         fi
     fi
     
-    log_error "✗ Concurrent connections test FAILED"
+    log_error "✗ Multiple connections test FAILED"
     TEST_RESULTS+=("concurrent:FAIL")
     return 1
 }
@@ -438,8 +442,8 @@ main() {
         log_success "✓ All TLS text mode advanced tests PASSED"
         return 0
     else
-        log_warn "⚠ Some tests failed"
-        return 0
+        log_error "✗ Some tests failed ($fail_count failures)"
+        return 1
     fi
 }
 

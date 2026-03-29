@@ -266,7 +266,7 @@ test_error_code_zero() {
     sleep 3
     
     if ! kill -0 "$pid" 2>/dev/null; then
-        log_error "eCapture died during startup"
+        log_error "eCapture died during startup".
         TEST_RESULTS+=("error_zero:FAIL")
         return 1
     fi
@@ -427,8 +427,8 @@ main() {
         log_success "✓ All Bash advanced tests PASSED"
         return 0
     else
-        log_warn "⚠ Some tests failed"
-        return 0
+        log_error "✗ Some tests failed ($fail_count failures)"
+        return 1
     fi
 }
 
