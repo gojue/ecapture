@@ -96,6 +96,11 @@ func (c *Config) Validate() error {
 	// Set default interface name if needed (Android-specific)
 	c.setDefaultIfname()
 
+	// Validate cgroup path (platform-specific, Linux only)
+	if err := c.validateCgroupPath(); err != nil {
+		return errors.NewConfigurationError("cgroup path validation failed", err)
+	}
+
 	// If unsupported version is detected, users should report it
 	// See: https://github.com/gojue/ecapture/issues for reporting new versions
 

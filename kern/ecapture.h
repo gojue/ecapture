@@ -101,6 +101,13 @@ static __always_inline bool filter_rejects(u32 pid, u32 uid) {
     if (target_uid != 0 && target_uid != uid) {
         return true;
     }
+    // if target_cgroup_id is 0 then we target all cgroups
+    if (target_cgroup_id != 0) {
+        u64 cgroup_id = bpf_get_current_cgroup_id();
+        if (cgroup_id != target_cgroup_id) {
+            return true;
+        }
+    }
     return false;
 }
 

@@ -21,7 +21,20 @@ import (
 	"fmt"
 	"os"
 	"strings"
+
+	pkgebpf "github.com/gojue/ecapture/pkg/util/ebpf"
 )
+
+/*
+About CGroup path: must be a cgroup v2 (cgroup2) filesystem mount point or a subdirectory thereof.
+On Ubuntu systems with cgroup v2, the default mount point is /sys/fs/cgroup.
+On hybrid systems (cgroup v1 + v2), cgroup v2 may be at /sys/fs/cgroup/unified.
+
+You can also create a custom cgroup v2 mount:
+
+	mkdir /mnt/ecapture_cgroupv2
+	mount -t cgroup2 none /mnt/ecapture_cgroupv2
+*/
 
 // Linux-specific version of detectOpenSSL
 func (c *Config) detectOpenSSL() error {
@@ -91,4 +104,15 @@ func (c *Config) setDefaultIfname() {
 	}
 
 	c.Ifname = "wlan0"
+}
+
+// validateCgroupPath validates and resolves the cgroup path on Linux.
+// It checks that the configured cgroup path resides on a cgroup v2 filesystem.
+func (c *Config) validateCgroupPath() error {
+	if c.CGroupPath == "" {
+		return nil
+	}
+	// Delegate to the shared cgroup validation in pkg/util/ebpf.
+	_, err := pkgebpf.GetCgroupIdFromPath(c.CGroupPath)
+	return err
 }
