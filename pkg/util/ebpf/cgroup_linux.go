@@ -39,7 +39,7 @@ func GetCgroupIdFromPath(cgroupPath string) (uint64, error) {
 	}
 
 	if fh.Size() != 8 {
-		return 0, fmt.Errorf("unexpected file handle size %d for cgroup path %s", fh.Size(), cgroupPath)
+		return 0, fmt.Errorf("unexpected file handle size %d for cgroup path %s, expected 8-byte cgroup ID", fh.Size(), cgroupPath)
 	}
 
 	cgroupID := binary.LittleEndian.Uint64(fh.Bytes())
