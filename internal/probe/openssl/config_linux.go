@@ -138,6 +138,8 @@ func checkCgroupPath(cp string) (string, error) {
 	newPath := cp
 	isCgroupV2Enabled := st.Type == unix.CGROUP2_SUPER_MAGIC
 	if !isCgroupV2Enabled {
+		// On hybrid cgroup systems (cgroup v1 + v2), cgroup v2 is typically
+		// mounted at /sys/fs/cgroup/unified while v1 controllers are at /sys/fs/cgroup
 		newPath = filepath.Join(cgroupPath, "unified")
 	}
 
@@ -155,8 +157,7 @@ func checkCgroupPath(cp string) (string, error) {
 	}
 
 	// Create and mount cgroup v2 at the fallback path
-	err = os.Mkdir(newPath, os.FileMode(0o755))
-	if err != nil {
+	if err = os.MkdirAll(newPath, os.FileMode(0o755)); err != nil {
 		return "", err
 	}
 	err = syscall.Mount("none", newPath, "cgroup2", 0, "")

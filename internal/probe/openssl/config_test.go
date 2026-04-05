@@ -16,6 +16,7 @@ package openssl
 
 import (
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/gojue/ecapture/internal/probe/base/handlers"
@@ -242,22 +243,9 @@ func TestConfig_CGroupPathInBytes(t *testing.T) {
 		t.Error("Bytes() returned empty when CGroupPath is set")
 	}
 	// Verify the CGroupPath is serialized
-	if !contains(string(b), "cgrouppath") {
+	if !strings.Contains(string(b), "cgrouppath") {
 		t.Error("Bytes() should contain cgrouppath field")
 	}
-}
-
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && searchString(s, substr)
-}
-
-func searchString(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }
 
 func TestConfig_ValidateCgroupPath_Empty(t *testing.T) {
