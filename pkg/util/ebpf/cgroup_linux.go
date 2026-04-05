@@ -20,6 +20,7 @@ package ebpf
 import (
 	"encoding/binary"
 	"fmt"
+	"syscall"
 
 	"golang.org/x/sys/unix"
 )
@@ -31,6 +32,18 @@ import (
 func GetCgroupIdFromPath(cgroupPath string) (uint64, error) {
 	if cgroupPath == "" {
 		return 0, nil
+	}
+
+	// Validate that the path is on a cgroup v2 filesystem before resolving.
+	var st syscall.Statfs_t
+	if err := syscall.Statfs(cgroupPath, &st); err != nil {
+		return 0, fmt.Errorf("failed to stat cgroup path %q: %w", cgroupPath, err)
+	}
+	if st.Type != unix.CGROUP2_SUPER_MAGIC {
+		return 0, fmt.Errorf("path %q is not on a cgroup v2 filesystem (type=0x%x, want cgroup2=0x%x); "+
+			"please specify a path on a cgroup v2 mount (e.g., /sys/fs/cgroup on pure cgroup v2 systems, "+
+			"or /sys/fs/cgroup/unified on hybrid systems)",
+			cgroupPath, st.Type, unix.CGROUP2_SUPER_MAGIC)
 	}
 
 	fh, _, err := unix.NameToHandleAt(unix.AT_FDCWD, cgroupPath, 0)

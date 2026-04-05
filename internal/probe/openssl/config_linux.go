@@ -21,9 +21,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"syscall"
 
-	"golang.org/x/sys/unix"
+	pkgebpf "github.com/gojue/ecapture/pkg/util/ebpf"
 )
 
 /*
@@ -111,29 +110,9 @@ func (c *Config) setDefaultIfname() {
 // It checks that the configured cgroup path resides on a cgroup v2 filesystem.
 func (c *Config) validateCgroupPath() error {
 	if c.CGroupPath == "" {
-		// No cgroup path configured, skip validation
 		return nil
 	}
-
-	if err := checkCgroupPath(c.CGroupPath); err != nil {
-		return err
-	}
-	return nil
-}
-
-// checkCgroupPath validates that the given path is on a cgroup v2 filesystem.
-// Returns an error if the path does not exist or is not on a cgroup2 mount.
-func checkCgroupPath(cp string) error {
-	var st syscall.Statfs_t
-	err := syscall.Statfs(cp, &st)
-	if err != nil {
-		return fmt.Errorf("failed to stat cgroup path %q: %w", cp, err)
-	}
-	if st.Type != unix.CGROUP2_SUPER_MAGIC {
-		return fmt.Errorf("path %q is not on a cgroup v2 filesystem (type=0x%x, want cgroup2=0x%x); "+
-			"please specify a path on a cgroup v2 mount (e.g., /sys/fs/cgroup on pure cgroup v2 systems, "+
-			"or /sys/fs/cgroup/unified on hybrid systems)",
-			cp, st.Type, unix.CGROUP2_SUPER_MAGIC)
-	}
-	return nil
+	// Delegate to the shared cgroup validation in pkg/util/ebpf.
+	_, err := pkgebpf.GetCgroupIdFromPath(c.CGroupPath)
+	return err
 }

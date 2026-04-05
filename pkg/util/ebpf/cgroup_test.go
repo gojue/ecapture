@@ -50,3 +50,13 @@ func TestGetCgroupIdFromPath_InvalidPath(t *testing.T) {
 		t.Error("GetCgroupIdFromPath() should fail for non-existent path")
 	}
 }
+
+func TestGetCgroupIdFromPath_NonCgroup2Path(t *testing.T) {
+	// /tmp is not a cgroup v2 filesystem, so this should fail with a clear error.
+	_, err := GetCgroupIdFromPath("/tmp")
+	if err == nil {
+		t.Error("GetCgroupIdFromPath('/tmp') should fail for non-cgroup2 path")
+	} else {
+		t.Logf("GetCgroupIdFromPath('/tmp') correctly rejected: %v", err)
+	}
+}
