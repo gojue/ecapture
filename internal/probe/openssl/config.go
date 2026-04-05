@@ -52,9 +52,6 @@ type Config struct {
 	Ifname     string `json:"ifname"`     // Network interface name (for pcap mode)
 	PcapFilter string `json:"pcapfilter"` // BPF filter expression (for pcap mode)
 
-	// Cgroup filtering
-	CGroupPath string `json:"cgrouppath"` // cgroup path, used for container/process filtering
-
 	// Detection results
 	SslVersion      string   `json:"sslversion"`      // Detected OpenSSL version
 	IsBoringSSL     bool     `json:"isboringssl"`     // Whether this is BoringSSL

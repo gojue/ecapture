@@ -308,10 +308,21 @@ func (p *Probe) getManagerOptions() manager.Options {
 			kernelLess52 = 1
 		}
 
+		var cgroupId uint64
+		if p.config.GetCGroupPath() != "" {
+			var err error
+			cgroupId, err = pkgebpf.GetCgroupIdFromPath(p.config.GetCGroupPath())
+			if err != nil {
+				p.Logger().Warn().Err(err).Str("cgroupPath", p.config.GetCGroupPath()).Msg("failed to get cgroup id, cgroup filtering disabled")
+				cgroupId = 0
+			}
+		}
+
 		opts.ConstantEditors = []manager.ConstantEditor{
 			{Name: "target_pid", Value: p.config.GetPid()},
 			{Name: "target_uid", Value: p.config.GetUid()},
 			{Name: "less52", Value: kernelLess52},
+			{Name: "target_cgroup_id", Value: cgroupId},
 		}
 	}
 

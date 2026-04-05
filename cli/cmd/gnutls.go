@@ -55,6 +55,7 @@ func init() {
 	gnutlsCmd.PersistentFlags().StringVarP(&gnutlsConfig.PcapFile, "pcapfile", "w", "save.pcapng", "write the raw packets to file as pcapng format.")
 	gnutlsCmd.PersistentFlags().StringVarP(&gnutlsConfig.Ifname, "ifname", "i", "", "(TC Classifier) Interface name on which the probe will be attached.")
 	gnutlsCmd.PersistentFlags().StringVar(&gnutlsConfig.GnuVersion, "ssl_version", "", "GnuTLS version, e.g: --ssl_version=\"3.7.9\"")
+	gnutlsCmd.PersistentFlags().StringVar(&gnutlsConfig.CGroupPath, "cgroup_path", "", "cgroup path, default: /sys/fs/cgroup.")
 	rootCmd.AddCommand(gnutlsCmd)
 }
 

@@ -68,6 +68,9 @@ const volatile u64 less52 = 1;
 const volatile u64 target_pid = 0;
 const volatile u64 target_uid = 0;
 const volatile u64 target_errno = BASH_ERRNO_DEFAULT;
+// Optional Target cgroup ID (0 means no cgroup filtering)
+// bpf_get_current_cgroup_id() requires kernel >= 4.18
+const volatile u64 target_cgroup_id = 0;
 
 
 

@@ -242,9 +242,9 @@ func TestConfig_CGroupPathInBytes(t *testing.T) {
 	if len(b) == 0 {
 		t.Error("Bytes() returned empty when CGroupPath is set")
 	}
-	// Verify the CGroupPath is serialized
-	if !strings.Contains(string(b), "cgrouppath") {
-		t.Error("Bytes() should contain cgrouppath field")
+	// Verify the CGroupPath is serialized (field name from BaseConfig json tag)
+	if !strings.Contains(string(b), "cgroup_path") {
+		t.Error("Bytes() should contain cgroup_path field")
 	}
 }
 

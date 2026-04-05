@@ -31,8 +31,9 @@ import (
 About CGroup path: can be created manually or use the system default. Not limited to CGroup version, v1 and v2 are both supported.
 On Ubuntu systems, the default is /sys/fs/cgroup. On CentOS, you can create your own.
 Commands:
-  mkdir /mnt/ecapture_cgroupv2
-  mount -t cgroup2 none /mnt/ecapture_cgroupv2
+
+	mkdir /mnt/ecapture_cgroupv2
+	mount -t cgroup2 none /mnt/ecapture_cgroupv2
 */
 const (
 	cgroupPath       = "/sys/fs/cgroup"         // default (ubuntu)

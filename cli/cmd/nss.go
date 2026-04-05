@@ -42,6 +42,7 @@ ecapture nspr --nspr=/lib/x86_64-linux-gnu/libnspr44.so
 
 func init() {
 	nssCmd.PersistentFlags().StringVar(&nsprConfig.NSPRPath, "nspr", "", "libnspr44.so file path, will automatically find it from curl default.")
+	nssCmd.PersistentFlags().StringVar(&nsprConfig.CGroupPath, "cgroup_path", "", "cgroup path, default: /sys/fs/cgroup.")
 	rootCmd.AddCommand(nssCmd)
 }
 

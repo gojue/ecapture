@@ -56,6 +56,7 @@ type BaseConfig struct {
 	Listen             string    `json:"listen"`
 	AddrType           uint8     `json:"addr_type"`
 	EventWriter        io.Writer `json:"-"`
+	CGroupPath         string    `json:"cgroup_path"` // cgroup path for container/process filtering
 }
 
 // NewBaseConfig creates a new BaseConfig with default values.
@@ -247,4 +248,14 @@ func (c *BaseConfig) GetEventWriter() io.Writer {
 // SetEventWriter sets a pre-configured event writer.
 func (c *BaseConfig) SetEventWriter(w io.Writer) {
 	c.EventWriter = w
+}
+
+// GetCGroupPath returns the cgroup path for filtering.
+func (c *BaseConfig) GetCGroupPath() string {
+	return c.CGroupPath
+}
+
+// SetCGroupPath sets the cgroup path for filtering.
+func (c *BaseConfig) SetCGroupPath(path string) {
+	c.CGroupPath = path
 }

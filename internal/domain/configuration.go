@@ -66,4 +66,8 @@ type Configuration interface {
 
 	// SetEventWriter sets a pre-configured event writer.
 	SetEventWriter(w io.Writer)
+
+	// GetCGroupPath returns the cgroup path for container/process filtering.
+	// Returns empty string if no cgroup filtering is configured.
+	GetCGroupPath() string
 }
