@@ -167,20 +167,20 @@ test_pcap_mode() {
     # In Android emulators wlan0 may exist but have no addresses; networking
     # often goes through eth0 or similar instead.
     local device_iface
-    device_iface=$(adb shell "ip route | grep default | awk '{print \$5}' | head -1" 2>/dev/null | tr -d '\r')
+    device_iface=$(adb shell "ip route | grep default | awk '{print \$5}' | head -1" 2>/dev/null | tr -d '\r' || true)
     : "${device_iface:=wlan0}"
 
     # Verify the detected interface actually has an IP address
     local iface_addrs
-    iface_addrs=$(adb shell "ip -4 addr show dev $device_iface 2>/dev/null | grep inet" 2>/dev/null | tr -d '\r')
+    iface_addrs=$(adb shell "ip -4 addr show dev $device_iface 2>/dev/null | grep inet || true" 2>/dev/null | tr -d '\r' || true)
     if [ -z "$iface_addrs" ]; then
         log_info "Interface $device_iface has no IPv4 address, searching for an active interface..."
         # Find the first non-loopback interface with an IPv4 address
         local alt_iface
-        alt_iface=$(adb shell "ip -4 addr show | grep 'state UP' -A2 | grep inet | head -1 | awk '{print \$NF}'" 2>/dev/null | tr -d '\r')
+        alt_iface=$(adb shell "ip -4 addr show | grep 'state UP' -A2 | grep inet | head -1 | awk '{print \$NF}' || true" 2>/dev/null | tr -d '\r' || true)
         if [ -z "$alt_iface" ]; then
             # Broader search: any interface with an inet address that is not lo
-            alt_iface=$(adb shell "ip -4 addr show | grep -v '127.0.0.1' | grep inet | head -1 | awk '{print \$NF}'" 2>/dev/null | tr -d '\r')
+            alt_iface=$(adb shell "ip -4 addr show | grep -v '127.0.0.1' | grep inet | head -1 | awk '{print \$NF}' || true" 2>/dev/null | tr -d '\r' || true)
         fi
         if [ -n "$alt_iface" ]; then
             log_info "Switching to interface: $alt_iface"

@@ -33,9 +33,11 @@ func ifaceHasAddr(name string) bool {
 	return len(addrs) > 0
 }
 
-// detectActiveInterface walks all network interfaces and returns the name of
-// the first non-loopback interface that is up and has an address.
-func detectActiveInterface() string {
+// firstUpNonLoopbackInterface walks all network interfaces and returns the
+// name of the first non-loopback interface that is up and has an address.
+// Note: this is not necessarily the default-route interface; it may return
+// virtual bridges (e.g. docker0) before the real egress interface.
+func firstUpNonLoopbackInterface() string {
 	ifaces, err := net.Interfaces()
 	if err != nil {
 		return ""
@@ -73,7 +75,7 @@ func (c *Config) setDefaultIfname() {
 
 	// Fallback: iterate all interfaces looking for one that is up and has an
 	// address, skipping loopback.
-	if name := detectActiveInterface(); name != "" {
+	if name := firstUpNonLoopbackInterface(); name != "" {
 		c.Ifname = name
 		return
 	}

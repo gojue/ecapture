@@ -111,7 +111,7 @@ func (c *Config) setDefaultIfname() {
 
 	// Fallback: iterate all interfaces looking for one that is up and has an
 	// address, skipping loopback.
-	if name := detectActiveInterface(); name != "" {
+	if name := firstUpNonLoopbackInterface(); name != "" {
 		c.Ifname = name
 		return
 	}

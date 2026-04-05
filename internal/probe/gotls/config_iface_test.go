@@ -20,9 +20,17 @@ import (
 )
 
 func TestIfaceHasAddr_Loopback(t *testing.T) {
-	// The loopback interface (lo) should always be present and have an address.
+	// The loopback interface (lo) should always be present and have an address
+	// on Linux. On non-Linux or unusual environments, skip.
+	iface, err := net.InterfaceByName("lo")
+	if err != nil {
+		t.Skip("loopback interface 'lo' not available on this host")
+	}
+	if iface.Flags&net.FlagUp == 0 {
+		t.Skip("loopback interface 'lo' is not UP")
+	}
 	if !ifaceHasAddr("lo") {
-		t.Skip("loopback interface 'lo' not available or has no address")
+		t.Error("ifaceHasAddr returned false for loopback interface 'lo' which is UP")
 	}
 }
 
@@ -33,8 +41,8 @@ func TestIfaceHasAddr_NonExistent(t *testing.T) {
 	}
 }
 
-func TestDetectActiveInterface(t *testing.T) {
-	name := detectActiveInterface()
+func TestFirstUpNonLoopbackInterface(t *testing.T) {
+	name := firstUpNonLoopbackInterface()
 	if name == "" {
 		t.Skip("no active non-loopback interface found on this host")
 	}
@@ -42,20 +50,20 @@ func TestDetectActiveInterface(t *testing.T) {
 	// The returned interface must actually be up and have addresses.
 	iface, err := net.InterfaceByName(name)
 	if err != nil {
-		t.Fatalf("detectActiveInterface returned %q but InterfaceByName failed: %v", name, err)
+		t.Fatalf("firstUpNonLoopbackInterface returned %q but InterfaceByName failed: %v", name, err)
 	}
 	if iface.Flags&net.FlagUp == 0 {
-		t.Errorf("detectActiveInterface returned %q which is not UP", name)
+		t.Errorf("firstUpNonLoopbackInterface returned %q which is not UP", name)
 	}
 	if iface.Flags&net.FlagLoopback != 0 {
-		t.Errorf("detectActiveInterface returned loopback interface %q", name)
+		t.Errorf("firstUpNonLoopbackInterface returned loopback interface %q", name)
 	}
 	addrs, err := iface.Addrs()
 	if err != nil {
 		t.Fatalf("cannot get addresses for %q: %v", name, err)
 	}
 	if len(addrs) == 0 {
-		t.Errorf("detectActiveInterface returned %q which has no addresses", name)
+		t.Errorf("firstUpNonLoopbackInterface returned %q which has no addresses", name)
 	}
 }
 
