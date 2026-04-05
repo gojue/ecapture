@@ -226,3 +226,58 @@ func TestConfig_ValidateCaptureMode_Pcap(t *testing.T) {
 		t.Error("validateCaptureMode() should fail for pcap mode without pcap file")
 	}
 }
+
+func TestNewConfig_CGroupPath(t *testing.T) {
+	cfg := NewConfig()
+	if cfg.CGroupPath != "" {
+		t.Errorf("CGroupPath should be empty by default, got: %s", cfg.CGroupPath)
+	}
+}
+
+func TestConfig_CGroupPathInBytes(t *testing.T) {
+	cfg := NewConfig()
+	cfg.CGroupPath = "/sys/fs/cgroup"
+	b := cfg.Bytes()
+	if len(b) == 0 {
+		t.Error("Bytes() returned empty when CGroupPath is set")
+	}
+	// Verify the CGroupPath is serialized
+	if !contains(string(b), "cgrouppath") {
+		t.Error("Bytes() should contain cgrouppath field")
+	}
+}
+
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && searchString(s, substr)
+}
+
+func searchString(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}
+
+func TestConfig_ValidateCgroupPath_Empty(t *testing.T) {
+	cfg := NewConfig()
+	// Empty CGroupPath should not cause error
+	cfg.CGroupPath = ""
+	err := cfg.validateCgroupPath()
+	if err != nil {
+		t.Errorf("validateCgroupPath() should not fail for empty path, got: %v", err)
+	}
+}
+
+func TestConfig_ValidateCgroupPath_DefaultPath(t *testing.T) {
+	cfg := NewConfig()
+	cfg.CGroupPath = "/sys/fs/cgroup"
+	err := cfg.validateCgroupPath()
+	// On most Linux systems, /sys/fs/cgroup exists
+	if err != nil {
+		t.Logf("validateCgroupPath('/sys/fs/cgroup') failed (may be expected in some environments): %v", err)
+	} else {
+		t.Logf("validateCgroupPath('/sys/fs/cgroup') succeeded, resolved to: %s", cfg.CGroupPath)
+	}
+}

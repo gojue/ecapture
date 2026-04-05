@@ -20,7 +20,23 @@ package openssl
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
+	"syscall"
+
+	"golang.org/x/sys/unix"
+)
+
+/*
+About CGroup path: can be created manually or use the system default. Not limited to CGroup version, v1 and v2 are both supported.
+On Ubuntu systems, the default is /sys/fs/cgroup. On CentOS, you can create your own.
+Commands:
+  mkdir /mnt/ecapture_cgroupv2
+  mount -t cgroup2 none /mnt/ecapture_cgroupv2
+*/
+const (
+	cgroupPath       = "/sys/fs/cgroup"         // default (ubuntu)
+	cgroupPathCentos = "/mnt/ecapture_cgroupv2" // centos
 )
 
 // Linux-specific version of detectOpenSSL
@@ -91,4 +107,61 @@ func (c *Config) setDefaultIfname() {
 	}
 
 	c.Ifname = "wlan0"
+}
+
+// validateCgroupPath validates and resolves the cgroup path on Linux.
+// It checks if the configured cgroup path is a cgroup v2 filesystem,
+// tries fallback paths, and optionally creates/mounts cgroup v2 if needed.
+func (c *Config) validateCgroupPath() error {
+	if c.CGroupPath == "" {
+		// No cgroup path configured, skip validation
+		return nil
+	}
+
+	resolvedPath, err := checkCgroupPath(c.CGroupPath)
+	if err != nil {
+		return err
+	}
+	c.CGroupPath = resolvedPath
+	return nil
+}
+
+// checkCgroupPath validates the given cgroup path and returns a resolved path.
+// It checks if the path is a cgroup v2 filesystem, tries fallback paths,
+// and creates/mounts cgroup v2 if necessary.
+func checkCgroupPath(cp string) (string, error) {
+	var st syscall.Statfs_t
+	err := syscall.Statfs(cp, &st)
+	if err != nil {
+		return "", err
+	}
+	newPath := cp
+	isCgroupV2Enabled := st.Type == unix.CGROUP2_SUPER_MAGIC
+	if !isCgroupV2Enabled {
+		newPath = filepath.Join(cgroupPath, "unified")
+	}
+
+	// Check if the path exists and is a valid cgroup v2
+	err = syscall.Statfs(newPath, &st)
+	if err == nil {
+		return newPath, nil
+	}
+
+	// Try CentOS fallback path
+	newPath = cgroupPathCentos
+	err = syscall.Statfs(newPath, &st)
+	if err == nil {
+		return newPath, nil
+	}
+
+	// Create and mount cgroup v2 at the fallback path
+	err = os.Mkdir(newPath, os.FileMode(0o755))
+	if err != nil {
+		return "", err
+	}
+	err = syscall.Mount("none", newPath, "cgroup2", 0, "")
+	if err != nil {
+		return "", err
+	}
+	return newPath, nil
 }

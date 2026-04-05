@@ -52,6 +52,9 @@ type Config struct {
 	Ifname     string `json:"ifname"`     // Network interface name (for pcap mode)
 	PcapFilter string `json:"pcapfilter"` // BPF filter expression (for pcap mode)
 
+	// Cgroup filtering
+	CGroupPath string `json:"cgrouppath"` // cgroup path, used for container/process filtering
+
 	// Detection results
 	SslVersion      string   `json:"sslversion"`      // Detected OpenSSL version
 	IsBoringSSL     bool     `json:"isboringssl"`     // Whether this is BoringSSL
@@ -95,6 +98,11 @@ func (c *Config) Validate() error {
 
 	// Set default interface name if needed (Android-specific)
 	c.setDefaultIfname()
+
+	// Validate cgroup path (platform-specific, Linux only)
+	if err := c.validateCgroupPath(); err != nil {
+		return errors.NewConfigurationError("cgroup path validation failed", err)
+	}
 
 	// If unsupported version is detected, users should report it
 	// See: https://github.com/gojue/ecapture/issues for reporting new versions

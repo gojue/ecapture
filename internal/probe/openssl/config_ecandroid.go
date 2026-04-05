@@ -110,3 +110,8 @@ func (c *Config) setDefaultIfname() {
 		c.Ifname = DefaultIfname
 	}
 }
+
+// validateCgroupPath is a no-op on Android since cgroup filtering is not supported.
+func (c *Config) validateCgroupPath() error {
+	return nil
+}
