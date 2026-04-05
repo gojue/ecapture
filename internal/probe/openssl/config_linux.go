@@ -20,7 +20,6 @@ package openssl
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"syscall"
 
@@ -28,17 +27,15 @@ import (
 )
 
 /*
-About CGroup path: can be created manually or use the system default. Not limited to CGroup version, v1 and v2 are both supported.
-On Ubuntu systems, the default is /sys/fs/cgroup. On CentOS, you can create your own.
-Commands:
+About CGroup path: must be a cgroup v2 (cgroup2) filesystem mount point or a subdirectory thereof.
+On Ubuntu systems with cgroup v2, the default mount point is /sys/fs/cgroup.
+On hybrid systems (cgroup v1 + v2), cgroup v2 may be at /sys/fs/cgroup/unified.
+
+You can also create a custom cgroup v2 mount:
 
 	mkdir /mnt/ecapture_cgroupv2
 	mount -t cgroup2 none /mnt/ecapture_cgroupv2
 */
-const (
-	cgroupPath       = "/sys/fs/cgroup"         // default (ubuntu)
-	cgroupPathCentos = "/mnt/ecapture_cgroupv2" // centos
-)
 
 // Linux-specific version of detectOpenSSL
 func (c *Config) detectOpenSSL() error {
@@ -111,59 +108,32 @@ func (c *Config) setDefaultIfname() {
 }
 
 // validateCgroupPath validates and resolves the cgroup path on Linux.
-// It checks if the configured cgroup path is a cgroup v2 filesystem,
-// tries fallback paths, and optionally creates/mounts cgroup v2 if needed.
+// It checks that the configured cgroup path resides on a cgroup v2 filesystem.
 func (c *Config) validateCgroupPath() error {
 	if c.CGroupPath == "" {
 		// No cgroup path configured, skip validation
 		return nil
 	}
 
-	resolvedPath, err := checkCgroupPath(c.CGroupPath)
-	if err != nil {
+	if err := checkCgroupPath(c.CGroupPath); err != nil {
 		return err
 	}
-	c.CGroupPath = resolvedPath
 	return nil
 }
 
-// checkCgroupPath validates the given cgroup path and returns a resolved path.
-// It checks if the path is a cgroup v2 filesystem, tries fallback paths,
-// and creates/mounts cgroup v2 if necessary.
-func checkCgroupPath(cp string) (string, error) {
+// checkCgroupPath validates that the given path is on a cgroup v2 filesystem.
+// Returns an error if the path does not exist or is not on a cgroup2 mount.
+func checkCgroupPath(cp string) error {
 	var st syscall.Statfs_t
 	err := syscall.Statfs(cp, &st)
 	if err != nil {
-		return "", err
+		return fmt.Errorf("failed to stat cgroup path %q: %w", cp, err)
 	}
-	newPath := cp
-	isCgroupV2Enabled := st.Type == unix.CGROUP2_SUPER_MAGIC
-	if !isCgroupV2Enabled {
-		// On hybrid cgroup systems (cgroup v1 + v2), cgroup v2 is typically
-		// mounted at /sys/fs/cgroup/unified while v1 controllers are at /sys/fs/cgroup
-		newPath = filepath.Join(cgroupPath, "unified")
+	if st.Type != unix.CGROUP2_SUPER_MAGIC {
+		return fmt.Errorf("path %q is not on a cgroup v2 filesystem (type=0x%x, want cgroup2=0x%x); "+
+			"please specify a path on a cgroup v2 mount (e.g., /sys/fs/cgroup on pure cgroup v2 systems, "+
+			"or /sys/fs/cgroup/unified on hybrid systems)",
+			cp, st.Type, unix.CGROUP2_SUPER_MAGIC)
 	}
-
-	// Check if the path exists and is a valid cgroup v2
-	err = syscall.Statfs(newPath, &st)
-	if err == nil {
-		return newPath, nil
-	}
-
-	// Try CentOS fallback path
-	newPath = cgroupPathCentos
-	err = syscall.Statfs(newPath, &st)
-	if err == nil {
-		return newPath, nil
-	}
-
-	// Create and mount cgroup v2 at the fallback path
-	if err = os.MkdirAll(newPath, os.FileMode(0o755)); err != nil {
-		return "", err
-	}
-	err = syscall.Mount("none", newPath, "cgroup2", 0, "")
-	if err != nil {
-		return "", err
-	}
-	return newPath, nil
+	return nil
 }

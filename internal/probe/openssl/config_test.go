@@ -262,10 +262,19 @@ func TestConfig_ValidateCgroupPath_DefaultPath(t *testing.T) {
 	cfg := NewConfig()
 	cfg.CGroupPath = "/sys/fs/cgroup"
 	err := cfg.validateCgroupPath()
-	// On most Linux systems, /sys/fs/cgroup exists
+	// On most Linux systems with cgroup v2, /sys/fs/cgroup exists and is cgroup2
 	if err != nil {
 		t.Logf("validateCgroupPath('/sys/fs/cgroup') failed (may be expected in some environments): %v", err)
 	} else {
-		t.Logf("validateCgroupPath('/sys/fs/cgroup') succeeded, resolved to: %s", cfg.CGroupPath)
+		t.Logf("validateCgroupPath('/sys/fs/cgroup') succeeded, path: %s", cfg.CGroupPath)
+	}
+}
+
+func TestConfig_ValidateCgroupPath_InvalidPath(t *testing.T) {
+	cfg := NewConfig()
+	cfg.CGroupPath = "/nonexistent/cgroup/path"
+	err := cfg.validateCgroupPath()
+	if err == nil {
+		t.Error("validateCgroupPath() should fail for nonexistent path")
 	}
 }
