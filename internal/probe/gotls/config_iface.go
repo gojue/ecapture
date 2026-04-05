@@ -17,7 +17,7 @@ package gotls
 import "net"
 
 // ifaceHasAddr returns true when the named interface exists, is up, and has at
-// least one unicast address.
+// least one address.
 func ifaceHasAddr(name string) bool {
 	iface, err := net.InterfaceByName(name)
 	if err != nil {
