@@ -103,6 +103,19 @@ func (c *Config) setDefaultIfname() {
 		return
 	}
 
+	// Try the historical default first.
+	if ifaceHasAddr("wlan0") {
+		c.Ifname = "wlan0"
+		return
+	}
+
+	// Fallback: iterate all interfaces looking for one that is up and has an
+	// address, skipping loopback.
+	if name := firstUpNonLoopbackInterface(); name != "" {
+		c.Ifname = name
+		return
+	}
+
 	c.Ifname = "wlan0"
 }
 

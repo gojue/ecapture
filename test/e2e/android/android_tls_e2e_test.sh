@@ -163,9 +163,33 @@ test_pcap_mode() {
     # Start ecapture in pcap mode
     log_info "Starting ecapture in pcap mode on device..."
     # Detect default network interface on device (required for pcap mode)
+    # First try the default route interface, then validate it has an IP address.
+    # In Android emulators wlan0 may exist but have no addresses; networking
+    # often goes through eth0 or similar instead.
     local device_iface
-    device_iface=$(adb shell "ip route | grep default | awk '{print \$5}' | head -1" 2>/dev/null | tr -d '\r' || echo "wlan0")
+    device_iface=$(adb shell "ip route | grep default | awk '{print \$5}' | head -1" 2>/dev/null | tr -d '\r' || true)
     : "${device_iface:=wlan0}"
+
+    # Verify the detected interface actually has an IP address
+    local iface_addrs
+    iface_addrs=$(adb shell "ip -4 addr show dev $device_iface 2>/dev/null | grep inet || true" 2>/dev/null | tr -d '\r' || true)
+    if [ -z "$iface_addrs" ]; then
+        log_info "Interface $device_iface has no IPv4 address, searching for an active interface..."
+        # Find the first non-loopback interface with an IPv4 address
+        local alt_iface
+        alt_iface=$(adb shell "ip -4 addr show | grep 'state UP' -A2 | grep inet | head -1 | awk '{print \$NF}' || true" 2>/dev/null | tr -d '\r' || true)
+        if [ -z "$alt_iface" ]; then
+            # Broader search: any interface with an inet address that is not lo
+            alt_iface=$(adb shell "ip -4 addr show | grep -v '127.0.0.1' | grep inet | head -1 | awk '{print \$NF}' || true" 2>/dev/null | tr -d '\r' || true)
+        fi
+        if [ -n "$alt_iface" ]; then
+            log_info "Switching to interface: $alt_iface"
+            device_iface="$alt_iface"
+        else
+            log_info "No alternative interface found, keeping $device_iface"
+        fi
+    fi
+
     log_info "Using network interface: $device_iface"
     adb_start_background "$DEVICE_ECAPTURE tls -m pcap -i $device_iface -w $DEVICE_OUTPUT_DIR/capture.pcapng" "$DEVICE_OUTPUT_DIR/pcap_mode.log"
 

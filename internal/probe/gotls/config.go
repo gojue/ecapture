@@ -274,6 +274,12 @@ func (c *Config) validateCaptureMode() error {
 		if c.PcapFile == "" {
 			return fmt.Errorf("pcap mode requires PcapFile to be set")
 		}
+
+		// Auto-detect an active network interface when none is specified.
+		// On Android emulators wlan0 may exist but have no addresses;
+		// networking may go through eth0 or another interface instead.
+		c.setDefaultIfname()
+
 		if c.Ifname == "" {
 			return fmt.Errorf("pcap mode requires Ifname to be set")
 		}

@@ -176,6 +176,7 @@ Agent 禁止的事项（严格）：
 ## 风格与质量要求
 - C 代码：使用 `make format` 格式化（底层是 `clang-format`，style 定义在 `variables.mk` 的 `STYLE` 变量中）；
 - Go 代码：使用 `gofmt`/`goimports` 格式化，遵守 `.golangci.yml` 中的 lint 规则；
+- **golangci-lint 验证（必需）**：所有提交的 Go 代码必须通过 `golangci-lint` 检查。Agent 在提交 PR 前，必须运行 `golangci-lint run ./...`（使用仓库根目录的 `.golangci.yml` 配置），并确保无新增 lint 错误。CI 中使用 golangci-lint v2.1（配置版本 `version: 2`），本地安装命令：`go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.1.6`；
 - 小步提交、单一目的 PR、清晰的 PR 描述；
 - 所有 PR 中若有未解决的集成测试限制，必须在 PR 描述中注明并提供复现步骤或需要的维护者权限/环境。
 
