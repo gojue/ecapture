@@ -1,3 +1,15 @@
+# v2.2.1 (2026-04-06)
+
+## What's Changed
+
+* fix: auto-detect active network interface for Android e2e PCAP mode by @cfc4n in https://github.com/gojue/ecapture/pull/976
+* feat: restore --cgroup_path CLI parameter for tls subcommand by @cfc4n in https://github.com/gojue/ecapture/pull/975
+
+## New Contributors
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v2.2.0...v2.2.1
+<hr>
+
 # v2.2.0 (2026-03-29)
 
 ## What's Changed
