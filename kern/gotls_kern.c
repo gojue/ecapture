@@ -30,6 +30,8 @@
 
 struct go_tls_event {
     u64 ts_ns;
+    u64 seq;       // per-CPU emit order (PERCPU_ARRAY++); no atomics (tracing forbids bpf_spin_lock & map atomics on some kernels)
+    u32 emit_cpu;  // bpf_get_smp_processor_id() for userspace tie-break across CPUs
     u32 pid;
     u32 tid;
     s32 data_len;
@@ -80,6 +82,15 @@ struct {
     __uint(max_entries, 1);
 } gte_context_gen SEC(".maps");
 
+// Per-CPU seq: each CPU only touches its own slot — no global atomic (verifier rejects
+// BPF_STX atomic on many tracing targets).
+struct {
+    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+    __uint(max_entries, 1);
+    __type(key, u32);
+    __type(value, u64);
+} gotls_percpu_seq SEC(".maps");
+
 static __always_inline struct go_tls_event *get_gotls_event() {
     u32 zero = 0;
     struct go_tls_event *event = bpf_map_lookup_elem(&gte_context_gen, &zero);
@@ -87,6 +98,15 @@ static __always_inline struct go_tls_event *get_gotls_event() {
 
     u64 id = bpf_get_current_pid_tgid();
     event->ts_ns = bpf_ktime_get_ns();
+    event->emit_cpu = bpf_get_smp_processor_id();
+    u32 k = 0;
+    u64 *pc = bpf_map_lookup_elem(&gotls_percpu_seq, &k);
+    if (pc) {
+        *pc = *pc + 1;
+        event->seq = *pc;
+    } else {
+        event->seq = 0;
+    }
     event->pid = id >> 32;
     event->tid = (__u32)id;
     event->event_type = GOTLS_EVENT_TYPE_WRITE;
