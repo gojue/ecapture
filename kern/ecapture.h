@@ -90,7 +90,9 @@ struct ipv6hdr {
 #include "common.h"
 
 
-static __always_inline bool filter_rejects(u32 pid, u32 uid) {
+// filter_rejects_base checks PID and UID only.
+// Safe to call from any BPF program type (TC, uprobe, kprobe).
+static __always_inline bool filter_rejects_base(u32 pid, u32 uid) {
     if (less52 == 1) {
         return false;
     }
@@ -99,6 +101,16 @@ static __always_inline bool filter_rejects(u32 pid, u32 uid) {
         return true;
     }
     if (target_uid != 0 && target_uid != uid) {
+        return true;
+    }
+    return false;
+}
+
+// filter_rejects checks PID, UID, and cgroup.
+// Must only be called from uprobe/kprobe context where bpf_get_current_cgroup_id()
+// reliably returns the cgroup of the process being traced.
+static __always_inline bool filter_rejects(u32 pid, u32 uid) {
+    if (filter_rejects_base(pid, uid)) {
         return true;
     }
     // if target_cgroup_id is 0 then we target all cgroups

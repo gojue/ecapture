@@ -49,6 +49,7 @@ struct net_id_t {
 struct net_ctx_t {
     u32 pid;
     u32 uid;
+    u64 cgroup_id;
     char comm[TASK_COMM_LEN];
 //    u8 cmdline[PATH_MAX_LEN];
 };
@@ -238,8 +239,15 @@ static __always_inline int capture_packets(struct __sk_buff *skb, bool is_ingres
     struct skb_data_event_t event = {0};
 
     if (net_ctx != NULL) {
-        // pid uid filter
-        if (filter_rejects(net_ctx->pid, net_ctx->uid)) {
+        // pid/uid filter (safe to call from TC context)
+        if (filter_rejects_base(net_ctx->pid, net_ctx->uid)) {
+            return TC_ACT_OK;
+        }
+        // cgroup filter: use the cgroup_id recorded at sendmsg time (kprobe
+        // context) rather than bpf_get_current_cgroup_id() here, which would
+        // return the cgroup of whichever process happens to be running on this
+        // CPU at TC ingress/egress time and is therefore unreliable.
+        if (target_cgroup_id != 0 && net_ctx->cgroup_id != target_cgroup_id) {
             return TC_ACT_OK;
         }
 
@@ -327,6 +335,7 @@ static __always_inline int trace_sendmsg(struct pt_regs *ctx, u32 protocol) {
     struct net_ctx_t net_ctx;
     net_ctx.pid = pid;
     net_ctx.uid = uid;
+    net_ctx.cgroup_id = bpf_get_current_cgroup_id();
     bpf_get_current_comm(&net_ctx.comm, sizeof(net_ctx.comm));
 
     debug_bpf_printk("trace_sendmsg pid: %d, comm: %s\n", net_ctx.pid, net_ctx.comm);
