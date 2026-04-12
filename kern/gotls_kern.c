@@ -248,6 +248,9 @@ static __always_inline void fill_fd_and_addr_from_tls_conn(void *tls_conn_ptr,
 }
 
 static __always_inline int gotls_write(struct pt_regs *ctx, bool is_register_abi) {
+    if (!passes_filter(ctx)) {
+        return 0;
+    }
     s32 record_type, len;
     const char *str;
     void *record_type_ptr;
@@ -306,6 +309,9 @@ int gotls_write_stack(struct pt_regs *ctx) { return gotls_write(ctx, false); }
 // crypto/tls/conn.go
 // func (c *Conn) Read(b []byte) (int, error)
 static __always_inline int gotls_read(struct pt_regs *ctx, bool is_register_abi) {
+    if (!passes_filter(ctx)) {
+        return 0;
+    }
     s32 record_type, ret_len;
     const char *str;
     void *len_ptr, *ret_len_ptr;
@@ -373,6 +379,9 @@ int gotls_read_stack(struct pt_regs *ctx) { return gotls_read(ctx, false); }
  * func (c *Config) writeKeyLog(label string, clientRandom, secret []byte) error
  */
 static __always_inline int gotls_mastersecret(struct pt_regs *ctx, bool is_register_abi) {
+    if (!passes_filter(ctx)) {
+        return 0;
+    }
     //    const char *label, *clientrandom, *secret;
     void *lab_ptr, *cr_ptr, *secret_ptr;
     void *lab_len_ptr, *cr_len_ptr, *secret_len_ptr;
