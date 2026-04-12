@@ -1,3 +1,14 @@
+# v2.2.2 (2026-04-12)
+
+## What's Changed
+
+* fix: cgroup filtering support for TC hook and GoTLS uprobe by @cfc4n in https://github.com/gojue/ecapture/pull/979
+
+## New Contributors
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v2.2.1...v2.2.2
+<hr>
+
 # v2.2.1 (2026-04-06)
 
 ## What's Changed
