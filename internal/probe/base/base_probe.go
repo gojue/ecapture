@@ -18,6 +18,7 @@ import (
 	"context"
 	stderrors "errors"
 	"fmt"
+	"io"
 	"sync/atomic"
 
 	"github.com/cilium/ebpf"
@@ -48,7 +49,7 @@ type BaseProbe struct {
 	config     domain.Configuration
 	dispatcher domain.EventDispatcher
 	isRunning  atomic.Bool
-	readers    []closer
+	readers    []io.Closer
 	closers    []closer
 }
 
@@ -61,7 +62,7 @@ type closer interface {
 func NewBaseProbe(name string) *BaseProbe {
 	return &BaseProbe{
 		name:    name,
-		readers: make([]closer, 0),
+		readers: make([]io.Closer, 0),
 		closers: make([]closer, 0),
 	}
 }
@@ -238,6 +239,14 @@ func (p *BaseProbe) Dispatcher() domain.EventDispatcher {
 	return p.dispatcher
 }
 
+// TrackPerfReader registers a perf/ringbuf reader to be closed in Close().
+func (p *BaseProbe) TrackPerfReader(c io.Closer) {
+	if c == nil {
+		return
+	}
+	p.readers = append(p.readers, c)
+}
+
 func (p *BaseProbe) SetDispatcher(dispatcher domain.EventDispatcher) {
 	p.dispatcher = dispatcher
 }
@@ -262,7 +271,7 @@ func (p *BaseProbe) StartPerfEventReader(em *ebpf.Map, decoder domain.EventDecod
 		return errors.NewEBPFAttachError(em.String(), err)
 	}
 
-	p.readers = append(p.readers, rd)
+	p.TrackReader(rd)
 
 	p.logger.Info().
 		Str("map", em.String()).
@@ -271,6 +280,16 @@ func (p *BaseProbe) StartPerfEventReader(em *ebpf.Map, decoder domain.EventDecod
 
 	go p.perfEventLoop(rd, em, decoder)
 	return nil
+}
+
+// TrackReader registers a reader to be closed when the probe shuts down.
+// Probes that implement a custom perf read loop should call TrackReader with the same reader
+// instance they pass to the goroutine, matching StartPerfEventReader lifecycle.
+func (p *BaseProbe) TrackReader(c io.Closer) {
+	if c == nil {
+		return
+	}
+	p.readers = append(p.readers, c)
 }
 
 // perfEventLoop reads events from a perf buffer.

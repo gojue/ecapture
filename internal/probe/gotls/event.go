@@ -36,23 +36,30 @@ const (
 // C struct layout (go_tls_event):
 //
 //	u64 ts_ns;           // offset 0,  size 8
-//	u32 pid;             // offset 8,  size 4
-//	u32 tid;             // offset 12, size 4
-//	s32 data_len;        // offset 16, size 4
-//	u8  event_type;      // offset 20, size 1
-//	u8  pad[3];          // offset 21, size 3 (alignment padding)
-//	u32 fd;              // offset 24, size 4
-//	u8  src_ip[16];      // offset 28, size 16
-//	u16 src_port;        // offset 44, size 2
-//	u16 pad2;            // offset 46, size 2 (alignment padding)
-//	u8  dst_ip[16];      // offset 48, size 16
-//	u16 dst_port;        // offset 64, size 2
-//	u8  ip_version;      // offset 66, size 1 (4=IPv4, 6=IPv6)
-//	u8  pad3;            // offset 67, size 1 (alignment padding)
-//	char comm[16];       // offset 68, size 16
-//	char data[...];      // offset 84, variable
+//	u64 seq;             // offset 8,  size 8 (per-CPU counter)
+//	u32 emit_cpu;        // offset 16, size 4
+//	u32 pid;             // offset 20, size 4
+//	u32 tid;             // offset 24, size 4
+//	s32 data_len;        // offset 28, size 4
+//	u8  event_type;      // offset 32, size 1
+//	u8  pad[3];          // offset 33, size 3 (alignment padding)
+//	u32 fd;              // offset 36, size 4
+//	u8  src_ip[16];      // offset 40, size 16
+//	u16 src_port;        // offset 56, size 2
+//	u16 pad2;            // offset 58, size 2 (alignment padding)
+//	u8  dst_ip[16];      // offset 60, size 16
+//	u16 dst_port;        // offset 76, size 2
+//	u8  ip_version;      // offset 78, size 1 (4=IPv4, 6=IPv6)
+//	u8  pad3;            // offset 79, size 1 (alignment padding)
+//	char comm[16];       // offset 80, size 16
+//	char data[...];      // offset 96, variable
 type GoTLSDataEvent struct {
 	Timestamp uint64 `json:"timestamp"`
+	// BpfMonoNs is bpf_ktime_get_ns from the wire (first u64); used with Seq/EmitCPU for stable order.
+	// If Timestamp is replaced (e.g. zero fallback to wall clock), BpfMonoNs stays on the wire value.
+	BpfMonoNs uint64 `json:"-"`
+	Seq       uint64 `json:"-"`
+	EmitCPU   uint32 `json:"-"`
 	Pid       uint32 `json:"pid"`
 	Tid       uint32 `json:"tid"`
 	DataLen   int32  `json:"dataLen"`
@@ -78,6 +85,13 @@ func (e *GoTLSDataEvent) DecodeFromBytes(data []byte) error {
 	// Read fields in order matching the eBPF structure
 	if err := binary.Read(buf, binary.LittleEndian, &e.Timestamp); err != nil {
 		return errors.NewEventDecodeError("gotls.Timestamp", err)
+	}
+	e.BpfMonoNs = e.Timestamp
+	if err := binary.Read(buf, binary.LittleEndian, &e.Seq); err != nil {
+		return errors.NewEventDecodeError("gotls.Seq", err)
+	}
+	if err := binary.Read(buf, binary.LittleEndian, &e.EmitCPU); err != nil {
+		return errors.NewEventDecodeError("gotls.EmitCPU", err)
 	}
 	if err := binary.Read(buf, binary.LittleEndian, &e.Pid); err != nil {
 		return errors.NewEventDecodeError("gotls.Pid", err)
@@ -147,6 +161,18 @@ func (e *GoTLSDataEvent) DecodeFromBytes(data []byte) error {
 	e.GetTuple()
 
 	return nil
+}
+
+// LessGoTLSDataEventByPerfOrder compares two events for emit order after merging per-CPU perf buffers.
+// Ordering matches gimli (bpf monotonic time, then EmitCPU, then per-CPU Seq).
+func LessGoTLSDataEventByPerfOrder(a, b *GoTLSDataEvent) bool {
+	if a.BpfMonoNs != b.BpfMonoNs {
+		return a.BpfMonoNs < b.BpfMonoNs
+	}
+	if a.EmitCPU != b.EmitCPU {
+		return a.EmitCPU < b.EmitCPU
+	}
+	return a.Seq < b.Seq
 }
 
 // GetTimestamp returns the event timestamp in nanoseconds.

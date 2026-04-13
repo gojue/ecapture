@@ -27,7 +27,7 @@ import (
 // buildEventBytes constructs a raw eBPF byte payload for GoTLSDataEvent.
 // Offsets match the C struct go_tls_event exactly.
 func buildEventBytes(t *testing.T,
-	timestamp uint64, pid, tid uint32, dataLen int32, eventType uint8,
+	timestamp uint64, seq uint64, emitCPU uint32, pid, tid uint32, dataLen int32, eventType uint8,
 	fd uint32, srcIP [16]byte, srcPort uint16, dstIP [16]byte, dstPort uint16,
 	ipVersion uint8, comm [16]byte, payload []byte,
 ) []byte {
@@ -38,23 +38,25 @@ func buildEventBytes(t *testing.T,
 			t.Fatalf("binary.Write failed: %v", err)
 		}
 	}
-	write(timestamp) // offset 0,  u64
-	write(pid)       // offset 8,  u32
-	write(tid)       // offset 12, u32
-	write(dataLen)   // offset 16, s32
-	write(eventType) // offset 20, u8
-	write([3]byte{}) // offset 21, pad[3]
-	write(fd)        // offset 24, u32
-	write(srcIP)     // offset 28, u8[16]
-	write(srcPort)   // offset 44, u16
-	write([2]byte{}) // offset 46, pad2
-	write(dstIP)     // offset 48, u8[16]
-	write(dstPort)   // offset 64, u16
-	write(ipVersion) // offset 66, u8
-	write(uint8(0))  // offset 67, pad3
-	write(comm)      // offset 68, char[16]
+	write(timestamp) // offset 0,  u64 ts_ns
+	write(seq)       // offset 8,  u64 seq
+	write(emitCPU)   // offset 16, u32 emit_cpu
+	write(pid)       // offset 20, u32
+	write(tid)       // offset 24, u32
+	write(dataLen)   // offset 28, s32
+	write(eventType) // offset 32, u8
+	write([3]byte{}) // offset 33, pad[3]
+	write(fd)        // offset 36, u32
+	write(srcIP)     // offset 40, u8[16]
+	write(srcPort)   // offset 56, u16
+	write([2]byte{}) // offset 58, pad2
+	write(dstIP)     // offset 60, u8[16]
+	write(dstPort)   // offset 76, u16
+	write(ipVersion) // offset 78, u8
+	write(uint8(0))  // offset 79, pad3
+	write(comm)      // offset 80, char[16]
 	if len(payload) > 0 {
-		buf.Write(payload) // offset 84, variable data
+		buf.Write(payload) // offset 96, variable data
 	}
 	return buf.Bytes()
 }
@@ -84,7 +86,7 @@ func TestGoTLSDataEvent_DecodeFromBytes_IPv4_Write(t *testing.T) {
 	payload := []byte("GET / HTTP/1.1\r\n")
 
 	raw := buildEventBytes(t,
-		1000000, 42, 99, int32(len(payload)), 0, // eventType=WRITE
+		1000000, 1, 0, 42, 99, int32(len(payload)), 0, // eventType=WRITE
 		7, srcIP, 12345, dstIP, 443, 4, // ipVersion=4
 		commBytes("curl"), payload,
 	)
@@ -96,6 +98,15 @@ func TestGoTLSDataEvent_DecodeFromBytes_IPv4_Write(t *testing.T) {
 
 	if e.Timestamp != 1000000 {
 		t.Errorf("Timestamp = %d, want 1000000", e.Timestamp)
+	}
+	if e.BpfMonoNs != 1000000 {
+		t.Errorf("BpfMonoNs = %d, want 1000000", e.BpfMonoNs)
+	}
+	if e.Seq != 1 {
+		t.Errorf("Seq = %d, want 1", e.Seq)
+	}
+	if e.EmitCPU != 0 {
+		t.Errorf("EmitCPU = %d, want 0", e.EmitCPU)
 	}
 	if e.Pid != 42 {
 		t.Errorf("Pid = %d, want 42", e.Pid)
@@ -141,7 +152,7 @@ func TestGoTLSDataEvent_DecodeFromBytes_IPv4_Read(t *testing.T) {
 	payload := []byte("HTTP/1.1 200 OK\r\n")
 
 	raw := buildEventBytes(t,
-		2000000, 100, 200, int32(len(payload)), 1, // eventType=READ
+		2000000, 2, 0, 100, 200, int32(len(payload)), 1, // eventType=READ
 		5, srcIP, 443, dstIP, 54321, 4,
 		commBytes("myapp"), payload,
 	)
@@ -174,7 +185,7 @@ func TestGoTLSDataEvent_DecodeFromBytes_IPv6(t *testing.T) {
 
 	payload := []byte("hello")
 	raw := buildEventBytes(t,
-		3000000, 7, 8, int32(len(payload)), 0,
+		3000000, 3, 0, 7, 8, int32(len(payload)), 0,
 		3, ipv6Bytes(src6), 8080, ipv6Bytes(dst6), 9090, 6, // ipVersion=6
 		commBytes("server"), payload,
 	)
@@ -196,7 +207,7 @@ func TestGoTLSDataEvent_DecodeFromBytes_IPv6(t *testing.T) {
 
 func TestGoTLSDataEvent_DecodeFromBytes_ZeroDataLen(t *testing.T) {
 	raw := buildEventBytes(t,
-		1000, 1, 2, 0, 0, // dataLen=0
+		1000, 4, 0, 1, 2, 0, 0, // dataLen=0
 		1, ipv4Bytes(1, 2, 3, 4), 100, ipv4Bytes(5, 6, 7, 8), 200, 4,
 		commBytes("app"), nil,
 	)
@@ -212,9 +223,27 @@ func TestGoTLSDataEvent_DecodeFromBytes_ZeroDataLen(t *testing.T) {
 	}
 }
 
+func TestLessGoTLSDataEventByPerfOrder(t *testing.T) {
+	a := &GoTLSDataEvent{BpfMonoNs: 100, EmitCPU: 1, Seq: 5}
+	b := &GoTLSDataEvent{BpfMonoNs: 200, EmitCPU: 0, Seq: 1}
+	if !LessGoTLSDataEventByPerfOrder(a, b) {
+		t.Fatal("expected a before b (mono time)")
+	}
+	sameT := &GoTLSDataEvent{BpfMonoNs: 100, EmitCPU: 2, Seq: 1}
+	otherCPU := &GoTLSDataEvent{BpfMonoNs: 100, EmitCPU: 1, Seq: 99}
+	if !LessGoTLSDataEventByPerfOrder(otherCPU, sameT) {
+		t.Fatal("expected CPU tie-break")
+	}
+	sameTS := &GoTLSDataEvent{BpfMonoNs: 100, EmitCPU: 1, Seq: 1}
+	sameTS2 := &GoTLSDataEvent{BpfMonoNs: 100, EmitCPU: 1, Seq: 2}
+	if !LessGoTLSDataEventByPerfOrder(sameTS, sameTS2) {
+		t.Fatal("expected seq tie-break")
+	}
+}
+
 func TestGoTLSDataEvent_DecodeFromBytes_TimestampZeroFallback(t *testing.T) {
 	raw := buildEventBytes(t,
-		0, 1, 2, 0, 0, // timestamp=0 → should be filled by time.Now()
+		0, 5, 0, 1, 2, 0, 0, // timestamp=0 → should be filled by time.Now()
 		1, ipv4Bytes(1, 2, 3, 4), 80, ipv4Bytes(5, 6, 7, 8), 8080, 4,
 		commBytes("app"), nil,
 	)
@@ -241,7 +270,7 @@ func TestGoTLSDataEvent_DecodeFromBytes_TruncatedInput(t *testing.T) {
 func TestGoTLSDataEvent_DecodeFromBytes_DataLenExceedsBuffer(t *testing.T) {
 	// claim dataLen=100 but provide no payload bytes
 	raw := buildEventBytes(t,
-		1000, 1, 2, 100, 0, // dataLen=100
+		1000, 6, 0, 1, 2, 100, 0, // dataLen=100
 		1, ipv4Bytes(1, 2, 3, 4), 80, ipv4Bytes(5, 6, 7, 8), 8080, 4,
 		commBytes("app"), nil, // no payload
 	)
@@ -584,7 +613,7 @@ func TestGoTLSDataEvent_DecodeFromBytes_RoundTrip(t *testing.T) {
 	copy(comm[:], "myservice")
 
 	raw := buildEventBytes(t,
-		999888777, 12345, 67890, int32(len(wantPayload)), 0,
+		999888777, 7, 0, 12345, 67890, int32(len(wantPayload)), 0,
 		8, ipv4Bytes(172, 16, 0, 1), 54321, ipv4Bytes(172, 16, 0, 2), 443, 4,
 		comm, wantPayload,
 	)
@@ -594,6 +623,12 @@ func TestGoTLSDataEvent_DecodeFromBytes_RoundTrip(t *testing.T) {
 		t.Fatalf("DecodeFromBytes error: %v", err)
 	}
 
+	if e.Seq != 7 {
+		t.Errorf("Seq = %d, want 7", e.Seq)
+	}
+	if e.EmitCPU != 0 {
+		t.Errorf("EmitCPU = %d, want 0", e.EmitCPU)
+	}
 	if e.Pid != 12345 {
 		t.Errorf("Pid = %d, want 12345", e.Pid)
 	}
