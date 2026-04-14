@@ -53,9 +53,9 @@ func (p *Probe) startGoTLSDataPerfReader(em *ebpf.Map, decoder domain.EventDecod
 		Msg("Perf event reader started (GoTLS)")
 
 	if p.config.PerfReorder {
-		go p.goTLSOrderedPerfLoop(rd, em, decoder)
+		p.GoReaderLoop(func() { p.goTLSOrderedPerfLoop(rd, em, decoder) })
 	} else {
-		go p.goTLSPlainPerfLoop(rd, em, decoder)
+		p.GoReaderLoop(func() { p.goTLSPlainPerfLoop(rd, em, decoder) })
 	}
 	return nil
 }

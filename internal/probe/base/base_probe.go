@@ -19,6 +19,7 @@ import (
 	stderrors "errors"
 	"fmt"
 	"io"
+	"sync"
 	"sync/atomic"
 
 	"github.com/cilium/ebpf"
@@ -43,14 +44,15 @@ const (
 // BaseProbe provides common functionality for all probes.
 // Concrete probes should embed this struct and implement probe-specific logic.
 type BaseProbe struct {
-	name       string
-	logger     *logger.Logger
-	ctx        context.Context
-	config     domain.Configuration
-	dispatcher domain.EventDispatcher
-	isRunning  atomic.Bool
-	readers    []io.Closer
-	closers    []closer
+	name         string
+	logger       *logger.Logger
+	ctx          context.Context
+	config       domain.Configuration
+	dispatcher   domain.EventDispatcher
+	isRunning    atomic.Bool
+	readers      []io.Closer
+	closers      []closer
+	readerLoopsW sync.WaitGroup // perf/ringbuf read goroutines; see GoReaderLoop
 }
 
 // closer interface for resources that need to be closed.
@@ -185,6 +187,10 @@ func (p *BaseProbe) Close() error {
 
 	p.readers = nil
 
+	// Reader Close() unblocks rd.Read(); read loops may still run deferred work
+	// (e.g. GoTLS reorder flush) that calls Dispatch. Wait before closing dispatcher.
+	p.readerLoopsW.Wait()
+
 	for _, cler := range p.closers {
 		if err := cler.Close(); err != nil {
 			if p.logger != nil {
@@ -278,8 +284,20 @@ func (p *BaseProbe) StartPerfEventReader(em *ebpf.Map, decoder domain.EventDecod
 		Int("size_mb", mapSize/1024/1024).
 		Msg("Perf event reader started")
 
-	go p.perfEventLoop(rd, em, decoder)
+	p.GoReaderLoop(func() { p.perfEventLoop(rd, em, decoder) })
 	return nil
+}
+
+// GoReaderLoop runs fn in a goroutine tracked for shutdown ordering: Close() closes
+// perf/ringbuf readers first, waits for all GoReaderLoop goroutines to exit, then
+// closes the dispatcher. Probes must use this for read loops that may Dispatch after
+// Read returns (e.g. deferred flush).
+func (p *BaseProbe) GoReaderLoop(fn func()) {
+	p.readerLoopsW.Add(1)
+	go func() {
+		defer p.readerLoopsW.Done()
+		fn()
+	}()
 }
 
 // TrackReader registers a reader to be closed when the probe shuts down.
@@ -355,7 +373,7 @@ func (p *BaseProbe) StartRingbufReader(em *ebpf.Map, decoder domain.EventDecoder
 		Str("map", em.String()).
 		Msg("Ringbuf reader started")
 
-	go p.ringbufEventLoop(rd, em, decoder)
+	p.GoReaderLoop(func() { p.ringbufEventLoop(rd, em, decoder) })
 	return nil
 }
 
