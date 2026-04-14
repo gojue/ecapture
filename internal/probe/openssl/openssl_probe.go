@@ -617,11 +617,19 @@ func (p *Probe) getManagerOptions() manager.Options {
 			}
 		}
 
+		pacInfo := DetectPACInfo(p.config.OpensslPath)
+		var pacEnabled uint64
+		if pacInfo.Detected {
+			pacEnabled = 1
+		}
+		p.Logger().Debug().Bool("pac_detected", pacInfo.Detected).Bool("cpu_support", pacInfo.CPUSupport).Bool("library_pac", pacInfo.LibraryPAC).Msg("PAC detection result")
+
 		opts.ConstantEditors = []manager.ConstantEditor{
 			{Name: "target_pid", Value: p.config.GetPid()},
 			{Name: "target_uid", Value: p.config.GetUid()},
 			{Name: "less52", Value: kernelLess52},
 			{Name: "target_cgroup_id", Value: cgroupId},
+			{Name: "pac_enabled", Value: pacEnabled},
 		}
 	}
 

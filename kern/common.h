@@ -71,6 +71,9 @@ const volatile u64 target_errno = BASH_ERRNO_DEFAULT;
 // Optional Target cgroup ID (0 means no cgroup filtering)
 // bpf_get_current_cgroup_id() requires kernel >= 4.18
 const volatile u64 target_cgroup_id = 0;
+// ARM64 Pointer Authentication Code (PAC) stripping enabled flag.
+// Set to 1 at load time when PAC is detected on the running system.
+const volatile u64 pac_enabled = 0;
 
 
 
@@ -92,8 +95,11 @@ __u32 _version SEC("version") = 0xFFFFFFFE;
 // bits. These must be cleared before using the pointer value as an address
 // in subsequent bpf_probe_read_user() calls.
 // On non-ARM64 architectures, this is a no-op.
+// The pac_enabled global is injected at load time by the Go userspace based
+// on runtime CPU feature detection, so stripping only happens when PAC is
+// actually active on the current device.
 #ifdef __aarch64__
-#define STRIP_PAC(addr) ((addr) & 0x0000FFFFFFFFFFFFULL)
+#define STRIP_PAC(addr) (pac_enabled ? ((addr) & 0x0000FFFFFFFFFFFFULL) : (addr))
 #else
 #define STRIP_PAC(addr) (addr)
 #endif
