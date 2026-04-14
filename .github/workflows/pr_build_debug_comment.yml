@@ -9,6 +9,7 @@ on:
 permissions:
   contents: read
   pull-requests: write
+  actions: read
 
 jobs:
   comment:
@@ -35,43 +36,51 @@ jobs:
               console.log(`Found PR number from workflow run: ${prNumber}`);
             } else {
               console.log('pull_requests array is empty (likely a fork PR), searching by head SHA:', headSha);
-              const { data: openPRs } = await github.rest.pulls.list({
+              // listPullRequestsAssociatedWithCommit is purpose-built for this:
+              // it matches on the exact commit SHA and is not limited to 100 results,
+              // avoiding the race condition of comparing pr.head.sha after the fact.
+              const { data: associatedPRs } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                state: 'open',
-                per_page: 100,
+                commit_sha: headSha,
               });
-              const matched = openPRs.find(pr => pr.head.sha === headSha);
+              const matched = associatedPRs.find(pr => pr.state === 'open');
               if (!matched) {
                 console.log('No open pull request found for head SHA:', headSha);
                 return;
               }
               prNumber = matched.number;
-              console.log(`Found PR number by head SHA lookup: ${prNumber}`);
+              console.log(`Found PR number by commit association lookup: ${prNumber}`);
             }
 
             // Fetch artifact list for this run so we can provide direct per-file links.
             // Direct artifact URLs (…/runs/{id}/artifacts/{artifactId}) are accessible
             // to any logged-in GitHub user on a public repo.
-            const { data: artifactData } = await github.rest.actions.listWorkflowRunArtifacts({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              run_id: runId,
-            });
-
+            // Wrapped in try/catch: if the API returns 403 (e.g. missing actions: read
+            // on a self-hosted runner with restricted permissions) we fall back gracefully.
             let artifactSection;
-            if (artifactData.artifacts.length > 0) {
-              const links = artifactData.artifacts
-                .map(a =>
-                  `  - [${a.name}](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId}/artifacts/${a.id})`
-                )
-                .join('\n');
-              artifactSection = [
-                '📦 **Direct Download Links** _(GitHub login required)_:',
-                links,
-              ].join('\n');
-            } else {
-              // Fallback: artifact list not yet available, link to the run page
+            try {
+              const { data: artifactData } = await github.rest.actions.listWorkflowRunArtifacts({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: runId,
+              });
+              if (artifactData.artifacts.length > 0) {
+                const links = artifactData.artifacts
+                  .map(a =>
+                    `  - [${a.name}](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId}/artifacts/${a.id})`
+                  )
+                  .join('\n');
+                artifactSection = [
+                  '📦 **Direct Download Links** _(GitHub login required)_:',
+                  links,
+                ].join('\n');
+              } else {
+                throw new Error('artifact list is empty');
+              }
+            } catch (err) {
+              // Fallback: link to the run page when artifact list is unavailable
+              console.log('Could not fetch artifact list, falling back to run page:', err.message);
               artifactSection = `📦 [View Build Artifacts](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId}) _(GitHub login required to download)_`;
             }
 
