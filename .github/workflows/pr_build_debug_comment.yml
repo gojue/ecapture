@@ -22,29 +22,71 @@ jobs:
         with:
           script: |
             const runId = context.payload.workflow_run.id;
-            
-            // Get the PR number from the workflow run
+            const headSha = context.payload.workflow_run.head_sha;
+
+            // Get the PR number from the workflow run.
+            // For same-repo PRs the pull_requests array is populated directly.
+            // For fork PRs GitHub deliberately empties this array for security
+            // reasons, so we fall back to searching open PRs by head SHA.
+            let prNumber;
             const pullRequests = context.payload.workflow_run.pull_requests;
-            if (!pullRequests || pullRequests.length === 0) {
-              console.log('No pull request associated with this workflow run');
-              return;
+            if (pullRequests && pullRequests.length > 0) {
+              prNumber = pullRequests[0].number;
+              console.log(`Found PR number from workflow run: ${prNumber}`);
+            } else {
+              console.log('pull_requests array is empty (likely a fork PR), searching by head SHA:', headSha);
+              const { data: openPRs } = await github.rest.pulls.list({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: 'open',
+                per_page: 100,
+              });
+              const matched = openPRs.find(pr => pr.head.sha === headSha);
+              if (!matched) {
+                console.log('No open pull request found for head SHA:', headSha);
+                return;
+              }
+              prNumber = matched.number;
+              console.log(`Found PR number by head SHA lookup: ${prNumber}`);
             }
-            
-            const prNumber = pullRequests[0].number;
-            
+
+            // Fetch artifact list for this run so we can provide direct per-file links.
+            // Direct artifact URLs (…/runs/{id}/artifacts/{artifactId}) are accessible
+            // to any logged-in GitHub user on a public repo.
+            const { data: artifactData } = await github.rest.actions.listWorkflowRunArtifacts({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: runId,
+            });
+
+            let artifactSection;
+            if (artifactData.artifacts.length > 0) {
+              const links = artifactData.artifacts
+                .map(a =>
+                  `  - [${a.name}](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId}/artifacts/${a.id})`
+                )
+                .join('\n');
+              artifactSection = [
+                '📦 **Direct Download Links** _(GitHub login required)_:',
+                links,
+              ].join('\n');
+            } else {
+              // Fallback: artifact list not yet available, link to the run page
+              artifactSection = `📦 [View Build Artifacts](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId}) _(GitHub login required to download)_`;
+            }
+
             try {
               const commentBody = [
                 `🔧 **Debug Build Complete (PR #${prNumber})**`,
                 '',
-                '📦 Download Links:',
-                `- [View Build Artifacts](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId})`,
+                artifactSection,
                 '',
                 '⏰ Files will be retained for 7 days, please download and test promptly.',
                 '',
                 '---',
                 '*This build includes debug binaries for: android/linux (arm64/amd64)*'
               ].join('\n');
-            
+
               await github.rest.issues.createComment({
                 issue_number: prNumber,
                 owner: context.repo.owner,
