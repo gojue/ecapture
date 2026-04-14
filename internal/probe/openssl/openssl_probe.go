@@ -112,6 +112,20 @@ func (p *Probe) Start(ctx context.Context) error {
 	} else {
 		p.Logger().Info().Bool("BoringSSL", p.config.IsBoringSSL).Str("sslVersion", sslVersion).Str("SslBpfFile", p.config.SslBpfFile).Msg("OpenSSL probe started")
 	}
+
+	// Detect ARM64 PAC (Pointer Authentication Code) status and log results.
+	pacInfo := DetectPACInfo(p.config.OpensslPath)
+	if pacInfo.CPUSupport || pacInfo.LibraryPAC {
+		p.Logger().Info().
+			Bool("cpu_support", pacInfo.CPUSupport).
+			Bool("library_pac", pacInfo.LibraryPAC).
+			Msg("ARM64 PAC detection")
+	}
+	if pacInfo.Detected {
+		p.Logger().Warn().
+			Msg("ARM64 Pointer Authentication (PAC) is active. eBPF probes will strip PAC bits from nested pointers.")
+	}
+
 	// Load eBPF bytecode
 	bpfFileName := p.BaseProbe.GetBPFName("bytecode/" + p.config.GetBPFFileName())
 

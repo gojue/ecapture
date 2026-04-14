@@ -205,6 +205,7 @@ static u32 process_BIO_type(u64 ssl_bio_addr) {
             ret);
         return DEFAULT_BIO_TYPE;
     }
+    ssl_bio_method_addr = STRIP_PAC(ssl_bio_method_addr);
 
     // get ssl->bio->method->type
     ssl_bio_method_type_ptr = (u64 *)(ssl_bio_method_addr + BIO_METHOD_ST_TYPE);
@@ -238,6 +239,7 @@ static int process_SSL_bio(void *ssl, int bio_offset, u32 *fd, u32 *bio_type) {
             ret);
         return ret;
     }
+    ssl_bio_addr = STRIP_PAC(ssl_bio_addr);
 
     // get ssl->bio->method->type
     *bio_type = process_BIO_type(ssl_bio_addr);

@@ -86,4 +86,16 @@ const volatile u64 target_cgroup_id = 0;
 char __license[] SEC("license") = "Dual MIT/GPL";
 __u32 _version SEC("version") = 0xFFFFFFFE;
 
+// Strip ARM64 Pointer Authentication Code (PAC) bits from pointers read from
+// user-space memory. On ARM64 with PAC enabled (common on Android 16+),
+// pointers stored in structures may contain PAC signature bits in the upper
+// bits. These must be cleared before using the pointer value as an address
+// in subsequent bpf_probe_read_user() calls.
+// On non-ARM64 architectures, this is a no-op.
+#ifdef __aarch64__
+#define STRIP_PAC(addr) ((addr) & 0x0000FFFFFFFFFFFFULL)
+#else
+#define STRIP_PAC(addr) (addr)
+#endif
+
 #endif
