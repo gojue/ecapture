@@ -21,7 +21,6 @@ fi
 
 function run() {
   git fetch --tags
-  cp -f ${PROJECT_ROOT_DIR}/utils/boringssl-offset.c ${BORINGSSL_DIR}/offset.c
   declare -A sslVerMap=()
   # get all commit about ssl/internel.h  who commit date > Apr 25 23:00:0 2021  (android 12 release)
   # see https://android.googlesource.com/platform/external/boringssl/+/refs/heads/android12-release .
@@ -48,9 +47,13 @@ function run() {
     git checkout ${tag}
     echo "Android Version: ${val}, Generating ${header_file}"
 
-    # Check if the $val variable is greater than 15
-    if ( val > 15 ); then
-        echo "Android version val greater than 15, remove some offsets"
+    # Copy offset.c fresh for each version to avoid cross-contamination from sed
+    cp -f ${PROJECT_ROOT_DIR}/utils/boringssl-offset.c ${BORINGSSL_DIR}/offset.c
+
+    # In Android 16+, BoringSSL removed ssl_st.version and ssl_session_st.secret_length,
+    # and added ssl_session_st.ssl_version instead.
+    if (( val > 15 )); then
+        echo "Android version ${val} greater than 15, adjusting offset.c for struct changes"
         sed -i '/X(ssl_st, version)/d' offset.c
         sed -i 's/X(ssl_session_st, secret_length)/X(ssl_session_st, ssl_version)/g' offset.c
     fi
@@ -59,7 +62,13 @@ function run() {
     echo -e "#ifndef ECAPTURE_${header_define}" >${header_file}
     echo -e "#define ECAPTURE_${header_define}\n" >>${header_file}
     ./offset >>${header_file}
-    echo -e "#define SSL_SESSION_ST_SECRET_LENGTH 0xFF\n" >>${header_file}
+
+    # Android 16+ dropped secret_length from ssl_session_st; use 0xFF sentinel
+    # so boringssl_masterkey.h uses a fixed length instead of reading the field.
+    if (( val > 15 )); then
+        echo -e "#define SSL_SESSION_ST_SECRET_LENGTH 0xFF\n" >>${header_file}
+    fi
+
     echo -e "#include \"boringssl_const.h\"" >>${header_file}
     echo -e "#include \"boringssl_masterkey.h\"" >>${header_file}
     echo -e "#include \"openssl.h\"" >>${header_file}
@@ -67,7 +76,7 @@ function run() {
 
   done
 
-  rm offset.c
+  rm -f offset.c offset
 }
 
 pushd ${BORINGSSL_DIR}
