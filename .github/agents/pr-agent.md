@@ -124,6 +124,23 @@ Agent 禁止的事项（严格）：
 
 ---
 
+## 新增 Android BoringSSL 版本支持
+
+当新版 Android 发布并更新了 BoringSSL 内部结构体布局时，需要重新生成 eBPF 使用的结构体偏移量。**详细的分步方法论请参考**：
+
+📖 **[`ai/memory/android-boringssl-offset-generation.md`](../../ai/memory/android-boringssl-offset-generation.md)**
+
+该文档涵盖了：
+- 从 Android BoringSSL 仓库克隆源码、对比结构体差异的完整流程
+- 使用 `offsetof()` 生成偏移头文件的方法（`utils/boringssl-offset.c` / `utils/boringssl-android16-offset.c`）
+- `kern/boringssl_a_${VER}_kern.c` / `kern/boringssl_const.h` 的条件编译策略
+- InplaceVector 等结构体变化的处理方式
+- 常见陷阱（InplaceVector 步长 49 而非 48、private 字段无法 offsetof、PAC 不是偏移量问题的根因）
+
+> **重要**：当 ecapture 在新 Android 版本上出现"只能抓到响应抓不到请求"或"keylog 不工作"的症状时，根因几乎一定是**结构体偏移量错误**，而不是 ARM64 PAC（指针认证码）问题。不要将 PAC 修复与偏移量修复混淆。
+
+---
+
 ## 仓库关键约束与变更要求
 
 1. 工具链版本要求

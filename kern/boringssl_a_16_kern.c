@@ -70,7 +70,40 @@
 // bssl::SSL_HANDSHAKE->max_version
 #define BSSL__SSL_HANDSHAKE_MAX_VERSION 0x1e
 
+// bssl::SSL_HANDSHAKE->secret
+#define BSSL__SSL_HANDSHAKE_SECRET 0x20
+
+// bssl::SSL_HANDSHAKE->early_traffic_secret
+#define BSSL__SSL_HANDSHAKE_EARLY_TRAFFIC_SECRET 0x51
+
+// bssl::SSL_HANDSHAKE->client_handshake_secret
+#define BSSL__SSL_HANDSHAKE_CLIENT_HANDSHAKE_SECRET 0x82
+
+// bssl::SSL_HANDSHAKE->server_handshake_secret
+#define BSSL__SSL_HANDSHAKE_SERVER_HANDSHAKE_SECRET 0xb3
+
+// bssl::SSL_HANDSHAKE->client_traffic_secret_0
+#define BSSL__SSL_HANDSHAKE_CLIENT_TRAFFIC_SECRET_0 0xe4
+
+// bssl::SSL_HANDSHAKE->server_traffic_secret_0
+#define BSSL__SSL_HANDSHAKE_SERVER_TRAFFIC_SECRET_0 0x115
+
+// bssl::SSL_HANDSHAKE->expected_client_finished
+#define BSSL__SSL_HANDSHAKE_EXPECTED_CLIENT_FINISHED 0x146
+
 #define SSL_SESSION_ST_SECRET_LENGTH 0xFF
+
+// Android 16+ uses InplaceVector<uint8_t, SSL_MAX_MD_SIZE> (49 bytes each)
+// instead of raw uint8_t[SSL_MAX_MD_SIZE] (48 bytes each) for TLS 1.3 secrets.
+// The InplaceVector stores data at offset 0 and a uint8_t size_ at offset 48.
+// This flag tells boringssl_const.h to use the pre-computed offsets above
+// instead of deriving them from max_version + hash_len_ (which no longer
+// exists in Android 16).
+#define BORINGSSL_INPLACEVECTOR_SECRETS
+
+// InplaceVector size_ field is at data_offset + SSL_MAX_MD_SIZE(48).
+// For hash_len, read from secret.size_ at BSSL__SSL_HANDSHAKE_SECRET + 0x30.
+#define BSSL__SSL_HANDSHAKE_HASH_LEN (BSSL__SSL_HANDSHAKE_SECRET+0x30)
 
 #include "boringssl_const.h"
 #include "boringssl_masterkey.h"
