@@ -47,15 +47,14 @@ function run() {
     git checkout ${tag}
     echo "Android Version: ${val}, Generating ${header_file}"
 
-    # Copy offset.c fresh for each version to avoid cross-contamination from sed
-    cp -f ${PROJECT_ROOT_DIR}/utils/boringssl-offset.c ${BORINGSSL_DIR}/offset.c
-
-    # In Android 16+, BoringSSL removed ssl_st.version and ssl_session_st.secret_length,
-    # and added ssl_session_st.ssl_version instead.
+    # In Android 16+, BoringSSL changed TLS 1.3 secret fields from raw arrays
+    # to InplaceVector, removed ssl_st.version and ssl_session_st.secret_length,
+    # and added ssl_session_st.ssl_version.  Use a dedicated offset source file.
     if (( val > 15 )); then
-        echo "Android version ${val} greater than 15, adjusting offset.c for struct changes"
-        sed -i '/X(ssl_st, version)/d' offset.c
-        sed -i 's/X(ssl_session_st, secret_length)/X(ssl_session_st, ssl_version)/g' offset.c
+        echo "Android version ${val} greater than 15, using boringssl-android16-offset.c"
+        cp -f ${PROJECT_ROOT_DIR}/utils/boringssl-android16-offset.c ${BORINGSSL_DIR}/offset.c
+    else
+        cp -f ${PROJECT_ROOT_DIR}/utils/boringssl-offset.c ${BORINGSSL_DIR}/offset.c
     fi
     g++ -Wno-write-strings -Wno-invalid-offsetof -I include/ -I . -I ./src/ offset.c -o offset
 
@@ -67,6 +66,13 @@ function run() {
     # so boringssl_masterkey.h uses a fixed length instead of reading the field.
     if (( val > 15 )); then
         echo -e "#define SSL_SESSION_ST_SECRET_LENGTH 0xFF\n" >>${header_file}
+        # Android 16+ uses InplaceVector for TLS 1.3 secrets; enable the
+        # BORINGSSL_INPLACEVECTOR_SECRETS path in boringssl_const.h so that
+        # the pre-computed offsets above are used directly.
+        echo -e "#define BORINGSSL_INPLACEVECTOR_SECRETS\n" >>${header_file}
+        # InplaceVector size_ field is at data_offset + SSL_MAX_MD_SIZE (48).
+        # For hash_len, read from secret.size_ at BSSL__SSL_HANDSHAKE_SECRET + 48.
+        echo -e "#define BSSL__SSL_HANDSHAKE_HASH_LEN (BSSL__SSL_HANDSHAKE_SECRET+0x30)\n" >>${header_file}
     fi
 
     echo -e "#include \"boringssl_const.h\"" >>${header_file}
