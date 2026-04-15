@@ -22,6 +22,11 @@ jobs:
     name: E2E Tests (TLS/GnuTLS/GoTLS)
     
     steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+          fetch-depth: 0
+
       - uses: actions/setup-go@v5
         with:
           go-version: '1.24.6'
@@ -71,10 +76,6 @@ jobs:
             test -f .config || sudo make oldconfig
           fi
 
-      - uses: actions/checkout@v4
-        with:
-          submodules: 'recursive'
-          fetch-depth: 0
 
       - name: Build eCapture
         run: |

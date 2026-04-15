@@ -10,9 +10,15 @@ jobs:
     runs-on: ubuntu-22.04
     name: build on ubuntu-22.04 x86_64
     steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+          fetch-depth: 0
+
       - uses: actions/setup-go@v5
         with:
           go-version: '1.24.6'
+
       - name: Install Compilers
         run: |
           sudo apt-get update
@@ -31,10 +37,6 @@ jobs:
           sudo make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- prepare V=0
           ls -al /usr/src/$source_dir
         shell: bash
-      - uses: actions/checkout@v4
-        with:
-          submodules: 'recursive'
-          fetch-depth: 0
       - name: Build CO-RE
         run: |
           make clean
@@ -70,9 +72,15 @@ jobs:
     runs-on: ubuntu-22.04-arm
     name: build on ubuntu-22.04 arm64
     steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+          fetch-depth: 0
+
       - uses: actions/setup-go@v5
         with:
           go-version: '1.24.6'
+
       - name: Install Compilers
         run: |
           sudo apt-get update
@@ -91,10 +99,6 @@ jobs:
           sudo make ARCH=x86 CROSS_COMPILE=x86_64-linux-gnu- prepare V=0 > /dev/null
           ls -al /usr/src/$source_dir
         shell: bash
-      - uses: actions/checkout@v4
-        with:
-          submodules: 'recursive'
-          fetch-depth: 0
       - name: Build CO-RE
         run: |
           make clean
