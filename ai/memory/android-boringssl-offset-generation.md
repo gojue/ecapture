@@ -257,7 +257,7 @@ When verifying offsets, check these critical fields:
 
 3. **Private fields cannot use `offsetof()` directly** — BoringSSL's TLS 1.3 secret arrays are in a `private:` section. In older versions, compute them relative to `max_version`. In newer versions with InplaceVector, they may be public and `offsetof()` works.
 
-4. **PAC (Pointer Authentication Code) is separate from offsets** — On ARM64 Android 16+ devices, pointers may contain PAC signature bits in the upper bits. This is handled by `STRIP_PAC()` in `kern/common.h` and is independent of struct offset correctness.
+4. **PAC (Pointer Authentication Code) is NOT the root cause of Android version upgrade issues** — When ecapture fails on a new Android version, the root cause is almost always **wrong struct offsets**, not PAC pointer masking. PAC may co-exist on ARM64 devices but does not cause the "only captures responses, not requests" or "keylog doesn't work" symptoms. Those symptoms are caused by reading TLS 1.3 secrets from incorrect memory addresses due to struct layout changes. Do NOT add PAC stripping code as a fix for offset problems.
 
 5. **Always download and analyze actual source code** — Never guess offsets. Always clone the BoringSSL branch and compile the offset program against its headers.
 
@@ -273,4 +273,4 @@ When verifying offsets, check these critical fields:
 | `utils/boringssl-offset.c` | Generic Android offset calculator (≤A15) |
 | `utils/boringssl-android16-offset.c` | Android 16+ offset calculator (InplaceVector) |
 | `utils/boringssl_android_offset.sh` | Orchestration script for offset generation |
-| `kern/common.h` | STRIP_PAC macro for ARM64 pointer authentication |
+| `kern/common.h` | Common eBPF defines (pid/uid filtering, etc.) |

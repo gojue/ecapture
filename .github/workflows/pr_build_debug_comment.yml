@@ -9,6 +9,7 @@ on:
 permissions:
   contents: read
   pull-requests: write
+  actions: read
 
 jobs:
   comment:
@@ -22,29 +23,80 @@ jobs:
         with:
           script: |
             const runId = context.payload.workflow_run.id;
-            
-            // Get the PR number from the workflow run
+            const headSha = context.payload.workflow_run.head_sha;
+
+            // Get the PR number from the workflow run.
+            // For same-repo PRs the pull_requests array is populated directly.
+            // For fork PRs GitHub deliberately empties this array for security
+            // reasons, so we fall back to searching open PRs by head SHA.
+            let prNumber;
             const pullRequests = context.payload.workflow_run.pull_requests;
-            if (!pullRequests || pullRequests.length === 0) {
-              console.log('No pull request associated with this workflow run');
-              return;
+            if (pullRequests && pullRequests.length > 0) {
+              prNumber = pullRequests[0].number;
+              console.log(`Found PR number from workflow run: ${prNumber}`);
+            } else {
+              console.log('pull_requests array is empty (likely a fork PR), searching by head SHA:', headSha);
+              // listPullRequestsAssociatedWithCommit is purpose-built for this:
+              // it matches on the exact commit SHA and is not limited to 100 results,
+              // avoiding the race condition of comparing pr.head.sha after the fact.
+              const { data: associatedPRs } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                commit_sha: headSha,
+              });
+              const matched = associatedPRs.find(pr => pr.state === 'open');
+              if (!matched) {
+                console.log('No open pull request found for head SHA:', headSha);
+                return;
+              }
+              prNumber = matched.number;
+              console.log(`Found PR number by commit association lookup: ${prNumber}`);
             }
-            
-            const prNumber = pullRequests[0].number;
-            
+
+            // Fetch artifact list for this run so we can provide direct per-file links.
+            // The correct web-downloadable URL format is:
+            //   /suites/{check_suite_id}/artifacts/{artifact_id}
+            // NOT /actions/runs/{runId}/artifacts/{id} (that path is not a valid download URL).
+            // check_suite_id is already present in the workflow_run event payload.
+            const checkSuiteId = context.payload.workflow_run.check_suite_id;
+            let artifactSection;
+            try {
+              const { data: artifactData } = await github.rest.actions.listWorkflowRunArtifacts({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: runId,
+              });
+              if (artifactData.artifacts.length > 0) {
+                const links = artifactData.artifacts
+                  .map(a =>
+                    `  - [${a.name}](https://github.com/${context.repo.owner}/${context.repo.repo}/suites/${checkSuiteId}/artifacts/${a.id})`
+                  )
+                  .join('\n');
+                artifactSection = [
+                  '📦 **Direct Download Links** _(GitHub login required)_:',
+                  links,
+                ].join('\n');
+              } else {
+                throw new Error('artifact list is empty');
+              }
+            } catch (err) {
+              // Fallback: link to the run page when artifact list is unavailable
+              console.log('Could not fetch artifact list, falling back to run page:', err.message);
+              artifactSection = `📦 [View Build Artifacts](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId}) _(GitHub login required to download)_`;
+            }
+
             try {
               const commentBody = [
                 `🔧 **Debug Build Complete (PR #${prNumber})**`,
                 '',
-                '📦 Download Links:',
-                `- [View Build Artifacts](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId})`,
+                artifactSection,
                 '',
                 '⏰ Files will be retained for 7 days, please download and test promptly.',
                 '',
                 '---',
                 '*This build includes debug binaries for: android/linux (arm64/amd64)*'
               ].join('\n');
-            
+
               await github.rest.issues.createComment({
                 issue_number: prNumber,
                 owner: context.repo.owner,

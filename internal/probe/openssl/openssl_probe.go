@@ -55,7 +55,6 @@ type Probe struct {
 	sslBpfFile      string
 	isBoringSSL     bool
 	masterHookFuncs []string
-	pacInfo         PACInfo // cached ARM64 PAC detection result, set in Start()
 }
 
 // NewProbe creates a new OpenSSL probe instance.
@@ -113,20 +112,6 @@ func (p *Probe) Start(ctx context.Context) error {
 	} else {
 		p.Logger().Info().Bool("BoringSSL", p.config.IsBoringSSL).Str("sslVersion", sslVersion).Str("SslBpfFile", p.config.SslBpfFile).Msg("OpenSSL probe started")
 	}
-
-	// Detect ARM64 PAC (Pointer Authentication Code) status once and cache the result.
-	p.pacInfo = DetectPACInfo(p.config.OpensslPath)
-	if p.pacInfo.CPUSupport || p.pacInfo.LibraryPAC {
-		p.Logger().Info().
-			Bool("cpu_support", p.pacInfo.CPUSupport).
-			Bool("library_pac", p.pacInfo.LibraryPAC).
-			Msg("ARM64 PAC detection")
-	}
-	if p.pacInfo.Detected {
-		p.Logger().Warn().
-			Msg("ARM64 Pointer Authentication (PAC) is active. eBPF probes will strip PAC bits from nested pointers.")
-	}
-
 	// Load eBPF bytecode
 	bpfFileName := p.BaseProbe.GetBPFName("bytecode/" + p.config.GetBPFFileName())
 
@@ -618,17 +603,11 @@ func (p *Probe) getManagerOptions() manager.Options {
 			}
 		}
 
-		var pacEnabled uint64
-		if p.pacInfo.Detected {
-			pacEnabled = 1
-		}
-
 		opts.ConstantEditors = []manager.ConstantEditor{
 			{Name: "target_pid", Value: p.config.GetPid()},
 			{Name: "target_uid", Value: p.config.GetUid()},
 			{Name: "less52", Value: kernelLess52},
 			{Name: "target_cgroup_id", Value: cgroupId},
-			{Name: "pac_enabled", Value: pacEnabled},
 		}
 	}
 

@@ -206,7 +206,6 @@ int uretprobe_gnutls_master_key(struct pt_regs *ctx) {
         debug_bpf_printk("gnutls uretprobe/gnutls_handshake, get pversion_addr failed, ret: %d\n", ret);
         return 0;
     }
-    pversion_addr = STRIP_PAC(pversion_addr);
     int ssl_version;
     ret = bpf_probe_read_user(&ssl_version, sizeof(ssl_version), (void *)(pversion_addr + VERSION_ENTRY_ST_ID));
     if (ret) {
@@ -255,7 +254,6 @@ int uretprobe_gnutls_master_key(struct pt_regs *ctx) {
             debug_bpf_printk("gnutls uretprobe/gnutls_handshake, get prf failed, ret: %d\n", ret);
             return 0;
         }
-        prf_addr = STRIP_PAC(prf_addr);
         int mac_cipher_id;
         ret = bpf_probe_read_user(&mac_cipher_id, sizeof(mac_cipher_id), (void *)(prf_addr + MAC_ENTRY_ST_ID));
         if (ret) {

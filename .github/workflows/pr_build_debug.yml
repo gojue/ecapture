@@ -21,6 +21,11 @@ jobs:
         os: [ android, linux ]
         arch: [ arm64, amd64 ]
     steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+          fetch-depth: 0
+
       - uses: actions/setup-go@v5
         with:
           go-version: '1.24.6'
@@ -53,10 +58,6 @@ jobs:
           test -f .config || sudo make oldconfig
           sudo make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- prepare V=0
 
-      - uses: actions/checkout@v4
-        with:
-          submodules: 'recursive'
-          fetch-depth: 0
 
       - name: Build Debug amd64
         if: matrix.arch == 'amd64'

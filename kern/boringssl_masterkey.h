@@ -139,7 +139,6 @@ static __always_inline u64 get_session_addr(void *ssl_st_ptr, u64 s3_address, u6
     // second: ssl_st->s3->hs->new_session
     u64 *ssl_new_session_st_ptr = (u64 *)(ssl_hs_st_ptr + BSSL__SSL_HANDSHAKE_NEW_SESSION);
     ret = bpf_probe_read_user(&tmp_address, sizeof(tmp_address), ssl_new_session_st_ptr);
-    tmp_address = STRIP_PAC(tmp_address);
     // if ret !=0 or tmp_address == 0 then we try to get the session from
     // ssl_st
     if (ret == 0 && tmp_address != 0) {
@@ -157,7 +156,6 @@ static __always_inline u64 get_session_addr(void *ssl_st_ptr, u64 s3_address, u6
             ssl_st_ptr, ssl_new_session_st_ptr, ret);
         return 0;
     }
-    tmp_address = STRIP_PAC(tmp_address);
     return tmp_address;
 }
 
@@ -204,7 +202,6 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
         debug_bpf_printk("bpf_probe_read ssl_s3_st_ptr pointer failed, ret :%d\n", ret);
         return 0;
     }
-    address = STRIP_PAC(address);
     s3_address = address;
 
     struct ssl3_state_st ssl3_stat;
@@ -230,7 +227,6 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
         //        :%d\n", ret);
         return 0;
     }
-    ssl_hs_st_addr = STRIP_PAC(ssl_hs_st_addr);
 
     //////////////////// get hash len //////////////////
     u8 hash_len;
