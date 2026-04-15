@@ -54,10 +54,11 @@ jobs:
             }
 
             // Fetch artifact list for this run so we can provide direct per-file links.
-            // Direct artifact URLs (…/runs/{id}/artifacts/{artifactId}) are accessible
-            // to any logged-in GitHub user on a public repo.
-            // Wrapped in try/catch: if the API returns 403 (e.g. missing actions: read
-            // on a self-hosted runner with restricted permissions) we fall back gracefully.
+            // The correct web-downloadable URL format is:
+            //   /suites/{check_suite_id}/artifacts/{artifact_id}
+            // NOT /actions/runs/{runId}/artifacts/{id} (that path is not a valid download URL).
+            // check_suite_id is already present in the workflow_run event payload.
+            const checkSuiteId = context.payload.workflow_run.check_suite_id;
             let artifactSection;
             try {
               const { data: artifactData } = await github.rest.actions.listWorkflowRunArtifacts({
@@ -68,7 +69,7 @@ jobs:
               if (artifactData.artifacts.length > 0) {
                 const links = artifactData.artifacts
                   .map(a =>
-                    `  - [${a.name}](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId}/artifacts/${a.id})`
+                    `  - [${a.name}](https://github.com/${context.repo.owner}/${context.repo.repo}/suites/${checkSuiteId}/artifacts/${a.id})`
                   )
                   .join('\n');
                 artifactSection = [
