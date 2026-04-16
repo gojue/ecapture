@@ -24,8 +24,8 @@ const dispatchLogAfterReorder = "after reorder"
 
 func logGotlsPerfDispatch(p *Probe, label string, ev *GoTLSDataEvent) {
 	p.Logger().Debug().Msg(fmt.Sprintf(
-		"gotls perf dispatch (%s) mono_ns=%d emit_cpu=%d seq=%d",
-		label, ev.BpfMonoNs, ev.EmitCPU, ev.Seq,
+		"gotls perf dispatch (%s) mono_ns=%d",
+		label, ev.BpfMonoNs,
 	))
 }
 

@@ -20,15 +20,15 @@ import (
 
 func TestGoTLSPerfReorder_flushByLag_ordersWithinCutoff(t *testing.T) {
 	r := newGoTLSPerfReorder(10)
-	_ = r.push(&GoTLSDataEvent{BpfMonoNs: 100, EmitCPU: 0, Seq: 2, DataLen: 1, Data: []byte{'b'}})
-	out := r.push(&GoTLSDataEvent{BpfMonoNs: 50, EmitCPU: 0, Seq: 1, DataLen: 1, Data: []byte{'a'}})
+	_ = r.push(&GoTLSDataEvent{BpfMonoNs: 100, DataLen: 1, Data: []byte{'b'}})
+	out := r.push(&GoTLSDataEvent{BpfMonoNs: 50, DataLen: 1, Data: []byte{'a'}})
 	if len(out) != 1 {
 		t.Fatalf("want 1 flushed (older mono), got %d", len(out))
 	}
 	if string(out[0].GetData()) != "a" {
 		t.Fatalf("expected payload a, got %q", out[0].GetData())
 	}
-	out = r.push(&GoTLSDataEvent{BpfMonoNs: 120, EmitCPU: 0, Seq: 3, DataLen: 1, Data: []byte{'c'}})
+	out = r.push(&GoTLSDataEvent{BpfMonoNs: 120, DataLen: 1, Data: []byte{'c'}})
 	if len(out) != 1 || string(out[0].GetData()) != "b" {
 		t.Fatalf("expected b flush, got %v", out)
 	}
