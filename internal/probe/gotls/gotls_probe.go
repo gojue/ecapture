@@ -94,6 +94,8 @@ func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration) error 
 		Bool("is_register_abi", gotlsConfig.IsRegisterABI).
 		Str("capture_mode", gotlsConfig.CaptureMode).
 		Str("elf_path", gotlsConfig.ElfPath).
+		Bool("perf_reorder", gotlsConfig.PerfReorder).
+		Uint64("perf_reorder_lag_ns", gotlsConfig.PerfReorderLagNs()).
 		Msg("GoTLS probe initialized")
 
 	return nil
@@ -137,8 +139,14 @@ func (p *Probe) Start(ctx context.Context) error {
 
 	// Start event readers for all configured maps
 	for em, decoder := range p.eventFuncMaps {
-		if err := p.StartPerfEventReader(em, decoder); err != nil {
-			return err
+		if _, ok := decoder.(*tlsDataEventDecoder); ok {
+			if err := p.startGoTLSDataPerfReader(em, decoder); err != nil {
+				return err
+			}
+		} else {
+			if err := p.StartPerfEventReader(em, decoder); err != nil {
+				return err
+			}
 		}
 		p.Logger().Debug().
 			Str("map", em.String()).
@@ -554,7 +562,6 @@ type tlsDataEventDecoder struct {
 
 func (d *tlsDataEventDecoder) Decode(_ *ebpf.Map, data []byte) (domain.Event, error) {
 	event := &GoTLSDataEvent{}
-	fmt.Println("Decoding TLSDataEvent from bytes, data length:", len(data))
 	if err := event.DecodeFromBytes(data); err != nil {
 		return nil, err
 	}

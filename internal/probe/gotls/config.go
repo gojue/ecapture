@@ -27,6 +27,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/gojue/ecapture/internal/config"
 	"github.com/gojue/ecapture/internal/probe/base/handlers"
@@ -85,6 +86,13 @@ type Config struct {
 
 	// IsPieBuildMode indicates whether the Go binary is built in PIE mode (position-independent executable)
 	IsPieBuildMode bool `json:"is_pie_build_mode"`
+
+	// PerfReorder enables userland lag-reorder of GoTLS perf events before Dispatch.
+	PerfReorder bool `json:"perf_reorder"`
+
+	// PerfReorderLagMs is the lag window in milliseconds for reorder batching when PerfReorder is set.
+	// Zero selects the default (10 ms).
+	PerfReorderLagMs uint `json:"perf_reorder_lag_ms"`
 
 	goSymTab  *gosym.Table
 	goElfArch string    //
@@ -549,4 +557,13 @@ func (c *Config) GetPcapFile() string {
 // GetKeylogFile returns the keylog file path.
 func (c *Config) GetKeylogFile() string {
 	return c.KeylogFile
+}
+
+// PerfReorderLagNs returns the reorder lag in nanoseconds. Used when PerfReorder is enabled.
+func (c *Config) PerfReorderLagNs() uint64 {
+	ms := c.PerfReorderLagMs
+	if ms == 0 {
+		return uint64(10 * time.Millisecond)
+	}
+	return uint64(ms) * uint64(time.Millisecond)
 }
