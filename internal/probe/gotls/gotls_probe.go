@@ -325,7 +325,7 @@ func (p *Probe) getManagerOptions() manager.Options {
 			{Name: "target_cgroup_id", Value: cgroupId},
 		}
 	} else {
-		// Kernel < 5.2 does not support .rodata global variables, so PID/UID filters cannot be applied.
+		// Kernel < 5.2 does not support .rodata global variables, so PID/UID/cgroup filters cannot be applied.
 		if p.config.GetPid() != 0 {
 			p.Logger().Warn().Uint64("pid", p.config.GetPid()).
 				Msg("PID filter is not supported on kernel < 5.2, --pid filter will be ignored")
@@ -333,6 +333,10 @@ func (p *Probe) getManagerOptions() manager.Options {
 		if p.config.GetUid() != 0 {
 			p.Logger().Warn().Uint64("uid", p.config.GetUid()).
 				Msg("UID filter is not supported on kernel < 5.2, --uid filter will be ignored")
+		}
+		if p.config.GetCGroupPath() != "" {
+			p.Logger().Warn().Str("cgroupPath", p.config.GetCGroupPath()).
+				Msg("cgroup_path filter is not supported on kernel < 5.2, --cgroup_path filter will be ignored")
 		}
 	}
 
