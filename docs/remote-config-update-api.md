@@ -4,8 +4,8 @@ This document describes how to update eCapture’s runtime configuration via HTT
 It focuses on how to construct HTTP requests and JSON payloads to communicate with eCapture.
 
 > Notes:
-> - Default listen address: `http://127.0.0.1:28256`
-> - You can change it via CLI flag `--listen`, for example: `--listen 0.0.0.0:28256`
+> - Default: **disabled** (no HTTP server). Pass `--listen` to enable, for example: `--listen 127.0.0.1:28256`
+> - Set `--listen ""` to explicitly disable the HTTP server (runtime config update will be unavailable)
 > - All endpoints are **HTTP POST + JSON**
 > - Endpoint paths have **no prefix**. They are just the module names (e.g. `/tls`, `/gotls`, `/gnutls`).
 
