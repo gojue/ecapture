@@ -271,10 +271,13 @@ func (c *Config) getSslBpfFile(soPath, sslVersion string) error {
 		}
 
 		if len(c.MasterHookFuncs) == 0 {
-			c.MasterHookFuncs = []string{MasterKeyHookFuncOpenSSL}
+			c.MasterHookFuncs = append([]string(nil), masterKeyHookFuncs...)
 		}
 		// TODO detect sslVersion less then 1.1.0 ,  ref # https://github.com/gojue/ecapture/issues/518
 		tmpSslVer := c.SslVersion
+		if tmpSslVer == "" {
+			tmpSslVer = sslVersion
+		}
 		if strings.Contains(tmpSslVer, " 1.0.") {
 			// no function named SSL_in_before at openssl 1.0.* , and it is a macro definition， so need to change to SSL_state
 			for i, hookFunc := range c.MasterHookFuncs {

@@ -16,6 +16,7 @@ package openssl
 
 import (
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -276,5 +277,43 @@ func TestConfig_ValidateCgroupPath_InvalidPath(t *testing.T) {
 	err := cfg.validateCgroupPath()
 	if err == nil {
 		t.Error("validateCgroupPath() should fail for nonexistent path")
+	}
+}
+
+func TestConfig_GetSslBpfFile_SetsMasterHookFuncs(t *testing.T) {
+	tests := []struct {
+		name         string
+		sslVersion   string
+		expectedHook []string
+	}{
+		{
+			name:         "OpenSSL uses handshake-aware default hooks",
+			sslVersion:   "openssl 3.0.0",
+			expectedHook: []string{"SSL_get_wbio", MasterKeyHookFuncSSLBefore, "SSL_do_handshake"},
+		},
+		{
+			name:         "OpenSSL 1.0 replaces SSL_in_before with SSL_state",
+			sslVersion:   "openssl 1.0.2a",
+			expectedHook: []string{"SSL_get_wbio", MasterKeyHookFuncSSLState, "SSL_do_handshake"},
+		},
+		{
+			name:         "BoringSSL uses dedicated hook",
+			sslVersion:   "boringssl na",
+			expectedHook: []string{MasterKeyHookFuncBoringSSL},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := NewConfig()
+			cfg.SslVersion = tt.sslVersion
+			err := cfg.getSslBpfFile("/tmp/not-used", tt.sslVersion)
+			if err != nil {
+				t.Fatalf("getSslBpfFile() error = %v", err)
+			}
+			if !reflect.DeepEqual(cfg.MasterHookFuncs, tt.expectedHook) {
+				t.Fatalf("MasterHookFuncs = %v, want %v", cfg.MasterHookFuncs, tt.expectedHook)
+			}
+		})
 	}
 }
