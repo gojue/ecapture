@@ -275,6 +275,16 @@ func (p *Probe) getManagerOptions() manager.Options {
 		} else {
 			p.Logger().Info().Msg("Targeting all users")
 		}
+	} else {
+		// Kernel < 5.2 does not support .rodata global variables, so PID/UID filters cannot be applied.
+		if p.config.Pid != 0 {
+			p.Logger().Warn().Uint64("pid", p.config.Pid).
+				Msg("PID filter is not supported on kernel < 5.2, --pid filter will be ignored")
+		}
+		if p.config.Uid != 0 {
+			p.Logger().Warn().Uint64("uid", p.config.Uid).
+				Msg("UID filter is not supported on kernel < 5.2, --uid filter will be ignored")
+		}
 	}
 
 	return opts
