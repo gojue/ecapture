@@ -16,6 +16,7 @@ package openssl
 
 import (
 	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -307,7 +308,11 @@ func TestConfig_GetSslBpfFile_SetsMasterHookFuncs(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := NewConfig()
 			cfg.SslVersion = tt.sslVersion
-			err := cfg.getSslBpfFile("/tmp/not-used", tt.sslVersion)
+			soPath := filepath.Join(t.TempDir(), "libssl.so")
+			if err := os.WriteFile(soPath, []byte(""), 0o644); err != nil {
+				t.Fatalf("failed to create temp soPath: %v", err)
+			}
+			err := cfg.getSslBpfFile(soPath, tt.sslVersion)
 			if err != nil {
 				t.Fatalf("getSslBpfFile() error = %v", err)
 			}
