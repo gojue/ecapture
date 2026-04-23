@@ -72,7 +72,7 @@ const (
 
 // ListenPort1 or ListenPort2 are the default ports for the http server.
 const (
-	configUpdateAddr = "localhost:28256"
+	configUpdateAddr = ""
 )
 
 // CLIConfig extends BaseConfig with CLI-specific fields
@@ -168,7 +168,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&globalConf.LoggerAddr, "logaddr", "l", "", "send logs to this server. -l /tmp/ecapture.log or -l ws://127.0.0.1:8090/ecapture or -l tcp://127.0.0.1:8080")
 	rootCmd.PersistentFlags().StringVar(&globalConf.EventCollectorAddr, "eventaddr", "", "the server address that receives the captured event. --eventaddr ws://127.0.0.1:8090/ecapture or tcp://127.0.0.1:8090, default: same as logaddr")
 	rootCmd.PersistentFlags().StringVar(&globalConf.EcaptureQ, "ecaptureq", "", "listening server, waiting for clients to connect before sending events and logs; false: send directly to the remote server.")
-	rootCmd.PersistentFlags().StringVar(&globalConf.Listen, "listen", configUpdateAddr, "Listens on a port, receives HTTP requests, and is used to update the runtime configuration, default: 127.0.0.1:28256")
+	rootCmd.PersistentFlags().StringVar(&globalConf.Listen, "listen", configUpdateAddr, "Listens on a port, receives HTTP requests, and is used to update the runtime configuration. default: disabled. e.g. --listen 127.0.0.1:28256")
 	rootCmd.PersistentFlags().Uint64VarP(&globalConf.TruncateSize, "tsize", "t", defaultTruncateSize, "the truncate size in text mode, default: 0 (B), no truncate")
 	rootCmd.PersistentFlags().Uint16Var(&rorateSize, "eventroratesize", 0, "the rorate size(MB) of the event collector file, 1M~65535M, only works for eventaddr server is file. --eventaddr=tls.log --eventroratesize=1 --eventroratetime=30")
 	rootCmd.PersistentFlags().Uint16Var(&rorateTime, "eventroratetime", 0, "the rorate time(s) of the event collector file, 1s~65535s, only works for eventaddr server is file. --eventaddr=tls.log --eventroratesize=1 --eventroratetime=30")
@@ -301,16 +301,20 @@ func runProbe(probeType factory.ProbeType, probeConfig domain.Configuration) err
 	var reRloadConfig = make(chan domain.Configuration, 10)
 
 	// listen http server
-	go func() {
-		logger.Info().Str("listen", globalConf.Listen).Send()
-		logger.Info().Msg("https server starting...You can upgrade the configuration file via the HTTP interface.")
-		var ec = http.NewHttpServer(globalConf.Listen, reRloadConfig, logger)
-		err = ec.Run()
-		if err != nil {
-			logger.Fatal().Err(err).Msg("http server start failed")
-			return
-		}
-	}()
+	if globalConf.Listen != "" {
+		go func() {
+			logger.Info().Str("listen", globalConf.Listen).Send()
+			logger.Info().Msg("https server starting...You can upgrade the configuration file via the HTTP interface.")
+			var ec = http.NewHttpServer(globalConf.Listen, reRloadConfig, logger)
+			err = ec.Run()
+			if err != nil {
+				logger.Fatal().Err(err).Msg("http server start failed")
+				return
+			}
+		}()
+	} else {
+		logger.Info().Msg("skip HTTP server listening")
+	}
 
 	ctx, cancelFun := context.WithCancel(context.TODO())
 
