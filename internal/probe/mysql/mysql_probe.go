@@ -302,6 +302,7 @@ func (p *Probe) getManagerOptions() manager.Options {
 
 	return opts
 }
+
 type mysqlEventDecoder struct {
 	eventsMap *ebpf.Map
 }
