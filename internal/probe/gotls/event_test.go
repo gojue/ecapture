@@ -38,7 +38,7 @@ func buildEventBytes(t *testing.T,
 			t.Fatalf("binary.Write failed: %v", err)
 		}
 	}
-	write(timestamp) // offset 0,  u64
+	write(timestamp) // offset 0,  u64 ts_ns
 	write(pid)       // offset 8,  u32
 	write(tid)       // offset 12, u32
 	write(dataLen)   // offset 16, s32
@@ -96,6 +96,9 @@ func TestGoTLSDataEvent_DecodeFromBytes_IPv4_Write(t *testing.T) {
 
 	if e.Timestamp != 1000000 {
 		t.Errorf("Timestamp = %d, want 1000000", e.Timestamp)
+	}
+	if e.BpfMonoNs != 1000000 {
+		t.Errorf("BpfMonoNs = %d, want 1000000", e.BpfMonoNs)
 	}
 	if e.Pid != 42 {
 		t.Errorf("Pid = %d, want 42", e.Pid)
@@ -209,6 +212,19 @@ func TestGoTLSDataEvent_DecodeFromBytes_ZeroDataLen(t *testing.T) {
 	}
 	if len(e.GetData()) != 0 {
 		t.Errorf("GetData() length = %d, want 0", len(e.GetData()))
+	}
+}
+
+func TestLessGoTLSDataEventByPerfOrder(t *testing.T) {
+	a := &GoTLSDataEvent{BpfMonoNs: 100}
+	b := &GoTLSDataEvent{BpfMonoNs: 200}
+	if !LessGoTLSDataEventByPerfOrder(a, b) {
+		t.Fatal("expected a before b (mono time)")
+	}
+	x := &GoTLSDataEvent{BpfMonoNs: 100}
+	y := &GoTLSDataEvent{BpfMonoNs: 100}
+	if LessGoTLSDataEventByPerfOrder(x, y) || LessGoTLSDataEventByPerfOrder(y, x) {
+		t.Fatal("equal mono_ns should not be ordered strictly")
 	}
 }
 

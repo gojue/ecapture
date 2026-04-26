@@ -36,11 +36,16 @@ ecapture gotls --elfpath=/home/cfc4n/go_https_client --hex --pid=3423
 ecapture gotls -m keylog -k /tmp/ecap_gotls_key.log --elfpath=/home/cfc4n/go_https_client -l save.log --pid=3423
 ecapture gotls -m pcap --pcapfile=save_android.pcapng -i wlan0 --elfpath=/home/cfc4n/go_https_client tcp port 443
 `,
+	Example: `  # userland perf reorder (flag name uses hyphens, not underscores)
+  ecapture gotls --elfpath=/path/to/go/binary --btf=1 --debug --perf-reorder -m text
+  ecapture gotls -e /path/to/go/binary --perf-reorder --perf-reorder-lag-ms=20 -m text`,
 	RunE: goTLSCommandFunc,
 }
 
 func init() {
 	gotlsCmd.PersistentFlags().StringVarP(&gotlsConfig.ElfPath, "elfpath", "e", "", "ELF path to binary built with Go toolchain.")
+	gotlsCmd.PersistentFlags().BoolVar(&gotlsConfig.PerfReorder, "perf-reorder", false, "enable userland reorder of GoTLS perf events before dispatch (reduces out-of-order vs raw perf read order)")
+	gotlsCmd.PersistentFlags().UintVar(&gotlsConfig.PerfReorderLagMs, "perf-reorder-lag-ms", 10, "reorder batching window in milliseconds (only with --perf-reorder; default 10)")
 	gotlsCmd.PersistentFlags().StringVarP(&gotlsConfig.PcapFile, "pcapfile", "w", "ecapture_gotls.pcapng", "write the  raw packets to file as pcapng format.")
 	gotlsCmd.PersistentFlags().StringVarP(&gotlsConfig.CaptureMode, "model", "m", "text", "capture model, such as : text, pcap/pcapng, key/keylog")
 	gotlsCmd.PersistentFlags().StringVarP(&gotlsConfig.KeylogFile, "keylogfile", "k", "ecapture_gotls_key.log", "The file stores SSL/TLS keys, and eCapture captures these keys during encrypted traffic communication and saves them to the file.")

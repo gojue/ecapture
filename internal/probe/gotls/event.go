@@ -53,6 +53,8 @@ const (
 //	char data[...];      // offset 84, variable
 type GoTLSDataEvent struct {
 	Timestamp uint64 `json:"timestamp"`
+	// BpfMonoNs is bpf_ktime_get_ns from the wire (same as Timestamp until zero fallback replaces display time).
+	BpfMonoNs uint64 `json:"-"`
 	Pid       uint32 `json:"pid"`
 	Tid       uint32 `json:"tid"`
 	DataLen   int32  `json:"dataLen"`
@@ -79,6 +81,7 @@ func (e *GoTLSDataEvent) DecodeFromBytes(data []byte) error {
 	if err := binary.Read(buf, binary.LittleEndian, &e.Timestamp); err != nil {
 		return errors.NewEventDecodeError("gotls.Timestamp", err)
 	}
+	e.BpfMonoNs = e.Timestamp
 	if err := binary.Read(buf, binary.LittleEndian, &e.Pid); err != nil {
 		return errors.NewEventDecodeError("gotls.Pid", err)
 	}
@@ -147,6 +150,12 @@ func (e *GoTLSDataEvent) DecodeFromBytes(data []byte) error {
 	e.GetTuple()
 
 	return nil
+}
+
+// LessGoTLSDataEventByPerfOrder compares two events for emit order after merging per-CPU perf buffers.
+// Ordering uses only bpf monotonic time (ts_ns on the wire).
+func LessGoTLSDataEventByPerfOrder(a, b *GoTLSDataEvent) bool {
+	return a.BpfMonoNs < b.BpfMonoNs
 }
 
 // GetTimestamp returns the event timestamp in nanoseconds.
