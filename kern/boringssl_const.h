@@ -5,7 +5,33 @@
 // SSL_MAX_MD_SIZE is size of the largest hash function used in TLS, SHA-384.
 #define SSL_MAX_MD_SIZE 48
 
+#ifdef BORINGSSL_INPLACEVECTOR_SECRETS
+//
+// Android 16+ layout: TLS 1.3 secret fields use InplaceVector<uint8_t, 48>.
+// InplaceVector has 48 bytes of data storage (at offset 0) followed by a
+// uint8_t size_ field at offset 48, totalling 49 bytes per field.
+// There is no separate hash_len_ field; the length is stored in each
+// InplaceVector's size_ member.
+//
+// The offsets (BSSL__SSL_HANDSHAKE_SECRET, etc.) are defined directly in the
+// per-version kern header (e.g. boringssl_a_16_kern.c) via offsetof().
+//
 
+// hash_len: read from secret.size_ (defined as BSSL__SSL_HANDSHAKE_HASH_LEN in kern header)
+#define SSL_HANDSHAKE_HASH_LEN_ BSSL__SSL_HANDSHAKE_HASH_LEN
+
+#define SSL_HANDSHAKE_SECRET_ BSSL__SSL_HANDSHAKE_SECRET
+#define SSL_HANDSHAKE_EARLY_TRAFFIC_SECRET_ BSSL__SSL_HANDSHAKE_EARLY_TRAFFIC_SECRET
+#define SSL_HANDSHAKE_CLIENT_HANDSHAKE_SECRET_ BSSL__SSL_HANDSHAKE_CLIENT_HANDSHAKE_SECRET
+#define SSL_HANDSHAKE_SERVER_HANDSHAKE_SECRET_ BSSL__SSL_HANDSHAKE_SERVER_HANDSHAKE_SECRET
+#define SSL_HANDSHAKE_CLIENT_TRAFFIC_SECRET_0_ BSSL__SSL_HANDSHAKE_CLIENT_TRAFFIC_SECRET_0
+#define SSL_HANDSHAKE_SERVER_TRAFFIC_SECRET_0_ BSSL__SSL_HANDSHAKE_SERVER_TRAFFIC_SECRET_0
+#define SSL_HANDSHAKE_EXPECTED_CLIENT_FINISHED_ BSSL__SSL_HANDSHAKE_EXPECTED_CLIENT_FINISHED
+
+#else
+//
+// Android 15 and earlier layout: TLS 1.3 secret fields are raw arrays.
+//
 // memory layout from boringssl repo  ssl/internal.h line 1720
 // struct of struct SSL_HANDSHAKE
 /*
@@ -16,7 +42,7 @@
   uint16_t max_version = 0;
 
  private:
-  size_t hash_len_ = 0;x
+  size_t hash_len_ = 0;
   uint8_t secret_[SSL_MAX_MD_SIZE] = {0};
   uint8_t early_traffic_secret_[SSL_MAX_MD_SIZE] = {0};
   uint8_t client_handshake_secret_[SSL_MAX_MD_SIZE] = {0};
@@ -58,5 +84,7 @@
 
 // bssl::SSL_HANDSHAKE->expected_client_finished_
 #define SSL_HANDSHAKE_EXPECTED_CLIENT_FINISHED_ SSL_HANDSHAKE_SECRET_+SSL_MAX_MD_SIZE*6
+
+#endif /* BORINGSSL_INPLACEVECTOR_SECRETS */
 
 ///////////////////////////  END   ///////////////////////////
