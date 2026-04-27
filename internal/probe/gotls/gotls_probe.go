@@ -89,13 +89,14 @@ func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration) error 
 	}
 	p.config = gotlsConfig
 
+	perfReorder, perfReorderLagNs := gotlsConfig.GetPerfReorder()
 	p.Logger().Info().
 		Str("go_version", gotlsConfig.GoVersion).
 		Bool("is_register_abi", gotlsConfig.IsRegisterABI).
 		Str("capture_mode", gotlsConfig.CaptureMode).
 		Str("elf_path", gotlsConfig.ElfPath).
-		Bool("perf_reorder", gotlsConfig.PerfReorder).
-		Uint64("perf_reorder_lag_ns", gotlsConfig.PerfReorderLagNs()).
+		Bool("perf_reorder", perfReorder).
+		Uint64("perf_reorder_lag_ns", perfReorderLagNs).
 		Msg("GoTLS probe initialized")
 
 	return nil
@@ -139,14 +140,8 @@ func (p *Probe) Start(ctx context.Context) error {
 
 	// Start event readers for all configured maps
 	for em, decoder := range p.eventFuncMaps {
-		if _, ok := decoder.(*tlsDataEventDecoder); ok {
-			if err := p.startGoTLSDataPerfReader(em, decoder); err != nil {
-				return err
-			}
-		} else {
-			if err := p.StartPerfEventReader(em, decoder); err != nil {
-				return err
-			}
+		if err := p.StartPerfEventReader(em, decoder); err != nil {
+			return err
 		}
 		p.Logger().Debug().
 			Str("map", em.String()).

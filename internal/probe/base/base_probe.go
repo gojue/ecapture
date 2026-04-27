@@ -188,7 +188,7 @@ func (p *BaseProbe) Close() error {
 	p.readers = nil
 
 	// Reader Close() unblocks rd.Read(); read loops may still run deferred work
-	// (e.g. GoTLS reorder flush) that calls Dispatch. Wait before closing dispatcher.
+	// (e.g. userland perf reorder flush) that calls Dispatch. Wait before closing dispatcher.
 	p.readerLoopsW.Wait()
 
 	for _, cler := range p.closers {
@@ -279,13 +279,42 @@ func (p *BaseProbe) StartPerfEventReader(em *ebpf.Map, decoder domain.EventDecod
 
 	p.TrackReader(rd)
 
+	reorderRequested, lagNs := p.config.GetPerfReorder()
+	reorderEnabled := reorderRequested && p.decoderSupportsPerfReorder(em, decoder)
+	if reorderEnabled {
+		p.logger.Info().
+			Str("map", em.String()).
+			Int("size_mb", mapSize/1024/1024).
+			Bool("perf_reorder", true).
+			Uint64("perf_reorder_lag_ns", lagNs).
+			Msg("Perf event reader started")
+		p.GoReaderLoop(func() { p.perfEventLoopOrdered(rd, em, decoder, lagNs) })
+		return nil
+	}
+
 	p.logger.Info().
 		Str("map", em.String()).
 		Int("size_mb", mapSize/1024/1024).
+		Bool("perf_reorder", false).
 		Msg("Perf event reader started")
-
+	if reorderRequested {
+		p.logger.Debug().
+			Str("map", em.String()).
+			Msg("perf_reorder ignored: event decoder has no bpf monotonic timestamp")
+	}
 	p.GoReaderLoop(func() { p.perfEventLoop(rd, em, decoder) })
 	return nil
+}
+
+func (p *BaseProbe) decoderSupportsPerfReorder(em *ebpf.Map, decoder domain.EventDecoder) bool {
+	ev, ok := decoder.GetDecoder(em)
+	if !ok {
+		return false
+	}
+	if _, ok := domain.AsMonoNsEvent(ev); !ok {
+		return false
+	}
+	return true
 }
 
 // GoReaderLoop runs fn in a goroutine tracked for shutdown ordering: Close() closes
@@ -347,8 +376,82 @@ func (p *BaseProbe) perfEventLoop(rd *perf.Reader, em *ebpf.Map, decoder domain.
 		}
 		p.logger.Debug().Str("event", event.String()).Msg("Perf event decoded")
 
+		if mn, ok := domain.AsMonoNsEvent(event); ok {
+			p.logPerfDispatchDebug("no reorder", mn)
+		}
 		if err := p.dispatcher.Dispatch(event); err != nil {
 			p.logger.Warn().Err(err).Msg("Failed to dispatch event")
+		}
+	}
+}
+
+func (p *BaseProbe) logPerfDispatchDebug(phase string, mn domain.MonoNsEvent) {
+	// Substrings "no reorder" / "after reorder" are relied on by external log verification tools.
+	p.logger.Debug().Msgf("%s perf dispatch (%s) mono_ns=%d", p.name, phase, mn.PerfMonoNs())
+}
+
+func (p *BaseProbe) perfEventLoopOrdered(rd *perf.Reader, em *ebpf.Map, decoder domain.EventDecoder, lagNs uint64) {
+	reorder := newPerfLagReorder(lagNs)
+	defer func() {
+		for _, ev := range reorder.flushAll() {
+			if mn, ok := domain.AsMonoNsEvent(ev); ok {
+				p.logPerfDispatchDebug("after reorder", mn)
+			}
+			if err := p.dispatcher.Dispatch(ev); err != nil {
+				p.logger.Warn().Err(err).Msg("Failed to dispatch reordered event")
+			}
+		}
+	}()
+
+	for {
+		select {
+		case <-p.ctx.Done():
+			p.logger.Debug().Msg("Perf event reader stopping")
+			return
+		default:
+		}
+
+		record, err := rd.Read()
+		if err != nil {
+			if stderrors.Is(err, perf.ErrClosed) {
+				return
+			}
+			p.logger.Warn().Err(err).Msg("Error reading from perf buffer")
+			continue
+		}
+
+		if record.LostSamples != 0 {
+			p.logger.Warn().
+				Uint64("lost_samples", record.LostSamples).
+				Msg("Perf buffer full, samples lost")
+			continue
+		}
+		event, err := decoder.Decode(em, record.RawSample)
+		if err != nil {
+			if stderrors.Is(err, errors.ErrEventNotReady) {
+				p.logger.Debug().Msg("Event not ready, skipping")
+				continue
+			}
+			p.logger.Warn().Err(err).Msg("Failed to decode event")
+			continue
+		}
+		p.logger.Debug().Str("event", event.String()).Msg("Perf event decoded")
+
+		mn, ok := domain.AsMonoNsEvent(event)
+		if !ok {
+			if err := p.dispatcher.Dispatch(event); err != nil {
+				p.logger.Warn().Err(err).Msg("Failed to dispatch event")
+			}
+			continue
+		}
+
+		for _, ev := range reorder.push(mn) {
+			if out, ok2 := domain.AsMonoNsEvent(ev); ok2 {
+				p.logPerfDispatchDebug("after reorder", out)
+			}
+			if err := p.dispatcher.Dispatch(ev); err != nil {
+				p.logger.Warn().Err(err).Msg("Failed to dispatch reordered event")
+			}
 		}
 	}
 }

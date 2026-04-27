@@ -151,6 +151,11 @@ func (e *Event) GetTimestamp() uint64 {
 	return e.Timestamp
 }
 
+// PerfMonoNs implements domain.MonoNsEvent (ebpf timestamp / bpf_ktime_get_ns).
+func (e *Event) PerfMonoNs() uint64 {
+	return e.Timestamp
+}
+
 // IsTruncated checks if the query was truncated
 func (e *Event) IsTruncated() bool {
 	// Check if the query fills the entire buffer

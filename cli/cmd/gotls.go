@@ -44,7 +44,7 @@ ecapture gotls -m pcap --pcapfile=save_android.pcapng -i wlan0 --elfpath=/home/c
 
 func init() {
 	gotlsCmd.PersistentFlags().StringVarP(&gotlsConfig.ElfPath, "elfpath", "e", "", "ELF path to binary built with Go toolchain.")
-	gotlsCmd.PersistentFlags().BoolVar(&gotlsConfig.PerfReorder, "perf-reorder", false, "enable userland reorder of GoTLS perf events before dispatch (reduces out-of-order vs raw perf read order)")
+	gotlsCmd.PersistentFlags().BoolVar(&gotlsConfig.PerfReorder, "perf-reorder", false, "enable userland reorder of per-CPU perf events by bpf ktime before dispatch (see also: tls, mysqld, postgres)")
 	gotlsCmd.PersistentFlags().UintVar(&gotlsConfig.PerfReorderLagMs, "perf-reorder-lag-ms", 10, "reorder batching window in milliseconds (only with --perf-reorder; default 10)")
 	gotlsCmd.PersistentFlags().StringVarP(&gotlsConfig.PcapFile, "pcapfile", "w", "ecapture_gotls.pcapng", "write the  raw packets to file as pcapng format.")
 	gotlsCmd.PersistentFlags().StringVarP(&gotlsConfig.CaptureMode, "model", "m", "text", "capture model, such as : text, pcap/pcapng, key/keylog")

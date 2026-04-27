@@ -460,6 +460,18 @@ func (p *Probe) Decode(em *ebpf.Map, data []byte) (domain.Event, error) {
 - Context handling
 - Running state tracking
 
+#### Perf Event Reorder
+Perf buffers are per-CPU. When eBPF programs emit samples with `bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, ...)`, userspace reads and merges multiple per-CPU buffers, so the raw read order is not guaranteed to match global probe trigger order. This is especially visible for multiplexed protocols such as HTTP/2.
+
+`BaseProbe.StartPerfEventReader` supports optional userspace lag-window reorder before dispatch:
+
+- The feature is controlled by `BaseConfig.PerfReorder` (`json:"perf_reorder"`) and `BaseConfig.PerfReorderLagMs` (`json:"perf_reorder_lag_ms"`).
+- A module must opt in at the event level by implementing `domain.MonoNsEvent` and returning the original `bpf_ktime_get_ns()` value from `PerfMonoNs()`.
+- If `perf_reorder` is requested but the event decoder does not expose a `MonoNsEvent`, `BaseProbe` automatically falls back to the normal perf reader and logs that reorder was ignored.
+- Current modules with ready reorder keys are `gotls`, `tls`/`openssl`, `mysqld`, and `postgres`.
+
+Use the original eBPF monotonic timestamp as the reorder key. For `gotls`, use `GoTLSDataEvent.BpfMonoNs` because `Timestamp` may be rewritten for display fallback. For `openssl`, `mysql`, and `postgres`, the existing `Timestamp` field is still the raw `bpf_ktime_get_ns()` value and is safe to return from `PerfMonoNs()`.
+
 ### 2. BaseConfig Responsibilities  
 - Common configuration fields (PID, UID, BTF mode, debug, etc.)
 - Validation of common fields

@@ -104,6 +104,11 @@ func (e *Event) DecodeFromBytes(data []byte) error {
 	return nil
 }
 
+// PerfMonoNs implements domain.MonoNsEvent (ebpf timestamp / bpf_ktime_get_ns).
+func (e *Event) PerfMonoNs() uint64 {
+	return e.Timestamp
+}
+
 // String returns a human-readable string representation of the event
 func (e *Event) String() string {
 	return fmt.Sprintf("MySQL Query[PID=%d, Comm=%s, Len=%d/%d, Status=%s]: %s",

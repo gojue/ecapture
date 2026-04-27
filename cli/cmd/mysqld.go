@@ -40,6 +40,8 @@ func init() {
 	mysqldCmd.PersistentFlags().StringVarP(&mysqlConfig.MysqlPath, "mysqld", "m", "/usr/sbin/mariadbd", "mysqld binary file path, use to hook")
 	mysqldCmd.PersistentFlags().Uint64VarP(&mysqlConfig.Offset, "offset", "", 0, "0x710410")
 	mysqldCmd.PersistentFlags().StringVarP(&mysqlConfig.FuncName, "funcname", "f", "", "function name to hook")
+	mysqldCmd.PersistentFlags().BoolVar(&mysqlConfig.PerfReorder, "perf-reorder", false, "enable userland reorder of per-CPU perf events by bpf ktime before dispatch")
+	mysqldCmd.PersistentFlags().UintVar(&mysqlConfig.PerfReorderLagMs, "perf-reorder-lag-ms", 10, "reorder batching window in ms (only with --perf-reorder; default 10)")
 	rootCmd.AddCommand(mysqldCmd)
 }
 
