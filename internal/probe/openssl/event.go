@@ -150,6 +150,11 @@ func (e *Event) DecodeFromBytes(data []byte) error {
 	return nil
 }
 
+// PerfMonoNs implements domain.MonoNsEvent (ebpf timestamp_ns / bpf_ktime_get_ns).
+func (e *Event) PerfMonoNs() uint64 {
+	return e.Timestamp
+}
+
 // String returns a human-readable representation of the event.
 func (e *Event) String() string {
 	direction := "WRITE"

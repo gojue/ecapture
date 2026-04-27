@@ -36,6 +36,8 @@ var postgresCmd = &cobra.Command{
 func init() {
 	postgresCmd.PersistentFlags().StringVarP(&postgresConfig.PostgresPath, "postgres", "m", "/usr/bin/postgres", "postgres binary file path, use to hook")
 	postgresCmd.PersistentFlags().StringVarP(&postgresConfig.FuncName, "funcname", "f", "", "function name to hook")
+	postgresCmd.PersistentFlags().BoolVar(&postgresConfig.PerfReorder, "perf-reorder", false, "enable userland reorder of per-CPU perf events by bpf ktime before dispatch")
+	postgresCmd.PersistentFlags().UintVar(&postgresConfig.PerfReorderLagMs, "perf-reorder-lag-ms", 10, "reorder batching window in ms (only with --perf-reorder; default 10)")
 	rootCmd.AddCommand(postgresCmd)
 }
 

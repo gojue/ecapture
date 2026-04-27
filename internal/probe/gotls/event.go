@@ -158,6 +158,11 @@ func LessGoTLSDataEventByPerfOrder(a, b *GoTLSDataEvent) bool {
 	return a.BpfMonoNs < b.BpfMonoNs
 }
 
+// PerfMonoNs implements domain.MonoNsEvent (bpf monotonic time on the wire).
+func (e *GoTLSDataEvent) PerfMonoNs() uint64 {
+	return e.BpfMonoNs
+}
+
 // GetTimestamp returns the event timestamp in nanoseconds.
 func (e *GoTLSDataEvent) GetTimestamp() uint64 {
 	return e.Timestamp

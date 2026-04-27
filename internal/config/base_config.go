@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"time"
 
 	"github.com/gojue/ecapture/pkg/util/kernel"
 )
@@ -57,6 +58,11 @@ type BaseConfig struct {
 	AddrType           uint8     `json:"addr_type"`
 	EventWriter        io.Writer `json:"-"`
 	CGroupPath         string    `json:"cgroup_path"` // cgroup path for container/process filtering
+
+	// PerfReorder enables userland lag-reorder of perf buffer events (by bpf ktime) before dispatch.
+	PerfReorder bool `json:"perf_reorder"`
+	// PerfReorderLagMs is the lag window in milliseconds when PerfReorder is set. Zero uses default (10 ms).
+	PerfReorderLagMs uint `json:"perf_reorder_lag_ms"`
 }
 
 // NewBaseConfig creates a new BaseConfig with default values.
@@ -258,4 +264,21 @@ func (c *BaseConfig) GetCGroupPath() string {
 // SetCGroupPath sets the cgroup path for filtering.
 func (c *BaseConfig) SetCGroupPath(path string) {
 	c.CGroupPath = path
+}
+
+// PerfReorderLagNs returns the reorder lag in nanoseconds. Used when PerfReorder is enabled.
+func (c *BaseConfig) PerfReorderLagNs() uint64 {
+	ms := c.PerfReorderLagMs
+	if ms == 0 {
+		return uint64(10 * time.Millisecond)
+	}
+	return uint64(ms) * uint64(time.Millisecond)
+}
+
+// GetPerfReorder returns whether userland perf reorder is enabled and the lag in nanoseconds.
+func (c *BaseConfig) GetPerfReorder() (bool, uint64) {
+	if c == nil || !c.PerfReorder {
+		return false, 0
+	}
+	return true, c.PerfReorderLagNs()
 }

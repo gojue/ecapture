@@ -70,4 +70,8 @@ type Configuration interface {
 	// GetCGroupPath returns the cgroup path for container/process filtering.
 	// Returns empty string if no cgroup filtering is configured.
 	GetCGroupPath() string
+
+	// GetPerfReorder returns userland perf-buffer reorder settings (enabled, lag in nanoseconds).
+	// Probes embed config.BaseConfig; default is false, 0.
+	GetPerfReorder() (enabled bool, lagNs uint64)
 }
