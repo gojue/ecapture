@@ -1,0 +1,92 @@
+@startuml eCapture_Architecture
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+LAYOUT_WITH_LEGEND()
+title eCapture 系统架构图（C4 Container Diagram）
+
+Person(user, "用户 / 安全工程师", "通过 CLI 命令行使用 eCapture\n进行流量捕获与安全审计")
+Person(remote_client, "远程客户端", "通过 WebSocket 接收\n实时事件流（eCaptureQ）")
+
+System_Boundary(ecapture_system, "eCapture 系统") {
+
+    Container_Boundary(cli_layer, "CLI 与命令层") {
+        Container(cobra_cli, "Cobra CLI", "Go / cobra", "命令行入口，解析用户参数\n子命令: tls, gotls, gnutls,\nnss, bash, zsh, mysqld, postgres")
+        Container(http_api, "HTTP 配置 API", "Go / net/http", "运行时热更新配置接口\n默认监听 127.0.0.1:28256\nPOST /tls, /gotls, /bash 等")
+    }
+
+    Container_Boundary(probe_layer, "探针引擎层 (Userspace)") {
+        Container(factory, "Probe Factory", "Go", "工厂模式注册与实例化探针\ninit() 自注册机制")
+        Container(base_probe, "BaseProbe", "Go", "模板方法模式基类\n生命周期管理:\nInitialize → Start → Stop → Close")
+        Container(openssl_probe, "OpenSSL Probe", "Go", "SSL_read/SSL_write uprobe\n支持 OpenSSL 1.0.x ~ 3.x\n含 BoringSSL 分支")
+        Container(gotls_probe, "GoTLS Probe", "Go", "crypto/tls.(*Conn).Read/Write\nGo 1.17+ Register ABI 支持")
+        Container(gnutls_probe, "GnuTLS Probe", "Go", "gnutls_record_recv/send\n支持 3.6.12 ~ 3.8.7")
+        Container(nspr_probe, "NSPR Probe", "Go", "PR_Read/PR_Write\nFirefox/Thunderbird 等")
+        Container(bash_probe, "Bash Probe", "Go", "readline uprobe\nShell 命令审计")
+        Container(mysql_probe, "MySQL Probe", "Go", "dispatch_command uprobe\nMySQL 5.6/5.7/8.0")
+        Container(postgres_probe, "Postgres Probe", "Go", "exec_simple_query uprobe\nPostgreSQL 10+")
+    }
+
+    Container_Boundary(event_layer, "事件处理层") {
+        Container(event_processor, "EventProcessor", "Go", "事件调度中枢\nUUID 亲和性分配 worker\nHTTP/1.1 与 HTTP/2 协议解析")
+        Container(dispatcher, "EventDispatcher", "Go", "观察者模式事件分发\n注册多个 EventHandler")
+    }
+
+    Container_Boundary(output_layer, "输出层") {
+        Container(writers, "Writers", "Go", "file / pcap / keylog /\ntcp / websocket / stdout\n支持日志轮转 (rotatelog)")
+        Container(encoders, "Encoders", "Go", "plain / JSON / protobuf\n编码器组合")
+        Container(ecaptureq, "eCaptureQ Server", "Go / WebSocket", "实时事件推送服务\nProtobuf 消息格式\n128 条历史缓存补发")
+    }
+
+    Container_Boundary(kernel_layer, "eBPF 内核层") {
+        Container(ebpf_programs, "eBPF Programs", "C / Clang", "uprobe / kprobe / TC classifier\n编译为 .o 字节码\nCO-RE (BTF) + 非 CO-RE 双模式")
+        ContainerDb(perf_buffer, "Perf/Ring Buffer", "Kernel", "内核态→用户态\n事件数据传输通道")
+        ContainerDb(ebpf_maps, "eBPF Maps", "Kernel", "LRU Hash / Array\n进程元数据关联\n如 network_map")
+    }
+
+    Container_Boundary(asset_layer, "资产嵌入层") {
+        Container(go_bindata, "go-bindata Assets", "Go", "将 .o 字节码嵌入 Go 二进制\nassets/ebpf_probe.go (生成)\nebpf_probe_stub.go (开发用)")
+    }
+}
+
+System_Ext(target_apps, "目标应用程序", "OpenSSL/BoringSSL/GnuTLS/\nNSS/Go TLS 程序\nBash/Zsh/MySQL/PostgreSQL")
+System_Ext(wireshark, "Wireshark", "导入 pcapng 或 keylog\n查看解密后的明文流量")
+
+Rel(user, cobra_cli, "执行命令", "sudo ecapture tls ...")
+Rel(remote_client, ecaptureq, "WebSocket 连接", "ws://host:port")
+Rel(user, http_api, "热更新配置", "HTTP POST JSON")
+
+Rel(cobra_cli, factory, "创建探针")
+Rel(factory, base_probe, "实例化")
+Rel(base_probe, openssl_probe, "继承")
+Rel(base_probe, gotls_probe, "继承")
+Rel(base_probe, gnutls_probe, "继承")
+Rel(base_probe, nspr_probe, "继承")
+Rel(base_probe, bash_probe, "继承")
+Rel(base_probe, mysql_probe, "继承")
+Rel(base_probe, postgres_probe, "继承")
+
+Rel(openssl_probe, ebpf_programs, "加载 eBPF 字节码\n挂载 uprobe")
+Rel(gotls_probe, ebpf_programs, "加载 eBPF 字节码")
+Rel(gnutls_probe, ebpf_programs, "加载 eBPF 字节码")
+Rel(nspr_probe, ebpf_programs, "加载 eBPF 字节码")
+Rel(bash_probe, ebpf_programs, "加载 eBPF 字节码")
+Rel(mysql_probe, ebpf_programs, "加载 eBPF 字节码")
+Rel(postgres_probe, ebpf_programs, "加载 eBPF 字节码")
+
+Rel(ebpf_programs, target_apps, "uprobe 挂钩\nSSL_read/write 等函数")
+Rel(ebpf_programs, perf_buffer, "写入捕获的数据")
+Rel(ebpf_programs, ebpf_maps, "存储进程元数据")
+
+Rel(perf_buffer, event_processor, "perf_event_read\n传输事件数据到用户态")
+Rel(event_processor, dispatcher, "调度已解析事件")
+Rel(dispatcher, writers, "写入输出")
+Rel(writers, encoders, "编码数据")
+Rel(writers, ecaptureq, "WebSocket 推送")
+Rel(writers, wireshark, "导出 pcapng / keylog 文件")
+
+Rel(go_bindata, ebpf_programs, "嵌入编译后的字节码")
+
+Rel(http_api, factory, "运行时重新配置探针")
+
+@enduml
