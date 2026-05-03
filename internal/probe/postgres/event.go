@@ -51,6 +51,9 @@ func (e *Event) Type() domain.EventType {
 	return domain.EventTypeOutput
 }
 
+// IsCustomHandler returns false for standard events.
+func (e *Event) IsCustomHandler() bool { return false }
+
 // UUID returns a unique identifier for this event
 func (e *Event) UUID() string {
 	return fmt.Sprintf("postgres_%d_%d", e.Pid, e.Timestamp)

@@ -19,10 +19,12 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net"
+	"net/netip"
 	"time"
 
 	"github.com/gojue/ecapture/internal/domain"
 	"github.com/gojue/ecapture/internal/errors"
+	pb "github.com/gojue/ecapture/protobuf/gen/v1"
 )
 
 const (
@@ -342,6 +344,9 @@ func (e *GoTLSDataEvent) Type() domain.EventType {
 	return domain.EventTypeOutput
 }
 
+// IsCustomHandler returns true — bypass TextHandler, use GoTlsPayloadHandler.
+func (e *GoTLSDataEvent) IsCustomHandler() bool { return true }
+
 // UUID returns a unique identifier for this event.
 // Due to HTTP2 multiplexing, tid cannot be used as a UUID.
 func (e *GoTLSDataEvent) UUID() string {
@@ -357,4 +362,28 @@ func (e *GoTLSDataEvent) Validate() error {
 		return fmt.Errorf("data length %d is negative", e.DataLen)
 	}
 	return nil
+}
+
+// ToProtobufEvent converts this event to a protobuf Event.
+func (e *GoTLSDataEvent) ToProtobufEvent() *pb.Event {
+	var srcIP, dstIP string
+	if e.IPVersion == 4 {
+		srcIP = netip.AddrFrom4([4]byte(e.SrcIP[:4])).String()
+		dstIP = netip.AddrFrom4([4]byte(e.DstIP[:4])).String()
+	} else {
+		srcIP = netip.AddrFrom16(e.SrcIP).String()
+		dstIP = netip.AddrFrom16(e.DstIP).String()
+	}
+	return &pb.Event{
+		Timestamp: int64(e.Timestamp),
+		Uuid:      e.UUID(),
+		Pid:       int64(e.Pid),
+		Pname:     commToString(e.Comm[:]),
+		SrcIp:     srcIP,
+		SrcPort:   uint32(e.SrcPort),
+		DstIp:     dstIP,
+		DstPort:   uint32(e.DstPort),
+		Payload:   e.Data[:e.DataLen],
+		Length:    uint32(e.DataLen),
+	}
 }

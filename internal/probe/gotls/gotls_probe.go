@@ -90,6 +90,16 @@ func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration) error 
 	p.config = gotlsConfig
 
 	perfReorder, perfReorderLagNs := gotlsConfig.GetPerfReorder()
+
+	// Register PayloadHandler with text + proto encoders for gotls events.
+	encoders := []handlers.Encoder{handlers.NewTextEncoder(p.DefaultTextWriter())}
+	if ch := cfg.GetProtoChannel(); ch != nil {
+		encoders = append(encoders, handlers.NewProtoEncoder(ch))
+	}
+	payloadHandler := handlers.NewPayloadHandler("gotls", encoders...)
+	if err := p.BaseProbe.Dispatcher().Register(payloadHandler); err != nil {
+		return fmt.Errorf("failed to register gotls payload handler: %w", err)
+	}
 	p.Logger().Info().
 		Str("go_version", gotlsConfig.GoVersion).
 		Bool("is_register_abi", gotlsConfig.IsRegisterABI).

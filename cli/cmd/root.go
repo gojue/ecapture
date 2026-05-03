@@ -269,15 +269,11 @@ func runProbe(probeType factory.ProbeType, probeConfig domain.Configuration) err
 		if probeConfig.GetDebug() {
 			zerolog.SetGlobalLevel(zerolog.DebugLevel)
 		}
-		eqWriter := ecaptureQLogWriter{es: es}
 
-		multi := zerolog.MultiLevelWriter(consoleWriter, eqWriter)
-		logger = zerolog.New(multi).With().Timestamp().Logger()
+		logger = zerolog.New(consoleWriter).With().Timestamp().Logger()
 
-		// Set the ecaptureQ event writer on the probe config so events
-		// are dispatched to the ecaptureQ WebSocket server.
-		eqEventWriter := &ecaptureQEventWriter{es: es}
-		probeConfig.SetEventWriter(eqEventWriter)
+		// Pass proto channel to payload handlers for structured output.
+		probeConfig.SetProtoChannel(es.EventCh())
 	} else {
 		logger, err = initLogger(globalConf.LoggerAddr, probeConfig.GetDebug(), false)
 		if err != nil {

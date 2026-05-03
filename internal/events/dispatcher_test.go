@@ -20,7 +20,6 @@ import (
 
 	"github.com/gojue/ecapture/internal/domain"
 	"github.com/gojue/ecapture/internal/logger"
-	"github.com/gojue/ecapture/internal/output/writers"
 )
 
 // mockEvent implements domain.Event for testing
@@ -33,6 +32,7 @@ func (m *mockEvent) String() string                    { return "mock" }
 func (m *mockEvent) StringHex() string                 { return "mock" }
 func (m *mockEvent) Clone() domain.Event               { return &mockEvent{valid: m.valid} }
 func (m *mockEvent) Type() domain.EventType            { return domain.EventTypeOutput }
+func (m *mockEvent) IsCustomHandler() bool             { return false }
 func (m *mockEvent) UUID() string                      { return "test-uuid" }
 func (m *mockEvent) Validate() error {
 	if !m.valid {
@@ -44,33 +44,8 @@ func (m *mockEvent) Validate() error {
 // mockHandler implements domain.EventHandler for testing
 type mockHandler struct {
 	name       string
-	writer     writers.OutputWriter
 	handleFunc func(event domain.Event) error
 }
-
-func (m *mockHandler) Writer() writers.OutputWriter {
-	if m.writer != nil {
-		return m.writer
-	}
-	// 返回一个简单的 mock writer
-	return &mockWriter{}
-} // mockWriter implements writers.OutputWriter for testing
-
-type mockWriter struct{}
-
-func (m *mockWriter) Write(p []byte) (n int, err error) {
-	return 0, nil
-}
-
-func (m *mockWriter) Flush() error {
-	return nil
-}
-
-func (m *mockWriter) Name() string               { return "mock-writer" }
-func (m *mockWriter) WriteRaw(data []byte) error { return nil }
-func (m *mockWriter) IsReady() bool              { return true }
-func (m *mockWriter) Close() error               { return nil }
-func (m *mockWriter) String() string             { return "mock-writer" }
 
 func (m *mockHandler) Name() string { return m.name }
 func (m *mockHandler) Handle(event domain.Event) error {
@@ -128,7 +103,7 @@ func TestDispatcherUnregister(t *testing.T) {
 	handler := &mockHandler{name: "test-handler"}
 	_ = disp.Register(handler)
 
-	err := disp.Unregister("test-handler-mock-writer")
+	err := disp.Unregister("test-handler")
 	if err != nil {
 		t.Fatalf("Unregister() error = %v", err)
 	}

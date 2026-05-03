@@ -194,6 +194,9 @@ func (e *TLSDataEvent) Type() domain.EventType {
 	return domain.EventTypeOutput
 }
 
+// IsCustomHandler returns false for standard events.
+func (e *TLSDataEvent) IsCustomHandler() bool { return false }
+
 // UUID implements domain.Event interface
 func (e *TLSDataEvent) UUID() string {
 	return fmt.Sprintf("%d_%d_%d", e.PID, e.TID, e.Timestamp)

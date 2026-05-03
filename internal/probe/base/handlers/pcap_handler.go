@@ -98,10 +98,6 @@ type PcapHandler struct {
 	logger          *logger.Logger
 }
 
-func (h *PcapHandler) Writer() writers.OutputWriter {
-	return h.writer
-}
-
 // NewPcapHandler creates a new PcapHandler with the provided writer.
 func NewPcapHandler(writer writers.OutputWriter, ifName, filter string, lger *logger.Logger) (*PcapHandler, error) {
 	if writer == nil {

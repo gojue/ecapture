@@ -27,10 +27,6 @@ type TextHandler struct {
 	useHex bool
 }
 
-func (h *TextHandler) Writer() writers.OutputWriter {
-	return h.writer
-}
-
 // NewTextHandler creates a new TextHandler with the provided writer.
 // Events format themselves via String() or StringHex() methods.
 func NewTextHandler(writer writers.OutputWriter, useHex bool) *TextHandler {
@@ -48,6 +44,10 @@ func NewTextHandler(writer writers.OutputWriter, useHex bool) *TextHandler {
 func (h *TextHandler) Handle(event domain.Event) error {
 	if event == nil {
 		return errors.New(errors.ErrCodeEventValidation, "event cannot be nil")
+	}
+
+	if event.IsCustomHandler() {
+		return nil // handled by CustomHandler
 	}
 
 	// Let the event format itself based on hex mode

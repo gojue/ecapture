@@ -113,6 +113,9 @@ func (e *PacketEvent) Type() domain.EventType {
 	return domain.EventTypeOutput
 }
 
+// IsCustomHandler returns false for standard events.
+func (e *PacketEvent) IsCustomHandler() bool { return false }
+
 // UUID returns a unique identifier for the event.
 func (e *PacketEvent) UUID() string {
 	return fmt.Sprintf("packet-%d", e.Timestamp)

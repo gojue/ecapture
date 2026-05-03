@@ -21,6 +21,7 @@ import (
 	"os"
 	"time"
 
+	pb "github.com/gojue/ecapture/protobuf/gen/v1"
 	"github.com/gojue/ecapture/pkg/util/kernel"
 )
 
@@ -53,10 +54,11 @@ type BaseConfig struct {
 	TruncateSize       uint64    `json:"truncate_size"`
 	LoggerAddr         string    `json:"logger_addr"`
 	EventCollectorAddr string    `json:"event_collector_addr"`
-	EcaptureQ          string    `json:"ecapture_q"`
-	Listen             string    `json:"listen"`
-	AddrType           uint8     `json:"addr_type"`
-	EventWriter        io.Writer `json:"-"`
+	EcaptureQ          string           `json:"ecapture_q"`
+	Listen             string           `json:"listen"`
+	AddrType           uint8            `json:"addr_type"`
+	EventWriter        io.Writer        `json:"-"`
+	ProtoChannel       chan<- *pb.Event `json:"-"`
 	CGroupPath         string    `json:"cgroup_path"` // cgroup path for container/process filtering
 
 	// PerfReorder enables userland lag-reorder of perf buffer events (by bpf ktime) before dispatch.
@@ -254,6 +256,16 @@ func (c *BaseConfig) GetEventWriter() io.Writer {
 // SetEventWriter sets a pre-configured event writer.
 func (c *BaseConfig) SetEventWriter(w io.Writer) {
 	c.EventWriter = w
+}
+
+// GetProtoChannel returns the ecaptureQ proto event channel.
+func (c *BaseConfig) GetProtoChannel() chan<- *pb.Event {
+	return c.ProtoChannel
+}
+
+// SetProtoChannel sets the ecaptureQ proto event channel.
+func (c *BaseConfig) SetProtoChannel(ch chan<- *pb.Event) {
+	c.ProtoChannel = ch
 }
 
 // GetCGroupPath returns the cgroup path for filtering.

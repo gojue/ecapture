@@ -123,6 +123,33 @@ func (s *Server) WriteEvent(data []byte) (n int, e error) {
 	return len(data), nil
 }
 
+// WriteProtoEvent sends a fully-populated protobuf Event to WebSocket clients.
+func (s *Server) WriteProtoEvent(event *pb.Event) error {
+	le := &pb.LogEntry{
+		LogType: pb.LogType_LOG_TYPE_EVENT,
+		Payload: &pb.LogEntry_EventPayload{EventPayload: event},
+	}
+	encodedData, err := proto.Marshal(le)
+	if err != nil {
+		return err
+	}
+	s.hub.broadcastMessage(encodedData)
+	return nil
+}
+
+// EventCh returns a channel that accepts protobuf Event messages.
+// The caller sends events to this channel; a background goroutine
+// marshals them into LogEntry envelopes and broadcasts to all clients.
+func (s *Server) EventCh() chan<- *pb.Event {
+	ch := make(chan *pb.Event, 128)
+	go func() {
+		for event := range ch {
+			_ = s.WriteProtoEvent(event)
+		}
+	}()
+	return ch
+}
+
 func (s *Server) Close() {
 	s.ctx.Done()
 }

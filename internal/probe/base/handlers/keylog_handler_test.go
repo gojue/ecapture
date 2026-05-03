@@ -80,6 +80,7 @@ func (m *mockMasterSecretEvent) String() string                    { return "" }
 func (m *mockMasterSecretEvent) StringHex() string                 { return "" }
 func (m *mockMasterSecretEvent) Clone() domain.Event               { return &mockMasterSecretEvent{} }
 func (m *mockMasterSecretEvent) Type() domain.EventType            { return domain.EventTypeOutput }
+func (m *mockMasterSecretEvent) IsCustomHandler() bool             { return false }
 func (m *mockMasterSecretEvent) UUID() string                      { return "" }
 
 func TestNewKeylogHandler(t *testing.T) {
@@ -245,6 +246,7 @@ func (m *mockNonMasterSecretEvent) String() string                    { return "
 func (m *mockNonMasterSecretEvent) StringHex() string                 { return "" }
 func (m *mockNonMasterSecretEvent) Clone() domain.Event               { return &mockNonMasterSecretEvent{} }
 func (m *mockNonMasterSecretEvent) Type() domain.EventType            { return domain.EventTypeOutput }
+func (m *mockNonMasterSecretEvent) IsCustomHandler() bool             { return false }
 func (m *mockNonMasterSecretEvent) UUID() string                      { return "" }
 
 func TestKeylogHandler_Handle_InvalidEventType(t *testing.T) {

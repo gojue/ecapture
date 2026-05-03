@@ -70,6 +70,7 @@ func (m *mockPacketEvent) String() string                    { return "" }
 func (m *mockPacketEvent) StringHex() string                 { return "" }
 func (m *mockPacketEvent) Clone() domain.Event               { return &mockPacketEvent{} }
 func (m *mockPacketEvent) Type() domain.EventType            { return domain.EventTypeOutput }
+func (m *mockPacketEvent) IsCustomHandler() bool             { return false }
 func (m *mockPacketEvent) UUID() string                      { return "" }
 
 func newTestLogger() *logger.Logger {
@@ -160,6 +161,7 @@ func (m *mockNonPacketEvent) String() string                    { return "" }
 func (m *mockNonPacketEvent) StringHex() string                 { return "" }
 func (m *mockNonPacketEvent) Clone() domain.Event               { return &mockNonPacketEvent{} }
 func (m *mockNonPacketEvent) Type() domain.EventType            { return domain.EventTypeOutput }
+func (m *mockNonPacketEvent) IsCustomHandler() bool             { return false }
 func (m *mockNonPacketEvent) UUID() string                      { return "" }
 
 func TestPcapHandler_Handle_InvalidEventType(t *testing.T) {

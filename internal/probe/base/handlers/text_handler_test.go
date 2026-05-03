@@ -105,6 +105,8 @@ func (m *mockTLSDataEvent) Type() domain.EventType {
 	return domain.EventTypeOutput
 }
 
+func (m *mockTLSDataEvent) IsCustomHandler() bool { return false }
+
 func (m *mockTLSDataEvent) UUID() string {
 	return "mock-uuid"
 }
@@ -201,6 +203,7 @@ func (m *mockNonTLSEvent) String() string                    { return "" }
 func (m *mockNonTLSEvent) StringHex() string                 { return "" }
 func (m *mockNonTLSEvent) Clone() domain.Event               { return &mockNonTLSEvent{} }
 func (m *mockNonTLSEvent) Type() domain.EventType            { return domain.EventTypeOutput }
+func (m *mockNonTLSEvent) IsCustomHandler() bool             { return false }
 func (m *mockNonTLSEvent) UUID() string                      { return "" }
 
 func TestTextHandler_Handle_InvalidEventType(t *testing.T) {

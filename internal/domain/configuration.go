@@ -14,7 +14,11 @@
 
 package domain
 
-import "io"
+import (
+	"io"
+
+	pb "github.com/gojue/ecapture/protobuf/gen/v1"
+)
 
 // Configuration defines the interface for probe configuration.
 type Configuration interface {
@@ -66,6 +70,12 @@ type Configuration interface {
 
 	// SetEventWriter sets a pre-configured event writer.
 	SetEventWriter(w io.Writer)
+
+	// GetProtoChannel returns the ecaptureQ proto event channel, or nil.
+	GetProtoChannel() chan<- *pb.Event
+
+	// SetProtoChannel sets the ecaptureQ proto event channel.
+	SetProtoChannel(ch chan<- *pb.Event)
 
 	// GetCGroupPath returns the cgroup path for container/process filtering.
 	// Returns empty string if no cgroup filtering is configured.

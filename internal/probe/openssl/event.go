@@ -24,6 +24,7 @@ import (
 
 	"github.com/gojue/ecapture/internal/domain"
 	"github.com/gojue/ecapture/internal/errors"
+	pb "github.com/gojue/ecapture/protobuf/gen/v1"
 )
 
 const (
@@ -241,6 +242,9 @@ func (e *Event) Type() domain.EventType {
 	return domain.EventTypeOutput
 }
 
+// IsCustomHandler returns true — openssl events need assembly.
+func (e *Event) IsCustomHandler() bool { return true }
+
 // UUID returns a unique identifier for this event.
 func (e *Event) UUID() string {
 	return fmt.Sprintf("%d_%d_%d", e.Pid, e.Tid, e.Timestamp)
@@ -296,6 +300,23 @@ func (e *Event) GetTimestamp() uint64 {
 // IsRead returns true if this is a read (receive) event.
 func (e *Event) IsRead() bool {
 	return e.DataType == DataTypeRead
+}
+
+// AsmUUID returns a connection-scoped identifier for event_processor pooling.
+func (e *Event) AsmUUID() string {
+	return fmt.Sprintf("%d_%d_%s_%d_%d", e.Pid, e.Tid, e.GetComm(), e.Fd, e.DataType)
+}
+
+// Payload returns the raw TLS data for assembly buffering.
+func (e *Event) Payload() []byte { return e.GetData() }
+
+// ProtoEvent builds a protobuf Event from this event's metadata.
+func (e *Event) ProtoEvent() *pb.Event {
+	return &pb.Event{
+		Timestamp: int64(e.Timestamp),
+		Pid:       int64(e.Pid),
+		Pname:     e.GetComm(),
+	}
 }
 
 // commToString converts a null-terminated byte array to a string.
