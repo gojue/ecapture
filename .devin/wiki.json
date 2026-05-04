@@ -1,299 +1,307 @@
 {
   "repo_notes": [
     {
-      "content": "eCapture 是基于 eBPF uprobe/kprobe 技术实现的无需 CA 证书的明文流量捕获工具，支持 Linux x86_64/aarch64 和 Android GKI。核心技术栈：Go（用户态）+ C（eBPF 内核程序）+ Clang/LLVM 编译工具链。主要模块：cli/（Cobra CLI 入口）、internal/probe/（探针实现）、internal/output/（输出编码与写入）、pkg/event_processor/（事件解析流水线）、pkg/ecaptureq/（WebSocket 推送）。支持 CO-RE（BTF）与非 CO-RE 两种运行模式。Wiki 面向三类读者：普通用户（使用探针抓包）、运维/安全人员（集成与部署）、开发者（新增探针/二次开发）。"
+      "content": "eCapture is an eBPF-based traffic capture tool that collects plaintext from TLS/SSL libraries without a CA certificate, audits shell commands (bash/zsh), and intercepts SQL queries (MySQL, PostgreSQL). Supported platforms: Linux x86_64 (kernel >=4.18) and aarch64 (kernel >=5.5), plus Android GKI. Core stack: Go for the userspace control plane, C for the eBPF kernel programs, with Clang/LLVM as the compile toolchain. Main modules: cli/ (Cobra CLI entrypoints), internal/probe/ (probe implementations), internal/output/ (writers and encoders), pkg/event_processor/ (parsing pipeline), pkg/ecaptureq/ (WebSocket event push). Both CO-RE (BTF) and non-CO-RE runtime modes are supported. The wiki targets three audiences: end users running probes for capture, SREs and security engineers integrating eCapture in production, and developers extending eCapture or adding new probes."
     }
   ],
   "pages": [
     {
-      "title": "认识 eCapture",
-      "purpose": "项目导读页：简述 eCapture 是什么、解决什么问题，并通过子页面导航帮助读者快速定位所需内容（简介/能力/平台支持）。本页本身不做详细展开，定位为章节索引。",
+      "title": "Introducing eCapture",
+      "purpose": "Top-level landing page for the project. Briefly describes what eCapture is, the problem it solves, and acts as a navigation index for the introduction, capabilities, and platform support sub-pages. This page itself stays high level; details belong on the children.",
+      "parent": null,
       "page_notes": [
         {
-          "content": "参考 README.md 和 README-zh_Hans.md 的首屏介绍。"
+          "content": "Use the headline section of README.md and README-zh_Hans.md as the source for the high-level description."
         }
       ]
     },
     {
-      "title": "项目简介与核心能力",
-      "purpose": "详细介绍 eCapture 的背景与定位：基于 eBPF 的无需 CA 证书的明文流量捕获工具。覆盖三大核心能力（TLS 明文抓取、数据库 SQL 审计、Shell 命令审计）、与传统抓包工具（tcpdump/mitmproxy）的对比优势，以及典型使用场景（安全审计、流量分析、数据库监控、合规审查）。",
-      "parent": "认识 eCapture",
+      "title": "Introduction and Core Capabilities",
+      "purpose": "Detailed introduction to eCapture: an eBPF-based plaintext traffic capture tool that does not require CA certificates. Covers the three core capabilities (TLS plaintext capture, database SQL auditing, shell command auditing), comparison with traditional tools such as tcpdump and mitmproxy, and typical use cases (security audit, traffic analysis, database monitoring, compliance).",
+      "parent": "Introducing eCapture",
       "page_notes": [
         {
-          "content": "参考 README-zh_Hans.md 及 docs/ 目录下的 blog/ 文章。探针列表可从 cli/cmd/ 目录（tls.go、gotls.go、gnutls.go、nss.go、mysqld.go、postgres.go、bash.go、zsh.go）枚举。"
+          "content": "Reference README.md, README-zh_Hans.md, and the docs/ directory for blog/feature articles. The list of probes can be enumerated from cli/cmd/ (tls.go, gotls.go, gnutls.go, nss.go, mysqld.go, postgres.go, bash.go, zsh.go)."
         }
       ]
     },
     {
-      "title": "支持平台与版本说明",
-      "purpose": "列出 eCapture 支持的操作系统（Linux x86_64/arm64、Android GKI）、最低内核版本要求（x86_64 ≥4.18，aarch64 ≥5.5）、CO-RE 与非 CO-RE 的适用范围与区别、已验证的发行版列表，以及不同版本的功能差异说明。",
-      "parent": "认识 eCapture",
+      "title": "Supported Platforms and Versions",
+      "purpose": "List the operating systems eCapture supports (Linux x86_64/arm64 and Android GKI), minimum kernel versions (x86_64 >=4.18, aarch64 >=5.5), the difference between CO-RE and non-CO-RE modes, the verified distro list, and any feature-set differences across platform variants.",
+      "parent": "Introducing eCapture",
       "page_notes": [
         {
-          "content": "内核版本约束见 variables.mk 和 Makefile。CO-RE 依赖 BTF，检测方式：ls /sys/kernel/btf/vmlinux。Android 支持见 builder/Dockerfile 中的交叉编译配置。"
+          "content": "Kernel version constraints live in variables.mk and Makefile. CO-RE depends on BTF; check with: ls /sys/kernel/btf/vmlinux. Android cross-compilation lives in builder/Dockerfile."
         }
       ]
     },
     {
-      "title": "上手使用",
-      "purpose": "面向新用户的实操入口页：覆盖安装方式、环境检查、第一个抓包示例，以及输出格式的选择。子页面提供逐步操作指引，确保用户能在 5 分钟内跑通第一个示例。",
+      "title": "Getting Started",
+      "purpose": "Entry point for new users: covers installation, environment checks, the first capture example, and how to choose an output format. Sub-pages walk through each step so users can run their first capture within five minutes.",
+      "parent": null,
       "page_notes": [
         {
-          "content": "本页作为章节导读，子页面分别覆盖安装、快速开始、输出格式、最小权限四个主题。"
+          "content": "This page is a chapter index. The sub-pages cover installation, minimum privileges, quick start, and output formats."
         }
       ]
     },
     {
-      "title": "安装与环境要求",
-      "purpose": "介绍 eCapture 的所有安装方式：预编译二进制包下载（GitHub Releases）、RPM/DEB 包安装、Docker 镜像、从源码编译。同时说明前置依赖（内核版本、BTF 支持检查、所需 Linux Capabilities）及常见安装问题排查。",
-      "parent": "上手使用",
+      "title": "Installation and Prerequisites",
+      "purpose": "Describes every install path for eCapture: prebuilt binary downloads from GitHub Releases, RPM/DEB packages, Docker images, and building from source. Also covers prerequisites (kernel version, BTF availability, required Linux Capabilities) and common installation troubleshooting.",
+      "parent": "Getting Started",
       "page_notes": [
         {
-          "content": "安装包构建逻辑见 builder/Makefile.release 和 builder/rpmBuild.spec。Docker 镜像见 builder/Dockerfile。源码编译流程见 Makefile 和 functions.mk。"
+          "content": "Package build logic lives in builder/Makefile.release and builder/rpmBuild.spec. The Docker image is defined in builder/Dockerfile. Source build steps are in Makefile and functions.mk."
         }
       ]
     },
     {
-      "title": "最小权限配置",
-      "purpose": "说明 eCapture 在不同内核版本下所需的最低 Linux Capabilities：内核 ≥5.8 时可使用细粒度的 CAP_BPF + CAP_PERFMON + CAP_SYS_PTRACE；内核 <5.8 需要 CAP_SYS_ADMIN；pcapng 模式额外需要 CAP_NET_ADMIN。包含 setcap 命令示例和容器部署时的 securityContext 配置示例。",
-      "parent": "上手使用",
+      "title": "Minimum Privileges",
+      "purpose": "Explains the minimum Linux Capabilities required by eCapture under different kernels: kernels >=5.8 can use the fine-grained set CAP_BPF + CAP_PERFMON + CAP_SYS_PTRACE, kernels <5.8 require CAP_SYS_ADMIN, and pcapng mode additionally needs CAP_NET_ADMIN. Includes setcap command examples and Kubernetes securityContext examples for container deployments.",
+      "parent": "Getting Started",
       "page_notes": [
         {
-          "content": "详细说明见 docs/minimum-privileges.md。不同模式的 Capability 需求矩阵在该文件中已有表格，直接引用并翻译。"
+          "content": "See docs/minimum-privileges.md for the full matrix; this page should reference and translate that table directly."
         }
       ]
     },
     {
-      "title": "快速开始（5 分钟跑通第一个示例）",
-      "purpose": "以最简单的 TLS 明文捕获为例，手把手演示从启动 eCapture 到看到明文输出的完整流程。包含命令示例、预期输出格式说明、--pid 过滤用法，以及针对不同目标程序（curl、wget、nginx）的快速示例。",
-      "parent": "上手使用",
+      "title": "Quick Start (Run the First Example in 5 Minutes)",
+      "purpose": "Hands-on walkthrough using the simplest TLS plaintext capture as the example, from launching eCapture to seeing decrypted output. Includes example commands, the expected output format, --pid filtering, and short examples targeting curl, wget, and nginx.",
+      "parent": "Getting Started",
       "page_notes": [
         {
-          "content": "示例命令参考 cli/cmd/tls.go 中的 flag 定义。输出样例参考 docs/example-outputs.md。"
+          "content": "Example commands are derived from the flag definitions in cli/cmd/tls.go. Output samples should reference docs/example-outputs.md."
         }
       ]
     },
     {
-      "title": "输出格式说明（text / pcap / keylog）",
-      "purpose": "详细说明 eCapture 三种捕获输出模式的含义、使用场景和配置方法：text 模式（直接明文输出）、pcap/pcapng 模式（与 Wireshark 联动，需 CAP_NET_ADMIN）、keylog 模式（NSS Key Log 格式，供 Wireshark 解密 TLS）。同时说明底层编码器（plain/JSON/protobuf）与输出目标（stdout/文件/TCP/WebSocket）的组合方式。包含各模式的 CLI 参数示例。",
-      "parent": "上手使用",
+      "title": "Output Formats (text / pcap / keylog)",
+      "purpose": "Explains the three output modes of eCapture in detail: text mode (direct plaintext output), pcap/pcapng mode (Wireshark-compatible, requires CAP_NET_ADMIN), and keylog mode (NSS Key Log format for Wireshark TLS decryption). Also covers how the underlying encoders (plain/JSON/protobuf) combine with output targets (stdout/file/TCP/WebSocket), with CLI examples for each mode.",
+      "parent": "Getting Started",
       "page_notes": [
         {
-          "content": "输出写入器实现：internal/output/writers/（file_writer.go、pcap_writer.go、keylog_writer.go、tcp_writer.go、websocket_writer.go）。编码器实现：internal/output/encoders/（plain_encoder.go、json_encoder.go、protobuf_encoder.go）。Writer 工厂注册：internal/output/writers/factory.go。"
+          "content": "Writers live in internal/output/writers/ (file_writer.go, pcap_writer.go, keylog_writer.go, tcp_writer.go, websocket_writer.go). Encoders live in internal/output/encoders/ (plain_encoder.go, json_encoder.go, protobuf_encoder.go). The writer factory is registered in internal/output/writers/factory.go."
         }
       ]
     },
     {
-      "title": "探针功能详解",
-      "purpose": "eCapture 各探针模块的核心功能导读页。每个子页面对应一类捕获目标，说明其原理、支持的目标程序、CLI 用法和注意事项。面向需要深入使用某一特定场景的用户。",
+      "title": "Probe Reference",
+      "purpose": "Reference index for every probe module in eCapture. Each child page documents one capture target with its principle of operation, supported binaries, CLI usage, and caveats. Aimed at users who want to dive deeper into a specific scenario.",
+      "parent": null,
       "page_notes": [
         {
-          "content": "探针列表对应 internal/probe/ 下的子目录：openssl/、gotls/、gnutls/、nspr/、mysql/、postgres/、bash/、zsh/。CLI 入口分别在 cli/cmd/ 下对应文件。"
+          "content": "Probes live under internal/probe/ in subdirectories: openssl/, gotls/, gnutls/, nspr/, mysql/, postgres/, bash/, zsh/. CLI entrypoints are the matching files under cli/cmd/."
         }
       ]
     },
     {
-      "title": "TLS/SSL 明文捕获（OpenSSL / BoringSSL）",
-      "purpose": "介绍 tls 探针的使用：自动发现 OpenSSL/BoringSSL 库路径、支持的 OpenSSL 版本范围（1.0.2 ~ 3.x）、SSL_read/SSL_write uprobe 挂钩原理简述、Android BoringSSL 特殊处理（版本分支 a_13~a_16 与 na）、三种输出模式的配置示例，以及与 Wireshark 配合使用的完整流程。",
-      "parent": "探针功能详解",
+      "title": "TLS/SSL Plaintext Capture (OpenSSL / BoringSSL)",
+      "purpose": "Describes the tls probe: automatic discovery of OpenSSL/BoringSSL libraries, supported OpenSSL version range (1.0.2 ~ 3.x), how SSL_read/SSL_write uprobes are attached, the special handling for Android BoringSSL (a_13 ~ a_16 and na branches), all three output mode examples, and the full Wireshark integration flow.",
+      "parent": "Probe Reference",
       "page_notes": [
         {
-          "content": "探针实现：internal/probe/openssl/。CLI flag：cli/cmd/tls.go。eBPF 内核程序：kern/openssl_*_kern.c（多版本分支）。bytecode/ 目录下有对应预编译的 .o 文件，版本命名规律可作为支持版本矩阵的来源。"
+          "content": "Probe implementation: internal/probe/openssl/. CLI flags: cli/cmd/tls.go. eBPF kernel programs: kern/openssl_*_kern.c (multiple version branches). The bytecode/ directory has prebuilt .o files; the version naming convention is the source of truth for the supported version matrix."
         }
       ]
     },
     {
-      "title": "GoTLS 捕获",
-      "purpose": "介绍 gotls 探针的使用：针对 Go 原生 TLS 实现（crypto/tls）的捕获方案、支持的 Go 版本、stripped 二进制的处理方式（需符号表）、register-based 与 stack-based 两种 Go 调用约定（Go 1.17 前后）的差异说明，以及使用示例和已知限制。",
-      "parent": "探针功能详解",
+      "title": "GoTLS Capture",
+      "purpose": "Describes the gotls probe: capture for Go's native TLS implementation (crypto/tls), supported Go versions, how stripped Go binaries are handled (symbol table required), the difference between register-based and stack-based Go calling conventions (pre/post Go 1.17), example usage, and known limitations.",
+      "parent": "Probe Reference",
       "page_notes": [
         {
-          "content": "探针实现：internal/probe/gotls/。CLI flag：cli/cmd/gotls.go。eBPF 内核程序：kern/gotls_kern.c。关键挂钩点：crypto/tls.(*Conn).Write 和 crypto/tls.(*Conn).Read。"
+          "content": "Probe implementation: internal/probe/gotls/. CLI flags: cli/cmd/gotls.go. eBPF kernel program: kern/gotls_kern.c. Hook points: crypto/tls.(*Conn).Write and crypto/tls.(*Conn).Read."
         }
       ]
     },
     {
-      "title": "GnuTLS 捕获",
-      "purpose": "介绍 gnutls 探针的使用：适用程序（wget、curl --with-gnutls 等）、支持的 GnuTLS 版本（3.6.12 ~ 3.8.7，多版本分支）、库路径自动发现、keylog 输出支持，以及与 OpenSSL 探针的使用区别和选择建议。",
-      "parent": "探针功能详解",
+      "title": "GnuTLS Capture",
+      "purpose": "Describes the gnutls probe: applicable binaries (wget, curl --with-gnutls, etc.), supported GnuTLS versions (3.6.12 ~ 3.8.7, multiple version branches), automatic library path discovery, keylog output support, and guidance on choosing between this probe and the OpenSSL probe.",
+      "parent": "Probe Reference",
       "page_notes": [
         {
-          "content": "探针实现：internal/probe/gnutls/。CLI flag：cli/cmd/gnutls.go。eBPF 内核程序：kern/gnutls_*_kern.c（多版本）。bytecode/ 中有 gnutls_3_6_12 ~ gnutls_3_8_7 的 .o 文件，以此列出支持版本矩阵。"
+          "content": "Probe implementation: internal/probe/gnutls/. CLI flags: cli/cmd/gnutls.go. eBPF kernel programs: kern/gnutls_*_kern.c (multi-version). bytecode/ has gnutls_3_6_12 ~ gnutls_3_8_7 .o files; use that as the support matrix source."
         }
       ]
     },
     {
-      "title": "NSS / NSPR 捕获",
-      "purpose": "介绍 nss/nspr 探针的使用：适用程序（Firefox、curl --with-nss、Thunderbird 等）、NSPR PR_Read/PR_Write 挂钩原理、库路径配置方式、keylog 输出支持，以及与 GnuTLS/OpenSSL 探针的区别和选型建议。",
-      "parent": "探针功能详解",
+      "title": "NSS / NSPR Capture",
+      "purpose": "Describes the nss/nspr probe: applicable binaries (Firefox, curl --with-nss, Thunderbird, etc.), the PR_Read/PR_Write hook strategy in NSPR, library path configuration, keylog output support, and guidance on choosing between this probe and the GnuTLS or OpenSSL probes.",
+      "parent": "Probe Reference",
       "page_notes": [
         {
-          "content": "探针实现：internal/probe/nspr/。CLI flag：cli/cmd/nss.go。eBPF 内核程序：kern/nspr_kern.c。bytecode/ 中有 nspr_kern_core.o 和 nspr_kern_noncore.o。"
+          "content": "Probe implementation: internal/probe/nspr/. CLI flags: cli/cmd/nss.go. eBPF kernel program: kern/nspr_kern.c. bytecode/ contains nspr_kern_core.o and nspr_kern_noncore.o."
         }
       ]
     },
     {
-      "title": "数据库流量捕获（MySQL / PostgreSQL）",
-      "purpose": "介绍 mysqld 和 postgres 探针的使用：支持的数据库版本（MySQL 5.6/5.7/8.0、MariaDB、PostgreSQL）、SQL 语句捕获原理（dispatch_command / exec_simple_query 函数 uprobe）、手动指定函数名或偏移量的方法、输出格式示例，以及生产环境使用的注意事项（性能影响、权限要求）。",
-      "parent": "探针功能详解",
+      "title": "Database Traffic Capture (MySQL / PostgreSQL)",
+      "purpose": "Describes the mysqld and postgres probes: supported database versions (MySQL 5.6/5.7/8.0, MariaDB, PostgreSQL), how SQL statements are captured (uprobes on dispatch_command and exec_simple_query), how to manually specify function names or offsets, output examples, and production caveats (performance impact, permissions).",
+      "parent": "Probe Reference",
       "page_notes": [
         {
-          "content": "MySQL 探针实现：internal/probe/mysql/。PostgreSQL 探针实现：internal/probe/postgres/。CLI flag：cli/cmd/mysqld.go 和 cli/cmd/postgres.go。eBPF 内核程序：kern/mysqld_kern.c。"
+          "content": "MySQL probe: internal/probe/mysql/. PostgreSQL probe: internal/probe/postgres/. CLI flags: cli/cmd/mysqld.go and cli/cmd/postgres.go. eBPF kernel programs: kern/mysqld_kern.c."
         }
       ]
     },
     {
-      "title": "Shell 审计（Bash / Zsh）",
-      "purpose": "介绍 bash 和 zsh 探针的使用：readline 库函数（readline/rl_line_buffer）uprobe 挂钩原理、支持的 Shell 版本、输出格式（含用户名、PID、时间戳、命令内容），以及在安全审计和操作合规场景中的典型使用方式。",
-      "parent": "探针功能详解",
+      "title": "Shell Auditing (Bash / Zsh)",
+      "purpose": "Describes the bash and zsh probes: how readline functions (readline / rl_line_buffer) are hooked via uprobes, supported shell versions, the output format (username, PID, timestamp, command), and typical use in security auditing and operational compliance.",
+      "parent": "Probe Reference",
       "page_notes": [
         {
-          "content": "Bash 探针实现：internal/probe/bash/。Zsh 探针实现：internal/probe/zsh/。CLI flag：cli/cmd/bash.go 和 cli/cmd/zsh.go。eBPF 内核程序：kern/bash_kern.c。"
+          "content": "Bash probe: internal/probe/bash/. Zsh probe: internal/probe/zsh/. CLI flags: cli/cmd/bash.go and cli/cmd/zsh.go. eBPF kernel program: kern/bash_kern.c."
         }
       ]
     },
     {
-      "title": "集成与部署",
-      "purpose": "面向在生产环境中落地 eCapture 的用户和运维人员。涵盖远程事件流对接、HTTP 动态配置接口、输出与日志配置，以及性能开销评估。",
+      "title": "Integration and Deployment",
+      "purpose": "For users running eCapture in production. Covers remote event streaming, the HTTP dynamic configuration API, output and log configuration, and performance overhead.",
+      "parent": null,
       "page_notes": [
         {
-          "content": "本页为章节导读，子页面分别覆盖 WebSocket 事件流、HTTP 动态配置 API、日志输出配置、性能开销四个主题。"
+          "content": "Chapter index. Sub-pages cover the WebSocket event stream, the HTTP dynamic config API, log/output configuration, and performance benchmarks."
         }
       ]
     },
     {
-      "title": "远程事件流（eCaptureQ WebSocket）",
-      "purpose": "介绍 eCaptureQ 实时事件推送机制：WebSocket 服务端启动（--ecaptureq 参数）、Protobuf 消息格式（LogEntry、LogType、Heartbeat）、128 条启动缓存机制（连接后补发历史事件）、Go 示例客户端使用说明，以及多语言客户端接入模式。",
-      "parent": "集成与部署",
+      "title": "Remote Event Streaming (eCaptureQ WebSocket)",
+      "purpose": "Describes the eCaptureQ live event push mechanism: starting the WebSocket server (--ecaptureq), the Protobuf message format (LogEntry, LogType, Heartbeat), the 128-message startup buffer (history replay on connect), the reference Go client, and a multi-language client integration pattern.",
+      "parent": "Integration and Deployment",
       "page_notes": [
         {
-          "content": "WebSocket 服务实现：pkg/ecaptureq/。Protobuf 定义：protobuf/proto/ 目录，生成代码在 protobuf/gen/。示例客户端：examples/ecaptureq_client/。WebSocket Writer：internal/output/writers/websocket_writer.go。CLI flag：cli/cmd/ecaptureq.go。协议说明文档：protobuf/PROTOCOLS-zh_Hans.md。"
+          "content": "Server: pkg/ecaptureq/. Protobuf definitions: protobuf/proto/, generated code in protobuf/gen/. Sample client: examples/ecaptureq_client/. WebSocket writer: internal/output/writers/websocket_writer.go. CLI flags: cli/cmd/ecaptureq.go. Protocol doc: protobuf/PROTOCOLS-zh_Hans.md."
         }
       ]
     },
     {
-      "title": "远程动态配置 API",
-      "purpose": "介绍 eCapture 运行时通过 HTTP 接口热更新配置的能力：HTTP 服务启动（--listen 参数，默认 127.0.0.1:28256）、各探针对应的 POST 路径（/tls、/gotls、/gnutls、/nss、/bash、/mysqld、/postgress 等）、请求/响应的 JSON 格式，以及 Linux 与 Android 平台可用路径差异。包含 curl 调用示例和典型使用场景（无需重启动态调整抓取目标）。",
-      "parent": "集成与部署",
+      "title": "Remote Dynamic Configuration API",
+      "purpose": "Describes the runtime HTTP API for hot-updating eCapture configuration: starting the HTTP server (--listen, default 127.0.0.1:28256), the POST paths exposed by each probe (/tls, /gotls, /gnutls, /nss, /bash, /mysqld, /postgress, etc.), JSON request/response shapes, and platform-specific path differences (Linux vs Android). Includes curl examples and typical use cases (live retargeting without restarts).",
+      "parent": "Integration and Deployment",
       "page_notes": [
         {
-          "content": "HTTP 服务实现：cli/http/ 目录。详细 API 说明：docs/remote-config-update-api-zh_Hans.md。各探针配置结构体定义在 internal/config/ 目录下对应文件。"
+          "content": "HTTP server: cli/http/. Detailed API: docs/remote-config-update-api-zh_Hans.md. Probe config structs: internal/config/."
         }
       ]
     },
     {
-      "title": "日志与输出配置",
-      "purpose": "说明 eCapture 所有输出相关的配置项：--logaddr（TCP 日志转发）、--eventaddr（事件转发地址）、输出优先级规则、日志文件轮转配置（rotatelog）、标准输出与文件输出的切换方法，以及与 ELK、Kafka 等外部系统的对接思路。",
-      "parent": "集成与部署",
+      "title": "Logging and Output Configuration",
+      "purpose": "Documents every output-related flag: --logaddr (TCP log forwarding), --eventaddr (event forwarding address), output priority rules, log rotation (rotatelog), switching between stdout and file output, and integration patterns with external systems such as ELK and Kafka.",
+      "parent": "Integration and Deployment",
       "page_notes": [
         {
-          "content": "TCP 写入器：internal/output/writers/tcp_writer.go。日志写入器：internal/output/writers/logger_writer.go。全局 CLI flag 定义：cli/cmd/root.go。日志库使用：internal/logger/ 目录。"
+          "content": "TCP writer: internal/output/writers/tcp_writer.go. Logger writer: internal/output/writers/logger_writer.go. Global CLI flags: cli/cmd/root.go. Logging library: internal/logger/."
         }
       ]
     },
     {
-      "title": "性能开销与基准测试",
-      "purpose": "介绍 eCapture 基于 uprobe 的性能开销模型（uprobe 进入/退出开销 ~1-2μs、eBPF 程序执行开销、perf buffer 传输开销）、基准测试方法论（wrk + HTTPS 服务器对比测试）、高流量场景下的调优建议（ring buffer vs perf buffer、采样率设置），以及生产环境的性能评估清单。",
-      "parent": "集成与部署",
+      "title": "Performance Overhead and Benchmarks",
+      "purpose": "Explains the performance model of uprobe-based capture (uprobe enter/exit cost ~1-2us, eBPF program cost, perf buffer cost), benchmarking methodology (wrk + HTTPS server comparison), tuning guidance for high-throughput scenarios (ring buffer vs perf buffer, sampling rate), and a production performance evaluation checklist.",
+      "parent": "Integration and Deployment",
       "page_notes": [
         {
-          "content": "详细说明见 docs/performance-benchmarks.md。基准测试脚本和方法在该文件中已有详细描述，直接引用。"
+          "content": "Source: docs/performance-benchmarks.md. The benchmark scripts and methodology are described there in detail; reference directly."
         }
       ]
     },
     {
-      "title": "常见问题与故障排查",
-      "purpose": "汇总用户在安装、运行、集成过程中最常遇到的问题及解决方案。包括：BTF 文件缺失（非 CO-RE 回退方案）、权限不足（Capabilities 报错）、内核版本不支持、探针挂载失败（符号找不到、库路径错误）、输出为空、Android 环境特殊问题，以及如何收集诊断信息提交 Issue。",
+      "title": "FAQ and Troubleshooting",
+      "purpose": "A consolidated list of the most common issues users hit during install, runtime, and integration: BTF missing (non-CO-RE fallback), insufficient privileges (Capability errors), unsupported kernels, probe attach failures (missing symbols, wrong library path), empty output, Android-specific issues, and how to gather diagnostic information for an Issue report.",
+      "parent": null,
       "page_notes": [
         {
-          "content": "错误处理逻辑：internal/errors/ 目录。环境检测命令：cli/cmd/env_detection.go。BTF 检测：ls /sys/kernel/btf/vmlinux。常见错误信息可从 internal/probe/base/ 中的错误路径提取关键字。"
+          "content": "Error logic: internal/errors/. Environment detection: cli/cmd/env_detection.go. BTF detection: ls /sys/kernel/btf/vmlinux. Common error keywords can be lifted from internal/probe/base/."
         }
       ]
     },
     {
-      "title": "安全检测与防御",
-      "purpose": "面向安全团队：介绍如何检测系统中未经授权运行的 eCapture 或类似 eBPF 工具（通过 bpftool prog list、uprobe_events、perf event 监控等方式），以及可采取的防御措施（seccomp 策略、eBPF 权限限制、审计日志）。同时说明 eCapture 本身的合规使用边界。",
+      "title": "Detection and Defense",
+      "purpose": "For security teams: how to detect unauthorized eCapture or similar eBPF tools running on a host (bpftool prog list, uprobe_events, perf event monitoring) and what defenses to apply (seccomp, restricted eBPF capabilities, audit logging). Also documents the legitimate boundary for eCapture itself.",
+      "parent": null,
       "page_notes": [
         {
-          "content": "详细说明见 docs/defense-detection.md。检测命令包括：sudo bpftool prog list、sudo cat /sys/kernel/debug/tracing/uprobe_events、ps aux | grep ecapture。"
+          "content": "Source: docs/defense-detection.md. Detection commands: sudo bpftool prog list; sudo cat /sys/kernel/debug/tracing/uprobe_events; ps aux | grep ecapture."
         }
       ]
     },
     {
-      "title": "架构设计",
-      "purpose": "面向开发者和希望深入理解 eCapture 工作原理的用户。介绍系统整体三层架构，以及探针框架和事件流水线的核心设计思路。本页为章节导读，详细内容在子页中展开。",
+      "title": "Architecture",
+      "purpose": "For developers and users who want to understand how eCapture works internally. Covers the overall three-layer architecture and the core design of the probe framework and event pipeline. This page is a chapter index; details live on the children.",
+      "parent": null,
       "page_notes": [
         {
-          "content": "架构文档参考：docs/handler-refactoring-architecture.md、docs/refactoring-guide.md、internal/README.md。"
+          "content": "References: docs/handler-refactoring-architecture.md, docs/refactoring-guide.md, internal/README.md."
         }
       ]
     },
     {
-      "title": "整体三层架构",
-      "purpose": "阐述 eCapture 的三层设计：eBPF 内核层（uprobe/kprobe/TC classifier，C 程序编译为 .o 字节码）、用户态探针层（probe 模块，事件接收与分发）、CLI 与输出层（Cobra 命令、Writer/Encoder 组合）。说明数据从内核挂钩点流向最终输出的完整路径，以及 CO-RE（BTF）与非 CO-RE 两种运行模式的加载差异。",
-      "parent": "架构设计",
+      "title": "Three-layer Architecture",
+      "purpose": "Walks through the three architectural layers: the eBPF kernel layer (uprobe/kprobe/TC classifier C programs compiled into .o bytecode), the userspace probe layer (probe modules receiving and dispatching events), and the CLI/output layer (Cobra commands plus Writer/Encoder composition). Traces the full data path from kernel hook to final output, and explains how CO-RE (BTF) loading differs from non-CO-RE.",
+      "parent": "Architecture",
       "page_notes": [
         {
-          "content": "CO-RE 加载逻辑在 internal/builder/ 目录。eBPF 字节码嵌入：assets/ebpf_probe_stub.go（go-bindata 生成）。数据流路径：kern/*.c → bytecode/*.o → internal/probe/*/（加载）→ pkg/event_processor/（解析）→ internal/output/（写出）。"
+          "content": "CO-RE loading: internal/builder/. eBPF bytecode embedding: assets/ebpf_probe_stub.go (go-bindata generated). Data flow: kern/*.c -> bytecode/*.o -> internal/probe/*/ (load) -> pkg/event_processor/ (parse) -> internal/output/ (write)."
         }
       ]
     },
     {
-      "title": "探针框架与扩展机制",
-      "purpose": "介绍 internal/probe 的领域接口设计：Probe/Event/Configuration/EventDecoder 接口定义、BaseProbe 模板方法模式（生命周期管理）、工厂注册模式（internal/factory/ 目录）、BaseConfig 通用配置继承结构（internal/config/）。说明各层接口的职责边界，为\"如何新增一个探针\"提供理论基础。",
-      "parent": "架构设计",
+      "title": "Probe Framework and Extension Mechanism",
+      "purpose": "Documents the domain interfaces in internal/probe: the Probe/Event/Configuration/EventDecoder contracts, the BaseProbe template-method pattern (lifecycle), the factory registration pattern (internal/factory/), and the BaseConfig common configuration inheritance (internal/config/). Establishes the conceptual foundation for the 'How to add a new probe' page.",
+      "parent": "Architecture",
       "page_notes": [
         {
-          "content": "接口定义：internal/domain/ 目录（Probe、Event、Configuration、EventDecoder 接口）。BaseProbe 实现：internal/probe/base/。工厂注册：internal/factory/ 目录。配置基类：internal/config/ 目录下的 base_config.go（或类似文件）。"
+          "content": "Interfaces: internal/domain/ (Probe, Event, Configuration, EventDecoder). BaseProbe: internal/probe/base/. Factory: internal/factory/. Config base: internal/config/ (base_config.go or similar)."
         }
       ]
     },
     {
-      "title": "事件处理流水线",
-      "purpose": "描述事件从 eBPF perf/ring buffer 出来后的完整处理链路：EventProcessor 调度循环、eventWorker UUID 亲和性分配（保证同连接事件有序处理）、IParser 协议识别与解析（HTTP/1.1、HTTP/2、DefaultParser）、ProcessStatus 状态机、ticker 超时回收，以及最终写入各类输出 Writer 的机制。",
-      "parent": "架构设计",
+      "title": "Event Processing Pipeline",
+      "purpose": "Describes the full processing chain after events leave the eBPF perf/ring buffer: the EventProcessor scheduling loop, the eventWorker UUID affinity assignment (in-order processing per connection), IParser protocol identification (HTTP/1.1, HTTP/2, DefaultParser), the ProcessStatus state machine, ticker-based timeout reclamation, and the final write to output writers.",
+      "parent": "Architecture",
       "page_notes": [
         {
-          "content": "核心实现：pkg/event_processor/processor.go（EventProcessor）、pkg/event_processor/iworker.go（eventWorker）、pkg/event_processor/iparser.go（IParser 接口）。HTTP 解析器：pkg/event_processor/http_request.go、http_response.go、http2_request.go、http2_response.go。单元测试：pkg/event_processor/processor_test.go、http2_request_test.go。"
+          "content": "Core: pkg/event_processor/processor.go (EventProcessor), pkg/event_processor/iworker.go (eventWorker), pkg/event_processor/iparser.go (IParser). HTTP parsers: pkg/event_processor/http_request.go, http_response.go, http2_request.go, http2_response.go. Tests: pkg/event_processor/processor_test.go, http2_request_test.go."
         }
       ]
     },
     {
-      "title": "开发者指南",
-      "purpose": "面向希望参与 eCapture 开发或基于其二次开发的工程师。覆盖本地编译、新探针开发、测试策略和 CI/CD 流程。本页为章节导读。",
+      "title": "Developer Guide",
+      "purpose": "For engineers contributing to eCapture or building on top of it. Covers local builds, adding new probes, the testing strategy, and CI/CD. Chapter index page.",
+      "parent": null,
       "page_notes": [
         {
-          "content": "贡献指南：CONTRIBUTING.md。开发文档：docs/compilation.md、docs/compilation-zh_Hans.md。"
+          "content": "Sources: CONTRIBUTING.md, docs/compilation.md, docs/compilation-zh_Hans.md."
         }
       ]
     },
     {
-      "title": "编译与构建",
-      "purpose": "详细说明从源码构建 eCapture 的全流程：CO-RE 与非 CO-RE 构建的区别与选择、所需工具链（clang ≥14、llvm、go-bindata、Git submodule 初始化）、Makefile 常用 target（make、make nocore、make android）、arm64 与 Android 交叉编译步骤，以及 Docker 构建环境的使用方法。",
-      "parent": "开发者指南",
+      "title": "Compilation and Build",
+      "purpose": "Step-by-step build instructions: difference between CO-RE and non-CO-RE builds and when to choose each, required toolchain (clang >=14, llvm, go-bindata, git submodule init), common Makefile targets (make, make nocore, make android), arm64 and Android cross-compilation, and the Docker build environment.",
+      "parent": "Developer Guide",
       "page_notes": [
         {
-          "content": "主构建文件：Makefile、functions.mk、variables.mk。工具链初始化：builder/init_env.sh。Docker 构建：builder/Dockerfile。发布构建：builder/Makefile.release。详细步骤见 docs/compilation-zh_Hans.md。"
+          "content": "Build files: Makefile, functions.mk, variables.mk. Toolchain init: builder/init_env.sh. Docker build: builder/Dockerfile. Release build: builder/Makefile.release. Detailed steps: docs/compilation-zh_Hans.md."
         }
       ]
     },
     {
-      "title": "如何新增一个探针",
-      "purpose": "手把手指引开发者为 eCapture 添加新探针：实现 internal/domain/ 中的 Probe/Configuration/EventDecoder 接口、编写 eBPF C 内核程序（kern/ 目录）、通过 go-bindata 嵌入字节码、注册到 internal/factory/、添加 CLI 子命令（cli/cmd/ 新增 .go 文件）、编写单元测试。包含参考现有探针（如 bash 探针）的代码对比示例和注意事项清单。",
-      "parent": "开发者指南",
+      "title": "How to Add a New Probe",
+      "purpose": "Step-by-step guide for adding a new probe to eCapture: implementing the Probe / Configuration / EventDecoder interfaces in internal/domain/, writing the eBPF C program in kern/, embedding the bytecode via go-bindata, registering with internal/factory/, adding a CLI subcommand under cli/cmd/, and writing unit tests. Includes a comparison with an existing probe (bash) and a checklist.",
+      "parent": "Developer Guide",
       "page_notes": [
         {
-          "content": "参考最简单的现有探针：internal/probe/bash/ 和 cli/cmd/bash.go。工厂注册示例：internal/factory/。接口文件：internal/domain/。eBPF 程序模板：kern/bash_kern.c。构建流程集成：Makefile 中的 bytecode 生成规则。"
+          "content": "Reference probe (simplest): internal/probe/bash/ and cli/cmd/bash.go. Factory registration example: internal/factory/. Interfaces: internal/domain/. eBPF template: kern/bash_kern.c. Build integration: bytecode rules in Makefile."
         }
       ]
     },
     {
-      "title": "测试策略与 CI/CD",
-      "purpose": "介绍 eCapture 的测试体系：Go 单元测试（event processor、HTTP/2 parser、eBPF 工具函数、probe factory）、端到端测试（.github/workflows/e2e.yml workflow，在真实 Linux 内核上运行）、CodeQL 安全扫描，以及 GitHub Actions 多架构构建（x86_64/arm64）、RPM/DEB 打包和自动发布流程。",
-      "parent": "开发者指南",
+      "title": "Testing Strategy and CI/CD",
+      "purpose": "Describes the testing system of eCapture: Go unit tests (event processor, HTTP/2 parser, eBPF utility functions, probe factory), end-to-end tests (.github/workflows/e2e.yml running on real Linux kernels), CodeQL security scans, and the GitHub Actions multi-arch build (x86_64/arm64) plus RPM/DEB packaging and automated release pipeline.",
+      "parent": "Developer Guide",
       "page_notes": [
         {
-          "content": "测试文件：pkg/event_processor/*_test.go。E2E 测试：test/ 目录和 .github/workflows/ 下的 e2e 相关 workflow。CI 构建：.github/workflows/ 目录。发布流程：builder/Makefile.release。E2E 说明文档：docs/e2e-tests.md。"
+          "content": "Tests: pkg/event_processor/*_test.go. E2E: test/ directory and the e2e workflows under .github/workflows/. CI build: .github/workflows/. Release: builder/Makefile.release. E2E doc: docs/e2e-tests.md."
         }
       ]
     }
