@@ -56,7 +56,7 @@
     {
       "title": "最小权限配置",
       "purpose": "说明 eCapture 在不同内核版本下所需的最低 Linux Capabilities：内核 ≥5.8 时可使用细粒度的 CAP_BPF + CAP_PERFMON + CAP_SYS_PTRACE；内核 <5.8 需要 CAP_SYS_ADMIN；pcapng 模式额外需要 CAP_NET_ADMIN。包含 setcap 命令示例和容器部署时的 securityContext 配置示例。",
-      "parent": "安装与环境要求",
+      "parent": "上手使用",
       "page_notes": [
         {
           "content": "详细说明见 docs/minimum-privileges.md。不同模式的 Capability 需求矩阵在该文件中已有表格，直接引用并翻译。"
