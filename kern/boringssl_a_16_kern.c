@@ -4,6 +4,12 @@
 /* OPENSSL_VERSION_TEXT: OpenSSL 1.1.1 (compatible; BoringSSL) */
 /* OPENSSL_VERSION_NUMBER: 269488255 */
 
+// ssl_st->version removed in this BoringSSL version.
+// SSL_SESSION_ST_SSL_VERSION also acts as the Android 16+ feature flag
+// for boringssl_const.h (InplaceVector offsets) and boringssl_masterkey.h.
+// ssl_session_st->ssl_version
+#define SSL_SESSION_ST_SSL_VERSION 0x4
+
 // ssl_st->session
 #define SSL_ST_SESSION 0x58
 
@@ -16,16 +22,11 @@
 // ssl_st->s3
 #define SSL_ST_S3 0x30
 
-// ssl_session_st->ssl_version
-// NOTE: In Android 16, ssl_st no longer has a 'version' field.
-// The version is now read from ssl_session_st->ssl_version instead.
-// This macro also acts as the feature flag for boringssl_const.h to
-// apply Android 16 InplaceVector-based TLS 1.3 secret offset formulas.
-#define SSL_SESSION_ST_SSL_VERSION 0x4
+// ssl_session_st->secret_length removed in this BoringSSL version.
+// Sentinel 0xFF: boringssl_masterkey.h uses BORINGSSL_SSL_MAX_MASTER_KEY_LENGTH.
+#define SSL_SESSION_ST_SECRET_LENGTH 0xFF
 
 // ssl_session_st->secret
-// In Android 16, 'secret' is InplaceVector<uint8_t, SSL_MAX_MASTER_KEY_LENGTH>.
-// InplaceVector stores storage_[] first, so data starts at the base offset.
 #define SSL_SESSION_ST_SECRET 0xa
 
 // ssl_session_st->cipher
@@ -49,16 +50,17 @@
 // bssl::SSL3_STATE->client_random
 #define BSSL__SSL3_STATE_CLIENT_RANDOM 0x30
 
-// bssl::SSL3_STATE->version
-// NOTE: In Android 16, ssl_st.version was removed. The protocol version is
-// now stored here in SSL3_STATE. Used to correctly detect TLS 1.3 connections.
-#define BSSL__SSL3_STATE_VERSION 0xd0
-
 // bssl::SSL3_STATE->exporter_secret
 #define BSSL__SSL3_STATE_EXPORTER_SECRET 0x182
 
 // bssl::SSL3_STATE->established_session
 #define BSSL__SSL3_STATE_ESTABLISHED_SESSION 0x1d0
+
+// SSL3_STATE->version added in Android 16 (replaces ssl_st->version).
+// BSSL__SSL3_STATE_VERSION is the Android 16+ feature flag used by
+// boringssl_masterkey.h to read the TLS version before the 1.2/1.3 branch.
+// bssl::SSL3_STATE->version
+#define BSSL__SSL3_STATE_VERSION 0xd0
 
 // bssl::SSL_HANDSHAKE->new_session
 #define BSSL__SSL_HANDSHAKE_NEW_SESSION 0x5f0
@@ -80,8 +82,6 @@
 
 // bssl::SSL_HANDSHAKE->max_version
 #define BSSL__SSL_HANDSHAKE_MAX_VERSION 0x1e
-
-#define SSL_SESSION_ST_SECRET_LENGTH 0xFF
 
 #include "boringssl_const.h"
 #include "boringssl_masterkey.h"
