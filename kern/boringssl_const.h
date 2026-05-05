@@ -5,58 +5,66 @@
 // SSL_MAX_MD_SIZE is size of the largest hash function used in TLS, SHA-384.
 #define SSL_MAX_MD_SIZE 48
 
+// memory layout from boringssl repo  ssl/internal.h
+// struct SSL_HANDSHAKE
+//
+// ── Android ≤ 15  (TLS 1.3 secrets are private raw arrays) ─────────────────
+//   uint16_t max_version;          // public,  2 bytes  @ BSSL__SSL_HANDSHAKE_MAX_VERSION
+//   // private (aligned to 8):
+//   size_t   hash_len_;            // 8 bytes
+//   uint8_t  secret_[48];          // 48 bytes  ← SSL_HANDSHAKE_SECRET_
+//   uint8_t  early_traffic_secret_[48];         // step = 48
+//   ...
+//
+// ── Android 16+  (TLS 1.3 secrets are public InplaceVector<uint8_t,48>) ────
+//   uint16_t max_version;          // public, 2 bytes
+//   InplaceVector<uint8_t,48> secret;           // ← SSL_HANDSHAKE_SECRET_
+//   InplaceVector<uint8_t,48> early_traffic_secret;  // step = 49
+//   ...
+//
+// InplaceVector<uint8_t,N> memory layout (alignof=1, no padding):
+//   [0 .. N-1] storage_[N]  — actual data bytes  (same address as struct base)
+//   [N]        size_         — uint8_t            (equivalent of hash_len_)
+//
+// SSL_SESSION_ST_SSL_VERSION is defined only in android16 kern headers and
+// serves as the version feature-flag here.
+// ────────────────────────────────────────────────────────────────────────────
 
-// memory layout from boringssl repo  ssl/internal.h line 1720
-// struct of struct SSL_HANDSHAKE
-/*
-  // via boringssl source code  src/ssl/internal.h : line 1585
+#ifdef SSL_SESSION_ST_SSL_VERSION
+// ── Android 16+: three root values differ from older versions ───────────────
 
-  // max_version is the maximum accepted protocol version, taking account both
-  // |SSL_OP_NO_*| and |SSL_CTX_set_max_proto_version| APIs.
-  uint16_t max_version = 0;
+// secret.storage_ starts right after max_version (alignof InplaceVector = 1, no gap)
+#define SSL_HANDSHAKE_SECRET_    (BSSL__SSL_HANDSHAKE_MAX_VERSION + 2)
 
- private:
-  size_t hash_len_ = 0;x
-  uint8_t secret_[SSL_MAX_MD_SIZE] = {0};
-  uint8_t early_traffic_secret_[SSL_MAX_MD_SIZE] = {0};
-  uint8_t client_handshake_secret_[SSL_MAX_MD_SIZE] = {0};
-  uint8_t server_handshake_secret_[SSL_MAX_MD_SIZE] = {0};
-  uint8_t client_traffic_secret_0_[SSL_MAX_MD_SIZE] = {0};
-  uint8_t server_traffic_secret_0_[SSL_MAX_MD_SIZE] = {0};
-  uint8_t expected_client_finished_[SSL_MAX_MD_SIZE] = {0};
-  */
-// In BoringSSL, TLS 1.3 keys are private fields, so direct offsetof
-// calculation is not possible.  Compute the offset by finding the address
-// of the field preceding the private section (max_version at offset 30),
-// then the first private field (size_t hash_len_) sits at offset 32 after
-// alignment. secret_ is at 32 + sizeof(size_t) = 40, and subsequent
-// fields are at SSL_MAX_MD_SIZE increments.
+// hash_len is now secret.size_: the uint8_t sitting right after secret.storage_[48]
+#define SSL_HANDSHAKE_HASH_LEN_  (SSL_HANDSHAKE_SECRET_ + SSL_MAX_MD_SIZE)
 
+// Each InplaceVector<uint8_t,48> occupies 49 bytes (48 data + 1 size_)
+#define SSL_HANDSHAKE_FIELD_STEP (SSL_MAX_MD_SIZE + 1)
 
-//   uint16_t max_version = 0;
-// sizeof(uint16_t) = 2
-#define SSL_HANDSHAKE_HASH_LEN_ roundup(BSSL__SSL_HANDSHAKE_MAX_VERSION+2,8)
+#else
+// ── Android ≤ 15: original layout ───────────────────────────────────────────
 
-// ssl_st->s3->hs
-// bssl::SSL_HANDSHAKE->secret_
-#define SSL_HANDSHAKE_SECRET_ SSL_HANDSHAKE_HASH_LEN_+8
+// hash_len_ is a size_t aligned to 8, sitting right after max_version
+#define SSL_HANDSHAKE_HASH_LEN_  roundup(BSSL__SSL_HANDSHAKE_MAX_VERSION + 2, 8)
 
-// bssl::SSL_HANDSHAKE->early_traffic_secret_
-#define SSL_HANDSHAKE_EARLY_TRAFFIC_SECRET_ SSL_HANDSHAKE_SECRET_+SSL_MAX_MD_SIZE*1
+// secret_ follows hash_len_ (size_t = 8 bytes)
+#define SSL_HANDSHAKE_SECRET_    (SSL_HANDSHAKE_HASH_LEN_ + 8)
 
-// bssl::SSL_HANDSHAKE->client_handshake_secret_
-#define SSL_HANDSHAKE_CLIENT_HANDSHAKE_SECRET_ SSL_HANDSHAKE_SECRET_+SSL_MAX_MD_SIZE*2
+// Each raw uint8_t[48] field occupies exactly 48 bytes, no extra size field
+#define SSL_HANDSHAKE_FIELD_STEP SSL_MAX_MD_SIZE
 
-// bssl::SSL_HANDSHAKE->server_handshake_secret_
-#define SSL_HANDSHAKE_SERVER_HANDSHAKE_SECRET_ SSL_HANDSHAKE_SECRET_+SSL_MAX_MD_SIZE*3
+#endif  // SSL_SESSION_ST_SSL_VERSION
 
-// bssl::SSL_HANDSHAKE->client_traffic_secret_0_
-#define SSL_HANDSHAKE_CLIENT_TRAFFIC_SECRET_0_ SSL_HANDSHAKE_SECRET_+SSL_MAX_MD_SIZE*4
+// ── Downstream offsets: identical formula for all versions ──────────────────
+// All fields are laid out consecutively starting from SSL_HANDSHAKE_SECRET_,
+// each spaced SSL_HANDSHAKE_FIELD_STEP bytes apart.
 
-// bssl::SSL_HANDSHAKE->server_traffic_secret_0_
-#define SSL_HANDSHAKE_SERVER_TRAFFIC_SECRET_0_ SSL_HANDSHAKE_SECRET_+SSL_MAX_MD_SIZE*5
-
-// bssl::SSL_HANDSHAKE->expected_client_finished_
-#define SSL_HANDSHAKE_EXPECTED_CLIENT_FINISHED_ SSL_HANDSHAKE_SECRET_+SSL_MAX_MD_SIZE*6
+#define SSL_HANDSHAKE_EARLY_TRAFFIC_SECRET_     (SSL_HANDSHAKE_SECRET_ + SSL_HANDSHAKE_FIELD_STEP * 1)
+#define SSL_HANDSHAKE_CLIENT_HANDSHAKE_SECRET_  (SSL_HANDSHAKE_SECRET_ + SSL_HANDSHAKE_FIELD_STEP * 2)
+#define SSL_HANDSHAKE_SERVER_HANDSHAKE_SECRET_  (SSL_HANDSHAKE_SECRET_ + SSL_HANDSHAKE_FIELD_STEP * 3)
+#define SSL_HANDSHAKE_CLIENT_TRAFFIC_SECRET_0_  (SSL_HANDSHAKE_SECRET_ + SSL_HANDSHAKE_FIELD_STEP * 4)
+#define SSL_HANDSHAKE_SERVER_TRAFFIC_SECRET_0_  (SSL_HANDSHAKE_SECRET_ + SSL_HANDSHAKE_FIELD_STEP * 5)
+#define SSL_HANDSHAKE_EXPECTED_CLIENT_FINISHED_ (SSL_HANDSHAKE_SECRET_ + SSL_HANDSHAKE_FIELD_STEP * 6)
 
 ///////////////////////////  END   ///////////////////////////

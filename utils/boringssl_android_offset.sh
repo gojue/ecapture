@@ -20,7 +20,7 @@ if [[ ! -d "${BORINGSSL_DIR}/.git" ]]; then
 fi
 
 function run() {
-  git fetch --tags
+  git fetch --tags || echo "Warning: git fetch --tags failed (network issue?), continuing with existing tags"
   cp -f ${PROJECT_ROOT_DIR}/utils/boringssl-offset.c ${BORINGSSL_DIR}/offset.c
   declare -A sslVerMap=()
   # get all commit about ssl/internel.h  who commit date > Apr 25 23:00:0 2021  (android 12 release)
@@ -49,7 +49,7 @@ function run() {
     echo "Android Version: ${val}, Generating ${header_file}"
 
     # Check if the $val variable is greater than 15
-    if ( val > 15 ); then
+    if (( ${val} > 15 )); then
         echo "Android version val greater than 15, remove some offsets"
         sed -i '/X(ssl_st, version)/d' offset.c
         sed -i 's/X(ssl_session_st, secret_length)/X(ssl_session_st, ssl_version)/g' offset.c

@@ -204,6 +204,18 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
     }
     s3_address = address;
 
+#ifdef BSSL__SSL3_STATE_VERSION
+    // Android 16: ssl_st.version was removed; the negotiated protocol version
+    // now lives in SSL3_STATE.version. Read it here — before the TLS 1.2/1.3
+    // branch decision — so that TLS 1.3 connections are correctly identified.
+    u64 *s3_version_ptr = (u64 *)(s3_address + BSSL__SSL3_STATE_VERSION);
+    ret = bpf_probe_read_user(&ssl_version, sizeof(ssl_version), (void *)s3_version_ptr);
+    if (ret == 0) {
+        mastersecret->version = ssl_version & 0xFFFF;
+        debug_bpf_printk("s3->version: %d\n", mastersecret->version);
+    }
+#endif
+
     struct ssl3_state_st ssl3_stat;
     ret = bpf_probe_read_user(&ssl3_stat, sizeof(ssl3_stat), (void *)address);
     if (ret) {

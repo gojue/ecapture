@@ -17,9 +17,15 @@
 #define SSL_ST_S3 0x30
 
 // ssl_session_st->ssl_version
+// NOTE: In Android 16, ssl_st no longer has a 'version' field.
+// The version is now read from ssl_session_st->ssl_version instead.
+// This macro also acts as the feature flag for boringssl_const.h to
+// apply Android 16 InplaceVector-based TLS 1.3 secret offset formulas.
 #define SSL_SESSION_ST_SSL_VERSION 0x4
 
 // ssl_session_st->secret
+// In Android 16, 'secret' is InplaceVector<uint8_t, SSL_MAX_MASTER_KEY_LENGTH>.
+// InplaceVector stores storage_[] first, so data starts at the base offset.
 #define SSL_SESSION_ST_SECRET 0xa
 
 // ssl_session_st->cipher
@@ -42,6 +48,11 @@
 
 // bssl::SSL3_STATE->client_random
 #define BSSL__SSL3_STATE_CLIENT_RANDOM 0x30
+
+// bssl::SSL3_STATE->version
+// NOTE: In Android 16, ssl_st.version was removed. The protocol version is
+// now stored here in SSL3_STATE. Used to correctly detect TLS 1.3 connections.
+#define BSSL__SSL3_STATE_VERSION 0xd0
 
 // bssl::SSL3_STATE->exporter_secret
 #define BSSL__SSL3_STATE_EXPORTER_SECRET 0x182
