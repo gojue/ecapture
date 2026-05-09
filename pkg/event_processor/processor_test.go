@@ -208,11 +208,17 @@ func TestEventProcessor_ImmediateClose(t *testing.T) {
 	defer os.Remove(output)
 
 	ep := NewEventProcessor(f, false, 0)
+
+	// serveReady is closed by the goroutine once Serve() has been entered,
+	// ensuring Write() and Close() are called after Serve() is running.
+	serveReady := make(chan struct{})
 	go func() {
+		close(serveReady)
 		if err := ep.Serve(); err != nil {
 			t.Error(err)
 		}
 	}()
+	<-serveReady // wait for Serve() goroutine to be scheduled
 
 	// Write a small known payload.
 	const testPayload = "hello_immediate_close"

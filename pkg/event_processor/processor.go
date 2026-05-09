@@ -255,6 +255,9 @@ func (ep *EventProcessor) Close() error {
 	ep.Unlock()
 
 	// Wait for Serve() to finish draining all workers and flushing output.
+	// Serve() MUST have been started (e.g. via `go ep.Serve()`) before or
+	// concurrently with Close().  If Serve() has not been started, Close()
+	// will block indefinitely.
 	<-ep.serveDone
 	return nil
 }
