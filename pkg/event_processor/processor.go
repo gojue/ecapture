@@ -102,7 +102,12 @@ func (ep *EventProcessor) drain() error {
 	for {
 		select {
 		case eventStruct := <-ep.incoming:
-			_ = ep.dispatch(eventStruct)
+			if err := ep.dispatch(eventStruct); err != nil {
+				select {
+				case ep.errChan <- err:
+				default:
+				}
+			}
 		default:
 			goto signalWorkers
 		}
