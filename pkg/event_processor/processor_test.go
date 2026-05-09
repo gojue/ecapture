@@ -199,6 +199,12 @@ func Test_Truncated_EventProcessor_Serve(t *testing.T) {
 // after writing events (without waiting for worker idle-timeout) still flushes
 // all captured data before Close() returns.  This is the regression test for
 // the "workerQueue is not empty" data-loss bug.
+//
+// Correctness note: Serve() may not have entered its select loop by the time
+// Close() is called.  This is safe because Close() blocks on serveDone until
+// Serve() runs, processes all remaining events (via drain()), and closes
+// serveDone.  The already-closed closeChan persists so Serve() sees it
+// whenever it starts.
 func TestEventProcessor_ImmediateClose(t *testing.T) {
 	output := "./output_immediate_close.log"
 	f, e := os.Create(output)
@@ -208,17 +214,12 @@ func TestEventProcessor_ImmediateClose(t *testing.T) {
 	defer os.Remove(output)
 
 	ep := NewEventProcessor(f, false, 0)
-
-	// serveReady is closed by the goroutine once Serve() has been entered,
-	// ensuring Write() and Close() are called after Serve() is running.
-	serveReady := make(chan struct{})
+	// Serve() must be started before Close() is called.
 	go func() {
-		close(serveReady)
 		if err := ep.Serve(); err != nil {
 			t.Error(err)
 		}
 	}()
-	<-serveReady // wait for Serve() goroutine to be scheduled
 
 	// Write a small known payload.
 	const testPayload = "hello_immediate_close"

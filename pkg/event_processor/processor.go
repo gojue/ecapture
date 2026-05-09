@@ -98,7 +98,8 @@ func (ep *EventProcessor) Serve() error {
 // and finally flushes any remaining outComing entries.
 func (ep *EventProcessor) drain() error {
 	// 1. Drain remaining buffered events from incoming.
-	// ep.isClosed == true so no new events will arrive.
+	// Write() checks ep.isClosed (set to true by Close() before signalling
+	// closeChan), so no new events will be added after this point.
 	for {
 		select {
 		case eventStruct := <-ep.incoming:
@@ -255,9 +256,10 @@ func (ep *EventProcessor) Close() error {
 	ep.Unlock()
 
 	// Wait for Serve() to finish draining all workers and flushing output.
-	// Serve() MUST have been started (e.g. via `go ep.Serve()`) before or
-	// concurrently with Close().  If Serve() has not been started, Close()
-	// will block indefinitely.
+	// Serve() MUST have been started (e.g. via `go ep.Serve()`) before Close()
+	// is called.  A closed closeChan persists, so Serve() will see the signal
+	// even if it starts executing after Close() closes closeChan.
+	// If Serve() is never started, Close() will block indefinitely.
 	<-ep.serveDone
 	return nil
 }
