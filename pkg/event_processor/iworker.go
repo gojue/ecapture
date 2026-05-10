@@ -25,10 +25,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-
-	pb "github.com/gojue/ecapture/protobuf/gen/v1"
-
-	"google.golang.org/protobuf/proto"
 )
 
 type IWorker interface {
@@ -194,8 +190,8 @@ func (ew *eventWorker) Display() error {
 
 	//iWorker只负责写入，不应该打印。
 	var err error
-	_, ok := ew.processor.logger.(CollectorWriter)
-	if ok {
+
+	if ew.processor.protoEventCh == nil {
 		eb := new(Base)
 		oeb := ew.originEvent.Base()
 		eb = &oeb
@@ -210,19 +206,14 @@ func (ew *eventWorker) Display() error {
 		// 直接写入日志
 		// err = ew.writeToChan(fmt.Sprintf("PID:%d, Comm:%s, Src:%s:%d, Dest:%s:%d,\n%s", eb.PID, eb.PName, eb.SrcIP, eb.SrcPort, eb.DstIP, eb.DstPort, b))
 	} else {
-		le := new(pb.LogEntry)
-		le.LogType = pb.LogType_LOG_TYPE_EVENT
 		ep := ew.originEvent.ToProtobufEvent()
 		ep.Uuid = ew.uuidOutput
 		ep.Type = uint32(ew.parser.ParserType())
 		ep.Payload = b
 		ep.Length = uint32(len(b))
-		le.Payload = &pb.LogEntry_EventPayload{EventPayload: ep}
-		encodedData, err := proto.Marshal(le)
-		if err != nil {
-			return err
-		}
-		return ew.writeToChan(encodedData)
+		ew.processor.protoEventCh <- ep
+
+		return nil
 	}
 }
 

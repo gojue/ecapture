@@ -51,6 +51,7 @@ func (e *Event) Type() domain.EventType {
 	return domain.EventTypeOutput
 }
 
+
 // UUID returns a unique identifier for this event
 func (e *Event) UUID() string {
 	return fmt.Sprintf("postgres_%d_%d", e.Pid, e.Timestamp)

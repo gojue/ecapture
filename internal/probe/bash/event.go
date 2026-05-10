@@ -102,6 +102,7 @@ func (e *Event) Type() domain.EventType {
 	return domain.EventTypeOutput
 }
 
+
 // UUID returns a unique identifier for this event.
 func (e *Event) UUID() string {
 	return fmt.Sprintf("%d_%d_%s", e.Pid, e.Uid, commToString(e.Comm[:]))

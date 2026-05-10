@@ -161,6 +161,7 @@ func (e *MasterSecretEvent) Type() domain.EventType {
 	return domain.EventTypeOutput
 }
 
+
 // UUID returns a unique identifier for this event.
 func (e *MasterSecretEvent) UUID() string {
 	return fmt.Sprintf("ms_%x_%d", e.ClientRandom[:8], e.Timestamp)

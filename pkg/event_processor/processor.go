@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"io"
 	"sync"
+
+	pb "github.com/gojue/ecapture/protobuf/gen/v1"
 )
 
 const (
@@ -45,10 +47,18 @@ type EventProcessor struct {
 	// output model
 	isHex        bool
 	truncateSize uint64
+
+	protoEventCh chan<- *pb.Event
 }
 
 func (ep *EventProcessor) GetLogger() io.Writer {
 	return ep.logger
+}
+
+// SetProtoEventCh configures a channel to receive *pb.Event
+// directly during assembly.
+func (ep *EventProcessor) SetProtoEventCh(ch chan<- *pb.Event) {
+	ep.protoEventCh = ch
 }
 
 func (ep *EventProcessor) init() {

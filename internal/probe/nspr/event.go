@@ -194,6 +194,7 @@ func (e *TLSDataEvent) Type() domain.EventType {
 	return domain.EventTypeOutput
 }
 
+
 // UUID implements domain.Event interface
 func (e *TLSDataEvent) UUID() string {
 	return fmt.Sprintf("%d_%d_%d", e.PID, e.TID, e.Timestamp)

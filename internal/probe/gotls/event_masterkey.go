@@ -112,6 +112,7 @@ func (e *MasterSecretEvent) Type() domain.EventType {
 	return domain.EventTypeModuleData
 }
 
+
 // UUID returns a unique identifier for this event.
 func (e *MasterSecretEvent) UUID() string {
 	clientRandom := hex.EncodeToString(e.ClientRandom[:e.ClientRandomLen])

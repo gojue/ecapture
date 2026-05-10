@@ -159,6 +159,7 @@ func (e *MasterSecretEvent) Type() domain.EventType {
 	return domain.EventTypeOutput
 }
 
+
 // UUID returns a unique identifier for this event.
 func (e *MasterSecretEvent) UUID() string {
 	// Use hash of full ClientRandom for better uniqueness

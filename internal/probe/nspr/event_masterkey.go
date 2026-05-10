@@ -191,6 +191,7 @@ func (e *MasterSecretEvent) Type() domain.EventType {
 	return domain.EventTypeModuleData
 }
 
+
 // UUID implements domain.Event interface
 func (e *MasterSecretEvent) UUID() string {
 	return hex.EncodeToString(e.ClientRandom[:])

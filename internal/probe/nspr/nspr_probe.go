@@ -16,6 +16,7 @@ package nspr
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/cilium/ebpf"
 
@@ -25,6 +26,7 @@ import (
 	"github.com/gojue/ecapture/internal/domain"
 	"github.com/gojue/ecapture/internal/errors"
 	"github.com/gojue/ecapture/internal/probe/base"
+	"github.com/gojue/ecapture/internal/probe/base/handlers"
 )
 
 // Probe represents the NSPR/NSS probe
@@ -50,6 +52,12 @@ func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration) error 
 	// Initialize base probe first
 	if err := p.BaseProbe.Initialize(ctx, cfg); err != nil {
 		return err
+	}
+
+	// Register payload handler with text encoder
+	payloadHandler := handlers.NewPayloadHandler("nspr", handlers.NewTextEncoder(p.DefaultTextWriter()))
+	if err := p.BaseProbe.Dispatcher().Register(payloadHandler); err != nil {
+		return fmt.Errorf("failed to register nspr payload handler: %w", err)
 	}
 
 	// Type assert to NSPR-specific config
