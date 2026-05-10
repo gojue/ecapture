@@ -15,8 +15,6 @@
 package domain
 
 import (
-	"io"
-
 	pb "github.com/gojue/ecapture/protobuf/gen/v1"
 )
 
@@ -63,13 +61,6 @@ type Configuration interface {
 	GetEventCollectorAddr() string
 
 	SetEventCollectorAddr(addr string)
-
-	// GetEventWriter returns the pre-configured event writer (e.g., for ecaptureQ).
-	// Returns nil if no event writer is configured.
-	GetEventWriter() io.Writer
-
-	// SetEventWriter sets a pre-configured event writer.
-	SetEventWriter(w io.Writer)
 
 	// GetProtoChannel returns the ecaptureQ proto event channel, or nil.
 	GetProtoChannel() chan<- *pb.Event

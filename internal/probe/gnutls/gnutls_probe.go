@@ -27,6 +27,7 @@ import (
 	"github.com/gojue/ecapture/internal/domain"
 	"github.com/gojue/ecapture/internal/errors"
 	"github.com/gojue/ecapture/internal/probe/base"
+	"github.com/gojue/ecapture/internal/probe/base/handlers"
 )
 
 // Probe implements the GnuTLS TLS tracing probe.
@@ -40,6 +41,7 @@ type Probe struct {
 	mapNameToDecoder map[string]domain.EventDecoder // Maps configured in setupManager
 	eventMaps        []*ebpf.Map
 	output           io.Writer
+	closer           []io.Closer
 	// eBPF implementation fields can be added when needed:
 	// bpfManager *manager.Manager
 	// connTracker *ConnectionTracker
@@ -61,6 +63,13 @@ func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration) error 
 	if err := p.BaseProbe.Initialize(ctx, cfg); err != nil {
 		return err
 	}
+
+	// Register payload handler with text encoder
+	payloadHandler := handlers.NewPayloadHandler("gnutls", handlers.NewTextEncoder(p.DefaultTextWriter()))
+	if err := p.BaseProbe.Dispatcher().Register(payloadHandler); err != nil {
+		return fmt.Errorf("failed to register gnutls payload handler: %w", err)
+	}
+	p.closer = append(p.closer, payloadHandler)
 
 	// Type assert to GnuTLS-specific config
 	gnutlsConfig, ok := cfg.(*Config)

@@ -1,34 +1,51 @@
-package handlers
+package openssl
 
 import (
 	"io"
+	"strings"
 
 	"github.com/gojue/ecapture/internal/domain"
+	"github.com/gojue/ecapture/internal/probe/base/handlers"
 	ep "github.com/gojue/ecapture/pkg/event_processor"
 	pb "github.com/gojue/ecapture/protobuf/gen/v1"
 )
 
-// OpensslPayloadHandler wraps event_processor.EventProcessor to reuse its
-// assembly infrastructure (eventWorker pool, IParser pipeline). It receives
-// *pb.Event directly from eventWorker.Display() via ProtoEventCh — no
-// marshal/unmarshal round-trip.
-type OpensslPayloadHandler struct {
+// PayloadHandler wraps event_processor.EventProcessor for SSL stream
+// assembly. It receives *pb.Event from eventWorker.Display() via
+// ProtoEventCh — no marshal/unmarshal round-trip.
+type PayloadHandler struct {
 	name string
 	proc *ep.EventProcessor
 }
 
-// NewOpensslPayloadHandler creates a handler backed by event_processor.
-// textOut receives formatted text. protoCh (optional) receives *pb.Event
-// for ecaptureQ forwarding.
-func NewOpensslPayloadHandler(name string, textOut io.Writer, protoCh chan<- *pb.Event) *OpensslPayloadHandler {
+// NewPayloadHandler creates a handler backed by event_processor.
+// encoders provide both naming and output config:
+// TextEncoder → text, ProtoEncoder → ecaptureQ.
+func NewPayloadHandler(name string, encoders ...handlers.Encoder) *PayloadHandler {
+	var textOut io.Writer
+	var protoCh chan<- *pb.Event
+	for _, enc := range encoders {
+		switch e := enc.(type) {
+		case *handlers.TextEncoder:
+			textOut = e.Writer()
+		case *handlers.ProtoEncoder:
+			protoCh = e.Channel()
+		}
+	}
+
 	proc := ep.NewEventProcessor(textOut, false, 0)
 	proc.SetProtoEventCh(protoCh)
 	go proc.Serve()
 
-	return &OpensslPayloadHandler{name: name, proc: proc}
+	parts := []string{name}
+	for _, enc := range encoders {
+		parts = append(parts, enc.Name())
+	}
+
+	return &PayloadHandler{name: strings.Join(parts, "-"), proc: proc}
 }
 
-func (h *OpensslPayloadHandler) Handle(event domain.Event) error {
+func (h *PayloadHandler) Handle(event domain.Event) error {
 	adapted := adaptEvent(event)
 	if adapted == nil {
 		return nil
@@ -37,23 +54,16 @@ func (h *OpensslPayloadHandler) Handle(event domain.Event) error {
 	return nil
 }
 
-func (h *OpensslPayloadHandler) Name() string { return h.name }
+func (h *PayloadHandler) Name() string { return h.name }
 
-func (h *OpensslPayloadHandler) Close() error {
-	err := h.proc.Close()
-	return err
-}
+func (h *PayloadHandler) Close() error { return h.proc.Close() }
 
-// assembler is the sub-interface domain events must implement to be
-// routed through event_processor.
 type assembler interface {
 	AsmUUID() string
 	Payload() []byte
 	ProtoEvent() *pb.Event
 }
 
-// adaptEvent converts a domain.Event to an IEventStruct if it implements
-// the assembler sub-interface.
 func adaptEvent(event domain.Event) ep.IEventStruct {
 	a, ok := event.(assembler)
 	if !ok {

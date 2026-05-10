@@ -27,7 +27,6 @@ import (
 	"github.com/cilium/ebpf/ringbuf"
 
 	"github.com/gojue/ecapture/internal/output/writers"
-	"github.com/gojue/ecapture/internal/probe/base/handlers"
 
 	"github.com/gojue/ecapture/internal/events"
 
@@ -49,7 +48,6 @@ type BaseProbe struct {
 	ctx          context.Context
 	config       domain.Configuration
 	dispatcher   domain.EventDispatcher
-	textWriter   writers.OutputWriter
 	isRunning    atomic.Bool
 	readers      []io.Closer
 	closers      []closer
@@ -91,37 +89,8 @@ func (p *BaseProbe) Initialize(ctx context.Context, cfg domain.Configuration) er
 		Uint64("uid", p.config.GetUid()).
 		Msg("Probe initialized")
 
-	// Create internal logger wrapper from zerolog
 	// Create dispatcher
-	dispatcher := events.NewDispatcher(p.Logger())
-	// Create writer factory for creating output writers
-	writerFactory := writers.NewWriterFactory()
-
-	// Configure rotation for file writers (from --eventroratesize and --eventroratetime flags)
-	var rotateConfig *writers.RotateConfig
-
-	var textWriter writers.OutputWriter
-	var err error
-	var eventAddr = cfg.GetEventCollectorAddr()
-	if eventAddr == "" || eventAddr == "stdout" {
-		textWriter = writers.NewLoggerWriter(p.logger)
-	} else {
-		textWriter, err = writerFactory.CreateWriter(eventAddr, rotateConfig)
-		if err != nil {
-			return fmt.Errorf("failed to create text output writer: %w", err)
-		}
-	}
-	p.Logger().Info().Str("writer", textWriter.Name()).Str("LoggerAddr", cfg.GetLoggerAddr()).Msg("Text output writer created")
-	p.textWriter = textWriter
-	textHandler := handlers.NewTextHandler(textWriter, p.config.GetHex())
-	if err := dispatcher.Register(textHandler); err != nil {
-		_ = textWriter.Close()
-		return fmt.Errorf("failed to register text handler: %w", err)
-	}
-	p.closers = append(p.closers, textHandler)
-
-	// Create dispatcher
-	p.dispatcher = dispatcher
+	p.dispatcher = events.NewDispatcher(p.Logger())
 
 	return nil
 }
@@ -246,7 +215,14 @@ func (p *BaseProbe) TrackPerfReader(c io.Closer) {
 }
 
 // TextWriter returns the text output writer created during Initialize.
-func (p *BaseProbe) TextWriter() writers.OutputWriter { return p.textWriter }
+func (p *BaseProbe) DefaultTextWriter() writers.OutputWriter {
+	var eventAddr = p.config.GetEventCollectorAddr()
+	if eventAddr == "" || eventAddr == "stdout" {
+		return writers.NewLoggerWriter(p.logger)
+	}
+	w, _ := writers.NewWriterFactory().CreateWriter(eventAddr, &writers.RotateConfig{})
+	return w
+}
 
 func (p *BaseProbe) SetDispatcher(dispatcher domain.EventDispatcher) {
 	p.dispatcher = dispatcher

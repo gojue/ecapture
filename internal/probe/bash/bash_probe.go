@@ -32,6 +32,7 @@ import (
 	"github.com/gojue/ecapture/internal/domain"
 	"github.com/gojue/ecapture/internal/errors"
 	"github.com/gojue/ecapture/internal/probe/base"
+	"github.com/gojue/ecapture/internal/probe/base/handlers"
 	"github.com/gojue/ecapture/pkg/util/kernel"
 )
 
@@ -46,6 +47,7 @@ type Probe struct {
 	lineMap          map[string]string
 	lineMutex        sync.RWMutex
 	output           io.Writer
+	closer           []io.Closer
 }
 
 // NewProbe creates a new Bash probe instance.
@@ -63,6 +65,13 @@ func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration) error 
 	if err := p.BaseProbe.Initialize(ctx, cfg); err != nil {
 		return err
 	}
+
+	// Register payload handler with text encoder
+	payloadHandler := handlers.NewPayloadHandler("bash", handlers.NewTextEncoder(p.DefaultTextWriter()))
+	if err := p.BaseProbe.Dispatcher().Register(payloadHandler); err != nil {
+		return fmt.Errorf("failed to register bash payload handler: %w", err)
+	}
+	p.closer = append(p.closer, payloadHandler)
 
 	// Type assert to Bash-specific config
 	bashConfig, ok := cfg.(*Config)

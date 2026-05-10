@@ -81,7 +81,11 @@ func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration) error 
 	p.config = opensslConfig
 
 	// Register OpensslPayloadHandler for assembly + parsing of fragmented SSL data.
-	payloadHandler := handlers.NewOpensslPayloadHandler("openssl-payload", p.TextWriter(), cfg.GetProtoChannel())
+	encoders := []handlers.Encoder{handlers.NewTextEncoder(p.DefaultTextWriter())}
+	if ch := cfg.GetProtoChannel(); ch != nil {
+		encoders = append(encoders, handlers.NewProtoEncoder(ch))
+	}
+	payloadHandler := NewPayloadHandler("openssl-payload", encoders...)
 	if err := p.BaseProbe.Dispatcher().Register(payloadHandler); err != nil {
 		return fmt.Errorf("failed to register openssl payload handler: %w", err)
 	}

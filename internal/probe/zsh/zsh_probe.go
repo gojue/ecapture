@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"math"
 
 	"github.com/cilium/ebpf"
@@ -30,6 +31,7 @@ import (
 	"github.com/gojue/ecapture/internal/domain"
 	"github.com/gojue/ecapture/internal/errors"
 	"github.com/gojue/ecapture/internal/probe/base"
+	"github.com/gojue/ecapture/internal/probe/base/handlers"
 	"github.com/gojue/ecapture/pkg/util/kernel"
 )
 
@@ -41,6 +43,7 @@ type Probe struct {
 	eventFuncMaps    map[*ebpf.Map]domain.EventDecoder
 	mapNameToDecoder map[string]domain.EventDecoder // Maps configured in setupManager
 	eventMaps        []*ebpf.Map
+	closer           []io.Closer
 }
 
 // NewProbe creates a new Zsh probe instance.
@@ -69,6 +72,13 @@ func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration) error 
 	if err := p.BaseProbe.Initialize(ctx, cfg); err != nil {
 		return err
 	}
+
+	// Register payload handler with text encoder
+	payloadHandler := handlers.NewPayloadHandler("zsh", handlers.NewTextEncoder(p.DefaultTextWriter()))
+	if err := p.BaseProbe.Dispatcher().Register(payloadHandler); err != nil {
+		return fmt.Errorf("failed to register zsh payload handler: %w", err)
+	}
+	p.closer = append(p.closer, payloadHandler)
 
 	p.Logger().Info().
 		Str("zsh_path", config.Zshpath).

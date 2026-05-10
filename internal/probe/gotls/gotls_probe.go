@@ -91,6 +91,7 @@ func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration) error 
 
 	perfReorder, perfReorderLagNs := gotlsConfig.GetPerfReorder()
 
+
 	// Register PayloadHandler with text + proto encoders for gotls events.
 	encoders := []handlers.Encoder{handlers.NewTextEncoder(p.DefaultTextWriter())}
 	if ch := cfg.GetProtoChannel(); ch != nil {

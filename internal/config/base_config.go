@@ -17,7 +17,6 @@ package config
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"time"
 
@@ -57,7 +56,6 @@ type BaseConfig struct {
 	EcaptureQ          string           `json:"ecapture_q"`
 	Listen             string           `json:"listen"`
 	AddrType           uint8            `json:"addr_type"`
-	EventWriter        io.Writer        `json:"-"`
 	ProtoChannel       chan<- *pb.Event `json:"-"`
 	CGroupPath         string    `json:"cgroup_path"` // cgroup path for container/process filtering
 
@@ -248,15 +246,6 @@ func (c *BaseConfig) SetAddrType(t uint8) {
 	c.AddrType = t
 }
 
-// GetEventWriter returns the pre-configured event writer (e.g., for ecaptureQ).
-func (c *BaseConfig) GetEventWriter() io.Writer {
-	return c.EventWriter
-}
-
-// SetEventWriter sets a pre-configured event writer.
-func (c *BaseConfig) SetEventWriter(w io.Writer) {
-	c.EventWriter = w
-}
 
 // GetProtoChannel returns the ecaptureQ proto event channel.
 func (c *BaseConfig) GetProtoChannel() chan<- *pb.Event {
