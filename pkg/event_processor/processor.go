@@ -15,7 +15,6 @@
 package event_processor
 
 import (
-	"fmt"
 	"io"
 	"sync"
 )
@@ -41,6 +40,12 @@ type EventProcessor struct {
 
 	closeChan chan bool
 	errChan   chan error
+	// serveDone is closed by Serve() when it finishes draining all workers.
+	// Close() blocks on this channel to ensure all data is flushed before returning.
+	serveDone chan struct{}
+
+	// wg tracks all running eventWorker goroutines so drain() can wait for them.
+	wg sync.WaitGroup
 
 	// output model
 	isHex        bool
@@ -58,10 +63,12 @@ func (ep *EventProcessor) init() {
 	ep.closeChan = make(chan bool)
 	ep.errChan = make(chan error, 16)
 	ep.workerQueue = make(map[string]IWorker, MaxParserQueueLen)
+	ep.serveDone = make(chan struct{})
 }
 
 // Serve Write event 处理器读取事件
 func (ep *EventProcessor) Serve() error {
+	defer close(ep.serveDone)
 	var err error
 	for {
 		select {
@@ -80,8 +87,64 @@ func (ep *EventProcessor) Serve() error {
 		case s := <-ep.outComing:
 			_, _ = ep.GetLogger().Write(s)
 		case _ = <-ep.closeChan:
-			ep.clearAllWorkers()
-			return nil
+			return ep.drain()
+		}
+	}
+}
+
+// drain is called when the close signal is received. It drains any remaining
+// events from the incoming queue, signals all workers to close, waits for all
+// worker goroutines to finish (while draining outComing so they don't stall),
+// and finally flushes any remaining outComing entries.
+func (ep *EventProcessor) drain() error {
+	// 1. Drain remaining buffered events from incoming.
+	// Write() checks ep.isClosed (set to true by Close() before signalling
+	// closeChan), so no new events will be added after this point.
+	for {
+		select {
+		case eventStruct := <-ep.incoming:
+			if err := ep.dispatch(eventStruct); err != nil {
+				select {
+				case ep.errChan <- err:
+				default:
+				}
+			}
+		default:
+			goto signalWorkers
+		}
+	}
+
+signalWorkers:
+	// 2. Signal LifeCycleStateSock workers to close; LifeCycleStateDefault
+	// workers close themselves after their idle ticker fires (~1 s).
+	ep.Lock()
+	for _, w := range ep.workerQueue {
+		w.CloseEventWorker()
+	}
+	ep.Unlock()
+
+	// 3. Wait for all worker goroutines to finish while draining outComing,
+	// so workers are never blocked writing to a full channel.
+	done := make(chan struct{})
+	go func() {
+		ep.wg.Wait()
+		close(done)
+	}()
+
+	for {
+		select {
+		case s := <-ep.outComing:
+			_, _ = ep.GetLogger().Write(s)
+		case <-done:
+			// 4. All workers done — flush any remaining outComing entries.
+			for {
+				select {
+				case s := <-ep.outComing:
+					_, _ = ep.GetLogger().Write(s)
+				default:
+					return nil
+				}
+			}
 		}
 	}
 }
@@ -184,16 +247,20 @@ func (ep *EventProcessor) WriteDestroyConn(s uint64) {
 
 func (ep *EventProcessor) Close() error {
 	ep.Lock()
-	defer ep.Unlock()
 	if ep.isClosed {
+		ep.Unlock()
 		return nil
 	}
 	ep.isClosed = true
 	close(ep.closeChan)
-	close(ep.incoming)
-	if len(ep.workerQueue) > 0 {
-		return fmt.Errorf("EventProcessor.Close(): workerQueue is not empty:%d", len(ep.workerQueue))
-	}
+	ep.Unlock()
+
+	// Wait for Serve() to finish draining all workers and flushing output.
+	// Serve() MUST have been started (e.g. via `go ep.Serve()`) before Close()
+	// is called.  A closed closeChan persists, so Serve() will see the signal
+	// even if it starts executing after Close() closes closeChan.
+	// If Serve() is never started, Close() will block indefinitely.
+	<-ep.serveDone
 	return nil
 }
 

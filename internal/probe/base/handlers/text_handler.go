@@ -89,14 +89,10 @@ func (h *TextHandler) Handle(event domain.Event) error {
 
 // Close closes the handler and releases resources.
 func (h *TextHandler) Close() error {
-	err := h.writer.Close()
-	if err != nil {
-		return err
+	if h.writer == nil {
+		return nil
 	}
-	if h.writer != nil {
-		return h.writer.Close()
-	}
-	return nil
+	return h.writer.Close()
 }
 
 // Name returns the handler's identifier.

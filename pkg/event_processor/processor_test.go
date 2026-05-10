@@ -194,3 +194,67 @@ func Test_Truncated_EventProcessor_Serve(t *testing.T) {
 	//t.Log(string(bufString))
 	t.Log("done")
 }
+
+// TestEventProcessor_ImmediateClose verifies that calling Close() immediately
+// after writing events (without waiting for worker idle-timeout) still flushes
+// all captured data before Close() returns.  This is the regression test for
+// the "workerQueue is not empty" data-loss bug.
+//
+// Correctness note: Serve() may not have entered its select loop by the time
+// Close() is called.  This is safe because Close() blocks on serveDone until
+// Serve() runs, processes all remaining events (via drain()), and closes
+// serveDone.  The already-closed closeChan persists so Serve() sees it
+// whenever it starts.
+func TestEventProcessor_ImmediateClose(t *testing.T) {
+	output := "./output_immediate_close.log"
+	f, e := os.Create(output)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer func() { _ = os.Remove(output) }()
+
+	ep := NewEventProcessor(f, false, 0)
+	// Serve() must be started before Close() is called.
+	go func() {
+		if err := ep.Serve(); err != nil {
+			t.Error(err)
+		}
+	}()
+
+	// Write a small known payload.
+	const testPayload = "hello_immediate_close"
+	var comm [16]byte
+	copy(comm[:], "testcomm")
+	var data [MaxDataSize]byte
+	copy(data[:], testPayload)
+	ep.Write(&BaseEvent{
+		DataLen:   int32(len(testPayload)),
+		Data:      data,
+		DataType:  int64(ProbeEntry),
+		Timestamp: 1,
+		Pid:       1,
+		Tid:       1,
+		Comm:      comm,
+		Fd:        1,
+		Version:   int32(Tls12Version),
+	})
+
+	// Close immediately — do NOT wait for worker idle-timeout.
+	// The fix must ensure Close() blocks until the payload is flushed.
+	if err := ep.Close(); err != nil {
+		t.Fatalf("Close() returned unexpected error: %v", err)
+	}
+
+	if err := f.Close(); err != nil {
+		t.Fatalf("file Close() error: %v", err)
+	}
+
+	content, err := os.ReadFile(output)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(content) == 0 {
+		t.Fatal("output file is empty; captured data was lost on shutdown")
+	}
+	t.Logf("output (%d bytes) written correctly", len(content))
+}

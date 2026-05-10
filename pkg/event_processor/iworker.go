@@ -90,7 +90,9 @@ type eventWorker struct {
 func NewEventWorker(uuid string, processor *EventProcessor) IWorker {
 	eWorker := &eventWorker{}
 	eWorker.init(uuid, processor)
+	processor.wg.Add(1)
 	go func() {
+		defer processor.wg.Done()
 		eWorker.Run()
 	}()
 	return eWorker
