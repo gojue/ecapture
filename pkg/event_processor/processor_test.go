@@ -211,7 +211,7 @@ func TestEventProcessor_ImmediateClose(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	defer os.Remove(output)
+	defer func() { _ = os.Remove(output) }()
 
 	ep := NewEventProcessor(f, false, 0)
 	// Serve() must be started before Close() is called.
