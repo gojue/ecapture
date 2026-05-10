@@ -194,8 +194,6 @@ func (e *TLSDataEvent) Type() domain.EventType {
 	return domain.EventTypeOutput
 }
 
-// IsCustomHandler returns false for standard events.
-func (e *TLSDataEvent) IsCustomHandler() bool { return false }
 
 // UUID implements domain.Event interface
 func (e *TLSDataEvent) UUID() string {

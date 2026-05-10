@@ -344,8 +344,6 @@ func (e *GoTLSDataEvent) Type() domain.EventType {
 	return domain.EventTypeOutput
 }
 
-// IsCustomHandler returns true — bypass TextHandler, use GoTlsPayloadHandler.
-func (e *GoTLSDataEvent) IsCustomHandler() bool { return true }
 
 // UUID returns a unique identifier for this event.
 // Due to HTTP2 multiplexing, tid cannot be used as a UUID.

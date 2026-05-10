@@ -19,7 +19,6 @@ func (m *mockTextEvent) StringHex() string             { return m.data }
 func (m *mockTextEvent) Clone() domain.Event           { return m }
 func (m *mockTextEvent) Type() domain.EventType        { return domain.EventTypeOutput }
 func (m *mockTextEvent) UUID() string                  { return "" }
-func (m *mockTextEvent) IsCustomHandler() bool         { return false }
 
 func TestTextEncoder_Encode(t *testing.T) {
 	var buf bytes.Buffer

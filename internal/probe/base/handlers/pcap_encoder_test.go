@@ -23,7 +23,6 @@ func (m *mockPcapPacketEvent) StringHex() string             { return "" }
 func (m *mockPcapPacketEvent) Clone() domain.Event           { return m }
 func (m *mockPcapPacketEvent) Type() domain.EventType        { return domain.EventTypeOutput }
 func (m *mockPcapPacketEvent) UUID() string                  { return "" }
-func (m *mockPcapPacketEvent) IsCustomHandler() bool         { return false }
 func (m *mockPcapPacketEvent) GetTimestamp() uint64          { return m.timestamp }
 func (m *mockPcapPacketEvent) GetPacketData() []byte         { return m.packetData }
 
@@ -36,7 +35,6 @@ func (m *mockPcapNonPacketEvent) StringHex() string             { return "" }
 func (m *mockPcapNonPacketEvent) Clone() domain.Event           { return m }
 func (m *mockPcapNonPacketEvent) Type() domain.EventType        { return domain.EventTypeOutput }
 func (m *mockPcapNonPacketEvent) UUID() string                  { return "" }
-func (m *mockPcapNonPacketEvent) IsCustomHandler() bool         { return false }
 
 func newPcapTestLogger() *logger.Logger {
 	return logger.New(os.Stdout, true)

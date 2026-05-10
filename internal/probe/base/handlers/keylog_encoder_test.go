@@ -26,7 +26,6 @@ func (m *mockOpenSSLKeyEvent) StringHex() string                  { return "" }
 func (m *mockOpenSSLKeyEvent) Clone() domain.Event                { return m }
 func (m *mockOpenSSLKeyEvent) Type() domain.EventType             { return domain.EventTypeOutput }
 func (m *mockOpenSSLKeyEvent) UUID() string                       { return "" }
-func (m *mockOpenSSLKeyEvent) IsCustomHandler() bool              { return false }
 func (m *mockOpenSSLKeyEvent) GetVersion() int32                  { return m.version }
 func (m *mockOpenSSLKeyEvent) GetClientRandom() []byte            { return m.clientRandom }
 func (m *mockOpenSSLKeyEvent) GetMasterKey() []byte               { return m.masterKey }
@@ -49,7 +48,6 @@ func (m *mockGoTLSKeyEvent) StringHex() string             { return "" }
 func (m *mockGoTLSKeyEvent) Clone() domain.Event           { return m }
 func (m *mockGoTLSKeyEvent) Type() domain.EventType        { return domain.EventTypeOutput }
 func (m *mockGoTLSKeyEvent) UUID() string                  { return "" }
-func (m *mockGoTLSKeyEvent) IsCustomHandler() bool         { return false }
 func (m *mockGoTLSKeyEvent) GetLabel() string              { return m.label }
 func (m *mockGoTLSKeyEvent) GetClientRandom() []byte       { return m.clientRandom }
 func (m *mockGoTLSKeyEvent) GetSecret() []byte             { return m.secret }
@@ -64,7 +62,6 @@ func (m *nonKeyEvent) StringHex() string             { return "" }
 func (m *nonKeyEvent) Clone() domain.Event           { return m }
 func (m *nonKeyEvent) Type() domain.EventType        { return domain.EventTypeOutput }
 func (m *nonKeyEvent) UUID() string                  { return "" }
-func (m *nonKeyEvent) IsCustomHandler() bool         { return false }
 
 func makeCR(data byte) []byte {
 	b := make([]byte, Ssl3RandomSize)

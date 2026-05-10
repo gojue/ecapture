@@ -191,8 +191,6 @@ func (e *MasterSecretEvent) Type() domain.EventType {
 	return domain.EventTypeModuleData
 }
 
-// IsCustomHandler returns false for standard events.
-func (e *MasterSecretEvent) IsCustomHandler() bool { return false }
 
 // UUID implements domain.Event interface
 func (e *MasterSecretEvent) UUID() string {

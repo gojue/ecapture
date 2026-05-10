@@ -51,9 +51,7 @@ type Event interface {
 	// Validate checks if the event data is valid.
 	Validate() error
 
-	// IsCustomHandler returns true if this event should be routed
 	// through a CustomHandler instead of the plaintext TextHandler.
-	IsCustomHandler() bool
 }
 
 // EventHandler processes events after they are decoded.

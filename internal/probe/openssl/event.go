@@ -242,8 +242,6 @@ func (e *Event) Type() domain.EventType {
 	return domain.EventTypeOutput
 }
 
-// IsCustomHandler returns true — openssl events need assembly.
-func (e *Event) IsCustomHandler() bool { return true }
 
 // UUID returns a unique identifier for this event.
 func (e *Event) UUID() string {

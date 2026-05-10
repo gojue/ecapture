@@ -32,7 +32,6 @@ func (m *mockEvent) String() string                    { return "mock" }
 func (m *mockEvent) StringHex() string                 { return "mock" }
 func (m *mockEvent) Clone() domain.Event               { return &mockEvent{valid: m.valid} }
 func (m *mockEvent) Type() domain.EventType            { return domain.EventTypeOutput }
-func (m *mockEvent) IsCustomHandler() bool             { return false }
 func (m *mockEvent) UUID() string                      { return "test-uuid" }
 func (m *mockEvent) Validate() error {
 	if !m.valid {

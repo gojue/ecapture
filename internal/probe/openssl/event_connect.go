@@ -45,9 +45,7 @@ func (ce *ConnDataEvent) Type() domain.EventType {
 	return domain.EventTypeModuleData
 }
 
-// IsCustomHandler returns true — ConnDataEvent carries connection metadata
 // needed by the assembly pipeline.
-func (ce *ConnDataEvent) IsCustomHandler() bool { return false }
 
 func (e *ConnDataEvent) DecodeFromBytes(payload []byte) (err error) {
 	buf := bytes.NewBuffer(payload)
