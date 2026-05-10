@@ -1,3 +1,17 @@
+# v2.4.0 (2026-05-10)
+
+## What's Changed
+
+* feat(android16): support BoringSSL TLS capture on Android 16 by @cfc4n in https://github.com/gojue/ecapture/pull/998
+* fix: prevent data loss on EventProcessor shutdown due to worker abandonment by @Copilot in https://github.com/gojue/ecapture/pull/1000
+* refactor: generalize perf event reorder handling by @zenyanle in https://github.com/gojue/ecapture/pull/991
+* chore: remove unused tools/ directory (check_dsb.go) by @cfc4n in https://github.com/gojue/ecapture/pull/997
+
+## New Contributors
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v2.3.0...v2.4.0
+<hr>
+
 # v2.3.0 (2026-04-26)
 
 ## What's Changed
