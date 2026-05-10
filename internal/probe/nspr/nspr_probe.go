@@ -17,7 +17,6 @@ package nspr
 import (
 	"context"
 	"fmt"
-	"io"
 
 	"github.com/cilium/ebpf"
 
@@ -37,7 +36,6 @@ type Probe struct {
 	eventFuncMaps    map[*ebpf.Map]domain.EventDecoder
 	mapNameToDecoder map[string]domain.EventDecoder // Maps configured in setupManager
 	eventMaps        []*ebpf.Map
-	closer           []io.Closer
 }
 
 // NewProbe creates a new NSPR probe
@@ -61,7 +59,6 @@ func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration) error 
 	if err := p.BaseProbe.Dispatcher().Register(payloadHandler); err != nil {
 		return fmt.Errorf("failed to register nspr payload handler: %w", err)
 	}
-	p.closer = append(p.closer, payloadHandler)
 
 	// Type assert to NSPR-specific config
 	nsprConfig, ok := cfg.(*Config)

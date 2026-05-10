@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"math"
 
 	"github.com/cilium/ebpf"
@@ -43,7 +42,6 @@ type Probe struct {
 	eventFuncMaps    map[*ebpf.Map]domain.EventDecoder
 	mapNameToDecoder map[string]domain.EventDecoder // Maps configured in setupManager
 	eventMaps        []*ebpf.Map
-	closer           []io.Closer
 }
 
 // NewProbe creates a new Zsh probe instance.
@@ -78,7 +76,6 @@ func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration) error 
 	if err := p.BaseProbe.Dispatcher().Register(payloadHandler); err != nil {
 		return fmt.Errorf("failed to register zsh payload handler: %w", err)
 	}
-	p.closer = append(p.closer, payloadHandler)
 
 	p.Logger().Info().
 		Str("zsh_path", config.Zshpath).

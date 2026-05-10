@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"math"
 
 	"github.com/cilium/ebpf"
@@ -42,7 +41,6 @@ type Probe struct {
 	config     *Config
 	bpfManager *manager.Manager
 	eventsMap  *ebpf.Map
-	closer     []io.Closer
 }
 
 // NewProbe creates a new MySQL probe instance
@@ -80,7 +78,6 @@ func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration) error 
 	if err := p.BaseProbe.Dispatcher().Register(payloadHandler); err != nil {
 		return fmt.Errorf("failed to register mysql payload handler: %w", err)
 	}
-	p.closer = append(p.closer, payloadHandler)
 
 	p.Logger().Info().
 		Str("probe", p.Name()).

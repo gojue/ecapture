@@ -47,7 +47,6 @@ type Probe struct {
 	lineMap          map[string]string
 	lineMutex        sync.RWMutex
 	output           io.Writer
-	closer           []io.Closer
 }
 
 // NewProbe creates a new Bash probe instance.
@@ -71,7 +70,6 @@ func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration) error 
 	if err := p.BaseProbe.Dispatcher().Register(payloadHandler); err != nil {
 		return fmt.Errorf("failed to register bash payload handler: %w", err)
 	}
-	p.closer = append(p.closer, payloadHandler)
 
 	// Type assert to Bash-specific config
 	bashConfig, ok := cfg.(*Config)

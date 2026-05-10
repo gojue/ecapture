@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"math"
 
 	"github.com/cilium/ebpf"
@@ -40,7 +39,6 @@ type Probe struct {
 	*base.BaseProbe
 	config     *Config
 	bpfManager *manager.Manager
-	closer     []io.Closer
 }
 
 // NewProbe creates a new PostgreSQL probe instance
@@ -69,7 +67,6 @@ func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration) error 
 	if err := p.BaseProbe.Dispatcher().Register(payloadHandler); err != nil {
 		return fmt.Errorf("failed to register postgres payload handler: %w", err)
 	}
-	p.closer = append(p.closer, payloadHandler)
 
 	return nil
 }

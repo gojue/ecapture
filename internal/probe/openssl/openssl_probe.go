@@ -431,7 +431,7 @@ func (p *Probe) setupManagerPcapNG() error {
 	if err != nil {
 		p.Logger().Warn().Err(err).Str("keylog file", p.config.GetKeylogFile()).Msg("Failed to create keylog handler, continuing without keylog")
 	} else {
-		keylogHandler := handlers.NewKeylogHandler(keylogWriter)
+		keylogHandler := handlers.NewPayloadHandler("keylog", handlers.NewKeylogEncoder(keylogWriter))
 		if err := p.BaseProbe.Dispatcher().Register(keylogHandler); err != nil {
 			_ = keylogWriter.Close()
 			return fmt.Errorf("failed to register keylog handler: %w", err)
@@ -446,41 +446,33 @@ func (p *Probe) setupManagerPcapNG() error {
 		return fmt.Errorf("pcap mode requires pcap file path")
 	}
 
-	// Create file writer for pcap (use O_TRUNC to overwrite existing file)
-	// Note: pcap files should not use rotation
-	pcapWriter, err := writers.NewFileWriter(writers.FileWriterConfig{
+	pcapFileWriter, err := writers.NewFileWriter(writers.FileWriterConfig{
 		Path:       pcapFile,
-		BufferSize: 65536, // 64KB buffer for better pcap write performance
-		Truncate:   true,  // Overwrite existing pcapng file on new capture
+		BufferSize: 65536,
+		Truncate:   true,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create pcap writer: %w", err)
 	}
 
-	pcapHandler, err := handlers.NewPcapHandler(pcapWriter, p.config.Ifname, p.config.PcapFilter, p.Logger())
+	pcapNgWriter, err := writers.NewPcapWriter(pcapFileWriter, 65535, p.config.Ifname, p.config.PcapFilter, p.Logger())
 	if err != nil {
-		_ = pcapWriter.Close()
-		return fmt.Errorf("failed to create pcap handler: %w", err)
+		_ = pcapFileWriter.Close()
+		return fmt.Errorf("failed to create pcapng writer: %w", err)
 	}
 
+	pcapHandler := handlers.NewPayloadHandler("pcap", handlers.NewPcapEncoder(pcapNgWriter))
 	if err := p.BaseProbe.Dispatcher().Register(pcapHandler); err != nil {
-		_ = pcapHandler.Close()
-		_ = pcapWriter.Close()
+		_ = pcapNgWriter.Close()
 		return fmt.Errorf("failed to register pcap handler: %w", err)
 	}
-	// Note: pcapWriter will be closed through pcapHandler.Close() when dispatcher closes
-	// Don't add it to p.closer to avoid double-close
-	//p.Logger().Info().Str("Writer", pcapWriter.Name()).Msg("Pcap handler registered")
 
-	// Pcapng 的 Keylog writer
-	pcapKeylogWriter := writers.NewPcapKeylogWriter(pcapHandler.PcapWriter())
-	pcapKeylogHandler := handlers.NewKeylogHandler(pcapKeylogWriter)
+	pcapKeylogWriter := writers.NewPcapKeylogWriter(pcapNgWriter)
+	pcapKeylogHandler := handlers.NewPayloadHandler("pcap-keylog", handlers.NewKeylogEncoder(pcapKeylogWriter))
 	if err := p.BaseProbe.Dispatcher().Register(pcapKeylogHandler); err != nil {
-		_ = pcapHandler.Close()
-		_ = pcapWriter.Close()
+		_ = pcapNgWriter.Close()
 		return fmt.Errorf("failed to register pcapkeylog handler: %w", err)
 	}
-	// Note: pcapKeylogWriter will be closed through pcapKeylogHandler.Close()
 	// Don't add it to p.closer to avoid double-close
 	p.Logger().Info().Str("pcap_file", pcapFile).Msg("Pcap handler registered")
 	p.Logger().Debug().
@@ -529,7 +521,7 @@ func (p *Probe) setupManagerKeyLog() error {
 		return fmt.Errorf("failed to create keylog writer: %w", err)
 	}
 
-	keylogHandler := handlers.NewKeylogHandler(keylogWriter)
+	keylogHandler := handlers.NewPayloadHandler("keylog", handlers.NewKeylogEncoder(keylogWriter))
 	if err := p.BaseProbe.Dispatcher().Register(keylogHandler); err != nil {
 		_ = keylogWriter.Close()
 		return fmt.Errorf("failed to register keylog handler: %w", err)
