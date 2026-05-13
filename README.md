@@ -10,7 +10,7 @@
 ### eCapture(旁观者): capture SSL/TLS text content without a CA certificate using eBPF.
 
 > [!IMPORTANT]  
-> Supports Linux/Android kernel versions x86_64 4.18 and above, **aarch64 5.5** and above.
+> Supports Linux/Android on x86_64 (kernel 4.18+) and aarch64 (kernel **5.5+**). Kernel version requirements apply per CPU architecture for both Linux and Android.
 > Need ROOT permission or specific [Linux capabilities](docs/minimum-privileges.md).
 > Does not support Windows and macOS system.
 

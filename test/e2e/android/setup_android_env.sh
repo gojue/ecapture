@@ -71,7 +71,7 @@ main() {
     log_info "=== Step 5: Check Kernel Version ==="
     if ! check_android_kernel; then
         log_error "Kernel version check failed"
-        log_warn "Required: Kernel 5.5+ for ARM64"
+        log_warn "Required: Kernel 5.5+ for ARM64, 4.18+ for x86_64"
         log_warn "Tests may fail with older kernels"
     fi
 
@@ -79,7 +79,7 @@ main() {
     log_info "=== Step 6: Check Architecture ==="
     if ! check_android_arch; then
         log_error "Architecture check failed"
-        log_info "Required: ARM64/aarch64"
+        log_info "Required: ARM64/aarch64 or x86_64"
         exit 1
     fi
 

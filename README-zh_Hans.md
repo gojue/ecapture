@@ -12,7 +12,7 @@
 ### eCapture(旁观者): 基于eBPF技术实现SSL/TLS加密的明文捕获，无需CA证书。
 
 > [!TIP]
-> 支持Linux系统内核x86_64 4.18及以上版本，aarch64 5.5及以上版本；
+> 支持Linux/Android系统，x86_64架构内核4.18及以上，aarch64架构内核5.5及以上；内核版本要求按CPU架构区分，适用于Linux和Android（GKI）；
 > 需要ROOT权限或特定的 [Linux capabilities](docs/minimum-privileges.md)；
 > 不支持Windows、macOS系统；
 

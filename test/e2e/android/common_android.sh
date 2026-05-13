@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # File: test/e2e/android/common_android.sh
 # Common utilities for ecapture Android e2e tests
-# Requirements: Android 15+, ARM64, Kernel 5.5+
+# Requirements: Android 15+, Kernel 5.5+ (ARM64) or 4.18+ (x86_64)
 
 set -euo pipefail
 
@@ -84,7 +84,7 @@ check_android_version() {
     return 0
 }
 
-# Check kernel version (require 5.5+ for ARM64)
+# Check kernel version (require 5.5+ for ARM64, 4.18+ for x86_64)
 check_android_kernel() {
     local kernel_version
     kernel_version=$(adb shell uname -r | tr -d '\r')
@@ -95,26 +95,40 @@ check_android_kernel() {
     major=$(echo "$kernel_version" | cut -d'.' -f1)
     minor=$(echo "$kernel_version" | cut -d'.' -f2)
 
-    if [ "$major" -lt 5 ] || { [ "$major" -eq 5 ] && [ "$minor" -lt 5 ]; }; then
-        log_error "Kernel version $kernel_version is too old. Required: >= 5.5 for ARM64"
-        return 1
+    local arch
+    arch=$(adb shell uname -m | tr -d '\r')
+
+    if [[ "$arch" == "aarch64" || "$arch" == "arm64" ]]; then
+        # ARM64 requires kernel >= 5.5
+        if [ "$major" -lt 5 ] || { [ "$major" -eq 5 ] && [ "$minor" -lt 5 ]; }; then
+            log_error "Kernel version $kernel_version is too old for ARM64. Required: >= 5.5 (ARM64) or >= 4.18 (x86_64)"
+            return 1
+        fi
+    elif [[ "$arch" == "x86_64" ]]; then
+        # x86_64 requires kernel >= 4.18
+        if [ "$major" -lt 4 ] || { [ "$major" -eq 4 ] && [ "$minor" -lt 18 ]; }; then
+            log_error "Kernel version $kernel_version is too old for x86_64. Required: >= 5.5 (ARM64) or >= 4.18 (x86_64)"
+            return 1
+        fi
+    else
+        log_warn "Unknown architecture $arch, skipping kernel version check"
     fi
 
     log_success "Kernel version: $kernel_version - OK"
     return 0
 }
 
-# Check CPU architecture (require ARM64)
+# Check CPU architecture (require ARM64 or x86_64)
 check_android_arch() {
     local arch
     arch=$(adb shell uname -m | tr -d '\r')
 
     log_info "Architecture: $arch"
 
-#    if [[ "$arch" != "aarch64" && "$arch" != "arm64" ]]; then
-#        log_error "Architecture $arch is not supported. Required: aarch64/arm64"
-#        return 1
-#    fi
+    if [[ "$arch" != "aarch64" && "$arch" != "arm64" && "$arch" != "x86_64" ]]; then
+        log_error "Architecture $arch is not supported. Required: aarch64/arm64 or x86_64"
+        return 1
+    fi
 
     log_success "Architecture: $arch - OK"
     return 0

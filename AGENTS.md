@@ -1,7 +1,7 @@
 # AGENTS.md — AI Coding Agent Guide for eCapture
 
 ## Project Overview
-eCapture is an eBPF-based tool that captures SSL/TLS plaintext, bash/zsh commands, and SQL queries **without CA certificates**. It runs **only on Linux/Android** (x86_64 kernel ≥4.18, aarch64 ≥5.5) and requires root. Code editing can be done on any OS, but **compilation and execution must happen on a Linux machine** (physical, VM, or remote server via SSH).
+eCapture is an eBPF-based tool that captures SSL/TLS plaintext, bash/zsh commands, and SQL queries **without CA certificates**. It runs **only on Linux/Android** (x86_64 kernel ≥4.18, aarch64 ≥5.5) and requires root. These kernel version requirements apply per CPU architecture regardless of whether the OS is Linux or Android. Code editing can be done on any OS, but **compilation and execution must happen on a Linux machine** (physical, VM, or remote server via SSH).
 
 ## Architecture
 ```
