@@ -413,21 +413,26 @@ func (p *Probe) setupManagerPcapNG() error {
 		})
 	}
 
-	// Create writer factory for creating output writers
-	writerFactory := writers.NewWriterFactory()
-	// Create file writer for keylog
-	keylogWriter, err := writerFactory.CreateWriter(p.config.GetKeylogFile(), &writers.RotateConfig{false, 0, 300})
-	if err != nil {
-		p.Logger().Warn().Err(err).Str("keylog file", p.config.GetKeylogFile()).Msg("Failed to create keylog handler, continuing without keylog")
-	} else {
-		keylogHandler := handlers.NewKeylogHandler(keylogWriter)
-		if err := p.BaseProbe.Dispatcher().Register(keylogHandler); err != nil {
-			_ = keylogWriter.Close()
-			return fmt.Errorf("failed to register keylog handler: %w", err)
+	keylogFile := p.config.GetKeylogFile()
+	if keylogFile != "" {
+		keylogFileWriter, err := writers.NewFileWriter(writers.FileWriterConfig{
+			Path:       keylogFile,
+			BufferSize: 0,
+			Truncate:   true,
+		})
+		if err != nil {
+			p.Logger().Warn().Err(err).Str("keylog file", p.config.GetKeylogFile()).Msg("Failed to create keylog handler, continuing without keylog")
+		} else {
+			keylogWriter := writers.NewKeylogWriter(keylogFileWriter)
+			keylogHandler := handlers.NewKeylogHandler(keylogWriter)
+			if err := p.BaseProbe.Dispatcher().Register(keylogHandler); err != nil {
+				_ = keylogWriter.Close()
+				return fmt.Errorf("failed to register keylog handler: %w", err)
+			}
+			// Note: keylogWriter will be closed through keylogHandler.Close() when dispatcher closes
+			// Don't add it to p.closer to avoid double-close
+			p.Logger().Info().Str("keylog_file", keylogFile).Msg("Keylog handler registered for pcapng mode")
 		}
-		// Note: keylogWriter will be closed through keylogHandler.Close() when dispatcher closes
-		// Don't add it to p.closer to avoid double-close
-		p.Logger().Info().Str("Writer", keylogWriter.Name()).Msg("Keylog handler registered for pcapng mode")
 	}
 
 	pcapFile := p.config.GetPcapFile()
@@ -509,15 +514,16 @@ func (p *Probe) setupManagerKeyLog() error {
 		})
 	}
 
-	// Create writer factory for creating output writers
-	writerFactory := writers.NewWriterFactory()
-
-	// Create file writer for keylog
-	keylogWriter, err := writerFactory.CreateWriter(p.config.GetKeylogFile(), &writers.RotateConfig{false, 0, 300})
+	keylogFileWriter, err := writers.NewFileWriter(writers.FileWriterConfig{
+		Path:       keylogFile,
+		BufferSize: 0,
+		Truncate:   true,
+	})
 	if err != nil {
 		return fmt.Errorf("failed to create keylog writer: %w", err)
 	}
 
+	keylogWriter := writers.NewKeylogWriter(keylogFileWriter)
 	keylogHandler := handlers.NewKeylogHandler(keylogWriter)
 	if err := p.BaseProbe.Dispatcher().Register(keylogHandler); err != nil {
 		_ = keylogWriter.Close()
@@ -525,7 +531,7 @@ func (p *Probe) setupManagerKeyLog() error {
 	}
 	// Note: keylogWriter will be closed through keylogHandler.Close() when dispatcher closes
 	// Don't add it to p.closer to avoid double-close
-	p.Logger().Info().Str("Writer", keylogWriter.Name()).Msg("Keylog handler registered")
+	p.Logger().Info().Str("keylog_file", keylogFile).Msg("Keylog handler registered")
 
 	p.bpfManager = &manager.Manager{
 		Probes: probes,
