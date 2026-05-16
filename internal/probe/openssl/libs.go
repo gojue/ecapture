@@ -39,6 +39,7 @@ var (
 	masterKeyHookFuncs = []string{
 		"SSL_get_wbio", // openssl
 		//"SSL_is_init",  // boringssl
+		MasterKeyHookFuncOpenSSL,
 		// 备用HOOK 函数
 		//"SSL_is_init_finished",
 		MasterKeyHookFuncSSLBefore,
