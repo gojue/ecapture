@@ -320,6 +320,10 @@ func runProbe(probeType factory.ProbeType, probeConfig domain.Configuration) err
 
 	// upgrade check
 	go func() {
+		// 1/10 概率触发
+		if time.Now().UnixNano()%10 != 0 {
+			return
+		}
 		tags, upgradeUrl, e := upgradeCheck(ctx)
 		if e != nil {
 			logger.Debug().Msgf("upgrade check failed: %s", e.Error())
