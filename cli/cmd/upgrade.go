@@ -12,9 +12,9 @@ import (
 	"github.com/gojue/ecapture/pkg/upgrade"
 )
 
-const urlReleases = "https://api.github.com/repos/gojue"
+const urlReleases = "https://api.github.com"
 const urlReleasesCN = "https://image.cnxct.com"
-const apiReleases string = "/ecapture/releases/latest"
+const apiReleases string = "/repos/gojue/ecapture/releases/latest"
 
 var (
 	ErrOsArchNotFound       = errors.New("new tag found, but no os/arch match")
