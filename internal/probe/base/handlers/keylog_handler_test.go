@@ -161,6 +161,7 @@ func TestKeylogHandler_Handle_TLS13(t *testing.T) {
 	event := &mockMasterSecretEvent{
 		version:                0x0304, // TLS 1.3
 		clientRandom:           clientRandom,
+		cipherId:               0x03001301, // hkdf.TlsAes128GcmSha256
 		clientAppTrafficSecret: clientApp,
 		serverAppTrafficSecret: serverApp,
 	}
@@ -306,6 +307,7 @@ func TestKeylogHandler_Handle_TLS13_SkipZeroSecrets(t *testing.T) {
 	event := &mockMasterSecretEvent{
 		version:                0x0304,
 		clientRandom:           clientRandom,
+		cipherId:               0x03001301,                 // hkdf.TlsAes128GcmSha256
 		clientAppTrafficSecret: make([]byte, EvpMaxMdSize), // All zeros
 		serverAppTrafficSecret: make([]byte, EvpMaxMdSize), // All zeros
 	}

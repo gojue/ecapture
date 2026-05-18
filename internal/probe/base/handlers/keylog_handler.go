@@ -15,6 +15,7 @@
 package handlers
 
 import (
+	"crypto"
 	"fmt"
 	"sync"
 
@@ -218,34 +219,49 @@ func (h *KeylogHandler) handleTLS13(event MasterSecretEvent) error {
 
 	clientRandomHex := fmt.Sprintf("%x", clientRandom[:Ssl3RandomSize])
 
-	// Write each TLS 1.3 secret type if available
-	secrets := []struct {
-		label string
-		data  []byte
-	}{
-		{hkdf.KeyLogLabelClientTraffic, event.GetClientAppTrafficSecret()},
-		{hkdf.KeyLogLabelServerTraffic, event.GetServerAppTrafficSecret()},
-		{hkdf.KeyLogLabelExporterSecret, event.GetExporterMasterSecret()},
-		{hkdf.KeyLogLabelServerHandshake, event.GetHandshakeSecret()},
+	var length int
+	var transcript crypto.Hash
+	switch uint16(event.GetCipherId() & 0x0000FFFF) {
+	case hkdf.TlsAes128GcmSha256, hkdf.TlsChacha20Poly1305Sha256:
+		length = 32
+		transcript = crypto.SHA256
+	case hkdf.TlsAes256GcmSha384:
+		length = 48
+		transcript = crypto.SHA384
+	default:
+		return errors.New(errors.ErrCodeEventValidation, fmt.Sprintf("unknown cipher id: %08x", event.GetCipherId()))
 	}
 
-	for _, secret := range secrets {
-		if len(secret.data) == 0 || isZeroBytes(secret.data) {
+	// Write each TLS 1.3 secret type if available
+	secrets := map[string][]byte{
+		hkdf.KeyLogLabelClientTraffic:           event.GetClientAppTrafficSecret(),
+		hkdf.KeyLogLabelServerTraffic:           event.GetServerAppTrafficSecret(),
+		hkdf.KeyLogLabelExporterSecret:          event.GetExporterMasterSecret(),
+		hkdf.KeyLogLabelClientEarlyTafficSecret: event.GetEarlySecret(),
+	}
+	if len(event.GetHandshakeSecret()) != 0 && !isZeroBytes(event.GetHandshakeSecret()) &&
+		len(event.GetHandshakeTrafficHash()) != 0 && !isZeroBytes(event.GetHandshakeTrafficHash()) {
+		secrets[hkdf.KeyLogLabelClientHandshake] = hkdf.ExpandLabel(event.GetHandshakeSecret()[:length], hkdf.ClientHandshakeTrafficLabel, event.GetHandshakeTrafficHash()[:length], length, transcript)
+		secrets[hkdf.KeyLogLabelServerHandshake] = hkdf.ExpandLabel(event.GetHandshakeSecret()[:length], hkdf.ServerHandshakeTrafficLabel, event.GetHandshakeTrafficHash()[:length], length, transcript)
+	}
+
+	for label, data := range secrets {
+		if len(data) == 0 || isZeroBytes(data) {
 			continue // Skip empty or zero secrets
 		}
 
 		// Use label+client_random as dedup key
-		dedupKey := fmt.Sprintf("%s_%s", secret.label, clientRandomHex)
+		dedupKey := fmt.Sprintf("%s_%s", label, clientRandomHex)
 		if h.seenKeys[dedupKey] {
 			continue // Already written this secret type for this connection
 		}
 
-		line := fmt.Sprintf("%s %s %x", secret.label, clientRandomHex, secret.data)
+		line := fmt.Sprintf("%s %s %x", label, clientRandomHex, data[:length])
 
 		// Write to output
 		if _, err := h.writer.Write([]byte(line)); err != nil {
 			return errors.Wrap(errors.ErrCodeEventDispatch,
-				fmt.Sprintf("failed to write %s", secret.label), err)
+				fmt.Sprintf("failed to write %s", label), err)
 		}
 
 		h.seenKeys[dedupKey] = true
