@@ -21,6 +21,7 @@ import (
 	"github.com/gojue/ecapture/internal/domain"
 	"github.com/gojue/ecapture/internal/errors"
 	"github.com/gojue/ecapture/internal/output/writers"
+	"github.com/gojue/ecapture/pkg/util/hkdf"
 )
 
 const (
@@ -28,16 +29,6 @@ const (
 	Ssl3RandomSize     = 32
 	MasterSecretMaxLen = 48
 	EvpMaxMdSize       = 64
-)
-
-const (
-	KeyLogLabelTLS12                   = "CLIENT_RANDOM"
-	KeyLogLabelClientEarlyTafficSecret = "CLIENT_EARLY_TRAFFIC_SECRET"
-
-	KeyLogLabelServerHandshake = "SERVER_HANDSHAKE_TRAFFIC_SECRET"
-	KeyLogLabelClientTraffic   = "CLIENT_TRAFFIC_SECRET_0"
-	KeyLogLabelServerTraffic   = "SERVER_TRAFFIC_SECRET_0"
-	KeyLogLabelExporterSecret  = "EXPORTER_SECRET"
 )
 
 // MasterSecretEvent defines the interface for master secret key events.
@@ -151,13 +142,13 @@ func (h *KeylogHandler) handleTLS12(event MasterSecretEvent) error {
 
 	// Format: CLIENT_RANDOM <client_random> <master_secret>
 	line := fmt.Sprintf("%s %x %x",
-		KeyLogLabelTLS12,
+		hkdf.KeyLogLabelTLS12,
 		clientRandom[:Ssl3RandomSize],
 		masterKey[:MasterSecretMaxLen])
 
 	// Use client_random as dedup key to avoid multiple captures of same connection
 	// This ensures we only write the first valid (non-zero) master secret
-	dedupKey := fmt.Sprintf("%s_%x", KeyLogLabelTLS12, clientRandom[:Ssl3RandomSize])
+	dedupKey := fmt.Sprintf("%s_%x", hkdf.KeyLogLabelTLS12, clientRandom[:Ssl3RandomSize])
 	if h.seenKeys[dedupKey] {
 		return nil // Skip duplicate - already captured this connection
 	}
@@ -232,11 +223,10 @@ func (h *KeylogHandler) handleTLS13(event MasterSecretEvent) error {
 		label string
 		data  []byte
 	}{
-
-		{KeyLogLabelClientTraffic, event.GetClientAppTrafficSecret()},
-		{KeyLogLabelServerTraffic, event.GetServerAppTrafficSecret()},
-		{KeyLogLabelExporterSecret, event.GetExporterMasterSecret()},
-		{KeyLogLabelServerHandshake, event.GetHandshakeSecret()},
+		{hkdf.KeyLogLabelClientTraffic, event.GetClientAppTrafficSecret()},
+		{hkdf.KeyLogLabelServerTraffic, event.GetServerAppTrafficSecret()},
+		{hkdf.KeyLogLabelExporterSecret, event.GetExporterMasterSecret()},
+		{hkdf.KeyLogLabelServerHandshake, event.GetHandshakeSecret()},
 	}
 
 	for _, secret := range secrets {
