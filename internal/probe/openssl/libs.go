@@ -16,8 +16,9 @@ const (
 		在boringSSL类库里，SSL_write函数调用了 SSL_do_handshake ，
 		SSL_do_handshake 函数执行时，当前SSL链接握手可能还未完成，且
 	*/
-	// 2022-12-16 改为 SSL_in_init
-	MasterKeyHookFuncBoringSSL = "SSL_in_init"
+	// 2024: 改为 SSL_do_handshake，配合 uprobe+uretprobe 模式
+	// SSL_in_init 在 Android 15 libssl.so 中从未被内部调用
+	MasterKeyHookFuncBoringSSL = "SSL_do_handshake"
 	MasterKeyHookFuncSSLBefore = "SSL_in_before"
 	MasterKeyHookFuncSSLState  = "SSL_state"
 )

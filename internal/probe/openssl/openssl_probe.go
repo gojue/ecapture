@@ -403,14 +403,34 @@ func (p *Probe) setupManagerPcapNG() error {
 
 	// Add master secret extraction
 	p.Logger().Info().Strs("keylog_hook_funcs", p.config.MasterHookFuncs).Msg("Configuring master secret extraction probes for pcapNG mode")
-	for _, masterFunc := range p.config.MasterHookFuncs {
-		probes = append(probes, &manager.Probe{
-			Section:          "uprobe/SSL_write_key",
-			EbpfFuncName:     "probe_ssl_master_key",
-			AttachToFuncName: masterFunc,
-			BinaryPath:       opensslPath,
-			UID:              fmt.Sprintf("uprobe_smk_%s", masterFunc),
-		})
+	if p.config.IsBoringSSL {
+		maps = append(maps, &manager.Map{Name: "bssl_do_handshake_map"})
+		for _, masterFunc := range p.config.MasterHookFuncs {
+			probes = append(probes, &manager.Probe{
+				Section:          "uprobe/bssl_do_handshake",
+				EbpfFuncName:     "uprobe_bssl_do_handshake",
+				AttachToFuncName: masterFunc,
+				BinaryPath:       opensslPath,
+				UID:              fmt.Sprintf("uprobe_bssl_hs_%s", masterFunc),
+			})
+			probes = append(probes, &manager.Probe{
+				Section:          "uretprobe/bssl_do_handshake",
+				EbpfFuncName:     "uretprobe_bssl_do_handshake",
+				AttachToFuncName: masterFunc,
+				BinaryPath:       opensslPath,
+				UID:              fmt.Sprintf("uretprobe_bssl_hs_%s", masterFunc),
+			})
+		}
+	} else {
+		for _, masterFunc := range p.config.MasterHookFuncs {
+			probes = append(probes, &manager.Probe{
+				Section:          "uprobe/SSL_write_key",
+				EbpfFuncName:     "probe_ssl_master_key",
+				AttachToFuncName: masterFunc,
+				BinaryPath:       opensslPath,
+				UID:              fmt.Sprintf("uprobe_smk_%s", masterFunc),
+			})
+		}
 	}
 
 	// Create writer factory for creating output writers
@@ -499,14 +519,34 @@ func (p *Probe) setupManagerKeyLog() error {
 	// Add master secret extraction probes based on OpenSSL version
 	p.Logger().Info().Strs("keylog_hook_funcs", p.config.MasterHookFuncs).Msg("Configuring master secret extraction probes for KeyLog mode")
 	probes = make([]*manager.Probe, 0)
-	for _, masterFunc := range p.config.MasterHookFuncs {
-		probes = append(probes, &manager.Probe{
-			Section:          "uprobe/SSL_write_key",
-			EbpfFuncName:     "probe_ssl_master_key",
-			AttachToFuncName: masterFunc,
-			BinaryPath:       opensslPath,
-			UID:              fmt.Sprintf("uprobe_smk_%s", masterFunc),
-		})
+	if p.config.IsBoringSSL {
+		maps = append(maps, &manager.Map{Name: "bssl_do_handshake_map"})
+		for _, masterFunc := range p.config.MasterHookFuncs {
+			probes = append(probes, &manager.Probe{
+				Section:          "uprobe/bssl_do_handshake",
+				EbpfFuncName:     "uprobe_bssl_do_handshake",
+				AttachToFuncName: masterFunc,
+				BinaryPath:       opensslPath,
+				UID:              fmt.Sprintf("uprobe_bssl_hs_%s", masterFunc),
+			})
+			probes = append(probes, &manager.Probe{
+				Section:          "uretprobe/bssl_do_handshake",
+				EbpfFuncName:     "uretprobe_bssl_do_handshake",
+				AttachToFuncName: masterFunc,
+				BinaryPath:       opensslPath,
+				UID:              fmt.Sprintf("uretprobe_bssl_hs_%s", masterFunc),
+			})
+		}
+	} else {
+		for _, masterFunc := range p.config.MasterHookFuncs {
+			probes = append(probes, &manager.Probe{
+				Section:          "uprobe/SSL_write_key",
+				EbpfFuncName:     "probe_ssl_master_key",
+				AttachToFuncName: masterFunc,
+				BinaryPath:       opensslPath,
+				UID:              fmt.Sprintf("uprobe_smk_%s", masterFunc),
+			})
+		}
 	}
 
 	// Create writer factory for creating output writers
@@ -699,9 +739,12 @@ type masterSecretEventDecoder struct {
 func (d *masterSecretEventDecoder) Decode(_ *ebpf.Map, data []byte) (domain.Event, error) {
 	event := &MasterSecretEvent{}
 	if err := event.DecodeFromBytes(data); err != nil {
+		fmt.Printf("[DEBUG] mastersecret DecodeFromBytes failed: %v, data_len=%d\n", err, len(data))
 		return nil, err
 	}
+	fmt.Printf("[DEBUG] mastersecret event: version=0x%04x client_random=%x\n", event.Version, event.ClientRandom[:8])
 	if err := event.Validate(); err != nil {
+		fmt.Printf("[DEBUG] mastersecret Validate failed: %v\n", err)
 		return nil, err
 	}
 

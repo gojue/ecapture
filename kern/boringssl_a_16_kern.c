@@ -50,8 +50,18 @@
 // bssl::SSL3_STATE->client_random
 #define BSSL__SSL3_STATE_CLIENT_RANDOM 0x30
 
+// bssl::SSL3_STATE->server_traffic_secret_0 (TLS 1.3, InplaceVector layout)
+#define BSSL__SSL3_STATE_SERVER_TRAFFIC_SECRET_0 0x120
+
+// bssl::SSL3_STATE->client_traffic_secret_0 (TLS 1.3, InplaceVector layout)
+#define BSSL__SSL3_STATE_CLIENT_TRAFFIC_SECRET_0 0x151
+
 // bssl::SSL3_STATE->exporter_secret
 #define BSSL__SSL3_STATE_EXPORTER_SECRET 0x182
+
+// bssl::SSL3_STATE traffic secret lengths (size_ byte at end of each InplaceVector)
+#define BSSL__SSL3_STATE_SERVER_TRAFFIC_SECRET_0_LEN 0x150
+#define BSSL__SSL3_STATE_CLIENT_TRAFFIC_SECRET_0_LEN 0x181
 
 // bssl::SSL3_STATE->established_session
 #define BSSL__SSL3_STATE_ESTABLISHED_SESSION 0x1d0
