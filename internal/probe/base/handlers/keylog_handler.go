@@ -229,7 +229,10 @@ func (h *KeylogHandler) handleTLS13(event MasterSecretEvent) error {
 		length = 48
 		transcript = crypto.SHA384
 	default:
-		return errors.New(errors.ErrCodeEventValidation, fmt.Sprintf("unknown cipher id: %08x", event.GetCipherId()))
+		length = EvpMaxMdSize // do not truncate
+		// transcript is default value 0
+
+		// TODO 写ERROR日志
 	}
 
 	// Write each TLS 1.3 secret type if available
@@ -240,7 +243,8 @@ func (h *KeylogHandler) handleTLS13(event MasterSecretEvent) error {
 		hkdf.KeyLogLabelClientEarlyTafficSecret: event.GetEarlySecret(),
 	}
 	if len(event.GetHandshakeSecret()) != 0 && !isZeroBytes(event.GetHandshakeSecret()) &&
-		len(event.GetHandshakeTrafficHash()) != 0 && !isZeroBytes(event.GetHandshakeTrafficHash()) {
+		len(event.GetHandshakeTrafficHash()) != 0 && !isZeroBytes(event.GetHandshakeTrafficHash()) &&
+		transcript != 0 {
 		secrets[hkdf.KeyLogLabelClientHandshake] = hkdf.ExpandLabel(event.GetHandshakeSecret()[:length], hkdf.ClientHandshakeTrafficLabel, event.GetHandshakeTrafficHash()[:length], length, transcript)
 		secrets[hkdf.KeyLogLabelServerHandshake] = hkdf.ExpandLabel(event.GetHandshakeSecret()[:length], hkdf.ServerHandshakeTrafficLabel, event.GetHandshakeTrafficHash()[:length], length, transcript)
 	}
