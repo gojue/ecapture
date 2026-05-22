@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/gojue/ecapture/internal/domain"
+	"github.com/gojue/ecapture/pkg/util/hkdf"
 )
 
 // mockKeylogWriter wraps bytes.Buffer to implement OutputWriter for testing
@@ -160,6 +161,7 @@ func TestKeylogHandler_Handle_TLS13(t *testing.T) {
 	event := &mockMasterSecretEvent{
 		version:                0x0304, // TLS 1.3
 		clientRandom:           clientRandom,
+		cipherId:               0x03001301, // hkdf.TlsAes128GcmSha256
 		clientAppTrafficSecret: clientApp,
 		serverAppTrafficSecret: serverApp,
 	}
@@ -171,12 +173,12 @@ func TestKeylogHandler_Handle_TLS13(t *testing.T) {
 	}
 
 	output := writer.String()
-	if !strings.Contains(output, "CLIENT_TRAFFIC_SECRET_0") {
-		t.Errorf("Output should contain CLIENT_TRAFFIC_SECRET_0, got: %s", output)
+	if !strings.Contains(output, hkdf.KeyLogLabelClientTraffic) {
+		t.Errorf("Output should contain %s, got: %s", hkdf.KeyLogLabelClientTraffic, output)
 		return
 	}
-	if !strings.Contains(output, "SERVER_TRAFFIC_SECRET_0") {
-		t.Errorf("Output should contain SERVER_TRAFFIC_SECRET_0, got: %s", output)
+	if !strings.Contains(output, hkdf.KeyLogLabelServerTraffic) {
+		t.Errorf("Output should contain %s, got: %s", hkdf.KeyLogLabelServerTraffic, output)
 		return
 	}
 }
@@ -305,6 +307,7 @@ func TestKeylogHandler_Handle_TLS13_SkipZeroSecrets(t *testing.T) {
 	event := &mockMasterSecretEvent{
 		version:                0x0304,
 		clientRandom:           clientRandom,
+		cipherId:               0x03001301,                 // hkdf.TlsAes128GcmSha256
 		clientAppTrafficSecret: make([]byte, EvpMaxMdSize), // All zeros
 		serverAppTrafficSecret: make([]byte, EvpMaxMdSize), // All zeros
 	}

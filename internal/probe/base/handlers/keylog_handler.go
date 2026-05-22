@@ -15,12 +15,14 @@
 package handlers
 
 import (
+	"crypto"
 	"fmt"
 	"sync"
 
 	"github.com/gojue/ecapture/internal/domain"
 	"github.com/gojue/ecapture/internal/errors"
 	"github.com/gojue/ecapture/internal/output/writers"
+	"github.com/gojue/ecapture/pkg/util/hkdf"
 )
 
 const (
@@ -28,16 +30,6 @@ const (
 	Ssl3RandomSize     = 32
 	MasterSecretMaxLen = 48
 	EvpMaxMdSize       = 64
-)
-
-const (
-	KeyLogLabelTLS12                   = "CLIENT_RANDOM"
-	KeyLogLabelClientEarlyTafficSecret = "CLIENT_EARLY_TRAFFIC_SECRET"
-
-	KeyLogLabelServerHandshake = "SERVER_HANDSHAKE_TRAFFIC_SECRET"
-	KeyLogLabelClientTraffic   = "CLIENT_TRAFFIC_SECRET_0"
-	KeyLogLabelServerTraffic   = "SERVER_TRAFFIC_SECRET_0"
-	KeyLogLabelExporterSecret  = "EXPORTER_SECRET"
 )
 
 // MasterSecretEvent defines the interface for master secret key events.
@@ -151,13 +143,13 @@ func (h *KeylogHandler) handleTLS12(event MasterSecretEvent) error {
 
 	// Format: CLIENT_RANDOM <client_random> <master_secret>
 	line := fmt.Sprintf("%s %x %x",
-		KeyLogLabelTLS12,
+		hkdf.KeyLogLabelTLS12,
 		clientRandom[:Ssl3RandomSize],
 		masterKey[:MasterSecretMaxLen])
 
 	// Use client_random as dedup key to avoid multiple captures of same connection
 	// This ensures we only write the first valid (non-zero) master secret
-	dedupKey := fmt.Sprintf("%s_%x", KeyLogLabelTLS12, clientRandom[:Ssl3RandomSize])
+	dedupKey := fmt.Sprintf("%s_%x", hkdf.KeyLogLabelTLS12, clientRandom[:Ssl3RandomSize])
 	if h.seenKeys[dedupKey] {
 		return nil // Skip duplicate - already captured this connection
 	}
@@ -227,35 +219,53 @@ func (h *KeylogHandler) handleTLS13(event MasterSecretEvent) error {
 
 	clientRandomHex := fmt.Sprintf("%x", clientRandom[:Ssl3RandomSize])
 
-	// Write each TLS 1.3 secret type if available
-	secrets := []struct {
-		label string
-		data  []byte
-	}{
+	var length int
+	var transcript crypto.Hash
+	switch uint16(event.GetCipherId() & 0x0000FFFF) {
+	case hkdf.TlsAes128GcmSha256, hkdf.TlsChacha20Poly1305Sha256:
+		length = 32
+		transcript = crypto.SHA256
+	case hkdf.TlsAes256GcmSha384:
+		length = 48
+		transcript = crypto.SHA384
+	default:
+		length = EvpMaxMdSize // do not truncate
+		// transcript is default value 0
 
-		{KeyLogLabelClientTraffic, event.GetClientAppTrafficSecret()},
-		{KeyLogLabelServerTraffic, event.GetServerAppTrafficSecret()},
-		{KeyLogLabelExporterSecret, event.GetExporterMasterSecret()},
-		{KeyLogLabelServerHandshake, event.GetHandshakeSecret()},
+		// TODO 写ERROR日志
 	}
 
-	for _, secret := range secrets {
-		if len(secret.data) == 0 || isZeroBytes(secret.data) {
+	// Write each TLS 1.3 secret type if available
+	secrets := map[string][]byte{
+		hkdf.KeyLogLabelClientTraffic:           event.GetClientAppTrafficSecret(),
+		hkdf.KeyLogLabelServerTraffic:           event.GetServerAppTrafficSecret(),
+		hkdf.KeyLogLabelExporterSecret:          event.GetExporterMasterSecret(),
+		hkdf.KeyLogLabelClientEarlyTafficSecret: event.GetEarlySecret(),
+	}
+	if len(event.GetHandshakeSecret()) != 0 && !isZeroBytes(event.GetHandshakeSecret()) &&
+		len(event.GetHandshakeTrafficHash()) != 0 && !isZeroBytes(event.GetHandshakeTrafficHash()) &&
+		transcript != 0 {
+		secrets[hkdf.KeyLogLabelClientHandshake] = hkdf.ExpandLabel(event.GetHandshakeSecret()[:length], hkdf.ClientHandshakeTrafficLabel, event.GetHandshakeTrafficHash()[:length], length, transcript)
+		secrets[hkdf.KeyLogLabelServerHandshake] = hkdf.ExpandLabel(event.GetHandshakeSecret()[:length], hkdf.ServerHandshakeTrafficLabel, event.GetHandshakeTrafficHash()[:length], length, transcript)
+	}
+
+	for label, data := range secrets {
+		if len(data) == 0 || isZeroBytes(data) {
 			continue // Skip empty or zero secrets
 		}
 
 		// Use label+client_random as dedup key
-		dedupKey := fmt.Sprintf("%s_%s", secret.label, clientRandomHex)
+		dedupKey := fmt.Sprintf("%s_%s", label, clientRandomHex)
 		if h.seenKeys[dedupKey] {
 			continue // Already written this secret type for this connection
 		}
 
-		line := fmt.Sprintf("%s %s %x", secret.label, clientRandomHex, secret.data)
+		line := fmt.Sprintf("%s %s %x", label, clientRandomHex, data[:length])
 
 		// Write to output
 		if _, err := h.writer.Write([]byte(line)); err != nil {
 			return errors.Wrap(errors.ErrCodeEventDispatch,
-				fmt.Sprintf("failed to write %s", secret.label), err)
+				fmt.Sprintf("failed to write %s", label), err)
 		}
 
 		h.seenKeys[dedupKey] = true

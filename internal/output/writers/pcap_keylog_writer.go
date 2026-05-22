@@ -14,29 +14,29 @@
 
 package writers
 
-// KeylogWriter writes keylog to a standalone file.
-type KeylogWriter struct {
-	*FileWriter
+// PcapKeylogWriter writes keylog to Pcap file.
+type PcapKeylogWriter struct {
+	*PcapWriter
 }
 
-func (w *KeylogWriter) Name() string {
-	return "keylog_writer"
+func (w *PcapKeylogWriter) Name() string {
+	return "pcap_keylog_writer"
 }
 
-func (w *KeylogWriter) Flush() error {
-	return w.FileWriter.Flush()
+func (w *PcapKeylogWriter) Flush() error {
+	return w.PcapWriter.Flush()
 }
 
-func NewKeylogWriter(fw *FileWriter) *KeylogWriter {
-	return &KeylogWriter{
-		FileWriter: fw,
+func NewPcapKeylogWriter(pw *PcapWriter) *PcapKeylogWriter {
+	return &PcapKeylogWriter{
+		PcapWriter: pw,
 	}
 }
 
-func (w *KeylogWriter) Write(p []byte) (n int, err error) {
+func (w *PcapKeylogWriter) Write(p []byte) (n int, err error) {
 	// Create a copy to avoid modifying the provided buffer
 	data := make([]byte, len(p)+1)
 	copy(data, p)
 	data[len(p)] = '\n'
-	return w.FileWriter.Write(data)
+	return len(p), w.PcapWriter.WriteKeyLog(data)
 }
