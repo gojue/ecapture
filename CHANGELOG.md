@@ -1,3 +1,16 @@
+# v2.4.1 (2026-05-22)
+
+## What's Changed
+
+* fix: add default value to MasterHookFuncs as v1 by @WankkoRee in https://github.com/gojue/ecapture/pull/1005
+* feat: implement probabilistic upgrade check and fix release URL by @cfc4n in https://github.com/gojue/ecapture/pull/1007
+* fix: add newline when write keylog by @WankkoRee in https://github.com/gojue/ecapture/pull/1004
+
+## New Contributors
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v2.4.0...v2.4.1
+<hr>
+
 # v2.4.0 (2026-05-10)
 
 ## What's Changed
