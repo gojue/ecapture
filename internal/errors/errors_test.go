@@ -84,12 +84,12 @@ func TestErrorString(t *testing.T) {
 		{
 			name:     "simple error",
 			err:      New(ErrCodeConfiguration, "config error"),
-			expected: "[101] config error",
+			expected: "[100] config error",
 		},
 		{
 			name:     "wrapped error",
 			err:      Wrap(ErrCodeProbeInit, "init failed", errors.New("underlying")),
-			expected: "[201] init failed: underlying",
+			expected: "[200] init failed: underlying",
 		},
 	}
 

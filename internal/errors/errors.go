@@ -24,31 +24,41 @@ type ErrorCode int
 const (
 	// ErrCodeUnknown represents an unknown error.
 	ErrCodeUnknown ErrorCode = iota
+)
 
-	// Configuration errors (1xx)
-	ErrCodeConfiguration ErrorCode = 101
+// Configuration errors (1xx)
+const (
+	ErrCodeConfiguration ErrorCode = 100 + iota
 	ErrCodeConfigValidation
 	ErrCodeConfigMissing
+)
 
-	// Probe lifecycle errors (2xx)
-	ErrCodeProbeInit ErrorCode = 201
+// Probe lifecycle errors (2xx)
+const (
+	ErrCodeProbeInit ErrorCode = 200 + iota
 	ErrCodeProbeStart
 	ErrCodeProbeStop
 	ErrCodeProbeClose
+)
 
-	// Event processing errors (3xx)
-	ErrCodeEventDecode ErrorCode = 301
+// Event processing errors (3xx)
+const (
+	ErrCodeEventDecode ErrorCode = 300 + iota
 	ErrCodeEventDispatch
 	ErrCodeEventValidation
 	ErrCodeEventNotReady
+)
 
-	// eBPF errors (4xx)
-	ErrCodeEBPFLoad ErrorCode = 401
+// eBPF errors (4xx)
+const (
+	ErrCodeEBPFLoad ErrorCode = 400 + iota
 	ErrCodeEBPFAttach
 	ErrCodeEBPFMapAccess
+)
 
-	// Resource errors (5xx)
-	ErrCodeResourceNotFound ErrorCode = 501
+// Resource errors (5xx)
+const (
+	ErrCodeResourceNotFound ErrorCode = 500 + iota
 	ErrCodeResourceAllocation
 	ErrCodeResourceCleanup
 )
