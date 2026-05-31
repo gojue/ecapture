@@ -15,6 +15,9 @@
 #include "ecapture.h"
 #include "include/tls_constants.h"
 
+// ARM64 MTE/TBI: strip pointer tag from top byte
+#define UNTAG_PTR(p) ((p) & 0x00FFFFFFFFFFFFFF)
+
 // https://wiki.openssl.org/index.php/TLS1.3
 // Only BoringSSL >= 1.1.1 supports TLS 1.3
 
@@ -83,6 +86,24 @@ struct ssl3_state_st {
 
 #define BORINGSSL_SSL_MAX_MASTER_KEY_LENGTH 48  // via https://android.googlesource.com/platform/external/boringssl/+/refs/heads/android16-release/src/ssl/internal.h#4467
 
+// Default offsets for TLS 1.3 traffic secrets in SSL3_STATE.
+// Kern headers that define these (a_15, a_16) override via their own #define.
+#ifndef BSSL__SSL3_STATE_SERVER_TRAFFIC_SECRET_0
+#define BSSL__SSL3_STATE_SERVER_TRAFFIC_SECRET_0 0x120
+#endif
+#ifndef BSSL__SSL3_STATE_CLIENT_TRAFFIC_SECRET_0
+#define BSSL__SSL3_STATE_CLIENT_TRAFFIC_SECRET_0 0x150
+#endif
+#ifndef BSSL__SSL3_STATE_SERVER_TRAFFIC_SECRET_0_LEN
+#define BSSL__SSL3_STATE_SERVER_TRAFFIC_SECRET_0_LEN 0x1B0
+#endif
+#ifndef BSSL__SSL3_STATE_CLIENT_TRAFFIC_SECRET_0_LEN
+#define BSSL__SSL3_STATE_CLIENT_TRAFFIC_SECRET_0_LEN 0x1B1
+#endif
+#ifndef BSSL__SSL3_STATE_ESTABLISHED_SESSION
+#define BSSL__SSL3_STATE_ESTABLISHED_SESSION 0x1d0
+#endif
+
 struct ssl3_handshake_st {
     // state is the internal state for the TLS 1.2 and below handshake. Its
     // values depend on |do_handshake| but the starting state is always zero.
@@ -118,6 +139,13 @@ struct {
     __uint(max_entries, 1);
 } bpf_context_gen SEC(".maps");
 
+struct {
+    __uint(type, BPF_MAP_TYPE_LRU_HASH);
+    __type(key, u64);
+    __type(value, u64);
+    __uint(max_entries, 1024);
+} bssl_do_handshake_map SEC(".maps");
+
 /////////////////////////COMMON FUNCTIONS ////////////////////////////////
 // Allocate a mastersecret_bssl_t on the BPF "heap" to work around
 // the 512-byte stack limit.
@@ -143,7 +171,7 @@ static __always_inline u64 get_session_addr(void *ssl_st_ptr, u64 s3_address, u6
     // ssl_st
     if (ret == 0 && tmp_address != 0) {
         debug_bpf_printk("ssl_st->s3->hs->new_session is not null, address :%llx\n", tmp_address);
-        return tmp_address;
+        return UNTAG_PTR(tmp_address);
     }
 
     // third: ssl_st->session
@@ -156,7 +184,7 @@ static __always_inline u64 get_session_addr(void *ssl_st_ptr, u64 s3_address, u6
             ssl_st_ptr, ssl_new_session_st_ptr, ret);
         return 0;
     }
-    return tmp_address;
+    return UNTAG_PTR(tmp_address);
 }
 
 /////////////////////////BPF FUNCTIONS ////////////////////////////////
@@ -172,7 +200,7 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
     // mastersecret_bssl_t sent to userspace
     struct mastersecret_bssl_t *mastersecret = make_event();
     // Get a ssl_st pointer
-    void *ssl_st_ptr = (void *)PT_REGS_PARM1(ctx);
+    void *ssl_st_ptr = (void *)UNTAG_PTR((u64)PT_REGS_PARM1(ctx));
     if (!mastersecret) {
         debug_bpf_printk("mastersecret is null\n");
         return 0;
@@ -202,6 +230,7 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
         debug_bpf_printk("bpf_probe_read ssl_s3_st_ptr pointer failed, ret :%d\n", ret);
         return 0;
     }
+    address = UNTAG_PTR(address);
     s3_address = address;
 
 #ifdef BSSL__SSL3_STATE_VERSION
@@ -239,6 +268,7 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
         //        :%d\n", ret);
         return 0;
     }
+    ssl_hs_st_addr = UNTAG_PTR(ssl_hs_st_addr);
 
     //////////////////// get hash len //////////////////
     u8 hash_len;
@@ -397,5 +427,156 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
 
     bpf_perf_event_output(
         ctx, &mastersecret_events, BPF_F_CURRENT_CPU, mastersecret, sizeof(struct mastersecret_bssl_t));
+    return 0;
+}
+
+/////////////////////////SSL_do_handshake PROBES ////////////////////////////////
+
+SEC("uprobe/bssl_do_handshake")
+int uprobe_bssl_do_handshake(struct pt_regs *ctx) {
+    u64 pid_tgid = bpf_get_current_pid_tgid();
+    u32 pid = pid_tgid >> 32;
+    u32 uid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
+    bpf_printk("bssl_entry: pid=%d uid=%d", pid, uid);
+    if (!passes_filter(ctx)) {
+        bpf_printk("bssl_entry: FILTERED pid=%d uid=%d", pid, uid);
+        return 0;
+    }
+    u64 ssl_ptr = UNTAG_PTR((u64)PT_REGS_PARM1(ctx));
+    bpf_printk("bssl_entry: ssl_ptr=%llx", ssl_ptr);
+    bpf_map_update_elem(&bssl_do_handshake_map, &pid_tgid, &ssl_ptr, BPF_ANY);
+    return 0;
+}
+
+SEC("uretprobe/bssl_do_handshake")
+int uretprobe_bssl_do_handshake(struct pt_regs *ctx) {
+    u64 pid_tgid = bpf_get_current_pid_tgid();
+    bpf_printk("bssl_ret: pid_tgid=%llx", pid_tgid);
+    if (!passes_filter(ctx)) {
+        return 0;
+    }
+
+    int ret_val = (int)PT_REGS_RC(ctx);
+    bpf_printk("bssl_ret: ret_val=%d", ret_val);
+    if (ret_val != 1) {
+        return 0;
+    }
+
+    u64 *ssl_ptr_p = bpf_map_lookup_elem(&bssl_do_handshake_map, &pid_tgid);
+    if (!ssl_ptr_p) {
+        bpf_printk("bssl_ret: map miss");
+        return 0;
+    }
+    u64 ssl_st_ptr = *ssl_ptr_p;
+    bpf_map_delete_elem(&bssl_do_handshake_map, &pid_tgid);
+
+    struct mastersecret_bssl_t *mastersecret = make_event();
+    if (!mastersecret) {
+        return 0;
+    }
+
+    int ret;
+    u64 s3_addr;
+    u64 *ssl_s3_ptr = (u64 *)(ssl_st_ptr + SSL_ST_S3);
+    ret = bpf_probe_read_user(&s3_addr, sizeof(s3_addr), ssl_s3_ptr);
+    if (ret || s3_addr == 0) {
+        bpf_printk("bssl_hs: s3 read failed ret=%d s3=%llx", ret, s3_addr);
+        return 0;
+    }
+    s3_addr = UNTAG_PTR(s3_addr);
+
+    struct ssl3_state_st ssl3_stat;
+    ret = bpf_probe_read_user(&ssl3_stat, sizeof(ssl3_stat), (void *)s3_addr);
+    if (ret) {
+        return 0;
+    }
+    bpf_probe_read_kernel(&mastersecret->client_random,
+        sizeof(mastersecret->client_random), (void *)&ssl3_stat.client_random);
+
+    int ssl_version = 0;
+#ifndef SSL_SESSION_ST_SSL_VERSION
+    bpf_probe_read_user(&ssl_version, sizeof(ssl_version),
+        (void *)(ssl_st_ptr + SSL_ST_VERSION));
+#else
+    bpf_probe_read_user(&ssl_version, sizeof(ssl_version),
+        (void *)(s3_addr + BSSL__SSL3_STATE_VERSION));
+#endif
+    mastersecret->version = ssl_version & 0xFFFF;
+
+    if (mastersecret->version == TLS1_3_VERSION) {
+        goto tls13_path;
+    }
+
+    // TLS 1.2 path (also entered when version == 0, i.e. unreadable)
+    {
+        u64 session_addr = 0;
+        ret = bpf_probe_read_user(&session_addr, sizeof(session_addr),
+            (void *)(s3_addr + BSSL__SSL3_STATE_ESTABLISHED_SESSION));
+        if (ret || session_addr == 0) {
+            ret = bpf_probe_read_user(&session_addr, sizeof(session_addr),
+                (void *)(ssl_st_ptr + SSL_ST_SESSION));
+        }
+        if (ret || session_addr == 0) {
+            // No session found — version might be wrong; try TLS 1.3 path
+            if (mastersecret->version == 0) {
+                mastersecret->version = TLS1_3_VERSION;
+                goto tls13_path;
+            }
+            return 0;
+        }
+        session_addr = UNTAG_PTR(session_addr);
+
+#ifdef SSL_SESSION_ST_SSL_VERSION
+        u64 *sess_ver_ptr = (u64 *)(session_addr + SSL_SESSION_ST_SSL_VERSION);
+        bpf_probe_read_user(&ssl_version, sizeof(ssl_version), (void *)sess_ver_ptr);
+        mastersecret->version = ssl_version & 0xFFFF;
+        if (mastersecret->version == TLS1_3_VERSION) {
+            goto tls13_path;
+        }
+#endif
+
+        if (mastersecret->version == 0) {
+            mastersecret->version = TLS1_2_VERSION;
+        }
+        mastersecret->hash_len = BORINGSSL_SSL_MAX_MASTER_KEY_LENGTH;
+        ret = bpf_probe_read_user(&mastersecret->secret_,
+            sizeof(mastersecret->secret_),
+            (void *)(session_addr + SSL_SESSION_ST_SECRET));
+        if (ret) {
+            return 0;
+        }
+        debug_bpf_printk("bssl_do_handshake TLS1.2 master_key: %x %x %x\n",
+            mastersecret->secret_[0], mastersecret->secret_[1], mastersecret->secret_[2]);
+        goto emit;
+    }
+
+tls13_path:
+    {
+        u8 slen = 0, clen = 0;
+        bpf_probe_read_user(&slen, 1,
+            (void *)(s3_addr + BSSL__SSL3_STATE_SERVER_TRAFFIC_SECRET_0_LEN));
+        bpf_probe_read_user(&clen, 1,
+            (void *)(s3_addr + BSSL__SSL3_STATE_CLIENT_TRAFFIC_SECRET_0_LEN));
+        mastersecret->hash_len = clen ? clen : 32;
+
+        bpf_probe_read_user(&mastersecret->server_traffic_secret_0_,
+            sizeof(mastersecret->server_traffic_secret_0_),
+            (void *)(s3_addr + BSSL__SSL3_STATE_SERVER_TRAFFIC_SECRET_0));
+        bpf_probe_read_user(&mastersecret->client_traffic_secret_0_,
+            sizeof(mastersecret->client_traffic_secret_0_),
+            (void *)(s3_addr + BSSL__SSL3_STATE_CLIENT_TRAFFIC_SECRET_0));
+        bpf_probe_read_user(&mastersecret->exporter_secret,
+            sizeof(mastersecret->exporter_secret),
+            (void *)(s3_addr + BSSL__SSL3_STATE_EXPORTER_SECRET));
+
+        debug_bpf_printk("bssl_do_handshake TLS1.3 hash_len:%d client_ts: %x %x\n",
+            mastersecret->hash_len,
+            mastersecret->client_traffic_secret_0_[0],
+            mastersecret->client_traffic_secret_0_[1]);
+    }
+
+emit:
+    bpf_perf_event_output(ctx, &mastersecret_events, BPF_F_CURRENT_CPU,
+        mastersecret, sizeof(struct mastersecret_bssl_t));
     return 0;
 }
