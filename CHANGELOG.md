@@ -1,3 +1,15 @@
+# v2.4.2 (2026-05-31)
+
+## What's Changed
+
+* *: fix BoringSSL keylog capture on Android 15/16 by @colorcc1024 in https://github.com/gojue/ecapture/pull/1008
+* fix: error code incremented correctly by @WankkoRee in https://github.com/gojue/ecapture/pull/1010
+
+## New Contributors
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v2.4.1...v2.4.2
+<hr>
+
 # v2.4.1 (2026-05-22)
 
 ## What's Changed
