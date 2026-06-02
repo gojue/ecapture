@@ -22,7 +22,7 @@ jobs:
     name: E2E Tests (TLS/GnuTLS/GoTLS)
     
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: 'recursive'
           fetch-depth: 0

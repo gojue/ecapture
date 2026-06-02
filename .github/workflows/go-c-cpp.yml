@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-22.04
     name: build on ubuntu-22.04 x86_64
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: 'recursive'
           fetch-depth: 0
@@ -72,7 +72,7 @@ jobs:
     runs-on: ubuntu-22.04-arm
     name: build on ubuntu-22.04 arm64
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: 'recursive'
           fetch-depth: 0
