@@ -1,3 +1,14 @@
+# v2.5.0 (2026-06-19)
+
+## What's Changed
+
+* feat: Support for the latest OpenSSL 4.0.2 and the latest 3.x series. by @cfc4n in https://github.com/gojue/ecapture/pull/1014
+
+## New Contributors
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v2.4.2...v2.5.0
+<hr>
+
 # v2.4.2 (2026-05-31)
 
 ## What's Changed
