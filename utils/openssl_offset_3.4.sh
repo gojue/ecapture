@@ -28,7 +28,11 @@ function run() {
   declare -A sslVerMap=()
   sslVerMap["0"]="0"
   sslVerMap["1"]="1"
-  sslVerMap["2"]="2"
+  sslVerMap["2"]="1"
+  sslVerMap["3"]="1"
+  sslVerMap["4"]="1"
+  sslVerMap["5"]="1"
+  sslVerMap["6"]="1" # 2024-06-15: openssl-3.4.6 is released, but the offset of 3.4.6 is the same as 3.4.1
 
   # shellcheck disable=SC2068
   for ver in ${!sslVerMap[@]}; do

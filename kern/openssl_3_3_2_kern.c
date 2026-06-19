@@ -78,5 +78,4 @@
 
 #include "openssl.h"
 #include "openssl_masterkey_3.2.h"
-
 #endif
