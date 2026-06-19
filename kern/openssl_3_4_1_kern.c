@@ -1,8 +1,8 @@
 #ifndef ECAPTURE_OPENSSL_3_4_1_KERN_H
 #define ECAPTURE_OPENSSL_3_4_1_KERN_H
 
-/* OPENSSL_VERSION_TEXT: OpenSSL 3.4.1 11 Feb 2025 */
-/* OPENSSL_VERSION_NUMBER: 809500688 */
+/* OPENSSL_VERSION_TEXT: OpenSSL 3.4.6 9 Jun 2026 */
+/* OPENSSL_VERSION_NUMBER: 809500768 */
 
 // ssl_st->type
 #define SSL_ST_TYPE 0x0
@@ -78,5 +78,4 @@
 
 #include "openssl.h"
 #include "openssl_masterkey_3.2.h"
-
 #endif

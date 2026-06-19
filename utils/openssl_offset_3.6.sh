@@ -21,26 +21,20 @@ if [[ ! -f "${OPENSSL_DIR}/.git" ]]; then
   fi
 fi
 
-# openssl 3.3.* 跟 3.2.* 的offset一致。
 function run() {
   git fetch --tags
-  cp -f ${PROJECT_ROOT_DIR}/utils/openssl_3_2_0_offset.c ${OPENSSL_DIR}/offset.c
+  cp -f ${PROJECT_ROOT_DIR}/utils/openssl_3_5_0_offset.c ${OPENSSL_DIR}/offset.c
   declare -A sslVerMap=()
   sslVerMap["0"]="0"
   sslVerMap["1"]="0"
-  sslVerMap["2"]="2"
-  sslVerMap["3"]="3"
-  sslVerMap["4"]="3"
-  sslVerMap["5"]="3"
-  sslVerMap["6"]="3"
-  sslVerMap["7"]="3" # 2026-06-15 openssl-3.3.7 is released, but the offset is the same as 3.3.3 (3.3.3 ~ 3.3.6)
+  sslVerMap["2"]="0"  # 2026-06-15: openssl-3.6.2 is released, but the offset of 3.6.2 is the same as 3.6.0, so we can reuse the header file of 3.6.0
 
   # shellcheck disable=SC2068
   for ver in ${!sslVerMap[@]}; do
-    tag="openssl-3.3.${ver}"
+    tag="openssl-3.6.${ver}"
     val=${sslVerMap[$ver]}
-    header_file="${OUTPUT_DIR}/openssl_3_3_${val}_kern.c"
-    header_define="OPENSSL_3_3_$(echo ${val} | tr "[:lower:]" "[:upper:]")_KERN_H"
+    header_file="${OUTPUT_DIR}/openssl_3_5_${val}_kern.c"
+    header_define="OPENSSL_3_5_$(echo ${val} | tr "[:lower:]" "[:upper:]")_KERN_H"
 
     if [[ -f ${header_file} ]]; then
       echo "Skip ${header_file}"
@@ -57,7 +51,7 @@ function run() {
     make build_generated
 
 
-    clang -I include/ -I . offset.c -o offset
+    clang -I /usr/include -I include/ -I . offset.c -o offset
 
     echo -e "#ifndef ECAPTURE_${header_define}" >${header_file}
     echo -e "#define ECAPTURE_${header_define}\n" >>${header_file}

@@ -69,19 +69,21 @@ const (
 	MaxSupportedOpenSSL110Version = 'l'
 	MaxSupportedOpenSSL111Version = 'w'
 	SupportedOpenSSL30Version12   = 12 // openssl 3.0.12
-	MaxSupportedOpenSSL30Version  = 17
+	MaxSupportedOpenSSL30Version  = 21
 	MaxSupportedOpenSSL31Version  = 8
 	SupportedOpenSSL32Version2    = 2 // openssl 3.2.0 ~ 3.2.2
 	SupportedOpenSSL32Version3    = 3 // openssl 3.2.3
-	SupportedOpenSSL32Version4    = 5 // openssl 3.2.5
+	SupportedOpenSSL32Version4    = 6 // openssl 3.2.4 ~ 3.2.6
 	MaxSupportedOpenSSL32Version  = 3 // openssl 3.2.3 ~ newer
 	SupportedOpenSSL33Version1    = 1 // openssl 3.3.0 ~ 3.3.1
 	SupportedOpenSSL33Version2    = 2 // openssl 3.3.2
+	SupportedOpenSSL33Version3    = 3 // openssl 3.3.3
 	MaxSupportedOpenSSL33Version  = 4 // openssl 3.3.4
 	SupportedOpenSSL34Version0    = 0 // openssl 3.4.0
-	MaxSupportedOpenSSL34Version  = 2 // openssl 3.4.2
-	SupportedOpenSSL35Version0    = 4 // openssl 3.5.0 ~ 3.5.4
-	MaxSupportedOpenSSL35Version  = 4 // openssl 3.5.4
+	MaxSupportedOpenSSL34Version  = 6 // openssl 3.4.1 ~ 3.4.6
+	SupportedOpenSSL35Version0    = 7 // openssl 3.5.0 ~ 3.5.7
+	SupportedOpenSSL36Version0    = 2 // openssl 3.6.0 ~ 3.6.2
+	SupportedOpenSSL40Version0    = 1 // openssl 4.0.0 ~ 4.0.1
 )
 
 var (
@@ -229,7 +231,7 @@ func init() {
 		sslVersionBpfMap["openssl 1.1.1"+string(ch)] = "openssl_1_1_1j_kern.o"
 	}
 
-	// openssl 3.0.0 - 3.0.15
+	// openssl 3.0.0 - 3.0.21
 	for ch := 0; ch <= MaxSupportedOpenSSL30Version; ch++ {
 		sslVersionBpfMap[fmt.Sprintf("openssl 3.0.%d", ch)] = "openssl_3_0_0_kern.o"
 	}
@@ -251,8 +253,11 @@ func init() {
 
 	// openssl 3.2.3
 	sslVersionBpfMap[fmt.Sprintf("openssl 3.2.%d", SupportedOpenSSL32Version3)] = "openssl_3_2_3_kern.o"
-	// openssl 3.2.5
-	sslVersionBpfMap[fmt.Sprintf("openssl 3.2.%d", SupportedOpenSSL32Version4)] = "openssl_3_2_4_kern.o"
+
+	// openssl 3.2.4 ~ 3.2.6
+	for ch := 4; ch <= SupportedOpenSSL32Version4; ch++ {
+		sslVersionBpfMap[fmt.Sprintf("openssl 3.2.%d", SupportedOpenSSL32Version4)] = "openssl_3_2_4_kern.o"
+	}
 
 	// openssl 3.3.0 - 3.3.1
 	for ch := 0; ch <= SupportedOpenSSL33Version1; ch++ {
@@ -260,12 +265,10 @@ func init() {
 	}
 
 	// openssl 3.3.2
-	for ch := 2; ch <= SupportedOpenSSL33Version2; ch++ {
-		sslVersionBpfMap[fmt.Sprintf("openssl 3.3.%d", ch)] = "openssl_3_3_2_kern.o"
-	}
+	sslVersionBpfMap[fmt.Sprintf("openssl 3.3.%d", 2)] = "openssl_3_3_2_kern.o"
 
-	// openssl 3.3.4
-	for ch := 3; ch <= MaxSupportedOpenSSL33Version; ch++ {
+	// openssl 3.3.3 ~ 3.3.7
+	for ch := 2; ch <= SupportedOpenSSL33Version3; ch++ {
 		sslVersionBpfMap[fmt.Sprintf("openssl 3.3.%d", ch)] = "openssl_3_3_3_kern.o"
 	}
 
@@ -274,14 +277,26 @@ func init() {
 		sslVersionBpfMap[fmt.Sprintf("openssl 3.4.%d", ch)] = "openssl_3_4_0_kern.o"
 	}
 
-	// openssl 3.4.1
+	// openssl 3.4.1 ~ 3.4.6
 	for ch := 1; ch <= MaxSupportedOpenSSL34Version; ch++ {
 		sslVersionBpfMap[fmt.Sprintf("openssl 3.4.%d", ch)] = "openssl_3_4_1_kern.o"
 	}
 
-	// openssl 3.5.0
+	// openssl 3.5.0 ~ 3.5.7
 	for ch := 0; ch <= SupportedOpenSSL35Version0; ch++ {
 		sslVersionBpfMap[fmt.Sprintf("openssl 3.5.%d", ch)] = "openssl_3_5_0_kern.o"
+	}
+
+	// openssl 3.6.0 ~ 3.6.2
+	for ch := 0; ch <= SupportedOpenSSL36Version0; ch++ {
+		// 2026-06-15 经确认， 3.6.0~3.6.2 的 偏移地址跟 3.5.0 是一样的，所以也使用 openssl_3_5_0_kern.o 的偏移地址
+		sslVersionBpfMap[fmt.Sprintf("openssl 3.6.%d", ch)] = "openssl_3_5_0_kern.o"
+	}
+
+	// openssl 4.0.0 ~ 4.0.1
+	for ch := 0; ch <= SupportedOpenSSL40Version0; ch++ {
+		// 2026-06-15 经确认， 4.0.0 ~ 4.0.1 的 偏移地址跟 3.5.0 是一样的，所以 4.0.0 也使用 openssl_3_5_0_kern.o 的偏移地址
+		sslVersionBpfMap[fmt.Sprintf("openssl 4.0.%d", ch)] = "openssl_3_5_0_kern.o"
 	}
 
 	// openssl 1.1.0a - 1.1.0l

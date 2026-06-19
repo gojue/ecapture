@@ -26,10 +26,13 @@ function run() {
   cp -f ${PROJECT_ROOT_DIR}/utils/openssl_3_5_0_offset.c ${OPENSSL_DIR}/offset.c
   declare -A sslVerMap=()
   sslVerMap["0"]="0"
-  sslVerMap["1"]="1"
-  sslVerMap["2"]="2"
-  sslVerMap["3"]="3"
-  sslVerMap["4"]="4"
+  sslVerMap["1"]="0"
+  sslVerMap["2"]="0"
+  sslVerMap["3"]="0"
+  sslVerMap["4"]="0"
+  sslVerMap["5"]="0"
+  sslVerMap["6"]="0"
+  sslVerMap["7"]="0" # 2026-06-15 3.6.1~7 are the same as 3.5.0
 
   # shellcheck disable=SC2068
   for ver in ${!sslVerMap[@]}; do

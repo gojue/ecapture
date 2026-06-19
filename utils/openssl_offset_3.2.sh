@@ -28,9 +28,10 @@ function run() {
   sslVerMap["0"]="0"
   sslVerMap["1"]="0"
   sslVerMap["2"]="0"
-  sslVerMap["3"]="3"
+  sslVerMap["3"]="3"  # 独立的偏移地址
   sslVerMap["4"]="4"
-  sslVerMap["5"]="5"
+  sslVerMap["5"]="4"
+  sslVerMap["6"]="4" # 2026-06-15 openssl-3.2.6 ~ 3.2.4 的偏移地址相同
 
   # shellcheck disable=SC2068
   for ver in ${!sslVerMap[@]}; do
