@@ -78,7 +78,7 @@ const (
 	SupportedOpenSSL33Version1    = 1 // openssl 3.3.0 ~ 3.3.1
 	SupportedOpenSSL33Version2    = 2 // openssl 3.3.2
 	SupportedOpenSSL33Version3    = 3 // openssl 3.3.3
-	MaxSupportedOpenSSL33Version  = 4 // openssl 3.3.4
+	MaxSupportedOpenSSL33Version  = 7 // openssl 3.3.7
 	SupportedOpenSSL34Version0    = 0 // openssl 3.4.0
 	MaxSupportedOpenSSL34Version  = 6 // openssl 3.4.1 ~ 3.4.6
 	SupportedOpenSSL35Version0    = 7 // openssl 3.5.0 ~ 3.5.7
@@ -256,7 +256,7 @@ func init() {
 
 	// openssl 3.2.4 ~ 3.2.6
 	for ch := 4; ch <= SupportedOpenSSL32Version4; ch++ {
-		sslVersionBpfMap[fmt.Sprintf("openssl 3.2.%d", SupportedOpenSSL32Version4)] = "openssl_3_2_4_kern.o"
+		sslVersionBpfMap[fmt.Sprintf("openssl 3.2.%d", ch)] = "openssl_3_2_4_kern.o"
 	}
 
 	// openssl 3.3.0 - 3.3.1
@@ -268,7 +268,7 @@ func init() {
 	sslVersionBpfMap[fmt.Sprintf("openssl 3.3.%d", 2)] = "openssl_3_3_2_kern.o"
 
 	// openssl 3.3.3 ~ 3.3.7
-	for ch := 2; ch <= SupportedOpenSSL33Version3; ch++ {
+	for ch := SupportedOpenSSL33Version3; ch <= MaxSupportedOpenSSL33Version; ch++ {
 		sslVersionBpfMap[fmt.Sprintf("openssl 3.3.%d", ch)] = "openssl_3_3_3_kern.o"
 	}
 
