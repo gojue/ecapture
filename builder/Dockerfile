@@ -10,13 +10,13 @@ RUN apt-get update &&\
 # Prepare stable kernel headers from linux-source for reproducible noncore eBPF bytecode.
 # Avoids depending on linux-headers-$(uname -r) which varies with the CI runner's kernel.
 RUN cd /usr/src &&\
-  source_file=\$(find . -maxdepth 1 -name "*linux-source*.tar.bz2") &&\
-  source_dir=\$(echo "\$source_file" | sed 's/\.tar\.bz2//g') &&\
-  tar -xf "\$source_file" &&\
-  cd "\$source_dir" &&\
+  source_file=`find . -maxdepth 1 -name "*linux-source*.tar.bz2"` &&\
+  source_dir=`echo "$source_file" | sed 's/\.tar\.bz2//g'` &&\
+  tar -xf "$source_file" &&\
+  cd "$source_dir" &&\
   test -f .config || make oldconfig &&\
   make prepare V=0 &&\
-  ln -sf "\$source_dir" /usr/src/linux-headers-ecapture
+  ln -sf "$source_dir" /usr/src/linux-headers-ecapture
 
 # Install golang
 ARG TARGETARCH
