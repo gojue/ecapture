@@ -1,3 +1,14 @@
+# v2.5.1 (2026-06-20)
+
+## What's Changed
+
+* fix: OpenSSL version-to-bytecode mapping bugs + Docker build reproducibility by @cfc4n in https://github.com/gojue/ecapture/pull/1015
+
+## New Contributors
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v2.5.0...v2.5.1
+<hr>
+
 # v2.5.0 (2026-06-19)
 
 ## What's Changed
