@@ -1,8 +1,8 @@
-FROM ubuntu:22.04 as ecapture_builder
+FROM ubuntu:22.04 AS ecapture_builder
 
 # Install compilers and tools
 RUN apt-get update &&\
-  apt-get install --yes git build-essential pkgconf libelf-dev llvm-14 clang-14 linux-tools-common make gcc flex bison file wget linux-source &&\
+  apt-get install --yes git build-essential pkgconf libelf-dev llvm-14 clang-14 linux-tools-common linux-headers-$(uname -r) make gcc flex bison file wget linux-source &&\
   rm -f /usr/bin/clang && ln -s /usr/bin/clang-14 /usr/bin/clang &&\
   rm -f /usr/bin/llc && ln -s /usr/bin/llc-14 /usr/bin/llc &&\
   rm -f /usr/bin/llvm-strip && ln -s /usr/bin/llvm-strip-14 /usr/bin/llvm-strip
@@ -14,8 +14,9 @@ RUN cd /usr/src &&\
   source_dir=`echo "$source_file" | sed 's/\.tar\.bz2//g'` &&\
   tar -xf "$source_file" &&\
   cd "$source_dir" &&\
-  test -f .config || make oldconfig &&\
-  make prepare V=0 &&\
+  test -f .config || yes "" | sudo make oldconfig \
+  yes "" | sudo make ARCH=${CROSS_ARCH_PATH} CROSS_COMPILE=${CROSS_COMPILE} prepare V=0 > /dev/null \
+  yes "" | sudo make prepare V=0 > /dev/null &&\
   ln -sf "$source_dir" /usr/src/linux-headers-ecapture
 
 # Install golang
@@ -41,7 +42,7 @@ RUN cd /build/ecapture &&\
   KERN_HEADERS=/usr/src/linux-headers-ecapture make all SNAPSHOT_VERSION=${VERSION}_docker
 
 # ecapture release image
-FROM alpine:latest as ecapture
+FROM alpine:latest AS ecapture
 
 COPY --from=ecapture_builder /build/ecapture/bin/ecapture /ecapture
 
