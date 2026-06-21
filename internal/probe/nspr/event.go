@@ -25,35 +25,55 @@ import (
 )
 
 const (
+	// DataType constants matching C enum ssl_data_event_type
+	DataTypeRead  = 0
+	DataTypeWrite = 1
+
 	// MaxDataSize is the maximum size of TLS data payload
-	MaxDataSize = 4096
+	// Must match MAX_DATA_SIZE_OPENSSL in kern/common.h
+	MaxDataSize = 1024 * 16 // 16384
+
+	// TaskCommLen is the maximum length of the process command name
+	// Must match TASK_COMM_LEN in kern/common.h
+	TaskCommLen = 16
 )
 
-// TLSDataEvent represents a TLS data event from NSPR/NSS
+// TLSDataEvent represents a TLS data event from NSPR/NSS eBPF probe.
+// The struct layout must exactly match the C struct ssl_data_event_t in kern/nspr_kern.c:
+//
+//	struct ssl_data_event_t {
+//	    enum ssl_data_event_type type;    // u32 at offset 0 (0=read, 1=write)
+//	    // implicit 4-byte alignment padding
+//	    u64 timestamp_ns;                 // u64 at offset 8
+//	    u32 pid;                          // u32 at offset 16
+//	    u32 tid;                          // u32 at offset 20
+//	    char data[MAX_DATA_SIZE_OPENSSL]; // [16384]byte at offset 24
+//	    s32 data_len;                     // s32 at offset 16408
+//	    char comm[TASK_COMM_LEN];         // [16]byte at offset 16412
+//	};
+//	// Total: 16428 bytes
 type TLSDataEvent struct {
+	// DataType encodes the event type (0=read, 1=write).
+	// Uses int64 to absorb the C struct's u32 type + 4-byte alignment padding.
+	DataType int64 `json:"dataType"`
+
 	// Timestamp is the event timestamp in nanoseconds
-	Timestamp uint64
+	Timestamp uint64 `json:"timestamp"`
 
 	// PID is the process ID
-	PID uint32
+	PID uint32 `json:"pid"`
 
 	// TID is the thread ID
-	TID uint32
-
-	// Comm is the process command name
-	Comm [16]byte
-
-	// FD is the file descriptor
-	FD int32
-
-	// DataLen is the length of actual data
-	DataLen uint32
-
-	// Direction: 0 = read, 1 = write
-	Direction uint32
+	TID uint32 `json:"tid"`
 
 	// Data is the TLS data payload
-	Data [MaxDataSize]byte
+	Data [MaxDataSize]byte `json:"data"`
+
+	// DataLen is the length of actual data
+	DataLen int32 `json:"dataLen"`
+
+	// Comm is the process command name
+	Comm [TaskCommLen]byte `json:"comm"`
 }
 
 // GetTimestamp returns the event timestamp as time.Time
@@ -82,19 +102,9 @@ func (e *TLSDataEvent) GetComm() string {
 	return string(e.Comm[:])
 }
 
-// GetFD returns the file descriptor
-func (e *TLSDataEvent) GetFD() int32 {
-	return e.FD
-}
-
 // GetDataLen returns the length of actual data
 func (e *TLSDataEvent) GetDataLen() uint32 {
-	return e.DataLen
-}
-
-// GetDirection returns the data direction (0 = read, 1 = write)
-func (e *TLSDataEvent) GetDirection() uint32 {
-	return e.Direction
+	return uint32(e.DataLen)
 }
 
 // GetData returns the TLS data payload (up to DataLen bytes)
@@ -102,22 +112,31 @@ func (e *TLSDataEvent) GetData() []byte {
 	if e.DataLen > MaxDataSize {
 		return e.Data[:MaxDataSize]
 	}
+	if e.DataLen < 0 {
+		return nil
+	}
 	return e.Data[:e.DataLen]
 }
 
 // IsRead returns true if this is a read event
 func (e *TLSDataEvent) IsRead() bool {
-	return e.Direction == 0
+	return e.DataType == DataTypeRead
 }
 
 // IsWrite returns true if this is a write event
 func (e *TLSDataEvent) IsWrite() bool {
-	return e.Direction == 1
+	return e.DataType == DataTypeWrite
 }
 
-// DecodeFromBytes implements domain.Event interface
+// DecodeFromBytes implements domain.Event interface.
+// Reads fields in exact order matching the C struct layout.
 func (e *TLSDataEvent) DecodeFromBytes(data []byte) error {
-	buf := bytes.NewReader(data)
+	buf := bytes.NewBuffer(data)
+
+	// Read DataType (int64 absorbs C's u32 type + 4-byte padding)
+	if err := binary.Read(buf, binary.LittleEndian, &e.DataType); err != nil {
+		return errors.NewEventDecodeError("nspr.DataType", err)
+	}
 
 	// Read Timestamp
 	if err := binary.Read(buf, binary.LittleEndian, &e.Timestamp); err != nil {
@@ -134,14 +153,9 @@ func (e *TLSDataEvent) DecodeFromBytes(data []byte) error {
 		return errors.NewEventDecodeError("nspr.TID", err)
 	}
 
-	// Read Comm
-	if err := binary.Read(buf, binary.LittleEndian, &e.Comm); err != nil {
-		return errors.NewEventDecodeError("nspr.Comm", err)
-	}
-
-	// Read FD
-	if err := binary.Read(buf, binary.LittleEndian, &e.FD); err != nil {
-		return errors.NewEventDecodeError("nspr.FD", err)
+	// Read Data
+	if err := binary.Read(buf, binary.LittleEndian, &e.Data); err != nil {
+		return errors.NewEventDecodeError("nspr.Data", err)
 	}
 
 	// Read DataLen
@@ -149,14 +163,9 @@ func (e *TLSDataEvent) DecodeFromBytes(data []byte) error {
 		return errors.NewEventDecodeError("nspr.DataLen", err)
 	}
 
-	// Read Direction
-	if err := binary.Read(buf, binary.LittleEndian, &e.Direction); err != nil {
-		return errors.NewEventDecodeError("nspr.Direction", err)
-	}
-
-	// Read Data
-	if err := binary.Read(buf, binary.LittleEndian, &e.Data); err != nil {
-		return errors.NewEventDecodeError("nspr.Data", err)
+	// Read Comm
+	if err := binary.Read(buf, binary.LittleEndian, &e.Comm); err != nil {
+		return errors.NewEventDecodeError("nspr.Comm", err)
 	}
 
 	return nil
@@ -169,8 +178,8 @@ func (e *TLSDataEvent) String() string {
 		direction = "write"
 	}
 
-	return fmt.Sprintf("TLSDataEvent{Timestamp: %v, PID: %d, TID: %d, Comm: %s, FD: %d, Direction: %s, DataLen: %d}",
-		e.GetTimestamp(), e.PID, e.TID, e.GetComm(), e.FD, direction, e.DataLen)
+	return fmt.Sprintf("TLSDataEvent{Timestamp: %v, PID: %d, TID: %d, Comm: %s, Direction: %s, DataLen: %d}",
+		e.GetTimestamp(), e.PID, e.TID, e.GetComm(), direction, e.DataLen)
 }
 
 // StringHex implements domain.Event interface - returns a hexadecimal representation
@@ -180,8 +189,8 @@ func (e *TLSDataEvent) StringHex() string {
 		direction = "write"
 	}
 
-	return fmt.Sprintf("TLSDataEvent{Timestamp: %v, PID: %d, TID: %d, Comm: %s, FD: %d, Direction: %s, DataLen: %d, Data(hex): %x}",
-		e.GetTimestamp(), e.PID, e.TID, e.GetComm(), e.FD, direction, e.DataLen, e.GetData())
+	return fmt.Sprintf("TLSDataEvent{Timestamp: %v, PID: %d, TID: %d, Comm: %s, Direction: %s, DataLen: %d, Data(hex): %x}",
+		e.GetTimestamp(), e.PID, e.TID, e.GetComm(), direction, e.DataLen, e.GetData())
 }
 
 // Clone implements domain.Event interface
@@ -216,6 +225,11 @@ func (e *TLSDataEvent) Decode(data []byte) error {
 func (e *TLSDataEvent) Encode() ([]byte, error) {
 	buf := new(bytes.Buffer)
 
+	// Write DataType
+	if err := binary.Write(buf, binary.LittleEndian, e.DataType); err != nil {
+		return nil, fmt.Errorf("failed to write data type: %w", err)
+	}
+
 	// Write Timestamp
 	if err := binary.Write(buf, binary.LittleEndian, e.Timestamp); err != nil {
 		return nil, fmt.Errorf("failed to write timestamp: %w", err)
@@ -231,14 +245,9 @@ func (e *TLSDataEvent) Encode() ([]byte, error) {
 		return nil, fmt.Errorf("failed to write TID: %w", err)
 	}
 
-	// Write Comm
-	if err := binary.Write(buf, binary.LittleEndian, e.Comm); err != nil {
-		return nil, fmt.Errorf("failed to write comm: %w", err)
-	}
-
-	// Write FD
-	if err := binary.Write(buf, binary.LittleEndian, e.FD); err != nil {
-		return nil, fmt.Errorf("failed to write FD: %w", err)
+	// Write Data
+	if err := binary.Write(buf, binary.LittleEndian, e.Data); err != nil {
+		return nil, fmt.Errorf("failed to write data: %w", err)
 	}
 
 	// Write DataLen
@@ -246,14 +255,9 @@ func (e *TLSDataEvent) Encode() ([]byte, error) {
 		return nil, fmt.Errorf("failed to write data length: %w", err)
 	}
 
-	// Write Direction
-	if err := binary.Write(buf, binary.LittleEndian, e.Direction); err != nil {
-		return nil, fmt.Errorf("failed to write direction: %w", err)
-	}
-
-	// Write Data
-	if err := binary.Write(buf, binary.LittleEndian, e.Data); err != nil {
-		return nil, fmt.Errorf("failed to write data: %w", err)
+	// Write Comm
+	if err := binary.Write(buf, binary.LittleEndian, e.Comm); err != nil {
+		return nil, fmt.Errorf("failed to write comm: %w", err)
 	}
 
 	return buf.Bytes(), nil
