@@ -15,25 +15,33 @@
 package nspr
 
 import (
+	"bytes"
 	"context"
+	"fmt"
+	"io"
+	"math"
 
 	"github.com/cilium/ebpf"
-
-	"github.com/gojue/ecapture/internal/factory"
+	manager "github.com/gojue/ebpfmanager"
+	"golang.org/x/sys/unix"
 
 	"github.com/gojue/ecapture/assets"
 	"github.com/gojue/ecapture/internal/domain"
 	"github.com/gojue/ecapture/internal/errors"
+	"github.com/gojue/ecapture/internal/factory"
 	"github.com/gojue/ecapture/internal/probe/base"
+	"github.com/gojue/ecapture/pkg/util/kernel"
 )
 
 // Probe represents the NSPR/NSS probe
 type Probe struct {
 	*base.BaseProbe
 	config           *Config
+	bpfManager       *manager.Manager
 	eventFuncMaps    map[*ebpf.Map]domain.EventDecoder
 	mapNameToDecoder map[string]domain.EventDecoder // Maps configured in setupManager
 	eventMaps        []*ebpf.Map
+	output           io.Writer
 }
 
 // NewProbe creates a new NSPR probe
@@ -65,18 +73,6 @@ func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration) error 
 
 	p.config = nsprConfig
 
-	// Load eBPF bytecode
-	bpfFileName := "bytecode/nspr_kern.o"
-	_, err := assets.Asset(bpfFileName)
-	if err != nil {
-		return errors.NewEBPFLoadError(bpfFileName, err)
-	}
-
-	// eBPF manager setup, event maps, and hooks will be implemented
-	// Manager includes:
-	// - Probes: PR_Send, PR_Recv hooks
-	// - Event maps for TLS data capture
-
 	p.Logger().Info().
 		Str("nss_path", nsprConfig.NSSPath).
 		Str("nspr_path", nsprConfig.NSPRPath).
@@ -95,33 +91,62 @@ func (p *Probe) Start(ctx context.Context) error {
 		return errors.NewProbeStartError("nspr", nil)
 	}
 
-	// Retrieve eBPF maps and associate with decoders (configured in setupManager)
+	// Load eBPF bytecode with correct filename (core vs noncore)
+	bpfFileName := p.BaseProbe.GetBPFName("bytecode/nspr_kern.o")
+	p.Logger().Info().Str("file", bpfFileName).Msg("Loading eBPF bytecode")
+
+	byteBuf, err := assets.Asset(bpfFileName)
+	if err != nil {
+		return errors.NewEBPFLoadError(bpfFileName, err)
+	}
+
+	// Setup eBPF manager with probes and maps
+	if err := p.setupManager(); err != nil {
+		return err
+	}
+
+	// Initialize eBPF manager
+	if err := p.bpfManager.InitWithOptions(bytes.NewReader(byteBuf), p.getManagerOptions()); err != nil {
+		return errors.NewEBPFLoadError("nspr manager init", err)
+	}
+
+	// Start eBPF manager
+	if err := p.bpfManager.Start(); err != nil {
+		return errors.NewEBPFAttachError("nspr manager start", err)
+	}
+
+	// Retrieve eBPF maps and associate with decoders
 	if err := p.retrieveEventMaps(); err != nil {
 		return err
 	}
 
-	// Start eBPF event processing when implemented
-	// - Start reading from perf buffers
-	// - Process TLS data events and forward to appropriate handler
-	// - Process master secret events (keylog mode)
-	// - Process packet events (pcap mode)
+	// Start event readers for all configured maps
+	for em, decoder := range p.eventFuncMaps {
+		if err := p.StartPerfEventReader(em, decoder); err != nil {
+			return err
+		}
+	}
 
-	p.Logger().Info().Msg("NSPR probe started")
+	p.Logger().Info().Msg("NSPR probe started successfully")
 	return nil
 }
 
 // retrieveEventMaps retrieves eBPF maps from the manager and creates eventFuncMaps.
 // The decoder mapping by name (mapNameToDecoder) is already configured in setupManager().
-// This will be populated when eBPF implementation is complete.
 func (p *Probe) retrieveEventMaps() error {
-	// TODO: When eBPF is implemented, retrieve actual maps
-	// for mapName, decoder := range p.mapNameToDecoder {
-	//     em, found, err := p.bpfManager.GetMap(mapName)
-	//     if found {
-	//         p.eventMaps = append(p.eventMaps, em)
-	//         p.eventFuncMaps[em] = decoder
-	//     }
-	// }
+	for mapName, decoder := range p.mapNameToDecoder {
+		em, found, err := p.bpfManager.GetMap(mapName)
+		if err != nil {
+			return errors.Wrap(errors.ErrCodeEBPFMapAccess, fmt.Sprintf("failed to get %s map", mapName), err)
+		}
+		if !found {
+			p.Logger().Warn().Str("map", mapName).Msg("Map not found but was configured")
+			continue
+		}
+
+		p.eventMaps = append(p.eventMaps, em)
+		p.eventFuncMaps[em] = decoder
+	}
 
 	p.Logger().Info().
 		Int("num_maps", len(p.eventMaps)).
@@ -133,11 +158,7 @@ func (p *Probe) retrieveEventMaps() error {
 
 // Stop stops the probe
 func (p *Probe) Stop(ctx context.Context) error {
-	// Stop eBPF event processing when implemented
-	// - Stop reading from perf buffers
-	// - Detach eBPF programs
-	// - Clean up event maps
-
+	// Stop event readers are handled by BaseProbe
 	return p.BaseProbe.Stop(ctx)
 }
 
@@ -148,13 +169,124 @@ func (p *Probe) Events() []*ebpf.Map {
 
 // Close closes the probe and releases resources
 func (p *Probe) Close() error {
-	// Unload eBPF program and clean up resources when implemented
+	if p.bpfManager != nil {
+		if err := p.bpfManager.Stop(manager.CleanAll); err != nil {
+			p.Logger().Warn().Err(err).Msg("Failed to stop eBPF manager")
+		}
+	}
 	return p.BaseProbe.Close()
+}
+
+// SetOutput sets the output writer for the probe (for testing purposes).
+func (p *Probe) SetOutput(w io.Writer) {
+	p.output = w
 }
 
 func (p *Probe) DecodeFun(em *ebpf.Map) (domain.EventDecoder, bool) {
 	fun, found := p.eventFuncMaps[em]
 	return fun, found
+}
+
+// setupManager configures the eBPF manager with uprobes/uretprobes for PR_Write/PR_Read.
+func (p *Probe) setupManager() error {
+	nsprPath := p.config.NSPRPath
+	if nsprPath == "" {
+		return errors.NewConfigurationError("nspr_path is required for NSPR probe", nil)
+	}
+
+	p.Logger().Info().
+		Str("nspr_path", nsprPath).
+		Str("nss_path", p.config.NSSPath).
+		Msg("Setting up eBPF probes for NSPR")
+
+	// Configure probes: uprobe/uretprobe pairs for PR_Write and PR_Read
+	probes := []*manager.Probe{
+		{
+			Section:          "uprobe/PR_Write",
+			EbpfFuncName:     "probe_entry_SSL_write",
+			AttachToFuncName: "PR_Write",
+			BinaryPath:       nsprPath,
+		},
+		{
+			Section:          "uretprobe/PR_Write",
+			EbpfFuncName:     "probe_ret_SSL_write",
+			AttachToFuncName: "PR_Write",
+			BinaryPath:       nsprPath,
+		},
+		{
+			Section:          "uprobe/PR_Read",
+			EbpfFuncName:     "probe_entry_SSL_read",
+			AttachToFuncName: "PR_Read",
+			BinaryPath:       nsprPath,
+		},
+		{
+			Section:          "uretprobe/PR_Read",
+			EbpfFuncName:     "probe_ret_SSL_read",
+			AttachToFuncName: "PR_Read",
+			BinaryPath:       nsprPath,
+		},
+	}
+
+	// Configure maps matching those defined in kern/nspr_kern.c
+	maps := []*manager.Map{
+		{Name: "nspr_events"},
+		{Name: "active_ssl_read_args_map"},
+		{Name: "active_ssl_write_args_map"},
+		{Name: "data_buffer_heap"},
+	}
+
+	// Configure decoder for nspr_events map
+	p.mapNameToDecoder["nspr_events"] = &nsprEventDecoder{probe: p}
+
+	p.bpfManager = &manager.Manager{
+		Probes: probes,
+		Maps:   maps,
+	}
+
+	return nil
+}
+
+// getManagerOptions returns eBPF manager options with constant editors for filtering.
+func (p *Probe) getManagerOptions() manager.Options {
+	opts := manager.Options{
+		DefaultKProbeMaxActive: 512,
+		VerifierOptions: ebpf.CollectionOptions{
+			Programs: ebpf.ProgramOptions{
+				LogSizeStart: 2097152,
+			},
+		},
+		RLimit: &unix.Rlimit{
+			Cur: math.MaxUint64,
+			Max: math.MaxUint64,
+		},
+	}
+
+	// Add constant editors if kernel supports global variables
+	if p.config.EnableGlobalVar() {
+		kv, _ := kernel.HostVersion()
+		kernelLess52 := uint64(0)
+		if kv < kernel.VersionCode(5, 2, 0) {
+			kernelLess52 = 1
+		}
+
+		opts.ConstantEditors = []manager.ConstantEditor{
+			{Name: "target_pid", Value: p.config.GetPid()},
+			{Name: "target_uid", Value: p.config.GetUid()},
+			{Name: "less52", Value: kernelLess52},
+			{Name: "target_cgroup_id", Value: uint64(0)},
+		}
+	} else {
+		if p.config.GetPid() != 0 {
+			p.Logger().Warn().Uint64("pid", p.config.GetPid()).
+				Msg("PID filter is not supported on kernel < 5.2, --pid filter will be ignored")
+		}
+		if p.config.GetUid() != 0 {
+			p.Logger().Warn().Uint64("uid", p.config.GetUid()).
+				Msg("UID filter is not supported on kernel < 5.2, --uid filter will be ignored")
+		}
+	}
+
+	return opts
 }
 
 // nsprEventDecoder implements domain.EventDecoder for NSPR TLS data events
@@ -164,11 +296,12 @@ type nsprEventDecoder struct {
 
 func (d *nsprEventDecoder) Decode(_ *ebpf.Map, data []byte) (domain.Event, error) {
 	event := &TLSDataEvent{}
-	if err := event.Decode(data); err != nil {
-		return nil, errors.NewEventDecodeError("nspr.TLSDataEvent", err)
+	if err := event.DecodeFromBytes(data); err != nil {
+		return nil, err
 	}
-
-	// Event will be handled by dispatcher
+	if err := event.Validate(); err != nil {
+		return nil, err
+	}
 	return event, nil
 }
 

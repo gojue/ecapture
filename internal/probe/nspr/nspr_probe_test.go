@@ -88,16 +88,18 @@ func TestProbe_Name(t *testing.T) {
 func TestTLSDataEventDecode(t *testing.T) {
 	event := &TLSDataEvent{}
 	var err error
-	// Create minimal valid data
+
+	// Create binary data matching the C struct layout:
+	// DataType (int64), Timestamp (uint64), PID (uint32), TID (uint32),
+	// Data ([MaxDataSize]byte), DataLen (int32), Comm ([TaskCommLen]byte)
 	buf := new(bytes.Buffer)
-	err = binary.Write(buf, binary.LittleEndian, uint64(12345))       // Timestamp
-	err = binary.Write(buf, binary.LittleEndian, uint32(1234))        // PID
-	err = binary.Write(buf, binary.LittleEndian, uint32(5678))        // TID
-	err = binary.Write(buf, binary.LittleEndian, [16]byte{'t'})       // Comm
-	err = binary.Write(buf, binary.LittleEndian, int32(10))           // FD
-	err = binary.Write(buf, binary.LittleEndian, uint32(100))         // DataLen
-	err = binary.Write(buf, binary.LittleEndian, uint32(1))           // Direction
-	err = binary.Write(buf, binary.LittleEndian, [MaxDataSize]byte{}) // Data
+	err = binary.Write(buf, binary.LittleEndian, int64(DataTypeWrite))   // DataType (absorbs u32 + padding)
+	err = binary.Write(buf, binary.LittleEndian, uint64(12345))          // Timestamp
+	err = binary.Write(buf, binary.LittleEndian, uint32(1234))           // PID
+	err = binary.Write(buf, binary.LittleEndian, uint32(5678))           // TID
+	err = binary.Write(buf, binary.LittleEndian, [MaxDataSize]byte{})    // Data
+	err = binary.Write(buf, binary.LittleEndian, int32(100))             // DataLen
+	err = binary.Write(buf, binary.LittleEndian, [TaskCommLen]byte{'t'}) // Comm
 	if err != nil {
 		t.Fatalf("binary.Write failed: %v", err)
 		return
@@ -127,13 +129,12 @@ func TestTLSDataEventDecode(t *testing.T) {
 
 func TestTLSDataEventString(t *testing.T) {
 	event := &TLSDataEvent{
+		DataType:  DataTypeRead,
 		Timestamp: 12345,
 		PID:       1234,
 		TID:       5678,
-		Comm:      [16]byte{'f', 'i', 'r', 'e', 'f', 'o', 'x', 0},
-		FD:        10,
+		Comm:      [TaskCommLen]byte{'f', 'i', 'r', 'e', 'f', 'o', 'x', 0},
 		DataLen:   100,
-		Direction: 0,
 	}
 
 	str := event.String()
