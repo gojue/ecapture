@@ -6,6 +6,7 @@
   - [Compiling from source on Linux](#compiling-from-source-on-linux)
   - [compile without BTF](#compile-without-btf)
   - [cross-compilation](#cross-compilation)
+  - [Compiling for Windows](#compiling-for-windows)
 - [What's eBPF](#whats-ebpf)
 
 <!-- /MarkdownTOC -->
@@ -133,6 +134,62 @@ sudo make e2e-gotls    # Test Go TLS capture
 **Prerequisites**: Linux kernel >= 4.18 (x86_64) or >= 5.5 (aarch64), root access, and required tools (see [docs/e2e-tests.md](./docs/e2e-tests.md)).
 
 For detailed information about the test suite, troubleshooting, and CI integration, see [docs/e2e-tests.md](./docs/e2e-tests.md).
+
+## Compiling for Windows
+
+eCapture supports Windows (x86_64 and arm64) using ETW (Event Tracing for Windows) instead of eBPF. The Windows build captures TLS traffic via the Schannel ETW provider and supports DLL function hooking for OpenSSL, MySQL, and PostgreSQL.
+
+### Windows Prerequisites
+
+* **Go 1.21** or newer
+* **MinGW-w64** cross-compiler (for CGO, required by Npcap/pcap mode)
+  - On Ubuntu: `sudo apt-get install -y gcc-mingw-w64-x86-64`
+  - On Windows: install [MSYS2](https://www.msys2.org/) and add `mingw-w64` to PATH
+* **Npcap** (optional, for pcap mode): install from [npcap.com](https://npcap.com/) with "WinPcap API-compatible mode" enabled
+* **Administrator privileges** required at runtime (ETW sessions need elevation)
+
+### Cross-compiling from Linux
+
+```shell
+# Windows amd64
+make windows
+
+# Windows arm64
+make windows-arm64
+```
+
+The `CGO_ENABLED=1` flag is used automatically for Windows targets to support Npcap/pcap mode. If you do not need pcap mode, you can build without CGO by modifying the Makefile.
+
+### Building natively on Windows
+
+```powershell
+git clone --recurse-submodules git@github.com:gojue/ecapture.git
+cd ecapture
+$env:CGO_ENABLED = "1"
+go build -tags windows -o bin/ecapture.exe main.go
+```
+
+### Windows Features
+
+| Feature | Description |
+|---------|-------------|
+| TLS/Schannel capture | ETW-based capture via Microsoft-Windows-Schannel provider |
+| OpenSSL hooking | DLL function hooking for `SSL_read`/`SSL_write` |
+| MySQL/PostgreSQL capture | DLL hooking for `mysql_real_query`/`PQexec` |
+| pcap mode | Network packet capture via Npcap (requires Npcap installed) |
+| keylog mode | TLS key material export in NSS keylog format |
+
+### Windows E2E Tests
+
+PowerShell-based end-to-end tests are located in `test/e2e/windows/`. Run as Administrator:
+
+```powershell
+cd test\e2e\windows
+.\windows_tls_test.ps1 -EcaptureBinary "..\..\..\bin\ecapture.exe"
+.\windows_bash_test.ps1 -EcaptureBinary "..\..\..\bin\ecapture.exe"
+.\windows_mysql_test.ps1 -EcaptureBinary "..\..\..\bin\ecapture.exe"
+.\windows_postgres_test.ps1 -EcaptureBinary "..\..\..\bin\ecapture.exe"
+```
 
 # What's eBPF
 

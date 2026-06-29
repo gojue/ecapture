@@ -93,6 +93,10 @@ help:
 	@echo ""
 	@echo "# flags"
 	@echo "    $$ ANDROID=1 make ...				# build eCapture for Android"
+	@echo ""
+	@echo "# windows"
+	@echo "    $$ make windows					# cross-compile eCapture for Windows (amd64)"
+	@echo "    $$ make windows-arm64				# cross-compile eCapture for Windows (arm64)"
 
 
 .PHONY: prepare
@@ -111,6 +115,7 @@ clean:
 	$(CMD_RM) -f bytecode/*.o
 	$(CMD_RM) -f assets/ebpf_probe.go
 	$(CMD_RM) -f bin/ecapture
+	$(CMD_RM) -f bin/ecapture.exe
 	$(CMD_RM) -f .check*
 	if test -e "./lib/libpcap/Makefile"; then $(MAKE) -C ./lib/libpcap clean; fi
 
@@ -201,6 +206,35 @@ build_noncore: \
 	$(call allow-override,VERSION_FLAG,$(HOST_ARCH))
 	$(call allow-override,BYTECODE_FILES,noncore)
 	$(call gobuild, $(ANDROID))
+
+# Build Windows binary (cross-compile from Linux).
+# Windows uses ETW instead of eBPF, so no eBPF bytecode is needed.
+# Npcap/pcap mode requires CGO and a Windows cross-compiler (mingw-w64) with
+# WinPcap/Npcap development headers. Set CGO_ENABLED=0 to build without pcap.
+.PHONY: windows
+windows: .checkver_$(CMD_GO)
+	@echo "Building eCapture for Windows amd64 (ETW-based, no eBPF)"
+	CGO_ENABLED=1 \
+	GOOS=windows \
+	GOARCH=amd64 \
+	go build \
+		-tags 'windows' \
+		-ldflags "-s -w -X 'github.com/gojue/ecapture/cli/cmd.GitVersion=windows_amd64:$(VERSION_NUM)' -X 'github.com/gojue/ecapture/cli/cmd.ByteCodeFiles=none'" \
+		-o bin/ecapture.exe \
+		main.go
+
+# Build Windows arm64 binary
+.PHONY: windows-arm64
+windows-arm64: .checkver_$(CMD_GO)
+	@echo "Building eCapture for Windows arm64 (ETW-based, no eBPF)"
+	CGO_ENABLED=1 \
+	GOOS=windows \
+	GOARCH=arm64 \
+	go build \
+		-tags 'windows' \
+		-ldflags "-s -w -X 'github.com/gojue/ecapture/cli/cmd.GitVersion=windows_arm64:$(VERSION_NUM)' -X 'github.com/gojue/ecapture/cli/cmd.ByteCodeFiles=none'" \
+		-o bin/ecapture.exe \
+		main.go
 
 # Format the code
 .PHONY: format

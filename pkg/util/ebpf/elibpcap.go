@@ -1,4 +1,5 @@
-//go:build dynamic
+//go:build dynamic && !windows
+// +build dynamic,!windows
 
 package ebpf
 

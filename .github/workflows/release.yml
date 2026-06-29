@@ -107,6 +107,9 @@ jobs:
           make clean
           make env
           CROSS_ARCH=arm64 make -f builder/Makefile.release release SNAPSHOT_VERSION=${{ github.ref_name }}
+      - name: Release Windows (amd64/arm64)
+        run: |
+          make -f builder/Makefile.release release_windows SNAPSHOT_VERSION=${{ github.ref_name }}
       - name: Publish
         env:
           IS_PRERELEASE: ${{ steps.release_type.outputs.IS_PRERELEASE }}

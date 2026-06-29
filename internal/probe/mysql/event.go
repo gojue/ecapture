@@ -1,3 +1,6 @@
+//go:build !windows
+// +build !windows
+
 // Copyright 2022 CFC4N <cfc4n.cs@gmail.com>. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -128,7 +131,16 @@ func (e *Event) StringHex() string {
 
 // Clone creates a new instance of the event
 func (e *Event) Clone() domain.Event {
-	return &Event{}
+	clone := &Event{
+		Pid:       e.Pid,
+		Timestamp: e.Timestamp,
+		Alllen:    e.Alllen,
+		Len:       e.Len,
+		Retval:    e.Retval,
+	}
+	copy(clone.Query[:], e.Query[:])
+	copy(clone.Comm[:], e.Comm[:])
+	return clone
 }
 
 // Type returns the event type identifier

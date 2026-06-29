@@ -1,11 +1,10 @@
-//go:build !linux
-// +build !linux
+//go:build !linux && !ecap_android
+// +build !linux,!ecap_android
 
 package kernel
 
 import (
 	"fmt"
-
 	"runtime"
 )
 

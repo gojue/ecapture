@@ -111,6 +111,34 @@ snapshot_android: \
 	$(call allow-override,ANDROID,1)
 	$(call release_tar,android,)
 
+.PHONY: snapshot_windows
+snapshot_windows: \
+	$(OUTPUT_DIR) \
+	| .check_tree \
+	.check_$(CMD_ZIP) \
+	.check_$(CMD_CHECKSUM) \
+	.check_$(CMD_GITHUB)
+	$(call release_zip,windows,amd64,windows)
+
+.PHONY: snapshot_windows_arm64
+snapshot_windows_arm64: \
+	$(OUTPUT_DIR) \
+	| .check_tree \
+	.check_$(CMD_ZIP) \
+	.check_$(CMD_CHECKSUM) \
+	.check_$(CMD_GITHUB)
+	$(call release_zip,windows,arm64,windows-arm64)
+
+# Build both Windows amd64 and arm64 for release
+.PHONY: release_windows
+release_windows: \
+	$(OUTPUT_DIR) \
+	| .check_tree \
+	.check_$(CMD_ZIP) \
+	.check_$(CMD_CHECKSUM)
+	$(call release_zip,windows,amd64,windows)
+	$(call release_zip,windows,arm64,windows-arm64)
+
 .PHONY: publish
 publish: \
 	$(OUTPUT_DIR) \
@@ -120,7 +148,7 @@ publish: \
 	.check_$(CMD_GITHUB)
 	@$(CMD_CD) $(OUTPUT_DIR)
 	@$(CMD_CHECKSUM) ecapture*v* | $(CMD_SED) 's/.\/bin\///g' > $(OUT_CHECKSUMS)
-	@FILES=$$(ls ecapture-*.tar.gz ecapture*.deb checksum-*.txt)
+	@FILES=$$(ls ecapture-*.tar.gz ecapture*.deb ecapture-*.zip checksum-*.txt 2>/dev/null)
 	@if [ "$(IS_PRERELEASE)" = "true" ]; then \
 		echo "🚧 Publishing as pre-release: $(DEB_VERSION)"; \
 		$(CMD_GITHUB) release create $(DEB_VERSION) $$FILES --title "eCapture $(DEB_VERSION)" --notes-file $(RELEASE_NOTES) --prerelease; \

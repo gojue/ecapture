@@ -1,5 +1,5 @@
-//go:build !ecap_android
-// +build !ecap_android
+//go:build !ecap_android && !windows
+// +build !ecap_android,!windows
 
 // Copyright 2022 CFC4N <cfc4n.cs@gmail.com>. All Rights Reserved.
 //
