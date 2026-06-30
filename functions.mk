@@ -74,3 +74,18 @@ define release_tar
 	$(CMD_CP) $(OUTPUT_DIR)/ecapture $(TAR_DIR)/ecapture
 	$(CMD_TAR) -czf $(OUT_ARCHIVE) $(TAR_DIR)
 endef
+
+# build and zip for Windows (no eBPF, CGO_ENABLED=0)
+define release_zip
+	$(call allow-override,TAR_DIR,ecapture-$(DEB_VERSION)-$(1)-$(2))
+	$(call allow-override,OUT_ZIP,$(OUTPUT_DIR)/$(TAR_DIR).zip)
+	$(CMD_MAKE) clean
+	$(CMD_MAKE) $(3)
+	$(CMD_MKDIR) -p $(TAR_DIR)
+	$(CMD_CP) LICENSE $(TAR_DIR)/LICENSE
+	$(CMD_CP) README.md $(TAR_DIR)/README.md
+	$(CMD_CP) README-zh_Hans.md $(TAR_DIR)/README-zh_Hans.md
+	$(CMD_CP) $(OUTPUT_DIR)/ecapture.exe $(TAR_DIR)/ecapture.exe
+	$(CMD_RM) -f $(OUT_ZIP)
+	(cd $(TAR_DIR) && $(CMD_ZIP) -r ../$(OUT_ZIP) .)
+endef

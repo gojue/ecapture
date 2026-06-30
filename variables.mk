@@ -23,6 +23,7 @@ CMD_CAT ?= cat
 CMD_MD5 ?= md5sum
 CMD_BPFTOOL ?= bpftool
 CMD_TAR ?= tar
+CMD_ZIP ?= zip
 CMD_RPM_SETUP_TREE ?= rpmdev-setuptree
 CMD_RPMBUILD ?= rpmbuild
 CMD_CHECKSUM ?= sha256sum

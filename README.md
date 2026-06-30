@@ -10,9 +10,9 @@
 ### eCapture(旁观者): capture SSL/TLS text content without a CA certificate using eBPF.
 
 > [!IMPORTANT]  
-> Supports Linux/Android on x86_64 (kernel 4.18+) and aarch64 (kernel **5.5+**). Kernel version requirements apply per CPU architecture for both Linux and Android.
-> Need ROOT permission or specific [Linux capabilities](docs/minimum-privileges.md).
-> Does not support Windows and macOS system.
+> Supports **Linux/Android** on x86_64 (kernel 4.18+) and aarch64 (kernel **5.5+**). Kernel version requirements apply per CPU architecture for both Linux and Android.
+> Supports **Windows** (10 Build 17763+ / Server 2019+) on amd64 and arm64. Requires Administrator privileges.
+> Does not support macOS.
 
 ----
 
@@ -20,7 +20,8 @@
 - [Introduction](#introduction)
 - [Getting started](#getting-started)
   - [Download](#download)
-    - [ELF binary file](#elf-binary-file)
+    - [Linux / Android](#linux--android)
+    - [Windows](#windows)
     - [Docker image](#docker-image)
   - [Capture openssl text content.](#capture-openssl-text-content)
   - [Modules](#modules)
@@ -47,13 +48,21 @@
 
 ## Download
 
-### ELF binary file
+### Linux / Android
 
 > [!TIP]
-> support Linux/Android x86_64/aarch64.
+> Linux/Android x86_64/aarch64.
 
-Download ELF zip file [release](https://github.com/gojue/ecapture/releases) , unzip and use by
+Download ELF zip file from [release](https://github.com/gojue/ecapture/releases), unzip and use by
 command `sudo ecapture --help`.
+
+### Windows
+
+> [!TIP]
+> Windows amd64/arm64. Requires Administrator privileges.
+
+Download Windows zip file from [release](https://github.com/gojue/ecapture/releases), unzip and use by
+command `ecapture.exe --help`.
 
 ### Docker image
 

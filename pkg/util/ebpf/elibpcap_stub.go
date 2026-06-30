@@ -1,4 +1,5 @@
-//go:build !dynamic
+//go:build !dynamic && !windows
+// +build !dynamic,!windows
 
 // Copyright 2022 CFC4N <cfc4n.cs@gmail.com>. All Rights Reserved.
 //

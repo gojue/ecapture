@@ -6,6 +6,7 @@
     - [编译环境](#编译环境)
     - [未开启BTF的编译](#未开启btf的编译)
     - [交叉编译](#交叉编译)
+    - [Windows 编译](#windows-编译)
 - [原理](#原理)
     - [eBPF技术](#ebpf技术)
     - [eBPF学习资料](#ebpf学习资料)
@@ -123,6 +124,68 @@ test -f .config || yes "" | sudo make oldconfig
 
 ```shell
 CROSS_ARCH=arm64 make
+```
+
+## Windows 编译
+
+eCapture 支持 Windows 平台（x86_64 和 arm64），使用 ETW（Event Tracing for Windows）替代 eBPF 实现流量捕获。Windows 版本通过 Schannel ETW 提供者捕获 TLS 流量，并支持对 OpenSSL、MySQL、PostgreSQL 的 DLL 函数钩子。
+
+### Windows 编译环境要求
+
+* **Go 1.21** 及以上
+* **MinGW-w64** 交叉编译器（用于 CGO，pcap 模式必需）
+  - Ubuntu 下安装：`sudo apt-get install -y gcc-mingw-w64-x86-64`
+  - Windows 本地编译：安装 [MSYS2](https://www.msys2.org/) 并将 `mingw-w64` 添加到 PATH
+* **Npcap**（可选，用于 pcap 模式）：从 [npcap.com](https://npcap.com/) 安装，需启用 "WinPcap API-compatible mode"
+* **管理员权限**：运行时需要管理员权限（ETW 会话需要提升权限）
+
+### 从 Linux 交叉编译
+
+```shell
+# Windows amd64 版本
+make windows
+
+# Windows arm64 版本
+make windows-arm64
+```
+
+Windows 构建目标默认使用 `CGO_ENABLED=1` 以支持 Npcap/pcap 模式。如果不需要 pcap 模式，可以修改 Makefile 关闭 CGO。
+
+### 在 Windows 上本地编译
+
+```powershell
+git clone --recurse-submodules git@github.com:gojue/ecapture.git
+cd ecapture
+$env:CGO_ENABLED = "1"
+go build -tags windows -o bin/ecapture.exe main.go
+```
+
+如果你在中国，可以在编译之前设置 GOPROXY 来加速依赖包下载：
+
+```powershell
+$env:GOPROXY = "https://goproxy.cn,direct"
+```
+
+### Windows 功能列表
+
+| 功能 | 说明 |
+|------|------|
+| TLS/Schannel 捕获 | 基于 ETW 的 Microsoft-Windows-Schannel 提供者捕获 |
+| OpenSSL 钩子 | DLL 函数钩子捕获 `SSL_read`/`SSL_write` |
+| MySQL/PostgreSQL 捕获 | DLL 钩子捕获 `mysql_real_query`/`PQexec` |
+| pcap 模式 | 通过 Npcap 进行网络包捕获（需安装 Npcap） |
+| keylog 模式 | TLS 密钥材料导出（NSS keylog 格式） |
+
+### Windows E2E 测试
+
+PowerShell 端到端测试脚本位于 `test/e2e/windows/` 目录，需要以管理员身份运行：
+
+```powershell
+cd test\e2e\windows
+.\windows_tls_test.ps1 -EcaptureBinary "..\..\..\bin\ecapture.exe"
+.\windows_bash_test.ps1 -EcaptureBinary "..\..\..\bin\ecapture.exe"
+.\windows_mysql_test.ps1 -EcaptureBinary "..\..\..\bin\ecapture.exe"
+.\windows_postgres_test.ps1 -EcaptureBinary "..\..\..\bin\ecapture.exe"
 ```
 
 # 原理

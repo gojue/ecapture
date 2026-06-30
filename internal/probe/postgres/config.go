@@ -1,3 +1,6 @@
+//go:build !windows
+// +build !windows
+
 // Copyright 2024 CFC4N <cfc4n.cs@gmail.com>. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
