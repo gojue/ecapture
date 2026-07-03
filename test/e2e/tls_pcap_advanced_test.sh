@@ -32,10 +32,6 @@ cleanup_handler() {
 
 setup_cleanup_trap
 
-# Get default network interface (needed for pcap mode)
-get_default_interface() {
-    ip route | grep default | awk '{print $5}' | head -1 || echo ""
-}
 DEFAULT_IFACE=""
 
 # Verify pcapng file format
@@ -442,9 +438,12 @@ main() {
     # Detect default network interface (required for pcap mode)
     DEFAULT_IFACE=$(get_default_interface)
     if [ -z "$DEFAULT_IFACE" ]; then
-        log_warn "Could not determine default network interface, pcap tests may fail"
+        log_warn "Could not determine default network interface from routing table"
     fi
-    
+
+    # Verify traffic to test target actually uses the detected interface
+    verify_traffic_interface "api.github.com" || true
+
     test_pcapng_basic || true
     kill_by_pattern "$ECAPTURE_BINARY.*tls" || true
     sleep 1

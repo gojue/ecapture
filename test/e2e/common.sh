@@ -267,3 +267,61 @@ verify_content_match() {
         return 1
     fi
 }
+
+# ============================================================================
+# Network Interface Detection (shared by all e2e test scripts)
+# ============================================================================
+
+# Get default network interface from routing table (needed for pcap mode)
+get_default_interface() {
+    ip route | grep default | awk '{print $5}' | head -1 || echo ""
+}
+
+# Get the interface that would actually be used to reach a given target.
+# Uses "ip route get" to query the kernel's routing decision.
+# Args: target hostname or IP
+# Returns: interface name (e.g., eth0, ens5) or empty string
+get_route_interface() {
+    local target="${1:-1.1.1.1}"
+    # Resolve hostname to IP (use first result) if target is not already an IP
+    local target_ip
+    target_ip=$(dig +short "$target" 2>/dev/null | grep -E '^[0-9]' | head -1 || echo "")
+    if [ -z "$target_ip" ]; then
+        # dig failed or returned no result, try getent as fallback
+        target_ip=$(getent ahosts "$target" 2>/dev/null | awk '{print $1; exit}' || echo "$target")
+    fi
+    # Query kernel routing table: which dev would be used for this IP?
+    ip route get "$target_ip" 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="dev") {print $(i+1); exit}}' || echo ""
+}
+
+# Verify that traffic to the test target actually goes through the detected interface.
+# Corrects DEFAULT_IFACE (global variable) if a mismatch is found.
+# Must be called after DEFAULT_IFACE is set via get_default_interface.
+# Args: target hostname (e.g., "api.github.com")
+verify_traffic_interface() {
+    local target="${1:-api.github.com}"
+    local route_iface
+    route_iface=$(get_route_interface "$target")
+
+    if [ -z "$route_iface" ]; then
+        log_warn "Could not determine route interface for $target (dig/getent may be unavailable)"
+        return 1
+    fi
+
+    log_info "Kernel routes traffic to $target via interface: $route_iface"
+
+    if [ -z "$DEFAULT_IFACE" ]; then
+        log_info "No default interface was set, using route-detected interface: $route_iface"
+        DEFAULT_IFACE="$route_iface"
+        return 0
+    fi
+
+    if [ "$DEFAULT_IFACE" != "$route_iface" ]; then
+        log_warn "Default route interface ($DEFAULT_IFACE) != route to $target ($route_iface)"
+        log_warn "Using $route_iface for pcap capture (matches actual traffic path)"
+        DEFAULT_IFACE="$route_iface"
+    else
+        log_success "Traffic to $target matches default interface: $DEFAULT_IFACE"
+    fi
+    return 0
+}

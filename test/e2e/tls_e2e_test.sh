@@ -50,10 +50,6 @@ cleanup_handler() {
 # Setup trap
 setup_cleanup_trap
 
-# Get default network interface (needed for pcap mode)
-get_default_interface() {
-    ip route | grep default | awk '{print $5}' | head -1 || echo ""
-}
 DEFAULT_IFACE=""
 
 # Test text mode - captures plaintext directly
@@ -334,8 +330,13 @@ main() {
     # Detect default network interface (required for pcap mode)
     DEFAULT_IFACE=$(get_default_interface)
     if [ -z "$DEFAULT_IFACE" ]; then
-        log_warn "Could not determine default network interface, pcap tests may fail"
+        log_warn "Could not determine default network interface from routing table"
     fi
+
+    # Verify traffic to test target actually uses the detected interface.
+    # This corrects DEFAULT_IFACE if the kernel routes traffic differently
+    # (e.g., multi-homed hosts, Docker bridges, VPN tunnels).
+    verify_traffic_interface "$(echo "$TEST_URL" | sed 's|https://||')" || true
     
     # Test text mode
     if test_text_mode; then
