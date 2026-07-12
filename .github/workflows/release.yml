@@ -21,7 +21,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.24.6'
+          go-version: '1.25.12'
 
       - name: Check Release Type
         id: release_type
