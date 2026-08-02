@@ -21,7 +21,7 @@ import (
 
 	"github.com/cilium/ebpf"
 
-	"github.com/gojue/ecapture/internal/domain"
+	"github.com/gojue/ecapture/v2/internal/domain"
 )
 
 // mockProbe implements domain.Probe for testing

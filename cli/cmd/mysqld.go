@@ -20,8 +20,8 @@ package cmd
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/gojue/ecapture/internal/factory"
-	mysqlProbe "github.com/gojue/ecapture/internal/probe/mysql"
+	"github.com/gojue/ecapture/v2/internal/factory"
+	mysqlProbe "github.com/gojue/ecapture/v2/internal/probe/mysql"
 )
 
 var mysqlConfig = mysqlProbe.NewConfig()

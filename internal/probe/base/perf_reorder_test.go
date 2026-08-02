@@ -11,8 +11,8 @@ import (
 
 	"github.com/cilium/ebpf"
 
-	"github.com/gojue/ecapture/internal/config"
-	"github.com/gojue/ecapture/internal/domain"
+	"github.com/gojue/ecapture/v2/internal/config"
+	"github.com/gojue/ecapture/v2/internal/domain"
 )
 
 type fakePerfEvent struct {

@@ -26,14 +26,14 @@ import (
 	"github.com/cilium/ebpf/perf"
 	"github.com/cilium/ebpf/ringbuf"
 
-	"github.com/gojue/ecapture/internal/output/writers"
-	"github.com/gojue/ecapture/internal/probe/base/handlers"
+	"github.com/gojue/ecapture/v2/internal/output/writers"
+	"github.com/gojue/ecapture/v2/internal/probe/base/handlers"
 
-	"github.com/gojue/ecapture/internal/events"
+	"github.com/gojue/ecapture/v2/internal/events"
 
-	"github.com/gojue/ecapture/internal/domain"
-	"github.com/gojue/ecapture/internal/errors"
-	"github.com/gojue/ecapture/internal/logger"
+	"github.com/gojue/ecapture/v2/internal/domain"
+	"github.com/gojue/ecapture/v2/internal/errors"
+	"github.com/gojue/ecapture/v2/internal/logger"
 )
 
 const (

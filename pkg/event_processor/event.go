@@ -15,7 +15,7 @@
 package event_processor
 
 import (
-	pb "github.com/gojue/ecapture/protobuf/gen/v1"
+	pb "github.com/gojue/ecapture/v2/protobuf/gen/v1"
 )
 
 // Type 事件类型

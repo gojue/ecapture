@@ -14,7 +14,7 @@
 
 package domain
 
-import "github.com/gojue/ecapture/internal/output/writers"
+import "github.com/gojue/ecapture/v2/internal/output/writers"
 
 // EventType defines the category of an event.
 type EventType uint8

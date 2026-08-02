@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gojue/ecapture/internal/domain"
+	"github.com/gojue/ecapture/v2/internal/domain"
 )
 
 func TestEvent_DecodeFromBytes(t *testing.T) {

@@ -22,7 +22,7 @@ import (
 	"os"
 	"strings"
 
-	pkgebpf "github.com/gojue/ecapture/pkg/util/ebpf"
+	pkgebpf "github.com/gojue/ecapture/v2/pkg/util/ebpf"
 )
 
 /*

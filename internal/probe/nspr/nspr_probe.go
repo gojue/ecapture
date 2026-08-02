@@ -25,12 +25,12 @@ import (
 	manager "github.com/gojue/ebpfmanager"
 	"golang.org/x/sys/unix"
 
-	"github.com/gojue/ecapture/assets"
-	"github.com/gojue/ecapture/internal/domain"
-	"github.com/gojue/ecapture/internal/errors"
-	"github.com/gojue/ecapture/internal/factory"
-	"github.com/gojue/ecapture/internal/probe/base"
-	"github.com/gojue/ecapture/pkg/util/kernel"
+	"github.com/gojue/ecapture/v2/assets"
+	"github.com/gojue/ecapture/v2/internal/domain"
+	"github.com/gojue/ecapture/v2/internal/errors"
+	"github.com/gojue/ecapture/v2/internal/factory"
+	"github.com/gojue/ecapture/v2/internal/probe/base"
+	"github.com/gojue/ecapture/v2/pkg/util/kernel"
 )
 
 // Probe represents the NSPR/NSS probe

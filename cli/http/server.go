@@ -20,7 +20,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
 
-	"github.com/gojue/ecapture/internal/domain"
+	"github.com/gojue/ecapture/v2/internal/domain"
 )
 
 type HttpServer struct {

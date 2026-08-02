@@ -17,7 +17,7 @@ package encoders
 import (
 	"fmt"
 
-	"github.com/gojue/ecapture/internal/domain"
+	"github.com/gojue/ecapture/v2/internal/domain"
 )
 
 // ProtobufEncoder encodes events as Protocol Buffers format.

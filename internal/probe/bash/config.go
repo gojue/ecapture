@@ -21,8 +21,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/gojue/ecapture/internal/config"
-	"github.com/gojue/ecapture/internal/errors"
+	"github.com/gojue/ecapture/v2/internal/config"
+	"github.com/gojue/ecapture/v2/internal/errors"
 )
 
 const (

@@ -1,7 +1,7 @@
 package writers
 
 import (
-	"github.com/gojue/ecapture/internal/logger"
+	"github.com/gojue/ecapture/v2/internal/logger"
 )
 
 type LoggerWriter struct {

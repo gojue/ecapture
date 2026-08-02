@@ -21,12 +21,12 @@ import (
 
 	"github.com/google/gopacket"
 
-	"github.com/gojue/ecapture/internal/logger"
+	"github.com/gojue/ecapture/v2/internal/logger"
 
-	"github.com/gojue/ecapture/internal/output/writers"
+	"github.com/gojue/ecapture/v2/internal/output/writers"
 
-	"github.com/gojue/ecapture/internal/domain"
-	"github.com/gojue/ecapture/internal/errors"
+	"github.com/gojue/ecapture/v2/internal/domain"
+	"github.com/gojue/ecapture/v2/internal/errors"
 )
 
 // PacketEvent defines the interface for network packet events.

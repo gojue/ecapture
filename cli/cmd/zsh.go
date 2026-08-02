@@ -20,8 +20,8 @@ package cmd
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/gojue/ecapture/internal/factory"
-	zshProbe "github.com/gojue/ecapture/internal/probe/zsh"
+	"github.com/gojue/ecapture/v2/internal/factory"
+	zshProbe "github.com/gojue/ecapture/v2/internal/probe/zsh"
 )
 
 var zshConfig = zshProbe.NewConfig()

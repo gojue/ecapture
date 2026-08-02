@@ -21,12 +21,12 @@ import (
 
 	"github.com/cilium/ebpf"
 
-	"github.com/gojue/ecapture/internal/factory"
+	"github.com/gojue/ecapture/v2/internal/factory"
 
-	"github.com/gojue/ecapture/assets"
-	"github.com/gojue/ecapture/internal/domain"
-	"github.com/gojue/ecapture/internal/errors"
-	"github.com/gojue/ecapture/internal/probe/base"
+	"github.com/gojue/ecapture/v2/assets"
+	"github.com/gojue/ecapture/v2/internal/domain"
+	"github.com/gojue/ecapture/v2/internal/errors"
+	"github.com/gojue/ecapture/v2/internal/probe/base"
 )
 
 // Probe implements the GnuTLS TLS tracing probe.

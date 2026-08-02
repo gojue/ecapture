@@ -10,11 +10,11 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/gojue/ecapture/internal/errors"
+	"github.com/gojue/ecapture/v2/internal/errors"
 
-	"github.com/gojue/ecapture/internal/domain"
+	"github.com/gojue/ecapture/v2/internal/domain"
 
-	pb "github.com/gojue/ecapture/protobuf/gen/v1"
+	pb "github.com/gojue/ecapture/v2/protobuf/gen/v1"
 )
 
 type connDataEvent struct {

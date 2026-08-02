@@ -15,7 +15,7 @@
 package cli
 
 import (
-	"github.com/gojue/ecapture/cli/cmd"
+	"github.com/gojue/ecapture/v2/cli/cmd"
 )
 
 func Start() {

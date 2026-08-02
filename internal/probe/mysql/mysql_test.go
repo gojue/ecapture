@@ -18,8 +18,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/gojue/ecapture/internal/domain"
-	"github.com/gojue/ecapture/internal/factory"
+	"github.com/gojue/ecapture/v2/internal/domain"
+	"github.com/gojue/ecapture/v2/internal/factory"
 )
 
 func TestMysqlVersion_String(t *testing.T) {

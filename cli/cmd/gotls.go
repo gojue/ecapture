@@ -19,8 +19,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/gojue/ecapture/internal/factory"
-	gotlsProbe "github.com/gojue/ecapture/internal/probe/gotls"
+	"github.com/gojue/ecapture/v2/internal/factory"
+	gotlsProbe "github.com/gojue/ecapture/v2/internal/probe/gotls"
 )
 
 var gotlsConfig = gotlsProbe.NewConfig()

@@ -22,7 +22,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/gojue/ecapture/internal/domain"
+	"github.com/gojue/ecapture/v2/internal/domain"
 )
 
 // createGnutlsConfig - GnuTLS is now supported on Android (via Termux or custom builds)

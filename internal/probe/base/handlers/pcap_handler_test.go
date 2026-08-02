@@ -19,8 +19,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/gojue/ecapture/internal/domain"
-	"github.com/gojue/ecapture/internal/logger"
+	"github.com/gojue/ecapture/v2/internal/domain"
+	"github.com/gojue/ecapture/v2/internal/logger"
 )
 
 // mockPcapWriter wraps bytes.Buffer to implement OutputWriter for testing

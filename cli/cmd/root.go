@@ -27,18 +27,18 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/gojue/ecapture/internal/config"
-	"github.com/gojue/ecapture/pkg/ecaptureq"
+	"github.com/gojue/ecapture/v2/internal/config"
+	"github.com/gojue/ecapture/v2/pkg/ecaptureq"
 
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 
-	"github.com/gojue/ecapture/cli/cobrautl"
-	"github.com/gojue/ecapture/cli/http"
-	"github.com/gojue/ecapture/internal/domain"
-	"github.com/gojue/ecapture/internal/factory"
-	"github.com/gojue/ecapture/pkg/util/roratelog"
-	"github.com/gojue/ecapture/pkg/util/ws"
+	"github.com/gojue/ecapture/v2/cli/cobrautl"
+	"github.com/gojue/ecapture/v2/cli/http"
+	"github.com/gojue/ecapture/v2/internal/domain"
+	"github.com/gojue/ecapture/v2/internal/factory"
+	"github.com/gojue/ecapture/v2/pkg/util/roratelog"
+	"github.com/gojue/ecapture/v2/pkg/util/ws"
 )
 
 const (

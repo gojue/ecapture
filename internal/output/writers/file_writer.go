@@ -20,7 +20,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/gojue/ecapture/pkg/util/roratelog"
+	"github.com/gojue/ecapture/v2/pkg/util/roratelog"
 )
 
 // FileWriter writes output to a local file with optional rotation support.

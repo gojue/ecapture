@@ -15,7 +15,7 @@
 package encoders
 
 import (
-	"github.com/gojue/ecapture/internal/domain"
+	"github.com/gojue/ecapture/v2/internal/domain"
 )
 
 // Encoder defines the interface for encoding events into different formats.

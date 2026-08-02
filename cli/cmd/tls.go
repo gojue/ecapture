@@ -19,8 +19,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/gojue/ecapture/internal/factory"
-	opensslProbe "github.com/gojue/ecapture/internal/probe/openssl"
+	"github.com/gojue/ecapture/v2/internal/factory"
+	opensslProbe "github.com/gojue/ecapture/v2/internal/probe/openssl"
 )
 
 var opensslConfig = opensslProbe.NewConfig()

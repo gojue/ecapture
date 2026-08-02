@@ -20,8 +20,8 @@ package cmd
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/gojue/ecapture/internal/factory"
-	nsprProbe "github.com/gojue/ecapture/internal/probe/nspr"
+	"github.com/gojue/ecapture/v2/internal/factory"
+	nsprProbe "github.com/gojue/ecapture/v2/internal/probe/nspr"
 )
 
 var nsprConfig = nsprProbe.NewConfig()

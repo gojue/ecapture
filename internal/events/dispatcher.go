@@ -18,9 +18,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/gojue/ecapture/internal/domain"
-	"github.com/gojue/ecapture/internal/errors"
-	"github.com/gojue/ecapture/internal/logger"
+	"github.com/gojue/ecapture/v2/internal/domain"
+	"github.com/gojue/ecapture/v2/internal/errors"
+	"github.com/gojue/ecapture/v2/internal/logger"
 )
 
 // Dispatcher implements the Observer pattern for event distribution.

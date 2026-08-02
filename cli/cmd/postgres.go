@@ -20,8 +20,8 @@ package cmd
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/gojue/ecapture/internal/factory"
-	postgresProbe "github.com/gojue/ecapture/internal/probe/postgres"
+	"github.com/gojue/ecapture/v2/internal/factory"
+	postgresProbe "github.com/gojue/ecapture/v2/internal/probe/postgres"
 )
 
 var postgresConfig = postgresProbe.NewConfig()

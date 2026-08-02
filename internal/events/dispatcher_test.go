@@ -18,9 +18,9 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/gojue/ecapture/internal/domain"
-	"github.com/gojue/ecapture/internal/logger"
-	"github.com/gojue/ecapture/internal/output/writers"
+	"github.com/gojue/ecapture/v2/internal/domain"
+	"github.com/gojue/ecapture/v2/internal/logger"
+	"github.com/gojue/ecapture/v2/internal/output/writers"
 )
 
 // mockEvent implements domain.Event for testing

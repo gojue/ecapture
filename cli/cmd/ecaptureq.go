@@ -15,7 +15,7 @@
 package cmd
 
 import (
-	"github.com/gojue/ecapture/pkg/ecaptureq"
+	"github.com/gojue/ecapture/v2/pkg/ecaptureq"
 )
 
 // ecaptureQLogWriter

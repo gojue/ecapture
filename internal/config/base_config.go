@@ -21,7 +21,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/gojue/ecapture/pkg/util/kernel"
+	"github.com/gojue/ecapture/v2/pkg/util/kernel"
 )
 
 // BTF mode constants

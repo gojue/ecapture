@@ -26,18 +26,18 @@ import (
 	manager "github.com/gojue/ebpfmanager"
 	"golang.org/x/sys/unix"
 
-	pkgebpf "github.com/gojue/ecapture/pkg/util/ebpf"
+	pkgebpf "github.com/gojue/ecapture/v2/pkg/util/ebpf"
 
-	"github.com/gojue/ecapture/internal/output/writers"
+	"github.com/gojue/ecapture/v2/internal/output/writers"
 
-	"github.com/gojue/ecapture/internal/factory"
+	"github.com/gojue/ecapture/v2/internal/factory"
 
-	"github.com/gojue/ecapture/assets"
-	"github.com/gojue/ecapture/internal/domain"
-	"github.com/gojue/ecapture/internal/errors"
-	"github.com/gojue/ecapture/internal/probe/base"
-	"github.com/gojue/ecapture/internal/probe/base/handlers"
-	"github.com/gojue/ecapture/pkg/util/kernel"
+	"github.com/gojue/ecapture/v2/assets"
+	"github.com/gojue/ecapture/v2/internal/domain"
+	"github.com/gojue/ecapture/v2/internal/errors"
+	"github.com/gojue/ecapture/v2/internal/probe/base"
+	"github.com/gojue/ecapture/v2/internal/probe/base/handlers"
+	"github.com/gojue/ecapture/v2/pkg/util/kernel"
 )
 
 // Probe implements the OpenSSL TLS tracing probe.

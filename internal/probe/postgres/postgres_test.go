@@ -18,8 +18,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/gojue/ecapture/internal/config"
-	"github.com/gojue/ecapture/internal/domain"
+	"github.com/gojue/ecapture/v2/internal/config"
+	"github.com/gojue/ecapture/v2/internal/domain"
 )
 
 // TestNewConfig tests the creation of a new PostgreSQL configuration

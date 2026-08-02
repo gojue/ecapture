@@ -1,4 +1,4 @@
-module github.com/gojue/ecapture
+module github.com/gojue/ecapture/v2
 
 go 1.25.12
 
@@ -13,7 +13,7 @@ require (
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/pflag v1.0.6
 	github.com/stretchr/testify v1.10.0
-	golang.org/x/arch v0.23.0
+	golang.org/x/arch v0.29.0
 	golang.org/x/crypto v0.54.0
 	golang.org/x/net v0.57.0
 	golang.org/x/sys v0.47.0

@@ -17,8 +17,8 @@ package cmd
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/gojue/ecapture/internal/factory"
-	bashProbe "github.com/gojue/ecapture/internal/probe/bash"
+	"github.com/gojue/ecapture/v2/internal/factory"
+	bashProbe "github.com/gojue/ecapture/v2/internal/probe/bash"
 )
 
 var bashConfig = bashProbe.NewConfig()

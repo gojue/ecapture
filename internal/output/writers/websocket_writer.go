@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/gojue/ecapture/pkg/util/ws"
+	"github.com/gojue/ecapture/v2/pkg/util/ws"
 )
 
 // WebSocketWriter writes output to a WebSocket connection.

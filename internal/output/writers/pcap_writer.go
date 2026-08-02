@@ -26,8 +26,8 @@ import (
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcapgo"
 
-	"github.com/gojue/ecapture/internal/errors"
-	lger "github.com/gojue/ecapture/internal/logger"
+	"github.com/gojue/ecapture/v2/internal/errors"
+	lger "github.com/gojue/ecapture/v2/internal/logger"
 )
 
 type TcPacket struct {

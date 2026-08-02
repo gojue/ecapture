@@ -9,7 +9,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/gojue/ecapture/pkg/upgrade"
+	"github.com/gojue/ecapture/v2/pkg/upgrade"
 )
 
 const urlReleases = "https://api.github.com"

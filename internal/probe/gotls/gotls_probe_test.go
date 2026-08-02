@@ -17,7 +17,7 @@ package gotls
 import (
 	"testing"
 
-	"github.com/gojue/ecapture/internal/domain"
+	"github.com/gojue/ecapture/v2/internal/domain"
 )
 
 // mockDispatcher implements domain.EventDispatcher for testing

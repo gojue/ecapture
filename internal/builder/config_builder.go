@@ -15,7 +15,7 @@
 package builder
 
 import (
-	"github.com/gojue/ecapture/internal/config"
+	"github.com/gojue/ecapture/v2/internal/config"
 )
 
 // ConfigBuilder provides a fluent interface for building probe configurations.

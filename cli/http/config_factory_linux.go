@@ -20,11 +20,11 @@ package http
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/gojue/ecapture/internal/domain"
-	gnutlsProbe "github.com/gojue/ecapture/internal/probe/gnutls"
-	mysqlProbe "github.com/gojue/ecapture/internal/probe/mysql"
-	nsprProbe "github.com/gojue/ecapture/internal/probe/nspr"
-	postgresProbe "github.com/gojue/ecapture/internal/probe/postgres"
+	"github.com/gojue/ecapture/v2/internal/domain"
+	gnutlsProbe "github.com/gojue/ecapture/v2/internal/probe/gnutls"
+	mysqlProbe "github.com/gojue/ecapture/v2/internal/probe/mysql"
+	nsprProbe "github.com/gojue/ecapture/v2/internal/probe/nspr"
+	postgresProbe "github.com/gojue/ecapture/v2/internal/probe/postgres"
 )
 
 // createGnutlsConfig creates and decodes GnuTLS probe configuration from HTTP request

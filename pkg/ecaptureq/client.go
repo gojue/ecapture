@@ -19,7 +19,7 @@ import (
 	"io"
 	"time"
 
-	pb "github.com/gojue/ecapture/protobuf/gen/v1"
+	pb "github.com/gojue/ecapture/v2/protobuf/gen/v1"
 
 	"golang.org/x/net/websocket"
 	"google.golang.org/protobuf/proto"

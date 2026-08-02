@@ -22,8 +22,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/gojue/ecapture/internal/factory"
-	gnutlsProbe "github.com/gojue/ecapture/internal/probe/gnutls"
+	"github.com/gojue/ecapture/v2/internal/factory"
+	gnutlsProbe "github.com/gojue/ecapture/v2/internal/probe/gnutls"
 )
 
 var gnutlsConfig = gnutlsProbe.NewConfig()

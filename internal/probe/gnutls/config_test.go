@@ -17,7 +17,7 @@ package gnutls
 import (
 	"testing"
 
-	"github.com/gojue/ecapture/internal/probe/base/handlers"
+	"github.com/gojue/ecapture/v2/internal/probe/base/handlers"
 )
 
 func TestConfig_IsSupportedVersion(t *testing.T) {

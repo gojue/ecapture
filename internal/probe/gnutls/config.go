@@ -24,9 +24,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/gojue/ecapture/internal/config"
-	"github.com/gojue/ecapture/internal/errors"
-	"github.com/gojue/ecapture/internal/probe/base/handlers"
+	"github.com/gojue/ecapture/v2/internal/config"
+	"github.com/gojue/ecapture/v2/internal/errors"
+	"github.com/gojue/ecapture/v2/internal/probe/base/handlers"
 )
 
 // GnuTLS version constants

@@ -17,10 +17,10 @@ package http
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/gojue/ecapture/internal/domain"
-	bashProbe "github.com/gojue/ecapture/internal/probe/bash"
-	gotlsProbe "github.com/gojue/ecapture/internal/probe/gotls"
-	opensslProbe "github.com/gojue/ecapture/internal/probe/openssl"
+	"github.com/gojue/ecapture/v2/internal/domain"
+	bashProbe "github.com/gojue/ecapture/v2/internal/probe/bash"
+	gotlsProbe "github.com/gojue/ecapture/v2/internal/probe/gotls"
+	opensslProbe "github.com/gojue/ecapture/v2/internal/probe/openssl"
 )
 
 // createOpensslConfig creates and decodes OpenSSL probe configuration from HTTP request

@@ -19,8 +19,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gojue/ecapture/internal/domain"
-	"github.com/gojue/ecapture/pkg/util/hkdf"
+	"github.com/gojue/ecapture/v2/internal/domain"
+	"github.com/gojue/ecapture/v2/pkg/util/hkdf"
 )
 
 // mockKeylogWriter wraps bytes.Buffer to implement OutputWriter for testing

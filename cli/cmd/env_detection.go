@@ -20,7 +20,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/gojue/ecapture/pkg/util/kernel"
+	"github.com/gojue/ecapture/v2/pkg/util/kernel"
 )
 
 func detectKernel() error {

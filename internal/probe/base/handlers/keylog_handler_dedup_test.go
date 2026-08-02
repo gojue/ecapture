@@ -3,7 +3,7 @@ package handlers
 import (
 	"testing"
 
-	"github.com/gojue/ecapture/internal/output/writers"
+	"github.com/gojue/ecapture/v2/internal/output/writers"
 )
 
 // Test that all-zero master secrets are filtered out
