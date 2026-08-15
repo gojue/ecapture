@@ -74,6 +74,7 @@ func openSSLCommandFunc(command *cobra.Command, args []string) error {
 	opensslConfig.SetBTF(globalConf.BtfMode)
 	opensslConfig.SetPerCpuMapSize(globalConf.PerCpuMapSize)
 	opensslConfig.SetTruncateSize(globalConf.TruncateSize)
+	opensslConfig.SetEventCollectorAddr(globalConf.EventCollectorAddr)
 
 	// Run probe using the common entry point
 	return runProbe(factory.ProbeTypeOpenSSL, opensslConfig)

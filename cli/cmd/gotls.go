@@ -68,6 +68,7 @@ func goTLSCommandFunc(command *cobra.Command, args []string) error {
 	gotlsConfig.SetBTF(globalConf.BtfMode)
 	gotlsConfig.SetPerCpuMapSize(globalConf.PerCpuMapSize)
 	gotlsConfig.SetTruncateSize(globalConf.TruncateSize)
+	gotlsConfig.SetEventCollectorAddr(globalConf.EventCollectorAddr)
 	// Run probe using the common entry point
 	return runProbe(factory.ProbeTypeGoTLS, gotlsConfig)
 }
