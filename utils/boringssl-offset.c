@@ -35,6 +35,7 @@
 #include <openssl/base.h>
 #include <openssl/crypto.h>
 #include <ssl/internal.h>
+#include <crypto/bio/internal.h>  // bio_st, bio_method_st (opaque in public headers; -I ./src/)
 #include <stddef.h>
 #include <stdio.h>
 #include <type_traits>
@@ -62,6 +63,12 @@ struct ssl3_state_has_version : std::false_type {};
 template <typename T>
 struct ssl3_state_has_version<T, std::void_t<decltype(std::declval<T>().version)>>
     : std::true_type {};
+
+// ssl_cipher_st::id  (uint32 in Android <=16; renamed to protocol_id/uint16 in Android 17)
+template <typename T, typename = void>
+struct ssl_cipher_has_id : std::false_type {};
+template <typename T>
+struct ssl_cipher_has_id<T, std::void_t<decltype(std::declval<T>().id)>> : std::true_type {};
 
 // ─── Output helpers ──────────────────────────────────────────────────────────
 
@@ -146,6 +153,19 @@ struct emit_ssl3_state_version<T, true> {
     }
 };
 
+// --- ssl_cipher_st::id -------------------------------------------------------
+// Present (Android <=16) -> emit SSL_CIPHER_ST_ID = offsetof(id) (uint32).
+// Absent  (Android 17+)  -> field renamed to protocol_id (uint16); emit the same
+// SSL_CIPHER_ST_ID macro at offsetof(protocol_id) so downstream kern code is stable.
+template <typename T, bool Present>
+struct emit_cipher_id {
+    static void emit() { format("ssl_cipher_st", "id", offsetof(T, protocol_id)); }
+};
+template <typename T>
+struct emit_cipher_id<T, true> {
+    static void emit() { format("ssl_cipher_st", "id", offsetof(T, id)); }
+};
+
 // ─── Main ────────────────────────────────────────────────────────────────────
 
 int main() {
@@ -168,7 +188,7 @@ int main() {
     format("bio_st",        "num",    offsetof(bio_st, num));
     format("bio_st",        "method", offsetof(bio_st, method));
     format("bio_method_st", "type",   offsetof(bio_method_st, type));
-    format("ssl_cipher_st", "id",     offsetof(ssl_cipher_st, id));
+    emit_cipher_id<ssl_cipher_st, ssl_cipher_has_id<ssl_cipher_st>::value>::emit();
 
     // ── bssl::SSL3_STATE ──────────────────────────────────────────────────────
     format("bssl::SSL3_STATE", "hs",                  offsetof(bssl::SSL3_STATE, hs));

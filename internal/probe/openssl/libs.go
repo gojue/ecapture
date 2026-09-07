@@ -205,6 +205,7 @@ func init() {
 		"boringssl_a_14":       "boringssl_a_14_kern.o",
 		"boringssl_a_15":       "boringssl_a_15_kern.o",
 		"boringssl_a_16":       "boringssl_a_16_kern.o",
+		"boringssl_a_17":       "boringssl_a_17_kern.o",
 		AndroidDefaultFilename: "boringssl_a_13_kern.o",
 
 		// non-Android boringssl
