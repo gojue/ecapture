@@ -45,6 +45,7 @@ jobs:
             gcc \
             curl \
             wget \
+            dnsutils \
             netcat-openbsd \
             openssl \
             libssl-dev \

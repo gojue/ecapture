@@ -285,11 +285,25 @@ get_route_interface() {
     local target="${1:-1.1.1.1}"
     # Resolve hostname to IP (use first result) if target is not already an IP
     local target_ip
-    target_ip=$(dig +short "$target" 2>/dev/null | grep -E '^[0-9]' | head -1 || echo "")
+    target_ip=$(dig +short "$target" 2>/dev/null | grep -E '^[0-9]' | head -1 || true)
     if [ -z "$target_ip" ]; then
         # dig failed or returned no result, try getent as fallback
-        target_ip=$(getent ahosts "$target" 2>/dev/null | awk '{print $1; exit}' || echo "$target")
+        target_ip=$(getent ahosts "$target" 2>/dev/null | awk '{print $1; exit}' || true)
     fi
+
+    # If DNS resolution failed, fallback to using a public IP so we can still
+    # determine the kernel's route/interface (useful in minimal CI images).
+    if [ -z "$target_ip" ]; then
+        log_warn "DNS resolution for $target failed; falling back to public IPs to detect route interface"
+        for pub in 1.1.1.1 8.8.8.8; do
+            # Verify that ip can compute a route to the public IP
+            if ip route get "$pub" >/dev/null 2>&1; then
+                target_ip="$pub"
+                break
+            fi
+        done
+    fi
+
     # Query kernel routing table: which dev would be used for this IP?
     ip route get "$target_ip" 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="dev") {print $(i+1); exit}}' || echo ""
 }
