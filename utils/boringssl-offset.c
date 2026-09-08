@@ -225,6 +225,15 @@ int main() {
     emit_ssl3_state_version<bssl::SSL3_STATE, ssl3_state_has_version<bssl::SSL3_STATE>::value>::emit();
     emit_ssl3_traffic_secrets<bssl::SSL3_STATE, ssl3_state_has_version<bssl::SSL3_STATE>::value>::emit();
 
+    // ── ssl_st role bit (client vs server) ────────────────────────────────────
+    // ssl_st.server is a bool bitfield (can't offsetof directly). It is the first
+    // bitfield right after renegotiate_mode (an enum), so its byte = offsetof(
+    // renegotiate_mode) + sizeof(enum). eCapture reads this byte and masks 0x1 to map
+    // write/read_traffic_secret to the correct absolute CLIENT/SERVER NSS keylog labels.
+    printf("// ssl_st->server (bool:1) byte — mask 0x1; 1=server endpoint, 0=client\n");
+    printf("#define BSSL__SSL_ST_SERVER 0x%lx\n\n",
+           offsetof(ssl_st, renegotiate_mode) + sizeof(ssl_renegotiate_mode_t));
+
     // ── bssl::SSL_HANDSHAKE ───────────────────────────────────────────────────
     // TLS 1.3 secret offsets (secret_, early_traffic_secret_, …) are NOT emitted
     // here; boringssl_const.h computes them from BSSL__SSL_HANDSHAKE_MAX_VERSION

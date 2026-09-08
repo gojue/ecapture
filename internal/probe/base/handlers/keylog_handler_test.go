@@ -16,6 +16,7 @@ package handlers
 
 import (
 	"bytes"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -434,5 +435,47 @@ func TestKeylogHandler_Concurrent(t *testing.T) {
 	output := writer.String()
 	if output == "" {
 		t.Error("Concurrent writes should produce output")
+	}
+}
+
+// TestKeylogHandler_TLS13_BoringSSLHashLen pins the length fix: BoringSSL
+// master-secret events carry the TLS 1.3 hash length in the CipherId slot
+// (mastersecret_bssl_t.hash_len decoded into CipherId), not a real cipher id. The
+// handler must emit exactly that many bytes, not the full EvpMaxMdSize buffer.
+// Before the fix, a hash_len of 32 fell through the cipher switch to the default
+// and emitted 64 bytes (128 hex), which Wireshark rejects.
+func TestKeylogHandler_TLS13_BoringSSLHashLen(t *testing.T) {
+	writer := newMockKeylogWriter()
+	handler := NewKeylogHandler(writer)
+
+	clientRandom := make([]byte, Ssl3RandomSize)
+	for i := range clientRandom {
+		clientRandom[i] = byte(i)
+	}
+	full := make([]byte, EvpMaxMdSize) // 64-byte buffer; only the first 32 are the secret
+	for i := range full {
+		full[i] = byte(i + 7)
+	}
+	event := &mockMasterSecretEvent{
+		version:                0x0304, // TLS 1.3
+		clientRandom:           clientRandom,
+		cipherId:               32, // SHA-256 hash length aliased into CipherId
+		clientAppTrafficSecret: full,
+		serverAppTrafficSecret: full,
+	}
+	if err := handler.Handle(event); err != nil {
+		t.Fatalf("Handle: %v", err)
+	}
+	out := writer.String()
+	re := regexp.MustCompile(`(CLIENT|SERVER)_TRAFFIC_SECRET_0 [0-9a-f]{64} ([0-9a-f]+)`)
+	seen := map[string]bool{}
+	for _, m := range re.FindAllStringSubmatch(out, -1) {
+		seen[m[1]] = true
+		if len(m[2]) != 64 { // 32 bytes = 64 hex chars, not 128
+			t.Errorf("%s_TRAFFIC_SECRET_0: want 64-hex (32-byte) secret, got %d hex chars", m[1], len(m[2]))
+		}
+	}
+	if !seen["CLIENT"] || !seen["SERVER"] {
+		t.Errorf("expected both CLIENT and SERVER traffic secret lines; got %v in %q", seen, out)
 	}
 }

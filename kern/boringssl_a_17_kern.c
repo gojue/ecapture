@@ -73,6 +73,9 @@
 
 #define BSSL__SSL3_STATE_CLIENT_TRAFFIC_SECRET_0_LEN 0x181
 
+// ssl_st->server (bool:1) byte — mask 0x1; 1=server endpoint, 0=client
+#define BSSL__SSL_ST_SERVER 0xa4
+
 // bssl::SSL_HANDSHAKE->new_session
 #define BSSL__SSL_HANDSHAKE_NEW_SESSION 0x7d0
 

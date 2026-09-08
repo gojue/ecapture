@@ -552,19 +552,36 @@ int uretprobe_bssl_do_handshake(struct pt_regs *ctx) {
 
 tls13_path:
     {
-        u8 slen = 0, clen = 0;
-        bpf_probe_read_user(&slen, 1,
-            (void *)(s3_addr + BSSL__SSL3_STATE_SERVER_TRAFFIC_SECRET_0_LEN));
+        u8 clen = 0;
         bpf_probe_read_user(&clen, 1,
             (void *)(s3_addr + BSSL__SSL3_STATE_CLIENT_TRAFFIC_SECRET_0_LEN));
-        mastersecret->hash_len = clen ? clen : 32;
+        mastersecret->hash_len = clen ? clen : 32;   // both directions share the hash length
 
-        bpf_probe_read_user(&mastersecret->server_traffic_secret_0_,
-            sizeof(mastersecret->server_traffic_secret_0_),
-            (void *)(s3_addr + BSSL__SSL3_STATE_SERVER_TRAFFIC_SECRET_0));
+        // SSL3_STATE stores RELATIVE secrets: the *_SERVER_* macro is write_traffic_secret,
+        // the *_CLIENT_* macro is read_traffic_secret. NSS keylog labels are ABSOLUTE
+        // (CLIENT_TRAFFIC_SECRET_0 == the client's app secret), so map by endpoint role.
+        u64 write_src = s3_addr + BSSL__SSL3_STATE_SERVER_TRAFFIC_SECRET_0;  // this endpoint writes with it
+        u64 read_src  = s3_addr + BSSL__SSL3_STATE_CLIENT_TRAFFIC_SECRET_0;  // this endpoint reads with it
+        u64 client_src, server_src;
+#ifdef BSSL__SSL_ST_SERVER
+        u8 is_server = 0;
+        bpf_probe_read_user(&is_server, 1, (void *)(ssl_st_ptr + BSSL__SSL_ST_SERVER));
+        if (is_server & 0x1) {
+            server_src = write_src;   // a server writes with the server secret
+            client_src = read_src;
+        } else {
+            client_src = write_src;   // a client (the Android app) writes with the client secret
+            server_src = read_src;
+        }
+#else
+        // Versions without a confirmed ssl->server offset keep the prior mapping (byte-identical).
+        server_src = write_src;
+        client_src = read_src;
+#endif
         bpf_probe_read_user(&mastersecret->client_traffic_secret_0_,
-            sizeof(mastersecret->client_traffic_secret_0_),
-            (void *)(s3_addr + BSSL__SSL3_STATE_CLIENT_TRAFFIC_SECRET_0));
+            sizeof(mastersecret->client_traffic_secret_0_), (void *)client_src);
+        bpf_probe_read_user(&mastersecret->server_traffic_secret_0_,
+            sizeof(mastersecret->server_traffic_secret_0_), (void *)server_src);
         bpf_probe_read_user(&mastersecret->exporter_secret,
             sizeof(mastersecret->exporter_secret),
             (void *)(s3_addr + BSSL__SSL3_STATE_EXPORTER_SECRET));

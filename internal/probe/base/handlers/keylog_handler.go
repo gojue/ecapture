@@ -229,10 +229,17 @@ func (h *KeylogHandler) handleTLS13(event MasterSecretEvent) error {
 		length = 48
 		transcript = crypto.SHA384
 	default:
-		length = EvpMaxMdSize // do not truncate
-		// transcript is default value 0
-
-		// TODO 写ERROR日志
+		// BoringSSL master-secret events carry the TLS 1.3 hash length in this slot
+		// (mastersecret_bssl_t.hash_len, decoded into CipherId), not a cipher id. Real
+		// TLS 1.3 cipher ids are >= 0x1301, so any value in (0, EvpMaxMdSize] is a hash
+		// length (32=SHA-256, 48=SHA-384) and truncates the fixed 64-byte buffers to the
+		// real secret; anything else is an unknown/absent cipher, so emit untruncated.
+		if n := int(event.GetCipherId()); n > 0 && n <= EvpMaxMdSize {
+			length = n
+		} else {
+			length = EvpMaxMdSize
+		}
+		// transcript stays 0: the handshake-secret HKDF branch above stays skipped.
 	}
 
 	// Write each TLS 1.3 secret type if available
