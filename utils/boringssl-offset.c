@@ -143,6 +143,33 @@ template <typename T, bool Present>
 struct emit_ssl3_state_version {
     static void emit() { /* field not present in this version, nothing to emit */ }
 };
+// --- bssl::SSL3_STATE TLS 1.3 traffic secrets (Android 16+ InplaceVector layout) -------
+// write_traffic_secret / read_traffic_secret / exporter_secret are consecutive
+// InplaceVector<uint8_t,SSL_MAX_MD_SIZE> (48 bytes storage + 1 size_ byte). eCapture reads
+// them in uretprobe_bssl_do_handshake via BSSL__SSL3_STATE_{SERVER,CLIENT}_TRAFFIC_SECRET_0
+// (+ _LEN size_ byte). Emit them here so the values track the struct instead of being
+// hand-maintained; the *_LEN offset is (next vector's offset) - 1, robust to any padding.
+// Absent on Android <=15 (private raw arrays) -> emit nothing; masterkey.h defaults apply.
+template <typename T, bool Present>
+struct emit_ssl3_traffic_secrets {
+    static void emit() { /* Android <=15: not public; nothing to emit */ }
+};
+template <typename T>
+struct emit_ssl3_traffic_secrets<T, true> {
+    static void emit() {
+        size_t w = offsetof(T, write_traffic_secret);
+        size_t r = offsetof(T, read_traffic_secret);
+        size_t e = offsetof(T, exporter_secret);
+        printf("// bssl::SSL3_STATE->write_traffic_secret (labelled SERVER_TRAFFIC_SECRET_0)\n");
+        printf("#define BSSL__SSL3_STATE_SERVER_TRAFFIC_SECRET_0 0x%lx\n\n", w);
+        printf("// bssl::SSL3_STATE->read_traffic_secret (labelled CLIENT_TRAFFIC_SECRET_0)\n");
+        printf("#define BSSL__SSL3_STATE_CLIENT_TRAFFIC_SECRET_0 0x%lx\n\n", r);
+        printf("// InplaceVector size_ bytes (== next vector offset - 1)\n");
+        printf("#define BSSL__SSL3_STATE_SERVER_TRAFFIC_SECRET_0_LEN 0x%lx\n\n", r - 1);
+        printf("#define BSSL__SSL3_STATE_CLIENT_TRAFFIC_SECRET_0_LEN 0x%lx\n\n", e - 1);
+    }
+};
+
 template <typename T>
 struct emit_ssl3_state_version<T, true> {
     static void emit() {
@@ -196,6 +223,7 @@ int main() {
     format("bssl::SSL3_STATE", "exporter_secret",     offsetof(bssl::SSL3_STATE, exporter_secret));
     format("bssl::SSL3_STATE", "established_session", offsetof(bssl::SSL3_STATE, established_session));
     emit_ssl3_state_version<bssl::SSL3_STATE, ssl3_state_has_version<bssl::SSL3_STATE>::value>::emit();
+    emit_ssl3_traffic_secrets<bssl::SSL3_STATE, ssl3_state_has_version<bssl::SSL3_STATE>::value>::emit();
 
     // ── bssl::SSL_HANDSHAKE ───────────────────────────────────────────────────
     // TLS 1.3 secret offsets (secret_, early_traffic_secret_, …) are NOT emitted

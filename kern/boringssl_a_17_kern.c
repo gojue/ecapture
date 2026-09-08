@@ -62,6 +62,17 @@
 // bssl::SSL3_STATE->version
 #define BSSL__SSL3_STATE_VERSION 0xd0
 
+// bssl::SSL3_STATE->write_traffic_secret (labelled SERVER_TRAFFIC_SECRET_0)
+#define BSSL__SSL3_STATE_SERVER_TRAFFIC_SECRET_0 0x120
+
+// bssl::SSL3_STATE->read_traffic_secret (labelled CLIENT_TRAFFIC_SECRET_0)
+#define BSSL__SSL3_STATE_CLIENT_TRAFFIC_SECRET_0 0x151
+
+// InplaceVector size_ bytes (== next vector offset - 1)
+#define BSSL__SSL3_STATE_SERVER_TRAFFIC_SECRET_0_LEN 0x150
+
+#define BSSL__SSL3_STATE_CLIENT_TRAFFIC_SECRET_0_LEN 0x181
+
 // bssl::SSL_HANDSHAKE->new_session
 #define BSSL__SSL_HANDSHAKE_NEW_SESSION 0x7d0
 
