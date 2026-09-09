@@ -13,6 +13,11 @@
 
 version: "2"
 
+run:
+  build-tags:
+    - ebpfassets
+    - dynamic
+
 linters:
   default: none
   # This list of linters is not a recommendation (same thing for all this configuration file).

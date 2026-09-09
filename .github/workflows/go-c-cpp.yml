@@ -48,6 +48,7 @@ jobs:
         uses: golangci/golangci-lint-action@v8
         with:
           version: v2.13.2
+          args: --build-tags=ebpfassets,dynamic
           skip-cache: true
           problem-matchers: true
       - name: Build non-CO-RE
@@ -110,6 +111,7 @@ jobs:
         uses: golangci/golangci-lint-action@v8
         with:
           version: v2.13.2
+          args: --build-tags=ebpfassets,dynamic
           skip-cache: true
           problem-matchers: true
       - name: Build non-CO-RE
