@@ -17,7 +17,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.25.12'
+          go-version: '1.26.0'
 
       - name: Install Compilers
         run: |
@@ -79,7 +79,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.25.12'
+          go-version: '1.26.0'
 
       - name: Install Compilers
         run: |
