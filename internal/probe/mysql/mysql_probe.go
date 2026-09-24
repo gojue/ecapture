@@ -184,11 +184,10 @@ func (p *Probe) loadBytecode() ([]byte, error) {
 }
 
 func (p *Probe) getBPFName() string {
-	baseName := "bytecode/mysqld_kern.o"
 	if p.config.GetBTF() == 1 {
-		return baseName[:len(baseName)-2] + "_core.o"
+		return "bytecode/mysqld_kern_core.o"
 	}
-	return baseName[:len(baseName)-2] + "_noncore.o"
+	return "bytecode/mysqld_kern_noncore.o"
 }
 
 // setupManager sets up the eBPF manager with probes
