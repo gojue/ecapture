@@ -166,19 +166,12 @@ func (p *Probe) Close() error {
 
 // loadBytecode loads the eBPF bytecode for the MySQL probe
 func (p *Probe) loadBytecode() ([]byte, error) {
-	// Determine bytecode filename based on BTF availability
-	var bpfFileName string
-	btfEnabled := (p.config.GetBTF() != 0)
-	if btfEnabled {
-		bpfFileName = "bytecode/mysqld_kern.o"
-	} else {
-		bpfFileName = "bytecode/mysqld_kern.o" // Same file for non-BTF
-	}
+	bpfFileName := p.getBPFName()
 
 	p.Logger().Info().
 		Str("probe", p.Name()).
 		Str("bytecode", bpfFileName).
-		Bool("btf", btfEnabled).
+		Bool("btf", p.config.GetBTF() != 0).
 		Msg("Loading eBPF bytecode")
 
 	// Load bytecode from assets
@@ -188,6 +181,14 @@ func (p *Probe) loadBytecode() ([]byte, error) {
 	}
 
 	return bytecode, nil
+}
+
+func (p *Probe) getBPFName() string {
+	baseName := "bytecode/mysqld_kern.o"
+	if p.config.GetBTF() == 1 {
+		return baseName[:len(baseName)-2] + "_core.o"
+	}
+	return baseName[:len(baseName)-2] + "_noncore.o"
 }
 
 // setupManager sets up the eBPF manager with probes
