@@ -27,6 +27,7 @@ import (
 	"github.com/gojue/ecapture/v2/internal/factory"
 
 	"github.com/gojue/ecapture/v2/assets"
+	"github.com/gojue/ecapture/v2/internal/config"
 	"github.com/gojue/ecapture/v2/internal/domain"
 	"github.com/gojue/ecapture/v2/internal/errors"
 	"github.com/gojue/ecapture/v2/internal/probe/base"
@@ -184,7 +185,7 @@ func (p *Probe) loadBytecode() ([]byte, error) {
 }
 
 func (p *Probe) getBPFName() string {
-	if p.config.GetBTF() == 1 {
+	if p.config.GetBTF() == config.BTFModeCore {
 		return "bytecode/mysqld_kern_core.o"
 	}
 	return "bytecode/mysqld_kern_noncore.o"
