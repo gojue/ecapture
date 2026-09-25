@@ -261,13 +261,24 @@ func (h *KeylogHandler) handleTLS13(event MasterSecretEvent) error {
 			continue // Skip empty or zero secrets
 		}
 
+		secretLength := length
+		if secretLength == EvpMaxMdSize {
+			secretLength = trimZeroPadding(data)
+		}
+		if secretLength > len(data) {
+			secretLength = len(data)
+		}
+		if secretLength == 0 {
+			continue
+		}
+
 		// Use label+client_random as dedup key
 		dedupKey := fmt.Sprintf("%s_%s", label, clientRandomHex)
 		if h.seenKeys[dedupKey] {
 			continue // Already written this secret type for this connection
 		}
 
-		line := fmt.Sprintf("%s %s %x", label, clientRandomHex, data[:length])
+		line := fmt.Sprintf("%s %s %x", label, clientRandomHex, data[:secretLength])
 
 		// Write to output
 		if _, err := h.writer.Write([]byte(line)); err != nil {
@@ -310,6 +321,18 @@ func isZeroBytes(data []byte) bool {
 		}
 	}
 	return true
+}
+
+// trimZeroPadding returns the length of data excluding trailing zero padding.
+// OpenSSL stores TLS 1.3 secrets in EVP_MAX_MD_SIZE buffers, but some library
+// versions do not provide a usable cipher ID for determining the hash length.
+func trimZeroPadding(data []byte) int {
+	for i := len(data) - 1; i >= 0; i-- {
+		if data[i] != 0 {
+			return i + 1
+		}
+	}
+	return 0
 }
 
 // Name returns the handler's identifier.
