@@ -480,7 +480,7 @@ func TestKeylogHandler_TLS13_BoringSSLHashLen(t *testing.T) {
 	}
 }
 
-func TestKeylogHandler_TLS13_TrimUnknownCipherPadding(t *testing.T) {
+func TestKeylogHandler_TLS13_SkipUnknownCipherLength(t *testing.T) {
 	writer := newMockKeylogWriter()
 	handler := NewKeylogHandler(writer)
 
@@ -503,13 +503,7 @@ func TestKeylogHandler_TLS13_TrimUnknownCipherPadding(t *testing.T) {
 		t.Fatalf("Handle: %v", err)
 	}
 
-	out := writer.String()
-	re := regexp.MustCompile(`CLIENT_TRAFFIC_SECRET_0 [0-9a-f]{64} ([0-9a-f]+)`)
-	match := re.FindStringSubmatch(out)
-	if len(match) != 2 {
-		t.Fatalf("expected client traffic secret line, got %q", out)
-	}
-	if len(match[1]) != 64 {
-		t.Fatalf("expected 32-byte secret without zero padding, got %d hex chars", len(match[1]))
+	if out := writer.String(); out != "" {
+		t.Fatalf("unknown secret length must not produce keylog output, got %q", out)
 	}
 }

@@ -231,13 +231,12 @@ func (h *KeylogHandler) handleTLS13(event MasterSecretEvent) error {
 	default:
 		// BoringSSL master-secret events carry the TLS 1.3 hash length in this slot
 		// (mastersecret_bssl_t.hash_len, decoded into CipherId), not a cipher id. Real
-		// TLS 1.3 cipher ids are >= 0x1301, so any value in (0, EvpMaxMdSize] is a hash
-		// length (32=SHA-256, 48=SHA-384) and truncates the fixed 64-byte buffers to the
-		// real secret; anything else is an unknown/absent cipher, so emit untruncated.
-		if n := int(event.GetCipherId()); n > 0 && n <= EvpMaxMdSize {
+		// TLS 1.3 cipher ids are >= 0x1301. Only the supported hash lengths are valid
+		// here; an unknown value must not be used to infer a secret length.
+		if n := int(event.GetCipherId()); n == 32 || n == 48 {
 			length = n
 		} else {
-			length = EvpMaxMdSize
+			return nil
 		}
 		// transcript stays 0: the handshake-secret HKDF branch above stays skipped.
 	}
@@ -261,14 +260,7 @@ func (h *KeylogHandler) handleTLS13(event MasterSecretEvent) error {
 			continue // Skip empty or zero secrets
 		}
 
-		secretLength := length
-		if secretLength == EvpMaxMdSize {
-			secretLength = trimZeroPadding(data)
-		}
-		if secretLength > len(data) {
-			secretLength = len(data)
-		}
-		if secretLength == 0 {
+		if length > len(data) {
 			continue
 		}
 
@@ -278,7 +270,7 @@ func (h *KeylogHandler) handleTLS13(event MasterSecretEvent) error {
 			continue // Already written this secret type for this connection
 		}
 
-		line := fmt.Sprintf("%s %s %x", label, clientRandomHex, data[:secretLength])
+		line := fmt.Sprintf("%s %s %x", label, clientRandomHex, data[:length])
 
 		// Write to output
 		if _, err := h.writer.Write([]byte(line)); err != nil {
@@ -321,18 +313,6 @@ func isZeroBytes(data []byte) bool {
 		}
 	}
 	return true
-}
-
-// trimZeroPadding returns the length of data excluding trailing zero padding.
-// OpenSSL stores TLS 1.3 secrets in EVP_MAX_MD_SIZE buffers, but some library
-// versions do not provide a usable cipher ID for determining the hash length.
-func trimZeroPadding(data []byte) int {
-	for i := len(data) - 1; i >= 0; i-- {
-		if data[i] != 0 {
-			return i + 1
-		}
-	}
-	return 0
 }
 
 // Name returns the handler's identifier.
