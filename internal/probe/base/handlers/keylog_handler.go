@@ -231,13 +231,13 @@ func (h *KeylogHandler) handleTLS13(event MasterSecretEvent) error {
 	default:
 		// BoringSSL master-secret events carry the TLS 1.3 hash length in this slot
 		// (mastersecret_bssl_t.hash_len, decoded into CipherId), not a cipher id. Real
-		// TLS 1.3 cipher ids are >= 0x1301, so any value in (0, EvpMaxMdSize] is a hash
-		// length (32=SHA-256, 48=SHA-384) and truncates the fixed 64-byte buffers to the
-		// real secret; anything else is an unknown/absent cipher, so emit untruncated.
-		if n := int(event.GetCipherId()); n > 0 && n <= EvpMaxMdSize {
+		// TLS 1.3 cipher ids are >= 0x1301. Only the supported hash lengths are valid
+		// here; an unknown value must not be used to infer a secret length.
+		if n := int(event.GetCipherId()); n == 32 || n == 48 {
 			length = n
 		} else {
-			length = EvpMaxMdSize
+			return errors.New(errors.ErrCodeEventValidation,
+				fmt.Sprintf("unsupported TLS 1.3 cipher or hash length: %d", event.GetCipherId()))
 		}
 		// transcript stays 0: the handshake-secret HKDF branch above stays skipped.
 	}
@@ -259,6 +259,10 @@ func (h *KeylogHandler) handleTLS13(event MasterSecretEvent) error {
 	for label, data := range secrets {
 		if len(data) == 0 || isZeroBytes(data) {
 			continue // Skip empty or zero secrets
+		}
+
+		if length > len(data) {
+			continue
 		}
 
 		// Use label+client_random as dedup key
