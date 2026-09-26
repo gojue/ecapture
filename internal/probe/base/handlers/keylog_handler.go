@@ -236,7 +236,8 @@ func (h *KeylogHandler) handleTLS13(event MasterSecretEvent) error {
 		if n := int(event.GetCipherId()); n == 32 || n == 48 {
 			length = n
 		} else {
-			return nil
+			return errors.New(errors.ErrCodeEventValidation,
+				fmt.Sprintf("unsupported TLS 1.3 cipher or hash length: %d", event.GetCipherId()))
 		}
 		// transcript stays 0: the handshake-secret HKDF branch above stays skipped.
 	}
