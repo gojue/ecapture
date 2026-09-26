@@ -18,6 +18,7 @@ import (
 	"context"
 	"testing"
 
+	icfg "github.com/gojue/ecapture/v2/internal/config"
 	"github.com/gojue/ecapture/v2/internal/domain"
 	"github.com/gojue/ecapture/v2/internal/factory"
 )
@@ -266,5 +267,42 @@ func TestProbe_FactoryRegistration(t *testing.T) {
 
 	if probe.Name() != "MySQL" {
 		t.Errorf("Factory probe name = %v, want %v", probe.Name(), "mysql")
+	}
+}
+
+func TestProbe_getBPFName(t *testing.T) {
+	tests := []struct {
+		name     string
+		btfMode  uint8
+		expected string
+	}{
+		{
+			name:     "core",
+			btfMode:  icfg.BTFModeCore,
+			expected: "bytecode/mysqld_kern_core.o",
+		},
+		{
+			name:     "non-core",
+			btfMode:  icfg.BTFModeNonCore,
+			expected: "bytecode/mysqld_kern_noncore.o",
+		},
+		{
+			name:     "auto-detect defaults to non-core name",
+			btfMode:  icfg.BTFModeAutoDetect,
+			expected: "bytecode/mysqld_kern_noncore.o",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			probe := NewProbe()
+			cfg := NewConfig()
+			cfg.SetBTF(tt.btfMode)
+			probe.config = cfg
+			got := probe.getBPFName()
+			if got != tt.expected {
+				t.Fatalf("getBPFName() = %q, want %q", got, tt.expected)
+			}
+		})
 	}
 }
