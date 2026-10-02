@@ -34,7 +34,7 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
     // mastersecret_t sent to userspace
     struct mastersecret_t *mastersecret = make_event();
     // Get a ssl_st pointer
-    void *ssl_st_ptr = (void *)PT_REGS_PARM1(ctx);
+    void *ssl_st_ptr = UNTAG(PT_REGS_PARM1(ctx));
     if (!mastersecret) {
         debug_bpf_printk("mastersecret is null\n");
         return 0;

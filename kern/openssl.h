@@ -15,6 +15,14 @@
 #include "ecapture.h"
 #include "tc.h"
 
+#define UNTAG(p) ((void *)((u64)(p) & 0x00FFFFFFFFFFFFFFULL))
+
+static __always_inline long bpf_probe_read_user_untagged(void *dst, u32 size, const void *src) {
+    return bpf_probe_read_user(dst, size, UNTAG(src));
+}
+
+// Apply TBI tag removal to direct and nested OpenSSL user-memory reads.
+#define bpf_probe_read_user(dst, size, src) bpf_probe_read_user_untagged(dst, size, src)
 
 /***********************************************************
  * Internal structs and definitions
@@ -182,7 +190,11 @@ static int process_SSL_data(struct pt_regs* ctx, u64 id,
     event->data_len =
         (len < MAX_DATA_SIZE_OPENSSL ? (len & (MAX_DATA_SIZE_OPENSSL - 1))
                                      : MAX_DATA_SIZE_OPENSSL);
-    bpf_probe_read_user(event->data, event->data_len, buf);
+    int ret = bpf_probe_read_user(event->data, event->data_len, buf);
+    if (ret) {
+        debug_bpf_printk("(OPENSSL) bpf_probe_read_user payload failed, ret: %d\n", ret);
+        return 0;
+    }
     bpf_get_current_comm(&event->comm, sizeof(event->comm));
     bpf_perf_event_output(ctx, &tls_events, BPF_F_CURRENT_CPU, event,
                           sizeof(struct ssl_data_event_t));
@@ -269,7 +281,7 @@ static __always_inline int probe_entry_SSL(struct pt_regs* ctx, void *map, int b
         return 0;
     }
 
-    void* ssl = (void*)PT_REGS_PARM1(ctx);
+    void *ssl = UNTAG(PT_REGS_PARM1(ctx));
     u64 *ssl_ver_ptr;
     u64 ssl_version = 0;
     int ret;
@@ -289,7 +301,7 @@ static __always_inline int probe_entry_SSL(struct pt_regs* ctx, void *map, int b
         debug_bpf_printk("openssl uprobe/SSL entry fd: %d, version: %d\n", fd, ssl_version);
     }
 
-    const char* buf = (const char*)PT_REGS_PARM2(ctx);
+    const char *buf = UNTAG(PT_REGS_PARM2(ctx));
     struct active_ssl_buf active_ssl_buf_t;
     __builtin_memset(&active_ssl_buf_t, 0, sizeof(active_ssl_buf_t));
     active_ssl_buf_t.fd = fd;
@@ -527,7 +539,7 @@ int probe_tcp_v4_destroy_sock(struct pt_regs* ctx) {
 SEC("uprobe/SSL_set_fd")
 int probe_SSL_set_fd(struct pt_regs* ctx) {
 
-    u64 ssl_addr = (u64)PT_REGS_PARM1(ctx);
+    u64 ssl_addr = (u64)UNTAG(PT_REGS_PARM1(ctx));
     u64 fd = (u64)PT_REGS_PARM2(ctx);
     bpf_map_update_elem(&ssl_st_fd, &ssl_addr, &fd, BPF_ANY);
     debug_bpf_printk("SSL_set_fd hook!!, ssl_addr: %d, fd: %d\n", ssl_addr, fd);
