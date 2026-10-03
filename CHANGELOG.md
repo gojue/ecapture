@@ -11,6 +11,7 @@
 **Full Changelog**: https://github.com/gojue/ecapture/compare/v2.5.2...v2.6.0
 
 <hr>
+
 # v2.5.2 (2026-07-12)
 
 ## What's Changed
