@@ -16,6 +16,7 @@ package handlers
 
 import (
 	"bytes"
+	"fmt"
 	"regexp"
 	"strings"
 	"testing"
@@ -480,7 +481,7 @@ func TestKeylogHandler_TLS13_BoringSSLHashLen(t *testing.T) {
 	}
 }
 
-func TestKeylogHandler_TLS13_SkipUnknownCipherLength(t *testing.T) {
+func TestKeylogHandler_TLS13_TrimUnknownCipherLengthPadding(t *testing.T) {
 	writer := newMockKeylogWriter()
 	handler := NewKeylogHandler(writer)
 
@@ -499,11 +500,12 @@ func TestKeylogHandler_TLS13_SkipUnknownCipherLength(t *testing.T) {
 		cipherId:               0, // OpenSSL 3.0.12 may not expose a usable cipher ID.
 		clientAppTrafficSecret: secret,
 	}
-	if err := handler.Handle(event); err == nil {
-		t.Fatal("Handle should reject unknown TLS 1.3 cipher or hash length")
+	if err := handler.Handle(event); err != nil {
+		t.Fatalf("Handle: %v", err)
 	}
 
-	if out := writer.String(); out != "" {
-		t.Fatalf("unknown secret length must not produce keylog output, got %q", out)
+	want := fmt.Sprintf("%s %x %x", hkdf.KeyLogLabelClientTraffic, clientRandom, secret[:32])
+	if out := writer.String(); out != want {
+		t.Fatalf("keylog output = %q, want 32-byte secret %q", out, want)
 	}
 }

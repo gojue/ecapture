@@ -15,6 +15,7 @@
 package handlers
 
 import (
+	"bytes"
 	"crypto"
 	"fmt"
 	"sync"
@@ -232,12 +233,9 @@ func (h *KeylogHandler) handleTLS13(event MasterSecretEvent) error {
 		// BoringSSL master-secret events carry the TLS 1.3 hash length in this slot
 		// (mastersecret_bssl_t.hash_len, decoded into CipherId), not a cipher id. Real
 		// TLS 1.3 cipher ids are >= 0x1301. Only the supported hash lengths are valid
-		// here; an unknown value must not be used to infer a secret length.
+		// here; otherwise the secret's fixed-buffer zero padding is trimmed below.
 		if n := int(event.GetCipherId()); n == 32 || n == 48 {
 			length = n
-		} else {
-			return errors.New(errors.ErrCodeEventValidation,
-				fmt.Sprintf("unsupported TLS 1.3 cipher or hash length: %d", event.GetCipherId()))
 		}
 		// transcript stays 0: the handshake-secret HKDF branch above stays skipped.
 	}
@@ -261,8 +259,16 @@ func (h *KeylogHandler) handleTLS13(event MasterSecretEvent) error {
 			continue // Skip empty or zero secrets
 		}
 
-		if length > len(data) {
-			continue
+		if length == 0 {
+			data = bytes.TrimRight(data, "\x00")
+			if len(data) == 0 {
+				continue
+			}
+		} else {
+			if length > len(data) {
+				continue
+			}
+			data = data[:length]
 		}
 
 		// Use label+client_random as dedup key
@@ -271,7 +277,7 @@ func (h *KeylogHandler) handleTLS13(event MasterSecretEvent) error {
 			continue // Already written this secret type for this connection
 		}
 
-		line := fmt.Sprintf("%s %s %x", label, clientRandomHex, data[:length])
+		line := fmt.Sprintf("%s %s %x", label, clientRandomHex, data)
 
 		// Write to output
 		if _, err := h.writer.Write([]byte(line)); err != nil {
