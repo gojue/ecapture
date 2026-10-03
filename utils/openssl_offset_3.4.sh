@@ -33,6 +33,7 @@ function run() {
   sslVerMap["4"]="1"
   sslVerMap["5"]="1"
   sslVerMap["6"]="1" # 2024-06-15: openssl-3.4.6 is released, but the offset of 3.4.6 is the same as 3.4.1
+  sslVerMap["7"]="1"
 
   # shellcheck disable=SC2068
   for ver in ${!sslVerMap[@]}; do

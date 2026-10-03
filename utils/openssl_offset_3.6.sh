@@ -28,6 +28,8 @@ function run() {
   sslVerMap["0"]="0"
   sslVerMap["1"]="0"
   sslVerMap["2"]="0"  # 2026-06-15: openssl-3.6.2 is released, but the offset of 3.6.2 is the same as 3.6.0, so we can reuse the header file of 3.6.0
+  sslVerMap["3"]="0"
+  sslVerMap["4"]="0"
 
   # shellcheck disable=SC2068
   for ver in ${!sslVerMap[@]}; do

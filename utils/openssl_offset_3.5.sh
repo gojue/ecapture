@@ -33,6 +33,7 @@ function run() {
   sslVerMap["5"]="0"
   sslVerMap["6"]="0"
   sslVerMap["7"]="0" # 2026-06-15 3.6.1~7 are the same as 3.5.0
+  sslVerMap["8"]="0"
 
   # shellcheck disable=SC2068
   for ver in ${!sslVerMap[@]}; do

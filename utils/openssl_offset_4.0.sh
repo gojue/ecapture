@@ -27,6 +27,7 @@ function run() {
   declare -A sslVerMap=()
   sslVerMap["0"]="0"
   sslVerMap["1"]="0" # 2026-06-15 4.0.0 ~ 4.0.1 is the same as 3.5.0
+  sslVerMap["2"]="0"
 
   # shellcheck disable=SC2068
   for ver in ${!sslVerMap[@]}; do
