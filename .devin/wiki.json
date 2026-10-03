@@ -17,7 +17,7 @@
     },
     {
       "title": "简介概览",
-      "purpose": "面向用户的详细介绍，说明 eCapture 的定位、核心能力和典型场景，包括 TLS/SSL 明文抓取、数据库 SQL 审计、Shell 命令审计，以及与传统抓包工具的差异。"
+      "purpose": "面向用户的详细介绍，说明 eCapture 的定位、核心能力和典型场景，包括 TLS/SSL 明文抓取、数据库 SQL 审计、Shell 命令审计，以及与传统抓包工具的差异。",
       "parent": "简介",
       "page_notes": [
         {
