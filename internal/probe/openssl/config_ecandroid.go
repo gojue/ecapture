@@ -26,10 +26,10 @@ import (
 
 const (
 	// Android-specific default paths
-	DefaultLibcPath    = "/apex/com.android.runtime/lib64/bionic/libc.so"
-	BuildPropPath      = "/system/build.prop"
-	ReleasePrefix      = "ro.build.version.release="
-	DefaultIfname      = "wlan0"
+	DefaultLibcPath = "/apex/com.android.runtime/lib64/bionic/libc.so"
+	BuildPropPath   = "/system/build.prop"
+	ReleasePrefix   = "ro.build.version.release="
+	DefaultIfname   = "wlan0"
 )
 
 // Android-specific version of detectOpenSSL
@@ -53,7 +53,6 @@ func (c *Config) detectOpenSSL() error {
 	for _, path := range androidPaths {
 		if _, err := os.Stat(path); err == nil {
 			c.OpensslPath = path
-			c.IsBoringSSL = true
 			return nil
 		}
 	}
@@ -70,16 +69,10 @@ func (c *Config) detectOS() error {
 	// set Android-specific flags
 	c.IsAndroid = true
 
-	// For Android, it's always BoringSSL
-	c.IsBoringSSL = true
-
 	// Detect Android version from build.prop
 	androidVer, err := detectAndroidVersion()
 	if err == nil && androidVer != "" {
-		c.SslVersion = fmt.Sprintf("boringssl_a_%s", androidVer)
 		c.AndroidVer = androidVer
-	} else {
-		c.IsBoringSSL = false
 	}
 
 	return nil

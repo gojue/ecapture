@@ -65,6 +65,36 @@ func TestConfig_GetBPFFileName(t *testing.T) {
 	}
 }
 
+func TestConfig_AutoDetectBytecodeAndroid(t *testing.T) {
+	tests := []struct {
+		name       string
+		version    string
+		androidVer string
+		want       string
+	}{
+		{
+			name:    "detected OpenSSL version",
+			version: "openssl 1.1.1q",
+			want:    "openssl_1_1_1j_kern.o",
+		},
+		{
+			name:       "version not detected",
+			androidVer: "16",
+			want:       "boringssl_a_16_kern.o",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := NewConfig()
+			cfg.AndroidVer = tt.androidVer
+			if got := cfg.autoDetectBytecode(tt.version, "", true); got != tt.want {
+				t.Errorf("autoDetectBytecode(%q, ..., true) = %q, want %q", tt.version, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestConfig_Bytes(t *testing.T) {
 	cfg := NewConfig()
 	cfg.OpensslPath = "/usr/lib/libssl.so.1.1"
@@ -121,7 +151,7 @@ func TestConfig_DetectVersion(t *testing.T) {
 	cfg3 := NewConfig()
 	cfg3.OpensslPath = "/usr/lib/libboringssl.so"
 	err = cfg3.detectOS()
-	if err == nil && !cfg3.IsBoringSSL {
+	if err == nil && !cfg3.IsAndroid && !cfg3.IsBoringSSL {
 		t.Error("BoringSSL not detected correctly")
 	}
 }

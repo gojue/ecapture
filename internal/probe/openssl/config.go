@@ -333,7 +333,6 @@ func (c *Config) getSslBpfFile(soPath, sslVersion string) error {
 
 	var bpfFileKey, bpfFile string
 	isAndroid := c.IsAndroid
-	androidVer := c.AndroidVer
 	bpfFileKey = sslVersion
 	if verString != "" {
 		c.SslVersion = verString
@@ -341,13 +340,6 @@ func (c *Config) getSslBpfFile(soPath, sslVersion string) error {
 		// find the sslVersion bpfFile from sslVersionBpfMap
 		var found bool
 		bpfFileKey = verString
-		if isAndroid {
-			// sometimes,boringssl version always was "boringssl 1.1.1" on android. but offsets are different.
-			// see kern/boringssl_a_13_kern.c and kern/boringssl_a_14_kern.c
-			// Perhaps we can utilize the Android Version to choose a specific version of boringssl.
-			// use the corresponding bpfFile
-			bpfFileKey = fmt.Sprintf("boringssl_a_%s", androidVer)
-		}
 		bpfFile, found = sslVersionBpfMap[bpfFileKey]
 		if found {
 			c.SslBpfFile = bpfFile
@@ -462,7 +454,7 @@ func (c *Config) autoDetectBytecode(ver, soPath string, isAndroid bool) string {
 	var bpfFile string
 	var found bool
 	// if not found, use default
-	if isAndroid {
+	if isAndroid && ver == "" {
 		c.SslVersion = AndroidDefaultFilename
 		androidVer := c.AndroidVer
 		if androidVer != "" {
