@@ -147,12 +147,7 @@ func (pw *PcapWriter) WritePacket(data []byte, timestamp time.Time) error {
 		InterfaceIndex: 0,
 	}
 
-	select {
-	case pw.packetChan <- &TcPacket{ci: captureInfo, data: data}:
-	default:
-		// If the channel is full, write directly (blocking)
-		return fmt.Errorf("pcap write packet channel full")
-	}
+	pw.packetChan <- &TcPacket{ci: captureInfo, data: data}
 	return nil
 }
 
