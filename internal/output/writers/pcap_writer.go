@@ -20,6 +20,7 @@ import (
 	"io"
 	"math"
 	"net"
+	"sync"
 	"time"
 
 	"github.com/google/gopacket"
@@ -42,14 +43,15 @@ type PcapWriter struct {
 	ctx       context.Context
 	ctxCancel context.CancelFunc
 
-	tcPackets       []*TcPacket
-	packetChan      chan *TcPacket
-	keylogChan      chan []byte // channel for DSB (keylog) writes, serialized with packet writes
-	serveDone       chan struct{}
-	packetCount     int
-	firstDSBWritten bool // true after the first DSB has been written to the file
-	isClosed        bool
-	logger          *lger.Logger
+	tcPackets        []*TcPacket
+	packetChan       chan *TcPacket
+	keylogChan       chan []byte // channel for DSB (keylog) writes, serialized with packet writes
+	serveDone        chan struct{}
+	packetCount      int
+	firstDSBWritten  bool // true after the first DSB has been written to the file
+	isClosed         bool
+	logger           *lger.Logger
+	queueFullWarning sync.Once
 }
 
 // NewPcapWriter creates a new PCAPNG writer
@@ -147,7 +149,17 @@ func (pw *PcapWriter) WritePacket(data []byte, timestamp time.Time) error {
 		InterfaceIndex: 0,
 	}
 
-	pw.packetChan <- &TcPacket{ci: captureInfo, data: data}
+	packet := &TcPacket{ci: captureInfo, data: data}
+	select {
+	case pw.packetChan <- packet:
+	default:
+		pw.queueFullWarning.Do(func() {
+			pw.logger.Warn().
+				Int("capacity", cap(pw.packetChan)).
+				Msg("PCAP packet queue full; waiting for writer, perf buffer may overflow")
+		})
+		pw.packetChan <- packet
+	}
 	return nil
 }
 

@@ -1,14 +1,22 @@
 package writers
 
 import (
+	"bytes"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/gojue/ecapture/v2/internal/logger"
 )
 
 func TestWritePacketWaitsForQueueCapacity(t *testing.T) {
 	packetChan := make(chan *TcPacket, 1)
 	packetChan <- &TcPacket{}
-	pw := &PcapWriter{packetChan: packetChan}
+	var logOutput bytes.Buffer
+	pw := &PcapWriter{
+		packetChan: packetChan,
+		logger:     logger.New(&logOutput, false),
+	}
 
 	data := []byte{0x45, 0x00, 0x00, 0x3c}
 	timestamp := time.Unix(123, 456)
@@ -40,5 +48,8 @@ func TestWritePacketWaitsForQueueCapacity(t *testing.T) {
 	}
 	if !packet.ci.Timestamp.Equal(timestamp) {
 		t.Errorf("packet timestamp = %v, want %v", packet.ci.Timestamp, timestamp)
+	}
+	if !strings.Contains(logOutput.String(), "PCAP packet queue full") {
+		t.Errorf("queue saturation warning was not logged: %s", logOutput.String())
 	}
 }
