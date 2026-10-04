@@ -16,6 +16,7 @@ package handlers
 
 import (
 	"bytes"
+	"fmt"
 	"regexp"
 	"strings"
 	"testing"
@@ -477,5 +478,34 @@ func TestKeylogHandler_TLS13_BoringSSLHashLen(t *testing.T) {
 	}
 	if !seen["CLIENT"] || !seen["SERVER"] {
 		t.Errorf("expected both CLIENT and SERVER traffic secret lines; got %v in %q", seen, out)
+	}
+}
+
+func TestKeylogHandler_TLS13_TrimUnknownCipherLengthPadding(t *testing.T) {
+	writer := newMockKeylogWriter()
+	handler := NewKeylogHandler(writer)
+
+	clientRandom := make([]byte, Ssl3RandomSize)
+	secret := make([]byte, EvpMaxMdSize)
+	for i := range clientRandom {
+		clientRandom[i] = byte(i + 1)
+	}
+	for i := range secret[:32] {
+		secret[i] = byte(i + 1)
+	}
+
+	event := &mockMasterSecretEvent{
+		version:                0x0304,
+		clientRandom:           clientRandom,
+		cipherId:               0, // OpenSSL 3.0.12 may not expose a usable cipher ID.
+		clientAppTrafficSecret: secret,
+	}
+	if err := handler.Handle(event); err != nil {
+		t.Fatalf("Handle: %v", err)
+	}
+
+	want := fmt.Sprintf("%s %x %x", hkdf.KeyLogLabelClientTraffic, clientRandom, secret[:32])
+	if out := writer.String(); out != want {
+		t.Fatalf("keylog output = %q, want 32-byte secret %q", out, want)
 	}
 }
