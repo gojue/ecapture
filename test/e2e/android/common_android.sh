@@ -1,572 +1,314 @@
 #!/usr/bin/env bash
-# File: test/e2e/android/common_android.sh
-# Common utilities for ecapture Android e2e tests
-# Requirements: Android 15+, Kernel 5.5+ (ARM64) or 4.18+ (x86_64)
+# Android 13+ E2E harness for rooted devices/emulators.
 
 set -euo pipefail
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+ANDROID_E2E_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+E2E_DIR="$(cd "$ANDROID_E2E_DIR/.." && pwd)"
+ROOT_DIR="$(cd "$E2E_DIR/../.." && pwd)"
 
-# Logging functions
-log_info() {
-    echo -e "${BLUE}[INFO]${NC} $*"
-}
+# shellcheck source=test/e2e/lib/testlib.sh
+source "$E2E_DIR/lib/testlib.sh"
 
-log_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $*"
-}
+ANDROID_CAPTURE_PID=""
+ANDROID_HOST_SERVER_PID=""
+ANDROID_WORK_DIR=""
+ANDROID_DEVICE_DIR=""
+ANDROID_TLS_PORT=""
+ANDROID_TLS_URL=""
+ANDROID_E2E_TOKEN=""
+ANDROID_PCAPNG_CHECK=""
 
-log_warn() {
-    echo -e "${YELLOW}[WARN]${NC} $*"
-}
-
-log_error() {
-    echo -e "${RED}[ERROR]${NC} $*"
-}
-
-# Check if running on macOS (development environment)
-is_macos() {
-    [[ "$(uname -s)" == "Darwin" ]]
-}
-
-# Check if ADB is available
-check_adb() {
-    if ! command -v adb >/dev/null 2>&1; then
-        log_error "ADB not found. Please install Android SDK Platform Tools."
-        log_info "Install: brew install --cask android-platform-tools (macOS)"
-        return 1
-    fi
-
-    log_info "ADB version: $(adb --version | head -1)"
-    return 0
-}
-
-# Check if Android device/emulator is connected
-check_android_device() {
-    if ! adb devices | grep -q "device$"; then
-        log_error "No Android device connected. Please connect device or start emulator."
-        log_info "Available devices:"
-        adb devices
-        return 1
-    fi
-
-    local device_count
-    device_count=$(adb devices | grep "device$" | wc -l)
-    log_info "Found $device_count Android device(s) connected"
-    return 0
-}
-
-# Check Android version (require Android 15+, API 35+)
-check_android_version() {
-    local sdk_version
-    sdk_version=$(adb shell getprop ro.build.version.sdk | tr -d '\r')
-
-    if [ -z "$sdk_version" ]; then
-        log_error "Failed to get Android SDK version"
-        return 1
-    fi
-
-    log_info "Android SDK version: $sdk_version"
-
-    if [ "$sdk_version" -lt 35 ]; then
-        log_error "Android SDK version $sdk_version is too old. Required: >= 35 (Android 15)"
-        return 1
-    fi
-
-    local release
-    release=$(adb shell getprop ro.build.version.release | tr -d '\r')
-    log_success "Android version: $release (SDK $sdk_version) - OK"
-    return 0
-}
-
-# Check kernel version (require 5.5+ for ARM64, 4.18+ for x86_64)
-check_android_kernel() {
-    local kernel_version
-    kernel_version=$(adb shell uname -r | tr -d '\r')
-
-    log_info "Kernel version: $kernel_version"
-
-    local major minor
-    major=$(echo "$kernel_version" | cut -d'.' -f1)
-    minor=$(echo "$kernel_version" | cut -d'.' -f2)
-
-    local arch
-    arch=$(adb shell uname -m | tr -d '\r')
-
-    if [[ "$arch" == "aarch64" || "$arch" == "arm64" ]]; then
-        # ARM64 requires kernel >= 5.5
-        if [ "$major" -lt 5 ] || { [ "$major" -eq 5 ] && [ "$minor" -lt 5 ]; }; then
-            log_error "Kernel version $kernel_version is too old for ARM64. Required: >= 5.5 (ARM64) or >= 4.18 (x86_64)"
-            return 1
-        fi
-    elif [[ "$arch" == "x86_64" ]]; then
-        # x86_64 requires kernel >= 4.18
-        if [ "$major" -lt 4 ] || { [ "$major" -eq 4 ] && [ "$minor" -lt 18 ]; }; then
-            log_error "Kernel version $kernel_version is too old for x86_64. Required: >= 5.5 (ARM64) or >= 4.18 (x86_64)"
-            return 1
-        fi
+adb_cmd() {
+    if [[ -n "${ADB_SERIAL:-}" ]]; then
+        command adb -s "$ADB_SERIAL" "$@"
     else
-        log_warn "Unknown architecture $arch, skipping kernel version check"
+        command adb "$@"
     fi
-
-    log_success "Kernel version: $kernel_version - OK"
-    return 0
 }
 
-# Check CPU architecture (require ARM64 or x86_64)
+adb_cmd_timeout() {
+    local duration="$1"
+    shift
+    if [[ -n "${ADB_SERIAL:-}" ]]; then
+        timeout "$duration" adb -s "$ADB_SERIAL" "$@"
+    else
+        timeout "$duration" adb "$@"
+    fi
+}
+
+check_android_host() {
+    if [[ "$(uname -s)" != "Linux" ]]; then
+        log_error "Android E2E execution must be hosted on Linux"
+        return 1
+    fi
+    local major minor
+    IFS=. read -r major minor _ <<<"$(uname -r)"
+    if ((major < 4 || (major == 4 && minor < 18))); then
+        log_error "Android E2E host kernel $(uname -r) is too old; require 4.18+"
+        return 1
+    fi
+}
+
+check_adb() {
+    require_command adb || return 1
+    local devices
+    devices="$(adb_cmd devices | awk 'NR > 1 && $2 == "device" {count++} END {print count+0}')"
+    if [[ "$devices" -ne 1 && -z "${ADB_SERIAL:-}" ]]; then
+        log_error "Expected exactly one Android device, found $devices; set ADB_SERIAL when multiple devices are attached"
+        adb_cmd devices >&2
+        return 1
+    fi
+}
+
+check_android_device() {
+    adb_cmd get-state >/dev/null 2>&1 || {
+        log_error "Android device is not ready"
+        return 1
+    }
+}
+
+check_android_version() {
+    local sdk release
+    sdk="$(adb_cmd shell getprop ro.build.version.sdk | tr -d '\r')"
+    release="$(adb_cmd shell getprop ro.build.version.release | tr -d '\r')"
+    if [[ ! "$sdk" =~ ^[0-9]+$ ]] || ((sdk < 33)); then
+        log_error "Android 13/API 33 or newer is required (found release=$release api=$sdk)"
+        return 1
+    fi
+    log_info "Android release=$release api=$sdk"
+}
+
 check_android_arch() {
     local arch
-    arch=$(adb shell uname -m | tr -d '\r')
-
-    log_info "Architecture: $arch"
-
-    if [[ "$arch" != "aarch64" && "$arch" != "arm64" && "$arch" != "x86_64" ]]; then
-        log_error "Architecture $arch is not supported. Required: aarch64/arm64 or x86_64"
-        return 1
-    fi
-
-    log_success "Architecture: $arch - OK"
-    return 0
+    arch="$(adb_cmd shell uname -m | tr -d '\r')"
+    case "$arch" in
+        x86_64|aarch64|arm64) log_info "Android architecture: $arch" ;;
+        *) log_error "Unsupported Android architecture: $arch"; return 1 ;;
+    esac
 }
 
-# Check if device is rooted
+check_android_kernel() {
+    local arch kernel major minor required_major required_minor
+    arch="$(adb_cmd shell uname -m | tr -d '\r')"
+    kernel="$(adb_cmd shell uname -r | tr -d '\r')"
+    IFS=. read -r major minor _ <<<"$kernel"
+    case "$arch" in
+        x86_64) required_major=4; required_minor=18 ;;
+        aarch64|arm64) required_major=5; required_minor=5 ;;
+        *) return 1 ;;
+    esac
+    if ((major < required_major || (major == required_major && minor < required_minor))); then
+        log_error "Android kernel $kernel is too old for $arch"
+        return 1
+    fi
+    log_info "Android kernel: $kernel"
+}
+
 check_android_root() {
-    log_info "Checking root access..."
-
-    if ! adb root >/dev/null 2>&1; then
-        log_error "Failed to get root access. Tests require rooted device/emulator."
+    adb_cmd root >/dev/null 2>&1 || {
+        log_error "adb root failed; a rooted userdebug emulator/device is required"
         return 1
-    fi
-
-    sleep 2
-    adb wait-for-device
-
-    # Verify root by checking uid
+    }
+    adb_cmd wait-for-device
     local uid
-    uid=$(adb shell id -u | tr -d '\r')
+    uid="$(adb_cmd shell id -u | tr -d '\r')"
+    [[ "$uid" == "0" ]] || {
+        log_error "adbd is not root (uid=$uid)"
+        return 1
+    }
+}
 
-    if [ "$uid" != "0" ]; then
-        log_error "Not running as root (uid=$uid). Tests require root."
+prepare_android_selinux() {
+    local state
+    state="$(adb_cmd shell getenforce 2>/dev/null | tr -d '\r' || true)"
+    if [[ "$state" == "Enforcing" ]]; then
+        adb_cmd shell setenforce 0 >/dev/null 2>&1 || true
+        state="$(adb_cmd shell getenforce 2>/dev/null | tr -d '\r' || true)"
+    fi
+    if [[ "$state" == "Enforcing" ]]; then
+        log_error "SELinux remains enforcing; the E2E image must permit eBPF attachment"
         return 1
     fi
-
-    log_success "Root access: OK (uid=$uid)"
-    return 0
+    log_info "SELinux: ${state:-unknown}"
 }
 
-# Check SELinux status
-check_selinux() {
-    local selinux_status
-    selinux_status=$(adb shell getenforce 2>/dev/null | tr -d '\r' || echo "Unknown")
-
-    log_info "SELinux status: $selinux_status"
-
-    if [ "$selinux_status" = "Enforcing" ]; then
-        log_warn "SELinux is in Enforcing mode. eBPF may be restricted."
-        log_info "To run tests, you may need to set SELinux to permissive:"
-        log_info "  adb shell setenforce 0"
-        return 1
-    fi
-
-    return 0
-}
-
-# Set SELinux to permissive mode
-set_selinux_permissive() {
-    log_info "Setting SELinux to permissive mode..."
-
-    if adb shell setenforce 0 2>/dev/null; then
-        log_success "SELinux set to permissive mode"
-        return 0
-    else
-        log_error "Failed to set SELinux to permissive mode"
-        return 1
-    fi
-}
-
-# Push file to Android device
-adb_push() {
-    local src="$1"
-    local dst="$2"
-
-    if [ ! -f "$src" ]; then
-        log_error "Source file not found: $src"
-        return 1
-    fi
-
-    log_info "Pushing $src to $dst..."
-
-    if adb push "$src" "$dst" >/dev/null 2>&1; then
-        adb shell chmod 755 "$dst" 2>/dev/null || true
-        log_success "Pushed: $src -> $dst"
-        return 0
-    else
-        log_error "Failed to push file"
-        return 1
-    fi
-}
-
-# Pull file from Android device
-adb_pull() {
-    local src="$1"
-    local dst="$2"
-
-    log_info "Pulling $src from device..."
-
-    if adb pull "$src" "$dst" >/dev/null 2>&1; then
-        log_success "Pulled: $src -> $dst"
-        return 0
-    else
-        log_error "Failed to pull file"
-        return 1
-    fi
-}
-
-# Execute command on Android device
-adb_exec() {
-    local cmd="$*"
-    log_info "Executing on device: $cmd"
-    adb shell "$cmd"
-}
-
-# Execute command on Android device as background process
-adb_exec_bg() {
-    local cmd="$*"
-    log_info "Executing on device (background): $cmd"
-    adb shell "$cmd &" &
-}
-
-# Start a long-running process on Android device in background
-# Uses setsid to create a new session so the process survives when the adb shell exits
-# Usage: adb_start_background "<command with args>" "<absolute log file path on device>"
-adb_start_background() {
-    local cmd="$1"
-    local log_file="$2"
-
-    log_info "Starting background process on device: $cmd"
-    adb shell "setsid nohup $cmd > $log_file 2>&1 < /dev/null &"
-}
-
-# Show device log file content for diagnostics
-adb_show_log() {
-    local device_log="$1"
-    local tmp_log
-    tmp_log=$(mktemp /tmp/ecapture_diag_XXXXXX.log)
-    if adb pull "$device_log" "$tmp_log" >/dev/null 2>&1; then
-        if [ -s "$tmp_log" ]; then
-            log_error "=== Device log: $device_log ==="
-            cat "$tmp_log"
-        else
-            log_error "Log file is empty: $device_log"
-        fi
-    else
-        log_error "Could not pull log file: $device_log"
-    fi
-    rm -f "$tmp_log"
-}
-
-# Check for FTL (fatal) level errors in a device log file.
-# Returns 0 (success) if no FTL found, 1 if FTL detected.
-# Usage: adb_check_fatal_error "<device log path>"
-adb_check_fatal_error() {
-    local device_log="$1"
-    local tmp_log
-    tmp_log=$(mktemp /tmp/ecapture_fatal_XXXXXX.log)
-    if adb pull "$device_log" "$tmp_log" >/dev/null 2>&1 && [ -s "$tmp_log" ]; then
-        if grep -qE "[[:space:]]FTL[[:space:]]" "$tmp_log"; then
-            log_error "=== Fatal errors detected in $device_log ==="
-            grep -E "[[:space:]]FTL[[:space:]]" "$tmp_log"
-            rm -f "$tmp_log"
-            return 1
-        fi
-    fi
-    rm -f "$tmp_log"
-    return 0
-}
-
-# Kill process by name on Android device
-adb_kill_by_name() {
-    local process_name="$1"
-
-    log_info "Killing processes matching '$process_name' on device..."
-
-    local pids
-    pids=$(adb shell "ps -A | grep '$process_name' | awk '{print \$2}'" | tr -d '\r' || echo "")
-
-    if [ -z "$pids" ]; then
-        log_info "No processes matching '$process_name' found"
-        return 0
-    fi
-
-    log_info "Found PIDs: $pids"
-
-    for pid in $pids; do
-        adb shell "kill $pid" 2>/dev/null || true
-    done
-
-    sleep 1
-
-    # Force kill if still running
-    pids=$(adb shell "ps -A | grep '$process_name' | awk '{print \$2}'" | tr -d '\r' || echo "")
-    if [ -n "$pids" ]; then
-        log_warn "Force killing: $pids"
-        for pid in $pids; do
-            adb shell "kill -9 $pid" 2>/dev/null || true
-        done
-    fi
-}
-
-# Check if process is running on Android device
-adb_process_exists() {
-    local process_name="$1"
-
-    if adb shell "ps -A | grep -q '$process_name'"; then
-        return 0
-    else
-        return 1
-    fi
-}
-
-# Get PID of process on Android device
-adb_get_pid() {
-    local process_name="$1"
-    local pid
-
-    pid=$(adb shell "ps -A | grep '$process_name' | head -1 | awk '{print \$2}'" | tr -d '\r')
-
-    if [ -n "$pid" ]; then
-        echo "$pid"
-        return 0
-    else
-        return 1
-    fi
-}
-
-# Create directory on Android device
-adb_mkdir() {
-    local dir="$1"
-    adb shell "mkdir -p '$dir'" 2>/dev/null || true
-}
-
-# Remove directory/file on Android device
-adb_rm() {
-    local path="$1"
-    adb shell "rm -rf '$path'" 2>/dev/null || true
-}
-
-# Check if file exists on Android device
-adb_file_exists() {
-    local file="$1"
-
-    if adb shell "[ -f '$file' ]" 2>/dev/null; then
-        return 0
-    else
-        return 1
-    fi
-}
-
-# Get file size on Android device
-adb_file_size() {
-    local file="$1"
-    local size
-
-    size=$(adb shell "stat -c %s '$file' 2>/dev/null" | tr -d '\r')
-
-    if [ -n "$size" ]; then
-        echo "$size"
-        return 0
-    else
-        echo "0"
-        return 1
-    fi
-}
-
-# Check prerequisites for Android e2e tests
 check_android_prerequisites() {
-    log_info "=== Checking Android Prerequisites ==="
-
-    local failed=0
-
-    check_adb || failed=1
-    check_android_device || failed=1
-    check_android_version || failed=1
-    check_android_kernel || failed=1
-    check_android_arch || failed=1
-    check_android_root || failed=1
-
-    # SELinux check (warning only)
-    if ! check_selinux; then
-        log_warn "Attempting to set SELinux to permissive mode..."
-        set_selinux_permissive || true
-    fi
-
-    if [ $failed -eq 1 ]; then
-        log_error "Prerequisites check failed"
-        return 1
-    fi
-
-    log_success "All prerequisites met"
-    return 0
+    check_android_host
+    require_command timeout
+    check_adb
+    check_android_device
+    check_android_version
+    check_android_arch
+    check_android_kernel
+    check_android_root
+    prepare_android_selinux
 }
 
-# Cleanup function template
-cleanup_handler() {
-    log_info "Cleaning up..."
+adb_push() {
+    local source_file="$1"
+    local destination="$2"
+    [[ -f "$source_file" ]] || {
+        log_error "File not found: $source_file"
+        return 1
+    }
+    adb_cmd push "$source_file" "$destination" >/dev/null
 }
 
-# Setup trap for cleanup
-setup_cleanup_trap() {
-    trap cleanup_handler EXIT INT TERM
+adb_pull() {
+    local source_file="$1"
+    local destination="$2"
+    adb_cmd pull "$source_file" "$destination" >/dev/null
 }
 
-# Verify text in output file
-verify_text_in_output() {
-    local output_file="$1"
-    local search_text="$2"
-    local description="${3:-text}"
-
-    if [ ! -f "$output_file" ]; then
-        log_error "Output file not found: $output_file"
-        return 1
-    fi
-
-    if grep -q "$search_text" "$output_file"; then
-        log_success "Found $description in output"
-        return 0
-    else
-        log_error "Did not find $description in output"
-        log_info "Output file content (first 50 lines):"
-        head -50 "$output_file"
-        return 1
-    fi
+adb_file_exists() {
+    adb_cmd shell "test -f '$1'" >/dev/null 2>&1
 }
 
-# Build ecapture for Android
-build_ecapture_android() {
-    local binary="$1"
-
-    if [ -x "$binary" ]; then
-        log_info "ecapture Android binary already exists: $binary"
-        return 0
-    fi
-
-    log_info "Building ecapture for Android..."
-
-    local root_dir
-    root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")"/../../../ && pwd)"
-    cd "$root_dir"
-
-    if is_macos; then
-        log_error "Cannot build Android binary on macOS. Please build on Linux."
-        log_info "Use: ssh cfc4n@172.16.71.128 'cd /home/cfc4n/project/ecapture && ANDROID=1 make nocore'"
-        return 1
-    fi
-
-    if ANDROID=1 make nocore -j 4 >/dev/null 2>&1; then
-        log_success "Build succeeded with 'ANDROID=1 make nocore'"
-        return 0
-    fi
-
-    log_error "Failed to build ecapture for Android"
+find_android_boringssl() {
+    local candidate
+    for candidate in \
+        /apex/com.android.conscrypt/lib64/libssl.so \
+        /apex/com.android.conscrypt/lib/libssl.so \
+        /system/lib64/libssl.so \
+        /system/lib/libssl.so; do
+        if adb_file_exists "$candidate"; then
+            printf '%s\n' "$candidate"
+            return 0
+        fi
+    done
+    log_error "Android platform BoringSSL libssl.so was not found"
     return 1
 }
 
-# Fix DNS resolution on Android emulator.
-# The emulator's default /etc/resolv.conf often points to [::1]:53 (IPv6 loopback)
-# which is not listening, causing "connection refused" errors.
-# This function sets Android system properties and uses ndc to configure DNS.
-# Note: /etc/resolv.conf on Android is typically on a read-only partition;
-#       Android's native resolver reads net.dns1/net.dns2 properties instead.
-fix_android_dns() {
-    log_info "Checking DNS configuration on device..."
+create_android_work_dir() {
+    local artifact_root="${E2E_ARTIFACT_ROOT:-/tmp/ecapture-e2e-android}"
+    mkdir -p "$artifact_root"
+    ANDROID_WORK_DIR="$(mktemp -d "$artifact_root/boringssl.XXXXXX")"
+    ANDROID_DEVICE_DIR="/data/local/tmp/ecapture-e2e-$$"
+    ANDROID_E2E_TOKEN="ECAPTURE_E2E_ANDROID_$$_${RANDOM}"
+    adb_cmd shell "mkdir -p '$ANDROID_DEVICE_DIR'"
+    log_info "Android artifacts: $ANDROID_WORK_DIR"
+}
 
-    local current_dns
-    current_dns=$(adb shell "getprop net.dns1" | tr -d '\r')
-    log_info "Current net.dns1: ${current_dns:-(not set)}"
+build_android_host_helpers() {
+    mkdir -p "$ANDROID_WORK_DIR/helpers"
+    go build -o "$ANDROID_WORK_DIR/helpers/tls_server" "$E2E_DIR/fixtures/tls_server.go"
+    go build -o "$ANDROID_WORK_DIR/helpers/pcapng_check" "$E2E_DIR/fixtures/pcapng_check.go"
+    ANDROID_PCAPNG_CHECK="$ANDROID_WORK_DIR/helpers/pcapng_check"
+}
 
-    # Check if resolv.conf has IPv6 loopback as nameserver
-    local resolv_content
-    resolv_content=$(adb shell "cat /etc/resolv.conf 2>/dev/null" | tr -d '\r' || echo "")
-    log_info "Current /etc/resolv.conf: ${resolv_content:-(empty or missing)}"
+start_android_tls_fixture() {
+    local ready_file="$ANDROID_WORK_DIR/tls-server.addr"
+    "$ANDROID_WORK_DIR/helpers/tls_server" --listen 127.0.0.1:0 \
+        --ready-file "$ready_file" --token "$ANDROID_E2E_TOKEN" \
+        >"$ANDROID_WORK_DIR/tls-server.log" 2>&1 &
+    ANDROID_HOST_SERVER_PID=$!
 
-    local needs_fix=0
-    if echo "$resolv_content" | grep -q "::1"; then
-        log_warn "Detected IPv6 loopback (::1) in resolv.conf — DNS will fail"
-        needs_fix=1
-    fi
-    if [ -z "$current_dns" ] || [ "$current_dns" = "::1" ] || [ "$current_dns" = "fe80::1" ]; then
-        log_warn "net.dns1 is missing or set to loopback — DNS will fail"
-        needs_fix=1
-    fi
-
-    if [ "$needs_fix" -eq 0 ]; then
-        log_success "DNS configuration looks OK"
-        return 0
-    fi
-
-    log_info "Fixing DNS configuration..."
-
-    # Method 1: Set Android system DNS properties (primary method, works without /system write)
-    adb shell "setprop net.dns1 8.8.8.8" 2>/dev/null || true
-    adb shell "setprop net.dns2 8.8.4.4" 2>/dev/null || true
-    # Also set for each network interface slot Android may use
-    adb shell "setprop net.eth0.dns1 8.8.8.8" 2>/dev/null || true
-    adb shell "setprop net.wlan0.dns1 8.8.8.8" 2>/dev/null || true
-
-    # Method 2: Use ndc (network daemon client) to flush and set DNS
-    adb shell "ndc resolver setnetdns 100 \"\" 8.8.8.8 8.8.4.4" 2>/dev/null || true
-
-    # Method 3: Try to write resolv.conf only if /data path is available
-    # (avoids the read-only /system/etc error seen on emulators)
-    adb shell "
-        if [ -w /etc/resolv.conf ] 2>/dev/null; then
-            echo 'nameserver 8.8.8.8' > /etc/resolv.conf
-            echo 'nameserver 8.8.4.4' >> /etc/resolv.conf
+    local attempt address
+    for attempt in $(seq 1 50); do
+        if [[ -s "$ready_file" ]]; then
+            address="$(tr -d '\r\n' <"$ready_file")"
+            ANDROID_TLS_PORT="${address##*:}"
+            adb_cmd reverse "tcp:$ANDROID_TLS_PORT" "tcp:$ANDROID_TLS_PORT"
+            ANDROID_TLS_URL="https://127.0.0.1:$ANDROID_TLS_PORT/e2e"
+            log_info "Android TLS fixture through adb reverse: $ANDROID_TLS_URL"
+            return 0
         fi
-    " 2>/dev/null || true
-
-    # Verify the fix
-    local new_dns
-    new_dns=$(adb shell "getprop net.dns1" | tr -d '\r')
-    log_info "Updated net.dns1: ${new_dns:-(not set)}"
-
-    # Quick connectivity test using explicit DNS to avoid relying on fixed resolver
-    log_info "Testing network connectivity (direct IP ping)..."
-    if adb shell "ping -c 1 -W 3 8.8.8.8 >/dev/null 2>&1"; then
-        log_success "Network connectivity verified (8.8.8.8 reachable)"
-    else
-        log_warn "Cannot reach 8.8.8.8 — network may be unavailable in this environment"
-    fi
+        if ! kill -0 "$ANDROID_HOST_SERVER_PID" 2>/dev/null; then
+            cat "$ANDROID_WORK_DIR/tls-server.log" >&2 || true
+            return 1
+        fi
+        sleep 0.1
+    done
+    log_error "Timed out waiting for host TLS fixture"
+    return 1
 }
 
-# Wait for Android device to be ready
-wait_for_device() {
-    log_info "Waiting for device..."
-    adb wait-for-device
-    sleep 2
-    log_success "Device ready"
-}
-
-# Get Android device property
-get_device_prop() {
-    local prop="$1"
-    adb shell getprop "$prop" | tr -d '\r'
-}
-
-# Check if command exists on Android device
-adb_command_exists() {
-    local cmd="$1"
-
-    if adb shell "command -v '$cmd' >/dev/null 2>&1" 2>/dev/null; then
-        return 0
-    else
+start_android_capture() {
+    local device_log="$1"
+    shift
+    local command_line="$*"
+    local output
+    output="$(adb_cmd shell "nohup $command_line >'$device_log' 2>&1 </dev/null & echo \$!")"
+    ANDROID_CAPTURE_PID="$(printf '%s\n' "$output" | tr -d '\r' | grep -E '^[0-9]+$' | tail -n 1)"
+    if [[ -z "$ANDROID_CAPTURE_PID" ]]; then
+        log_error "Could not determine Android eCapture PID"
         return 1
     fi
+
+    local attempt
+    for attempt in $(seq 1 30); do
+        if ! adb_cmd shell "kill -0 '$ANDROID_CAPTURE_PID'" >/dev/null 2>&1; then
+            log_error "Android eCapture exited during initialization"
+            adb_cmd shell "tail -n 100 '$device_log'" >&2 || true
+            ANDROID_CAPTURE_PID=""
+            return 1
+        fi
+        if adb_cmd shell "grep -Eqi 'probe started successfully' '$device_log'" >/dev/null 2>&1; then
+            return 0
+        fi
+        sleep 0.2
+    done
+    return 0
 }
 
-log_info "Android common utilities loaded"
+stop_android_capture() {
+    if [[ -z "$ANDROID_CAPTURE_PID" ]]; then
+        return 0
+    fi
+    adb_cmd shell "kill -INT '$ANDROID_CAPTURE_PID'" >/dev/null 2>&1 || true
+    local attempt
+    for attempt in $(seq 1 30); do
+        if ! adb_cmd shell "kill -0 '$ANDROID_CAPTURE_PID'" >/dev/null 2>&1; then
+            break
+        fi
+        sleep 0.1
+    done
+    if adb_cmd shell "kill -0 '$ANDROID_CAPTURE_PID'" >/dev/null 2>&1; then
+        adb_cmd shell "kill -TERM '$ANDROID_CAPTURE_PID'" >/dev/null 2>&1 || true
+        sleep 0.5
+    fi
+    if adb_cmd shell "kill -0 '$ANDROID_CAPTURE_PID'" >/dev/null 2>&1; then
+        adb_cmd shell "kill -KILL '$ANDROID_CAPTURE_PID'" >/dev/null 2>&1 || true
+    fi
+    ANDROID_CAPTURE_PID=""
+}
+
+assert_android_pcapng() {
+    local pcap_file="$1"
+    assert_file_nonempty "$pcap_file" "Android pcapng capture" || return 1
+    "$ANDROID_PCAPNG_CHECK" --require-dsb "$pcap_file"
+}
+
+android_suite_cleanup() {
+    stop_android_capture || true
+    if [[ -n "$ANDROID_TLS_PORT" ]]; then
+        adb_cmd reverse --remove "tcp:$ANDROID_TLS_PORT" >/dev/null 2>&1 || true
+    fi
+    if [[ -n "$ANDROID_HOST_SERVER_PID" ]] && kill -0 "$ANDROID_HOST_SERVER_PID" 2>/dev/null; then
+        kill -TERM "$ANDROID_HOST_SERVER_PID" 2>/dev/null || true
+        wait "$ANDROID_HOST_SERVER_PID" 2>/dev/null || true
+    fi
+    if [[ -n "$ANDROID_DEVICE_DIR" ]]; then
+        adb_cmd shell "rm -rf '$ANDROID_DEVICE_DIR'" >/dev/null 2>&1 || true
+    fi
+    if [[ -n "$ANDROID_WORK_DIR" && -d "$ANDROID_WORK_DIR" ]]; then
+        if [[ "${E2E_KEEP_ARTIFACTS:-0}" == "1" || "$E2E_FAILED" -gt 0 ]]; then
+            log_info "Preserving Android artifacts: $ANDROID_WORK_DIR"
+        else
+            rm -rf -- "$ANDROID_WORK_DIR"
+        fi
+    fi
+}
+
+setup_android_suite() {
+    check_android_prerequisites
+    validate_modes
+    require_command go
+    create_android_work_dir
+    trap android_suite_cleanup EXIT
+    trap 'exit 130' INT TERM
+    build_android_host_helpers
+    start_android_tls_fixture
+}

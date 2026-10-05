@@ -13,6 +13,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -20,7 +21,24 @@ func main() {
 	url := flag.String("url", "https://github.com/", "URL to request")
 	insecure := flag.Bool("insecure", false, "Skip TLS verification")
 	dnsServer := flag.String("dns", "", "Custom DNS server (e.g. 8.8.8.8:53). Overrides system resolver.")
+	tlsVersion := flag.String("tls-version", "default", "TLS version: default, 1.2, or 1.3")
+	expect := flag.String("expect", "", "Fail unless the response body contains this text")
 	flag.Parse()
+
+	var minVersion uint16
+	var maxVersion uint16
+	switch *tlsVersion {
+	case "default":
+	case "1.2":
+		minVersion = tls.VersionTLS12
+		maxVersion = tls.VersionTLS12
+	case "1.3":
+		minVersion = tls.VersionTLS13
+		maxVersion = tls.VersionTLS13
+	default:
+		fmt.Fprintf(os.Stderr, "Unsupported TLS version: %s\n", *tlsVersion)
+		os.Exit(2)
+	}
 
 	// Build a custom dialer that uses an explicit DNS server when provided.
 	// This is necessary on Android emulators where /etc/resolv.conf may point
@@ -57,6 +75,8 @@ func main() {
 			DialContext: dialContext,
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: *insecure,
+				MinVersion:         minVersion,
+				MaxVersion:         maxVersion,
 			},
 		},
 	}
@@ -74,6 +94,10 @@ func main() {
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to read response body: %v\n", err)
+		os.Exit(1)
+	}
+	if *expect != "" && !strings.Contains(string(body), *expect) {
+		fmt.Fprintf(os.Stderr, "Response body does not contain expected text: %s\n", *expect)
 		os.Exit(1)
 	}
 

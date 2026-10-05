@@ -263,22 +263,22 @@ e2e-gotls:
 # run advanced TLS text mode tests
 .PHONY: e2e-tls-text-advanced
 e2e-tls-text-advanced:
-	bash ./test/e2e/tls_text_advanced_test.sh
+	E2E_MODULES=tls E2E_MODES=text bash ./test/e2e/run_e2e.sh
 
 # run advanced TLS pcap mode tests
 .PHONY: e2e-tls-pcap-advanced
 e2e-tls-pcap-advanced:
-	bash ./test/e2e/tls_pcap_advanced_test.sh
+	E2E_MODULES=tls E2E_MODES=pcapng bash ./test/e2e/run_e2e.sh
 
 # run advanced TLS keylog mode tests
 .PHONY: e2e-tls-keylog-advanced
 e2e-tls-keylog-advanced:
-	bash ./test/e2e/tls_keylog_advanced_test.sh
+	E2E_MODULES=tls E2E_MODES=keylog bash ./test/e2e/run_e2e.sh
 
 # run advanced GoTLS tests
 .PHONY: e2e-gotls-advanced
 e2e-gotls-advanced:
-	bash ./test/e2e/gotls_advanced_test.sh
+	E2E_MODULES=gotls bash ./test/e2e/run_e2e.sh
 
 # run advanced Bash tests
 .PHONY: e2e-bash-advanced
@@ -300,32 +300,24 @@ e2e-edge-cases:
 e2e-ecaptureq:
 	bash ./test/e2e/ecaptureq_e2e_test.sh
 
-# run all basic e2e tests
-.PHONY: e2e-basic
-e2e-basic: e2e-bash e2e-tls e2e-gnutls e2e-gotls
-	@echo "All basic e2e tests completed"
+# Maintained Linux scope: OpenSSL TLS, GoTLS, and GnuTLS. Every suite covers
+# text, keylog, and pcapng modes against a deterministic local TLS endpoint.
+.PHONY: e2e-linux
+e2e-linux:
+	bash ./test/e2e/run_e2e.sh
 
-# run all advanced e2e tests
-.PHONY: e2e-advanced
-e2e-advanced: e2e-tls-text-advanced e2e-tls-pcap-advanced e2e-tls-keylog-advanced e2e-gotls-advanced e2e-bash-advanced e2e-edge-cases e2e-ecaptureq
-	@echo "All advanced e2e tests completed"
-
-# run all comprehensive e2e tests (basic + advanced)
-.PHONY: e2e
-e2e: e2e-basic e2e-advanced
-	@echo "All e2e tests completed"
+.PHONY: e2e-basic e2e-advanced e2e
+e2e-basic: e2e-linux
+e2e-advanced: e2e-linux
+e2e: e2e-linux
 
 # Android e2e tests
 .PHONY: e2e-android-tls
 e2e-android-tls:
 	bash ./test/e2e/android/android_tls_e2e_test.sh
 
-.PHONY: e2e-android-gotls
-e2e-android-gotls:
-	bash ./test/e2e/android/android_gotls_e2e_test.sh
-
 .PHONY: e2e-android-all
-e2e-android-all: e2e-android-tls e2e-android-gotls
+e2e-android-all: e2e-android-tls
 	@echo "All Android e2e tests completed"
 
 .PHONY: build-android-tests
@@ -335,4 +327,3 @@ build-android-tests:
 .PHONY: setup-android-env
 setup-android-env:
 	bash ./test/e2e/android/setup_android_env.sh
-
