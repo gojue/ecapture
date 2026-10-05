@@ -77,6 +77,8 @@ sudo E2E_MODULES=gotls E2E_MODES='keylog pcapng' bash test/e2e/run_e2e.sh
 ## Android
 
 The Android suite needs a rooted/userdebug Android 13+ device or emulator, `adb`, an Android build-tools installation containing `d8`, and an Android eCapture binary.
+The host user must also be allowed to capture packets with `dumpcap`; CI grants
+only the `cap_net_raw` and `cap_net_admin` capabilities to that binary.
 
 Build the artifacts on Linux:
 
