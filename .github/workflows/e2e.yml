@@ -50,7 +50,8 @@ jobs:
             linux-tools-generic \
             linux-source \
             libssl-dev \
-            libgnutls28-dev
+            libgnutls28-dev \
+            tshark
           for tool in clang llc llvm-strip; do
             sudo ln -sf "/usr/bin/${tool}-14" "/usr/bin/${tool}"
           done

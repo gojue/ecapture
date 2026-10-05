@@ -290,6 +290,7 @@ assert_android_pcapng() {
 }
 
 android_suite_cleanup() {
+    stop_packet_capture || true
     stop_android_capture || true
     if [[ -n "$ANDROID_TLS_PORT" ]]; then
         adb_cmd reverse --remove "tcp:$ANDROID_TLS_PORT" >/dev/null 2>&1 || true
@@ -314,6 +315,9 @@ setup_android_suite() {
     check_android_prerequisites
     validate_modes
     require_command go
+    if mode_enabled keylog || mode_enabled pcapng; then
+        require_command tshark
+    fi
     create_android_work_dir
     trap android_suite_cleanup EXIT
     trap 'exit 130' INT TERM

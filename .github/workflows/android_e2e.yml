@@ -45,7 +45,7 @@ jobs:
           sudo apt-get install --yes \
             build-essential pkg-config libelf-dev llvm-14 clang-14 \
             flex bison linux-tools-common linux-tools-generic linux-source \
-            libssl-dev libpulse0 xvfb libxcb-cursor0 libxkbcommon-x11-0
+            libssl-dev libpulse0 xvfb libxcb-cursor0 libxkbcommon-x11-0 tshark
           for tool in clang llc llvm-strip; do
             sudo ln -sf "/usr/bin/${tool}-14" "/usr/bin/${tool}"
           done
