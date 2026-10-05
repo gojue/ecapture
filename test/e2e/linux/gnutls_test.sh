@@ -20,7 +20,7 @@ build_gnutls_client() {
     # Word splitting is intentional for pkg-config compiler/linker flags.
     # shellcheck disable=SC2046
     cc -O2 -Wall -Wextra -Werror $(pkg-config --cflags gnutls) \
-        -o "$GNUTLS_CLIENT" "$E2E_DIR/fixtures/gnutls_client.c" $(pkg-config --libs gnutls)
+        -o "$GNUTLS_CLIENT" "$E2E_DIR/fixtures/c/gnutls_client.c" $(pkg-config --libs gnutls)
     GNUTLS_LIB="$(resolve_linked_library "$GNUTLS_CLIENT" 'libgnutls\.so')"
     log_info "GnuTLS fixture library: $GNUTLS_LIB"
 }
