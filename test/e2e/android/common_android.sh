@@ -106,17 +106,25 @@ check_android_kernel() {
 }
 
 check_android_root() {
-    adb_cmd root >/dev/null 2>&1 || {
-        log_error "adb root failed; a rooted userdebug emulator/device is required"
-        return 1
-    }
-    adb_cmd wait-for-device
-    local uid
-    uid="$(adb_cmd shell id -u | tr -d '\r')"
-    [[ "$uid" == "0" ]] || {
-        log_error "adbd is not root (uid=$uid)"
-        return 1
-    }
+    local attempt output="" uid=""
+    for attempt in {1..5}; do
+        # sys.boot_completed can become true just before adbd is ready to
+        # restart as root, especially on new API-level emulator images.
+        output="$(adb_cmd_timeout 20s root 2>&1)" || true
+        adb_cmd_timeout 30s wait-for-device >/dev/null 2>&1 || true
+        uid="$(adb_cmd_timeout 10s shell id -u 2>/dev/null | tr -d '\r' || true)"
+        if [[ "$uid" == "0" ]]; then
+            return 0
+        fi
+
+        if ((attempt < 5)); then
+            log_info "adbd root is not ready (attempt $attempt/5); retrying"
+            sleep 2
+        fi
+    done
+
+    log_error "adb root failed after 5 attempts (uid=${uid:-unknown}): ${output:-no adb output}"
+    return 1
 }
 
 prepare_android_selinux() {
