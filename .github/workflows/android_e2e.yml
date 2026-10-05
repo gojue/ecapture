@@ -72,6 +72,16 @@ jobs:
       # the emulator action starts.
       - name: Install Android SDK packages with retry
         run: |
+          sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
+          sdkmanager_bin="$sdk_root/cmdline-tools/latest/bin/sdkmanager"
+          if [[ ! -x "$sdkmanager_bin" ]]; then
+            sdkmanager_bin="$(find "$sdk_root/cmdline-tools" -type f -name sdkmanager -perm -u+x 2>/dev/null | sort -V | tail -n 1)"
+          fi
+          if [[ ! -x "$sdkmanager_bin" ]]; then
+            echo "sdkmanager not found below Android SDK root: $sdk_root" >&2
+            exit 1
+          fi
+
           system_image="system-images;android-${{ matrix.api-level }};google_apis;x86_64"
           packages=(
             "platform-tools"
@@ -86,7 +96,7 @@ jobs:
             # sdkmanager closes stdin when it is done; without this temporary
             # setting pipefail would turn yes(1)'s SIGPIPE into a false error.
             set +o pipefail
-            if yes | sdkmanager --install "${packages[@]}"; then
+            if yes | "$sdkmanager_bin" --install "${packages[@]}"; then
               set -o pipefail
               exit 0
             else
@@ -94,7 +104,7 @@ jobs:
             fi
             set -o pipefail
 
-            sdkmanager --uninstall "$system_image" || true
+            "$sdkmanager_bin" --uninstall "$system_image" || true
             if [[ "$attempt" -eq 3 ]]; then
               exit "$install_status"
             fi
