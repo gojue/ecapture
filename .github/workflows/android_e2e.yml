@@ -51,7 +51,10 @@ jobs:
           done
           source_file="$(find /usr/src -maxdepth 1 -name 'linux-source*.tar.bz2' | head -n 1)"
           source_dir="${source_file%.tar.bz2}"
-          if [[ -n "$source_file" && ! -d "$source_dir" ]]; then
+          # The linux-source package may create the target directory before
+          # leaving the actual source tree in the tarball.  Check for the
+          # kernel Makefile instead of the directory itself.
+          if [[ -n "$source_file" && ! -f "$source_dir/Makefile" ]]; then
             sudo tar -xf "$source_file" -C /usr/src
           fi
           if [[ -n "$source_dir" && ! -f "$source_dir/.config" ]]; then
