@@ -193,8 +193,8 @@ create_android_work_dir() {
 
 build_android_host_helpers() {
     mkdir -p "$ANDROID_WORK_DIR/helpers"
-    go build -o "$ANDROID_WORK_DIR/helpers/tls_server" "$E2E_DIR/fixtures/tls_server.go"
-    go build -o "$ANDROID_WORK_DIR/helpers/pcapng_check" "$E2E_DIR/fixtures/pcapng_check.go"
+    go build -o "$ANDROID_WORK_DIR/helpers/tls_server" "$E2E_DIR/fixtures/tls_server/main.go"
+    go build -o "$ANDROID_WORK_DIR/helpers/pcapng_check" "$E2E_DIR/fixtures/pcapng_check/main.go"
     ANDROID_PCAPNG_CHECK="$ANDROID_WORK_DIR/helpers/pcapng_check"
 }
 

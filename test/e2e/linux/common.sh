@@ -81,8 +81,8 @@ create_work_dir() {
 build_host_helpers() {
     local helper_dir="$WORK_DIR/helpers"
     mkdir -p "$helper_dir"
-    go build -o "$helper_dir/tls_server" "$E2E_DIR/fixtures/tls_server.go"
-    go build -o "$helper_dir/pcapng_check" "$E2E_DIR/fixtures/pcapng_check.go"
+    go build -o "$helper_dir/tls_server" "$E2E_DIR/fixtures/tls_server/main.go"
+    go build -o "$helper_dir/pcapng_check" "$E2E_DIR/fixtures/pcapng_check/main.go"
     PCAPNG_CHECK="$helper_dir/pcapng_check"
 }
 
