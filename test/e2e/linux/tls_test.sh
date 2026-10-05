@@ -79,9 +79,8 @@ case_keylog() {
 case_pcapng() {
     local capture_log="$WORK_DIR/pcapng.ecapture.log"
     local pcap_file="$WORK_DIR/openssl.pcapng"
-    local keylog_file="$WORK_DIR/openssl.pcapng.keys.log"
     start_capture "$capture_log" tls --libssl "$OPENSSL_LIB" --model pcapng \
-        --ifname lo --pcapfile "$pcap_file" --keylogfile "$keylog_file" "tcp port $TLS_SERVER_PORT" || return 1
+        --ifname lo --pcapfile "$pcap_file" --keylogfile= "tcp port $TLS_SERVER_PORT" || return 1
     if ! run_openssl_request tls13 "$WORK_DIR/pcapng.client.log"; then
         stop_capture
         return 1
@@ -90,7 +89,6 @@ case_pcapng() {
     stop_capture
 
     assert_no_capture_errors "$capture_log" || return 1
-    assert_keylog "$keylog_file" || return 1
     assert_pcapng "$pcap_file" || return 1
     assert_pcapng_plaintext_preview \
         "$pcap_file" "$E2E_TOKEN" "linux/tls/pcapng"

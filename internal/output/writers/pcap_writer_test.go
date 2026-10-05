@@ -71,7 +71,87 @@ func TestPcapWriterKeepsDSBBeforeChronologicalPackets(t *testing.T) {
 		t.Fatalf("Close() error = %v", err)
 	}
 
-	blockTypes, err := parsePcapngBlockTypes(output.Bytes())
+	assertDSBsBeforePackets(t, output.Bytes(), 2)
+
+	reader, err := pcapgo.NewNgReader(bytes.NewReader(output.Bytes()), pcapgo.DefaultNgReaderOptions)
+	if err != nil {
+		t.Fatalf("NewNgReader() error = %v", err)
+	}
+	var packetTimes []time.Time
+	for {
+		_, captureInfo, readErr := reader.ReadPacketData()
+		if errors.Is(readErr, io.EOF) {
+			break
+		}
+		if readErr != nil {
+			t.Fatalf("ReadPacketData() error = %v", readErr)
+		}
+		packetTimes = append(packetTimes, captureInfo.Timestamp)
+	}
+	if len(packetTimes) != 2 {
+		t.Fatalf("packet count = %d, want 2", len(packetTimes))
+	}
+	if packetTimes[0].After(packetTimes[1]) {
+		t.Fatalf("packet timestamps are out of order: %v then %v", packetTimes[0], packetTimes[1])
+	}
+}
+
+func TestPcapWriterStartsDSBGracePeriodWithFirstPacket(t *testing.T) {
+	t.Parallel()
+
+	var output bytes.Buffer
+	ngWriter, err := pcapgo.NewNgWriter(&output, layers.LinkTypeEthernet)
+	if err != nil {
+		t.Fatalf("NewNgWriter() error = %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	pw := &PcapWriter{
+		writer:     ngWriter,
+		ctx:        ctx,
+		ctxCancel:  cancel,
+		tcPackets:  []*TcPacket{},
+		packetChan: make(chan *TcPacket),
+		keylogChan: make(chan []byte),
+		serveDone:  make(chan struct{}),
+		logger:     lger.New(io.Discard, false),
+	}
+
+	const (
+		flushInterval = 10 * time.Millisecond
+		gracePeriod   = 80 * time.Millisecond
+	)
+	go pw.serve(flushInterval, gracePeriod)
+
+	// Leave the capture idle beyond the grace period. The grace deadline must
+	// still start when the first packet arrives, not when Serve starts.
+	time.Sleep(2 * gracePeriod)
+	pw.packetChan <- &TcPacket{
+		ci: gopacket.CaptureInfo{
+			Timestamp:     time.Unix(100, 0),
+			CaptureLength: 60,
+			Length:        60,
+		},
+		data: make([]byte, 60),
+	}
+	pw.keylogChan <- []byte("CLIENT_TRAFFIC_SECRET_0 random client-secret\n")
+
+	// Give an expired-at-start implementation enough time to flush the packet,
+	// then enqueue the rest of the handshake secrets within the correct window.
+	time.Sleep(3 * flushInterval)
+	pw.keylogChan <- []byte("SERVER_TRAFFIC_SECRET_0 random server-secret\n")
+
+	if err := pw.Close(); err != nil {
+		t.Fatalf("Close() error = %v", err)
+	}
+
+	assertDSBsBeforePackets(t, output.Bytes(), 2)
+}
+
+func assertDSBsBeforePackets(t *testing.T, data []byte, wantDSBs int) {
+	t.Helper()
+
+	blockTypes, err := parsePcapngBlockTypes(data)
 	if err != nil {
 		t.Fatalf("parsePcapngBlockTypes() error = %v", err)
 	}
@@ -94,33 +174,11 @@ func TestPcapWriterKeepsDSBBeforeChronologicalPackets(t *testing.T) {
 			}
 		}
 	}
-	if dsbCount != 2 {
-		t.Fatalf("DSB count = %d, want 2", dsbCount)
+	if dsbCount != wantDSBs {
+		t.Fatalf("DSB count = %d, want %d", dsbCount, wantDSBs)
 	}
 	if firstPacket < 0 {
 		t.Fatal("pcapng contains no enhanced packet block")
-	}
-
-	reader, err := pcapgo.NewNgReader(bytes.NewReader(output.Bytes()), pcapgo.DefaultNgReaderOptions)
-	if err != nil {
-		t.Fatalf("NewNgReader() error = %v", err)
-	}
-	var packetTimes []time.Time
-	for {
-		_, captureInfo, readErr := reader.ReadPacketData()
-		if errors.Is(readErr, io.EOF) {
-			break
-		}
-		if readErr != nil {
-			t.Fatalf("ReadPacketData() error = %v", readErr)
-		}
-		packetTimes = append(packetTimes, captureInfo.Timestamp)
-	}
-	if len(packetTimes) != 2 {
-		t.Fatalf("packet count = %d, want 2", len(packetTimes))
-	}
-	if packetTimes[0].After(packetTimes[1]) {
-		t.Fatalf("packet timestamps are out of order: %v then %v", packetTimes[0], packetTimes[1])
 	}
 }
 

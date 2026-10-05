@@ -36,6 +36,11 @@ type TcPacket struct {
 	data []byte
 }
 
+const (
+	pcapFlushInterval = 2 * time.Second
+	dsbGracePeriod    = 3 * time.Second
+)
+
 // PcapWriter handles writing network packets in PCAPNG format
 type PcapWriter struct {
 	writer    *pcapgo.NgWriter
@@ -159,15 +164,19 @@ func (pw *PcapWriter) WritePacket(data []byte, timestamp time.Time) error {
 // Serve processes packets and keylogs from channels and writes them to the PCAPNG writer.
 // All NgWriter operations are serialized in this single goroutine to avoid concurrent access.
 func (pw *PcapWriter) Serve() {
+	pw.serve(pcapFlushInterval, dsbGracePeriod)
+}
+
+func (pw *PcapWriter) serve(flushInterval, gracePeriod time.Duration) {
 	defer close(pw.serveDone)
 
-	ti := time.NewTicker(2 * time.Second)
+	ti := time.NewTicker(flushInterval)
 	defer ti.Stop()
 
 	// Hold the initial packet batch for a short grace period so every DSB emitted
 	// by the handshake is written first. Wireshark processes blocks sequentially;
 	// the application traffic secrets must precede the encrypted packet blocks.
-	dsbGraceDeadline := time.Now().Add(3 * time.Second)
+	var dsbGraceDeadline time.Time
 
 	var i int
 	for {
@@ -222,6 +231,9 @@ func (pw *PcapWriter) Serve() {
 					}
 				}
 				return
+			}
+			if dsbGraceDeadline.IsZero() {
+				dsbGraceDeadline = time.Now().Add(gracePeriod)
 			}
 			pw.tcPackets = append(pw.tcPackets, packet)
 			i++
