@@ -178,7 +178,29 @@ func (c *Config) findSymbolAddr(lfunc string) (uint64, error) {
 	if textSect == nil {
 		return 0, ErrorTextSectionNotFound
 	}
-	return f.Entry - textSect.Addr + textSect.Offset, nil
+	textOffset, err := symbolTextOffset(f.Entry, textSect)
+	if err != nil {
+		return 0, fmt.Errorf("finding %s address: %w", lfunc, err)
+	}
+	return textSect.Offset + textOffset, nil
+}
+
+// symbolTextOffset normalizes gosym function entries to an offset within the
+// ELF .text section. Go 1.26 reports entries relative to textStart for some
+// binaries, while older toolchains report virtual addresses. Supporting both
+// forms prevents unsigned underflow when calculating a uprobe file offset.
+func symbolTextOffset(entry uint64, textSect *elf.Section) (uint64, error) {
+	if textSect == nil {
+		return 0, ErrorTextSectionNotFound
+	}
+	if entry >= textSect.Addr && entry-textSect.Addr < textSect.Size {
+		return entry - textSect.Addr, nil
+	}
+	if entry < textSect.Size {
+		return entry, nil
+	}
+	return 0, fmt.Errorf("symbol entry %#x is outside .text [%#x, %#x) and relative size %#x",
+		entry, textSect.Addr, textSect.Addr+textSect.Size, textSect.Size)
 }
 
 func (c *Config) findSymbolRetOffsets(lfunc string) ([]int, error) {
@@ -196,10 +218,11 @@ func (c *Config) findSymbolRetOffsets(lfunc string) ([]int, error) {
 		return nil, err
 	}
 
-	var (
-		start = f.Entry - textSect.Addr
-		end   = f.End - textSect.Addr
-	)
+	start, err := symbolTextOffset(f.Entry, textSect)
+	if err != nil {
+		return nil, fmt.Errorf("finding %s return offsets: %w", lfunc, err)
+	}
+	end := start + (f.End - f.Entry)
 
 	if end <= start || start > textSect.Size || end > textSect.Size {
 		return nil, fmt.Errorf("invalid function range start: %d, end: %d", start, end)
@@ -209,19 +232,9 @@ func (c *Config) findSymbolRetOffsets(lfunc string) ([]int, error) {
 	if err != nil {
 		return nil, err
 	}
-	for _, prog := range c.goElf.Progs {
-		if prog.Type != elf.PT_LOAD || (prog.Flags&elf.PF_X) == 0 {
-			continue
-		}
-
-		if prog.Vaddr <= f.Entry && f.Entry < (prog.Vaddr+prog.Memsz) {
-			// https://stackoverflow.com/a/40249502
-			address := f.Entry - prog.Vaddr + prog.Off
-			for i, offset := range offsets {
-				offsets[i] = int(address) + offset
-			}
-			return offsets, nil
-		}
+	address := textSect.Offset + start
+	for i, offset := range offsets {
+		offsets[i] = int(address) + offset
 	}
-	return nil, errors.New("cant found GoTLS ret offsets")
+	return offsets, nil
 }
