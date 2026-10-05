@@ -42,14 +42,13 @@ type PcapWriter struct {
 	ctx       context.Context
 	ctxCancel context.CancelFunc
 
-	tcPackets       []*TcPacket
-	packetChan      chan *TcPacket
-	keylogChan      chan []byte // channel for DSB (keylog) writes, serialized with packet writes
-	serveDone       chan struct{}
-	packetCount     int
-	firstDSBWritten bool // true after the first DSB has been written to the file
-	isClosed        bool
-	logger          *lger.Logger
+	tcPackets   []*TcPacket
+	packetChan  chan *TcPacket
+	keylogChan  chan []byte // channel for DSB (keylog) writes, serialized with packet writes
+	serveDone   chan struct{}
+	packetCount int
+	isClosed    bool
+	logger      *lger.Logger
 }
 
 // NewPcapWriter creates a new PCAPNG writer
@@ -164,22 +163,40 @@ func (pw *PcapWriter) Serve() {
 	ti := time.NewTicker(2 * time.Second)
 	defer ti.Stop()
 
-	// dsbGraceDeadline: don't flush packets to disk until the first DSB arrives
-	// or this deadline passes, so the DSB appears before packets in the pcapng file.
-	// Wireshark processes blocks sequentially and needs the DSB before encrypted packets.
-	// 3 seconds is sufficient since TLS handshakes typically complete in under 1 second.
+	// Hold the initial packet batch for a short grace period so every DSB emitted
+	// by the handshake is written first. Wireshark processes blocks sequentially;
+	// the application traffic secrets must precede the encrypted packet blocks.
 	dsbGraceDeadline := time.Now().Add(3 * time.Second)
 
 	var i int
 	for {
 		select {
 		case <-ti.C:
+			// Keylog callbacks for one handshake can enqueue several secrets.
+			// Drain every secret already available before writing any buffered
+			// packets so tshark sees the complete DSB set first.
+		drainKeylogs:
+			for pw.keylogChan != nil {
+				select {
+				case keylogLine, ok := <-pw.keylogChan:
+					if !ok {
+						pw.keylogChan = nil
+						break drainKeylogs
+					}
+					if e := pw.writer.WriteDecryptionSecretsBlock(pcapgo.DSB_SECRETS_TYPE_TLS, keylogLine); e != nil {
+						pw.logger.Warn().Err(e).Msg("failed to write queued DSB to pcapng")
+					}
+				default:
+					break drainKeylogs
+				}
+			}
 			if i == 0 || len(pw.tcPackets) == 0 {
 				continue
 			}
-			// Delay flushing packets until the first DSB is written (or grace period expires).
-			// This ensures the DSB precedes packets in the pcapng file so Wireshark can decrypt.
-			if !pw.firstDSBWritten && time.Now().Before(dsbGraceDeadline) {
+			// Always hold the initial packet batch for the full grace period. A
+			// TLS 1.3 handshake emits multiple DSB entries, so seeing the first
+			// one does not mean the traffic-secret set is complete.
+			if time.Now().Before(dsbGraceDeadline) {
 				continue
 			}
 			n, e := pw.savePcapng()
@@ -214,27 +231,14 @@ func (pw *PcapWriter) Serve() {
 				pw.keylogChan = nil
 				continue
 			}
-			// Write DSB (Decryption Secrets Block) BEFORE flushing pending packets.
-			// Wireshark processes pcapng blocks sequentially and needs the DSB to appear
-			// before the encrypted packet blocks in order to decrypt them.
+			// Write the DSB now, but leave packets buffered. A single TLS 1.3
+			// handshake emits several keylog lines, and flushing after the first
+			// line would place the remaining traffic secrets after encrypted data.
 			if e := pw.writer.WriteDecryptionSecretsBlock(pcapgo.DSB_SECRETS_TYPE_TLS, keylogLine); e != nil {
 				pw.logger.Warn().Err(e).Msg("failed to write DSB to pcapng")
 			}
 			if e := pw.writer.Flush(); e != nil {
 				pw.logger.Warn().Err(e).Msg("failed to flush after DSB write")
-			}
-			pw.firstDSBWritten = true
-
-			// Now flush any pending (buffered) packets AFTER the DSB
-			if len(pw.tcPackets) > 0 {
-				n, e := pw.savePcapng()
-				if e != nil {
-					pw.logger.Warn().Err(e).Int("count", i).Msg("save pcapng err after DSB, maybe some packets lost.")
-				} else {
-					pw.packetCount += n
-				}
-				i = 0
-				pw.tcPackets = pw.tcPackets[:0]
 			}
 		case <-pw.ctx.Done():
 			// Context canceled — drain all remaining data from channels before exiting

@@ -153,8 +153,8 @@ case_pcapng() {
         return 1
     }
     assert_android_pcapng "$local_pcap" || return 1
-    assert_tls_plaintext_preview \
-        "$local_pcap" "$local_keylog" "$ANDROID_E2E_TOKEN" "android/boringssl/pcapng"
+    assert_pcapng_plaintext_preview \
+        "$local_pcap" "$ANDROID_E2E_TOKEN" "android/boringssl/pcapng"
 }
 
 main() {

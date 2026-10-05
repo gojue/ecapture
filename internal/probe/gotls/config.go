@@ -43,6 +43,13 @@ var (
 	ErrorTextSectionNotFound      = errors.New("`.text` section not found")
 )
 
+const (
+	go12PCLnTabMagic  uint32 = 0xfffffffb
+	go116PCLnTabMagic uint32 = 0xfffffffa
+	go118PCLnTabMagic uint32 = 0xfffffff0
+	go120PCLnTabMagic uint32 = 0xfffffff1
+)
+
 // Config extends BaseConfig with GoTLS-specific configuration.
 type Config struct {
 	*config.BaseConfig
@@ -86,9 +93,10 @@ type Config struct {
 	// IsPieBuildMode indicates whether the Go binary is built in PIE mode (position-independent executable)
 	IsPieBuildMode bool `json:"is_pie_build_mode"`
 
-	goSymTab  *gosym.Table
-	goElfArch string    //
-	goElf     *elf.File //
+	goSymTab       *gosym.Table
+	goSymEntryMode symbolEntryMode
+	goElfArch      string    //
+	goElf          *elf.File //
 }
 
 // NewConfig creates a new GoTLS config with default values
@@ -494,24 +502,17 @@ func (c *Config) readGoSymbolTable(elfFile *elf.File, goVersion string) (*gosym.
 
 // magicNumber returns the magic number for the given Go version
 func magicNumber(goVersion string) []byte {
-	const (
-		go12magic  = 0xfffffffb
-		go116magic = 0xfffffffa
-		go118magic = 0xfffffff0
-		go120magic = 0xfffffff1
-	)
-
 	bs := make([]byte, 4)
 	var magic uint32
 
 	if strings.Compare(goVersion, "go1.20") >= 0 {
-		magic = go120magic
+		magic = go120PCLnTabMagic
 	} else if strings.Compare(goVersion, "go1.18") >= 0 {
-		magic = go118magic
+		magic = go118PCLnTabMagic
 	} else if strings.Compare(goVersion, "go1.16") >= 0 {
-		magic = go116magic
+		magic = go116PCLnTabMagic
 	} else {
-		magic = go12magic
+		magic = go12PCLnTabMagic
 	}
 
 	binary.LittleEndian.PutUint32(bs, magic)

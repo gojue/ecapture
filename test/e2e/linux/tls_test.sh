@@ -92,8 +92,8 @@ case_pcapng() {
     assert_no_capture_errors "$capture_log" || return 1
     assert_keylog "$keylog_file" || return 1
     assert_pcapng "$pcap_file" || return 1
-    assert_tls_plaintext_preview \
-        "$pcap_file" "$keylog_file" "$E2E_TOKEN" "linux/tls/pcapng"
+    assert_pcapng_plaintext_preview \
+        "$pcap_file" "$E2E_TOKEN" "linux/tls/pcapng"
 }
 
 main() {
