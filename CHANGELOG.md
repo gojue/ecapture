@@ -1,3 +1,21 @@
+# v2.7.0 (2026-10-05)
+
+## What's Changed
+
+* build(deps): bump github.com/quic-go/quic-go from 0.59.0 to 0.59.1 by @dependabot[bot] in https://github.com/gojue/ecapture/pull/1032
+* mysqld: load correct eBPF asset name for core/non-core builds by @cfc4n with @Copilot in https://github.com/gojue/ecapture/pull/1035
+* feat: update openssl 3.0.22/3.4.7/3.5.8/3.6.4/4.0.2 by @cfc4n in https://github.com/gojue/ecapture/pull/1043
+* fix: detect Android OpenSSL from embedded version by @cfc4n with @Copilot in https://github.com/gojue/ecapture/pull/1041
+* fix: trim zero padding from TLS 1.3 NSS keylogs by @cfc4n with @Copilot in https://github.com/gojue/ecapture/pull/1036
+* fix: handle tagged Android pointers in OpenSSL probes by @cfc4n with @Copilot in https://github.com/gojue/ecapture/pull/1039
+* test(e2e): rebuild TLS coverage matrix by @cfc4n in https://github.com/gojue/ecapture/pull/1045
+* fix(openssl): scope tagged pointer reads by @cfc4n in https://github.com/gojue/ecapture/pull/1046
+* fix(e2e): close TLS validation gaps by @cfc4n in https://github.com/gojue/ecapture/pull/1047
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v2.6.0...v2.7.0
+
+<hr>
+
 # v2.6.0 (2026-09-09)
 
 ## What's Changed
