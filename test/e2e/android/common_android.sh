@@ -11,6 +11,7 @@ ROOT_DIR="$(cd "$E2E_DIR/../.." && pwd)"
 source "$E2E_DIR/lib/testlib.sh"
 
 ANDROID_CAPTURE_PID=""
+ANDROID_CLIENT_PID=""
 ANDROID_HOST_SERVER_PID=""
 ANDROID_WORK_DIR=""
 ANDROID_DEVICE_DIR=""
@@ -283,6 +284,16 @@ stop_android_capture() {
     ANDROID_CAPTURE_PID=""
 }
 
+stop_android_client() {
+    if [[ -z "$ANDROID_CLIENT_PID" ]]; then
+        return 0
+    fi
+    adb_cmd shell "kill -TERM '$ANDROID_CLIENT_PID'" >/dev/null 2>&1 || true
+    sleep 0.2
+    adb_cmd shell "kill -KILL '$ANDROID_CLIENT_PID'" >/dev/null 2>&1 || true
+    ANDROID_CLIENT_PID=""
+}
+
 assert_android_pcapng() {
     local pcap_file="$1"
     assert_file_nonempty "$pcap_file" "Android pcapng capture" || return 1
@@ -292,6 +303,7 @@ assert_android_pcapng() {
 android_suite_cleanup() {
     stop_packet_capture || true
     stop_android_capture || true
+    stop_android_client || true
     if [[ -n "$ANDROID_TLS_PORT" ]]; then
         adb_cmd reverse --remove "tcp:$ANDROID_TLS_PORT" >/dev/null 2>&1 || true
     fi
