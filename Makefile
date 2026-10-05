@@ -208,6 +208,7 @@ format:
 	@echo "  ->  Formatting code"
 	@clang-format -i -style=$(STYLE) kern/*.c
 	@clang-format -i -style=$(STYLE) kern/common.h
+	@clang-format -i -style=$(STYLE) kern/openssl_untag.h
 	@clang-format -i -style=$(STYLE) kern/openssl_masterkey.h
 	@clang-format -i -style=$(STYLE) kern/openssl_masterkey_3.0.h
 	@clang-format -i -style=$(STYLE) kern/openssl_masterkey_3.2.h
