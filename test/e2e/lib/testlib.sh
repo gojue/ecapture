@@ -104,7 +104,9 @@ start_packet_capture() {
     local capture_log="$4"
 
     : >"$capture_log"
-    tshark -n -i "$interface" -f "$capture_filter" -w "$capture_file" >"$capture_log" 2>&1 &
+    # Open the artifact from the invoking shell.  tshark drops privileges when
+    # started as root and cannot itself traverse root-owned mktemp directories.
+    tshark -n -i "$interface" -f "$capture_filter" -w - >"$capture_file" 2>"$capture_log" &
     E2E_PACKET_CAPTURE_PID=$!
 
     local attempt
