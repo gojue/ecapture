@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"testing"
@@ -107,7 +108,7 @@ func TestPcapWriterKeepsDSBBeforeChronologicalPackets(t *testing.T) {
 	var packetTimes []time.Time
 	for {
 		_, captureInfo, readErr := reader.ReadPacketData()
-		if readErr == io.EOF {
+		if errors.Is(readErr, io.EOF) {
 			break
 		}
 		if readErr != nil {
