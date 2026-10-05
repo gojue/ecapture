@@ -173,7 +173,7 @@ func (pw *PcapWriter) serve(flushInterval, gracePeriod time.Duration) {
 	ti := time.NewTicker(flushInterval)
 	defer ti.Stop()
 
-	// Hold the initial packet batch for a short grace period so every DSB emitted
+	// Hold each newly buffered packet batch for a short grace period so every DSB emitted
 	// by the handshake is written first. Wireshark processes blocks sequentially;
 	// the application traffic secrets must precede the encrypted packet blocks.
 	var dsbGraceDeadline time.Time
@@ -203,7 +203,7 @@ func (pw *PcapWriter) serve(flushInterval, gracePeriod time.Duration) {
 			if i == 0 || len(pw.tcPackets) == 0 {
 				continue
 			}
-			// Always hold the initial packet batch for the full grace period. A
+			// Always hold each packet batch for the full grace period. A
 			// TLS 1.3 handshake emits multiple DSB entries, so seeing the first
 			// one does not mean the traffic-secret set is complete.
 			if time.Now().Before(dsbGraceDeadline) {
@@ -219,6 +219,7 @@ func (pw *PcapWriter) serve(flushInterval, gracePeriod time.Duration) {
 			// reset counter, and reset tcPackets array
 			i = 0
 			pw.tcPackets = pw.tcPackets[:0]
+			dsbGraceDeadline = time.Time{}
 		case packet, ok := <-pw.packetChan:
 			if !ok {
 				// Channel closed — drain any remaining packets and exit
