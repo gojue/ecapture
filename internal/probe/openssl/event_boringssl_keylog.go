@@ -21,6 +21,7 @@ import (
 
 	"github.com/gojue/ecapture/v2/internal/domain"
 	"github.com/gojue/ecapture/v2/internal/errors"
+	"github.com/gojue/ecapture/v2/pkg/util/hkdf"
 )
 
 const (
@@ -39,6 +40,33 @@ type BoringSSLKeylogEvent struct {
 	ClientRandomLen uint8
 	Secret          [boringSSLKeylogSecretSize]byte
 	SecretLen       uint8
+}
+
+// isBoringSSLKeylogEvent distinguishes label-based BoringSSL events from the
+// legacy master-secret event. Perf samples may include alignment padding, so
+// the payload cannot be identified by an exact byte length.
+func isBoringSSLKeylogEvent(data []byte) bool {
+	if len(data) < boringSSLKeylogEventSize {
+		return false
+	}
+
+	labelLen := int(data[boringSSLKeylogLabelSize])
+	if labelLen == 0 || labelLen > boringSSLKeylogLabelSize {
+		return false
+	}
+
+	switch string(data[:labelLen]) {
+	case hkdf.KeyLogLabelTLS12,
+		hkdf.KeyLogLabelClientHandshake,
+		hkdf.KeyLogLabelServerHandshake,
+		hkdf.KeyLogLabelClientTraffic,
+		hkdf.KeyLogLabelServerTraffic,
+		hkdf.KeyLogLabelExporterSecret,
+		hkdf.KeyLogLabelClientEarlyTafficSecret:
+		return true
+	default:
+		return false
+	}
 }
 
 func (e *BoringSSLKeylogEvent) DecodeFromBytes(data []byte) error {
