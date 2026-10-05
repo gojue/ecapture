@@ -20,6 +20,7 @@ import (
 	"io"
 	"math"
 	"net"
+	"sort"
 	"time"
 
 	"github.com/google/gopacket"
@@ -302,6 +303,12 @@ drainKeylogs:
 
 // savePcapng writes all buffered packets and flushes the writer
 func (pw *PcapWriter) savePcapng() (i int, err error) {
+	// TC events can arrive from different per-CPU perf buffers out of timestamp
+	// order. Preserve capture chronology so TCP/TLS reassembly does not see a
+	// later segment before the data that precedes it.
+	sort.SliceStable(pw.tcPackets, func(i, j int) bool {
+		return pw.tcPackets[i].ci.Timestamp.Before(pw.tcPackets[j].ci.Timestamp)
+	})
 	for _, packet := range pw.tcPackets {
 		err = pw.writer.WritePacket(packet.ci, packet.data)
 		i++

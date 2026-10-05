@@ -95,21 +95,32 @@ run_prepared_android_https_request() {
     local output_file="$1"
     adb_cmd shell "touch '$ANDROID_CLIENT_GATE'"
 
-    local attempt
+    local attempt request_complete=0
     for attempt in $(seq 1 200); do
+        if adb_cmd shell "grep -Fq '$ANDROID_E2E_TOKEN method=GET protocol=HTTP/1.1 path=/e2e' '$ANDROID_CLIENT_DEVICE_LOG'" \
+            >/dev/null 2>&1; then
+            request_complete=1
+            break
+        fi
         if ! adb_cmd shell "kill -0 '$ANDROID_CLIENT_PID'" >/dev/null 2>&1; then
             break
         fi
         sleep 0.1
     done
-    if adb_cmd shell "kill -0 '$ANDROID_CLIENT_PID'" >/dev/null 2>&1; then
-        log_error "Timed out waiting for gated Android Conscrypt client"
+    if [[ "$request_complete" -ne 1 ]]; then
+        log_error "Gated Android Conscrypt client did not produce the expected response"
         stop_android_client
         return 1
     fi
-    ANDROID_CLIENT_PID=""
 
-    adb_pull "$ANDROID_CLIENT_DEVICE_LOG" "$output_file" || return 1
+    if ! adb_pull "$ANDROID_CLIENT_DEVICE_LOG" "$output_file"; then
+        stop_android_client
+        return 1
+    fi
+    # Some Android releases keep app_process alive after the request because
+    # platform runtime threads remain active. The response marker, rather than
+    # process exit, defines completion for this workload.
+    stop_android_client
     assert_file_contains "$output_file" "$ANDROID_E2E_TOKEN" "Android Conscrypt response"
 }
 

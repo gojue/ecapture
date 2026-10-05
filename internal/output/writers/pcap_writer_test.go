@@ -30,7 +30,7 @@ import (
 	lger "github.com/gojue/ecapture/v2/internal/logger"
 )
 
-func TestPcapWriterKeepsCompleteDSBSetBeforePackets(t *testing.T) {
+func TestPcapWriterKeepsDSBBeforeChronologicalPackets(t *testing.T) {
 	t.Parallel()
 
 	var output bytes.Buffer
@@ -52,13 +52,16 @@ func TestPcapWriterKeepsCompleteDSBSetBeforePackets(t *testing.T) {
 	}
 	go pw.Serve()
 
-	pw.packetChan <- &TcPacket{
-		ci: gopacket.CaptureInfo{
-			Timestamp:     time.Now(),
-			CaptureLength: 60,
-			Length:        60,
-		},
-		data: make([]byte, 60),
+	baseTime := time.Unix(100, 0)
+	for _, timestamp := range []time.Time{baseTime.Add(2 * time.Second), baseTime.Add(time.Second)} {
+		pw.packetChan <- &TcPacket{
+			ci: gopacket.CaptureInfo{
+				Timestamp:     timestamp,
+				CaptureLength: 60,
+				Length:        60,
+			},
+			data: make([]byte, 60),
+		}
 	}
 	pw.keylogChan <- []byte("CLIENT_TRAFFIC_SECRET_0 random client-secret\n")
 	pw.keylogChan <- []byte("SERVER_TRAFFIC_SECRET_0 random server-secret\n")
@@ -95,6 +98,28 @@ func TestPcapWriterKeepsCompleteDSBSetBeforePackets(t *testing.T) {
 	}
 	if firstPacket < 0 {
 		t.Fatal("pcapng contains no enhanced packet block")
+	}
+
+	reader, err := pcapgo.NewNgReader(bytes.NewReader(output.Bytes()), pcapgo.DefaultNgReaderOptions)
+	if err != nil {
+		t.Fatalf("NewNgReader() error = %v", err)
+	}
+	var packetTimes []time.Time
+	for {
+		_, captureInfo, readErr := reader.ReadPacketData()
+		if readErr == io.EOF {
+			break
+		}
+		if readErr != nil {
+			t.Fatalf("ReadPacketData() error = %v", readErr)
+		}
+		packetTimes = append(packetTimes, captureInfo.Timestamp)
+	}
+	if len(packetTimes) != 2 {
+		t.Fatalf("packet count = %d, want 2", len(packetTimes))
+	}
+	if packetTimes[0].After(packetTimes[1]) {
+		t.Fatalf("packet timestamps are out of order: %v then %v", packetTimes[0], packetTimes[1])
 	}
 }
 
