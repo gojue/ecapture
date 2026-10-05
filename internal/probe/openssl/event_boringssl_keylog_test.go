@@ -27,16 +27,7 @@ import (
 var _ handlers.GoTLSMasterSecretEvent = (*BoringSSLKeylogEvent)(nil)
 
 func TestBoringSSLKeylogEventDecode(t *testing.T) {
-	want := &BoringSSLKeylogEvent{
-		LabelLen:        uint8(len(hkdf.KeyLogLabelClientHandshake)),
-		ClientRandomLen: Ssl3RandomSize,
-		SecretLen:       32,
-	}
-	copy(want.Label[:], hkdf.KeyLogLabelClientHandshake)
-	for i := 0; i < Ssl3RandomSize; i++ {
-		want.ClientRandom[i] = byte(i + 1)
-		want.Secret[i] = byte(0xa0 + i)
-	}
+	want := newTestBoringSSLKeylogEvent()
 
 	var encoded bytes.Buffer
 	require.NoError(t, binary.Write(&encoded, binary.LittleEndian, want))
@@ -50,6 +41,34 @@ func TestBoringSSLKeylogEventDecode(t *testing.T) {
 	require.Equal(t, want.GetSecret(), got.GetSecret())
 }
 
+func TestMasterSecretEventDecoderAcceptsPaddedBoringSSLKeylogEvent(t *testing.T) {
+	want := newTestBoringSSLKeylogEvent()
+
+	var encoded bytes.Buffer
+	require.NoError(t, binary.Write(&encoded, binary.LittleEndian, want))
+	data := append(encoded.Bytes(), make([]byte, 5)...)
+	require.Len(t, data, 168)
+
+	decoded, err := (&masterSecretEventDecoder{}).Decode(nil, data)
+	require.NoError(t, err)
+	got, ok := decoded.(*BoringSSLKeylogEvent)
+	require.True(t, ok)
+	require.Equal(t, want.GetLabel(), got.GetLabel())
+	require.Equal(t, want.GetClientRandom(), got.GetClientRandom())
+	require.Equal(t, want.GetSecret(), got.GetSecret())
+}
+
+func TestBoringSSLKeylogEventDetectionRejectsUnknownLabel(t *testing.T) {
+	event := newTestBoringSSLKeylogEvent()
+	event.Label = [boringSSLKeylogLabelSize]byte{}
+	copy(event.Label[:], "UNKNOWN_SECRET")
+	event.LabelLen = uint8(len("UNKNOWN_SECRET"))
+
+	var encoded bytes.Buffer
+	require.NoError(t, binary.Write(&encoded, binary.LittleEndian, event))
+	require.False(t, isBoringSSLKeylogEvent(encoded.Bytes()))
+}
+
 func TestBoringSSLKeylogEventRejectsInvalidLengths(t *testing.T) {
 	event := &BoringSSLKeylogEvent{
 		LabelLen:        1,
@@ -57,4 +76,18 @@ func TestBoringSSLKeylogEventRejectsInvalidLengths(t *testing.T) {
 		SecretLen:       boringSSLKeylogSecretSize + 1,
 	}
 	require.Error(t, event.Validate())
+}
+
+func newTestBoringSSLKeylogEvent() *BoringSSLKeylogEvent {
+	event := &BoringSSLKeylogEvent{
+		LabelLen:        uint8(len(hkdf.KeyLogLabelClientHandshake)),
+		ClientRandomLen: Ssl3RandomSize,
+		SecretLen:       32,
+	}
+	copy(event.Label[:], hkdf.KeyLogLabelClientHandshake)
+	for i := 0; i < Ssl3RandomSize; i++ {
+		event.ClientRandom[i] = byte(i + 1)
+		event.Secret[i] = byte(0xa0 + i)
+	}
+	return event
 }

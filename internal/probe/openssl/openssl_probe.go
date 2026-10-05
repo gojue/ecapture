@@ -769,7 +769,7 @@ type masterSecretEventDecoder struct {
 }
 
 func (d *masterSecretEventDecoder) Decode(_ *ebpf.Map, data []byte) (domain.Event, error) {
-	if len(data) == boringSSLKeylogEventSize {
+	if isBoringSSLKeylogEvent(data) {
 		event := &BoringSSLKeylogEvent{}
 		if err := event.DecodeFromBytes(data); err != nil {
 			return nil, err
