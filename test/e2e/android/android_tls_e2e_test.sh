@@ -13,6 +13,8 @@ DEVICE_ECAPTURE=""
 DEVICE_CLIENT=""
 BORINGSSL_LIB=""
 BORINGSSL_VERSION=""
+ANDROID_CLIENT_GATE=""
+ANDROID_CLIENT_DEVICE_LOG=""
 
 deploy_android_workloads() {
     [[ -f "$LOCAL_ECAPTURE" ]] || {
@@ -58,6 +60,59 @@ run_android_https_request() {
     assert_file_contains "$output_file" "$ANDROID_E2E_TOKEN" "Android Conscrypt response"
 }
 
+# Start app_process behind a file gate so its PID can be supplied to eCapture
+# before the TLS request begins. Text mode otherwise observes every platform
+# BoringSSL user and can overflow the perf buffer on busy emulator images.
+prepare_android_https_request() {
+    local tls_version="$1"
+    local version_flag
+    case "$tls_version" in
+        tls12) version_flag="1.2" ;;
+        tls13) version_flag="1.3" ;;
+        *) log_error "Unknown Android TLS fixture version: $tls_version"; return 1 ;;
+    esac
+
+    ANDROID_CLIENT_GATE="$ANDROID_DEVICE_DIR/client.start"
+    ANDROID_CLIENT_DEVICE_LOG="$ANDROID_DEVICE_DIR/client.output"
+    adb_cmd shell "rm -f '$ANDROID_CLIENT_GATE' '$ANDROID_CLIENT_DEVICE_LOG'"
+
+    local client_command output
+    client_command="while [ ! -f '$ANDROID_CLIENT_GATE' ]; do sleep 0.1; done; export CLASSPATH='$DEVICE_CLIENT'; exec app_process /system/bin AndroidHttpsClient '$ANDROID_TLS_URL' '$ANDROID_E2E_TOKEN' '$version_flag'"
+    output="$(adb_cmd shell "nohup sh -c \"$client_command\" >'$ANDROID_CLIENT_DEVICE_LOG' 2>&1 </dev/null & echo \$!")"
+    ANDROID_CLIENT_PID="$(printf '%s\n' "$output" | tr -d '\r' | grep -E '^[0-9]+$' | tail -n 1)"
+    if [[ -z "$ANDROID_CLIENT_PID" ]]; then
+        log_error "Could not determine gated Android client PID"
+        return 1
+    fi
+    if ! adb_cmd shell "kill -0 '$ANDROID_CLIENT_PID'" >/dev/null 2>&1; then
+        log_error "Gated Android client exited before capture started"
+        ANDROID_CLIENT_PID=""
+        return 1
+    fi
+}
+
+run_prepared_android_https_request() {
+    local output_file="$1"
+    adb_cmd shell "touch '$ANDROID_CLIENT_GATE'"
+
+    local attempt
+    for attempt in $(seq 1 200); do
+        if ! adb_cmd shell "kill -0 '$ANDROID_CLIENT_PID'" >/dev/null 2>&1; then
+            break
+        fi
+        sleep 0.1
+    done
+    if adb_cmd shell "kill -0 '$ANDROID_CLIENT_PID'" >/dev/null 2>&1; then
+        log_error "Timed out waiting for gated Android Conscrypt client"
+        stop_android_client
+        return 1
+    fi
+    ANDROID_CLIENT_PID=""
+
+    adb_pull "$ANDROID_CLIENT_DEVICE_LOG" "$output_file" || return 1
+    assert_file_contains "$output_file" "$ANDROID_E2E_TOKEN" "Android Conscrypt response"
+}
+
 pull_capture_log() {
     local device_log="$1"
     local local_log="$2"
@@ -68,9 +123,14 @@ pull_capture_log() {
 case_text() {
     local device_log="$ANDROID_DEVICE_DIR/text.ecapture.log"
     local local_log="$ANDROID_WORK_DIR/text.ecapture.log"
-    start_android_capture "$device_log" "$DEVICE_ECAPTURE" tls \
-        --libssl "$BORINGSSL_LIB" --ssl_version "$BORINGSSL_VERSION" --model text || return 1
-    if ! run_android_https_request tls13 "$ANDROID_WORK_DIR/text.client.log"; then
+    prepare_android_https_request tls13 || return 1
+    if ! start_android_capture "$device_log" "$DEVICE_ECAPTURE" tls \
+        --libssl "$BORINGSSL_LIB" --ssl_version "$BORINGSSL_VERSION" \
+        --model text --pid "$ANDROID_CLIENT_PID"; then
+        stop_android_client
+        return 1
+    fi
+    if ! run_prepared_android_https_request "$ANDROID_WORK_DIR/text.client.log"; then
         stop_android_capture
         return 1
     fi
