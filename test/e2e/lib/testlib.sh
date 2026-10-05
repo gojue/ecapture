@@ -21,6 +21,7 @@ E2E_TOTAL=0
 E2E_PASSED=0
 E2E_FAILED=0
 E2E_FAILED_CASES=()
+E2E_PACKET_CAPTURE_PID=""
 
 run_case() {
     local name="$1"
@@ -77,6 +78,96 @@ assert_file_contains() {
         tail -n 80 "$file" >&2 || true
         return 1
     fi
+}
+
+print_plaintext_preview() {
+    local file="$1"
+    local token="$2"
+    local label="$3"
+    local line preview
+
+    # The fixture puts the token in both a response header and the body.  The
+    # final occurrence carries the more useful request/protocol context.
+    line="$(grep -aF -- "$token" "$file" | tail -n 1)" || {
+        log_error "Captured plaintext token not found for $label: $token"
+        return 1
+    }
+    preview="$token${line#*"$token"}"
+    preview="$(printf '%s' "$preview" | tr '\r\n\t' '   ' | cut -c1-50)"
+    printf "%b[PLAINTEXT]%b %s: %s\n" "$E2E_GREEN" "$E2E_NC" "$label" "$preview"
+}
+
+start_packet_capture() {
+    local interface="$1"
+    local capture_filter="$2"
+    local capture_file="$3"
+    local capture_log="$4"
+
+    : >"$capture_log"
+    tshark -n -i "$interface" -f "$capture_filter" -w "$capture_file" >"$capture_log" 2>&1 &
+    E2E_PACKET_CAPTURE_PID=$!
+
+    local attempt
+    for attempt in $(seq 1 30); do
+        if ! kill -0 "$E2E_PACKET_CAPTURE_PID" 2>/dev/null; then
+            wait "$E2E_PACKET_CAPTURE_PID" 2>/dev/null || true
+            log_error "Packet capture exited during initialization"
+            cat "$capture_log" >&2 || true
+            E2E_PACKET_CAPTURE_PID=""
+            return 1
+        fi
+        if [[ -s "$capture_file" ]]; then
+            return 0
+        fi
+        sleep 0.1
+    done
+
+    log_error "Timed out waiting for packet capture"
+    stop_packet_capture
+    cat "$capture_log" >&2 || true
+    return 1
+}
+
+stop_packet_capture() {
+    if [[ -z "$E2E_PACKET_CAPTURE_PID" ]]; then
+        return 0
+    fi
+
+    if kill -0 "$E2E_PACKET_CAPTURE_PID" 2>/dev/null; then
+        kill -INT "$E2E_PACKET_CAPTURE_PID" 2>/dev/null || true
+        local attempt
+        for attempt in $(seq 1 30); do
+            if ! kill -0 "$E2E_PACKET_CAPTURE_PID" 2>/dev/null; then
+                break
+            fi
+            sleep 0.1
+        done
+    fi
+    if kill -0 "$E2E_PACKET_CAPTURE_PID" 2>/dev/null; then
+        kill -TERM "$E2E_PACKET_CAPTURE_PID" 2>/dev/null || true
+    fi
+    wait "$E2E_PACKET_CAPTURE_PID" 2>/dev/null || true
+    E2E_PACKET_CAPTURE_PID=""
+}
+
+assert_tls_plaintext_preview() {
+    local pcap_file="$1"
+    local keylog_file="$2"
+    local token="$3"
+    local label="$4"
+    local plaintext_file="${pcap_file}.plaintext.txt"
+    local tshark_log="${pcap_file}.tshark.log"
+
+    assert_file_nonempty "$pcap_file" "packet capture for $label" || return 1
+    assert_file_nonempty "$keylog_file" "NSS keylog for $label" || return 1
+    if ! tshark -n -r "$pcap_file" -o "tls.keylog_file:$keylog_file" \
+        -q -z follow,tls,ascii,0 >"$plaintext_file" 2>"$tshark_log"; then
+        log_error "tshark could not decrypt $label"
+        cat "$tshark_log" >&2 || true
+        return 1
+    fi
+    assert_file_contains "$plaintext_file" "$token" "decrypted TLS plaintext for $label" || return 1
+    print_plaintext_preview "$plaintext_file" "$token" "$label"
 }
 
 assert_no_capture_errors() {

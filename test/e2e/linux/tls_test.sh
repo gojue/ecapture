@@ -39,19 +39,28 @@ case_text() {
 
     assert_no_capture_errors "$capture_log" || return 1
     assert_file_contains "$capture_log" "$E2E_TOKEN" "captured OpenSSL plaintext" || return 1
+    print_plaintext_preview "$capture_log" "$E2E_TOKEN" "linux/tls/text"
 }
 
 case_keylog() {
     local capture_log="$WORK_DIR/keylog.ecapture.log"
     local keylog_file="$WORK_DIR/openssl.keys.log"
-    start_capture "$capture_log" tls --libssl "$OPENSSL_LIB" --model keylog --keylogfile "$keylog_file" || return 1
+    local packet_file="$WORK_DIR/openssl.keylog.pcapng"
+    local packet_log="$WORK_DIR/openssl.keylog.tshark-capture.log"
+    start_packet_capture lo "tcp port $TLS_SERVER_PORT" "$packet_file" "$packet_log" || return 1
+    if ! start_capture "$capture_log" tls --libssl "$OPENSSL_LIB" --model keylog --keylogfile "$keylog_file"; then
+        stop_packet_capture
+        return 1
+    fi
     if ! run_openssl_request tls12 "$WORK_DIR/keylog.tls12.client.log" || \
        ! run_openssl_request tls13 "$WORK_DIR/keylog.tls13.client.log"; then
         stop_capture
+        stop_packet_capture
         return 1
     fi
     sleep 1
     stop_capture
+    stop_packet_capture
 
     assert_no_capture_errors "$capture_log" || return 1
     assert_keylog "$keylog_file" || return 1
@@ -63,6 +72,8 @@ case_keylog() {
         log_error "OpenSSL TLS 1.3 traffic secret was not captured"
         return 1
     }
+    assert_tls_plaintext_preview \
+        "$packet_file" "$keylog_file" "$E2E_TOKEN" "linux/tls/keylog"
 }
 
 case_pcapng() {
@@ -81,6 +92,8 @@ case_pcapng() {
     assert_no_capture_errors "$capture_log" || return 1
     assert_keylog "$keylog_file" || return 1
     assert_pcapng "$pcap_file" || return 1
+    assert_tls_plaintext_preview \
+        "$pcap_file" "$keylog_file" "$E2E_TOKEN" "linux/tls/pcapng"
 }
 
 main() {

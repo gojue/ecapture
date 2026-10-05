@@ -51,7 +51,7 @@ Install the test dependencies on Ubuntu:
 ```bash
 sudo apt-get update
 sudo apt-get install --yes \
-  build-essential pkg-config libssl-dev libgnutls28-dev
+  build-essential pkg-config libssl-dev libgnutls28-dev tshark
 ```
 
 Build eCapture on Linux, then run all three modules:
@@ -107,6 +107,12 @@ The Java workload is intentional: Android `HttpsURLConnection` uses Conscrypt/Bo
 | `ANDROID_BORINGSSL_CLIENT` | generated jar in `android/` | Override the Android workload jar |
 
 Failed-suite artifacts are always preserved. CI sets `E2E_KEEP_ARTIFACTS=1` and uploads them.
+
+Every successful mode prints a `[PLAINTEXT]` line containing at most 50
+characters from the verified capture. Text mode reads the eCapture event log;
+keylog mode decrypts a simultaneous packet capture with the keys emitted by
+eCapture; pcapng mode decrypts eCapture's own pcapng output. The preview is
+therefore capture evidence, not a copy of the workload's client output.
 
 ## Current GnuTLS implementation status
 

@@ -63,6 +63,9 @@ check_linux_environment() {
     require_command go
     require_command timeout
     require_command cc
+    if mode_enabled keylog || mode_enabled pcapng; then
+        require_command tshark
+    fi
     [[ -x "$ECAPTURE_BINARY" ]] || {
         log_error "eCapture binary not found: $ECAPTURE_BINARY (build with make all first)"
         return 1
@@ -191,6 +194,7 @@ resolve_linked_library() {
 }
 
 linux_suite_cleanup() {
+    stop_packet_capture || true
     stop_capture || true
     if [[ -n "$TLS_SERVER_PID" ]] && kill -0 "$TLS_SERVER_PID" 2>/dev/null; then
         kill -TERM "$TLS_SERVER_PID" 2>/dev/null || true
