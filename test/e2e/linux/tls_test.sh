@@ -13,7 +13,7 @@ OPENSSL_LIB=""
 build_openssl_client() {
     OPENSSL_CLIENT="$WORK_DIR/helpers/openssl_client"
     cc -O2 -Wall -Wextra -Werror \
-        -o "$OPENSSL_CLIENT" "$E2E_DIR/fixtures/openssl_client.c" -lssl -lcrypto
+        -o "$OPENSSL_CLIENT" "$E2E_DIR/fixtures/c/openssl_client.c" -lssl -lcrypto
     OPENSSL_LIB="$(resolve_linked_library "$OPENSSL_CLIENT" 'libssl\.so')"
     log_info "OpenSSL fixture library: $OPENSSL_LIB"
 }
