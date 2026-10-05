@@ -60,7 +60,9 @@ jobs:
           source_file="$(find /usr/src -maxdepth 1 -name 'linux-source*.tar.bz2' | head -n 1)"
           if [[ -n "$source_file" ]]; then
             source_dir="${source_file%.tar.bz2}"
-            if [[ ! -d "$source_dir" ]]; then
+            # linux-source may precreate this directory while keeping the
+            # source tree in the tarball, so key the extraction on Makefile.
+            if [[ ! -f "$source_dir/Makefile" ]]; then
               sudo tar -xf "$source_file" -C /usr/src
             fi
             if [[ ! -f "$source_dir/.config" ]]; then
