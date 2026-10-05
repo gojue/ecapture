@@ -36,7 +36,9 @@ func findBoringSSLKeylogAddress(path string) (uint64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("open BoringSSL ELF: %w", err)
 	}
-	defer lib.Close()
+	defer func() {
+		_ = lib.Close()
+	}()
 
 	section := lib.Section(".gnu_debugdata")
 	if section == nil {
@@ -63,7 +65,9 @@ func findBoringSSLKeylogAddress(path string) (uint64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("parse .gnu_debugdata ELF: %w", err)
 	}
-	defer miniDebug.Close()
+	defer func() {
+		_ = miniDebug.Close()
+	}()
 
 	symbols, err := miniDebug.Symbols()
 	if err != nil {

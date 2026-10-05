@@ -19,9 +19,10 @@ import (
 	"encoding/binary"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/gojue/ecapture/v2/internal/probe/base/handlers"
 	"github.com/gojue/ecapture/v2/pkg/util/hkdf"
-	"github.com/stretchr/testify/require"
 )
 
 var _ handlers.GoTLSMasterSecretEvent = (*BoringSSLKeylogEvent)(nil)
