@@ -54,6 +54,19 @@ struct mastersecret_bssl_t {
     u8 exporter_secret[EVP_MAX_MD_SIZE];
 };
 
+// Label-based event emitted from BoringSSL's internal ssl_log_secret function.
+// The layout intentionally matches handlers.GoTLSMasterSecretEvent consumers.
+#define BSSL_KEYLOG_LABEL_SIZE 32
+#define BSSL_KEYLOG_VALUE_SIZE 64
+struct bssl_keylog_event_t {
+    u8 label[BSSL_KEYLOG_LABEL_SIZE];
+    u8 label_len;
+    u8 client_random[BSSL_KEYLOG_VALUE_SIZE];
+    u8 client_random_len;
+    u8 secret_[BSSL_KEYLOG_VALUE_SIZE];
+    u8 secret_len;
+};
+
 // ssl/internal.h line 2653   SSL3_STATE
 struct ssl3_state_st {
     u64 read_sequence;
@@ -188,6 +201,52 @@ static __always_inline u64 get_session_addr(void *ssl_st_ptr, u64 s3_address, u6
 }
 
 /////////////////////////BPF FUNCTIONS ////////////////////////////////
+SEC("uprobe/bssl_keylog")
+int uprobe_bssl_keylog(struct pt_regs *ctx) {
+    if (!passes_filter(ctx)) {
+        return 0;
+    }
+
+    u64 ssl_st_ptr = UNTAG_PTR((u64)PT_REGS_PARM1(ctx));
+    u64 label_ptr = UNTAG_PTR((u64)PT_REGS_PARM2(ctx));
+    u64 secret_ptr = UNTAG_PTR((u64)PT_REGS_PARM3(ctx));
+    u64 secret_len = (u64)PT_REGS_PARM4(ctx);
+    if (ssl_st_ptr == 0 || label_ptr == 0 || secret_ptr == 0 || secret_len == 0 ||
+        secret_len > BSSL_KEYLOG_VALUE_SIZE) {
+        return 0;
+    }
+
+    struct bssl_keylog_event_t event = {};
+    int ret = bpf_probe_read_user_str(&event.label, sizeof(event.label), (void *)label_ptr);
+    if (ret <= 1 || ret > sizeof(event.label)) {
+        return 0;
+    }
+    event.label_len = ret - 1;
+
+    u64 s3_addr = 0;
+    ret = bpf_probe_read_user(&s3_addr, sizeof(s3_addr), (void *)(ssl_st_ptr + SSL_ST_S3));
+    if (ret || s3_addr == 0) {
+        return 0;
+    }
+    s3_addr = UNTAG_PTR(s3_addr);
+
+    ret =
+        bpf_probe_read_user(&event.client_random, SSL3_RANDOM_SIZE, (void *)(s3_addr + BSSL__SSL3_STATE_CLIENT_RANDOM));
+    if (ret) {
+        return 0;
+    }
+    event.client_random_len = SSL3_RANDOM_SIZE;
+
+    ret = bpf_probe_read_user(&event.secret_, secret_len, (void *)secret_ptr);
+    if (ret) {
+        return 0;
+    }
+    event.secret_len = secret_len;
+
+    bpf_perf_event_output(ctx, &mastersecret_events, BPF_F_CURRENT_CPU, &event, sizeof(event));
+    return 0;
+}
+
 SEC("uprobe/SSL_write_key")
 int probe_ssl_master_key(struct pt_regs *ctx) {
     u64 current_pid_tgid = bpf_get_current_pid_tgid();

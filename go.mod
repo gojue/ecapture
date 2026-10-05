@@ -13,6 +13,7 @@ require (
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
 	github.com/stretchr/testify v1.11.1
+	github.com/ulikunitz/xz v0.5.17
 	golang.org/x/arch v0.31.0
 	golang.org/x/crypto v0.57.0
 	golang.org/x/net v0.59.0

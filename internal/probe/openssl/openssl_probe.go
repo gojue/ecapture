@@ -403,7 +403,20 @@ func (p *Probe) setupManagerPcapNG() error {
 
 	// Add master secret extraction
 	p.Logger().Info().Strs("keylog_hook_funcs", p.config.MasterHookFuncs).Msg("Configuring master secret extraction probes for pcapNG mode")
-	if p.config.IsBoringSSL {
+	if p.config.IsBoringSSL && p.config.BoringSSLKeylogAddr != 0 {
+		probes = append(probes, &manager.Probe{
+			Section:          "uprobe/bssl_keylog",
+			EbpfFuncName:     "uprobe_bssl_keylog",
+			AttachToFuncName: "ssl_log_secret",
+			BinaryPath:       opensslPath,
+			UID:              "uprobe_bssl_keylog",
+			UAddress:         p.config.BoringSSLKeylogAddr,
+		})
+	} else if p.config.IsBoringSSL {
+		if p.config.boringSSLKeylogErr != "" {
+			p.Logger().Warn().Str("reason", p.config.boringSSLKeylogErr).
+				Msg("BoringSSL ssl_log_secret unavailable; falling back to SSL_do_handshake")
+		}
 		maps = append(maps, &manager.Map{Name: "bssl_do_handshake_map"})
 		for _, masterFunc := range p.config.MasterHookFuncs {
 			probes = append(probes, &manager.Probe{
@@ -524,7 +537,20 @@ func (p *Probe) setupManagerKeyLog() error {
 	// Add master secret extraction probes based on OpenSSL version
 	p.Logger().Info().Strs("keylog_hook_funcs", p.config.MasterHookFuncs).Msg("Configuring master secret extraction probes for KeyLog mode")
 	probes = make([]*manager.Probe, 0)
-	if p.config.IsBoringSSL {
+	if p.config.IsBoringSSL && p.config.BoringSSLKeylogAddr != 0 {
+		probes = append(probes, &manager.Probe{
+			Section:          "uprobe/bssl_keylog",
+			EbpfFuncName:     "uprobe_bssl_keylog",
+			AttachToFuncName: "ssl_log_secret",
+			BinaryPath:       opensslPath,
+			UID:              "uprobe_bssl_keylog",
+			UAddress:         p.config.BoringSSLKeylogAddr,
+		})
+	} else if p.config.IsBoringSSL {
+		if p.config.boringSSLKeylogErr != "" {
+			p.Logger().Warn().Str("reason", p.config.boringSSLKeylogErr).
+				Msg("BoringSSL ssl_log_secret unavailable; falling back to SSL_do_handshake")
+		}
 		maps = append(maps, &manager.Map{Name: "bssl_do_handshake_map"})
 		for _, masterFunc := range p.config.MasterHookFuncs {
 			probes = append(probes, &manager.Probe{
@@ -743,6 +769,17 @@ type masterSecretEventDecoder struct {
 }
 
 func (d *masterSecretEventDecoder) Decode(_ *ebpf.Map, data []byte) (domain.Event, error) {
+	if len(data) == boringSSLKeylogEventSize {
+		event := &BoringSSLKeylogEvent{}
+		if err := event.DecodeFromBytes(data); err != nil {
+			return nil, err
+		}
+		if err := event.Validate(); err != nil {
+			return nil, err
+		}
+		return event, nil
+	}
+
 	event := &MasterSecretEvent{}
 	if err := event.DecodeFromBytes(data); err != nil {
 		fmt.Printf("[DEBUG] mastersecret DecodeFromBytes failed: %v, data_len=%d\n", err, len(data))
