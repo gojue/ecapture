@@ -148,6 +148,65 @@ func TestPcapWriterStartsDSBGracePeriodWithFirstPacket(t *testing.T) {
 	assertDSBsBeforePackets(t, output.Bytes(), 2)
 }
 
+func TestPcapWriterRestartsDSBGracePeriodForNextBatch(t *testing.T) {
+	t.Parallel()
+
+	var output bytes.Buffer
+	ngWriter, err := pcapgo.NewNgWriter(&output, layers.LinkTypeEthernet)
+	if err != nil {
+		t.Fatalf("NewNgWriter() error = %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	pw := &PcapWriter{
+		writer:     ngWriter,
+		ctx:        ctx,
+		ctxCancel:  cancel,
+		tcPackets:  []*TcPacket{},
+		packetChan: make(chan *TcPacket),
+		keylogChan: make(chan []byte),
+		serveDone:  make(chan struct{}),
+		logger:     lger.New(io.Discard, false),
+	}
+
+	const (
+		flushInterval = 20 * time.Millisecond
+		gracePeriod   = 200 * time.Millisecond
+	)
+	go pw.serve(flushInterval, gracePeriod)
+
+	writeTestPacket := func(timestamp time.Time) {
+		t.Helper()
+		pw.packetChan <- &TcPacket{
+			ci: gopacket.CaptureInfo{
+				Timestamp:     timestamp,
+				CaptureLength: 60,
+				Length:        60,
+			},
+			data: make([]byte, 60),
+		}
+	}
+
+	writeTestPacket(time.Unix(100, 0))
+	pw.keylogChan <- []byte("CLIENT_RANDOM first-random first-secret\n")
+
+	// Let the first batch pass its grace deadline and flush before starting a
+	// separate handshake in the next batch.
+	time.Sleep(gracePeriod + 3*flushInterval)
+
+	writeTestPacket(time.Unix(200, 0))
+	// An implementation that keeps the first batch's expired deadline will
+	// flush this packet on the next tick, before its secret arrives.
+	time.Sleep(5 * flushInterval)
+	pw.keylogChan <- []byte("CLIENT_RANDOM second-random second-secret\n")
+
+	if err := pw.Close(); err != nil {
+		t.Fatalf("Close() error = %v", err)
+	}
+
+	assertDSBPrecedesEachPacketBatch(t, output.Bytes(), 2)
+}
+
 func assertDSBsBeforePackets(t *testing.T, data []byte, wantDSBs int) {
 	t.Helper()
 
@@ -179,6 +238,43 @@ func assertDSBsBeforePackets(t *testing.T, data []byte, wantDSBs int) {
 	}
 	if firstPacket < 0 {
 		t.Fatal("pcapng contains no enhanced packet block")
+	}
+}
+
+func assertDSBPrecedesEachPacketBatch(t *testing.T, data []byte, wantBatches int) {
+	t.Helper()
+
+	blockTypes, err := parsePcapngBlockTypes(data)
+	if err != nil {
+		t.Fatalf("parsePcapngBlockTypes() error = %v", err)
+	}
+	const (
+		dsbBlock = uint32(0x0000000a)
+		epbBlock = uint32(0x00000006)
+	)
+	var dsbIndexes []int
+	var packetIndexes []int
+	for index, blockType := range blockTypes {
+		switch blockType {
+		case dsbBlock:
+			dsbIndexes = append(dsbIndexes, index)
+		case epbBlock:
+			packetIndexes = append(packetIndexes, index)
+		}
+	}
+	if len(dsbIndexes) != wantBatches {
+		t.Fatalf("DSB count = %d, want %d", len(dsbIndexes), wantBatches)
+	}
+	if len(packetIndexes) != wantBatches {
+		t.Fatalf("packet count = %d, want %d", len(packetIndexes), wantBatches)
+	}
+	for batch := 0; batch < wantBatches; batch++ {
+		if dsbIndexes[batch] > packetIndexes[batch] {
+			t.Fatalf("batch %d DSB at block %d appears after packet block %d", batch+1, dsbIndexes[batch], packetIndexes[batch])
+		}
+		if batch > 0 && dsbIndexes[batch] < packetIndexes[batch-1] {
+			t.Fatalf("batch %d DSB at block %d appears before prior packet block %d", batch+1, dsbIndexes[batch], packetIndexes[batch-1])
+		}
 	}
 }
 
