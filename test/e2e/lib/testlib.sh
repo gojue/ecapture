@@ -172,11 +172,32 @@ assert_tls_plaintext_preview() {
     print_plaintext_preview "$plaintext_file" "$token" "$label"
 }
 
+assert_pcapng_plaintext_preview() {
+    local pcap_file="$1"
+    local token="$2"
+    local label="$3"
+    local plaintext_file="${pcap_file}.plaintext.txt"
+    local tshark_log="${pcap_file}.tshark.log"
+
+    assert_file_nonempty "$pcap_file" "pcapng capture for $label" || return 1
+    # Clear any keylog configured in the host's Wireshark profile. Successful
+    # decryption must come from the TLS Decryption Secrets Block embedded in
+    # eCapture's pcapng output.
+    if ! tshark -n -r "$pcap_file" -o tls.keylog_file: -q -z follow,tls,ascii,0 \
+        >"$plaintext_file" 2>"$tshark_log"; then
+        log_error "tshark could not decrypt embedded pcapng secrets for $label"
+        cat "$tshark_log" >&2 || true
+        return 1
+    fi
+    assert_file_contains "$plaintext_file" "$token" "DSB-decrypted TLS plaintext for $label" || return 1
+    print_plaintext_preview "$plaintext_file" "$token" "$label"
+}
+
 assert_no_capture_errors() {
     local log_file="$1"
     assert_file_nonempty "$log_file" "eCapture log" || return 1
 
-    local error_pattern='(^|[[:space:]])FTL([[:space:]]|$)|panic:|Failed to decode event|lost [1-9][0-9]* samples|failed to (load|attach|start)'
+    local error_pattern='(^|[[:space:]])FTL([[:space:]]|$)|panic:|Failed to decode event|lost [1-9][0-9]* samples|Perf buffer full, samples lost|lost_samples"?[=:][[:space:]]*[1-9][0-9]*|failed to (load|attach|start)'
     if grep -Eiq "$error_pattern" "$log_file"; then
         log_error "eCapture reported a fatal, decode, loss, load, attach, or start error"
         grep -Ein "$error_pattern" "$log_file" | tail -n 40 >&2 || true

@@ -10,6 +10,13 @@ import (
 	"errors"
 )
 
+type symbolEntryMode uint8
+
+const (
+	symbolEntryVirtualAddress symbolEntryMode = iota
+	symbolEntryTextRelative
+)
+
 // FindRetOffsets searches for the addresses of all RET instructions within
 // the instruction set associated with the specified symbol in an ELF program.
 // It is used for mounting uretprobe programs for Golang programs,
@@ -120,6 +127,10 @@ func (c *Config) ReadTable() (*gosym.Table, error) {
 			addr = binary.LittleEndian.Uint64(tableData[8+2*ptrSize:])
 		}
 	}
+	c.goSymEntryMode = symbolEntryVirtualAddress
+	if addr == 0 && pclnUsesRelativeFunctionOffsets(tableData) {
+		c.goSymEntryMode = symbolEntryTextRelative
+	}
 	lineTable := gosym.NewLineTable(tableData, addr)
 	symTable, err := gosym.NewTable([]byte{}, lineTable)
 	if err != nil {
@@ -178,29 +189,42 @@ func (c *Config) findSymbolAddr(lfunc string) (uint64, error) {
 	if textSect == nil {
 		return 0, ErrorTextSectionNotFound
 	}
-	textOffset, err := symbolTextOffset(f.Entry, textSect)
+	textOffset, err := symbolTextOffset(f.Entry, textSect, c.goSymEntryMode)
 	if err != nil {
 		return 0, fmt.Errorf("finding %s address: %w", lfunc, err)
 	}
 	return textSect.Offset + textOffset, nil
 }
 
-// symbolTextOffset normalizes gosym function entries to an offset within the
-// ELF .text section. Go 1.26 reports entries relative to textStart for some
-// binaries, while older toolchains report virtual addresses. Supporting both
-// forms prevents unsigned underflow when calculating a uprobe file offset.
-func symbolTextOffset(entry uint64, textSect *elf.Section) (uint64, error) {
+// pclnUsesRelativeFunctionOffsets reports whether functab entries are encoded
+// relative to runtime.text. Go 1.18 and newer use uint32 text-relative entries.
+func pclnUsesRelativeFunctionOffsets(tableData []byte) bool {
+	if len(tableData) < 4 {
+		return false
+	}
+	magic := binary.LittleEndian.Uint32(tableData[:4])
+	return magic == go118PCLnTabMagic || magic == go120PCLnTabMagic
+}
+
+// symbolTextOffset normalizes a gosym function entry to an offset within the
+// ELF .text section. The entry mode is determined once while parsing pclntab;
+// the numeric ranges of relative and virtual addresses can overlap.
+func symbolTextOffset(entry uint64, textSect *elf.Section, mode symbolEntryMode) (uint64, error) {
 	if textSect == nil {
 		return 0, ErrorTextSectionNotFound
 	}
-	if entry >= textSect.Addr && entry-textSect.Addr < textSect.Size {
-		return entry - textSect.Addr, nil
+	switch mode {
+	case symbolEntryTextRelative:
+		if entry < textSect.Size {
+			return entry, nil
+		}
+	case symbolEntryVirtualAddress:
+		if entry >= textSect.Addr && entry-textSect.Addr < textSect.Size {
+			return entry - textSect.Addr, nil
+		}
 	}
-	if entry < textSect.Size {
-		return entry, nil
-	}
-	return 0, fmt.Errorf("symbol entry %#x is outside .text [%#x, %#x) and relative size %#x",
-		entry, textSect.Addr, textSect.Addr+textSect.Size, textSect.Size)
+	return 0, fmt.Errorf("symbol entry %#x in mode %d is outside .text address range [%#x, %#x) and relative size %#x",
+		entry, mode, textSect.Addr, textSect.Addr+textSect.Size, textSect.Size)
 }
 
 func (c *Config) findSymbolRetOffsets(lfunc string) ([]int, error) {
@@ -218,7 +242,7 @@ func (c *Config) findSymbolRetOffsets(lfunc string) ([]int, error) {
 		return nil, err
 	}
 
-	start, err := symbolTextOffset(f.Entry, textSect)
+	start, err := symbolTextOffset(f.Entry, textSect, c.goSymEntryMode)
 	if err != nil {
 		return nil, fmt.Errorf("finding %s return offsets: %w", lfunc, err)
 	}
