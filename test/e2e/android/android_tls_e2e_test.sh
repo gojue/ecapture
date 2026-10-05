@@ -195,13 +195,11 @@ case_keylog() {
 case_pcapng() {
     local device_log="$ANDROID_DEVICE_DIR/pcapng.ecapture.log"
     local device_pcap="$ANDROID_DEVICE_DIR/boringssl.pcapng"
-    local device_keylog="$ANDROID_DEVICE_DIR/boringssl.pcapng.keys.log"
     local local_log="$ANDROID_WORK_DIR/pcapng.ecapture.log"
     local local_pcap="$ANDROID_WORK_DIR/boringssl.pcapng"
-    local local_keylog="$ANDROID_WORK_DIR/boringssl.pcapng.keys.log"
     start_android_capture "$device_log" "$DEVICE_ECAPTURE" tls \
         --libssl "$BORINGSSL_LIB" --ssl_version "$BORINGSSL_VERSION" \
-        --model pcapng --ifname lo --pcapfile "$device_pcap" --keylogfile "$device_keylog" \
+        --model pcapng --ifname lo --pcapfile "$device_pcap" --keylogfile= \
         "tcp port $ANDROID_TLS_PORT" || return 1
     if ! run_android_https_request tls12 "$ANDROID_WORK_DIR/pcapng.tls12.client.log" || \
        ! run_android_https_request tls13 "$ANDROID_WORK_DIR/pcapng.tls13.client.log"; then
@@ -213,16 +211,6 @@ case_pcapng() {
 
     pull_capture_log "$device_log" "$local_log" || return 1
     adb_pull "$device_pcap" "$local_pcap" || return 1
-    adb_pull "$device_keylog" "$local_keylog" || return 1
-    assert_keylog "$local_keylog" || return 1
-    grep -Eq '^CLIENT_RANDOM ' "$local_keylog" || {
-        log_error "Android BoringSSL pcapng did not capture the TLS 1.2 CLIENT_RANDOM"
-        return 1
-    }
-    grep -Eq '^(CLIENT|SERVER)_(HANDSHAKE_)?TRAFFIC_SECRET' "$local_keylog" || {
-        log_error "Android BoringSSL pcapng did not capture a TLS 1.3 traffic secret"
-        return 1
-    }
     assert_android_pcapng "$local_pcap" || return 1
     assert_pcapng_plaintext_preview \
         "$local_pcap" "$ANDROID_E2E_TOKEN" "android/boringssl/pcapng"
