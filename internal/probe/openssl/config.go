@@ -53,12 +53,15 @@ type Config struct {
 	PcapFilter string `json:"pcapfilter"` // BPF filter expression (for pcap mode)
 
 	// Detection results
-	SslVersion      string   `json:"sslversion"`      // Detected OpenSSL version
-	IsBoringSSL     bool     `json:"isboringssl"`     // Whether this is BoringSSL
-	MasterHookFuncs []string `json:"masterhookfuncs"` // List of master hook functions to attach
-	SslBpfFile      string   `json:"sslbpffile"`      // Path to the eBPF object file for the detected OpenSSL version
-	IsAndroid       bool     `json:"is_android"`      // Whether the target system is Android (for Android-specific handling)
-	AndroidVer      string   `json:"androidver"`      // Android version (for Android-specific handling)
+	SslVersion          string   `json:"sslversion"`            // Detected OpenSSL version
+	IsBoringSSL         bool     `json:"isboringssl"`           // Whether this is BoringSSL
+	BoringSSLKeylogAddr uint64   `json:"boringssl_keylog_addr"` // File offset of BoringSSL's internal ssl_log_secret
+	MasterHookFuncs     []string `json:"masterhookfuncs"`       // List of master hook functions to attach
+	SslBpfFile          string   `json:"sslbpffile"`            // Path to the eBPF object file for the detected OpenSSL version
+	IsAndroid           bool     `json:"is_android"`            // Whether the target system is Android (for Android-specific handling)
+	AndroidVer          string   `json:"androidver"`            // Android version (for Android-specific handling)
+
+	boringSSLKeylogErr string // Detection error retained for fallback diagnostics
 }
 
 // NewConfig creates a new OpenSSL probe configuration.
@@ -107,6 +110,18 @@ func (c *Config) Validate() error {
 	// Validate capture mode
 	if err := c.validateCaptureMode(); err != nil {
 		return errors.NewConfigurationError("capture mode validation failed", err)
+	}
+
+	if c.IsAndroid && c.IsBoringSSL && c.CaptureMode != "text" {
+		address, err := findBoringSSLKeylogAddress(c.OpensslPath)
+		if err != nil {
+			// Some OEM builds may omit Android's mini debug symbol table. Keep the
+			// existing SSL_do_handshake fallback available instead of rejecting
+			// keylog and pcapng modes outright.
+			c.boringSSLKeylogErr = err.Error()
+		} else {
+			c.BoringSSLKeylogAddr = address
+		}
 	}
 
 	return nil

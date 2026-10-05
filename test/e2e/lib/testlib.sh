@@ -157,18 +157,20 @@ assert_tls_plaintext_preview() {
     local keylog_file="$2"
     local token="$3"
     local label="$4"
-    local plaintext_file="${pcap_file}.plaintext.txt"
-    local tshark_log="${pcap_file}.tshark.log"
+    local tls_stream="${5:-0}"
+    local plaintext_file="${pcap_file}.stream-${tls_stream}.plaintext.txt"
+    local tshark_log="${pcap_file}.stream-${tls_stream}.tshark.log"
 
     assert_file_nonempty "$pcap_file" "packet capture for $label" || return 1
     assert_file_nonempty "$keylog_file" "NSS keylog for $label" || return 1
     if ! tshark -n -r "$pcap_file" -o "tls.keylog_file:$keylog_file" \
-        -q -z follow,tls,ascii,0 >"$plaintext_file" 2>"$tshark_log"; then
-        log_error "tshark could not decrypt $label"
+        -q -z "follow,tls,ascii,$tls_stream" >"$plaintext_file" 2>"$tshark_log"; then
+        log_error "tshark could not decrypt $label (TLS stream $tls_stream)"
         cat "$tshark_log" >&2 || true
         return 1
     fi
-    assert_file_contains "$plaintext_file" "$token" "decrypted TLS plaintext for $label" || return 1
+    assert_file_contains "$plaintext_file" "$token" \
+        "decrypted TLS plaintext for $label (TLS stream $tls_stream)" || return 1
     print_plaintext_preview "$plaintext_file" "$token" "$label"
 }
 
@@ -176,20 +178,22 @@ assert_pcapng_plaintext_preview() {
     local pcap_file="$1"
     local token="$2"
     local label="$3"
-    local plaintext_file="${pcap_file}.plaintext.txt"
-    local tshark_log="${pcap_file}.tshark.log"
+    local tls_stream="${4:-0}"
+    local plaintext_file="${pcap_file}.stream-${tls_stream}.plaintext.txt"
+    local tshark_log="${pcap_file}.stream-${tls_stream}.tshark.log"
 
     assert_file_nonempty "$pcap_file" "pcapng capture for $label" || return 1
     # Clear any keylog configured in the host's Wireshark profile. Successful
     # decryption must come from the TLS Decryption Secrets Block embedded in
     # eCapture's pcapng output.
-    if ! tshark -n -r "$pcap_file" -o tls.keylog_file: -q -z follow,tls,ascii,0 \
+    if ! tshark -n -r "$pcap_file" -o tls.keylog_file: -q -z "follow,tls,ascii,$tls_stream" \
         >"$plaintext_file" 2>"$tshark_log"; then
-        log_error "tshark could not decrypt embedded pcapng secrets for $label"
+        log_error "tshark could not decrypt embedded pcapng secrets for $label (TLS stream $tls_stream)"
         cat "$tshark_log" >&2 || true
         return 1
     fi
-    assert_file_contains "$plaintext_file" "$token" "DSB-decrypted TLS plaintext for $label" || return 1
+    assert_file_contains "$plaintext_file" "$token" \
+        "DSB-decrypted TLS plaintext for $label (TLS stream $tls_stream)" || return 1
     print_plaintext_preview "$plaintext_file" "$token" "$label"
 }
 
