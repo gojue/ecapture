@@ -1,19 +1,36 @@
-<img src="./images/ecapture-logo.png" alt="eCapture Logo" width="300" height="300"/>
-
-汉字 | [English](./README.md)
-
-[![CI](https://github.com/gojue/ecapture/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/gojue/ecapture/actions/workflows/code-analysis.yml)
-[![GitHub Version](https://img.shields.io/github/v/release/gojue/ecapture?display_name=tag&include_prereleases&sort=semver)](https://github.com/gojue/ecapture/releases)
-[![Home Page](https://img.shields.io/badge/Home_Page-e0ad15)](https://v2.ecapture.cc)
-[![QQ 群](https://img.shields.io/badge/QQ群-%2312B7F5?logo=tencent-qq&logoColor=white&style=flat-square)](https://qm.qq.com/cgi-bin/qm/qr?k=iCu561fq4zdbHVdntQLFV0Xugrnf7Hpv&jump_from=webapi&authKey=YamGv189Cg+KFdQt1Qnsw6GZlpx8BYA+G2WZFezohY4M03V+l0eElZWOhZj/wR/5)
-
 <p align="center">
- <a href="https://www.star-history.com/gojue/ecapture">
-  <picture><source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/badge?repo=gojue/ecapture&type=rank&theme=dark" /><source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/badge?repo=gojue/ecapture&type=rank" /><img alt="Star History Rank" src="https://api.star-history.com/badge?repo=gojue/ecapture&type=rank" /></picture> <picture><source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/badge?repo=gojue/ecapture&type=trending&theme=dark" /><source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/badge?repo=gojue/ecapture&type=trending" /><img alt="GitHub Trending Repository of the Day" src="https://api.star-history.com/badge?repo=gojue/ecapture&type=trending" /></picture>
- </a>
+  <img src="./images/ecapture-logo.png" alt="eCapture 标志" width="180" />
 </p>
 
-### eCapture（旁观者）：基于 eBPF 技术捕获 SSL/TLS 明文流量，无需 CA 证书。
+<p align="center">
+  <strong>eCapture（旁观者）</strong><br />
+  基于 eBPF 技术捕获 SSL/TLS 明文流量，无需 CA 证书。
+</p>
+
+<p align="center">
+  <a href="./README.md">English</a> · <strong>汉字</strong><br />
+  <a href="https://github.com/gojue/ecapture/actions/workflows/codeql-analysis.yml"><img alt="CodeQL" src="https://github.com/gojue/ecapture/actions/workflows/codeql-analysis.yml/badge.svg" /></a>
+  <a href="https://github.com/gojue/ecapture/releases"><img alt="最新版本" src="https://img.shields.io/github/v/release/gojue/ecapture?display_name=tag&amp;include_prereleases&amp;sort=semver" /></a>
+  <a href="https://v2.ecapture.cc"><img alt="项目主页" src="https://img.shields.io/badge/Home_Page-e0ad15" /></a>
+  <a href="https://qm.qq.com/cgi-bin/qm/qr?k=iCu561fq4zdbHVdntQLFV0Xugrnf7Hpv&amp;jump_from=webapi&amp;authKey=YamGv189Cg+KFdQt1Qnsw6GZlpx8BYA+G2WZFezohY4M03V+l0eElZWOhZj/wR/5"><img alt="QQ 群" src="https://img.shields.io/badge/QQ群-%2312B7F5?logo=tencent-qq&amp;logoColor=white&amp;style=flat-square" /></a>
+</p>
+
+<p align="center">
+  <a href="https://www.star-history.com/gojue/ecapture">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/badge?repo=gojue/ecapture&amp;type=rank&amp;theme=dark" />
+      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/badge?repo=gojue/ecapture&amp;type=rank" />
+      <img alt="Star History 全球排名" src="https://api.star-history.com/badge?repo=gojue/ecapture&amp;type=rank" />
+    </picture>
+  </a>
+  <a href="https://www.star-history.com/gojue/ecapture">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/badge?repo=gojue/ecapture&amp;type=trending&amp;theme=dark" />
+      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/badge?repo=gojue/ecapture&amp;type=trending" />
+      <img alt="GitHub 当日热门仓库" src="https://api.star-history.com/badge?repo=gojue/ecapture&amp;type=trending" />
+    </picture>
+  </a>
+</p>
 
 > [!IMPORTANT]
 > 支持 Linux/Android 系统，x86_64 架构内核 4.18+，aarch64 架构内核 5.5+；内核版本要求按 CPU 架构分别适用。
