@@ -4,7 +4,7 @@
 
 <p align="center">
   <strong>eCapture (旁观者)</strong><br />
-  Capture plaintext SSL/TLS traffic without a CA certificate using eBPF.
+  Capture SSL/TLS plaintext with eBPF—no MITM proxy or custom CA installation.
 </p>
 
 <p align="center">
