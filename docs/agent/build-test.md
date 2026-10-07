@@ -290,6 +290,25 @@ exercise Go's TLS stack instead.
 Read `test/e2e/README.md` before running Android tests. Use `ADB_SERIAL` when
 more than one device is attached.
 
+## Performance benchmarks
+
+The OpenSSL benchmark has a userspace microbenchmark and a real Linux/root
+workload. Run them only on Linux:
+
+```sh
+go test -run '^$' -bench '^BenchmarkTLSDataEvent' -benchmem \
+  ./internal/probe/openssl
+
+make clean
+make all
+sudo make benchmark-tls
+```
+
+The end-to-end harness defaults to the short-connection 96 KiB upload workload
+from issue #990 and writes private raw artifacts below `/tmp/ecapture-benchmark`.
+It measures unique request/response marker loss separately from perf lost-sample
+logs. See `docs/performance-benchmarks.md` for tunables and result semantics.
+
 ## Minimum verification by change
 
 | Change | Minimum evidence |
