@@ -96,12 +96,8 @@ jobs:
             E2E_ARTIFACT_ROOT="$RUNNER_TEMP/ecapture-e2e" \
             bash test/e2e/run_e2e.sh
 
-      # The GnuTLS probe is currently a scaffold. Keep executing its complete
-      # contract so the gap stays visible, but do not gate unrelated changes
-      # until the probe attaches data/master-secret/TC programs.
-      - name: GnuTLS contract (known implementation gap)
+      - name: GnuTLS (gating)
         if: always()
-        continue-on-error: true
         run: |
           sudo env \
             PATH="$PATH" \

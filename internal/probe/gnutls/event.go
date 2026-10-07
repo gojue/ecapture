@@ -18,131 +18,100 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"time"
 
 	"github.com/gojue/ecapture/v2/internal/domain"
 	"github.com/gojue/ecapture/v2/internal/errors"
 )
 
 const (
-	// Data type constants
 	DataTypeRead  = 0
 	DataTypeWrite = 1
 
-	// MaxDataSize is the maximum TLS data size from eBPF
-	MaxDataSize = 4096
+	// MaxDataSize and TaskCommLen must match MAX_DATA_SIZE_OPENSSL and
+	// TASK_COMM_LEN in kern/common.h.
+	MaxDataSize = 1024 * 16
+	TaskCommLen = 16
+
+	tlsDataEventSize = 8 + 8 + 4 + 4 + MaxDataSize + 4 + TaskCommLen
 )
 
-// Event represents an OpenSSL TLS data event from eBPF.
+// Event mirrors struct ssl_data_event_t in kern/gnutls.h. DataType is int64
+// so its upper four bytes absorb the alignment padding between the C enum and
+// timestamp_ns.
 type Event struct {
-	DataType  int64             `json:"dataType"`  // 0: read, 1: write
-	Timestamp uint64            `json:"timestamp"` // Nanosecond timestamp
-	Pid       uint32            `json:"pid"`       // Process ID
-	Tid       uint32            `json:"tid"`       // Thread ID
-	Data      [MaxDataSize]byte `json:"data"`      // TLS data payload
-	DataLen   int32             `json:"dataLen"`   // Length of actual data
-	Comm      [16]byte          `json:"comm"`      // Process name
-	Fd        uint32            `json:"fd"`        // File descriptor
-	Version   int32             `json:"version"`   // TLS version
+	DataType  int64             `json:"dataType"`
+	Timestamp uint64            `json:"timestamp"`
+	Pid       uint32            `json:"pid"`
+	Tid       uint32            `json:"tid"`
+	Data      [MaxDataSize]byte `json:"data"`
+	DataLen   int32             `json:"dataLen"`
+	Comm      [TaskCommLen]byte `json:"comm"`
 }
 
-// DecodeFromBytes deserializes the event from raw eBPF data.
 func (e *Event) DecodeFromBytes(data []byte) error {
-	buf := bytes.NewBuffer(data)
-
-	// Read fields in order matching the eBPF structure
-	if err := binary.Read(buf, binary.LittleEndian, &e.DataType); err != nil {
-		return errors.NewEventDecodeError("openssl.DataType", err)
-	}
-	if err := binary.Read(buf, binary.LittleEndian, &e.Timestamp); err != nil {
-		return errors.NewEventDecodeError("openssl.Timestamp", err)
-	}
-	if err := binary.Read(buf, binary.LittleEndian, &e.Pid); err != nil {
-		return errors.NewEventDecodeError("openssl.Pid", err)
-	}
-	if err := binary.Read(buf, binary.LittleEndian, &e.Tid); err != nil {
-		return errors.NewEventDecodeError("openssl.Tid", err)
-	}
-	if err := binary.Read(buf, binary.LittleEndian, &e.Data); err != nil {
-		return errors.NewEventDecodeError("openssl.Data", err)
-	}
-	if err := binary.Read(buf, binary.LittleEndian, &e.DataLen); err != nil {
-		return errors.NewEventDecodeError("openssl.DataLen", err)
-	}
-	if err := binary.Read(buf, binary.LittleEndian, &e.Comm); err != nil {
-		return errors.NewEventDecodeError("openssl.Comm", err)
-	}
-	if err := binary.Read(buf, binary.LittleEndian, &e.Fd); err != nil {
-		return errors.NewEventDecodeError("openssl.Fd", err)
-	}
-	if err := binary.Read(buf, binary.LittleEndian, &e.Version); err != nil {
-		return errors.NewEventDecodeError("openssl.Version", err)
+	if len(data) < tlsDataEventSize {
+		return errors.New(errors.ErrCodeEventDecode,
+			fmt.Sprintf("gnutls data event too short: got %d, need %d", len(data), tlsDataEventSize))
 	}
 
+	buf := bytes.NewReader(data)
+	fields := []struct {
+		name  string
+		value any
+	}{
+		{"DataType", &e.DataType},
+		{"Timestamp", &e.Timestamp},
+		{"Pid", &e.Pid},
+		{"Tid", &e.Tid},
+		{"Data", &e.Data},
+		{"DataLen", &e.DataLen},
+		{"Comm", &e.Comm},
+	}
+	for _, field := range fields {
+		if err := binary.Read(buf, binary.LittleEndian, field.value); err != nil {
+			return errors.NewEventDecodeError("gnutls."+field.name, err)
+		}
+	}
 	return nil
 }
 
-// String returns a human-readable representation of the event.
+// PerfMonoNs implements domain.MonoNsEvent using bpf_ktime_get_ns from the
+// wire event.
+func (e *Event) PerfMonoNs() uint64 {
+	return e.Timestamp
+}
+
 func (e *Event) String() string {
 	direction := "WRITE"
 	if e.DataType == DataTypeRead {
 		direction = "READ"
 	}
-
-	ts := time.Unix(0, int64(e.Timestamp))
-	dataStr := string(e.GetData())
-
-	return fmt.Sprintf("[%s] PID:%d TID:%d Comm:%s FD:%d %s (%d bytes):\n%s",
-		ts.Format("2006-01-02 15:04:05.000"),
-		e.Pid,
-		e.Tid,
-		e.GetComm(),
-		e.Fd,
-		direction,
-		e.DataLen,
-		dataStr,
-	)
+	return fmt.Sprintf("[mono_ns=%d] PID:%d TID:%d Comm:%s %s (%d bytes):\n%s",
+		e.Timestamp, e.Pid, e.Tid, e.GetComm(), direction, e.DataLen, string(e.GetData()))
 }
 
-// StringHex returns a hexadecimal representation of the event.
 func (e *Event) StringHex() string {
 	direction := "WRITE"
 	if e.DataType == DataTypeRead {
 		direction = "READ"
 	}
-
-	ts := time.Unix(0, int64(e.Timestamp))
-	hexData := fmt.Sprintf("%x", e.GetData())
-
-	return fmt.Sprintf("[%s] PID:%d TID:%d Comm:%s FD:%d %s (%d bytes, hex):\n%s",
-		ts.Format("2006-01-02 15:04:05.000"),
-		e.Pid,
-		e.Tid,
-		e.GetComm(),
-		e.Fd,
-		direction,
-		e.DataLen,
-		hexData,
-	)
+	return fmt.Sprintf("[mono_ns=%d] PID:%d TID:%d Comm:%s %s (%d bytes, hex):\n%x",
+		e.Timestamp, e.Pid, e.Tid, e.GetComm(), direction, e.DataLen, e.GetData())
 }
 
-// Clone creates a new instance of the event.
 func (e *Event) Clone() domain.Event {
 	clone := *e
 	return &clone
 }
 
-// Type returns the event type (always Output for TLS data).
 func (e *Event) Type() domain.EventType {
 	return domain.EventTypeOutput
 }
 
-// UUID returns a unique identifier for this event.
 func (e *Event) UUID() string {
 	return fmt.Sprintf("%d_%d_%d", e.Pid, e.Tid, e.Timestamp)
 }
 
-// Validate checks if the event data is valid.
 func (e *Event) Validate() error {
 	if e.DataLen < 0 || e.DataLen > MaxDataSize {
 		return errors.New(errors.ErrCodeEventValidation,
@@ -155,20 +124,17 @@ func (e *Event) Validate() error {
 	return nil
 }
 
-// GetPid returns the process ID.
 func (e *Event) GetPid() uint32 {
 	return e.Pid
 }
 
-// GetComm returns the process name as a string.
 func (e *Event) GetComm() string {
 	return commToString(e.Comm[:])
 }
 
-// GetData returns the actual TLS data (truncated to DataLen).
 func (e *Event) GetData() []byte {
 	if e.DataLen <= 0 {
-		return []byte{}
+		return nil
 	}
 	if e.DataLen > MaxDataSize {
 		return e.Data[:]
@@ -176,7 +142,6 @@ func (e *Event) GetData() []byte {
 	return e.Data[:e.DataLen]
 }
 
-// GetDataLen returns the length of the TLS data.
 func (e *Event) GetDataLen() uint32 {
 	if e.DataLen < 0 {
 		return 0
@@ -184,19 +149,15 @@ func (e *Event) GetDataLen() uint32 {
 	return uint32(e.DataLen)
 }
 
-// GetTimestamp returns the event timestamp.
 func (e *Event) GetTimestamp() uint64 {
 	return e.Timestamp
 }
 
-// IsRead returns true if this is a read (receive) event.
 func (e *Event) IsRead() bool {
 	return e.DataType == DataTypeRead
 }
 
-// commToString converts a null-terminated byte array to a string.
 func commToString(data []byte) string {
-	// Find null terminator
 	for i, b := range data {
 		if b == 0 {
 			return string(data[:i])

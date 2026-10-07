@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"time"
 
 	"github.com/gojue/ecapture/v2/internal/domain"
 	"github.com/gojue/ecapture/v2/internal/errors"
@@ -26,212 +25,155 @@ import (
 )
 
 const (
-	// SSL/TLS constants
-	Ssl3RandomSize     = handlers.Ssl3RandomSize     // 32 bytes
-	MasterSecretMaxLen = handlers.MasterSecretMaxLen // 48 bytes
-	EvpMaxMdSize       = handlers.EvpMaxMdSize       // 64 bytes
+	Ssl3RandomSize     = handlers.Ssl3RandomSize
+	MasterSecretMaxLen = handlers.MasterSecretMaxLen
+	EvpMaxMdSize       = handlers.EvpMaxMdSize
+
+	GnuTLSSSL3   = 1
+	GnuTLSTLS10  = 2
+	GnuTLSTLS11  = 3
+	GnuTLSTLS12  = 4
+	GnuTLSTLS13  = 5
+	GnuTLSDTLS10 = 201
+	GnuTLSDTLS12 = 202
+
+	GnuTLSMACSHA256 = 6
+	GnuTLSMACSHA384 = 7
+
+	masterSecretEventSize = 4 + Ssl3RandomSize + MasterSecretMaxLen + 4 + 6*EvpMaxMdSize
 )
 
-// MasterSecretEvent represents a TLS master secret key event from eBPF.
-// This event contains the master secret and related cryptographic material
-// needed to decrypt TLS traffic.
-//
-// For TLS 1.2 and earlier:
-//   - ClientRandom: 32-byte client random value
-//   - MasterKey: 48-byte master secret
-//
-// For TLS 1.3:
-//   - ClientRandom: 32-byte client random value
-//   - Multiple traffic secrets (handshake, application, exporter)
+// MasterSecretEvent mirrors struct gnutls_mastersecret_st in
+// kern/gnutls_masterkey.h. GnuTLS reports protocol and MAC identifiers using
+// its internal enums rather than TLS wire values.
 type MasterSecretEvent struct {
-	Version   int32  `json:"version"`   // TLS version (0x0303 = TLS 1.2, 0x0304 = TLS 1.3)
-	Timestamp uint64 `json:"timestamp"` // Event timestamp
-
-	// TLS 1.2 and earlier
-	ClientRandom [Ssl3RandomSize]byte     `json:"clientRandom"` // Client random value
-	MasterKey    [MasterSecretMaxLen]byte `json:"masterKey"`    // Master secret
-
-	// TLS 1.3 secrets
-	CipherId                     uint32             `json:"cipherId"`                     // Cipher suite ID
-	ClientHandshakeTrafficSecret [EvpMaxMdSize]byte `json:"clientHandshakeTrafficSecret"` // CLIENT_HANDSHAKE_TRAFFIC_SECRET
-	ServerHandshakeTrafficSecret [EvpMaxMdSize]byte `json:"serverHandshakeTrafficSecret"` // SERVER_HANDSHAKE_TRAFFIC_SECRET
-	ClientAppTrafficSecret       [EvpMaxMdSize]byte `json:"clientAppTrafficSecret"`       // CLIENT_TRAFFIC_SECRET_0
-	ServerAppTrafficSecret       [EvpMaxMdSize]byte `json:"serverAppTrafficSecret"`       // SERVER_TRAFFIC_SECRET_0
-	ExporterMasterSecret         [EvpMaxMdSize]byte `json:"exporterMasterSecret"`         // EXPORTER_SECRET
+	Version                      int32                    `json:"version"`
+	ClientRandom                 [Ssl3RandomSize]byte     `json:"clientRandom"`
+	MasterKey                    [MasterSecretMaxLen]byte `json:"masterKey"`
+	CipherId                     uint32                   `json:"cipherId"`
+	ClientEarlyTrafficSecret     [EvpMaxMdSize]byte       `json:"clientEarlyTrafficSecret"`
+	ClientHandshakeTrafficSecret [EvpMaxMdSize]byte       `json:"clientHandshakeTrafficSecret"`
+	ServerHandshakeTrafficSecret [EvpMaxMdSize]byte       `json:"serverHandshakeTrafficSecret"`
+	ClientAppTrafficSecret       [EvpMaxMdSize]byte       `json:"clientAppTrafficSecret"`
+	ServerAppTrafficSecret       [EvpMaxMdSize]byte       `json:"serverAppTrafficSecret"`
+	ExporterMasterSecret         [EvpMaxMdSize]byte       `json:"exporterMasterSecret"`
 }
 
-// DecodeFromBytes deserializes the master secret event from raw eBPF data.
 func (e *MasterSecretEvent) DecodeFromBytes(data []byte) error {
-	buf := bytes.NewBuffer(data)
-
-	// Read TLS version
-	if err := binary.Read(buf, binary.LittleEndian, &e.Version); err != nil {
-		return errors.NewEventDecodeError("masterSecret.Version", err)
+	if len(data) < masterSecretEventSize {
+		return errors.New(errors.ErrCodeEventDecode,
+			fmt.Sprintf("gnutls master-secret event too short: got %d, need %d", len(data), masterSecretEventSize))
 	}
 
-	// Read timestamp (if included in eBPF event)
-	if buf.Len() >= 8 {
-		if err := binary.Read(buf, binary.LittleEndian, &e.Timestamp); err != nil {
-			// Timestamp might not be present in all eBPF versions
-			e.Timestamp = uint64(time.Now().UnixNano())
-		}
-	} else {
-		e.Timestamp = uint64(time.Now().UnixNano())
+	buf := bytes.NewReader(data)
+	fields := []struct {
+		name  string
+		value any
+	}{
+		{"Version", &e.Version},
+		{"ClientRandom", &e.ClientRandom},
+		{"MasterKey", &e.MasterKey},
+		{"CipherId", &e.CipherId},
+		{"ClientEarlyTrafficSecret", &e.ClientEarlyTrafficSecret},
+		{"ClientHandshakeTrafficSecret", &e.ClientHandshakeTrafficSecret},
+		{"ServerHandshakeTrafficSecret", &e.ServerHandshakeTrafficSecret},
+		{"ClientAppTrafficSecret", &e.ClientAppTrafficSecret},
+		{"ServerAppTrafficSecret", &e.ServerAppTrafficSecret},
+		{"ExporterMasterSecret", &e.ExporterMasterSecret},
 	}
-
-	// Read client random
-	if err := binary.Read(buf, binary.LittleEndian, &e.ClientRandom); err != nil {
-		return errors.NewEventDecodeError("masterSecret.ClientRandom", err)
-	}
-
-	// Read master key (TLS 1.2)
-	if err := binary.Read(buf, binary.LittleEndian, &e.MasterKey); err != nil {
-		return errors.NewEventDecodeError("masterSecret.MasterKey", err)
-	}
-
-	// For TLS 1.3, read additional secrets if available
-	if buf.Len() > 0 {
-		if err := binary.Read(buf, binary.LittleEndian, &e.CipherId); err != nil {
-			// CipherId might not be present
-			e.CipherId = 0
+	for _, field := range fields {
+		if err := binary.Read(buf, binary.LittleEndian, field.value); err != nil {
+			return errors.NewEventDecodeError("gnutls.masterSecret."+field.name, err)
 		}
 	}
-
-	if buf.Len() >= EvpMaxMdSize {
-		_ = binary.Read(buf, binary.LittleEndian, &e.ClientHandshakeTrafficSecret)
-		// Not all TLS 1.3 secrets might be present
-	}
-
-	if buf.Len() >= EvpMaxMdSize {
-		_ = binary.Read(buf, binary.LittleEndian, &e.ServerHandshakeTrafficSecret)
-		// Not all TLS 1.3 secrets might be present
-	}
-
-	if buf.Len() >= EvpMaxMdSize {
-		_ = binary.Read(buf, binary.LittleEndian, &e.ClientAppTrafficSecret)
-		// Not all TLS 1.3 secrets might be present
-	}
-
-	if buf.Len() >= EvpMaxMdSize {
-		_ = binary.Read(buf, binary.LittleEndian, &e.ServerAppTrafficSecret)
-		// Not all TLS 1.3 secrets might be present
-	}
-
-	if buf.Len() >= EvpMaxMdSize {
-		_ = binary.Read(buf, binary.LittleEndian, &e.ExporterMasterSecret)
-		// Not all TLS 1.3 secrets might be present
-	}
-
 	return nil
 }
 
-// String returns a human-readable representation of the master secret event.
 func (e *MasterSecretEvent) String() string {
-	var versionStr string
-	switch e.Version {
-	case 0x0303:
-		versionStr = "TLS 1.2"
-	case 0x0304:
-		versionStr = "TLS 1.3"
-	default:
-		versionStr = fmt.Sprintf("0x%04x", e.Version)
-	}
-
-	return fmt.Sprintf("TLS Version: %s, ClientRandom: %x",
-		versionStr,
-		e.ClientRandom[:16]) // Show first 16 bytes of client random
+	return fmt.Sprintf("GnuTLS master secret: version=%d client_random=%x",
+		e.Version, e.ClientRandom[:8])
 }
 
-// StringHex returns a hexadecimal representation of the event.
 func (e *MasterSecretEvent) StringHex() string {
-	return fmt.Sprintf("Version: 0x%04x, ClientRandom: %x, MasterKey: %x",
-		e.Version,
-		e.ClientRandom,
-		e.MasterKey)
+	return e.String()
 }
 
-// Clone creates a new instance of the event.
 func (e *MasterSecretEvent) Clone() domain.Event {
 	clone := *e
 	return &clone
 }
 
-// Type returns the event type.
 func (e *MasterSecretEvent) Type() domain.EventType {
-	return domain.EventTypeOutput
+	return domain.EventTypeModuleData
 }
 
-// UUID returns a unique identifier for this event.
 func (e *MasterSecretEvent) UUID() string {
-	return fmt.Sprintf("ms_%x_%d", e.ClientRandom[:8], e.Timestamp)
+	return fmt.Sprintf("gnutls_%d_%x", e.Version, e.ClientRandom)
 }
 
-// Validate checks if the event data is valid.
 func (e *MasterSecretEvent) Validate() error {
-	// Check version is valid (TLS 1.0 to 1.3)
-	if e.Version < 0x0301 || e.Version > 0x0304 {
+	switch e.Version {
+	case GnuTLSSSL3, GnuTLSTLS10, GnuTLSTLS11, GnuTLSTLS12, GnuTLSTLS13,
+		GnuTLSDTLS10, GnuTLSDTLS12:
+	default:
 		return errors.New(errors.ErrCodeEventValidation,
-			fmt.Sprintf("invalid TLS version: 0x%04x", e.Version))
+			fmt.Sprintf("invalid GnuTLS protocol version: %d", e.Version))
 	}
 
-	// Check that at least client random is not all zeros
-	allZero := true
-	for _, b := range e.ClientRandom {
-		if b != 0 {
-			allZero = false
-			break
-		}
-	}
-	if allZero {
+	if allZero(e.ClientRandom[:]) {
 		return errors.New(errors.ErrCodeEventValidation, "client random is all zeros")
 	}
-
 	return nil
 }
 
-// Implementation of handlers.MasterSecretEvent interface
-
-// GetVersion returns the TLS version.
-func (e *MasterSecretEvent) GetVersion() int32 {
-	return e.Version
+func (e *MasterSecretEvent) IsTLS13() bool {
+	return e.Version == GnuTLSTLS13
 }
 
-// GetClientRandom returns the client random value.
 func (e *MasterSecretEvent) GetClientRandom() []byte {
 	return e.ClientRandom[:]
 }
 
-// GetMasterKey returns the master secret (TLS 1.2 and earlier).
 func (e *MasterSecretEvent) GetMasterKey() []byte {
 	return e.MasterKey[:]
 }
 
-// GetCipherId returns the cipher suite ID (TLS 1.3).
-func (e *MasterSecretEvent) GetCipherId() uint32 {
-	return e.CipherId
+func (e *MasterSecretEvent) GetTLS13SecretLength() int {
+	if e.CipherId == GnuTLSMACSHA384 {
+		return 48
+	}
+	return 32
 }
 
-// GetClientHandshakeTrafficSecret returns the client handshake traffic secret (TLS 1.3).
+func (e *MasterSecretEvent) GetClientEarlyTrafficSecret() []byte {
+	return e.ClientEarlyTrafficSecret[:]
+}
+
 func (e *MasterSecretEvent) GetClientHandshakeTrafficSecret() []byte {
 	return e.ClientHandshakeTrafficSecret[:]
 }
 
-// GetServerHandshakeTrafficSecret returns the server handshake traffic secret (TLS 1.3).
 func (e *MasterSecretEvent) GetServerHandshakeTrafficSecret() []byte {
 	return e.ServerHandshakeTrafficSecret[:]
 }
 
-// GetClientAppTrafficSecret returns the client application traffic secret (TLS 1.3).
 func (e *MasterSecretEvent) GetClientAppTrafficSecret() []byte {
 	return e.ClientAppTrafficSecret[:]
 }
 
-// GetServerAppTrafficSecret returns the server application traffic secret (TLS 1.3).
 func (e *MasterSecretEvent) GetServerAppTrafficSecret() []byte {
 	return e.ServerAppTrafficSecret[:]
 }
 
-// GetExporterMasterSecret returns the exporter master secret (TLS 1.3).
 func (e *MasterSecretEvent) GetExporterMasterSecret() []byte {
 	return e.ExporterMasterSecret[:]
+}
+
+func allZero(data []byte) bool {
+	for _, b := range data {
+		if b != 0 {
+			return false
+		}
+	}
+	return true
 }

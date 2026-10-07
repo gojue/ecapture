@@ -59,6 +59,24 @@ type GoTLSMasterSecretEvent interface {
 	GetSecret() []byte
 }
 
+// DirectTrafficSecretEvent is implemented by TLS libraries, such as GnuTLS,
+// that expose the final TLS 1.3 traffic secrets directly. This differs from
+// OpenSSL events, where the handler may need to derive handshake traffic
+// secrets from an internal handshake secret and transcript hash.
+type DirectTrafficSecretEvent interface {
+	domain.Event
+	IsTLS13() bool
+	GetClientRandom() []byte
+	GetMasterKey() []byte
+	GetTLS13SecretLength() int
+	GetClientEarlyTrafficSecret() []byte
+	GetClientHandshakeTrafficSecret() []byte
+	GetServerHandshakeTrafficSecret() []byte
+	GetClientAppTrafficSecret() []byte
+	GetServerAppTrafficSecret() []byte
+	GetExporterMasterSecret() []byte
+}
+
 // KeylogHandler handles TLS master secret events by writing them in NSS Key Log Format.
 // The output format is compatible with Wireshark for TLS decryption.
 //
@@ -105,6 +123,10 @@ func (h *KeylogHandler) Handle(event domain.Event) error {
 		return h.handleGoTLS(goEvent)
 	}
 
+	if directEvent, ok := event.(DirectTrafficSecretEvent); ok {
+		return h.handleDirectTrafficSecrets(directEvent)
+	}
+
 	// Try OpenSSL-style event (version-based format)
 	msEvent, ok := event.(MasterSecretEvent)
 	if ok {
@@ -121,6 +143,81 @@ func (h *KeylogHandler) Handle(event domain.Event) error {
 
 	// event is not a master secret event
 	return errors.New(errors.ErrCodeEventValidation, "event is not a master secret event")
+}
+
+func (h *KeylogHandler) handleDirectTrafficSecrets(event DirectTrafficSecretEvent) error {
+	clientRandom := event.GetClientRandom()
+	if len(clientRandom) < Ssl3RandomSize {
+		return errors.New(errors.ErrCodeEventValidation,
+			fmt.Sprintf("client random too short: %d bytes", len(clientRandom)))
+	}
+
+	clientRandom = clientRandom[:Ssl3RandomSize]
+	if !event.IsTLS13() {
+		masterKey := event.GetMasterKey()
+		if len(masterKey) < MasterSecretMaxLen {
+			return errors.New(errors.ErrCodeEventValidation,
+				fmt.Sprintf("master key too short: %d bytes", len(masterKey)))
+		}
+		masterKey = masterKey[:MasterSecretMaxLen]
+		if isZeroBytes(masterKey) {
+			return nil
+		}
+
+		dedupKey := fmt.Sprintf("%s_%x", hkdf.KeyLogLabelTLS12, clientRandom)
+		if h.seenKeys[dedupKey] {
+			return nil
+		}
+		line := fmt.Sprintf("%s %x %x", hkdf.KeyLogLabelTLS12, clientRandom, masterKey)
+		if _, err := h.writer.Write([]byte(line)); err != nil {
+			return errors.Wrap(errors.ErrCodeEventDispatch, "failed to write keylog entry", err)
+		}
+		if err := h.writer.Flush(); err != nil {
+			return errors.Wrap(errors.ErrCodeEventDispatch, "failed to flush keylog entry", err)
+		}
+		h.seenKeys[dedupKey] = true
+		return nil
+	}
+
+	secretLength := event.GetTLS13SecretLength()
+	if secretLength != 32 && secretLength != 48 {
+		return errors.New(errors.ErrCodeEventValidation,
+			fmt.Sprintf("invalid TLS 1.3 secret length: %d", secretLength))
+	}
+
+	secrets := []struct {
+		label string
+		data  []byte
+	}{
+		{hkdf.KeyLogLabelClientEarlyTafficSecret, event.GetClientEarlyTrafficSecret()},
+		{hkdf.KeyLogLabelClientHandshake, event.GetClientHandshakeTrafficSecret()},
+		{hkdf.KeyLogLabelServerHandshake, event.GetServerHandshakeTrafficSecret()},
+		{hkdf.KeyLogLabelClientTraffic, event.GetClientAppTrafficSecret()},
+		{hkdf.KeyLogLabelServerTraffic, event.GetServerAppTrafficSecret()},
+		{hkdf.KeyLogLabelExporterSecret, event.GetExporterMasterSecret()},
+	}
+	for _, secret := range secrets {
+		if len(secret.data) < secretLength {
+			return errors.New(errors.ErrCodeEventValidation,
+				fmt.Sprintf("%s too short: %d bytes", secret.label, len(secret.data)))
+		}
+		data := secret.data[:secretLength]
+		if isZeroBytes(data) {
+			continue
+		}
+
+		dedupKey := fmt.Sprintf("%s_%x", secret.label, clientRandom)
+		if h.seenKeys[dedupKey] {
+			continue
+		}
+		line := fmt.Sprintf("%s %x %x", secret.label, clientRandom, data)
+		if _, err := h.writer.Write([]byte(line)); err != nil {
+			return errors.Wrap(errors.ErrCodeEventDispatch,
+				fmt.Sprintf("failed to write %s", secret.label), err)
+		}
+		h.seenKeys[dedupKey] = true
+	}
+	return nil
 }
 
 // handleTLS12 writes TLS 1.2 (and earlier) master secrets.

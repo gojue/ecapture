@@ -235,9 +235,10 @@ aliases for the same `e2e-linux` matrix; their names do not indicate different
 coverage. The default matrix is `tls gotls gnutls` in text, keylog, and pcapng
 modes.
 
-GnuTLS is intentionally strict but its current Go probe is a scaffold. Direct
-full-matrix runs expose that gap and fail; CI runs the GnuTLS contract visibly
-as non-gating. Do not weaken its assertions.
+GnuTLS is a strict gating suite alongside OpenSSL and GoTLS. Its versioned
+master-secret offsets mean that a passing build against one distribution does
+not replace validation against every changed version mapping. Do not weaken
+its assertions.
 
 ### Success and failure semantics
 
