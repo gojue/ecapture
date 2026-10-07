@@ -90,6 +90,7 @@ help:
 	@echo ""
 	@echo "# test"
 	@echo "    $$ CROSS_ARCH=arm64 make ...		# cross compile, build eCapture for arm64(aarch64) on amd64(x86_64) host"
+	@echo "    $$ sudo make benchmark-tls			# benchmark OpenSSL overhead and event loss on Linux"
 	@echo ""
 	@echo "# flags"
 	@echo "    $$ ANDROID=1 make ...				# build eCapture for Android"
@@ -306,6 +307,11 @@ e2e-ecaptureq:
 .PHONY: e2e-linux
 e2e-linux:
 	bash ./test/e2e/run_e2e.sh
+
+# run the Linux-only OpenSSL performance/event-loss benchmark
+.PHONY: benchmark-tls
+benchmark-tls:
+	bash ./test/benchmark/tls/run_benchmark.sh
 
 .PHONY: e2e-basic e2e-advanced e2e
 e2e-basic: e2e-linux

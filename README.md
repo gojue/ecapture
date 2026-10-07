@@ -11,6 +11,7 @@
   <strong>English</strong> · <a href="./README-zh_Hans.md">汉字</a><br />
   <a href="https://github.com/gojue/ecapture/actions/workflows/codeql-analysis.yml"><img alt="CodeQL" src="https://github.com/gojue/ecapture/actions/workflows/codeql-analysis.yml/badge.svg" /></a>
   <a href="https://github.com/gojue/ecapture/releases"><img alt="Latest release" src="https://img.shields.io/github/v/release/gojue/ecapture?display_name=tag&amp;include_prereleases&amp;sort=semver" /></a>
+  <a href="https://ecapture.cc"><img alt="HomePage" src="https://img.shields.io/badge/Home_Page-e0ad15" /></a>
 </p>
 
 <p align="center">
@@ -256,7 +257,7 @@ For details of the Protobuf log schema used by eCapture/eCaptureQ, see:
 - [**Security policy**](SECURITY.md) — vulnerability reporting and supported versions
 - [**Minimum privileges**](docs/minimum-privileges.md) — required Linux capabilities and least-privilege configuration
 - [**Defense & detection**](docs/defense-detection.md) — how to detect and defend against unauthorized usage
-- [**Performance benchmarks**](docs/performance-benchmarks.md) — overhead measurement methodology and expected characteristics
+- [**Performance benchmarks**](docs/performance-benchmarks.md) — repeatable overhead and event-loss measurements
 - [**Release verification**](docs/release-verification.md) — how to verify the integrity of release artifacts
 
 # Contributing

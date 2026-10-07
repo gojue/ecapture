@@ -11,7 +11,7 @@
   <a href="./README.md">English</a> · <strong>汉字</strong><br />
   <a href="https://github.com/gojue/ecapture/actions/workflows/codeql-analysis.yml"><img alt="CodeQL" src="https://github.com/gojue/ecapture/actions/workflows/codeql-analysis.yml/badge.svg" /></a>
   <a href="https://github.com/gojue/ecapture/releases"><img alt="最新版本" src="https://img.shields.io/github/v/release/gojue/ecapture?display_name=tag&amp;include_prereleases&amp;sort=semver" /></a>
-  <a href="https://v2.ecapture.cc"><img alt="项目主页" src="https://img.shields.io/badge/Home_Page-e0ad15" /></a>
+  <a href="https://ecapture.cc"><img alt="项目主页" src="https://img.shields.io/badge/项目主页-e0ad15" /></a>
   <a href="https://qm.qq.com/cgi-bin/qm/qr?k=iCu561fq4zdbHVdntQLFV0Xugrnf7Hpv&amp;jump_from=webapi&amp;authKey=YamGv189Cg+KFdQt1Qnsw6GZlpx8BYA+G2WZFezohY4M03V+l0eElZWOhZj/wR/5"><img alt="QQ 群" src="https://img.shields.io/badge/QQ群-%2312B7F5?logo=tencent-qq&amp;logoColor=white&amp;style=flat-square" /></a>
 </p>
 
@@ -270,7 +270,7 @@ https://github.com/user-attachments/assets/c8b7a84d-58eb-4fdb-9843-f775c97bdbfb
 - [**安全策略**](SECURITY.md) — 漏洞报告流程与支持版本说明
 - [**最小权限指南**](docs/minimum-privileges.md) — 所需的 Linux capabilities 与最小权限配置
 - [**防御与检测**](docs/defense-detection.md) — 如何检测和防御未经授权的使用
-- [**性能基准测试**](docs/performance-benchmarks.md) — 性能开销测量方法与预期特征
+- [**性能基准测试**](docs/performance-benchmarks.md) — 可重复的性能开销与事件丢失测量方法
 - [**发布验证**](docs/release-verification.md) — 如何验证发布产物的完整性
 
 # 贡献
