@@ -2,10 +2,14 @@
 
 [汉字](README-zh_Hans.md) | English
 
-[![GitHub stars](https://img.shields.io/github/stars/gojue/ecapture.svg?label=Stars&logo=github)](https://github.com/gojue/ecapture)
-[![GitHub forks](https://img.shields.io/github/forks/gojue/ecapture?label=Forks&logo=github)](https://github.com/gojue/ecapture)
 [![CI](https://github.com/gojue/ecapture/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/gojue/ecapture/actions/workflows/code-analysis.yml)
 [![GitHub Version](https://img.shields.io/github/v/release/gojue/ecapture?display_name=tag&include_prereleases&sort=semver)](https://github.com/gojue/ecapture/releases)
+
+<p align="center">
+ <a href="https://www.star-history.com/gojue/ecapture">
+  <picture><source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/badge?repo=gojue/ecapture&type=rank&theme=dark" /><source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/badge?repo=gojue/ecapture&type=rank" /><img alt="Star History Rank" src="https://api.star-history.com/badge?repo=gojue/ecapture&type=rank" /></picture> <picture><source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/badge?repo=gojue/ecapture&type=trending&theme=dark" /><source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/badge?repo=gojue/ecapture&type=trending" /><img alt="GitHub Trending Repository of the Day" src="https://api.star-history.com/badge?repo=gojue/ecapture&type=trending" /></picture>
+ </a>
+</p>
 
 ### eCapture (旁观者): Capture plaintext SSL/TLS traffic without a CA certificate using eBPF.
 
@@ -28,6 +32,7 @@
     - [GoTLS module](#gotls-module)
     - [Other modules](#other-modules)
   - [Videos](#videos)
+- [Star History](#star-history)
 - [Security & operations](#security--operations)
 - [Contributing](#contributing)
 - [Compilation](#compilation)
@@ -219,9 +224,15 @@ For details of the Protobuf log schema used by eCapture/eCaptureQ, see:
 
 - [protobuf/PROTOCOLS.md](./protobuf/PROTOCOLS.md)
 
-## Stargazers over time
+## Star History
 
-[![Stargazers over time](https://starchart.cc/gojue/ecapture.svg)](https://starchart.cc/gojue/ecapture)
+<a href="https://www.star-history.com/?repos=gojue%2Fecapture&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=gojue/ecapture&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=gojue/ecapture&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=gojue/ecapture&type=date&legend=top-left" />
+ </picture>
+</a>
 
 # Security & operations
 

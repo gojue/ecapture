@@ -2,12 +2,16 @@
 
 汉字 | [English](./README.md)
 
-[![GitHub stars](https://img.shields.io/github/stars/gojue/ecapture.svg?label=Stars&logo=github)](https://github.com/gojue/ecapture)
-[![GitHub forks](https://img.shields.io/github/forks/gojue/ecapture?label=Forks&logo=github)](https://github.com/gojue/ecapture)
 [![CI](https://github.com/gojue/ecapture/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/gojue/ecapture/actions/workflows/code-analysis.yml)
 [![GitHub Version](https://img.shields.io/github/v/release/gojue/ecapture?display_name=tag&include_prereleases&sort=semver)](https://github.com/gojue/ecapture/releases)
 [![Home Page](https://img.shields.io/badge/Home_Page-e0ad15)](https://v2.ecapture.cc)
 [![QQ 群](https://img.shields.io/badge/QQ群-%2312B7F5?logo=tencent-qq&logoColor=white&style=flat-square)](https://qm.qq.com/cgi-bin/qm/qr?k=iCu561fq4zdbHVdntQLFV0Xugrnf7Hpv&jump_from=webapi&authKey=YamGv189Cg+KFdQt1Qnsw6GZlpx8BYA+G2WZFezohY4M03V+l0eElZWOhZj/wR/5)
+
+<p align="center">
+ <a href="https://www.star-history.com/gojue/ecapture">
+  <picture><source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/badge?repo=gojue/ecapture&type=rank&theme=dark" /><source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/badge?repo=gojue/ecapture&type=rank" /><img alt="Star History Rank" src="https://api.star-history.com/badge?repo=gojue/ecapture&type=rank" /></picture> <picture><source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/badge?repo=gojue/ecapture&type=trending&theme=dark" /><source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/badge?repo=gojue/ecapture&type=trending" /><img alt="GitHub Trending Repository of the Day" src="https://api.star-history.com/badge?repo=gojue/ecapture&type=trending" /></picture>
+ </a>
+</p>
 
 ### eCapture（旁观者）：基于 eBPF 技术捕获 SSL/TLS 明文流量，无需 CA 证书。
 
@@ -236,7 +240,13 @@ https://github.com/user-attachments/assets/c8b7a84d-58eb-4fdb-9843-f775c97bdbfb
 
 ## 星标成长曲线
 
-[![星标成长曲线](https://starchart.cc/gojue/ecapture.svg)](https://starchart.cc/gojue/ecapture)
+<a href="https://www.star-history.com/?repos=gojue%2Fecapture&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=gojue/ecapture&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=gojue/ecapture&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=gojue/ecapture&type=date&legend=top-left" />
+ </picture>
+</a>
 
 # 安全与运维
 
