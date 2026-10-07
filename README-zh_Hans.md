@@ -4,7 +4,7 @@
 
 <p align="center">
   <strong>eCapture（旁观者）</strong><br />
-  基于 eBPF 技术捕获 SSL/TLS 明文流量，无需 CA 证书。
+  使用 eBPF 捕获 SSL/TLS 明文，无需中间人（MITM）代理或安装自定义 CA 证书。
 </p>
 
 <p align="center">
