@@ -15,6 +15,7 @@
 package events
 
 import (
+	stderrors "errors"
 	"fmt"
 	"sync"
 
@@ -54,7 +55,10 @@ func (d *Dispatcher) Register(handler domain.EventHandler) error {
 		return errors.New(errors.ErrCodeConfiguration, "dispatcher is closed")
 	}
 
-	name := fmt.Sprintf("%s-%s", handler.Name(), handler.Writer().Name())
+	name := handler.Name()
+	if writer := handler.Writer(); writer != nil {
+		name = fmt.Sprintf("%s-%s", name, writer.Name())
+	}
 	if _, exists := d.handlers[name]; exists {
 		return errors.New(errors.ErrCodeConfiguration, "handler already registered").
 			WithContext("handler", name)
@@ -107,25 +111,40 @@ func (d *Dispatcher) Dispatch(event domain.Event) error {
 		return errors.Wrap(errors.ErrCodeEventValidation, "invalid event", err)
 	}
 
-	var lastErr error
-	var count int
+	var handleErrors []error
+	var supported int
 	for name, handler := range d.handlers {
+		if !handler.Supports(event) {
+			continue
+		}
+		supported++
 		if err := handler.Handle(event); err != nil {
 			d.logger.Debug().
 				Err(err).
 				Str("handler", name).
 				Msg("Handler failed to process event")
-			lastErr = err
-		} else {
-			lastErr = nil
-			count++
+			handleErrors = append(handleErrors, err)
 		}
 	}
 
-	// 一个都没成功
-	if count == 0 && lastErr != nil {
-		d.logger.Error().Err(lastErr).Str("event", event.String()).Msg("Event handler failed to process event")
-		return lastErr
+	if supported == 0 {
+		err := errors.New(errors.ErrCodeEventDispatch, "no handler supports event").
+			WithContext("event_type", event.Type()).
+			WithContext("event_go_type", fmt.Sprintf("%T", event))
+		d.logger.Error().
+			Uint8("event_type", uint8(event.Type())).
+			Str("event_go_type", fmt.Sprintf("%T", event)).
+			Msg("No handler supports event")
+		return err
+	}
+	if len(handleErrors) > 0 {
+		err := stderrors.Join(handleErrors...)
+		d.logger.Error().
+			Err(err).
+			Uint8("event_type", uint8(event.Type())).
+			Str("event_go_type", fmt.Sprintf("%T", event)).
+			Msg("Event handler failed to process event")
+		return err
 	}
 	return nil
 }

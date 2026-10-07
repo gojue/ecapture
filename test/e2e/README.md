@@ -116,9 +116,11 @@ Failed-suite artifacts are always preserved. CI sets `E2E_KEEP_ARTIFACTS=1` and 
 Every successful mode prints a `[PLAINTEXT]` line containing at most 50
 characters of plaintext from the verified capture. Text mode reads the
 eCapture event log; keylog mode decrypts a simultaneous packet capture with
-the keys emitted by eCapture; pcapng mode invokes tshark without an external
-keylog and decrypts eCapture's own pcapng output using its embedded TLS
-Decryption Secrets Block. Pcapng previews also include the 64-hex-character
+the keys emitted by eCapture and verifies that the same secret is absent from
+stdout, `--logaddr`, and `--eventaddr` even with `--hex`; pcapng mode invokes
+tshark without requesting an external keylog and decrypts eCapture's own
+pcapng output using its embedded TLS Decryption Secrets Block. Pcapng previews
+also include the 64-hex-character
 `CLIENT_RANDOM` extracted from the captured ClientHello. The preview is
 therefore capture evidence, not a copy of the workload's client output.
 

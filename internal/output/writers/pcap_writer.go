@@ -410,11 +410,6 @@ func (pw *PcapWriter) Close() error {
 		return err
 	}
 
-	// Close the writer if it implements io.Closer
-	if closer, ok := any(pw.writer).(io.Closer); ok {
-		return closer.Close()
-	}
-
 	if pw.packetCount == 0 {
 		return errors.Wrap(errors.ErrCodeEventNotReady, "nothing captured, please check your network interface, see \"ecapture tls -h\" for more information.", nil)
 	}

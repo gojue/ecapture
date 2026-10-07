@@ -174,6 +174,25 @@ stop_capture() {
     CAPTURE_PID=""
 }
 
+assert_secret_isolated() {
+    local keylog_file="$1"
+    shift
+    local secret_file secret
+
+    secret="$(awk 'NF >= 3 { print $3; exit }' "$keylog_file")"
+    if [[ -z "$secret" ]]; then
+        log_error "Could not extract a TLS secret from keylog output"
+        return 1
+    fi
+
+    for secret_file in "$@"; do
+        if [[ -f "$secret_file" ]] && grep -Fq -- "$secret" "$secret_file"; then
+            log_error "TLS secret leaked into ordinary output: $secret_file"
+            return 1
+        fi
+    done
+}
+
 assert_pcapng() {
     local pcap_file="$1"
     local min_packets="${2:-1}"

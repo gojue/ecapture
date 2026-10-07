@@ -21,11 +21,13 @@ import (
 
 	"github.com/gojue/ecapture/v2/internal/domain"
 	"github.com/gojue/ecapture/v2/internal/logger"
+	"github.com/gojue/ecapture/v2/internal/output/writers"
 )
 
 // mockPcapWriter wraps bytes.Buffer to implement OutputWriter for testing
 type mockPcapWriter struct {
 	*bytes.Buffer
+	closeCount int
 }
 
 func newMockPcapWriter() *mockPcapWriter {
@@ -33,6 +35,7 @@ func newMockPcapWriter() *mockPcapWriter {
 }
 
 func (m *mockPcapWriter) Close() error {
+	m.closeCount++
 	return nil
 }
 
@@ -144,10 +147,8 @@ func TestPcapHandler_Handle_NilEvent(t *testing.T) {
 	}
 
 	err = handler.Handle(nil)
-	// Should return nil (skip silently) for nil events
-	if err != nil {
-		t.Errorf("Handle should skip nil events silently, got error: %v", err)
-		return
+	if err == nil {
+		t.Error("Handle should reject nil events")
 	}
 }
 
@@ -172,9 +173,30 @@ func TestPcapHandler_Handle_InvalidEventType(t *testing.T) {
 
 	var event domain.Event = &mockNonPacketEvent{}
 	err = handler.Handle(event)
-	// Should return nil (skip silently) for non-packet events
+	if err == nil {
+		t.Error("Handle should reject non-packet events")
+	}
+}
+
+func TestPcapHandlerSolelyOwnsPcapWriterClose(t *testing.T) {
+	writer := newMockPcapWriter()
+	handler, err := NewPcapHandler(writer, "test-interface", "", newTestLogger())
 	if err != nil {
-		t.Errorf("Handle should skip non-packet events silently, got error: %v", err)
-		return
+		t.Fatalf("NewPcapHandler() error = %v", err)
+	}
+	borrowedKeylogWriter := writers.NewPcapKeylogWriter(handler.PcapWriter())
+	if err := borrowedKeylogWriter.Close(); err != nil {
+		t.Fatalf("borrowed keylog Close() error = %v", err)
+	}
+	if writer.closeCount != 0 {
+		t.Fatalf("borrowed keylog writer closed pcap sink %d times", writer.closeCount)
+	}
+
+	_ = handler.Close() // A capture with no packets reports EventNotReady after cleanup.
+	if err := handler.Close(); err != nil {
+		t.Fatalf("second handler Close() error = %v", err)
+	}
+	if writer.closeCount != 1 {
+		t.Fatalf("underlying writer Close() calls = %d, want 1", writer.closeCount)
 	}
 }

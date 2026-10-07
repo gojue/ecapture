@@ -75,3 +75,10 @@ type Configuration interface {
 	// Probes embed config.BaseConfig; default is false, 0.
 	GetPerfReorder() (enabled bool, lagNs uint64)
 }
+
+// CaptureModeConfiguration is implemented by probes whose event pipeline is
+// selected by a capture mode. It is intentionally separate from Configuration
+// so probes without mode-specific output keep the simpler common contract.
+type CaptureModeConfiguration interface {
+	GetCaptureMode() string
+}

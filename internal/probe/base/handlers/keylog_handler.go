@@ -98,6 +98,27 @@ func (h *KeylogHandler) Writer() writers.OutputWriter {
 	return h.writer
 }
 
+// Supports accepts only secret-bearing module data. Requiring both the event
+// category and the secret capability makes accidental reclassification visible
+// as a routing error instead of silently writing a secret to another sink.
+func (h *KeylogHandler) Supports(event domain.Event) bool {
+	return event != nil && event.Type() == domain.EventTypeModuleData && isSecretEvent(event)
+}
+
+func isSecretEvent(event domain.Event) bool {
+	if event == nil {
+		return false
+	}
+	if _, ok := event.(GoTLSMasterSecretEvent); ok {
+		return true
+	}
+	if _, ok := event.(DirectTrafficSecretEvent); ok {
+		return true
+	}
+	_, ok := event.(MasterSecretEvent)
+	return ok
+}
+
 // NewKeylogHandler creates a new KeylogHandler with the provided writer.
 func NewKeylogHandler(writer writers.OutputWriter) *KeylogHandler {
 	if writer == nil {
@@ -113,6 +134,9 @@ func NewKeylogHandler(writer writers.OutputWriter) *KeylogHandler {
 func (h *KeylogHandler) Handle(event domain.Event) error {
 	if event == nil {
 		return errors.New(errors.ErrCodeEventValidation, "event cannot be nil")
+	}
+	if !h.Supports(event) {
+		return errors.New(errors.ErrCodeEventDispatch, "keylog handler does not support event")
 	}
 
 	h.mu.Lock()

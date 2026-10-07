@@ -15,11 +15,13 @@
 package base
 
 import (
+	"bytes"
 	"context"
 	"testing"
 	"time"
 
 	"github.com/gojue/ecapture/v2/internal/config"
+	"github.com/gojue/ecapture/v2/internal/events"
 )
 
 func TestNewBaseProbe(t *testing.T) {
@@ -178,6 +180,73 @@ func TestBaseProbeStopAndClose(t *testing.T) {
 	err = probe.Close()
 	if err != nil {
 		t.Fatalf("Close() error = %v", err)
+	}
+}
+
+type closeCountingWriter struct {
+	bytes.Buffer
+	closeCount int
+}
+
+func (w *closeCountingWriter) Close() error {
+	w.closeCount++
+	return nil
+}
+
+type captureModeConfig struct {
+	*config.BaseConfig
+	mode string
+}
+
+func (c *captureModeConfig) GetCaptureMode() string {
+	return c.mode
+}
+
+func TestBaseProbeTextWriterClosedExactlyOnce(t *testing.T) {
+	probe := NewBaseProbe("test-probe")
+	cfg := config.NewBaseConfig()
+	writer := &closeCountingWriter{}
+	cfg.SetEventWriter(writer)
+
+	if err := probe.Initialize(context.Background(), cfg); err != nil {
+		t.Fatalf("Initialize() error = %v", err)
+	}
+	if err := probe.Close(); err != nil {
+		t.Fatalf("first Close() error = %v", err)
+	}
+	if err := probe.Close(); err != nil {
+		t.Fatalf("second Close() error = %v", err)
+	}
+	if writer.closeCount != 1 {
+		t.Fatalf("writer Close() calls = %d, want 1", writer.closeCount)
+	}
+}
+
+func TestBaseProbeDoesNotCreateTextHandlerForDedicatedModes(t *testing.T) {
+	for _, mode := range []string{"keylog", "key", "pcap", "pcapng"} {
+		t.Run(mode, func(t *testing.T) {
+			probe := NewBaseProbe("test-probe")
+			writer := &closeCountingWriter{}
+			cfg := &captureModeConfig{BaseConfig: config.NewBaseConfig(), mode: mode}
+			cfg.SetEventWriter(writer)
+
+			if err := probe.Initialize(context.Background(), cfg); err != nil {
+				t.Fatalf("Initialize() error = %v", err)
+			}
+			dispatcher, ok := probe.Dispatcher().(*events.Dispatcher)
+			if !ok {
+				t.Fatalf("dispatcher type = %T", probe.Dispatcher())
+			}
+			if got := dispatcher.HandlerCount(); got != 0 {
+				t.Fatalf("handler count = %d, want 0", got)
+			}
+			if err := probe.Close(); err != nil {
+				t.Fatalf("Close() error = %v", err)
+			}
+			if writer.closeCount != 0 {
+				t.Fatalf("unused event writer Close() calls = %d, want 0", writer.closeCount)
+			}
+		})
 	}
 }
 

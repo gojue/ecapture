@@ -55,6 +55,7 @@ type Probe struct {
 	sslBpfFile      string
 	isBoringSSL     bool
 	masterHookFuncs []string
+	connections     *connectionHandler
 }
 
 // NewProbe creates a new OpenSSL probe instance.
@@ -64,6 +65,7 @@ func NewProbe() (*Probe, error) {
 		eventFuncMaps:    make(map[*ebpf.Map]domain.EventDecoder),
 		mapNameToDecoder: make(map[string]domain.EventDecoder),
 		closer:           make([]io.Closer, 0),
+		connections:      newConnectionHandler(),
 	}, nil
 }
 
@@ -242,6 +244,9 @@ func (p *Probe) setupManagerText() error {
 	maps = append(maps, &manager.Map{Name: "connect_events"})
 	p.mapNameToDecoder["tls_events"] = &tlsEventDecoder{probe: p}
 	p.mapNameToDecoder["connect_events"] = &connectDecoder{probe: p}
+	if err := p.Dispatcher().Register(p.connections); err != nil {
+		return fmt.Errorf("failed to register connection state handler: %w", err)
+	}
 
 	// TEXT mode: Only SSL_read/SSL_write probes for data capture
 	probes = []*manager.Probe{
@@ -492,7 +497,6 @@ func (p *Probe) setupManagerPcapNG() error {
 
 	if err := p.BaseProbe.Dispatcher().Register(pcapHandler); err != nil {
 		_ = pcapHandler.Close()
-		_ = pcapWriter.Close()
 		return fmt.Errorf("failed to register pcap handler: %w", err)
 	}
 	// Note: pcapWriter will be closed through pcapHandler.Close() when dispatcher closes
@@ -504,7 +508,6 @@ func (p *Probe) setupManagerPcapNG() error {
 	pcapKeylogHandler := handlers.NewKeylogHandler(pcapKeylogWriter)
 	if err := p.BaseProbe.Dispatcher().Register(pcapKeylogHandler); err != nil {
 		_ = pcapHandler.Close()
-		_ = pcapWriter.Close()
 		return fmt.Errorf("failed to register pcapkeylog handler: %w", err)
 	}
 	// Note: pcapKeylogWriter will be closed through pcapKeylogHandler.Close()
@@ -755,6 +758,12 @@ func (d *tlsEventDecoder) Decode(_ *ebpf.Map, data []byte) (domain.Event, error)
 	}
 	if err := event.Validate(); err != nil {
 		return nil, err
+	}
+	if d.probe != nil && d.probe.connections != nil {
+		if info, ok := d.probe.connections.lookup(event.Pid, event.Fd); ok {
+			event.Tuple = info.tuple
+			event.Sock = info.sock
+		}
 	}
 	return event, nil
 }

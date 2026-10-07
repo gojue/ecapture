@@ -156,7 +156,7 @@ func (e *MasterSecretEvent) Clone() domain.Event {
 
 // Type returns the event type.
 func (e *MasterSecretEvent) Type() domain.EventType {
-	return domain.EventTypeOutput
+	return domain.EventTypeModuleData
 }
 
 // UUID returns a unique identifier for this event.

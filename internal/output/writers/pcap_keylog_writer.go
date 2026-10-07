@@ -24,7 +24,16 @@ func (w *PcapKeylogWriter) Name() string {
 }
 
 func (w *PcapKeylogWriter) Flush() error {
-	return w.PcapWriter.Flush()
+	// The owning PcapHandler performs the final drain and flush. Keeping this a
+	// no-op makes dispatcher close order irrelevant when the pcap handler and
+	// keylog handler share the same writer.
+	return nil
+}
+
+// Close is intentionally a no-op. PcapKeylogWriter borrows the PcapWriter;
+// the PcapHandler is its sole close owner.
+func (w *PcapKeylogWriter) Close() error {
+	return nil
 }
 
 func NewPcapKeylogWriter(pw *PcapWriter) *PcapKeylogWriter {

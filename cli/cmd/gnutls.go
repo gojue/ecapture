@@ -51,7 +51,7 @@ ecapture gnutls --gnutls=/data/data/com.termux/files/usr/lib/libgnutls.so
 func init() {
 	gnutlsCmd.PersistentFlags().StringVar(&gnutlsConfig.GnutlsPath, "gnutls", "", "libgnutls.so file path, will automatically find it from curl default.")
 	gnutlsCmd.PersistentFlags().StringVarP(&gnutlsConfig.CaptureMode, "model", "m", "text", "capture model, such as : text, pcap/pcapng, key/keylog")
-	gnutlsCmd.PersistentFlags().StringVarP(&gnutlsConfig.KeylogFile, "keylogfile", "k", "ecapture_gnutls_key.log", "The file stores SSL/TLS keys, and eCapture captures these keys during encrypted traffic communication and saves them to the file.")
+	gnutlsCmd.PersistentFlags().StringVarP(&gnutlsConfig.KeylogFile, "keylogfile", "k", "", "Write SSL/TLS keys to this file. Required in keylog mode; optional in pcapng mode because secrets are embedded in the capture.")
 	gnutlsCmd.PersistentFlags().StringVarP(&gnutlsConfig.PcapFile, "pcapfile", "w", "save.pcapng", "write the raw packets to file as pcapng format.")
 	gnutlsCmd.PersistentFlags().StringVarP(&gnutlsConfig.Ifname, "ifname", "i", "", "(TC Classifier) Interface name on which the probe will be attached.")
 	gnutlsCmd.PersistentFlags().StringVar(&gnutlsConfig.GnuVersion, "ssl_version", "", "GnuTLS version, e.g: --ssl_version=\"3.7.9\"")

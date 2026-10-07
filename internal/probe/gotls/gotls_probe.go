@@ -502,7 +502,6 @@ func (p *Probe) setupManagerPcapNG(keySection, keyFunc string) error {
 
 	if err := p.BaseProbe.Dispatcher().Register(pcapHandler); err != nil {
 		_ = pcapHandler.Close()
-		_ = pcapWriter.Close()
 		return fmt.Errorf("failed to register pcap handler: %w", err)
 	}
 	// Note: pcapWriter will be closed through pcapHandler.Close() when dispatcher closes
@@ -514,7 +513,6 @@ func (p *Probe) setupManagerPcapNG(keySection, keyFunc string) error {
 	pcapKeylogHandler := handlers.NewKeylogHandler(pcapKeylogWriter)
 	if err := p.BaseProbe.Dispatcher().Register(pcapKeylogHandler); err != nil {
 		_ = pcapHandler.Close()
-		_ = pcapWriter.Close()
 		return fmt.Errorf("failed to register pcapkeylog handler: %w", err)
 	}
 	// Note: pcapKeylogWriter will be closed through pcapKeylogHandler.Close()

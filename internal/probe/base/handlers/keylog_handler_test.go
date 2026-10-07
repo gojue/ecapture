@@ -82,7 +82,7 @@ func (m *mockMasterSecretEvent) Validate() error                   { return nil 
 func (m *mockMasterSecretEvent) String() string                    { return "" }
 func (m *mockMasterSecretEvent) StringHex() string                 { return "" }
 func (m *mockMasterSecretEvent) Clone() domain.Event               { return &mockMasterSecretEvent{} }
-func (m *mockMasterSecretEvent) Type() domain.EventType            { return domain.EventTypeOutput }
+func (m *mockMasterSecretEvent) Type() domain.EventType            { return domain.EventTypeModuleData }
 func (m *mockMasterSecretEvent) UUID() string                      { return "" }
 
 type mockDirectTrafficSecretEvent struct {
