@@ -40,3 +40,8 @@ pkg/proc/go_elf/go_elf
 
 # Generated Android E2E workload
 /test/e2e/android/android_boringssl_client.jar
+
+# Personal AI-agent context and settings
+/AGENTS.local.md
+/CLAUDE.local.md
+/.claude/settings.local.json
