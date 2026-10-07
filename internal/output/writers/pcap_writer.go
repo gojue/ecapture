@@ -188,6 +188,38 @@ func (pw *PcapWriter) takePendingData() ([]*TcPacket, [][]byte) {
 	return packets, keylogs
 }
 
+func (pw *PcapWriter) takePendingKeylogs() [][]byte {
+	pw.queueMu.Lock()
+	defer pw.queueMu.Unlock()
+
+	keylogs := pw.pendingKeylogs
+	pw.pendingKeylogs = nil
+	return keylogs
+}
+
+func (pw *PcapWriter) writeQueuedKeylogs(keylogs [][]byte) {
+	if len(keylogs) == 0 {
+		return
+	}
+	for _, keylogLine := range keylogs {
+		if e := pw.writer.WriteDecryptionSecretsBlock(pcapgo.DSB_SECRETS_TYPE_TLS, keylogLine); e != nil {
+			pw.logger.Warn().Err(e).Msg("failed to write queued DSB to pcapng")
+		}
+	}
+	if e := pw.writer.Flush(); e != nil {
+		pw.logger.Warn().Err(e).Msg("failed to flush after DSB write")
+	}
+}
+
+// savePacketBatch writes secrets that are already queued before writing the
+// buffered packet batch. The timer and queue notification can become ready at
+// the same time, so the timer cannot rely on the notification being selected
+// first to preserve pcapng's sequential DSB-before-packet ordering.
+func (pw *PcapWriter) savePacketBatch() (int, error) {
+	pw.writeQueuedKeylogs(pw.takePendingKeylogs())
+	return pw.savePcapng()
+}
+
 // Serve processes queued packets and keylogs and writes them to the PCAPNG writer.
 // All NgWriter operations are serialized in this single goroutine to avoid concurrent access.
 func (pw *PcapWriter) Serve() {
@@ -218,7 +250,7 @@ func (pw *PcapWriter) serve(flushInterval, gracePeriod time.Duration) {
 			if time.Now().Before(dsbGraceDeadline) {
 				continue
 			}
-			n, e := pw.savePcapng()
+			n, e := pw.savePacketBatch()
 			if e != nil {
 				pw.logger.Warn().Err(e).Int("count", i).Msg("save pcapng err, maybe some packets lost.")
 			} else {
@@ -231,16 +263,7 @@ func (pw *PcapWriter) serve(flushInterval, gracePeriod time.Duration) {
 			dsbGraceDeadline = time.Time{}
 		case <-pw.queueReady:
 			packets, keylogs := pw.takePendingData()
-			if len(keylogs) > 0 {
-				for _, keylogLine := range keylogs {
-					if e := pw.writer.WriteDecryptionSecretsBlock(pcapgo.DSB_SECRETS_TYPE_TLS, keylogLine); e != nil {
-						pw.logger.Warn().Err(e).Msg("failed to write queued DSB to pcapng")
-					}
-				}
-				if e := pw.writer.Flush(); e != nil {
-					pw.logger.Warn().Err(e).Msg("failed to flush after DSB write")
-				}
-			}
+			pw.writeQueuedKeylogs(keylogs)
 			if len(packets) == 0 {
 				continue
 			}

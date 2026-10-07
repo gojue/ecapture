@@ -213,7 +213,7 @@ assert_no_capture_errors() {
     local log_file="$1"
     assert_file_nonempty "$log_file" "eCapture log" || return 1
 
-    local error_pattern='(^|[[:space:]])FTL([[:space:]]|$)|panic:|Failed to decode event|lost [1-9][0-9]* samples|Perf buffer full, samples lost|lost_samples"?[=:][[:space:]]*[1-9][0-9]*|pcap write packet channel full|keylog write channel full|failed to write packet to pcapng|save pcapng err|failed to (load|attach|start)'
+    local error_pattern='(^|[[:space:]])FTL([[:space:]]|$)|panic:|Failed to decode event|lost [1-9][0-9]* samples|Perf buffer full, samples lost|lost_samples"?[=:][[:space:]]*[1-9][0-9]*|pcap write packet channel full|keylog write channel full|failed to write packet to pcapng|save pcapng err|failed to write (queued DSB to pcapng|DSB on shutdown)|failed to flush (after DSB write|on shutdown)|failed to (load|attach|start)'
     if grep -Eiq "$error_pattern" "$log_file"; then
         log_error "eCapture reported a fatal, decode, loss, pcap write, load, attach, or start error"
         grep -Ein "$error_pattern" "$log_file" | tail -n 40 >&2 || true
