@@ -24,6 +24,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcapgo"
 
@@ -164,6 +165,31 @@ func TestPcapWriterKeepsDSBBeforeChronologicalPackets(t *testing.T) {
 	if packetTimes[0].After(packetTimes[1]) {
 		t.Fatalf("packet timestamps are out of order: %v then %v", packetTimes[0], packetTimes[1])
 	}
+}
+
+func TestPcapWriterTimedFlushDrainsPendingDSBBeforePackets(t *testing.T) {
+	t.Parallel()
+
+	var output bytes.Buffer
+	ngWriter, err := pcapgo.NewNgWriter(&output, layers.LinkTypeEthernet)
+	if err != nil {
+		t.Fatalf("NewNgWriter() error = %v", err)
+	}
+
+	pw := &PcapWriter{
+		writer: ngWriter,
+		tcPackets: []*TcPacket{{
+			ci:   gopacket.CaptureInfo{Timestamp: time.Unix(100, 0), CaptureLength: 60, Length: 60},
+			data: make([]byte, 60),
+		}},
+		pendingKeylogs: [][]byte{[]byte("CLIENT_TRAFFIC_SECRET_0 random client-secret\n")},
+		logger:         lger.New(io.Discard, false),
+	}
+
+	if _, err := pw.savePacketBatch(); err != nil {
+		t.Fatalf("savePacketBatch() error = %v", err)
+	}
+	assertDSBsBeforePackets(t, output.Bytes(), 1)
 }
 
 func TestPcapWriterStartsDSBGracePeriodWithFirstPacket(t *testing.T) {

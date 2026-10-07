@@ -137,6 +137,8 @@ case_pcapng_burst() {
     sleep 2
     stop_capture
 
+    assert_file_contains "$capture_log" "Probe closed" \
+        "graceful capture shutdown" || return 1
     assert_no_capture_errors "$capture_log" || return 1
     assert_file_not_contains "$capture_log" "Packet captured:" \
         "per-packet INFO output in pcapng mode" || return 1
