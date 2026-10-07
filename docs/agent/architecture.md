@@ -39,7 +39,7 @@ concurrent probe use begins.
 | --- | --- | --- | --- |
 | `tls` | `internal/probe/openssl` | `kern/openssl*_kern.c`, `kern/boringssl*_kern.c` | OpenSSL/BoringSSL; text, keylog, pcapng |
 | `gotls` | `internal/probe/gotls` | `kern/gotls_kern.c` | Go symbol/ABI discovery; text, keylog, pcapng |
-| `gnutls` | `internal/probe/gnutls` | `kern/gnutls_*_kern.c` | Go probe is an incomplete scaffold |
+| `gnutls` | `internal/probe/gnutls` | `kern/gnutls_*_kern.c` | Versioned offsets; text, keylog, pcapng |
 | `nspr` (`nss` alias) | `internal/probe/nspr` | `kern/nspr_kern.c` | NSS/NSPR |
 | `bash` | `internal/probe/bash` | `kern/bash_kern.c` | Shell command auditing |
 | `zsh` | `internal/probe/zsh` | `kern/zsh_kern.c` | Non-Android |
@@ -195,10 +195,9 @@ elibpcap integration.
 
 ## Current implementation boundaries
 
-- GnuTLS has C sources and build targets, but its Go `Start` path does not yet
-  load/attach them or retrieve event maps. Its current `GetBPFFileName()` also
-  returns generic version names that do not match the versioned targets in
-  `variables.mk`; resolve that mapping before wiring asset loading.
+- GnuTLS version selection is patch-specific because its master-secret offsets
+  vary across releases. Keep `gnuTLSVersionAssets`, the matching C sources,
+  and `variables.mk:TARGETS` synchronized.
 - Runtime reload reuses an already canceled context and keeps the originally
   selected factory probe type.
 - Shared CLI fields are copied manually into module configs, not uniformly.

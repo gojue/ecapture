@@ -15,7 +15,6 @@
 package gnutls
 
 import (
-	"bytes"
 	"context"
 	"testing"
 
@@ -42,13 +41,31 @@ func TestProbe_Initialize_TextMode(t *testing.T) {
 	cfg.GnutlsPath = "/usr/lib/libgnutls.so.30"
 	cfg.GnuVersion = "3.7.10"
 	cfg.CaptureMode = handlers.ModeText
-	probe.output = &bytes.Buffer{}
 
 	ctx := context.Background()
 	// Note: Will fail if GnuTLS not installed, but that's expected
 	err = probe.Initialize(ctx, cfg)
 	if err != nil {
 		t.Logf("Initialize() failed (expected if GnuTLS not installed): %v", err)
+	}
+}
+
+func TestProbe_SetupManagerText(t *testing.T) {
+	probe, err := NewProbe()
+	if err != nil {
+		t.Fatalf("NewProbe() error: %v", err)
+	}
+	probe.config = NewConfig()
+	probe.config.GnutlsPath = "/usr/lib/libgnutls.so.30"
+
+	if err := probe.setupManagerText(); err != nil {
+		t.Fatalf("setupManagerText() error: %v", err)
+	}
+	if got := len(probe.bpfManager.Probes); got != 4 {
+		t.Fatalf("probe count = %d, want 4", got)
+	}
+	if _, ok := probe.mapNameToDecoder["gnutls_events"]; !ok {
+		t.Fatal("gnutls_events decoder was not registered")
 	}
 }
 

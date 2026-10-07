@@ -163,6 +163,9 @@ verification matrix live in `docs/agent/build-test.md`.
   may contain secrets. Never commit or paste them unredacted.
 - Preserve unrelated worktree changes. Do not stage, commit, push, open a PR,
   publish, tag, or release unless the user explicitly requests it.
+- Name new branches with a conventional purpose prefix such as `feat/`,
+  `bugfix/`, `docs/`, `test/`, or `chore/`, followed by a concise kebab-case
+  description.
 - The default branch is `master`. If asked to commit, follow
   `<package>: <what changed>`, keep the subject <= 70 characters, and explain
   why in the body as documented in `CONTRIBUTING.md`.
@@ -174,7 +177,9 @@ verification matrix live in `docs/agent/build-test.md`.
 
 ## Known state and traps
 
-- GnuTLS has C assets, but its Go probe does not yet load/attach them.
+- GnuTLS uses versioned C assets selected from the detected library patch
+  release; keep the supported version-to-asset table synchronized with
+  `kern/gnutls_*_kern.c`.
 - Runtime reload reuses a canceled context and retains the original factory
   probe type; it is not a proven cross-probe hot-swap facility.
 - Shared CLI fields are copied into module configs manually and unevenly.

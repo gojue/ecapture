@@ -29,12 +29,35 @@ import (
 	"github.com/gojue/ecapture/v2/internal/probe/base/handlers"
 )
 
-// GnuTLS version constants
-const (
-	Version_3_6 = "3.6"
-	Version_3_7 = "3.7"
-	Version_3_8 = "3.8"
-)
+var gnuTLSVersionAssets = map[string]string{
+	"3.6.12": "gnutls_3_6_12_kern.o",
+	"3.6.13": "gnutls_3_6_13_kern.o",
+	"3.6.14": "gnutls_3_6_13_kern.o",
+	"3.6.15": "gnutls_3_6_13_kern.o",
+	"3.6.16": "gnutls_3_6_13_kern.o",
+	"3.7.0":  "gnutls_3_7_0_kern.o",
+	"3.7.1":  "gnutls_3_7_0_kern.o",
+	"3.7.2":  "gnutls_3_7_0_kern.o",
+	"3.7.3":  "gnutls_3_7_3_kern.o",
+	"3.7.4":  "gnutls_3_7_3_kern.o",
+	"3.7.5":  "gnutls_3_7_3_kern.o",
+	"3.7.6":  "gnutls_3_7_3_kern.o",
+	"3.7.7":  "gnutls_3_7_7_kern.o",
+	"3.7.8":  "gnutls_3_7_7_kern.o",
+	"3.7.9":  "gnutls_3_7_7_kern.o",
+	"3.7.10": "gnutls_3_7_7_kern.o",
+	"3.7.11": "gnutls_3_7_7_kern.o",
+	"3.8.0":  "gnutls_3_7_7_kern.o",
+	"3.8.1":  "gnutls_3_7_7_kern.o",
+	"3.8.2":  "gnutls_3_7_7_kern.o",
+	"3.8.3":  "gnutls_3_7_7_kern.o",
+	"3.8.4":  "gnutls_3_8_4_kern.o",
+	"3.8.5":  "gnutls_3_8_4_kern.o",
+	"3.8.6":  "gnutls_3_8_4_kern.o",
+	"3.8.7":  "gnutls_3_8_7_kern.o",
+	"3.8.8":  "gnutls_3_8_7_kern.o",
+	"3.8.9":  "gnutls_3_8_7_kern.o",
+}
 
 // Default library paths to search for GnuTLS
 var defaultGnuTLSPaths = []string{
@@ -73,29 +96,13 @@ func NewConfig() *Config {
 
 // IsSupportedVersion checks if the detected GnuTLS version is supported.
 func (c *Config) IsSupportedVersion() bool {
-	if c.GnuVersion == "" {
-		return false
-	}
-
-	// Check if version starts with supported major.minor versions
-	return strings.HasPrefix(c.GnuVersion, Version_3_6) ||
-		strings.HasPrefix(c.GnuVersion, Version_3_7) ||
-		strings.HasPrefix(c.GnuVersion, Version_3_8)
+	_, ok := gnuTLSVersionAssets[c.GnuVersion]
+	return ok
 }
 
 // GetBPFFileName returns the BPF bytecode filename for the detected GnuTLS version.
 func (c *Config) GetBPFFileName() string {
-	// For GnuTLS, we use version-specific BPF files
-	switch {
-	case strings.HasPrefix(c.GnuVersion, Version_3_6):
-		return "gnutls_3_6_kern.o"
-	case strings.HasPrefix(c.GnuVersion, Version_3_7):
-		return "gnutls_3_7_kern.o"
-	case strings.HasPrefix(c.GnuVersion, Version_3_8):
-		return "gnutls_3_7_kern.o" // 3.8 uses same as 3.7
-	default:
-		return "gnutls_kern.o"
-	}
+	return gnuTLSVersionAssets[c.GnuVersion]
 }
 
 // Bytes serializes the configuration to JSON.
@@ -114,15 +121,18 @@ func (c *Config) Validate() error {
 		return err
 	}
 
-	// Detect GnuTLS version
-	if err := c.detectVersion(); err != nil {
-		return err
+	// Preserve an explicitly configured version and avoid repeating ELF scans
+	// when Validate is called by both the CLI and BaseProbe.Initialize.
+	if c.GnuVersion == "" {
+		if err := c.detectVersion(); err != nil {
+			return err
+		}
 	}
 
 	// Validate that the detected version is supported
 	if !c.IsSupportedVersion() {
 		return errors.New(errors.ErrCodeConfiguration,
-			fmt.Sprintf("unsupported GnuTLS version: %s (supported: 3.6.x, 3.7.x, 3.8.x)", c.GnuVersion))
+			fmt.Sprintf("unsupported GnuTLS version: %s (supported: 3.6.12-3.6.16, 3.7.0-3.7.11, 3.8.0-3.8.9)", c.GnuVersion))
 	}
 
 	// Validate capture mode

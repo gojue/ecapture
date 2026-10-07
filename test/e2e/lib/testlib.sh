@@ -96,6 +96,7 @@ print_plaintext_preview() {
     local file="$1"
     local token="$2"
     local label="$3"
+    local prefix="${4:-}"
     local line preview
 
     # The fixture puts the token in both a response header and the body.  The
@@ -106,6 +107,9 @@ print_plaintext_preview() {
     }
     preview="$token${line#*"$token"}"
     preview="$(printf '%s' "$preview" | tr '\r\n\t' '   ' | cut -c1-50)"
+    if [ -n "$prefix" ]; then
+        preview="$prefix $preview"
+    fi
     printf "%b[PLAINTEXT]%b %s: %s\n" "$E2E_GREEN" "$E2E_NC" "$label" "$preview"
 }
 
@@ -193,6 +197,9 @@ assert_pcapng_plaintext_preview() {
     local tls_stream="${4:-0}"
     local plaintext_file="${pcap_file}.stream-${tls_stream}.plaintext.txt"
     local tshark_log="${pcap_file}.stream-${tls_stream}.tshark.log"
+    local client_random_file="${pcap_file}.stream-${tls_stream}.client-randoms.txt"
+    local client_random_log="${pcap_file}.stream-${tls_stream}.client-randoms.tshark.log"
+    local client_random
 
     assert_file_nonempty "$pcap_file" "pcapng capture for $label" || return 1
     # Clear any keylog configured in the host's Wireshark profile. Successful
@@ -206,7 +213,22 @@ assert_pcapng_plaintext_preview() {
     fi
     assert_file_contains "$plaintext_file" "$token" \
         "DSB-decrypted TLS plaintext for $label (TLS stream $tls_stream)" || return 1
-    print_plaintext_preview "$plaintext_file" "$token" "$label"
+
+    if ! tshark -n -r "$pcap_file" \
+        -Y "tcp.stream == $tls_stream && tls.handshake.type == 1" \
+        -T fields -e tls.handshake.random >"$client_random_file" 2>"$client_random_log"; then
+        log_error "tshark could not extract CLIENT_RANDOM for $label"
+        cat "$client_random_log" >&2 || true
+        return 1
+    fi
+    client_random="$(awk 'NF { value=$1; gsub(/[:,]/, "", value); print value; exit }' "$client_random_file")"
+    if [[ ! "$client_random" =~ ^[0-9A-Fa-f]{64}$ ]]; then
+        log_error "Invalid or missing CLIENT_RANDOM for $label"
+        return 1
+    fi
+
+    print_plaintext_preview "$plaintext_file" "$token" "$label" \
+        "CLIENT_RANDOM=$client_random"
 }
 
 assert_no_capture_errors() {

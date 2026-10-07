@@ -85,6 +85,44 @@ func (m *mockMasterSecretEvent) Clone() domain.Event               { return &moc
 func (m *mockMasterSecretEvent) Type() domain.EventType            { return domain.EventTypeOutput }
 func (m *mockMasterSecretEvent) UUID() string                      { return "" }
 
+type mockDirectTrafficSecretEvent struct {
+	tls13           bool
+	secretLength    int
+	clientRandom    []byte
+	masterKey       []byte
+	early           []byte
+	clientHandshake []byte
+	serverHandshake []byte
+	clientTraffic   []byte
+	serverTraffic   []byte
+	exporter        []byte
+}
+
+func (m *mockDirectTrafficSecretEvent) IsTLS13() bool                       { return m.tls13 }
+func (m *mockDirectTrafficSecretEvent) GetClientRandom() []byte             { return m.clientRandom }
+func (m *mockDirectTrafficSecretEvent) GetMasterKey() []byte                { return m.masterKey }
+func (m *mockDirectTrafficSecretEvent) GetTLS13SecretLength() int           { return m.secretLength }
+func (m *mockDirectTrafficSecretEvent) GetClientEarlyTrafficSecret() []byte { return m.early }
+func (m *mockDirectTrafficSecretEvent) GetClientHandshakeTrafficSecret() []byte {
+	return m.clientHandshake
+}
+func (m *mockDirectTrafficSecretEvent) GetServerHandshakeTrafficSecret() []byte {
+	return m.serverHandshake
+}
+func (m *mockDirectTrafficSecretEvent) GetClientAppTrafficSecret() []byte { return m.clientTraffic }
+func (m *mockDirectTrafficSecretEvent) GetServerAppTrafficSecret() []byte { return m.serverTraffic }
+func (m *mockDirectTrafficSecretEvent) GetExporterMasterSecret() []byte   { return m.exporter }
+func (m *mockDirectTrafficSecretEvent) DecodeFromBytes([]byte) error      { return nil }
+func (m *mockDirectTrafficSecretEvent) Validate() error                   { return nil }
+func (m *mockDirectTrafficSecretEvent) String() string                    { return "" }
+func (m *mockDirectTrafficSecretEvent) StringHex() string                 { return "" }
+func (m *mockDirectTrafficSecretEvent) Clone() domain.Event {
+	clone := *m
+	return &clone
+}
+func (m *mockDirectTrafficSecretEvent) Type() domain.EventType { return domain.EventTypeModuleData }
+func (m *mockDirectTrafficSecretEvent) UUID() string           { return "direct" }
+
 func TestNewKeylogHandler(t *testing.T) {
 	writer := newMockKeylogWriter()
 	handler := NewKeylogHandler(writer)
@@ -182,6 +220,58 @@ func TestKeylogHandler_Handle_TLS13(t *testing.T) {
 	if !strings.Contains(output, hkdf.KeyLogLabelServerTraffic) {
 		t.Errorf("Output should contain %s, got: %s", hkdf.KeyLogLabelServerTraffic, output)
 		return
+	}
+}
+
+func TestKeylogHandler_Handle_DirectTrafficSecrets(t *testing.T) {
+	writer := newMockKeylogWriter()
+	handler := NewKeylogHandler(writer)
+
+	event := &mockDirectTrafficSecretEvent{
+		tls13:           true,
+		secretLength:    32,
+		clientRandom:    bytes.Repeat([]byte{1}, Ssl3RandomSize),
+		early:           make([]byte, EvpMaxMdSize),
+		clientHandshake: bytes.Repeat([]byte{2}, EvpMaxMdSize),
+		serverHandshake: bytes.Repeat([]byte{3}, EvpMaxMdSize),
+		clientTraffic:   bytes.Repeat([]byte{4}, EvpMaxMdSize),
+		serverTraffic:   bytes.Repeat([]byte{5}, EvpMaxMdSize),
+		exporter:        bytes.Repeat([]byte{6}, EvpMaxMdSize),
+	}
+	if err := handler.Handle(event); err != nil {
+		t.Fatalf("Handle returned error: %v", err)
+	}
+
+	output := writer.String()
+	for _, label := range []string{
+		hkdf.KeyLogLabelClientHandshake,
+		hkdf.KeyLogLabelServerHandshake,
+		hkdf.KeyLogLabelClientTraffic,
+		hkdf.KeyLogLabelServerTraffic,
+		hkdf.KeyLogLabelExporterSecret,
+	} {
+		if !strings.Contains(output, label) {
+			t.Errorf("output does not contain %s: %s", label, output)
+		}
+	}
+	if strings.Contains(output, hkdf.KeyLogLabelClientEarlyTafficSecret) {
+		t.Errorf("zero early secret should be skipped: %s", output)
+	}
+}
+
+func TestKeylogHandler_Handle_DirectTLS12(t *testing.T) {
+	writer := newMockKeylogWriter()
+	handler := NewKeylogHandler(writer)
+	event := &mockDirectTrafficSecretEvent{
+		clientRandom: bytes.Repeat([]byte{1}, Ssl3RandomSize),
+		masterKey:    bytes.Repeat([]byte{2}, MasterSecretMaxLen),
+	}
+
+	if err := handler.Handle(event); err != nil {
+		t.Fatalf("Handle returned error: %v", err)
+	}
+	if !strings.HasPrefix(writer.String(), hkdf.KeyLogLabelTLS12+" ") {
+		t.Fatalf("unexpected output: %s", writer.String())
 	}
 }
 

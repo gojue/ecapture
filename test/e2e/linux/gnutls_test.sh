@@ -21,7 +21,7 @@ build_gnutls_client() {
     # shellcheck disable=SC2046
     cc -O2 -Wall -Wextra -Werror $(pkg-config --cflags gnutls) \
         -o "$GNUTLS_CLIENT" "$E2E_DIR/fixtures/c/gnutls_client.c" $(pkg-config --libs gnutls)
-    GNUTLS_LIB="$(resolve_linked_library "$GNUTLS_CLIENT" 'libgnutls\.so')"
+    GNUTLS_LIB="$(resolve_linked_library "$GNUTLS_CLIENT" 'libgnutls[.]so')"
     log_info "GnuTLS fixture library: $GNUTLS_LIB"
 }
 

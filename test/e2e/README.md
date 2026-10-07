@@ -114,13 +114,19 @@ The Java workload is intentional: Android `HttpsURLConnection` uses Conscrypt/Bo
 Failed-suite artifacts are always preserved. CI sets `E2E_KEEP_ARTIFACTS=1` and uploads them.
 
 Every successful mode prints a `[PLAINTEXT]` line containing at most 50
-characters from the verified capture. Text mode reads the eCapture event log;
-keylog mode decrypts a simultaneous packet capture with the keys emitted by
-eCapture; pcapng mode invokes tshark without an external keylog and decrypts
-eCapture's own pcapng output using its embedded TLS Decryption Secrets Block.
-The preview is therefore capture evidence, not a copy of the workload's client
-output.
+characters of plaintext from the verified capture. Text mode reads the
+eCapture event log; keylog mode decrypts a simultaneous packet capture with
+the keys emitted by eCapture; pcapng mode invokes tshark without an external
+keylog and decrypts eCapture's own pcapng output using its embedded TLS
+Decryption Secrets Block. Pcapng previews also include the 64-hex-character
+`CLIENT_RANDOM` extracted from the captured ClientHello. The preview is
+therefore capture evidence, not a copy of the workload's client output.
 
-## Current GnuTLS implementation status
+## GnuTLS implementation status
 
-The current `internal/probe/gnutls/gnutls_probe.go` is still a scaffold and does not attach the data, master-secret, or TC programs. The GnuTLS E2E suite is deliberately strict and exposes that implementation gap. CI executes the full contract as a visible non-gating step; direct `make e2e-linux` runs remain strict and fail. Do not weaken the assertions to pass on startup logs or empty artifacts; the contract should turn green when the probe implements the same three observable behaviors as OpenSSL and GoTLS.
+The GnuTLS probe attaches version-specific data and master-secret uprobes plus
+TC programs for pcapng mode. Its strict text, keylog, and pcapng cases are CI
+gates, matching the observable contracts used for OpenSSL and GoTLS. Keep the
+version-to-asset mapping synchronized with the offsets in
+`kern/gnutls_*_kern.c`; do not weaken assertions to accept startup logs or
+empty artifacts.
