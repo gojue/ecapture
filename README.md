@@ -1,17 +1,34 @@
-<img src="./images/ecapture-logo.png" alt="eCapture Logo" width="300" height="300"/>
-
-[汉字](README-zh_Hans.md) | English
-
-[![CI](https://github.com/gojue/ecapture/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/gojue/ecapture/actions/workflows/code-analysis.yml)
-[![GitHub Version](https://img.shields.io/github/v/release/gojue/ecapture?display_name=tag&include_prereleases&sort=semver)](https://github.com/gojue/ecapture/releases)
-
 <p align="center">
- <a href="https://www.star-history.com/gojue/ecapture">
-  <picture><source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/badge?repo=gojue/ecapture&type=rank&theme=dark" /><source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/badge?repo=gojue/ecapture&type=rank" /><img alt="Star History Rank" src="https://api.star-history.com/badge?repo=gojue/ecapture&type=rank" /></picture> <picture><source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/badge?repo=gojue/ecapture&type=trending&theme=dark" /><source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/badge?repo=gojue/ecapture&type=trending" /><img alt="GitHub Trending Repository of the Day" src="https://api.star-history.com/badge?repo=gojue/ecapture&type=trending" /></picture>
- </a>
+  <img src="./images/ecapture-logo.png" alt="eCapture logo" width="180" />
 </p>
 
-### eCapture (旁观者): Capture plaintext SSL/TLS traffic without a CA certificate using eBPF.
+<p align="center">
+  <strong>eCapture (旁观者)</strong><br />
+  Capture plaintext SSL/TLS traffic without a CA certificate using eBPF.
+</p>
+
+<p align="center">
+  <strong>English</strong> · <a href="./README-zh_Hans.md">汉字</a><br />
+  <a href="https://github.com/gojue/ecapture/actions/workflows/codeql-analysis.yml"><img alt="CodeQL" src="https://github.com/gojue/ecapture/actions/workflows/codeql-analysis.yml/badge.svg" /></a>
+  <a href="https://github.com/gojue/ecapture/releases"><img alt="Latest release" src="https://img.shields.io/github/v/release/gojue/ecapture?display_name=tag&amp;include_prereleases&amp;sort=semver" /></a>
+</p>
+
+<p align="center">
+  <a href="https://www.star-history.com/gojue/ecapture">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/badge?repo=gojue/ecapture&amp;type=rank&amp;theme=dark" />
+      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/badge?repo=gojue/ecapture&amp;type=rank" />
+      <img alt="Star History Rank" src="https://api.star-history.com/badge?repo=gojue/ecapture&amp;type=rank" />
+    </picture>
+  </a>
+  <a href="https://www.star-history.com/gojue/ecapture">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/badge?repo=gojue/ecapture&amp;type=trending&amp;theme=dark" />
+      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/badge?repo=gojue/ecapture&amp;type=trending" />
+      <img alt="GitHub Trending Repository of the Day" src="https://api.star-history.com/badge?repo=gojue/ecapture&amp;type=trending" />
+    </picture>
+  </a>
+</p>
 
 > [!IMPORTANT]
 > Supports Linux and Android on x86_64 (kernel 4.18+) and aarch64 (kernel **5.5+**). The kernel requirement applies per CPU architecture for both Linux and Android.
