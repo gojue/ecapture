@@ -16,8 +16,8 @@ entry points, not separate sources of project truth.
   `docs/agent/probe-development.md`.
 - For build, formatting, lint, tests, E2E, or CI, read
   `docs/agent/build-test.md`.
-- Some older prose and `.github/agents/pr-agent.md` may lag the code or build
-  files. This guide and current implementation win on factual conflicts.
+- Some older prose may lag the code or build files. This guide and current
+  implementation win on factual conflicts.
 - Keep this file and the relevant detailed guide synchronized when a change
   invalidates a command, path, invariant, or known limitation.
 
@@ -166,8 +166,9 @@ verification matrix live in `docs/agent/build-test.md`.
 - The default branch is `master`. If asked to commit, follow
   `<package>: <what changed>`, keep the subject <= 70 characters, and explain
   why in the body as documented in `CONTRIBUTING.md`.
-- Keep fork PR workflows read-only. Workflows with write credentials must not
-  execute untrusted fork code.
+- Keep ordinary fork-PR build/test jobs read-only and secret-free. Keep
+  scanner-specific write permissions narrowly scoped. Any trusted write-back
+  workflow must not execute untrusted fork code or its artifacts.
 - Do not weaken security checks, verifier failures, or E2E assertions merely
   to make CI green.
 
@@ -200,3 +201,4 @@ verification matrix live in `docs/agent/build-test.md`.
 - Privileges/security: `docs/minimum-privileges.md`, `SECURITY.md`
 - Event forwarding: `docs/event-forward-api.md`, `pkg/ecaptureq/README.md`
 - Generated/config docs: `protobuf/README.md`, `protobuf/PROTOCOLS.md`, `docs/remote-config-update-api.md`
+- GitHub Copilot PR agent: `.github/agents/pr-agent.agent.md`
