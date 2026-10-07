@@ -269,7 +269,7 @@ e2e-tls-text-advanced:
 # run advanced TLS pcap mode tests
 .PHONY: e2e-tls-pcap-advanced
 e2e-tls-pcap-advanced:
-	E2E_MODULES=tls E2E_MODES=pcapng bash ./test/e2e/run_e2e.sh
+	E2E_MODULES=tls E2E_MODES=pcapng E2E_STRESS=1 bash ./test/e2e/run_e2e.sh
 
 # run advanced TLS keylog mode tests
 .PHONY: e2e-tls-keylog-advanced
@@ -309,7 +309,8 @@ e2e-linux:
 
 .PHONY: e2e-basic e2e-advanced e2e
 e2e-basic: e2e-linux
-e2e-advanced: e2e-linux
+e2e-advanced:
+	E2E_STRESS=1 bash ./test/e2e/run_e2e.sh
 e2e: e2e-linux
 
 # Android e2e tests

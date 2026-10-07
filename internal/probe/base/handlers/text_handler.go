@@ -49,6 +49,12 @@ func (h *TextHandler) Handle(event domain.Event) error {
 	if event == nil {
 		return errors.New(errors.ErrCodeEventValidation, "event cannot be nil")
 	}
+	// Raw TC packets belong to the pcapng handler. Formatting and writing one
+	// INFO log entry per packet needlessly slows the perf-buffer reader and can
+	// cause kernel-side samples to be lost under load.
+	if _, ok := event.(PacketEvent); ok {
+		return nil
+	}
 
 	// Let the event format itself based on hex mode
 	var output string

@@ -216,6 +216,23 @@ func TestTextHandler_Handle_InvalidEventType(t *testing.T) {
 	}
 }
 
+func TestTextHandler_Handle_SkipsPacketEvent(t *testing.T) {
+	writer := newMockWriter()
+	handler := NewTextHandler(writer, false)
+
+	event := &mockPacketEvent{
+		timestamp:  1,
+		packetData: []byte{0xde, 0xad, 0xbe, 0xef},
+		packetLen:  4,
+	}
+	if err := handler.Handle(event); err != nil {
+		t.Fatalf("Handle returned error: %v", err)
+	}
+	if writer.Len() != 0 {
+		t.Fatalf("packet event was written to text output: %q", writer.String())
+	}
+}
+
 func TestTextHandler_Close(t *testing.T) {
 	writer := newMockWriter()
 	handler := NewTextHandler(writer, false)

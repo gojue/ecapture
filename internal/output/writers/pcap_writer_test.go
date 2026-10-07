@@ -24,12 +24,84 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcapgo"
 
 	lger "github.com/gojue/ecapture/v2/internal/logger"
 )
+
+func TestPcapWriterQueuesBurstWithoutDrop(t *testing.T) {
+	t.Parallel()
+
+	pw := &PcapWriter{
+		queueReady: make(chan struct{}, 1),
+	}
+
+	const packetCount = 4096
+	for i := 0; i < packetCount; i++ {
+		if err := pw.WritePacket([]byte{byte(i)}, time.Unix(0, int64(i))); err != nil {
+			t.Fatalf("WritePacket() packet %d error = %v; burst packets must be queued", i, err)
+		}
+		if err := pw.WriteKeyLog([]byte{byte(i)}); err != nil {
+			t.Fatalf("WriteKeyLog() entry %d error = %v; burst keylogs must be queued", i, err)
+		}
+	}
+	if got := len(pw.pendingPackets); got != packetCount {
+		t.Fatalf("queued packet count = %d, want %d", got, packetCount)
+	}
+	if got := len(pw.pendingKeylogs); got != packetCount {
+		t.Fatalf("queued keylog count = %d, want %d", got, packetCount)
+	}
+}
+
+func TestPcapWriterPersistsBurstOnClose(t *testing.T) {
+	t.Parallel()
+
+	var output bytes.Buffer
+	ngWriter, err := pcapgo.NewNgWriter(&output, layers.LinkTypeEthernet)
+	if err != nil {
+		t.Fatalf("NewNgWriter() error = %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	pw := &PcapWriter{
+		writer:     ngWriter,
+		ctx:        ctx,
+		ctxCancel:  cancel,
+		queueReady: make(chan struct{}, 1),
+		serveDone:  make(chan struct{}),
+		logger:     lger.New(io.Discard, false),
+	}
+	go pw.Serve()
+
+	const packetCount = 4096
+	packet := make([]byte, 60)
+	for i := 0; i < packetCount; i++ {
+		if err := pw.WritePacket(packet, time.Unix(0, int64(i))); err != nil {
+			t.Fatalf("WritePacket() packet %d error = %v", i, err)
+		}
+	}
+	if err := pw.Close(); err != nil {
+		t.Fatalf("Close() error = %v", err)
+	}
+
+	reader, err := pcapgo.NewNgReader(bytes.NewReader(output.Bytes()), pcapgo.DefaultNgReaderOptions)
+	if err != nil {
+		t.Fatalf("NewNgReader() error = %v", err)
+	}
+	var got int
+	for {
+		if _, _, err = reader.ReadPacketData(); errors.Is(err, io.EOF) {
+			break
+		} else if err != nil {
+			t.Fatalf("ReadPacketData() error = %v", err)
+		}
+		got++
+	}
+	if got != packetCount {
+		t.Fatalf("persisted packet count = %d, want %d", got, packetCount)
+	}
+}
 
 func TestPcapWriterKeepsDSBBeforeChronologicalPackets(t *testing.T) {
 	t.Parallel()
@@ -46,8 +118,7 @@ func TestPcapWriterKeepsDSBBeforeChronologicalPackets(t *testing.T) {
 		ctx:        ctx,
 		ctxCancel:  cancel,
 		tcPackets:  []*TcPacket{},
-		packetChan: make(chan *TcPacket),
-		keylogChan: make(chan []byte),
+		queueReady: make(chan struct{}, 1),
 		serveDone:  make(chan struct{}),
 		logger:     lger.New(io.Discard, false),
 	}
@@ -55,17 +126,16 @@ func TestPcapWriterKeepsDSBBeforeChronologicalPackets(t *testing.T) {
 
 	baseTime := time.Unix(100, 0)
 	for _, timestamp := range []time.Time{baseTime.Add(2 * time.Second), baseTime.Add(time.Second)} {
-		pw.packetChan <- &TcPacket{
-			ci: gopacket.CaptureInfo{
-				Timestamp:     timestamp,
-				CaptureLength: 60,
-				Length:        60,
-			},
-			data: make([]byte, 60),
+		if err := pw.WritePacket(make([]byte, 60), timestamp); err != nil {
+			t.Fatalf("WritePacket() error = %v", err)
 		}
 	}
-	pw.keylogChan <- []byte("CLIENT_TRAFFIC_SECRET_0 random client-secret\n")
-	pw.keylogChan <- []byte("SERVER_TRAFFIC_SECRET_0 random server-secret\n")
+	if err := pw.WriteKeyLog([]byte("CLIENT_TRAFFIC_SECRET_0 random client-secret\n")); err != nil {
+		t.Fatalf("WriteKeyLog() error = %v", err)
+	}
+	if err := pw.WriteKeyLog([]byte("SERVER_TRAFFIC_SECRET_0 random server-secret\n")); err != nil {
+		t.Fatalf("WriteKeyLog() error = %v", err)
+	}
 
 	if err := pw.Close(); err != nil {
 		t.Fatalf("Close() error = %v", err)
@@ -111,8 +181,7 @@ func TestPcapWriterStartsDSBGracePeriodWithFirstPacket(t *testing.T) {
 		ctx:        ctx,
 		ctxCancel:  cancel,
 		tcPackets:  []*TcPacket{},
-		packetChan: make(chan *TcPacket),
-		keylogChan: make(chan []byte),
+		queueReady: make(chan struct{}, 1),
 		serveDone:  make(chan struct{}),
 		logger:     lger.New(io.Discard, false),
 	}
@@ -126,20 +195,19 @@ func TestPcapWriterStartsDSBGracePeriodWithFirstPacket(t *testing.T) {
 	// Leave the capture idle beyond the grace period. The grace deadline must
 	// still start when the first packet arrives, not when Serve starts.
 	time.Sleep(2 * gracePeriod)
-	pw.packetChan <- &TcPacket{
-		ci: gopacket.CaptureInfo{
-			Timestamp:     time.Unix(100, 0),
-			CaptureLength: 60,
-			Length:        60,
-		},
-		data: make([]byte, 60),
+	if err := pw.WritePacket(make([]byte, 60), time.Unix(100, 0)); err != nil {
+		t.Fatalf("WritePacket() error = %v", err)
 	}
-	pw.keylogChan <- []byte("CLIENT_TRAFFIC_SECRET_0 random client-secret\n")
+	if err := pw.WriteKeyLog([]byte("CLIENT_TRAFFIC_SECRET_0 random client-secret\n")); err != nil {
+		t.Fatalf("WriteKeyLog() error = %v", err)
+	}
 
 	// Give an expired-at-start implementation enough time to flush the packet,
 	// then enqueue the rest of the handshake secrets within the correct window.
 	time.Sleep(3 * flushInterval)
-	pw.keylogChan <- []byte("SERVER_TRAFFIC_SECRET_0 random server-secret\n")
+	if err := pw.WriteKeyLog([]byte("SERVER_TRAFFIC_SECRET_0 random server-secret\n")); err != nil {
+		t.Fatalf("WriteKeyLog() error = %v", err)
+	}
 
 	if err := pw.Close(); err != nil {
 		t.Fatalf("Close() error = %v", err)
@@ -163,8 +231,7 @@ func TestPcapWriterRestartsDSBGracePeriodForNextBatch(t *testing.T) {
 		ctx:        ctx,
 		ctxCancel:  cancel,
 		tcPackets:  []*TcPacket{},
-		packetChan: make(chan *TcPacket),
-		keylogChan: make(chan []byte),
+		queueReady: make(chan struct{}, 1),
 		serveDone:  make(chan struct{}),
 		logger:     lger.New(io.Discard, false),
 	}
@@ -177,18 +244,15 @@ func TestPcapWriterRestartsDSBGracePeriodForNextBatch(t *testing.T) {
 
 	writeTestPacket := func(timestamp time.Time) {
 		t.Helper()
-		pw.packetChan <- &TcPacket{
-			ci: gopacket.CaptureInfo{
-				Timestamp:     timestamp,
-				CaptureLength: 60,
-				Length:        60,
-			},
-			data: make([]byte, 60),
+		if err := pw.WritePacket(make([]byte, 60), timestamp); err != nil {
+			t.Fatalf("WritePacket() error = %v", err)
 		}
 	}
 
 	writeTestPacket(time.Unix(100, 0))
-	pw.keylogChan <- []byte("CLIENT_RANDOM first-random first-secret\n")
+	if err := pw.WriteKeyLog([]byte("CLIENT_RANDOM first-random first-secret\n")); err != nil {
+		t.Fatalf("WriteKeyLog() error = %v", err)
+	}
 
 	// Let the first batch pass its grace deadline and flush before starting a
 	// separate handshake in the next batch.
@@ -198,7 +262,9 @@ func TestPcapWriterRestartsDSBGracePeriodForNextBatch(t *testing.T) {
 	// An implementation that keeps the first batch's expired deadline will
 	// flush this packet on the next tick, before its secret arrives.
 	time.Sleep(5 * flushInterval)
-	pw.keylogChan <- []byte("CLIENT_RANDOM second-random second-secret\n")
+	if err := pw.WriteKeyLog([]byte("CLIENT_RANDOM second-random second-secret\n")); err != nil {
+		t.Fatalf("WriteKeyLog() error = %v", err)
+	}
 
 	if err := pw.Close(); err != nil {
 		t.Fatalf("Close() error = %v", err)

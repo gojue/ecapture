@@ -26,6 +26,36 @@ run_openssl_request() {
     assert_file_contains "$output_file" "$E2E_TOKEN" "OpenSSL fixture response"
 }
 
+run_openssl_burst() {
+    local client_log="$1"
+    local requests=256
+    local concurrency=64
+    local request pid failures=0
+    local -a pids=()
+
+    : >"$client_log"
+    for ((request = 1; request <= requests; request++)); do
+        timeout 15 "$OPENSSL_CLIENT" 127.0.0.1 "$TLS_SERVER_PORT" /e2e "$E2E_TOKEN" tls13 \
+            >/dev/null 2>>"$client_log" &
+        pids+=("$!")
+
+        if ((${#pids[@]} == concurrency || request == requests)); then
+            for pid in "${pids[@]}"; do
+                if ! wait "$pid"; then
+                    failures=$((failures + 1))
+                fi
+            done
+            pids=()
+        fi
+    done
+
+    if ((failures > 0)); then
+        log_error "$failures of $requests OpenSSL burst requests failed"
+        tail -n 80 "$client_log" >&2 || true
+        return 1
+    fi
+}
+
 case_text() {
     local capture_log="$WORK_DIR/text.ecapture.log"
     local client_log="$WORK_DIR/text.client.log"
@@ -94,6 +124,27 @@ case_pcapng() {
         "$pcap_file" "$E2E_TOKEN" "linux/tls/pcapng"
 }
 
+case_pcapng_burst() {
+    local capture_log="$WORK_DIR/pcapng-burst.ecapture.log"
+    local client_log="$WORK_DIR/pcapng-burst.client.log"
+    local pcap_file="$WORK_DIR/openssl-burst.pcapng"
+    start_capture "$capture_log" tls --libssl "$OPENSSL_LIB" --model pcapng \
+        --ifname lo --pcapfile "$pcap_file" --keylogfile= "tcp port $TLS_SERVER_PORT" || return 1
+    if ! run_openssl_burst "$client_log"; then
+        stop_capture
+        return 1
+    fi
+    sleep 2
+    stop_capture
+
+    assert_no_capture_errors "$capture_log" || return 1
+    assert_file_not_contains "$capture_log" "Packet captured:" \
+        "per-packet INFO output in pcapng mode" || return 1
+    assert_pcapng "$pcap_file" 1024 || return 1
+    assert_pcapng_plaintext_preview \
+        "$pcap_file" "$E2E_TOKEN" "linux/tls/pcapng-burst"
+}
+
 main() {
     setup_linux_suite tls
     build_openssl_client
@@ -101,6 +152,9 @@ main() {
     mode_enabled text && run_case "linux/tls/text" case_text
     mode_enabled keylog && run_case "linux/tls/keylog-tls12-tls13" case_keylog
     mode_enabled pcapng && run_case "linux/tls/pcapng-with-dsb" case_pcapng
+    if mode_enabled pcapng && [[ "${E2E_STRESS:-0}" == "1" ]]; then
+        run_case "linux/tls/pcapng-burst-no-drop" case_pcapng_burst
+    fi
 
     print_summary "Linux OpenSSL TLS E2E"
 }

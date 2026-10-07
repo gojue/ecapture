@@ -13,6 +13,7 @@ The tests require root and a real Linux/Android kernel with eBPF support. Buildi
 | Platform | Module/workload | text assertion | keylog assertion | pcapng assertion |
 | --- | --- | --- | --- | --- |
 | Ubuntu 22.04+ | OpenSSL C client | unique plaintext token | valid TLS 1.2 and 1.3 NSS secrets | SHB, IDB, packets, TLS DSB |
+| Ubuntu 22.04+ advanced | 256 OpenSSL connections (64 concurrent) | n/a | n/a | at least 1024 packets, TLS DSB, no write/loss errors or per-packet INFO logs |
 | Ubuntu 22.04+ | Go HTTPS client | unique plaintext token | valid TLS 1.2 and 1.3 NSS secrets | SHB, IDB, packets, TLS DSB |
 | Ubuntu 22.04+ | GnuTLS C client | unique plaintext token | valid TLS 1.2 and 1.3 NSS secrets | SHB, IDB, packets, TLS DSB |
 | Android 13+ | `app_process` + Conscrypt | unique plaintext token | valid TLS 1.2 and 1.3 NSS secrets | SHB, IDB, packets, TLS DSB |
@@ -72,7 +73,8 @@ sudo E2E_MODULES='tls gotls' E2E_MODES=text bash test/e2e/run_e2e.sh
 sudo E2E_MODULES=gotls E2E_MODES='keylog pcapng' bash test/e2e/run_e2e.sh
 ```
 
-`make e2e`, `make e2e-basic`, and `make e2e-advanced` are compatibility aliases for the maintained Linux matrix.
+`make e2e` and `make e2e-basic` run the maintained Linux matrix. `make e2e-advanced`
+also runs the OpenSSL pcapng burst regression case.
 
 ## Android
 
@@ -102,6 +104,7 @@ The Java workload is intentional: Android `HttpsURLConnection` uses Conscrypt/Bo
 | --- | --- | --- |
 | `E2E_MODULES` | `tls gotls gnutls` | Linux modules to run |
 | `E2E_MODES` | `text keylog pcapng` | Modes to run |
+| `E2E_STRESS` | `0` | Run burst regressions when set to `1` |
 | `E2E_ARTIFACT_ROOT` | `/tmp/ecapture-e2e*` | Host artifact parent directory |
 | `E2E_KEEP_ARTIFACTS` | `0` | Preserve successful test artifacts when set to `1` |
 | `ECAPTURE_BINARY` | `bin/ecapture` | Override the eCapture binary |
