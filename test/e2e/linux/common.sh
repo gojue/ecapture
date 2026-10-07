@@ -176,8 +176,9 @@ stop_capture() {
 
 assert_pcapng() {
     local pcap_file="$1"
+    local min_packets="${2:-1}"
     assert_file_nonempty "$pcap_file" "pcapng capture" || return 1
-    "$PCAPNG_CHECK" --require-dsb "$pcap_file"
+    "$PCAPNG_CHECK" --require-dsb --min-packets "$min_packets" "$pcap_file"
 }
 
 resolve_linked_library() {

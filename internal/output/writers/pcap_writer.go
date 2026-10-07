@@ -16,11 +16,11 @@ package writers
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"math"
 	"net"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/google/gopacket"
@@ -48,11 +48,21 @@ type PcapWriter struct {
 	ctx       context.Context
 	ctxCancel context.CancelFunc
 
-	tcPackets   []*TcPacket
-	packetChan  chan *TcPacket
-	keylogChan  chan []byte // channel for DSB (keylog) writes, serialized with packet writes
+	tcPackets []*TcPacket
+
+	// WritePacket must not discard a burst merely because Serve is flushing the
+	// previous batch to disk. Keep a short critical section in the perf-reader
+	// path and wake Serve through a coalescing notification instead of using a
+	// bounded packet channel.
+	queueMu        sync.Mutex
+	pendingPackets []*TcPacket
+	pendingKeylogs [][]byte
+	queueReady     chan struct{}
+	stopped        bool
+
 	serveDone   chan struct{}
 	packetCount int
+	closeMu     sync.Mutex
 	isClosed    bool
 	logger      *lger.Logger
 }
@@ -126,8 +136,7 @@ func NewPcapWriter(w io.Writer, snaplen uint32, ifName, filter string, logger *l
 	pw := &PcapWriter{
 		writer:     pcapWriter,
 		ifaceIdx:   ifaceIdx,
-		packetChan: make(chan *TcPacket, 1024),
-		keylogChan: make(chan []byte, 256),
+		queueReady: make(chan struct{}, 1),
 		serveDone:  make(chan struct{}),
 		ctx:        ctx,
 		ctxCancel:  cancel,
@@ -152,16 +161,34 @@ func (pw *PcapWriter) WritePacket(data []byte, timestamp time.Time) error {
 		InterfaceIndex: 0,
 	}
 
+	pw.queueMu.Lock()
+	if pw.stopped {
+		pw.queueMu.Unlock()
+		return errors.New(errors.ErrCodeEventDispatch, "pcap writer is closed")
+	}
+	pw.pendingPackets = append(pw.pendingPackets, &TcPacket{ci: captureInfo, data: data})
+	pw.queueMu.Unlock()
+
+	// One notification is sufficient: Serve drains the complete pending queue.
 	select {
-	case pw.packetChan <- &TcPacket{ci: captureInfo, data: data}:
+	case pw.queueReady <- struct{}{}:
 	default:
-		// If the channel is full, write directly (blocking)
-		return fmt.Errorf("pcap write packet channel full")
 	}
 	return nil
 }
 
-// Serve processes packets and keylogs from channels and writes them to the PCAPNG writer.
+func (pw *PcapWriter) takePendingData() ([]*TcPacket, [][]byte) {
+	pw.queueMu.Lock()
+	defer pw.queueMu.Unlock()
+
+	packets := pw.pendingPackets
+	keylogs := pw.pendingKeylogs
+	pw.pendingPackets = nil
+	pw.pendingKeylogs = nil
+	return packets, keylogs
+}
+
+// Serve processes queued packets and keylogs and writes them to the PCAPNG writer.
 // All NgWriter operations are serialized in this single goroutine to avoid concurrent access.
 func (pw *PcapWriter) Serve() {
 	pw.serve(pcapFlushInterval, dsbGracePeriod)
@@ -182,24 +209,6 @@ func (pw *PcapWriter) serve(flushInterval, gracePeriod time.Duration) {
 	for {
 		select {
 		case <-ti.C:
-			// Keylog callbacks for one handshake can enqueue several secrets.
-			// Drain every secret already available before writing any buffered
-			// packets so tshark sees the complete DSB set first.
-		drainKeylogs:
-			for pw.keylogChan != nil {
-				select {
-				case keylogLine, ok := <-pw.keylogChan:
-					if !ok {
-						pw.keylogChan = nil
-						break drainKeylogs
-					}
-					if e := pw.writer.WriteDecryptionSecretsBlock(pcapgo.DSB_SECRETS_TYPE_TLS, keylogLine); e != nil {
-						pw.logger.Warn().Err(e).Msg("failed to write queued DSB to pcapng")
-					}
-				default:
-					break drainKeylogs
-				}
-			}
 			if i == 0 || len(pw.tcPackets) == 0 {
 				continue
 			}
@@ -220,79 +229,45 @@ func (pw *PcapWriter) serve(flushInterval, gracePeriod time.Duration) {
 			i = 0
 			pw.tcPackets = pw.tcPackets[:0]
 			dsbGraceDeadline = time.Time{}
-		case packet, ok := <-pw.packetChan:
-			if !ok {
-				// Channel closed — drain any remaining packets and exit
-				if len(pw.tcPackets) > 0 {
-					n, e := pw.savePcapng()
-					if e != nil {
-						pw.logger.Warn().Err(e).Int("count", i).Msg("save pcapng err on close, maybe some packets lost.")
-					} else {
-						pw.packetCount += n
+		case <-pw.queueReady:
+			packets, keylogs := pw.takePendingData()
+			if len(keylogs) > 0 {
+				for _, keylogLine := range keylogs {
+					if e := pw.writer.WriteDecryptionSecretsBlock(pcapgo.DSB_SECRETS_TYPE_TLS, keylogLine); e != nil {
+						pw.logger.Warn().Err(e).Msg("failed to write queued DSB to pcapng")
 					}
 				}
-				return
+				if e := pw.writer.Flush(); e != nil {
+					pw.logger.Warn().Err(e).Msg("failed to flush after DSB write")
+				}
+			}
+			if len(packets) == 0 {
+				continue
 			}
 			if dsbGraceDeadline.IsZero() {
 				dsbGraceDeadline = time.Now().Add(gracePeriod)
 			}
-			pw.tcPackets = append(pw.tcPackets, packet)
-			i++
-		case keylogLine, ok := <-pw.keylogChan:
-			if !ok {
-				// Channel closed — nil out to remove from select, preventing CPU spin.
-				// (Receiving from a closed channel returns zero value immediately.)
-				pw.keylogChan = nil
-				continue
-			}
-			// Write the DSB now, but leave packets buffered. A single TLS 1.3
-			// handshake emits several keylog lines, and flushing after the first
-			// line would place the remaining traffic secrets after encrypted data.
-			if e := pw.writer.WriteDecryptionSecretsBlock(pcapgo.DSB_SECRETS_TYPE_TLS, keylogLine); e != nil {
-				pw.logger.Warn().Err(e).Msg("failed to write DSB to pcapng")
-			}
-			if e := pw.writer.Flush(); e != nil {
-				pw.logger.Warn().Err(e).Msg("failed to flush after DSB write")
-			}
+			pw.tcPackets = append(pw.tcPackets, packets...)
+			i += len(packets)
 		case <-pw.ctx.Done():
-			// Context canceled — drain all remaining data from channels before exiting
+			// Context canceled — drain all remaining queued data before exiting.
 			pw.drainOnShutdown()
 			return
 		}
 	}
 }
 
-// drainOnShutdown drains remaining packets and keylogs from channels and writes
+// drainOnShutdown drains remaining queued packets and keylogs and writes
 // them to the PCAPNG file. Called only from Serve() on context cancellation.
 // DSBs are written before packets to ensure Wireshark can decrypt the traffic.
 func (pw *PcapWriter) drainOnShutdown() {
-	// Drain remaining packets from packetChan into buffer (don't write yet)
-drainPackets:
-	for {
-		select {
-		case packet, ok := <-pw.packetChan:
-			if !ok {
-				break drainPackets
-			}
-			pw.tcPackets = append(pw.tcPackets, packet)
-		default:
-			break drainPackets
-		}
-	}
-
-	// Drain remaining keylogs and write DSBs FIRST (before packets)
-drainKeylogs:
-	for {
-		select {
-		case keylog, ok := <-pw.keylogChan:
-			if !ok {
-				break drainKeylogs
-			}
-			if e := pw.writer.WriteDecryptionSecretsBlock(pcapgo.DSB_SECRETS_TYPE_TLS, keylog); e != nil {
-				pw.logger.Warn().Err(e).Msg("failed to write DSB on shutdown")
-			}
-		default:
-			break drainKeylogs
+	// Move remaining queued data into the output batch. Write DSBs first so
+	// Wireshark sees every secret before the corresponding packet blocks.
+	packets, keylogs := pw.takePendingData()
+	pw.tcPackets = append(pw.tcPackets, packets...)
+	for _, keylog := range keylogs {
+		if e := pw.writer.WriteDecryptionSecretsBlock(pcapgo.DSB_SECRETS_TYPE_TLS, keylog); e != nil {
+			pw.logger.Warn().Err(e).Msg("failed to write DSB on shutdown")
 		}
 	}
 
@@ -350,10 +325,17 @@ func (pw *PcapWriter) WriteKeyLog(keylogLine []byte) error {
 	data := make([]byte, len(keylogLine))
 	copy(data, keylogLine)
 
+	pw.queueMu.Lock()
+	if pw.stopped {
+		pw.queueMu.Unlock()
+		return errors.New(errors.ErrCodeEventDispatch, "pcap writer is closed")
+	}
+	pw.pendingKeylogs = append(pw.pendingKeylogs, data)
+	pw.queueMu.Unlock()
+
 	select {
-	case pw.keylogChan <- data:
+	case pw.queueReady <- struct{}{}:
 	default:
-		return fmt.Errorf("keylog write channel full")
 	}
 	return nil
 }
@@ -376,12 +358,21 @@ func (pw *PcapWriter) Flush() error {
 // Close closes the PCAPNG writer and flushes any buffered data.
 // This should be called when the program exits to ensure all data is written.
 func (pw *PcapWriter) Close() error {
+	pw.closeMu.Lock()
+	defer pw.closeMu.Unlock()
+
 	if pw.isClosed {
 		return nil
 	}
 	defer func() {
 		pw.isClosed = true
 	}()
+
+	// Stop accepting packets before the final queue drain. This prevents a
+	// producer from appending after Serve has exited.
+	pw.queueMu.Lock()
+	pw.stopped = true
+	pw.queueMu.Unlock()
 
 	// Stop the Serve goroutine by canceling its context.
 	// The Serve goroutine will flush remaining packets before exiting.
@@ -390,10 +381,6 @@ func (pw *PcapWriter) Close() error {
 	// Wait for the Serve goroutine to finish all pending writes.
 	// This ensures no concurrent access to the NgWriter after this point.
 	<-pw.serveDone
-
-	// Close channels so they don't leak (Serve has already exited).
-	close(pw.packetChan)
-	close(pw.keylogChan)
 
 	// Final flush to ensure all data is written to the underlying writer
 	if err := pw.Flush(); err != nil {

@@ -18,9 +18,10 @@ const (
 
 func main() {
 	requireDSB := flag.Bool("require-dsb", false, "require at least one TLS decryption-secrets block")
+	minPackets := flag.Int("min-packets", 1, "require at least this many enhanced packet blocks")
 	flag.Parse()
-	if flag.NArg() != 1 {
-		fmt.Fprintln(os.Stderr, "usage: pcapng_check [--require-dsb] FILE")
+	if flag.NArg() != 1 || *minPackets < 1 {
+		fmt.Fprintln(os.Stderr, "usage: pcapng_check [--require-dsb] [--min-packets N] FILE")
 		os.Exit(2)
 	}
 
@@ -36,6 +37,11 @@ func main() {
 	}
 	if *requireDSB && counts[decryptionSecretsBlock] == 0 {
 		fmt.Fprintln(os.Stderr, "pcapng lacks a TLS decryption-secrets block")
+		os.Exit(1)
+	}
+	if counts[enhancedPacketBlock] < *minPackets {
+		fmt.Fprintf(os.Stderr, "pcapng has too few packets: EPB=%d, require at least %d\n",
+			counts[enhancedPacketBlock], *minPackets)
 		os.Exit(1)
 	}
 

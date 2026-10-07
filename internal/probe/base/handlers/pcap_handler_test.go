@@ -66,8 +66,8 @@ func (m *mockPacketEvent) GetSrcPort() uint16                { return m.srcPort 
 func (m *mockPacketEvent) GetDstPort() uint16                { return m.dstPort }
 func (m *mockPacketEvent) DecodeFromBytes(data []byte) error { return nil }
 func (m *mockPacketEvent) Validate() error                   { return nil }
-func (m *mockPacketEvent) String() string                    { return "" }
-func (m *mockPacketEvent) StringHex() string                 { return "" }
+func (m *mockPacketEvent) String() string                    { return "packet event" }
+func (m *mockPacketEvent) StringHex() string                 { return "7061636b6574206576656e74" }
 func (m *mockPacketEvent) Clone() domain.Event               { return &mockPacketEvent{} }
 func (m *mockPacketEvent) Type() domain.EventType            { return domain.EventTypeOutput }
 func (m *mockPacketEvent) UUID() string                      { return "" }

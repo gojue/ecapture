@@ -9,6 +9,7 @@ sudo make e2e-linux
 sudo make e2e-tls
 sudo make e2e-gotls
 sudo make e2e-gnutls
+sudo make e2e-advanced
 
 sudo E2E_MODULES=tls E2E_MODES=text bash test/e2e/run_e2e.sh
 sudo E2E_MODULES='tls gotls gnutls' E2E_MODES='keylog pcapng' bash test/e2e/run_e2e.sh

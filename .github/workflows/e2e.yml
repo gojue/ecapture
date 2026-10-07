@@ -91,6 +91,7 @@ jobs:
             GOCACHE="$RUNNER_TEMP/ecapture-go-cache" \
             E2E_MODULES='tls gotls' \
             E2E_MODES='text keylog pcapng' \
+            E2E_STRESS=1 \
             E2E_KEEP_ARTIFACTS=1 \
             E2E_ARTIFACT_ROOT="$RUNNER_TEMP/ecapture-e2e" \
             bash test/e2e/run_e2e.sh
