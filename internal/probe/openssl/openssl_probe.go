@@ -510,8 +510,8 @@ func (p *Probe) setupManagerPcapNG() error {
 		_ = pcapHandler.Close()
 		return fmt.Errorf("failed to register pcapkeylog handler: %w", err)
 	}
-	// Note: pcapKeylogWriter will be closed through pcapKeylogHandler.Close()
-	// Don't add it to p.closer to avoid double-close
+	// pcapKeylogWriter is a borrowed view: its handler flushes queued DSBs but
+	// PcapHandler remains the sole owner that closes the shared pcap writer.
 	p.Logger().Info().Str("pcap_file", pcapFile).Msg("Pcap handler registered")
 	p.Logger().Debug().
 		Str("ifname", p.config.Ifname).

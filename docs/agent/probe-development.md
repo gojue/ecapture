@@ -212,6 +212,8 @@ packet `PcapHandler` with a `KeylogHandler`/`PcapKeylogWriter` sharing the pcap
 writer. The resulting pcapng must contain packet blocks and an embedded TLS
 Decryption Secrets Block that decrypts without an external keylog preference.
 `PcapKeylogWriter` borrows the shared writer; only `PcapHandler` closes it.
+Its `Flush` request must be serialized through the pcap writer's Serve loop;
+never call the non-thread-safe `pcapgo.NgWriter` concurrently.
 Standalone keylog output in pcap mode must be explicitly requested.
 
 ## Generated protocols and code

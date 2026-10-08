@@ -171,7 +171,8 @@ closeable. The dispatcher is the sole close owner for registered handlers.
   a second keylog file unless requested.
 - `--pcapfile`: a `PcapHandler` writes packets while a `KeylogHandler` and
   borrowed `PcapKeylogWriter` write secrets into the same pcap writer's DSB;
-  the `PcapHandler` alone closes the shared pcap writer.
+  the borrowed writer can synchronously flush queued DSBs, but `PcapHandler`
+  alone drains/closes the shared pcap writer and its underlying output sink.
 
 A valid pcapng result contains packet blocks and an embedded TLS Decryption
 Secrets Block, not merely a non-empty file. BaseProbe creates its own logger;

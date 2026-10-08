@@ -16,6 +16,7 @@ package writers
 
 import (
 	"context"
+	stderrors "errors"
 	"io"
 	"math"
 	"net"
@@ -58,6 +59,7 @@ type PcapWriter struct {
 	pendingPackets []*TcPacket
 	pendingKeylogs [][]byte
 	queueReady     chan struct{}
+	keylogFlush    chan chan error
 	stopped        bool
 
 	serveDone   chan struct{}
@@ -134,15 +136,16 @@ func NewPcapWriter(w io.Writer, snaplen uint32, ifName, filter string, logger *l
 
 	ctx, cancel := context.WithCancel(context.Background())
 	pw := &PcapWriter{
-		writer:     pcapWriter,
-		ifaceIdx:   ifaceIdx,
-		queueReady: make(chan struct{}, 1),
-		serveDone:  make(chan struct{}),
-		ctx:        ctx,
-		ctxCancel:  cancel,
-		tcPackets:  []*TcPacket{},
-		isClosed:   false,
-		logger:     logger,
+		writer:      pcapWriter,
+		ifaceIdx:    ifaceIdx,
+		queueReady:  make(chan struct{}, 1),
+		keylogFlush: make(chan chan error),
+		serveDone:   make(chan struct{}),
+		ctx:         ctx,
+		ctxCancel:   cancel,
+		tcPackets:   []*TcPacket{},
+		isClosed:    false,
+		logger:      logger,
 	}
 	go pw.Serve()
 	return pw, nil
@@ -197,18 +200,37 @@ func (pw *PcapWriter) takePendingKeylogs() [][]byte {
 	return keylogs
 }
 
-func (pw *PcapWriter) writeQueuedKeylogs(keylogs [][]byte) {
+func (pw *PcapWriter) writeQueuedKeylogs(keylogs [][]byte) error {
 	if len(keylogs) == 0 {
-		return
+		return nil
 	}
+	var writeErrors []error
 	for _, keylogLine := range keylogs {
 		if e := pw.writer.WriteDecryptionSecretsBlock(pcapgo.DSB_SECRETS_TYPE_TLS, keylogLine); e != nil {
 			pw.logger.Warn().Err(e).Msg("failed to write queued DSB to pcapng")
+			writeErrors = append(writeErrors, e)
 		}
 	}
 	if e := pw.writer.Flush(); e != nil {
 		pw.logger.Warn().Err(e).Msg("failed to flush after DSB write")
+		writeErrors = append(writeErrors, e)
 	}
+	return stderrors.Join(writeErrors...)
+}
+
+func (pw *PcapWriter) flushQueuedKeylogs() error {
+	keylogs := pw.takePendingKeylogs()
+	if len(keylogs) > 0 {
+		return pw.writeQueuedKeylogs(keylogs)
+	}
+	// The queue notification may have written the requested keylogs before the
+	// explicit flush request was selected. Flush again so the caller still gets
+	// a synchronous durability boundary and any buffered-writer error.
+	if err := pw.writer.Flush(); err != nil {
+		pw.logger.Warn().Err(err).Msg("failed to flush queued DSB to pcapng")
+		return err
+	}
+	return nil
 }
 
 // savePacketBatch writes secrets that are already queued before writing the
@@ -216,7 +238,7 @@ func (pw *PcapWriter) writeQueuedKeylogs(keylogs [][]byte) {
 // the same time, so the timer cannot rely on the notification being selected
 // first to preserve pcapng's sequential DSB-before-packet ordering.
 func (pw *PcapWriter) savePacketBatch() (int, error) {
-	pw.writeQueuedKeylogs(pw.takePendingKeylogs())
+	_ = pw.writeQueuedKeylogs(pw.takePendingKeylogs())
 	return pw.savePcapng()
 }
 
@@ -263,7 +285,7 @@ func (pw *PcapWriter) serve(flushInterval, gracePeriod time.Duration) {
 			dsbGraceDeadline = time.Time{}
 		case <-pw.queueReady:
 			packets, keylogs := pw.takePendingData()
-			pw.writeQueuedKeylogs(keylogs)
+			_ = pw.writeQueuedKeylogs(keylogs)
 			if len(packets) == 0 {
 				continue
 			}
@@ -272,6 +294,11 @@ func (pw *PcapWriter) serve(flushInterval, gracePeriod time.Duration) {
 			}
 			pw.tcPackets = append(pw.tcPackets, packets...)
 			i += len(packets)
+		case result := <-pw.keylogFlush:
+			// Serialize explicit keylog flushes with every other NgWriter
+			// operation. A buffered result channel keeps shutdown from
+			// blocking if the caller observes serveDone first.
+			result <- pw.flushQueuedKeylogs()
 		case <-pw.ctx.Done():
 			// Context canceled — drain all remaining queued data before exiting.
 			pw.drainOnShutdown()
@@ -363,6 +390,43 @@ func (pw *PcapWriter) WriteKeyLog(keylogLine []byte) error {
 	return nil
 }
 
+// FlushKeylogs waits until every keylog queued before the call has been written
+// and the pcapng DSB buffer has been flushed. PcapKeylogWriter uses this method
+// because it borrows the shared writer and must not close it.
+func (pw *PcapWriter) FlushKeylogs() error {
+	pw.queueMu.Lock()
+	stopped := pw.stopped
+	flushRequests := pw.keylogFlush
+	serveDone := pw.serveDone
+	pw.queueMu.Unlock()
+	if stopped {
+		// The owning PcapHandler either is draining the queue or has already
+		// completed the final drain. Wait for that drain, but do not touch its
+		// possibly closed sink.
+		if serveDone != nil {
+			<-serveDone
+		}
+		return nil
+	}
+	if flushRequests == nil {
+		return errors.New(errors.ErrCodeEventDispatch, "pcap writer keylog flush queue is not initialized")
+	}
+
+	result := make(chan error, 1)
+	select {
+	case flushRequests <- result:
+	case <-serveDone:
+		return nil
+	}
+
+	select {
+	case err := <-result:
+		return err
+	case <-serveDone:
+		return nil
+	}
+}
+
 // Flush ensures all buffered data is written to disk.
 // While the Serve goroutine is running, all NgWriter operations are serialized there
 // and flushing happens automatically (on timer ticks, DSB writes, and shutdown).
@@ -378,8 +442,9 @@ func (pw *PcapWriter) Flush() error {
 	}
 }
 
-// Close closes the PCAPNG writer and flushes any buffered data.
-// This should be called when the program exits to ensure all data is written.
+// Close drains and flushes the PCAPNG writer. It intentionally does not close
+// the underlying output sink; the PcapHandler that created both objects is the
+// sole owner responsible for closing that sink after this method returns.
 func (pw *PcapWriter) Close() error {
 	pw.closeMu.Lock()
 	defer pw.closeMu.Unlock()
