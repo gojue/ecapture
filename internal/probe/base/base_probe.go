@@ -51,13 +51,7 @@ type BaseProbe struct {
 	dispatcher   domain.EventDispatcher
 	isRunning    atomic.Bool
 	readers      []io.Closer
-	closers      []closer
 	readerLoopsW sync.WaitGroup // perf/ringbuf read goroutines; see GoReaderLoop
-}
-
-// closer interface for resources that need to be closed.
-type closer interface {
-	Close() error
 }
 
 // NewBaseProbe creates a new BaseProbe instance.
@@ -65,7 +59,6 @@ func NewBaseProbe(name string) *BaseProbe {
 	return &BaseProbe{
 		name:    name,
 		readers: make([]io.Closer, 0),
-		closers: make([]closer, 0),
 	}
 }
 
@@ -93,45 +86,50 @@ func (p *BaseProbe) Initialize(ctx context.Context, cfg domain.Configuration) er
 	// Create internal logger wrapper from zerolog
 	// Create dispatcher
 	dispatcher := events.NewDispatcher(p.Logger())
-	// Create writer factory for creating output writers
-	writerFactory := writers.NewWriterFactory()
+	if usesTextOutput(cfg) {
+		// Create writer factory for creating output writers
+		writerFactory := writers.NewWriterFactory()
 
-	// Configure rotation for file writers (from --eventroratesize and --eventroratetime flags)
-	var rotateConfig *writers.RotateConfig
+		// Configure rotation for file writers (from --eventroratesize and --eventroratetime flags)
+		var rotateConfig *writers.RotateConfig
 
-	// Create output writer based on configuration priority:
-	// 1. If --ecaptureq EventWriter is configured, use it (replaces file/socket handler)
-	// 2. If eventAddr is empty/stdout, use logger writer
-	// 3. Otherwise, create writer from eventAddr (file/tcp/websocket)
-	var textWriter writers.OutputWriter
-	var err error
-	if eventWriter := cfg.GetEventWriter(); eventWriter != nil {
-		// ecaptureQ mode: use the pre-configured event writer
-		textWriter = writers.NewIOWriterAdapter(eventWriter, "ecaptureQ")
-	} else {
-		var eventAddr = cfg.GetEventCollectorAddr()
-		if eventAddr == "" || eventAddr == "stdout" {
-			//textWriter = writers.NewStdoutWriter()
-			textWriter = writers.NewLoggerWriter(p.logger)
+		// Create output writer based on configuration priority:
+		// 1. If --ecaptureq EventWriter is configured, use it (replaces file/socket handler)
+		// 2. If eventAddr is empty/stdout, use logger writer
+		// 3. Otherwise, create writer from eventAddr (file/tcp/websocket)
+		var textWriter writers.OutputWriter
+		var err error
+		if eventWriter := cfg.GetEventWriter(); eventWriter != nil {
+			// ecaptureQ mode: use the pre-configured event writer
+			textWriter = writers.NewIOWriterAdapter(eventWriter, "ecaptureQ")
 		} else {
-			textWriter, err = writerFactory.CreateWriter(eventAddr, rotateConfig)
-			if err != nil {
-				return fmt.Errorf("failed to create text output writer: %w", err)
+			var eventAddr = cfg.GetEventCollectorAddr()
+			if eventAddr == "" || eventAddr == "stdout" {
+				textWriter = writers.NewLoggerWriter(p.logger)
+			} else {
+				textWriter, err = writerFactory.CreateWriter(eventAddr, rotateConfig)
+				if err != nil {
+					return fmt.Errorf("failed to create text output writer: %w", err)
+				}
 			}
 		}
+		p.Logger().Info().Str("writer", textWriter.Name()).Str("LoggerAddr", cfg.GetLoggerAddr()).Msg("Text output writer created")
+		textHandler := handlers.NewTextHandler(textWriter, p.config.GetHex())
+		if err := dispatcher.Register(textHandler); err != nil {
+			_ = textWriter.Close()
+			return fmt.Errorf("failed to register text handler: %w", err)
+		}
 	}
-	p.Logger().Info().Str("writer", textWriter.Name()).Str("LoggerAddr", cfg.GetLoggerAddr()).Msg("Text output writer created")
-	textHandler := handlers.NewTextHandler(textWriter, p.config.GetHex())
-	if err := dispatcher.Register(textHandler); err != nil {
-		_ = textWriter.Close()
-		return fmt.Errorf("failed to register text handler: %w", err)
-	}
-	p.closers = append(p.closers, textHandler)
 
 	// Create dispatcher
 	p.dispatcher = dispatcher
 
 	return nil
+}
+
+func usesTextOutput(cfg domain.Configuration) bool {
+	modeConfig, ok := cfg.(domain.CaptureModeConfiguration)
+	return !ok || handlers.IsModeText(modeConfig.GetCaptureMode())
 }
 
 // Start begins the probe's operation.
@@ -190,15 +188,6 @@ func (p *BaseProbe) Close() error {
 	// Reader Close() unblocks rd.Read(); read loops may still run deferred work
 	// (e.g. userland perf reorder flush) that calls Dispatch. Wait before closing dispatcher.
 	p.readerLoopsW.Wait()
-
-	for _, cler := range p.closers {
-		if err := cler.Close(); err != nil {
-			if p.logger != nil {
-				p.logger.Warn().Err(err).Msg("Failed to close resource")
-			}
-		}
-	}
-	p.closers = nil
 
 	if p.dispatcher != nil {
 		err := p.dispatcher.Close()

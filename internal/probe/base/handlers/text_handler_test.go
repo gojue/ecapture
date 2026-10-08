@@ -209,10 +209,8 @@ func TestTextHandler_Handle_InvalidEventType(t *testing.T) {
 
 	var event domain.Event = &mockNonTLSEvent{}
 	err := handler.Handle(event)
-	// Should return nil (skip silently) for non-TLS events
 	if err != nil {
-		t.Errorf("Handle should skip non-TLS events silently, got error: %v", err)
-		return
+		t.Errorf("Handle should accept output events, got error: %v", err)
 	}
 }
 
@@ -226,7 +224,11 @@ func TestTextHandler_Handle_SkipsPacketEvent(t *testing.T) {
 		packetLen:  4,
 	}
 	if err := handler.Handle(event); err != nil {
-		t.Fatalf("Handle returned error: %v", err)
+		if handler.Supports(event) {
+			t.Fatalf("handler reported support but Handle returned error: %v", err)
+		}
+	} else {
+		t.Fatal("Handle should reject packet events")
 	}
 	if writer.Len() != 0 {
 		t.Fatalf("packet event was written to text output: %q", writer.String())

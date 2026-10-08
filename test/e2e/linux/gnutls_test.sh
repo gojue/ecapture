@@ -51,10 +51,13 @@ case_text() {
 case_keylog() {
     local capture_log="$WORK_DIR/keylog.ecapture.log"
     local keylog_file="$WORK_DIR/gnutls.keys.log"
+    local event_file="$WORK_DIR/keylog.events.log"
+    local operational_log="$WORK_DIR/keylog.operational.log"
     local packet_file="$WORK_DIR/gnutls.keylog.pcapng"
     local packet_log="$WORK_DIR/gnutls.keylog.tshark-capture.log"
     start_packet_capture lo "tcp port $TLS_SERVER_PORT" "$packet_file" "$packet_log" || return 1
-    if ! start_capture "$capture_log" gnutls --gnutls "$GNUTLS_LIB" --model keylog --keylogfile "$keylog_file"; then
+    if ! start_capture "$capture_log" gnutls --gnutls "$GNUTLS_LIB" --model keylog \
+        --keylogfile "$keylog_file" --hex --eventaddr "$event_file" --logaddr "$operational_log"; then
         stop_packet_capture
         return 1
     fi
@@ -70,6 +73,7 @@ case_keylog() {
 
     assert_no_capture_errors "$capture_log" || return 1
     assert_keylog "$keylog_file" || return 1
+    assert_secret_isolated "$keylog_file" "$capture_log" "$event_file" "$operational_log" || return 1
     grep -Eq '^CLIENT_RANDOM ' "$keylog_file" || {
         log_error "GnuTLS TLS 1.2 CLIENT_RANDOM was not captured"
         return 1
@@ -86,7 +90,7 @@ case_pcapng() {
     local capture_log="$WORK_DIR/pcapng.ecapture.log"
     local pcap_file="$WORK_DIR/gnutls.pcapng"
     start_capture "$capture_log" gnutls --gnutls "$GNUTLS_LIB" --model pcapng \
-        --ifname lo --pcapfile "$pcap_file" --keylogfile= "tcp port $TLS_SERVER_PORT" || return 1
+        --ifname lo --pcapfile "$pcap_file" "tcp port $TLS_SERVER_PORT" || return 1
     if ! run_gnutls_request tls13 "$WORK_DIR/pcapng.client.log"; then
         stop_capture
         return 1
@@ -94,10 +98,54 @@ case_pcapng() {
     sleep 2
     stop_capture
 
+    assert_file_contains "$capture_log" "Probe closed" \
+        "graceful pcapng writer shutdown" || return 1
     assert_no_capture_errors "$capture_log" || return 1
+    assert_file_not_contains "$capture_log" "Keylog handler registered" \
+        "default pcapng external keylog writer" || return 1
     assert_pcapng "$pcap_file" || return 1
     assert_pcapng_plaintext_preview \
         "$pcap_file" "$E2E_TOKEN" "linux/gnutls/pcapng"
+}
+
+case_pcapng_external_keylog() {
+    local capture_log="$WORK_DIR/pcapng-external-keylog.ecapture.log"
+    local pcap_file="$WORK_DIR/gnutls-external-keylog.pcapng"
+    local keylog_file="$WORK_DIR/gnutls-external.keys.log"
+    local event_file="$WORK_DIR/pcapng-external-keylog.events.log"
+    local operational_log="$WORK_DIR/pcapng-external-keylog.operational.log"
+    local packet_file="$WORK_DIR/gnutls-external-keylog.raw.pcapng"
+    local packet_log="$WORK_DIR/gnutls-external-keylog.tshark-capture.log"
+
+    start_packet_capture lo "tcp port $TLS_SERVER_PORT" "$packet_file" "$packet_log" || return 1
+    if ! start_capture "$capture_log" gnutls --gnutls "$GNUTLS_LIB" --model pcapng \
+        --ifname lo --pcapfile "$pcap_file" --keylogfile "$keylog_file" \
+        --hex --eventaddr "$event_file" --logaddr "$operational_log" \
+        "tcp port $TLS_SERVER_PORT"; then
+        stop_packet_capture
+        return 1
+    fi
+    if ! run_gnutls_request tls13 "$WORK_DIR/pcapng-external-keylog.client.log"; then
+        stop_capture
+        stop_packet_capture
+        return 1
+    fi
+    sleep 2
+    stop_capture
+    stop_packet_capture
+
+    assert_file_contains "$capture_log" "Probe closed" \
+        "graceful pcapng writer shutdown" || return 1
+    assert_no_capture_errors "$capture_log" || return 1
+    assert_file_contains "$capture_log" "Keylog handler registered" \
+        "explicit pcapng external keylog writer" || return 1
+    assert_keylog "$keylog_file" || return 1
+    assert_secret_isolated "$keylog_file" "$capture_log" "$event_file" "$operational_log" || return 1
+    assert_pcapng "$pcap_file" || return 1
+    assert_pcapng_plaintext_preview \
+        "$pcap_file" "$E2E_TOKEN" "linux/gnutls/pcapng-external-keylog"
+    assert_tls_plaintext_preview \
+        "$packet_file" "$keylog_file" "$E2E_TOKEN" "linux/gnutls/pcapng-external-keylog-file"
 }
 
 main() {
@@ -107,6 +155,7 @@ main() {
     mode_enabled text && run_case "linux/gnutls/text" case_text
     mode_enabled keylog && run_case "linux/gnutls/keylog-tls12-tls13" case_keylog
     mode_enabled pcapng && run_case "linux/gnutls/pcapng-with-dsb" case_pcapng
+    mode_enabled pcapng && run_case "linux/gnutls/pcapng-with-external-keylog" case_pcapng_external_keylog
 
     print_summary "Linux GnuTLS E2E"
 }

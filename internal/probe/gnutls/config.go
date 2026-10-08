@@ -105,6 +105,11 @@ func (c *Config) GetBPFFileName() string {
 	return gnuTLSVersionAssets[c.GnuVersion]
 }
 
+// GetCaptureMode returns the configured event output mode.
+func (c *Config) GetCaptureMode() string {
+	return c.CaptureMode
+}
+
 // Bytes serializes the configuration to JSON.
 func (c *Config) Bytes() []byte {
 	b, err := json.Marshal(c)

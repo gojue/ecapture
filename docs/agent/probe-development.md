@@ -121,14 +121,16 @@ treats any lost-sample evidence as a test failure; preserve that distinction.
 - Use BaseProbe's perf/ring-buffer helpers when possible.
 - A custom reader must be registered with `TrackReader()` and execute through
   `GoReaderLoop()` or equivalent tracked ownership.
-- Dispatcher fan-out is synchronous and unordered; it does not route on
-  `Event.Type()`.
+- Dispatcher routing is synchronous and unordered. Every handler must expose
+  `Supports(Event)` and use both `Event.Type()` and any required concrete event
+  capability; unsupported events are not passed to `Handle`.
 - Multiple readers can invoke one handler concurrently. Writers and handlers
   need synchronization and must not depend on handler order.
-- A registered handler needs a non-nil writer and a unique
-  `handler.Name() + "-" + handler.Writer().Name()` identity.
-- Dispatch returns a handler error only if every handler fails; one successful
-  handler masks other handler errors from the caller, although they are logged.
+- Output handlers need a unique
+  `handler.Name() + "-" + handler.Writer().Name()` identity. Internal state
+  handlers may return a nil writer and need a unique handler name.
+- Dispatch fails when no handler supports an event and when any selected
+  handler fails; do not rely on another successful handler to mask the error.
 - Heavy work in a synchronous handler can increase sample loss. Add bounded,
   explicit async behavior only when ordering and shutdown are defined.
 - Reorder queues are per reader/map, not a cross-map global timeline.
@@ -209,6 +211,10 @@ For TLS modes, keylog output must contain usable secrets. Pcap mode combines a
 packet `PcapHandler` with a `KeylogHandler`/`PcapKeylogWriter` sharing the pcap
 writer. The resulting pcapng must contain packet blocks and an embedded TLS
 Decryption Secrets Block that decrypts without an external keylog preference.
+`PcapKeylogWriter` borrows the shared writer; only `PcapHandler` closes it.
+Its `Flush` request must be serialized through the pcap writer's Serve loop;
+never call the non-thread-safe `pcapgo.NgWriter` concurrently.
+Standalone keylog output in pcap mode must be explicitly requested.
 
 ## Generated protocols and code
 

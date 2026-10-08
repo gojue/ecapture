@@ -12,10 +12,10 @@ The tests require root and a real Linux/Android kernel with eBPF support. Buildi
 
 | Platform | Module/workload | text assertion | keylog assertion | pcapng assertion |
 | --- | --- | --- | --- | --- |
-| Ubuntu 22.04+ | OpenSSL C client | unique plaintext token | valid TLS 1.2 and 1.3 NSS secrets | SHB, IDB, packets, TLS DSB |
+| Ubuntu 22.04+ | OpenSSL C client | unique plaintext token | valid TLS 1.2 and 1.3 NSS secrets | SHB, IDB, packets, TLS DSB, default-no-keylog and explicit-keylog paths |
 | Ubuntu 22.04+ advanced | 256 OpenSSL connections (64 concurrent) | n/a | n/a | at least 1024 packets, TLS DSB, no write/loss errors or per-packet INFO logs |
-| Ubuntu 22.04+ | Go HTTPS client | unique plaintext token | valid TLS 1.2 and 1.3 NSS secrets | SHB, IDB, packets, TLS DSB |
-| Ubuntu 22.04+ | GnuTLS C client | unique plaintext token | valid TLS 1.2 and 1.3 NSS secrets | SHB, IDB, packets, TLS DSB |
+| Ubuntu 22.04+ | Go HTTPS client | unique plaintext token | valid TLS 1.2 and 1.3 NSS secrets | SHB, IDB, packets, TLS DSB, default-no-keylog and explicit-keylog paths |
+| Ubuntu 22.04+ | GnuTLS C client | unique plaintext token | valid TLS 1.2 and 1.3 NSS secrets | SHB, IDB, packets, TLS DSB, default-no-keylog and explicit-keylog paths |
 | Android 13+ | `app_process` + Conscrypt | unique plaintext token | valid TLS 1.2 and 1.3 NSS secrets | SHB, IDB, packets, TLS DSB |
 
 All traffic goes to a short-lived local TLS server. Linux uses loopback directly. Android reaches the same host-side server through `adb reverse`, so the suite does not depend on public DNS, public CAs, or a third-party response body.
@@ -116,9 +116,14 @@ Failed-suite artifacts are always preserved. CI sets `E2E_KEEP_ARTIFACTS=1` and 
 Every successful mode prints a `[PLAINTEXT]` line containing at most 50
 characters of plaintext from the verified capture. Text mode reads the
 eCapture event log; keylog mode decrypts a simultaneous packet capture with
-the keys emitted by eCapture; pcapng mode invokes tshark without an external
-keylog and decrypts eCapture's own pcapng output using its embedded TLS
-Decryption Secrets Block. Pcapng previews also include the 64-hex-character
+the keys emitted by eCapture and verifies that the same secret is absent from
+stdout, `--logaddr`, and `--eventaddr` even with `--hex`; the default pcapng
+case verifies that no external keylog handler is created and decrypts
+eCapture's own output using its embedded TLS Decryption Secrets Block. A
+second pcapng case explicitly requests `--keylogfile`, validates that file,
+uses it to decrypt an independent packet capture, and still decrypts the
+eCapture pcapng through its embedded DSB. Pcapng previews also include the
+64-hex-character
 `CLIENT_RANDOM` extracted from the captured ClientHello. The preview is
 therefore capture evidence, not a copy of the workload's client output.
 

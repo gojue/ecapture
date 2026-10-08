@@ -45,6 +45,7 @@ func (m *mockEvent) Validate() error {
 type mockHandler struct {
 	name       string
 	writer     writers.OutputWriter
+	supports   func(event domain.Event) bool
 	handleFunc func(event domain.Event) error
 }
 
@@ -73,11 +74,67 @@ func (m *mockWriter) Close() error               { return nil }
 func (m *mockWriter) String() string             { return "mock-writer" }
 
 func (m *mockHandler) Name() string { return m.name }
+func (m *mockHandler) Supports(event domain.Event) bool {
+	if m.supports != nil {
+		return m.supports(event)
+	}
+	return true
+}
 func (m *mockHandler) Handle(event domain.Event) error {
 	if m.handleFunc != nil {
 		return m.handleFunc(event)
 	}
 	return nil
+}
+
+func TestDispatcherDispatchUnsupportedEvent(t *testing.T) {
+	log := logger.New(nil, false)
+	disp := NewDispatcher(log)
+
+	called := false
+	handler := &mockHandler{
+		name:     "output-handler",
+		supports: func(event domain.Event) bool { return false },
+		handleFunc: func(event domain.Event) error {
+			called = true
+			return nil
+		},
+	}
+	if err := disp.Register(handler); err != nil {
+		t.Fatalf("Register() error = %v", err)
+	}
+
+	err := disp.Dispatch(&mockEvent{valid: true})
+	if err == nil {
+		t.Fatal("Dispatch() should report an event with no supporting handler")
+	}
+	if called {
+		t.Fatal("Dispatch() called a handler that does not support the event")
+	}
+}
+
+func TestDispatcherDispatchDoesNotMaskHandlerError(t *testing.T) {
+	log := logger.New(nil, false)
+	disp := NewDispatcher(log)
+
+	wantErr := errors.New("write failed")
+	if err := disp.Register(&mockHandler{
+		name:       "successful-handler",
+		handleFunc: func(event domain.Event) error { return nil },
+	}); err != nil {
+		t.Fatalf("Register successful handler: %v", err)
+	}
+	if err := disp.Register(&mockHandler{
+		name:       "failing-handler",
+		handleFunc: func(event domain.Event) error { return wantErr },
+	}); err != nil {
+		t.Fatalf("Register failing handler: %v", err)
+	}
+
+	err := disp.Dispatch(&mockEvent{valid: true})
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("Dispatch() error = %v, want wrapped %v", err, wantErr)
+	}
 }
 
 func TestNewDispatcher(t *testing.T) {

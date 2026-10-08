@@ -24,7 +24,13 @@ func (w *PcapKeylogWriter) Name() string {
 }
 
 func (w *PcapKeylogWriter) Flush() error {
-	return w.PcapWriter.Flush()
+	return w.PcapWriter.FlushKeylogs()
+}
+
+// Close is intentionally a no-op. PcapKeylogWriter borrows the PcapWriter;
+// the PcapHandler is its sole close owner.
+func (w *PcapKeylogWriter) Close() error {
+	return nil
 }
 
 func NewPcapKeylogWriter(pw *PcapWriter) *PcapKeylogWriter {

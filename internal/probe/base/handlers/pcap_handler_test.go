@@ -16,16 +16,23 @@ package handlers
 
 import (
 	"bytes"
+	"errors"
+	"io"
 	"os"
+	"path/filepath"
 	"testing"
+
+	"github.com/google/gopacket/pcapgo"
 
 	"github.com/gojue/ecapture/v2/internal/domain"
 	"github.com/gojue/ecapture/v2/internal/logger"
+	"github.com/gojue/ecapture/v2/internal/output/writers"
 )
 
 // mockPcapWriter wraps bytes.Buffer to implement OutputWriter for testing
 type mockPcapWriter struct {
 	*bytes.Buffer
+	closeCount int
 }
 
 func newMockPcapWriter() *mockPcapWriter {
@@ -33,6 +40,7 @@ func newMockPcapWriter() *mockPcapWriter {
 }
 
 func (m *mockPcapWriter) Close() error {
+	m.closeCount++
 	return nil
 }
 
@@ -144,10 +152,8 @@ func TestPcapHandler_Handle_NilEvent(t *testing.T) {
 	}
 
 	err = handler.Handle(nil)
-	// Should return nil (skip silently) for nil events
-	if err != nil {
-		t.Errorf("Handle should skip nil events silently, got error: %v", err)
-		return
+	if err == nil {
+		t.Error("Handle should reject nil events")
 	}
 }
 
@@ -172,9 +178,81 @@ func TestPcapHandler_Handle_InvalidEventType(t *testing.T) {
 
 	var event domain.Event = &mockNonPacketEvent{}
 	err = handler.Handle(event)
-	// Should return nil (skip silently) for non-packet events
+	if err == nil {
+		t.Error("Handle should reject non-packet events")
+	}
+}
+
+func TestPcapHandlerSolelyOwnsPcapWriterClose(t *testing.T) {
+	writer := newMockPcapWriter()
+	handler, err := NewPcapHandler(writer, "test-interface", "", newTestLogger())
 	if err != nil {
-		t.Errorf("Handle should skip non-packet events silently, got error: %v", err)
-		return
+		t.Fatalf("NewPcapHandler() error = %v", err)
+	}
+	borrowedKeylogWriter := writers.NewPcapKeylogWriter(handler.PcapWriter())
+	if err := borrowedKeylogWriter.Close(); err != nil {
+		t.Fatalf("borrowed keylog Close() error = %v", err)
+	}
+	if writer.closeCount != 0 {
+		t.Fatalf("borrowed keylog writer closed pcap sink %d times", writer.closeCount)
+	}
+
+	_ = handler.Close() // A capture with no packets reports EventNotReady after cleanup.
+	if err := handler.Close(); err != nil {
+		t.Fatalf("second handler Close() error = %v", err)
+	}
+	if writer.closeCount != 1 {
+		t.Fatalf("underlying writer Close() calls = %d, want 1", writer.closeCount)
+	}
+}
+
+func TestPcapHandlerFlushesFileWriterOnClose(t *testing.T) {
+	pcapPath := filepath.Join(t.TempDir(), "capture.pcapng")
+	fileWriter, err := writers.NewFileWriter(writers.FileWriterConfig{
+		Path:       pcapPath,
+		BufferSize: 65536,
+		Truncate:   true,
+	})
+	if err != nil {
+		t.Fatalf("NewFileWriter() error = %v", err)
+	}
+	handler, err := NewPcapHandler(fileWriter, "", "", newTestLogger())
+	if err != nil {
+		t.Fatalf("NewPcapHandler() error = %v", err)
+	}
+
+	event := &mockPacketEvent{
+		timestamp:  1234567890000000000,
+		packetData: make([]byte, 60),
+		packetLen:  60,
+	}
+	if err := handler.Handle(event); err != nil {
+		t.Fatalf("Handle() error = %v", err)
+	}
+	if err := handler.Close(); err != nil {
+		t.Fatalf("first Close() error = %v", err)
+	}
+	if err := handler.Close(); err != nil {
+		t.Fatalf("second Close() error = %v", err)
+	}
+
+	pcapFile, err := os.Open(pcapPath)
+	if err != nil {
+		t.Fatalf("Open() error = %v", err)
+	}
+	t.Cleanup(func() {
+		if err := pcapFile.Close(); err != nil {
+			t.Errorf("Close() capture file error = %v", err)
+		}
+	})
+	reader, err := pcapgo.NewNgReader(pcapFile, pcapgo.DefaultNgReaderOptions)
+	if err != nil {
+		t.Fatalf("NewNgReader() error = %v", err)
+	}
+	if _, _, err := reader.ReadPacketData(); err != nil {
+		t.Fatalf("ReadPacketData() error = %v", err)
+	}
+	if _, _, err := reader.ReadPacketData(); !errors.Is(err, io.EOF) {
+		t.Fatalf("second ReadPacketData() error = %v, want EOF", err)
 	}
 }

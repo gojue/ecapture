@@ -56,13 +56,18 @@ type Event interface {
 
 // EventHandler processes events after they are decoded.
 type EventHandler interface {
+	// Supports reports whether this handler accepts the event. Dispatchers must
+	// check this contract before calling Handle.
+	Supports(event Event) bool
+
 	// Handle processes a decoded event.
 	Handle(event Event) error
 
 	// Name returns the handler's identifier.
 	Name() string
 
-	// OutputWriter returns the associated output writer for this handler.
+	// Writer returns the associated output writer for this handler. Internal
+	// state handlers may return nil because they do not own an output sink.
 	Writer() writers.OutputWriter
 }
 

@@ -31,6 +31,30 @@ import (
 	lger "github.com/gojue/ecapture/v2/internal/logger"
 )
 
+type closeCountingBuffer struct {
+	bytes.Buffer
+	closeCount int
+}
+
+func (b *closeCountingBuffer) Close() error {
+	b.closeCount++
+	return nil
+}
+
+var errForcedPcapSink = errors.New("forced pcap sink failure")
+
+type toggleErrorBuffer struct {
+	bytes.Buffer
+	fail bool
+}
+
+func (b *toggleErrorBuffer) Write(p []byte) (int, error) {
+	if b.fail {
+		return 0, errForcedPcapSink
+	}
+	return b.Buffer.Write(p)
+}
+
 func TestPcapWriterQueuesBurstWithoutDrop(t *testing.T) {
 	t.Parallel()
 
@@ -101,6 +125,160 @@ func TestPcapWriterPersistsBurstOnClose(t *testing.T) {
 	}
 	if got != packetCount {
 		t.Fatalf("persisted packet count = %d, want %d", got, packetCount)
+	}
+}
+
+func TestPcapWriterDoesNotCloseBorrowedSink(t *testing.T) {
+	t.Parallel()
+
+	output := &closeCountingBuffer{}
+	ngWriter, err := pcapgo.NewNgWriter(output, layers.LinkTypeEthernet)
+	if err != nil {
+		t.Fatalf("NewNgWriter() error = %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	pw := &PcapWriter{
+		writer:      ngWriter,
+		ctx:         ctx,
+		ctxCancel:   cancel,
+		queueReady:  make(chan struct{}, 1),
+		keylogFlush: make(chan chan error),
+		serveDone:   make(chan struct{}),
+		logger:      lger.New(io.Discard, false),
+	}
+	go pw.Serve()
+
+	if err := pw.WritePacket(make([]byte, 60), time.Unix(100, 0)); err != nil {
+		t.Fatalf("WritePacket() error = %v", err)
+	}
+	if err := pw.Close(); err != nil {
+		t.Fatalf("Close() error = %v", err)
+	}
+	if output.closeCount != 0 {
+		t.Fatalf("underlying sink Close() calls = %d, want 0", output.closeCount)
+	}
+}
+
+func TestPcapKeylogWriterFlushPersistsQueuedDSB(t *testing.T) {
+	t.Parallel()
+
+	var output bytes.Buffer
+	ngWriter, err := pcapgo.NewNgWriter(&output, layers.LinkTypeEthernet)
+	if err != nil {
+		t.Fatalf("NewNgWriter() error = %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	pw := &PcapWriter{
+		writer:      ngWriter,
+		ctx:         ctx,
+		ctxCancel:   cancel,
+		queueReady:  make(chan struct{}, 1),
+		keylogFlush: make(chan chan error),
+		serveDone:   make(chan struct{}),
+		logger:      lger.New(io.Discard, false),
+	}
+	go pw.Serve()
+	t.Cleanup(func() { _ = pw.Close() })
+
+	keylogWriter := NewPcapKeylogWriter(pw)
+	keylogLine := []byte("CLIENT_RANDOM random secret")
+	if _, err := keylogWriter.Write(keylogLine); err != nil {
+		t.Fatalf("Write() error = %v", err)
+	}
+	if err := keylogWriter.Flush(); err != nil {
+		t.Fatalf("Flush() error = %v", err)
+	}
+
+	if !bytes.Contains(output.Bytes(), append(keylogLine, '\n')) {
+		t.Fatal("Flush() returned before the queued DSB was persisted")
+	}
+	blockTypes, err := parsePcapngBlockTypes(output.Bytes())
+	if err != nil {
+		t.Fatalf("parsePcapngBlockTypes() error = %v", err)
+	}
+	foundDSB := false
+	for _, blockType := range blockTypes {
+		if blockType == 0x0000000a {
+			foundDSB = true
+			break
+		}
+	}
+	if !foundDSB {
+		t.Fatal("Flush() output contains no TLS Decryption Secrets Block")
+	}
+}
+
+func TestPcapKeylogWriterFlushPropagatesSinkError(t *testing.T) {
+	t.Parallel()
+
+	output := &toggleErrorBuffer{}
+	ngWriter, err := pcapgo.NewNgWriter(output, layers.LinkTypeEthernet)
+	if err != nil {
+		t.Fatalf("NewNgWriter() error = %v", err)
+	}
+	if err := ngWriter.Flush(); err != nil {
+		t.Fatalf("initial Flush() error = %v", err)
+	}
+	output.fail = true
+
+	ctx, cancel := context.WithCancel(context.Background())
+	pw := &PcapWriter{
+		writer:      ngWriter,
+		ctx:         ctx,
+		ctxCancel:   cancel,
+		queueReady:  make(chan struct{}, 1),
+		keylogFlush: make(chan chan error),
+		serveDone:   make(chan struct{}),
+		logger:      lger.New(io.Discard, false),
+	}
+	go pw.Serve()
+	t.Cleanup(func() { _ = pw.Close() })
+
+	keylogWriter := NewPcapKeylogWriter(pw)
+	if _, err := keylogWriter.Write([]byte("CLIENT_RANDOM random secret")); err != nil {
+		t.Fatalf("Write() error = %v", err)
+	}
+	if err := keylogWriter.Flush(); !errors.Is(err, errForcedPcapSink) {
+		t.Fatalf("Flush() error = %v, want %v", err, errForcedPcapSink)
+	}
+}
+
+func TestPcapKeylogWriterFlushAfterOwnerCloseIsNoop(t *testing.T) {
+	t.Parallel()
+
+	var output bytes.Buffer
+	ngWriter, err := pcapgo.NewNgWriter(&output, layers.LinkTypeEthernet)
+	if err != nil {
+		t.Fatalf("NewNgWriter() error = %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	pw := &PcapWriter{
+		writer:      ngWriter,
+		ctx:         ctx,
+		ctxCancel:   cancel,
+		queueReady:  make(chan struct{}, 1),
+		keylogFlush: make(chan chan error),
+		serveDone:   make(chan struct{}),
+		logger:      lger.New(io.Discard, false),
+	}
+	go pw.Serve()
+
+	if err := pw.WritePacket(make([]byte, 60), time.Unix(100, 0)); err != nil {
+		t.Fatalf("WritePacket() error = %v", err)
+	}
+	keylogWriter := NewPcapKeylogWriter(pw)
+	if err := pw.Close(); err != nil {
+		t.Fatalf("owner Close() error = %v", err)
+	}
+	sizeAfterClose := output.Len()
+	if err := keylogWriter.Flush(); err != nil {
+		t.Fatalf("borrowed Flush() after owner close error = %v", err)
+	}
+	if output.Len() != sizeAfterClose {
+		t.Fatalf("borrowed Flush() wrote after owner close: size %d -> %d", sizeAfterClose, output.Len())
 	}
 }
 

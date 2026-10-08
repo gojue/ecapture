@@ -95,8 +95,9 @@ must remain idempotent and avoid irreversible side effects.
 `domain.Probe` defines `Initialize`, `Start`, `Stop`, and `Close`. Concrete
 probes normally embed `*base.BaseProbe`:
 
-- BaseProbe owns common logging, dispatcher/writer setup, the default text
-  handler, readers, optional perf reorder, and shared shutdown.
+- BaseProbe owns common logging, dispatcher/writer setup, readers, optional
+  perf reorder, and shared shutdown. It installs the default text handler only
+  for probes without capture modes or for explicit text mode.
 - Concrete probes own the eBPF manager, attachments, maps/decoders,
   mode-specific handlers, version selection, and module resources.
 
@@ -130,8 +131,9 @@ Typical concrete lifecycle:
 `BaseProbe.Stop()` currently changes only `isRunning`; it does not close a
 reader. Concrete `Close` implementations normally stop the eBPF manager and
 module-specific closers before calling `BaseProbe.Close()`. Base close then
-closes its tracked readers, waits for reader loops, closes common closers, and
-finally closes the dispatcher. Preserve this actual layering unless a tested
+closes its tracked readers, waits for reader loops, and finally closes the
+dispatcher. The dispatcher owns registered handlers, and output handlers own
+their writers. Preserve this actual layering unless a tested
 lifecycle refactor deliberately changes it.
 
 All partial-start cleanup and repeated `Close` paths must be safe. Custom
@@ -140,22 +142,22 @@ tracking so Base close does not race with dispatch.
 
 The dispatcher has important semantics:
 
-- It validates then fans an event out synchronously.
-- It does not route handlers by `Event.Type()`; specialized handlers decide
-  whether they support an event through Go interfaces/type assertions.
+- It validates then routes an event synchronously only to handlers whose
+  explicit `Supports(Event)` contract accepts both its `Event.Type()` category
+  and concrete capability.
 - Handler map iteration order is undefined.
 - Slow handlers block the reader that called dispatch.
 - Multiple map readers can enter the same handler concurrently.
 - Perf reorder is local to one map/reader, never a global order across maps.
-- Handler registration uses `handler.Name() + "-" + handler.Writer().Name()`
-  as its identity. `Writer()` must be non-nil and each combination unique.
-- Dispatch logs individual handler failures. When at least one handler runs,
-  it returns the last error only if all invoked handlers fail; with no
-  registered handlers it currently returns nil.
+- Output-handler registration uses
+  `handler.Name() + "-" + handler.Writer().Name()` as its identity. Internal
+  state handlers may return a nil writer and use their unique handler name.
+- Dispatch returns an error when no handler supports an event and when any
+  supporting handler fails; one successful sink does not mask another sink's
+  error.
 
 Handlers and writers therefore must be concurrency-safe and idempotently
-closeable. The default text handler can be reachable through more than one
-close path.
+closeable. The dispatcher is the sole close owner for registered handlers.
 
 ## Output semantics
 
@@ -164,9 +166,13 @@ close path.
   global value into their configs; currently TLS and GoTLS do so.
 - `--ecaptureq`: installs its own event writer and takes priority over the
   normal text writer.
-- `--keylogfile`: TLS secrets through a keylog handler.
+- `--keylogfile`: explicitly requests a standalone TLS secret file and is
+  required in keylog mode. Its default is empty, so pcapng mode does not create
+  a second keylog file unless requested.
 - `--pcapfile`: a `PcapHandler` writes packets while a `KeylogHandler` and
-  `PcapKeylogWriter` write secrets into the same pcap writer's DSB.
+  borrowed `PcapKeylogWriter` write secrets into the same pcap writer's DSB;
+  the borrowed writer can synchronously flush queued DSBs, but `PcapHandler`
+  alone drains/closes the shared pcap writer and its underlying output sink.
 
 A valid pcapng result contains packet blocks and an embedded TLS Decryption
 Secrets Block, not merely a non-empty file. BaseProbe creates its own logger;

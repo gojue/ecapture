@@ -27,6 +27,20 @@ type TextHandler struct {
 	useHex bool
 }
 
+// Supports accepts only user-visible output events. Secret and packet events
+// have dedicated sinks even when their concrete type historically used the
+// output event category.
+func (h *TextHandler) Supports(event domain.Event) bool {
+	if event == nil || event.Type() != domain.EventTypeOutput {
+		return false
+	}
+	if isSecretEvent(event) {
+		return false
+	}
+	_, isPacket := event.(PacketEvent)
+	return !isPacket
+}
+
 func (h *TextHandler) Writer() writers.OutputWriter {
 	return h.writer
 }
@@ -49,11 +63,8 @@ func (h *TextHandler) Handle(event domain.Event) error {
 	if event == nil {
 		return errors.New(errors.ErrCodeEventValidation, "event cannot be nil")
 	}
-	// Raw TC packets belong to the pcapng handler. Formatting and writing one
-	// INFO log entry per packet needlessly slows the perf-buffer reader and can
-	// cause kernel-side samples to be lost under load.
-	if _, ok := event.(PacketEvent); ok {
-		return nil
+	if !h.Supports(event) {
+		return errors.New(errors.ErrCodeEventDispatch, "text handler does not support event")
 	}
 
 	// Let the event format itself based on hex mode
