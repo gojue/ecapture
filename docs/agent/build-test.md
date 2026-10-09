@@ -247,10 +247,11 @@ its assertions.
   simultaneous packet capture with `tshark`.
 - Pcapng mode must clear external keylog preferences and decrypt eCapture's
   own pcapng using its embedded TLS Decryption Secrets Block.
-- Output-pipeline changes must also run the maintained file/TCP/binary-
-  WebSocket/stdout cases. They verify operational/event isolation, final
-  flush, valid network pcapng reconstruction, and strict typed eCaptureQ
-  `PROCESS_LOG` plus `EVENT` delivery.
+- Output-pipeline changes must also run the maintained operational-log and
+  text/keylog/pcapng cases over file, TCP, binary WebSocket, and stdout. They
+  verify operational/event isolation, final flush, valid network pcapng
+  reconstruction, and strict typed eCaptureQ `PROCESS_LOG` plus correctly
+  classified text/keylog/pcapng `EVENT` delivery with required metadata.
 - New multi-connection tests must verify each stream independently. Android
   currently verifies its TLS 1.2 and TLS 1.3 streams separately; do not claim
   every existing Linux case does so.

@@ -5,9 +5,9 @@ This directory keeps the actively maintained TLS E2E scope small and explicit:
 - Linux on GitHub Actions Ubuntu 22.04 or newer: `tls` (OpenSSL), `gotls`, and `gnutls`.
 - Android 13/API 33 or newer: `tls` against the platform Conscrypt/BoringSSL library. CI covers every stable release from Android 13 through Android 16 (API 33-36).
 - Every module is exercised in `text`, `keylog`, and `pcapng` modes.
-- Every Linux TLS module also exercises text over a local TCP sink, keylog over
-  local TCP and binary WebSocket sinks, pcapng over local TCP/binary WebSocket
-  plus stdout redirection, and typed eCaptureQ text publication.
+- Every Linux TLS module exercises text, keylog, and pcapng over stdout, file,
+  local TCP, and binary WebSocket ByteSinks. Each representation is also
+  observed by a strict typed eCaptureQ receiver.
 
 The tests require root and a real Linux/Android kernel with eBPF support. Building or running them on macOS is unsupported.
 
@@ -21,6 +21,15 @@ The tests require root and a real Linux/Android kernel with eBPF support. Buildi
 | Ubuntu 22.04+ | GnuTLS C client | unique plaintext token | valid TLS 1.2 and 1.3 NSS secrets | SHB, IDB, packets, TLS DSB |
 | Android 13+ | `app_process` + Conscrypt | unique plaintext token | valid TLS 1.2 and 1.3 NSS secrets | SHB, IDB, packets, TLS DSB |
 
+The maintained Linux destination matrix is complete for every TLS module:
+
+| Representation | stdout | file | TCP | binary WebSocket | eCaptureQ receiver |
+| --- | --- | --- | --- | --- | --- |
+| operational log | lifecycle records and event isolation | lifecycle records and event isolation | reconstructed lifecycle stream | reconstructed lifecycle stream | non-empty `PROCESS_LOG` |
+| text | plaintext and log isolation | plaintext and log isolation | reconstructed plaintext stream | reconstructed plaintext stream | `PROCESS_LOG` plus normal `EVENT` |
+| keylog | valid NSS secrets and decryption | valid NSS secrets and decryption | valid NSS secrets and decryption | valid NSS secrets and decryption | `PROCESS_LOG` plus sensitive keylog `EVENT` |
+| pcapng | valid blocks, DSB, and decryption | valid blocks, DSB, and decryption | valid reconstructed artifact | valid reconstructed artifact | `PROCESS_LOG` plus sensitive packet `EVENT` |
+
 All traffic goes to a short-lived local TLS server. Linux uses loopback directly. Android reaches the same host-side server through `adb reverse`, so the suite does not depend on public DNS, public CAs, or a third-party response body.
 
 The pcapng check parses the block structure instead of accepting any non-empty file. It requires:
@@ -32,13 +41,15 @@ The pcapng check parses the block structure instead of accepting any non-empty f
 
 Logs also fail on fatal errors, event-decode errors, lost perf samples, and eBPF load/attach/start errors. A probe merely staying alive is not considered a pass.
 
-The output cases additionally require CLI and BaseProbe lifecycle records in
-`--logaddr`, prohibit the deterministic plaintext and TLS secret labels there,
-and prohibit lifecycle text in raw event artifacts. Network receivers compare
-the actual byte stream, pcapng network/stdout artifacts pass the same block and
-DSB decryption checks as files, and the strict eCaptureQ client requires both a
-`PROCESS_LOG` and a correctly classified `EVENT`; connectivity alone cannot
-pass.
+The output cases additionally exercise `--logaddr` over stdout, file, TCP, and
+binary WebSocket. They require CLI and BaseProbe lifecycle records, prohibit
+the deterministic plaintext and TLS secret labels there, and prohibit
+lifecycle text in raw event artifacts. Network receivers compare the actual
+byte stream. Pcapng network/stdout artifacts pass the same block and DSB
+decryption checks as files. The strict eCaptureQ receiver requires both a
+non-empty `PROCESS_LOG` and a correctly classified `EVENT`, including format,
+sensitivity, timestamp, sequence, payload length, and original length;
+connectivity alone cannot pass.
 
 ## Layout
 

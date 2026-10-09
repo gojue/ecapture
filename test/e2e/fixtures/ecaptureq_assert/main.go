@@ -57,6 +57,9 @@ func main() {
 		}
 		switch entry.GetLogType() {
 		case pb.LogType_LOG_TYPE_PROCESS_LOG:
+			if entry.GetRunLog() == "" {
+				fatalf("PROCESS_LOG payload is empty")
+			}
 			processLog = true
 			if *token != "" && strings.Contains(entry.GetRunLog(), *token) {
 				fatalf("captured token leaked into PROCESS_LOG")
@@ -66,19 +69,42 @@ func main() {
 			if captured == nil || captured.GetCaptureFormat() != wantFormat {
 				continue
 			}
-			if wantFormat != pb.CaptureFormat_CAPTURE_FORMAT_TEXT && captured.GetSensitivity() != pb.Sensitivity_SENSITIVITY_SENSITIVE {
-				fatalf("non-text event is not marked sensitive")
+			if err := validateEvent(captured, wantFormat); err != nil {
+				fatalf("invalid EVENT metadata: %v", err)
 			}
 			if *token == "" || strings.Contains(string(captured.GetPayload()), *token) {
 				event = true
 			}
 		}
 		if processLog && event {
-			fmt.Printf("PROCESS_LOG=1 EVENT=1 FORMAT=%s\n", wantFormat.String())
+			fmt.Printf("PROCESS_LOG=1 EVENT=1 FORMAT=%s METADATA=1\n", wantFormat.String())
 			return
 		}
 	}
 	fatalf("timed out: PROCESS_LOG=%v EVENT=%v", processLog, event)
+}
+
+func validateEvent(event *pb.Event, wantFormat pb.CaptureFormat) error {
+	if event.GetTimestamp() == 0 {
+		return fmt.Errorf("timestamp is zero")
+	}
+	if event.GetSequence() == 0 {
+		return fmt.Errorf("sequence is zero")
+	}
+	if event.GetLength() == 0 || int(event.GetLength()) != len(event.GetPayload()) {
+		return fmt.Errorf("length=%d payload=%d", event.GetLength(), len(event.GetPayload()))
+	}
+	if event.GetOriginalLength() < event.GetLength() {
+		return fmt.Errorf("original_length=%d length=%d", event.GetOriginalLength(), event.GetLength())
+	}
+	wantSensitivity := pb.Sensitivity_SENSITIVITY_NORMAL
+	if wantFormat != pb.CaptureFormat_CAPTURE_FORMAT_TEXT {
+		wantSensitivity = pb.Sensitivity_SENSITIVITY_SENSITIVE
+	}
+	if event.GetSensitivity() != wantSensitivity {
+		return fmt.Errorf("sensitivity=%s want=%s", event.GetSensitivity(), wantSensitivity)
+	}
+	return nil
 }
 
 func parseFormat(value string) (pb.CaptureFormat, error) {
