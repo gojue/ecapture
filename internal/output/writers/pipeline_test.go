@@ -276,6 +276,59 @@ func TestTextAndOperationalSinkDestinations(t *testing.T) {
 	}
 }
 
+func TestTextAndOperationalFilePoliciesRemainDistinct(t *testing.T) {
+	t.Run("text event appends", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "event.log")
+		if err := os.WriteFile(path, []byte("existing\n"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		sink, err := NewWriterFactory().CreateEventSink(EventSinkOptions{
+			Format:  EventFormatText,
+			Address: path,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err = sink.Write([]byte("event\n")); err != nil {
+			t.Fatal(err)
+		}
+		if err = sink.Close(); err != nil {
+			t.Fatal(err)
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got, want := string(data), "existing\nevent\n"; got != want {
+			t.Fatalf("event file = %q, want %q", got, want)
+		}
+	})
+
+	t.Run("operational log truncates", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "operational.log")
+		if err := os.WriteFile(path, []byte("existing\n"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		sink, err := NewWriterFactory().CreateOperationalSink(path, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err = sink.Write([]byte("operational\n")); err != nil {
+			t.Fatal(err)
+		}
+		if err = sink.Close(); err != nil {
+			t.Fatal(err)
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got, want := string(data), "operational\n"; got != want {
+			t.Fatalf("operational file = %q, want %q", got, want)
+		}
+	})
+}
+
 func TestKeylogWriterDestinations(t *testing.T) {
 	const record = "CLIENT_RANDOM aa bb"
 	t.Run("file", func(t *testing.T) {
