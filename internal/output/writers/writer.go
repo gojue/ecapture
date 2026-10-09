@@ -14,13 +14,14 @@
 
 package writers
 
-import (
-	"io"
-)
+import "io"
 
-// OutputWriter defines the interface for writing output to various destinations.
-// This abstraction separates output destination logic from event processing and encoding.
-type OutputWriter interface {
+// ByteSink owns an ordered byte destination and its durability lifecycle. It
+// deliberately has no knowledge of events, capture modes, or encodings.
+//
+// The component that constructs a ByteSink owns it and must call Close exactly
+// once. Implementations make Close idempotent so partial-start cleanup is safe.
+type ByteSink interface {
 	io.Writer
 	io.Closer
 
@@ -30,3 +31,8 @@ type OutputWriter interface {
 	// Flush ensures all buffered data is written to the destination
 	Flush() error
 }
+
+// OutputWriter is the compatibility name used by existing handlers. New code
+// should use ByteSink so representation and destination responsibilities remain
+// explicit.
+type OutputWriter = ByteSink

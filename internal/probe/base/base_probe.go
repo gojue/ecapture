@@ -19,6 +19,7 @@ import (
 	stderrors "errors"
 	"fmt"
 	"io"
+	"os"
 	"sync"
 	"sync/atomic"
 
@@ -26,6 +27,7 @@ import (
 	"github.com/cilium/ebpf/perf"
 	"github.com/cilium/ebpf/ringbuf"
 
+	outputpipeline "github.com/gojue/ecapture/v2/internal/output"
 	"github.com/gojue/ecapture/v2/internal/output/writers"
 	"github.com/gojue/ecapture/v2/internal/probe/base/handlers"
 
@@ -51,13 +53,7 @@ type BaseProbe struct {
 	dispatcher   domain.EventDispatcher
 	isRunning    atomic.Bool
 	readers      []io.Closer
-	closers      []closer
 	readerLoopsW sync.WaitGroup // perf/ringbuf read goroutines; see GoReaderLoop
-}
-
-// closer interface for resources that need to be closed.
-type closer interface {
-	Close() error
 }
 
 // NewBaseProbe creates a new BaseProbe instance.
@@ -65,7 +61,6 @@ func NewBaseProbe(name string) *BaseProbe {
 	return &BaseProbe{
 		name:    name,
 		readers: make([]io.Closer, 0),
-		closers: make([]closer, 0),
 	}
 }
 
@@ -82,56 +77,75 @@ func (p *BaseProbe) Initialize(ctx context.Context, cfg domain.Configuration) er
 	p.ctx = ctx
 	p.config = cfg
 
-	// Create a logger with probe name
-	p.logger = logger.New(nil, p.config.GetDebug()).WithProbe(p.name)
+	// CLI and probes borrow one process-lifetime operational logger graph.
+	p.logger = logger.New(os.Stderr, p.config.GetDebug()).WithProbe(p.name)
+	var runtimeOutput *outputpipeline.RuntimeDependencies
+	if provider, ok := cfg.(interface {
+		GetRuntimeOutput() *outputpipeline.RuntimeDependencies
+	}); ok {
+		runtimeOutput = provider.GetRuntimeOutput()
+		if runtimeOutput != nil && runtimeOutput.OperationalLogger != nil {
+			p.logger = runtimeOutput.OperationalLogger.WithProbe(p.name)
+		}
+	}
 
 	p.logger.Info().
 		Uint64("pid", p.config.GetPid()).
 		Uint64("uid", p.config.GetUid()).
 		Msg("Probe initialized")
 
-	// Create internal logger wrapper from zerolog
-	// Create dispatcher
 	dispatcher := events.NewDispatcher(p.Logger())
-	// Create writer factory for creating output writers
-	writerFactory := writers.NewWriterFactory()
-
-	// Configure rotation for file writers (from --eventroratesize and --eventroratetime flags)
-	var rotateConfig *writers.RotateConfig
-
-	// Create output writer based on configuration priority:
-	// 1. If --ecaptureq EventWriter is configured, use it (replaces file/socket handler)
-	// 2. If eventAddr is empty/stdout, use logger writer
-	// 3. Otherwise, create writer from eventAddr (file/tcp/websocket)
-	var textWriter writers.OutputWriter
-	var err error
-	if eventWriter := cfg.GetEventWriter(); eventWriter != nil {
-		// ecaptureQ mode: use the pre-configured event writer
-		textWriter = writers.NewIOWriterAdapter(eventWriter, "ecaptureQ")
-	} else {
-		var eventAddr = cfg.GetEventCollectorAddr()
-		if eventAddr == "" || eventAddr == "stdout" {
-			//textWriter = writers.NewStdoutWriter()
-			textWriter = writers.NewLoggerWriter(p.logger)
-		} else {
-			textWriter, err = writerFactory.CreateWriter(eventAddr, rotateConfig)
+	format := captureFormat(cfg)
+	if usesTextOutput(cfg) {
+		textWriter, err := writers.NewWriterFactory().CreateEventSink(writers.EventSinkOptions{
+			Address:      cfg.GetEventCollectorAddr(),
+			Format:       writers.EventFormatText,
+			RotateConfig: writers.NewRotateConfig(cfg.GetEventRotation()),
+		})
+		if err != nil {
+			return fmt.Errorf("failed to create text event sink: %w", err)
+		}
+		textHandler := handlers.NewTextHandler(textWriter, p.config.GetHex())
+		if err := dispatcher.Register(textHandler); err != nil {
+			_ = textWriter.Close()
+			return fmt.Errorf("failed to register text handler: %w", err)
+		}
+		p.Logger().Info().Str("sink", textWriter.Name()).Msg("Text event sink created")
+	}
+	if runtimeOutput != nil {
+		for _, sink := range runtimeOutput.EventSinks {
+			publisher, err := handlers.NewPublisherHandler(sink, format, p.config.GetHex())
 			if err != nil {
-				return fmt.Errorf("failed to create text output writer: %w", err)
+				_ = dispatcher.Close()
+				return fmt.Errorf("failed to create captured event publisher: %w", err)
+			}
+			if err := dispatcher.Register(publisher); err != nil {
+				_ = dispatcher.Close()
+				return fmt.Errorf("failed to register captured event publisher: %w", err)
 			}
 		}
 	}
-	p.Logger().Info().Str("writer", textWriter.Name()).Str("LoggerAddr", cfg.GetLoggerAddr()).Msg("Text output writer created")
-	textHandler := handlers.NewTextHandler(textWriter, p.config.GetHex())
-	if err := dispatcher.Register(textHandler); err != nil {
-		_ = textWriter.Close()
-		return fmt.Errorf("failed to register text handler: %w", err)
-	}
-	p.closers = append(p.closers, textHandler)
 
 	// Create dispatcher
 	p.dispatcher = dispatcher
 
 	return nil
+}
+
+func usesTextOutput(cfg domain.Configuration) bool {
+	modeConfig, ok := cfg.(domain.CaptureModeConfiguration)
+	return !ok || handlers.IsModeText(modeConfig.GetCaptureMode())
+}
+
+func captureFormat(cfg domain.Configuration) domain.CaptureFormat {
+	modeConfig, ok := cfg.(domain.CaptureModeConfiguration)
+	if !ok || handlers.IsModeText(modeConfig.GetCaptureMode()) {
+		return domain.CaptureFormatText
+	}
+	if handlers.IsModeKeylog(modeConfig.GetCaptureMode()) {
+		return domain.CaptureFormatKeylog
+	}
+	return domain.CaptureFormatPcapng
 }
 
 // Start begins the probe's operation.
@@ -172,10 +186,12 @@ func (p *BaseProbe) GetBPFName(baseName string) string {
 // Close releases all resources.
 func (p *BaseProbe) Close() error {
 	p.isRunning.Store(false)
+	var closeErrors []error
 
 	// Close all readers in reverse order
 	for i := len(p.readers) - 1; i >= 0; i-- {
 		if err := p.readers[i].Close(); err != nil {
+			closeErrors = append(closeErrors, err)
 			if p.logger != nil {
 				p.logger.Warn().
 					Err(err).
@@ -191,18 +207,10 @@ func (p *BaseProbe) Close() error {
 	// (e.g. userland perf reorder flush) that calls Dispatch. Wait before closing dispatcher.
 	p.readerLoopsW.Wait()
 
-	for _, cler := range p.closers {
-		if err := cler.Close(); err != nil {
-			if p.logger != nil {
-				p.logger.Warn().Err(err).Msg("Failed to close resource")
-			}
-		}
-	}
-	p.closers = nil
-
 	if p.dispatcher != nil {
 		err := p.dispatcher.Close()
 		if err != nil {
+			closeErrors = append(closeErrors, err)
 			if p.logger != nil {
 				p.logger.Warn().Err(err).Msg("Failed to close dispatcher")
 			}
@@ -211,7 +219,7 @@ func (p *BaseProbe) Close() error {
 	if p.logger != nil {
 		p.logger.Info().Msg("Probe closed")
 	}
-	return nil
+	return stderrors.Join(closeErrors...)
 }
 
 // Name returns the probe's identifier.

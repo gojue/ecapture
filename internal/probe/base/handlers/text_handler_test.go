@@ -225,8 +225,11 @@ func TestTextHandler_Handle_SkipsPacketEvent(t *testing.T) {
 		packetData: []byte{0xde, 0xad, 0xbe, 0xef},
 		packetLen:  4,
 	}
-	if err := handler.Handle(event); err != nil {
-		t.Fatalf("Handle returned error: %v", err)
+	if handler.Supports(event) {
+		t.Fatal("text handler must not support packet events")
+	}
+	if err := handler.Handle(event); err == nil {
+		t.Fatal("direct Handle must reject an unsupported packet event")
 	}
 	if writer.Len() != 0 {
 		t.Fatalf("packet event was written to text output: %q", writer.String())

@@ -15,6 +15,9 @@
 package handlers
 
 import (
+	stderrors "errors"
+	"sync"
+
 	"github.com/gojue/ecapture/v2/internal/domain"
 	"github.com/gojue/ecapture/v2/internal/errors"
 	"github.com/gojue/ecapture/v2/internal/output/writers"
@@ -23,8 +26,18 @@ import (
 // TextHandler handles events by writing their encoded output to a destination.
 // It delegates formatting to the event itself via String() or StringHex() methods.
 type TextHandler struct {
-	writer writers.OutputWriter
-	useHex bool
+	writer   writers.OutputWriter
+	useHex   bool
+	mu       sync.RWMutex
+	closed   bool
+	closeErr error
+}
+
+// Supports accepts user-visible output events but excludes TLS secrets and raw
+// packets, which have dedicated representations.
+func (h *TextHandler) Supports(event domain.Event) bool {
+	return event != nil && event.Type() == domain.EventTypeOutput &&
+		!isSecretEvent(event) && !isPacketEvent(event)
 }
 
 func (h *TextHandler) Writer() writers.OutputWriter {
@@ -49,11 +62,13 @@ func (h *TextHandler) Handle(event domain.Event) error {
 	if event == nil {
 		return errors.New(errors.ErrCodeEventValidation, "event cannot be nil")
 	}
-	// Raw TC packets belong to the pcapng handler. Formatting and writing one
-	// INFO log entry per packet needlessly slows the perf-buffer reader and can
-	// cause kernel-side samples to be lost under load.
-	if _, ok := event.(PacketEvent); ok {
-		return nil
+	if !h.Supports(event) {
+		return errors.New(errors.ErrCodeEventDispatch, "text handler does not support event")
+	}
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	if h.closed {
+		return errors.New(errors.ErrCodeEventDispatch, "text handler is closed")
 	}
 
 	// Let the event format itself based on hex mode
@@ -89,16 +104,25 @@ func (h *TextHandler) Handle(event domain.Event) error {
 	if err != nil {
 		return errors.Wrap(errors.ErrCodeEventDispatch, "failed to write event output", err)
 	}
-
+	if err := h.writer.Flush(); err != nil {
+		return errors.Wrap(errors.ErrCodeEventDispatch, "failed to flush event output", err)
+	}
 	return nil
 }
 
 // Close closes the handler and releases resources.
 func (h *TextHandler) Close() error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.closed {
+		return h.closeErr
+	}
+	h.closed = true
 	if h.writer == nil {
 		return nil
 	}
-	return h.writer.Close()
+	h.closeErr = stderrors.Join(h.writer.Flush(), h.writer.Close())
+	return h.closeErr
 }
 
 // Name returns the handler's identifier.

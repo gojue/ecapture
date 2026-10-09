@@ -29,6 +29,7 @@ import (
 	"strings"
 
 	"github.com/gojue/ecapture/v2/internal/config"
+	"github.com/gojue/ecapture/v2/internal/output/writers"
 	"github.com/gojue/ecapture/v2/internal/probe/base/handlers"
 	"github.com/gojue/ecapture/v2/pkg/proc"
 )
@@ -116,9 +117,12 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("base config validation failed: %w", err)
 	}
 
-	// Parse the Go ELF file to detect Go version and symbol addresses
-	if err := c.parserGoElf(); err != nil {
-		return fmt.Errorf("failed to parse Go ELF file: %w", err)
+	// Preserve parsed ELF state across repeated validation. Runtime validation is
+	// allowed to run in both the CLI and BaseProbe.Initialize.
+	if c.goElf == nil {
+		if err := c.parserGoElf(); err != nil {
+			return fmt.Errorf("failed to parse Go ELF file: %w", err)
+		}
 	}
 
 	// Validate the rest of the configuration
@@ -251,37 +255,28 @@ func (c *Config) parserGoElf() error {
 
 // validateCaptureMode validates the capture mode and related configurations
 func (c *Config) validateCaptureMode() error {
-	switch c.CaptureMode {
-	case "text":
-		// Text mode has no additional requirements
-		return nil
-
-	case handlers.ModeKeylog:
-		// Keylog mode requires KeylogFile
-		if c.KeylogFile == "" {
-			return fmt.Errorf("keylog mode requires KeylogFile to be set")
+	mode := strings.ToLower(c.CaptureMode)
+	switch mode {
+	case "", handlers.ModeText:
+		c.CaptureMode = handlers.ModeText
+		addr, err := writers.NormalizeEventAddress(writers.EventFormatText, c.EventCollectorAddr, c.KeylogFile, c.PcapFile)
+		if err != nil {
+			return err
 		}
+		c.EventCollectorAddr = addr
+		return writers.NewWriterFactory().ValidateEventSinkAddress(writers.EventSinkOptions{Address: addr, Format: writers.EventFormatText, RotateConfig: writers.NewRotateConfig(c.GetEventRotation())})
 
-		// Check if directory exists and is writable
-		dir := filepath.Dir(c.KeylogFile)
-		if _, err := os.Stat(dir); os.IsNotExist(err) {
-			return fmt.Errorf("keylog directory does not exist: %s", dir)
+	case handlers.ModeKeylog, handlers.ModeKey:
+		c.CaptureMode = handlers.ModeKeylog
+		addr, err := writers.NormalizeEventAddress(writers.EventFormatKeylog, c.EventCollectorAddr, c.KeylogFile, c.PcapFile)
+		if err != nil {
+			return err
 		}
-
-		// Check if directory is writable
-		testFile := filepath.Join(dir, ".write_test")
-		if err := os.WriteFile(testFile, []byte("test"), 0644); err != nil {
-			return fmt.Errorf("keylog directory is not writable: %s", dir)
-		}
-		_ = os.Remove(testFile)
-
-		return nil
+		c.EventCollectorAddr = addr
+		return writers.NewWriterFactory().ValidateEventSinkAddress(writers.EventSinkOptions{Address: addr, Format: writers.EventFormatKeylog, RotateConfig: writers.NewRotateConfig(c.GetEventRotation())})
 
 	case handlers.ModePcap, handlers.ModePcapng:
-		// Pcap mode requires PcapFile and Ifname
-		if c.PcapFile == "" {
-			return fmt.Errorf("pcap mode requires PcapFile to be set")
-		}
+		c.CaptureMode = handlers.ModePcapng
 
 		// Auto-detect an active network interface when none is specified.
 		// On Android emulators wlan0 may exist but have no addresses;
@@ -292,18 +287,17 @@ func (c *Config) validateCaptureMode() error {
 			return fmt.Errorf("pcap mode requires Ifname to be set")
 		}
 
-		// Check if directory exists and is writable
-		dir := filepath.Dir(c.PcapFile)
-		if _, err := os.Stat(dir); os.IsNotExist(err) {
-			return fmt.Errorf("pcap directory does not exist: %s", dir)
+		addr, err := writers.NormalizeEventAddress(writers.EventFormatPcapng, c.EventCollectorAddr, c.KeylogFile, c.PcapFile)
+		if err != nil {
+			return err
 		}
-
-		// Check if directory is writable
-		testFile := filepath.Join(dir, ".write_test")
-		if err := os.WriteFile(testFile, []byte("test"), 0644); err != nil {
-			return fmt.Errorf("pcap directory is not writable: %s", dir)
+		c.EventCollectorAddr = addr
+		if err := writers.NewWriterFactory().ValidateEventSinkAddress(writers.EventSinkOptions{Address: addr, Format: writers.EventFormatPcapng, RotateConfig: writers.NewRotateConfig(c.GetEventRotation())}); err != nil {
+			return err
 		}
-		_ = os.Remove(testFile)
+		if err := writers.ValidateChannelSeparation(writers.EventFormatPcapng, addr, c.LoggerAddr); err != nil {
+			return err
+		}
 
 		// Validate network interface
 		if err := c.validateNetworkInterface(); err != nil {

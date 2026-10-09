@@ -10,6 +10,18 @@ enum LogType {
   LOG_TYPE_EVENT = 2;
 }
 
+enum CaptureFormat {
+  CAPTURE_FORMAT_UNSPECIFIED = 0;
+  CAPTURE_FORMAT_TEXT = 1;
+  CAPTURE_FORMAT_KEYLOG = 2;
+  CAPTURE_FORMAT_PCAPNG = 3;
+}
+
+enum Sensitivity {
+  SENSITIVITY_NORMAL = 0;
+  SENSITIVITY_SENSITIVE = 1;
+}
+
 // Base 消息定义
 message Event {
   int64 timestamp = 1;
@@ -23,6 +35,12 @@ message Event {
   uint32 type = 9;
   uint32 length = 10;
   bytes payload = 11;
+  CaptureFormat capture_format = 12;
+  Sensitivity sensitivity = 13;
+  string direction = 14;
+  uint32 original_length = 15;
+  string stream_id = 16;
+  uint64 sequence = 17;
 }
 
 message Heartbeat {

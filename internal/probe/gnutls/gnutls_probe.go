@@ -222,21 +222,21 @@ func (p *Probe) setupManagerText() error {
 }
 
 func (p *Probe) setupManagerKeylog() error {
-	if p.config.KeylogFile == "" {
-		return errors.NewConfigurationError("keylog mode requires keylog file path", nil)
+	if p.config.GetEventCollectorAddr() == "" {
+		return errors.NewConfigurationError("keylog mode requires an event destination", nil)
 	}
 
 	p.bpfManager = p.newMasterSecretManager()
 	p.mapNameToDecoder["mastersecret_gnutls_events"] = &masterSecretEventDecoder{}
-	return p.registerKeylogFile(p.config.KeylogFile, true)
+	return p.registerKeylogSink(p.config.GetEventCollectorAddr(), true)
 }
 
 func (p *Probe) setupManagerPcapNG() error {
 	if p.config.Ifname == "" {
 		return errors.NewConfigurationError("ifname is required for pcap mode", nil)
 	}
-	if p.config.PcapFile == "" {
-		return errors.NewConfigurationError("pcap mode requires pcap file path", nil)
+	if p.config.GetEventCollectorAddr() == "" {
+		return errors.NewConfigurationError("pcapng mode requires an event destination", nil)
 	}
 
 	p.bpfManager = p.newMasterSecretManager()
@@ -255,15 +255,15 @@ func (p *Probe) setupManagerPcapNG() error {
 	p.mapNameToDecoder["skb_events"] = &packetEventDecoder{}
 
 	if p.config.KeylogFile != "" {
-		if err := p.registerKeylogFile(p.config.KeylogFile, false); err != nil {
+		if err := p.registerKeylogSink(p.config.KeylogFile, false); err != nil {
 			return err
 		}
 	}
 
-	pcapFileWriter, err := writers.NewFileWriter(writers.FileWriterConfig{
-		Path:       p.config.PcapFile,
-		BufferSize: 65536,
-		Truncate:   true,
+	pcapFileWriter, err := writers.NewWriterFactory().CreateEventSink(writers.EventSinkOptions{
+		Address:      p.config.GetEventCollectorAddr(),
+		Format:       writers.EventFormatPcapng,
+		RotateConfig: writers.NewRotateConfig(p.config.GetEventRotation()),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create pcap writer: %w", err)
@@ -285,7 +285,7 @@ func (p *Probe) setupManagerPcapNG() error {
 		_ = pcapHandler.Close()
 		return fmt.Errorf("failed to register pcap keylog handler: %w", err)
 	}
-	p.Logger().Info().Str("pcap_file", p.config.PcapFile).Msg("Pcap handler registered")
+	p.Logger().Info().Str("pcap_sink", pcapFileWriter.Name()).Msg("Pcap handler registered")
 	return nil
 }
 
@@ -305,19 +305,17 @@ func (p *Probe) newMasterSecretManager() *manager.Manager {
 	}
 }
 
-func (p *Probe) registerKeylogFile(path string, required bool) error {
-	fileWriter, err := writers.NewFileWriter(writers.FileWriterConfig{
-		Path:       path,
-		BufferSize: 0,
-		Truncate:   true,
-	})
+func (p *Probe) registerKeylogSink(address string, primary bool) error {
+	options := writers.EventSinkOptions{
+		Address: address,
+		Format:  writers.EventFormatKeylog,
+	}
+	if primary {
+		options.RotateConfig = writers.NewRotateConfig(p.config.GetEventRotation())
+	}
+	fileWriter, err := writers.NewWriterFactory().CreateEventSink(options)
 	if err != nil {
-		if required {
-			return fmt.Errorf("failed to create keylog writer: %w", err)
-		}
-		p.Logger().Warn().Err(err).Str("keylog_file", path).
-			Msg("Failed to create optional keylog file; continuing with embedded pcapng secrets")
-		return nil
+		return fmt.Errorf("failed to create keylog writer: %w", err)
 	}
 
 	keylogWriter := writers.NewKeylogWriter(fileWriter)
@@ -326,7 +324,7 @@ func (p *Probe) registerKeylogFile(path string, required bool) error {
 		_ = keylogWriter.Close()
 		return fmt.Errorf("failed to register keylog handler: %w", err)
 	}
-	p.Logger().Info().Str("keylog_file", path).Msg("Keylog handler registered")
+	p.Logger().Info().Str("keylog_sink", fileWriter.Name()).Msg("Keylog handler registered")
 	return nil
 }
 

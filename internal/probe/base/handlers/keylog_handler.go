@@ -17,6 +17,7 @@ package handlers
 import (
 	"bytes"
 	"crypto"
+	stderrors "errors"
 	"fmt"
 	"sync"
 
@@ -92,10 +93,30 @@ type KeylogHandler struct {
 	writer   writers.OutputWriter
 	mu       sync.Mutex
 	seenKeys map[string]bool // Deduplicate keys
+	closed   bool
+	closeErr error
 }
 
 func (h *KeylogHandler) Writer() writers.OutputWriter {
 	return h.writer
+}
+
+func (h *KeylogHandler) Supports(event domain.Event) bool {
+	return isSecretEvent(event)
+}
+
+func isSecretEvent(event domain.Event) bool {
+	if event == nil {
+		return false
+	}
+	if _, ok := event.(GoTLSMasterSecretEvent); ok {
+		return true
+	}
+	if _, ok := event.(DirectTrafficSecretEvent); ok {
+		return true
+	}
+	_, ok := event.(MasterSecretEvent)
+	return ok
 }
 
 // NewKeylogHandler creates a new KeylogHandler with the provided writer.
@@ -117,6 +138,12 @@ func (h *KeylogHandler) Handle(event domain.Event) error {
 
 	h.mu.Lock()
 	defer h.mu.Unlock()
+	if h.closed {
+		return errors.New(errors.ErrCodeEventDispatch, "keylog handler is closed")
+	}
+	if !h.Supports(event) {
+		return errors.New(errors.ErrCodeEventDispatch, "keylog handler does not support event")
+	}
 
 	// Try GoTLS-style event first (label-based format)
 	if goEvent, ok := event.(GoTLSMasterSecretEvent); ok {
@@ -392,21 +419,19 @@ func (h *KeylogHandler) handleTLS13(event MasterSecretEvent) error {
 func (h *KeylogHandler) Close() error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
+	if h.closed {
+		return h.closeErr
+	}
+	h.closed = true
 
 	// Clear the seen keys map
 	h.seenKeys = make(map[string]bool)
 
-	err := h.writer.Flush()
-
-	if err != nil {
-		return err
+	if h.writer == nil {
+		return nil
 	}
-
-	// Close the writer
-	if h.writer != nil {
-		return h.writer.Close()
-	}
-	return nil
+	h.closeErr = stderrors.Join(h.writer.Flush(), h.writer.Close())
+	return h.closeErr
 }
 
 // isZeroBytes checks if a byte slice contains only zeros.

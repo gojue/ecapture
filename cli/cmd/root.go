@@ -19,15 +19,16 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"net/url"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
 	"github.com/gojue/ecapture/v2/internal/config"
+	internalLogger "github.com/gojue/ecapture/v2/internal/logger"
+	outputpipeline "github.com/gojue/ecapture/v2/internal/output"
+	"github.com/gojue/ecapture/v2/internal/output/writers"
 	"github.com/gojue/ecapture/v2/pkg/ecaptureq"
 
 	"github.com/rs/zerolog"
@@ -37,8 +38,6 @@ import (
 	"github.com/gojue/ecapture/v2/cli/http"
 	"github.com/gojue/ecapture/v2/internal/domain"
 	"github.com/gojue/ecapture/v2/internal/factory"
-	"github.com/gojue/ecapture/v2/pkg/util/roratelog"
-	"github.com/gojue/ecapture/v2/pkg/util/ws"
 )
 
 const (
@@ -61,13 +60,6 @@ const (
 	defaultPid          uint64 = 0
 	defaultUid          uint64 = 0
 	defaultTruncateSize uint64 = 0
-)
-
-const (
-	loggerTypeStdout    uint8 = 0
-	loggerTypeFile      uint8 = 1
-	loggerTypeTcp       uint8 = 2
-	loggerTypeWebsocket uint8 = 3
 )
 
 // ListenPort1 or ListenPort2 are the default ports for the http server.
@@ -166,7 +158,7 @@ func init() {
 	rootCmd.PersistentFlags().Uint64VarP(&globalConf.Pid, "pid", "p", defaultPid, "if pid is 0 then we target all pids")
 	rootCmd.PersistentFlags().Uint64VarP(&globalConf.Uid, "uid", "u", defaultUid, "if uid is 0 then we target all users")
 	rootCmd.PersistentFlags().StringVarP(&globalConf.LoggerAddr, "logaddr", "l", "", "send logs to this server. -l /tmp/ecapture.log or -l ws://127.0.0.1:8090/ecapture or -l tcp://127.0.0.1:8080")
-	rootCmd.PersistentFlags().StringVar(&globalConf.EventCollectorAddr, "eventaddr", "", "the server address that receives the captured event. --eventaddr ws://127.0.0.1:8090/ecapture or tcp://127.0.0.1:8090, default: same as logaddr")
+	rootCmd.PersistentFlags().StringVar(&globalConf.EventCollectorAddr, "eventaddr", "", "captured-event destination: stdout, path, file://, tcp://, ws://, or wss:// (text defaults to stdout)")
 	rootCmd.PersistentFlags().StringVar(&globalConf.EcaptureQ, "ecaptureq", "", "listening server, waiting for clients to connect before sending events and logs; false: send directly to the remote server.")
 	rootCmd.PersistentFlags().StringVar(&globalConf.Listen, "listen", configUpdateAddr, "Listens on a port, receives HTTP requests, and is used to update the runtime configuration. default: disabled. e.g. --listen 127.0.0.1:28256")
 	rootCmd.PersistentFlags().Uint64VarP(&globalConf.TruncateSize, "tsize", "t", defaultTruncateSize, "the truncate size in text mode, default: 0 (B), no truncate")
@@ -175,114 +167,117 @@ func init() {
 	rootCmd.SilenceUsage = true
 }
 
-// initLogger init logger
-func initLogger(addr string, isDebug bool, isRorate bool) (zerolog.Logger, error) {
-	var logger zerolog.Logger
-	var err error
-	consoleWriter := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}
-	logger = zerolog.New(consoleWriter).With().Timestamp().Logger()
-	zerolog.SetGlobalLevel(zerolog.InfoLevel)
-	if modConfig.GetDebug() {
-		zerolog.SetGlobalLevel(zerolog.DebugLevel)
-	}
+type operationalOutputs struct {
+	logger *internalLogger.Logger
+	sinks  []writers.ByteSink
+}
+
+func newOperationalOutputs(addr string, debug bool, publisher domain.OperationalLogSink) (*operationalOutputs, error) {
+	console := zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.RFC3339}
+	destinations := []io.Writer{console}
+	result := &operationalOutputs{}
 	if addr != "" {
-		var writer io.Writer
-		var address string
-		if strings.Contains(addr, "tcp://") {
-			address = strings.Replace(addr, "tcp://", "", 1)
-			var conn net.Conn
-			conn, err = net.Dial("tcp", address)
-			if err != nil {
-				return zerolog.Logger{}, err
-			}
-			modConfig.SetAddrType(loggerTypeTcp)
-			//modConfig.SetLoggerTCPAddr(address)
-			writer = conn
-		} else if strings.Contains(addr, "ws://") || strings.Contains(addr, "wss://") {
-			// 验证URL协议是否为ws或wss
-			parsedURL, err := url.Parse(addr)
-			if err != nil {
-				return zerolog.Logger{}, err
-			}
-
-			if parsedURL.Scheme != "ws" && parsedURL.Scheme != "wss" {
-				return zerolog.Logger{}, errors.New("URL scheme must be 'ws' or 'wss'")
-			}
-
-			// 连接到WebSocket服务器
-			var wsConn = ws.NewClient()
-			err = wsConn.Dial(addr, "", "http://localhost")
-			if err != nil {
-				return zerolog.Logger{}, fmt.Errorf("failed to connect to WebSocket server: %s", err.Error())
-			}
-			writer = wsConn
-		} else {
-			isLogRate := isRorate && (rorateSize > 0 || rorateTime > 0)
-			if isLogRate {
-				logFile := &roratelog.Logger{
-					Filename:    addr,
-					MaxSize:     int(rorateSize), // MB
-					MaxInterval: time.Duration(rorateTime) * time.Second,
-					LocalTime:   true,
-				}
-				writer = logFile
-			} else {
-				var f *os.File
-				f, err = os.Create(addr)
-				writer = f
-			}
+		sink, err := writers.NewWriterFactory().CreateOperationalSink(addr, nil)
+		if err != nil {
+			return nil, fmt.Errorf("create operational log sink: %w", err)
 		}
+		result.sinks = append(result.sinks, sink)
+		destinations = append(destinations, sink)
+	}
+	if publisher != nil {
+		adapter, err := outputpipeline.NewOperationalLogWriter(publisher)
+		if err != nil {
+			_ = result.Close()
+			return nil, err
+		}
+		destinations = append(destinations, adapter)
+	}
+	level := zerolog.InfoLevel
+	if debug {
+		level = zerolog.DebugLevel
+	}
+	zlog := zerolog.New(zerolog.MultiLevelWriter(destinations...)).
+		Level(level).
+		With().
+		Timestamp().
+		Logger()
+	result.logger = internalLogger.NewFromZerolog(zlog)
+	return result, nil
+}
 
-		if err == nil && writer != nil {
-			multi := zerolog.MultiLevelWriter(consoleWriter, writer)
-			logger = zerolog.New(multi).With().Timestamp().Logger()
-		} else {
-			//logger.Warn().Err(err).Msg("failed to create multiLogger")
-			return zerolog.Logger{}, errors.New("failed to create multiLogger")
+func (o *operationalOutputs) Close() error {
+	if o == nil {
+		return nil
+	}
+	var closeErrors []error
+	for i := len(o.sinks) - 1; i >= 0; i-- {
+		if err := o.sinks[i].Flush(); err != nil {
+			closeErrors = append(closeErrors, fmt.Errorf("flush %s: %w", o.sinks[i].Name(), err))
+		}
+		if err := o.sinks[i].Close(); err != nil {
+			closeErrors = append(closeErrors, fmt.Errorf("close %s: %w", o.sinks[i].Name(), err))
 		}
 	}
-	return logger, nil
+	return errors.Join(closeErrors...)
+}
+
+func attachRuntimeOutputs(cfg domain.Configuration, deps *outputpipeline.RuntimeDependencies) error {
+	provider, ok := cfg.(interface {
+		SetRuntimeOutput(*outputpipeline.RuntimeDependencies)
+	})
+	if !ok {
+		return fmt.Errorf("configuration %T cannot receive runtime output dependencies", cfg)
+	}
+	provider.SetRuntimeOutput(deps.Clone())
+	return nil
 }
 
 // runProbe runs a probe using the new internal/probe architecture
-func runProbe(probeType factory.ProbeType, probeConfig domain.Configuration) error {
-	var logger zerolog.Logger
-	var err error
-
+func runProbe(probeType factory.ProbeType, probeConfig domain.Configuration) (runErr error) {
+	if setter, ok := probeConfig.(interface{ SetEventRotation(uint16, uint16) }); ok {
+		setter.SetEventRotation(rorateSize, rorateTime)
+	}
+	var eqServer *ecaptureq.Server
 	if globalConf.EcaptureQ != "" {
-		parsedURL, err := url.Parse(globalConf.EcaptureQ)
+		listenAddr, err := ecaptureQListenAddress(globalConf.EcaptureQ)
 		if err != nil {
 			return err
 		}
-		es := ecaptureq.NewServer(parsedURL.Host, os.Stdout)
-		go func() {
-			err := es.Start()
-			if err != nil {
-				fmt.Printf("eCaptureQ addr listen failed:%s\n", err.Error())
-				os.Exit(1)
-				return
-			}
-		}()
-		// log writer
-		consoleWriter := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}
-		zerolog.SetGlobalLevel(zerolog.InfoLevel)
-		if probeConfig.GetDebug() {
-			zerolog.SetGlobalLevel(zerolog.DebugLevel)
+		eqServer = ecaptureq.NewServer(listenAddr, os.Stderr)
+	}
+
+	var operationalPublisher domain.OperationalLogSink
+	if eqServer != nil {
+		operationalPublisher = eqServer
+	}
+	operational, err := newOperationalOutputs(globalConf.LoggerAddr, probeConfig.GetDebug(), operationalPublisher)
+	if err != nil {
+		if eqServer != nil {
+			_ = eqServer.Close()
 		}
-		eqWriter := ecaptureQLogWriter{es: es}
+		return err
+	}
+	defer func() {
+		runErr = errors.Join(runErr, operational.Close())
+		if eqServer != nil {
+			runErr = errors.Join(runErr, eqServer.Close())
+		}
+	}()
+	logger := operational.logger.Logger
 
-		multi := zerolog.MultiLevelWriter(consoleWriter, eqWriter)
-		logger = zerolog.New(multi).With().Timestamp().Logger()
-
-		// Set the ecaptureQ event writer on the probe config so events
-		// are dispatched to the ecaptureQ WebSocket server.
-		eqEventWriter := &ecaptureQEventWriter{es: es}
-		probeConfig.SetEventWriter(eqEventWriter)
-	} else {
-		logger, err = initLogger(globalConf.LoggerAddr, probeConfig.GetDebug(), false)
+	var eqErrors <-chan error
+	if eqServer != nil {
+		eqErrors, err = eqServer.StartAsync()
 		if err != nil {
 			return err
 		}
+	}
+	runtimeOutputs := &outputpipeline.RuntimeDependencies{OperationalLogger: operational.logger}
+	if eqServer != nil {
+		runtimeOutputs.EventSinks = append(runtimeOutputs.EventSinks, eqServer)
+	}
+	if err := attachRuntimeOutputs(probeConfig, runtimeOutputs); err != nil {
+		return err
 	}
 
 	// init eCapture
@@ -297,26 +292,26 @@ func runProbe(probeType factory.ProbeType, probeConfig domain.Configuration) err
 	logger.Info().Str("logger", globalConf.LoggerAddr).Msg("eCapture running logs")
 	logger.Info().Str("eventCollector", globalConf.EventCollectorAddr).Msg("the file handler that receives the captured event")
 
-	var isReload bool
-	var reRloadConfig = make(chan domain.Configuration, 10)
+	var reloadConfig = make(chan domain.Configuration, 10)
+	var httpErrors <-chan error
 
 	// listen http server
 	if globalConf.Listen != "" {
+		serverErrors := make(chan error, 1)
+		httpErrors = serverErrors
 		go func() {
 			logger.Info().Str("listen", globalConf.Listen).Send()
 			logger.Info().Msg("https server starting...You can upgrade the configuration file via the HTTP interface.")
-			var ec = http.NewHttpServer(globalConf.Listen, reRloadConfig, logger)
-			err = ec.Run()
-			if err != nil {
-				logger.Fatal().Err(err).Msg("http server start failed")
-				return
-			}
+			var ec = http.NewHttpServer(globalConf.Listen, reloadConfig, *logger)
+			serverErrors <- ec.Run()
+			close(serverErrors)
 		}()
 	} else {
 		logger.Info().Msg("skip HTTP server listening")
 	}
 
-	ctx, cancelFun := context.WithCancel(context.TODO())
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	// upgrade check
 	go func() {
@@ -332,84 +327,108 @@ func runProbe(probeType factory.ProbeType, probeConfig domain.Configuration) err
 		logger.Warn().Msgf("A new version %s is available:%s", tags, upgradeUrl)
 	}()
 
-	// run probe
-	{
-		// config check
-		err = probeConfig.Validate()
-		if err != nil {
-			logger.Fatal().Err(err).Msg("config validation failed")
+	stopper := make(chan os.Signal, 1)
+	signal.Notify(stopper, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(stopper)
+
+	isReload := false
+	for {
+		if err := attachRuntimeOutputs(probeConfig, runtimeOutputs); err != nil {
+			return err
+		}
+		if err := probeConfig.Validate(); err != nil {
+			return fmt.Errorf("config validation failed: %w", err)
 		}
 
-	reload:
+		probeCtx, cancelProbe := context.WithCancel(ctx)
 		// Create probe via factory
 		probe, err := factory.CreateProbe(probeType)
 		if err != nil {
-			logger.Fatal().Err(err).Msg("failed to create probe")
+			cancelProbe()
+			return fmt.Errorf("failed to create probe: %w", err)
 		}
 
-		//// Create event dispatcher
-		//dispatcher, err := newEventDispatcherWithConfig(&logger, probeConfig)
-		//if err != nil {
-		//	logger.Fatal().Err(err).Msg("failed to create event dispatcher")
-		//}
-
 		// Initialize probe
-		err = probe.Initialize(ctx, probeConfig)
+		err = probe.Initialize(probeCtx, probeConfig)
 		if err != nil {
-			logger.Fatal().Err(err).Bool("isReload", isReload).Msg("probe initialization failed")
+			cancelProbe()
+			return fmt.Errorf("probe initialization failed: %w", err)
 		}
 		logger.Info().Str("probeName", string(probeType)).Bool("isReload", isReload).Msg("probe initialization.")
 
 		// Start probe
-		err = probe.Start(ctx)
+		err = probe.Start(probeCtx)
 		if err != nil {
-			logger.Fatal().Err(err).Bool("isReload", isReload).Msg("probe start failed.")
+			cancelProbe()
+			return errors.Join(fmt.Errorf("probe start failed: %w", err), probe.Close())
 		}
 		logger.Info().Str("probeName", string(probeType)).Bool("isReload", isReload).Msg("probe started successfully.")
 
-		// reset isReload
 		isReload = false
-		stopper := make(chan os.Signal, 1)
-		signal.Notify(stopper, os.Interrupt, syscall.SIGTERM)
+		var runtimeErr error
 		select {
 		case _, ok := <-stopper:
 			if !ok {
 				logger.Warn().Msg("reload stopper channel closed.")
-				break
 			}
-			isReload = false
-		case rc, ok := <-reRloadConfig:
+		case rc, ok := <-reloadConfig:
 			if !ok {
-				logger.Warn().Msg("reload config channel closed.")
-				isReload = false
-				break
+				runtimeErr = fmt.Errorf("reload config channel closed")
+			} else {
+				logger.Warn().Msg("========== Signal received; the probe will initiate a restart. ==========")
+				isReload = true
+				probeConfig = rc
 			}
-			logger.Warn().Msg("========== Signal received; the probe will initiate a restart. ==========")
-			isReload = true
-			probeConfig = rc
+		case serverErr, ok := <-eqErrors:
+			if !ok || serverErr == nil {
+				runtimeErr = fmt.Errorf("ecaptureq server stopped unexpectedly")
+			} else {
+				runtimeErr = fmt.Errorf("ecaptureq server failed: %w", serverErr)
+			}
+		case serverErr, ok := <-httpErrors:
+			if !ok || serverErr == nil {
+				runtimeErr = fmt.Errorf("configuration HTTP server stopped unexpectedly")
+			} else {
+				runtimeErr = fmt.Errorf("configuration HTTP server failed: %w", serverErr)
+			}
 		}
-		cancelFun()
+		cancelProbe()
 
-		// Stop probe
-		err = probe.Stop(ctx)
-		if err != nil {
-			logger.Warn().Err(err).Msg("probe stop failed")
+		var shutdownErrors []error
+		if err := probe.Stop(probeCtx); err != nil {
+			shutdownErrors = append(shutdownErrors, fmt.Errorf("probe stop failed: %w", err))
+		}
+		if err := probe.Close(); err != nil {
+			shutdownErrors = append(shutdownErrors, fmt.Errorf("probe close failed: %w", err))
+		}
+		if runtimeErr != nil {
+			return errors.Join(runtimeErr, errors.Join(shutdownErrors...))
+		}
+		if err := errors.Join(shutdownErrors...); err != nil {
+			return err
 		}
 
-		// Close probe
-		err = probe.Close()
-		if err != nil {
-			logger.Warn().Err(err).Msg("probe close failed")
-		}
-
-		// reload
 		if isReload {
-			isReload = false
 			logger.Info().RawJSON("config", probeConfig.Bytes()).Msg("reloading probe...")
-			goto reload
+			continue
 		}
+		break
 	}
 
 	logger.Info().Msg("bye bye.")
 	return nil
+}
+
+func ecaptureQListenAddress(value string) (string, error) {
+	parsedURL, err := url.Parse(value)
+	if err != nil {
+		return "", fmt.Errorf("invalid ecaptureq address: %w", err)
+	}
+	if parsedURL.Scheme != "ws" {
+		return "", fmt.Errorf("ecaptureq address must use ws://")
+	}
+	if parsedURL.Host == "" {
+		return "", fmt.Errorf("ecaptureq address requires a host and port")
+	}
+	return parsedURL.Host, nil
 }

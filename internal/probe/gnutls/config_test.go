@@ -17,8 +17,16 @@ package gnutls
 import (
 	"testing"
 
+	"github.com/gojue/ecapture/v2/internal/domain"
 	"github.com/gojue/ecapture/v2/internal/probe/base/handlers"
 )
+
+func TestConfigImplementsCaptureModeConfiguration(t *testing.T) {
+	var cfg domain.CaptureModeConfiguration = &Config{CaptureMode: handlers.ModeKeylog}
+	if got := cfg.GetCaptureMode(); got != handlers.ModeKeylog {
+		t.Fatalf("GetCaptureMode() = %q, want %q", got, handlers.ModeKeylog)
+	}
+}
 
 func TestConfig_IsSupportedVersion(t *testing.T) {
 	tests := []struct {
@@ -207,11 +215,16 @@ func TestConfig_ValidateCaptureMode_Keylog(t *testing.T) {
 		return
 	}
 
-	// Test without keylog file
+	// Repeated validation retains the normalized primary destination.
 	cfg.KeylogFile = ""
-	err = cfg.validateCaptureMode()
-	if err == nil {
-		t.Error("validateCaptureMode() should fail for keylog mode without keylog file")
+	if err = cfg.validateCaptureMode(); err != nil {
+		t.Errorf("repeated validation should retain normalized destination: %v", err)
+	}
+
+	missingDestination := NewConfig()
+	missingDestination.CaptureMode = handlers.ModeKeylog
+	if err = missingDestination.validateCaptureMode(); err == nil {
+		t.Error("keylog mode without eventaddr or keylogfile should fail")
 	}
 }
 
@@ -235,11 +248,17 @@ func TestConfig_ValidateCaptureMode_Pcap(t *testing.T) {
 		t.Error("validateCaptureMode() should fail for pcap mode without interface")
 	}
 
-	// Test without file
+	// Repeated validation retains the normalized primary destination.
 	cfg.Ifname = "lo"
 	cfg.PcapFile = ""
-	err = cfg.validateCaptureMode()
-	if err == nil {
-		t.Error("validateCaptureMode() should fail for pcap mode without pcap file")
+	if err = cfg.validateCaptureMode(); err != nil {
+		t.Errorf("repeated validation should retain normalized destination: %v", err)
+	}
+
+	missingPcapDestination := NewConfig()
+	missingPcapDestination.CaptureMode = handlers.ModePcap
+	missingPcapDestination.Ifname = "lo"
+	if err = missingPcapDestination.validateCaptureMode(); err == nil {
+		t.Error("pcap mode without eventaddr or pcapfile should fail")
 	}
 }

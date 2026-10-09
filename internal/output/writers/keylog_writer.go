@@ -14,9 +14,21 @@
 
 package writers
 
-// KeylogWriter writes keylog to a standalone file.
+import (
+	"bytes"
+	stderrors "errors"
+	"fmt"
+	"io"
+	"sync"
+)
+
+// KeylogWriter encodes NSS keylog records over an arbitrary ByteSink. It owns
+// the sink and forwards Flush and Close.
 type KeylogWriter struct {
-	*FileWriter
+	sink     ByteSink
+	mu       sync.Mutex
+	closed   bool
+	closeErr error
 }
 
 func (w *KeylogWriter) Name() string {
@@ -24,19 +36,53 @@ func (w *KeylogWriter) Name() string {
 }
 
 func (w *KeylogWriter) Flush() error {
-	return w.FileWriter.Flush()
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.closed {
+		return w.closeErr
+	}
+	return w.sink.Flush()
 }
 
-func NewKeylogWriter(fw *FileWriter) *KeylogWriter {
-	return &KeylogWriter{
-		FileWriter: fw,
-	}
+func NewKeylogWriter(sink ByteSink) *KeylogWriter {
+	return &KeylogWriter{sink: sink}
 }
 
 func (w *KeylogWriter) Write(p []byte) (n int, err error) {
-	// Create a copy to avoid modifying the provided buffer
-	data := make([]byte, len(p)+1)
-	copy(data, p)
-	data[len(p)] = '\n'
-	return w.FileWriter.Write(data)
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.closed {
+		return 0, fmt.Errorf("keylog writer is closed")
+	}
+	if w.sink == nil {
+		return 0, fmt.Errorf("keylog sink is nil")
+	}
+	record := bytes.TrimRight(p, "\r\n")
+	data := make([]byte, len(record)+1)
+	copy(data, record)
+	data[len(record)] = '\n'
+	written, err := w.sink.Write(data)
+	if err != nil {
+		return 0, err
+	}
+	if written != len(data) {
+		return 0, io.ErrShortWrite
+	}
+	return len(p), nil
 }
+
+func (w *KeylogWriter) Close() error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.closed {
+		return w.closeErr
+	}
+	w.closed = true
+	if w.sink == nil {
+		return nil
+	}
+	w.closeErr = stderrors.Join(w.sink.Flush(), w.sink.Close())
+	return w.closeErr
+}
+
+var _ ByteSink = (*KeylogWriter)(nil)

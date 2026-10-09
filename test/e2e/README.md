@@ -5,6 +5,9 @@ This directory keeps the actively maintained TLS E2E scope small and explicit:
 - Linux on GitHub Actions Ubuntu 22.04 or newer: `tls` (OpenSSL), `gotls`, and `gnutls`.
 - Android 13/API 33 or newer: `tls` against the platform Conscrypt/BoringSSL library. CI covers every stable release from Android 13 through Android 16 (API 33-36).
 - Every module is exercised in `text`, `keylog`, and `pcapng` modes.
+- Every Linux TLS module also exercises text over a local TCP sink, keylog over
+  local TCP and binary WebSocket sinks, pcapng over local TCP/binary WebSocket
+  plus stdout redirection, and typed eCaptureQ text publication.
 
 The tests require root and a real Linux/Android kernel with eBPF support. Building or running them on macOS is unsupported.
 
@@ -29,6 +32,14 @@ The pcapng check parses the block structure instead of accepting any non-empty f
 
 Logs also fail on fatal errors, event-decode errors, lost perf samples, and eBPF load/attach/start errors. A probe merely staying alive is not considered a pass.
 
+The output cases additionally require CLI and BaseProbe lifecycle records in
+`--logaddr`, prohibit the deterministic plaintext and TLS secret labels there,
+and prohibit lifecycle text in raw event artifacts. Network receivers compare
+the actual byte stream, pcapng network/stdout artifacts pass the same block and
+DSB decryption checks as files, and the strict eCaptureQ client requires both a
+`PROCESS_LOG` and a correctly classified `EVENT`; connectivity alone cannot
+pass.
+
 ## Layout
 
 ```text
@@ -43,7 +54,9 @@ test/e2e/
 └── gnutls_e2e_test.sh
 ```
 
-Older Bash/database/ecaptureQ scripts remain outside this maintained TLS scope and are not called by `make e2e`.
+Older Bash/database scripts and the permissive legacy eCaptureQ script remain
+outside this maintained TLS scope. Typed eCaptureQ assertions now live in each
+maintained TLS module suite.
 
 ## Linux
 

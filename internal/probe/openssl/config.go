@@ -28,6 +28,7 @@ import (
 
 	"github.com/gojue/ecapture/v2/internal/config"
 	"github.com/gojue/ecapture/v2/internal/errors"
+	"github.com/gojue/ecapture/v2/internal/output/writers"
 	"github.com/gojue/ecapture/v2/internal/probe/base/handlers"
 )
 
@@ -142,34 +143,36 @@ func (c *Config) validateCaptureMode() error {
 
 	switch mode {
 	case "text", "":
-		// Text mode is the default, no additional validation needed
 		c.CaptureMode = "text"
-		return nil
+		addr, err := writers.NormalizeEventAddress(writers.EventFormatText, c.EventCollectorAddr, c.KeylogFile, c.PcapFile)
+		if err != nil {
+			return err
+		}
+		c.EventCollectorAddr = addr
+		return writers.NewWriterFactory().ValidateEventSinkAddress(writers.EventSinkOptions{Address: addr, Format: writers.EventFormatText, RotateConfig: writers.NewRotateConfig(c.GetEventRotation())})
 	case handlers.ModeKeylog, handlers.ModeKey:
-		// Keylog mode requires a keylog file path
 		c.CaptureMode = handlers.ModeKeylog
-		if c.KeylogFile == "" {
-			return fmt.Errorf("keylog mode requires KeylogFile to be set")
+		addr, err := writers.NormalizeEventAddress(writers.EventFormatKeylog, c.EventCollectorAddr, c.KeylogFile, c.PcapFile)
+		if err != nil {
+			return err
 		}
-		// Check if we can create/write to the keylog file
-		dir := filepath.Dir(c.KeylogFile)
-		if _, err := os.Stat(dir); os.IsNotExist(err) {
-			return fmt.Errorf("keylog directory does not exist: %s", dir)
-		}
-		return nil
+		c.EventCollectorAddr = addr
+		return writers.NewWriterFactory().ValidateEventSinkAddress(writers.EventSinkOptions{Address: addr, Format: writers.EventFormatKeylog, RotateConfig: writers.NewRotateConfig(c.GetEventRotation())})
 	case handlers.ModePcap, handlers.ModePcapng:
-		// Pcap mode requires pcap file path and network interface
-		c.CaptureMode = handlers.ModePcap
-		if c.PcapFile == "" {
-			return fmt.Errorf("pcap mode requires PcapFile to be set")
-		}
+		c.CaptureMode = handlers.ModePcapng
 		if c.Ifname == "" {
 			return fmt.Errorf("pcap mode requires Ifname (network interface) to be set")
 		}
-		// Check if pcap directory exists
-		dir := filepath.Dir(c.PcapFile)
-		if _, err := os.Stat(dir); os.IsNotExist(err) {
-			return fmt.Errorf("pcap directory does not exist: %s", dir)
+		addr, err := writers.NormalizeEventAddress(writers.EventFormatPcapng, c.EventCollectorAddr, c.KeylogFile, c.PcapFile)
+		if err != nil {
+			return err
+		}
+		c.EventCollectorAddr = addr
+		if err := writers.NewWriterFactory().ValidateEventSinkAddress(writers.EventSinkOptions{Address: addr, Format: writers.EventFormatPcapng, RotateConfig: writers.NewRotateConfig(c.GetEventRotation())}); err != nil {
+			return err
+		}
+		if err := writers.ValidateChannelSeparation(writers.EventFormatPcapng, addr, c.LoggerAddr); err != nil {
+			return err
 		}
 
 		// Validate network interface exists

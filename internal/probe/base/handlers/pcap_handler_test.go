@@ -91,6 +91,7 @@ func TestNewPcapHandler(t *testing.T) {
 	if handler.pcapWriter == nil {
 		t.Error("PcapHandler pcapWriter not set correctly")
 	}
+	defer func() { _ = handler.Close() }()
 }
 
 func TestNewPcapHandler_NilWriter(t *testing.T) {
@@ -111,6 +112,7 @@ func TestPcapHandler_Handle(t *testing.T) {
 		t.Fatalf("NewPcapHandler returned error: %v", err)
 		return
 	}
+	defer func() { _ = handler.Close() }()
 
 	event := &mockPacketEvent{
 		timestamp:      1234567890000000000,            // nanoseconds
@@ -142,12 +144,11 @@ func TestPcapHandler_Handle_NilEvent(t *testing.T) {
 		t.Fatalf("NewPcapHandler returned error: %v", err)
 		return
 	}
+	defer func() { _ = handler.Close() }()
 
 	err = handler.Handle(nil)
-	// Should return nil (skip silently) for nil events
-	if err != nil {
-		t.Errorf("Handle should skip nil events silently, got error: %v", err)
-		return
+	if err == nil {
+		t.Error("Handle should reject nil events")
 	}
 }
 
@@ -169,12 +170,11 @@ func TestPcapHandler_Handle_InvalidEventType(t *testing.T) {
 		t.Fatalf("NewPcapHandler returned error: %v", err)
 		return
 	}
+	defer func() { _ = handler.Close() }()
 
 	var event domain.Event = &mockNonPacketEvent{}
 	err = handler.Handle(event)
-	// Should return nil (skip silently) for non-packet events
-	if err != nil {
-		t.Errorf("Handle should skip non-packet events silently, got error: %v", err)
-		return
+	if err == nil {
+		t.Error("Handle should reject unsupported non-packet events")
 	}
 }

@@ -16,10 +16,15 @@ package ecaptureq
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"net"
+	"net/http"
+	"sync"
+	"time"
 
-	"github.com/gojue/ecapture/v2/pkg/util/ws"
+	"github.com/gojue/ecapture/v2/internal/domain"
 	pb "github.com/gojue/ecapture/v2/protobuf/gen/v1"
 
 	"golang.org/x/net/websocket"
@@ -29,100 +34,198 @@ import (
 const LogBuffLen = 128
 
 type Server struct {
-	addr    string
-	logbuff [][]byte
-	handler func([]byte)
-	hub     *Hub
-	ws      *ws.Server
-	logger  io.Writer
-	ctx     context.Context
+	addr      string
+	logger    io.Writer
+	ctx       context.Context
+	cancel    context.CancelFunc
+	hub       *Hub
+	httpMu    sync.Mutex
+	http      *http.Server
+	listener  net.Listener
+	clientsMu sync.Mutex
+	closing   bool
+	closeOnce sync.Once
+	closeErr  error
+	wg        sync.WaitGroup
 }
 
-// NewServer 创建一个新的服务器实例
 func NewServer(addr string, logWriter io.Writer) *Server {
-	s := &Server{
-		addr:    addr,
-		logbuff: make([][]byte, 0, LogBuffLen),
-		logger:  logWriter,
-		hub:     newHub(),
-		ctx:     context.Background(),
-	}
-	server := ws.NewServer(s.addr, s.handleWebSocket)
-	s.ws = server
-	go func() {
-		s.hub.run()
-	}()
-
-	return s
+	ctx, cancel := context.WithCancel(context.Background())
+	server := &Server{addr: addr, logger: logWriter, ctx: ctx, cancel: cancel}
+	server.hub = newHub(ctx)
+	return server
 }
 
-// Start 启动服务器
+// Start serves the protobuf WebSocket endpoint until Close is called.
 func (s *Server) Start() error {
-	err := s.ws.Start()
+	httpServer, listener, err := s.prepare()
+	if err != nil {
+		return err
+	}
+	return s.serve(httpServer, listener)
+}
+
+// StartAsync binds the listen address before returning so callers can report
+// address errors synchronously and monitor later serving failures.
+func (s *Server) StartAsync() (<-chan error, error) {
+	httpServer, listener, err := s.prepare()
+	if err != nil {
+		return nil, err
+	}
+	result := make(chan error, 1)
+	go func() {
+		defer close(result)
+		result <- s.serve(httpServer, listener)
+	}()
+	return result, nil
+}
+
+func (s *Server) prepare() (*http.Server, net.Listener, error) {
+	mux := http.NewServeMux()
+	mux.Handle("/", websocket.Handler(s.handleWebSocket))
+	httpServer := &http.Server{Addr: s.addr, Handler: mux}
+	s.httpMu.Lock()
+	defer s.httpMu.Unlock()
+	if s.http != nil {
+		return nil, nil, fmt.Errorf("ecaptureq server already started")
+	}
+	if s.ctx.Err() != nil {
+		return nil, nil, fmt.Errorf("ecaptureq server is closed")
+	}
+	listener, err := net.Listen("tcp", s.addr)
+	if err != nil {
+		return nil, nil, fmt.Errorf("listen for ecaptureq on %s: %w", s.addr, err)
+	}
+	s.http = httpServer
+	s.listener = listener
+	return httpServer, listener, nil
+}
+
+func (s *Server) serve(httpServer *http.Server, listener net.Listener) error {
+	err := httpServer.Serve(listener)
+	if errors.Is(err, http.ErrServerClosed) {
+		return nil
+	}
 	return err
 }
 
 func (s *Server) handleWebSocket(conn *websocket.Conn) {
-	_, _ = s.logger.Write([]byte(fmt.Sprintf("New WebSocket connection from %s", conn.RemoteAddr())))
-	defer func() {
-		_, _ = s.logger.Write([]byte(fmt.Sprintf("Closing WebSocket connection from %s", conn.RemoteAddr())))
-	}()
-
-	client := &Client{hub: s.hub, conn: conn, send: make(chan []byte, 256), logger: s.logger}
-	client.hub.register <- client
-
-	// 为新连接的客户端发送预存储的日志数据
-	s.sendLogBuff(client)
-
-	// Allow collection of memory referenced by the caller by doing all work in
-	// new goroutines.
+	s.clientsMu.Lock()
+	if s.closing {
+		s.clientsMu.Unlock()
+		_ = conn.Close()
+		return
+	}
+	s.wg.Add(1)
+	s.clientsMu.Unlock()
+	defer s.wg.Done()
+	client := &Client{
+		hub:    s.hub,
+		conn:   conn,
+		send:   make(chan []byte, 256),
+		logger: s.logger,
+		done:   make(chan struct{}),
+	}
+	if err := s.hub.registerClient(s.ctx, client); err != nil {
+		client.logf("ecaptureq client registration failed: %v", err)
+		_ = conn.Close()
+		return
+	}
 	go client.writePump()
 	go client.readPump()
-	<-s.ctx.Done()
-}
-
-func (s *Server) sendLogBuff(c *Client) {
-	for _, log := range s.logbuff {
-		c.send <- log
+	select {
+	case <-client.done:
+	case <-s.ctx.Done():
+		client.stop()
+		<-client.done
 	}
 }
 
-// WriteLog writes data to the WebSocket server.
-func (s *Server) WriteLog(data []byte) (n int, e error) {
-	le := new(pb.LogEntry)
-	le.LogType = pb.LogType_LOG_TYPE_PROCESS_LOG
-	le.Payload = &pb.LogEntry_RunLog{RunLog: string(data)}
-	encodedData, err := proto.Marshal(le)
-	// 如果程序初始化的日志缓冲区已满，则不再添加新的日志
-	if len(s.logbuff) <= LogBuffLen {
-		if err == nil {
-			s.logbuff = append(s.logbuff, encodedData)
-		}
-		return len(data), nil
+func (s *Server) PublishLog(ctx context.Context, record domain.OperationalLogRecord) error {
+	entry := &pb.LogEntry{
+		LogType: pb.LogType_LOG_TYPE_PROCESS_LOG,
+		Payload: &pb.LogEntry_RunLog{RunLog: record.Message},
 	}
-	s.hub.broadcastMessage(encodedData)
-	return len(data), nil
-}
-
-// WriteEvent writes an event to the WebSocket server.
-func (s *Server) WriteEvent(data []byte) (n int, e error) {
-	le := &pb.LogEntry{
-		LogType: pb.LogType_LOG_TYPE_EVENT,
-		Payload: &pb.LogEntry_EventPayload{
-			EventPayload: &pb.Event{
-				Payload: data,
-				Length:  uint32(len(data)),
-			},
-		},
-	}
-	encodedData, err := proto.Marshal(le)
+	data, err := proto.Marshal(entry)
 	if err != nil {
-		return 0, err
+		return fmt.Errorf("marshal process log: %w", err)
 	}
-	s.hub.broadcastMessage(encodedData)
-	return len(data), nil
+	return s.hub.publish(ctx, data, true)
 }
 
-func (s *Server) Close() {
-	s.ctx.Done()
+func (s *Server) PublishEvent(ctx context.Context, event domain.CapturedEventEnvelope) error {
+	entry := &pb.LogEntry{
+		LogType: pb.LogType_LOG_TYPE_EVENT,
+		Payload: &pb.LogEntry_EventPayload{EventPayload: &pb.Event{
+			Timestamp:      event.Timestamp.Unix(),
+			Uuid:           event.UUID,
+			SrcIp:          event.SourceIP,
+			SrcPort:        event.SourcePort,
+			DstIp:          event.DestinationIP,
+			DstPort:        event.DestinationPort,
+			Pid:            int64(event.PID),
+			Pname:          event.ProcessName,
+			Type:           uint32(event.EventType),
+			Length:         uint32(len(event.Payload)),
+			Payload:        append([]byte(nil), event.Payload...),
+			CaptureFormat:  captureFormat(event.Format),
+			Sensitivity:    sensitivity(event.Sensitivity),
+			Direction:      event.Direction,
+			OriginalLength: event.OriginalLength,
+			StreamId:       event.StreamID,
+			Sequence:       event.Sequence,
+		}},
+	}
+	data, err := proto.Marshal(entry)
+	if err != nil {
+		return fmt.Errorf("marshal captured event: %w", err)
+	}
+	return s.hub.publish(ctx, data, false)
 }
+
+func captureFormat(format domain.CaptureFormat) pb.CaptureFormat {
+	switch format {
+	case domain.CaptureFormatText:
+		return pb.CaptureFormat_CAPTURE_FORMAT_TEXT
+	case domain.CaptureFormatKeylog:
+		return pb.CaptureFormat_CAPTURE_FORMAT_KEYLOG
+	case domain.CaptureFormatPcapng:
+		return pb.CaptureFormat_CAPTURE_FORMAT_PCAPNG
+	default:
+		return pb.CaptureFormat_CAPTURE_FORMAT_UNSPECIFIED
+	}
+}
+
+func sensitivity(value domain.Sensitivity) pb.Sensitivity {
+	if value == domain.SensitivitySensitive {
+		return pb.Sensitivity_SENSITIVITY_SENSITIVE
+	}
+	return pb.Sensitivity_SENSITIVITY_NORMAL
+}
+
+func (s *Server) Name() string { return "ecaptureq" }
+
+func (s *Server) DroppedMessages() uint64 { return s.hub.droppedCount() }
+
+func (s *Server) Close() error {
+	s.closeOnce.Do(func() {
+		s.clientsMu.Lock()
+		s.closing = true
+		s.clientsMu.Unlock()
+		s.cancel()
+		s.httpMu.Lock()
+		httpServer := s.http
+		s.httpMu.Unlock()
+		if httpServer != nil {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			s.closeErr = httpServer.Shutdown(ctx)
+			cancel()
+		}
+		s.hub.wait()
+		s.wg.Wait()
+	})
+	return s.closeErr
+}
+
+var _ domain.OperationalLogSink = (*Server)(nil)
+var _ domain.CapturedEventSink = (*Server)(nil)

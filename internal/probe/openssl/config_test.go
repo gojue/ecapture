@@ -249,12 +249,18 @@ func TestConfig_ValidateCaptureMode_Pcap(t *testing.T) {
 		t.Error("validateCaptureMode() should fail for pcap mode without interface")
 	}
 
-	// Test pcap mode without file
+	// Repeated validation retains the normalized primary destination.
 	cfg.Ifname = "lo"
 	cfg.PcapFile = ""
-	err = cfg.validateCaptureMode()
-	if err == nil {
-		t.Error("validateCaptureMode() should fail for pcap mode without pcap file")
+	if err = cfg.validateCaptureMode(); err != nil {
+		t.Errorf("repeated validation should retain normalized destination: %v", err)
+	}
+
+	missingDestination := NewConfig()
+	missingDestination.CaptureMode = handlers.ModePcap
+	missingDestination.Ifname = "lo"
+	if err = missingDestination.validateCaptureMode(); err == nil {
+		t.Error("pcap mode without eventaddr or pcapfile should fail")
 	}
 }
 
