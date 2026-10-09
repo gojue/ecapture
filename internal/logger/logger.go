@@ -101,6 +101,12 @@ func New(out io.Writer, debug bool) *Logger {
 	return &Logger{&zlog}
 }
 
+// NewFromZerolog wraps an already configured operational logger graph. The
+// caller retains ownership of every sink used by zlog.
+func NewFromZerolog(zlog zerolog.Logger) *Logger {
+	return &Logger{Logger: &zlog}
+}
+
 // WithComponent creates a child logger with a component field.
 func (l *Logger) WithComponent(component string) *Logger {
 	child := l.Logger.With().Str("component", component).Logger()

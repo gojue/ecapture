@@ -15,7 +15,9 @@
 package writers
 
 import (
+	stderrors "errors"
 	"fmt"
+	"io"
 	"sync"
 
 	"github.com/gojue/ecapture/v2/pkg/util/ws"
@@ -23,9 +25,11 @@ import (
 
 // WebSocketWriter writes output to a WebSocket connection.
 type WebSocketWriter struct {
-	client *ws.Client
-	addr   string
-	mu     sync.Mutex
+	client   *ws.Client
+	addr     string
+	mu       sync.Mutex
+	closed   bool
+	closeErr error
 }
 
 // NewWebSocketWriter creates a new WebSocket writer by connecting to the specified URL.
@@ -50,20 +54,30 @@ func NewWebSocketWriter(url string) (*WebSocketWriter, error) {
 func (w *WebSocketWriter) Write(p []byte) (n int, err error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
+	if w.closed {
+		return 0, fmt.Errorf("WebSocket sink %s is closed", w.addr)
+	}
 
-	return w.client.Write(p)
+	n, err = w.client.Write(p)
+	if err == nil && n != len(p) {
+		err = io.ErrShortWrite
+	}
+	return n, err
 }
 
 // Close closes the WebSocket connection.
 func (w *WebSocketWriter) Close() error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
+	if w.closed {
+		return w.closeErr
+	}
+	w.closed = true
 
 	if w.client != nil {
-		return w.client.Close()
+		w.closeErr = stderrors.Join(w.closeErr, w.client.Close())
 	}
-
-	return nil
+	return w.closeErr
 }
 
 // Name returns the writer name.
@@ -73,5 +87,10 @@ func (w *WebSocketWriter) Name() string {
 
 // Flush is a no-op for WebSocket (messages are sent immediately).
 func (w *WebSocketWriter) Flush() error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.closed {
+		return w.closeErr
+	}
 	return nil
 }

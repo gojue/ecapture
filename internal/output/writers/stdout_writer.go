@@ -15,33 +15,66 @@
 package writers
 
 import (
+	"fmt"
+	"io"
 	"os"
+	"sync"
 )
 
 // StdoutWriter writes output to stdout.
-type StdoutWriter struct{}
+type StdoutWriter struct {
+	mu     sync.Mutex
+	out    io.Writer
+	name   string
+	closed bool
+}
 
 // NewStdoutWriter creates a new stdout writer.
 func NewStdoutWriter() *StdoutWriter {
-	return &StdoutWriter{}
+	return newStandardStreamWriter(os.Stdout, "stdout")
+}
+
+// NewStderrWriter creates an operational console sink. Captured event stdout
+// and operational stderr are independently constructed streams.
+func NewStderrWriter() *StdoutWriter {
+	return newStandardStreamWriter(os.Stderr, "stderr")
+}
+
+func newStandardStreamWriter(out io.Writer, name string) *StdoutWriter {
+	return &StdoutWriter{out: out, name: name}
 }
 
 // Write writes data to stdout.
 func (w *StdoutWriter) Write(p []byte) (n int, err error) {
-	return os.Stdout.Write(p)
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.closed {
+		return 0, fmt.Errorf("%s sink is closed", w.name)
+	}
+	n, err = w.out.Write(p)
+	if err == nil && n != len(p) {
+		err = io.ErrShortWrite
+	}
+	return n, err
 }
 
 // Close is a no-op for stdout.
 func (w *StdoutWriter) Close() error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.closed = true
 	return nil
 }
 
 // Name returns the writer name.
 func (w *StdoutWriter) Name() string {
-	return "stdout"
+	return w.name
 }
 
-// Flush is a no-op for stdout (unbuffered).
+// Flush is a no-op for standard streams. Calling fsync on a terminal or pipe
+// returns platform-specific errors and does not provide additional durability.
 func (w *StdoutWriter) Flush() error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
 	return nil
 }

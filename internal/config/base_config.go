@@ -21,6 +21,7 @@ import (
 	"os"
 	"time"
 
+	outputpipeline "github.com/gojue/ecapture/v2/internal/output"
 	"github.com/gojue/ecapture/v2/pkg/util/kernel"
 )
 
@@ -43,21 +44,24 @@ const DefaultMapSizePerCpu = 8 * 1024 * 1024
 
 // BaseConfig provides common configuration for all probes.
 type BaseConfig struct {
-	Pid                uint64    `json:"pid"`
-	Uid                uint64    `json:"uid"`
-	Debug              bool      `json:"debug"`
-	IsHex              bool      `json:"is_hex"`
-	BtfMode            uint8     `json:"btf_mode"`
-	ByteCodeFileMode   uint8     `json:"byte_code_file_mode"`
-	PerCpuMapSize      int       `json:"per_cpu_map_size"`
-	TruncateSize       uint64    `json:"truncate_size"`
-	LoggerAddr         string    `json:"logger_addr"`
-	EventCollectorAddr string    `json:"event_collector_addr"`
-	EcaptureQ          string    `json:"ecapture_q"`
-	Listen             string    `json:"listen"`
-	AddrType           uint8     `json:"addr_type"`
-	EventWriter        io.Writer `json:"-"`
-	CGroupPath         string    `json:"cgroup_path"` // cgroup path for container/process filtering
+	Pid                uint64                              `json:"pid"`
+	Uid                uint64                              `json:"uid"`
+	Debug              bool                                `json:"debug"`
+	IsHex              bool                                `json:"is_hex"`
+	BtfMode            uint8                               `json:"btf_mode"`
+	ByteCodeFileMode   uint8                               `json:"byte_code_file_mode"`
+	PerCpuMapSize      int                                 `json:"per_cpu_map_size"`
+	TruncateSize       uint64                              `json:"truncate_size"`
+	LoggerAddr         string                              `json:"logger_addr"`
+	EventCollectorAddr string                              `json:"event_collector_addr"`
+	EventRotateSizeMB  uint16                              `json:"event_rotate_size_mb"`
+	EventRotateSeconds uint16                              `json:"event_rotate_seconds"`
+	EcaptureQ          string                              `json:"ecapture_q"`
+	Listen             string                              `json:"listen"`
+	AddrType           uint8                               `json:"addr_type"`
+	EventWriter        io.Writer                           `json:"-"`
+	RuntimeOutput      *outputpipeline.RuntimeDependencies `json:"-"`
+	CGroupPath         string                              `json:"cgroup_path"` // cgroup path for container/process filtering
 
 	// PerfReorder enables userland lag-reorder of perf buffer events (by bpf ktime) before dispatch.
 	PerfReorder bool `json:"perf_reorder"`
@@ -216,6 +220,17 @@ func (c *BaseConfig) SetEventCollectorAddr(addr string) {
 	c.EventCollectorAddr = addr
 }
 
+// SetEventRotation configures rotation for compatible captured-event files.
+func (c *BaseConfig) SetEventRotation(maxSizeMB, maxSeconds uint16) {
+	c.EventRotateSizeMB = maxSizeMB
+	c.EventRotateSeconds = maxSeconds
+}
+
+// GetEventRotation returns captured-event rotation limits.
+func (c *BaseConfig) GetEventRotation() (uint16, uint16) {
+	return c.EventRotateSizeMB, c.EventRotateSeconds
+}
+
 // GetEcaptureQ returns the eCaptureQ address.
 func (c *BaseConfig) GetEcaptureQ() string {
 	return c.EcaptureQ
@@ -254,6 +269,17 @@ func (c *BaseConfig) GetEventWriter() io.Writer {
 // SetEventWriter sets a pre-configured event writer.
 func (c *BaseConfig) SetEventWriter(w io.Writer) {
 	c.EventWriter = w
+}
+
+// GetRuntimeOutput returns borrowed process-lifetime output dependencies.
+func (c *BaseConfig) GetRuntimeOutput() *outputpipeline.RuntimeDependencies {
+	return c.RuntimeOutput
+}
+
+// SetRuntimeOutput attaches process-lifetime output dependencies. They are
+// excluded from JSON and must be reattached after runtime configuration reload.
+func (c *BaseConfig) SetRuntimeOutput(deps *outputpipeline.RuntimeDependencies) {
+	c.RuntimeOutput = deps
 }
 
 // GetCGroupPath returns the cgroup path for filtering.

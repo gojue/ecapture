@@ -62,6 +62,9 @@ func init() {
 
 // openSSLCommandFunc executes the "tls" command using the new probe architecture.
 func openSSLCommandFunc(command *cobra.Command, args []string) error {
+	if err := normalizeTLSOutputFlags(command, opensslConfig.CaptureMode, &opensslConfig.KeylogFile, &opensslConfig.PcapFile); err != nil {
+		return err
+	}
 	if opensslConfig.PcapFilter == "" && len(args) != 0 {
 		opensslConfig.PcapFilter = strings.Join(args, " ")
 	}
@@ -74,6 +77,7 @@ func openSSLCommandFunc(command *cobra.Command, args []string) error {
 	opensslConfig.SetBTF(globalConf.BtfMode)
 	opensslConfig.SetPerCpuMapSize(globalConf.PerCpuMapSize)
 	opensslConfig.SetTruncateSize(globalConf.TruncateSize)
+	opensslConfig.SetLoggerAddr(globalConf.LoggerAddr)
 	opensslConfig.SetEventCollectorAddr(globalConf.EventCollectorAddr)
 
 	// Run probe using the common entry point

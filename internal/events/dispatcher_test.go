@@ -45,7 +45,12 @@ func (m *mockEvent) Validate() error {
 type mockHandler struct {
 	name       string
 	writer     writers.OutputWriter
+	supports   bool
 	handleFunc func(event domain.Event) error
+}
+
+func (m *mockHandler) Supports(domain.Event) bool {
+	return m.supports
 }
 
 func (m *mockHandler) Writer() writers.OutputWriter {
@@ -97,7 +102,7 @@ func TestDispatcherRegister(t *testing.T) {
 	log := logger.New(nil, false)
 	disp := NewDispatcher(log)
 
-	handler := &mockHandler{name: "test-handler"}
+	handler := &mockHandler{name: "test-handler", supports: true}
 	err := disp.Register(handler)
 	if err != nil {
 		t.Fatalf("Register() error = %v", err)
@@ -112,7 +117,7 @@ func TestDispatcherRegisterDuplicate(t *testing.T) {
 	log := logger.New(nil, false)
 	disp := NewDispatcher(log)
 
-	handler := &mockHandler{name: "test-handler"}
+	handler := &mockHandler{name: "test-handler", supports: true}
 	_ = disp.Register(handler)
 
 	err := disp.Register(handler)
@@ -125,7 +130,7 @@ func TestDispatcherUnregister(t *testing.T) {
 	log := logger.New(nil, false)
 	disp := NewDispatcher(log)
 
-	handler := &mockHandler{name: "test-handler"}
+	handler := &mockHandler{name: "test-handler", supports: true}
 	_ = disp.Register(handler)
 
 	err := disp.Unregister("test-handler-mock-writer")
@@ -144,7 +149,8 @@ func TestDispatcherDispatch(t *testing.T) {
 
 	called := false
 	handler := &mockHandler{
-		name: "test-handler",
+		name:     "test-handler",
+		supports: true,
 		handleFunc: func(event domain.Event) error {
 			called = true
 			return nil
@@ -167,7 +173,7 @@ func TestDispatcherDispatchInvalidEvent(t *testing.T) {
 	log := logger.New(nil, false)
 	disp := NewDispatcher(log)
 
-	handler := &mockHandler{name: "test-handler"}
+	handler := &mockHandler{name: "test-handler", supports: true}
 	_ = disp.Register(handler)
 
 	event := &mockEvent{valid: false}
@@ -177,11 +183,41 @@ func TestDispatcherDispatchInvalidEvent(t *testing.T) {
 	}
 }
 
+func TestDispatcherDispatchAggregatesEverySupportedHandlerError(t *testing.T) {
+	log := logger.New(nil, false)
+	disp := NewDispatcher(log)
+	firstErr := errors.New("first handler failed")
+	secondErr := errors.New("second handler failed")
+	for _, handler := range []*mockHandler{
+		{name: "first", supports: true, handleFunc: func(domain.Event) error { return firstErr }},
+		{name: "success", supports: true},
+		{name: "second", supports: true, handleFunc: func(domain.Event) error { return secondErr }},
+	} {
+		if err := disp.Register(handler); err != nil {
+			t.Fatal(err)
+		}
+	}
+	err := disp.Dispatch(&mockEvent{valid: true})
+	if !errors.Is(err, firstErr) || !errors.Is(err, secondErr) {
+		t.Fatalf("Dispatch() error = %v, want both handler errors", err)
+	}
+}
+
+func TestDispatcherDispatchRejectsUnsupportedEvent(t *testing.T) {
+	disp := NewDispatcher(logger.New(nil, false))
+	if err := disp.Register(&mockHandler{name: "unsupported"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := disp.Dispatch(&mockEvent{valid: true}); err == nil {
+		t.Fatal("Dispatch() should report that no handler supports the event")
+	}
+}
+
 func TestDispatcherClose(t *testing.T) {
 	log := logger.New(nil, false)
 	disp := NewDispatcher(log)
 
-	handler := &mockHandler{name: "test-handler"}
+	handler := &mockHandler{name: "test-handler", supports: true}
 	_ = disp.Register(handler)
 
 	err := disp.Close()
@@ -214,7 +250,7 @@ func TestDispatcherCloseHandlers(t *testing.T) {
 
 	// Register a closable handler
 	handler := &mockClosableHandler{
-		mockHandler: mockHandler{name: "test-closable-handler"},
+		mockHandler: mockHandler{name: "test-closable-handler", supports: true},
 	}
 	err := disp.Register(handler)
 	if err != nil {
@@ -248,7 +284,7 @@ func TestDispatcherCloseHandlersWithError(t *testing.T) {
 
 	// Register a handler that fails to close
 	handler := &mockFailingClosableHandler{
-		mockHandler: mockHandler{name: "test-failing-handler"},
+		mockHandler: mockHandler{name: "test-failing-handler", supports: true},
 	}
 	err := disp.Register(handler)
 	if err != nil {

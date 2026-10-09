@@ -39,6 +39,19 @@ A unified representation of a single event (packet/session fragment) captured by
   - `4`: HTTP/2 Response
 - `uint32 length`: Effective length of the `payload` (in bytes).
 - `[]byte payload`: Actual payload data.
+- `CaptureFormat capture_format`: `TEXT`, `KEYLOG`, or `PCAPNG`; this is the
+  selected event representation, not a transport.
+- `Sensitivity sensitivity`: marks ordinary versus sensitive keylog/pcapng
+  events.
+- `string direction`: capture direction when the domain event provides it.
+- `uint32 original_length`: payload length before truncation, when known.
+- `string stream_id` / `uint64 sequence`: optional stream identity and event
+  ordering metadata.
+
+Fields 12 through 17 were added compatibly to the v1 message. Older protobuf
+clients ignore them; updated clients must continue dispatching by `log_type`.
+`PROCESS_LOG` contains only eCapture lifecycle/health records. Captured
+payloads and TLS secrets are carried only by `EVENT`.
 
 > **Note:** In the internal eCaptureQ backend model, fields such as `is_binary`, `payload_utf8`, and `payload_binary` are derived to distinguish between text/binary display. However, these are extension fields used internally by the server and UI, and do not appear directly in the Protobuf `Event` message.
 

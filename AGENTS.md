@@ -11,7 +11,8 @@ entry points, not separate sources of project truth.
 - For runtime behavior, trust source code and tests. For build behavior, trust
   `go.mod`, `Makefile`, `variables.mk`, `functions.mk`, and current workflows.
   For maintained E2E behavior, trust `test/e2e/README.md` and its harness.
-- For architecture/runtime/output work, read `docs/agent/architecture.md`.
+- For architecture/runtime/output work, read `docs/agent/architecture.md` and
+  `docs/agent/output-pipeline.md`.
 - For probes, ABI, CLI config, or generated protocols, read
   `docs/agent/probe-development.md`.
 - For build, formatting, lint, tests, E2E, or CI, read
@@ -68,7 +69,8 @@ main.go -> cli.Start() -> Cobra RunE -> runProbe()
   -> Probe.Initialize() / Start()
   -> embedded eBPF asset + ebpfmanager
   -> perf/ringbuf sample -> EventDecoder.Decode()
-  -> events.Dispatcher -> text/keylog/pcap handler -> OutputWriter
+  -> events.Dispatcher -> text/keylog/pcapng handler -> ByteSink
+                       -> typed eCaptureQ EVENT publisher
 ```
 
 `runProbe` owns signal handling and runtime reload orchestration. A concrete
@@ -104,9 +106,9 @@ package ownership.
 - Dispatcher fan-out is synchronous and unordered. Multiple readers may call
   one handler concurrently; handlers/writers must be concurrency-safe and
   tolerate idempotent close. Perf reorder is per map/reader, not global.
-- `--logaddr` is operational logging. `--eventaddr` is captured text output
-  only for commands that propagate it (currently TLS and GoTLS); keylog,
-  pcapng, and eCaptureQ use mode-specific output paths.
+- `--logaddr` is operational logging only. For TLS, GoTLS, and GnuTLS,
+  `--eventaddr` is the primary captured-event destination for text, keylog,
+  and pcapng. eCaptureQ is an additive typed publisher, not a ByteSink.
 - Linux production tags are `linux,netgo,ebpfassets,dynamic`; Android uses
   `ecap_android,netgo,ebpfassets,dynamic`. Preserve CO-RE and non-CO-RE paths.
 - Never hand-edit or commit generated `bytecode/*.o`, `bytecode/*.d`,
@@ -180,8 +182,9 @@ verification matrix live in `docs/agent/build-test.md`.
 - GnuTLS uses versioned C assets selected from the detected library patch
   release; keep the supported version-to-asset table synchronized with
   `kern/gnutls_*_kern.c`.
-- Runtime reload reuses a canceled context and retains the original factory
-  probe type; it is not a proven cross-probe hot-swap facility.
+- Runtime reload reattaches process-lifetime output dependencies and creates a
+  fresh probe context, but retains the original factory probe type; it is not
+  a cross-probe hot-swap facility.
 - Shared CLI fields are copied into module configs manually and unevenly.
   Trace every affected command and `cli/http/` config factory.
 - Probe registration currently discards duplicate-registration errors.

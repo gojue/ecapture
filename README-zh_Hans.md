@@ -150,11 +150,21 @@ OpenSSL 模块支持三种捕获模式：
 - `keylog` / `key`：将 TLS 握手密钥保存到文件中。
 - `text`：直接抓取明文数据，并输出到指定文件或命令行终端。
 
+对 OpenSSL、GoTLS 和 GnuTLS，`--eventaddr` 是统一的主事件目的端，支持
+`stdout`、普通路径或 `file://` URI、`tcp://host:port` 以及使用有序二进制帧的
+`ws://`/`wss://`。模式决定 text、NSS Key Log 或 pcapng 表示，地址只决定传输方式。
+`--keylogfile` 和 `--pcapfile` 仍是相应模式的兼容文件别名；显式 `--eventaddr`
+不能与对应的主别名同时使用。pcapng 模式下的 `--keylogfile` 仍是独立的可选密钥文件。
+
+`--logaddr` 只承载 eCapture 自身的运行日志。控制台运行日志输出到 stderr，而
+事件 stdout 只包含捕获数据。eCaptureQ 是附加的 typed publisher，不会取代
+`--eventaddr` 或 `--logaddr`。
+
 #### Pcap 模式
 
 支持基于 TCP 的 HTTP `1.0/1.1/2.0` 以及基于 UDP 的 HTTP/3 (`QUIC`) 流量抓取。
 
-你可以通过 `-m pcap` 或 `-m pcapng` 参数指定抓包模式，并配合 `--pcapfile` 和 `-i` 参数使用。其中 `--pcapfile` 的默认值为 `ecapture_openssl.pcapng`。
+你可以通过 `-m pcap` 或 `-m pcapng` 参数指定抓包模式，并配合 `--pcapfile` 和 `-i` 参数使用。当前为了兼容保留的 `--pcapfile` 默认值为 `save.pcapng`。
 
 ```shell
 sudo ecapture tls -m pcap -i eth0 --pcapfile=ecapture.pcapng tcp port 443
@@ -166,7 +176,7 @@ sudo ecapture tls -m pcap -i eth0 --pcapfile=ecapture.pcapng tcp port 443
 
 #### Keylog 模式
 
-你可以通过 `-m keylog` 或 `-m key` 参数指定密钥导出模式，并配合 `--keylogfile` 参数使用，默认输出文件为 `ecapture_masterkey.log`。
+你可以通过 `-m keylog` 或 `-m key` 参数指定密钥导出模式，并配合 `--keylogfile` 参数使用，当前为了兼容保留的默认输出文件为 `ecapture_openssl_key.log`。
 
 捕获到的 OpenSSL TLS `Master Secret` 信息会保存到 `--keylogfile` 中。你也可以同时开启 `tcpdump` 抓包，然后使用 Wireshark 打开对应 pcap 文件，并设置 `Master Secret` 路径，即可解密并查看明文数据包。
 

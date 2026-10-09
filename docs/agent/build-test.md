@@ -247,6 +247,11 @@ its assertions.
   simultaneous packet capture with `tshark`.
 - Pcapng mode must clear external keylog preferences and decrypt eCapture's
   own pcapng using its embedded TLS Decryption Secrets Block.
+- Output-pipeline changes must also run the maintained operational-log and
+  text/keylog/pcapng cases over file, TCP, binary WebSocket, and stdout. They
+  verify operational/event isolation, final flush, valid network pcapng
+  reconstruction, and strict typed eCaptureQ `PROCESS_LOG` plus correctly
+  classified text/keylog/pcapng `EVENT` delivery with required metadata.
 - New multi-connection tests must verify each stream independently. Android
   currently verifies its TLS 1.2 and TLS 1.3 streams separately; do not claim
   every existing Linux case does so.
@@ -257,8 +262,9 @@ its assertions.
   successful artifacts too.
 
 Shared assertions are in `test/e2e/lib/testlib.sh`; Linux-specific setup is in
-`test/e2e/linux/common.sh`. Older Bash/database/eCaptureQ scripts are outside
-the default maintained TLS matrix.
+`test/e2e/linux/common.sh`. Older Bash/database and permissive eCaptureQ
+scripts are outside the default maintained TLS matrix; strict typed eCaptureQ
+coverage is part of the module suites.
 
 ## Android E2E
 

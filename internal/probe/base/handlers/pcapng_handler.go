@@ -16,17 +16,17 @@ package handlers
 
 import (
 	"bytes"
+	stderrors "errors"
 	"sync"
 	"time"
 
 	"github.com/google/gopacket"
 
-	"github.com/gojue/ecapture/v2/internal/logger"
-
-	"github.com/gojue/ecapture/v2/internal/output/writers"
-
 	"github.com/gojue/ecapture/v2/internal/domain"
 	"github.com/gojue/ecapture/v2/internal/errors"
+	"github.com/gojue/ecapture/v2/internal/logger"
+	"github.com/gojue/ecapture/v2/internal/output/pcapng"
+	"github.com/gojue/ecapture/v2/internal/output/writers"
 )
 
 // PacketEvent defines the interface for network packet events.
@@ -58,86 +58,96 @@ type NetCaptureData struct {
 	ConfigIfaceIndex uint32 `json:"ifIndex"`
 }
 
-type Option func(*PcapHandler) error
+type Option func(*PcapngHandler) error
 
-// WithInterfaceName sets the network interface name for the pcap writer.
+// WithInterfaceName sets the network interface name for the pcapng session.
 func WithInterfaceName(ifName string) Option {
-	return func(h *PcapHandler) error {
+	return func(h *PcapngHandler) error {
 		h.ifName = ifName
 		return nil
 	}
 }
 
-// WithFilter sets the BPF filter for the pcap writer.
+// WithFilter sets the BPF filter for the pcapng session.
 func WithFilter(filter string) Option {
-	return func(h *PcapHandler) error {
+	return func(h *PcapngHandler) error {
 		h.filter = filter
 		return nil
 	}
 }
 
-// WithLogger sets the logger for the PcapHandler (currently unused, but can be used for future logging enhancements).
+// WithLogger sets the logger for the PcapngHandler (currently unused, but can be used for future logging enhancements).
 func WithLogger(logger *logger.Logger) Option {
-	return func(h *PcapHandler) error {
-		// Currently no logger is used in PcapHandler, but we can add logging in the future if needed.
+	return func(h *PcapngHandler) error {
+		// Currently no logger is used in PcapngHandler, but we can add logging in the future if needed.
 		h.logger = logger
 		return nil
 	}
 }
 
-// PcapHandler handles packet events by writing them in PCAPNG format.
+// PcapngHandler handles packet events by writing them in PCAPNG format.
 // PCAPNG (Packet Capture Next Generation) is the modern packet capture format
 // that can be analyzed with Wireshark and other network analysis tools.
-type PcapHandler struct {
-	writer          writers.OutputWriter
-	pcapWriter      *writers.PcapWriter
+type PcapngHandler struct {
+	sink            writers.ByteSink
+	session         *pcapng.Session
 	mu              sync.Mutex
 	masterKeyBuffer *bytes.Buffer
 	ifName          string
 	filter          string
 	logger          *logger.Logger
+	closed          bool
+	closeErr        error
 }
 
-func (h *PcapHandler) Writer() writers.OutputWriter {
-	return h.writer
+func (h *PcapngHandler) Writer() writers.OutputWriter {
+	return h.sink
 }
 
-// NewPcapHandler creates a new PcapHandler with the provided writer.
-func NewPcapHandler(writer writers.OutputWriter, ifName, filter string, lger *logger.Logger) (*PcapHandler, error) {
-	if writer == nil {
-		return nil, errors.New(errors.ErrCodeResourceAllocation, "output writer cannot be nil")
+func (h *PcapngHandler) Supports(event domain.Event) bool {
+	return isPacketEvent(event)
+}
+
+func isPacketEvent(event domain.Event) bool {
+	if event == nil {
+		return false
+	}
+	_, ok := event.(PacketEvent)
+	return ok
+}
+
+// NewPcapngHandler creates a new PcapngHandler with the provided byte sink.
+func NewPcapngHandler(sink writers.ByteSink, ifName, filter string, lger *logger.Logger) (*PcapngHandler, error) {
+	if sink == nil {
+		return nil, errors.New(errors.ErrCodeResourceAllocation, "pcapng sink cannot be nil")
 	}
 
-	// Create pcap writer with Ethernet link type and 65535 snaplen
-	pcapWriter, err := writers.NewPcapWriter(writer, 65535, ifName, filter, lger)
+	// Create a pcapng session with Ethernet link type and 65535 snaplen.
+	session, err := pcapng.NewSession(sink, 65535, ifName, filter, lger)
 	if err != nil {
-		return nil, errors.Wrap(errors.ErrCodeResourceAllocation, "failed to create pcap writer", err)
+		return nil, errors.Wrap(errors.ErrCodeResourceAllocation, "failed to create pcapng session", err)
 	}
 
-	return &PcapHandler{
-		writer:          writer,
-		pcapWriter:      pcapWriter,
+	return &PcapngHandler{
+		sink:            sink,
+		session:         session,
 		masterKeyBuffer: bytes.NewBuffer(nil),
 		logger:          lger,
 	}, nil
 }
 
 // Handle processes a packet event and writes it to the pcapng file.
-func (h *PcapHandler) Handle(event domain.Event) error {
-	if event == nil {
-		return nil // Silently ignore nil events
+func (h *PcapngHandler) Handle(event domain.Event) error {
+	if !h.Supports(event) {
+		return errors.New(errors.ErrCodeEventDispatch, "pcapng handler does not support event")
 	}
-
-	// Type assert to packet event
-	pktEvent, ok := event.(PacketEvent)
-	if !ok {
-		h.logger.Debug().Msg("event is not a PacketEvent")
-		// Not a packet event, skip silently (other handlers will process it)
-		return nil
-	}
+	pktEvent := event.(PacketEvent)
 
 	h.mu.Lock()
 	defer h.mu.Unlock()
+	if h.closed {
+		return errors.New(errors.ErrCodeEventDispatch, "pcapng handler is closed")
+	}
 
 	// Get packet data
 	packetData := pktEvent.GetPacketData()
@@ -150,7 +160,7 @@ func (h *PcapHandler) Handle(event domain.Event) error {
 	timestamp := time.Unix(0, int64(pktEvent.GetTimestamp()))
 
 	// Write packet to pcapng file
-	err := h.pcapWriter.WritePacket(packetData, timestamp)
+	err := h.session.WritePacket(packetData, timestamp)
 	if err != nil {
 		return errors.Wrap(errors.ErrCodeEventDispatch, "failed to write packet to pcapng", err)
 	}
@@ -159,30 +169,30 @@ func (h *PcapHandler) Handle(event domain.Event) error {
 }
 
 // Close closes the handler and releases resources.
-func (h *PcapHandler) Close() error {
+func (h *PcapngHandler) Close() error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-
-	// Close the pcap writer (waits for Serve goroutine to drain and flush internally)
-	if h.pcapWriter != nil {
-		if err := h.pcapWriter.Close(); err != nil {
-			return err
-		}
+	if h.closed {
+		return h.closeErr
 	}
+	h.closed = true
 
-	// Finally close the underlying file writer
-	if h.writer != nil {
-		return h.writer.Close()
+	var closeErrors []error
+	if h.session != nil {
+		closeErrors = append(closeErrors, h.session.Close())
 	}
-
-	return nil
+	if h.sink != nil {
+		closeErrors = append(closeErrors, h.sink.Flush(), h.sink.Close())
+	}
+	h.closeErr = stderrors.Join(closeErrors...)
+	return h.closeErr
 }
 
 // Name returns the handler's identifier.
-func (h *PcapHandler) Name() string {
+func (h *PcapngHandler) Name() string {
 	return ModePcapng
 }
 
-func (h *PcapHandler) PcapWriter() *writers.PcapWriter {
-	return h.pcapWriter
+func (h *PcapngHandler) Session() *pcapng.Session {
+	return h.session
 }

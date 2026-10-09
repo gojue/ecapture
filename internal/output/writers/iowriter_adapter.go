@@ -15,13 +15,19 @@
 package writers
 
 import (
+	stderrors "errors"
+	"fmt"
 	"io"
+	"sync"
 )
 
 // IOWriterAdapter adapts an io.Writer to the OutputWriter interface.
 type IOWriterAdapter struct {
-	writer io.Writer
-	name   string
+	writer   io.Writer
+	name     string
+	mu       sync.Mutex
+	closed   bool
+	closeErr error
 }
 
 // NewIOWriterAdapter creates a new OutputWriter wrapping an io.Writer.
@@ -34,15 +40,36 @@ func NewIOWriterAdapter(w io.Writer, name string) *IOWriterAdapter {
 
 // Write writes data to the underlying writer.
 func (a *IOWriterAdapter) Write(p []byte) (n int, err error) {
-	return a.writer.Write(p)
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.closed {
+		return 0, fmt.Errorf("writer adapter %s is closed", a.name)
+	}
+	n, err = a.writer.Write(p)
+	if err == nil && n != len(p) {
+		err = io.ErrShortWrite
+	}
+	return n, err
 }
 
 // Close closes the underlying writer if it implements io.Closer.
 func (a *IOWriterAdapter) Close() error {
-	if closer, ok := a.writer.(io.Closer); ok {
-		return closer.Close()
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.closed {
+		return a.closeErr
 	}
-	return nil
+	a.closed = true
+	var flushErr error
+	if flusher, ok := a.writer.(interface{ Flush() error }); ok {
+		flushErr = flusher.Flush()
+	}
+	var closeErr error
+	if closer, ok := a.writer.(io.Closer); ok {
+		closeErr = closer.Close()
+	}
+	a.closeErr = stderrors.Join(flushErr, closeErr)
+	return a.closeErr
 }
 
 // Name returns the writer name.
@@ -52,5 +79,13 @@ func (a *IOWriterAdapter) Name() string {
 
 // Flush is a no-op for generic io.Writer.
 func (a *IOWriterAdapter) Flush() error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.closed {
+		return a.closeErr
+	}
+	if flusher, ok := a.writer.(interface{ Flush() error }); ok {
+		return flusher.Flush()
+	}
 	return nil
 }

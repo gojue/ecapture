@@ -56,13 +56,19 @@ type Event interface {
 
 // EventHandler processes events after they are decoded.
 type EventHandler interface {
+	// Supports reports whether this handler accepts event. Dispatchers must call
+	// it before Handle so representation handlers cannot consume each other's
+	// semantic event classes.
+	Supports(event Event) bool
+
 	// Handle processes a decoded event.
 	Handle(event Event) error
 
 	// Name returns the handler's identifier.
 	Name() string
 
-	// OutputWriter returns the associated output writer for this handler.
+	// Writer returns the associated byte sink. Typed publisher handlers return
+	// nil because they do not own a ByteSink.
 	Writer() writers.OutputWriter
 }
 

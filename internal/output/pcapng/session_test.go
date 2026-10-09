@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package writers
+package pcapng
 
 import (
 	"bytes"
@@ -29,12 +29,13 @@ import (
 	"github.com/google/gopacket/pcapgo"
 
 	lger "github.com/gojue/ecapture/v2/internal/logger"
+	"github.com/gojue/ecapture/v2/internal/output/writers"
 )
 
-func TestPcapWriterQueuesBurstWithoutDrop(t *testing.T) {
+func TestSessionQueuesBurstWithoutDrop(t *testing.T) {
 	t.Parallel()
 
-	pw := &PcapWriter{
+	pw := &Session{
 		queueReady: make(chan struct{}, 1),
 	}
 
@@ -55,7 +56,7 @@ func TestPcapWriterQueuesBurstWithoutDrop(t *testing.T) {
 	}
 }
 
-func TestPcapWriterPersistsBurstOnClose(t *testing.T) {
+func TestSessionPersistsBurstOnClose(t *testing.T) {
 	t.Parallel()
 
 	var output bytes.Buffer
@@ -65,15 +66,16 @@ func TestPcapWriterPersistsBurstOnClose(t *testing.T) {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	pw := &PcapWriter{
-		writer:     ngWriter,
+	pw := &Session{
+		encoder:    ngWriter,
+		sink:       writers.NewIOWriterAdapter(&output, "memory"),
 		ctx:        ctx,
 		ctxCancel:  cancel,
 		queueReady: make(chan struct{}, 1),
 		serveDone:  make(chan struct{}),
 		logger:     lger.New(io.Discard, false),
 	}
-	go pw.Serve()
+	go pw.run()
 
 	const packetCount = 4096
 	packet := make([]byte, 60)
@@ -104,7 +106,7 @@ func TestPcapWriterPersistsBurstOnClose(t *testing.T) {
 	}
 }
 
-func TestPcapWriterKeepsDSBBeforeChronologicalPackets(t *testing.T) {
+func TestSessionKeepsDSBBeforeChronologicalPackets(t *testing.T) {
 	t.Parallel()
 
 	var output bytes.Buffer
@@ -114,8 +116,9 @@ func TestPcapWriterKeepsDSBBeforeChronologicalPackets(t *testing.T) {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	pw := &PcapWriter{
-		writer:     ngWriter,
+	pw := &Session{
+		encoder:    ngWriter,
+		sink:       writers.NewIOWriterAdapter(&output, "memory"),
 		ctx:        ctx,
 		ctxCancel:  cancel,
 		tcPackets:  []*TcPacket{},
@@ -123,7 +126,7 @@ func TestPcapWriterKeepsDSBBeforeChronologicalPackets(t *testing.T) {
 		serveDone:  make(chan struct{}),
 		logger:     lger.New(io.Discard, false),
 	}
-	go pw.Serve()
+	go pw.run()
 
 	baseTime := time.Unix(100, 0)
 	for _, timestamp := range []time.Time{baseTime.Add(2 * time.Second), baseTime.Add(time.Second)} {
@@ -167,7 +170,7 @@ func TestPcapWriterKeepsDSBBeforeChronologicalPackets(t *testing.T) {
 	}
 }
 
-func TestPcapWriterTimedFlushDrainsPendingDSBBeforePackets(t *testing.T) {
+func TestSessionTimedFlushDrainsPendingDSBBeforePackets(t *testing.T) {
 	t.Parallel()
 
 	var output bytes.Buffer
@@ -176,8 +179,9 @@ func TestPcapWriterTimedFlushDrainsPendingDSBBeforePackets(t *testing.T) {
 		t.Fatalf("NewNgWriter() error = %v", err)
 	}
 
-	pw := &PcapWriter{
-		writer: ngWriter,
+	pw := &Session{
+		encoder: ngWriter,
+		sink:    writers.NewIOWriterAdapter(&output, "memory"),
 		tcPackets: []*TcPacket{{
 			ci:   gopacket.CaptureInfo{Timestamp: time.Unix(100, 0), CaptureLength: 60, Length: 60},
 			data: make([]byte, 60),
@@ -192,7 +196,7 @@ func TestPcapWriterTimedFlushDrainsPendingDSBBeforePackets(t *testing.T) {
 	assertDSBsBeforePackets(t, output.Bytes(), 1)
 }
 
-func TestPcapWriterStartsDSBGracePeriodWithFirstPacket(t *testing.T) {
+func TestSessionStartsDSBGracePeriodWithFirstPacket(t *testing.T) {
 	t.Parallel()
 
 	var output bytes.Buffer
@@ -202,8 +206,9 @@ func TestPcapWriterStartsDSBGracePeriodWithFirstPacket(t *testing.T) {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	pw := &PcapWriter{
-		writer:     ngWriter,
+	pw := &Session{
+		encoder:    ngWriter,
+		sink:       writers.NewIOWriterAdapter(&output, "memory"),
 		ctx:        ctx,
 		ctxCancel:  cancel,
 		tcPackets:  []*TcPacket{},
@@ -242,7 +247,7 @@ func TestPcapWriterStartsDSBGracePeriodWithFirstPacket(t *testing.T) {
 	assertDSBsBeforePackets(t, output.Bytes(), 2)
 }
 
-func TestPcapWriterRestartsDSBGracePeriodForNextBatch(t *testing.T) {
+func TestSessionRestartsDSBGracePeriodForNextBatch(t *testing.T) {
 	t.Parallel()
 
 	var output bytes.Buffer
@@ -252,8 +257,9 @@ func TestPcapWriterRestartsDSBGracePeriodForNextBatch(t *testing.T) {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	pw := &PcapWriter{
-		writer:     ngWriter,
+	pw := &Session{
+		encoder:    ngWriter,
+		sink:       writers.NewIOWriterAdapter(&output, "memory"),
 		ctx:        ctx,
 		ctxCancel:  cancel,
 		tcPackets:  []*TcPacket{},

@@ -66,7 +66,7 @@ message Heartbeat {
 2025-08-02T14:16:10Z INF Listen for eCaptureQ=ws://172.16.71.129:9999
 ```
 
-> 即使eCapture先启动，客户端连接后也会收到这些日志。 是因为eCapture在启动时会缓存前128条日志，连接后会将这些日志发送给客户端。
+> 即使eCapture先启动，客户端连接后也会收到这些日志。eCapture 会缓存最近 128 条运行日志；事件不进入历史缓存，已连接客户端会立即收到实时日志和事件。
 
 ##### 捕获的事件详情
 
@@ -87,8 +87,18 @@ message Event {
   uint32 type = 9;
   uint32 length = 10;
   bytes payload = 11;
+  CaptureFormat capture_format = 12;
+  Sensitivity sensitivity = 13;
+  string direction = 14;
+  uint32 original_length = 15;
+  string stream_id = 16;
+  uint64 sequence = 17;
 }
 ```
+
+`PROCESS_LOG` 只包含 eCapture 自身的启动、生命周期、健康和错误信息；捕获的
+明文、密钥和数据包只能通过 `EVENT` 发送。`capture_format` 标识
+text/keylog/pcapng 表示，`sensitivity` 标识需要敏感数据处理的事件。
 
 ---
 

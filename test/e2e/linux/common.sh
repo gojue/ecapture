@@ -18,6 +18,8 @@ TLS_SERVER_PORT=""
 TLS_SERVER_URL=""
 E2E_TOKEN=""
 PCAPNG_CHECK=""
+OUTPUT_RECEIVER_PID=""
+OUTPUT_RECEIVER_URI=""
 
 version_at_least() {
     local actual="$1"
@@ -86,7 +88,62 @@ build_host_helpers() {
     mkdir -p "$helper_dir"
     go build -o "$helper_dir/tls_server" "$E2E_DIR/fixtures/tls_server/main.go"
     go build -o "$helper_dir/pcapng_check" "$E2E_DIR/fixtures/pcapng_check/main.go"
+    go build -o "$helper_dir/output_receiver" "$E2E_DIR/fixtures/output_receiver/main.go"
+    go build -o "$helper_dir/ecaptureq_assert" "$E2E_DIR/fixtures/ecaptureq_assert/main.go"
     PCAPNG_CHECK="$helper_dir/pcapng_check"
+}
+
+start_output_receiver() {
+    local mode="$1"
+    local output_file="$2"
+    local ready_file="$WORK_DIR/output-receiver-${mode}.addr"
+    local receiver_log="$WORK_DIR/output-receiver-${mode}.log"
+    : >"$receiver_log"
+    rm -f -- "$ready_file"
+    "$WORK_DIR/helpers/output_receiver" --mode "$mode" --listen 127.0.0.1:0 \
+        --ready-file "$ready_file" --output "$output_file" >"$receiver_log" 2>&1 &
+    OUTPUT_RECEIVER_PID=$!
+    local attempt
+    for attempt in $(seq 1 50); do
+        if [[ -s "$ready_file" ]]; then
+            OUTPUT_RECEIVER_URI="$(tr -d '\r\n' <"$ready_file")"
+            return 0
+        fi
+        if ! kill -0 "$OUTPUT_RECEIVER_PID" 2>/dev/null; then
+            wait "$OUTPUT_RECEIVER_PID" 2>/dev/null || true
+            log_error "Output receiver exited during initialization"
+            cat "$receiver_log" >&2 || true
+            OUTPUT_RECEIVER_PID=""
+            return 1
+        fi
+        sleep 0.1
+    done
+    log_error "Timed out waiting for output receiver"
+    return 1
+}
+
+stop_output_receiver() {
+    if [[ -z "$OUTPUT_RECEIVER_PID" ]]; then
+        return 0
+    fi
+    local attempt
+    for attempt in $(seq 1 30); do
+        if ! kill -0 "$OUTPUT_RECEIVER_PID" 2>/dev/null; then
+            break
+        fi
+        sleep 0.1
+    done
+    if kill -0 "$OUTPUT_RECEIVER_PID" 2>/dev/null; then
+        kill -TERM "$OUTPUT_RECEIVER_PID" 2>/dev/null || true
+    fi
+    local status=0
+    wait "$OUTPUT_RECEIVER_PID" || status=$?
+    OUTPUT_RECEIVER_PID=""
+    OUTPUT_RECEIVER_URI=""
+    if ((status != 0)); then
+        log_error "Output receiver failed with status $status"
+        return 1
+    fi
 }
 
 start_tls_fixture() {
@@ -148,6 +205,33 @@ start_capture() {
     return 0
 }
 
+start_capture_split() {
+    local stdout_file="$1"
+    local stderr_file="$2"
+    shift 2
+
+    : >"$stdout_file"
+    : >"$stderr_file"
+    log_info "Starting with split stdout/stderr: $ECAPTURE_BINARY $*"
+    "$ECAPTURE_BINARY" "$@" >"$stdout_file" 2>"$stderr_file" &
+    CAPTURE_PID=$!
+
+    local attempt
+    for attempt in $(seq 1 30); do
+        if ! kill -0 "$CAPTURE_PID" 2>/dev/null; then
+            wait "$CAPTURE_PID" 2>/dev/null || true
+            log_error "eCapture exited during initialization"
+            tail -n 100 "$stderr_file" >&2 || true
+            CAPTURE_PID=""
+            return 1
+        fi
+        if grep -Eiq 'probe started successfully' "$stderr_file"; then
+            return 0
+        fi
+        sleep 0.2
+    done
+}
+
 stop_capture() {
     if [[ -z "$CAPTURE_PID" ]]; then
         return 0
@@ -195,6 +279,7 @@ resolve_linked_library() {
 }
 
 linux_suite_cleanup() {
+    stop_output_receiver || true
     stop_packet_capture || true
     stop_capture || true
     if [[ -n "$TLS_SERVER_PID" ]] && kill -0 "$TLS_SERVER_PID" 2>/dev/null; then

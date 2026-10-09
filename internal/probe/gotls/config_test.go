@@ -15,6 +15,7 @@
 package gotls
 
 import (
+	"net"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -149,8 +150,21 @@ func TestConfig_ValidateNetworkInterface(t *testing.T) {
 		t.Skip("No network interfaces found, skipping test")
 	}
 
-	// Use the first available interface
-	ifname := ifaces[0].Name()
+	var ifname string
+	for _, entry := range ifaces {
+		iface, lookupErr := net.InterfaceByName(entry.Name())
+		if lookupErr != nil || iface.Flags&net.FlagUp == 0 {
+			continue
+		}
+		addrs, addrErr := iface.Addrs()
+		if addrErr == nil && len(addrs) > 0 {
+			ifname = entry.Name()
+			break
+		}
+	}
+	if ifname == "" {
+		t.Skip("No active network interface with an address found")
+	}
 
 	cfg := NewConfig()
 	cfg.CaptureMode = handlers.ModePcap

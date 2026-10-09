@@ -56,6 +56,9 @@ func init() {
 
 // goTLSCommandFunc executes the "gotls" command using the new probe architecture.
 func goTLSCommandFunc(command *cobra.Command, args []string) error {
+	if err := normalizeTLSOutputFlags(command, gotlsConfig.CaptureMode, &gotlsConfig.KeylogFile, &gotlsConfig.PcapFile); err != nil {
+		return err
+	}
 	if gotlsConfig.PcapFilter == "" && len(args) != 0 {
 		gotlsConfig.PcapFilter = strings.Join(args, " ")
 	}
@@ -68,6 +71,7 @@ func goTLSCommandFunc(command *cobra.Command, args []string) error {
 	gotlsConfig.SetBTF(globalConf.BtfMode)
 	gotlsConfig.SetPerCpuMapSize(globalConf.PerCpuMapSize)
 	gotlsConfig.SetTruncateSize(globalConf.TruncateSize)
+	gotlsConfig.SetLoggerAddr(globalConf.LoggerAddr)
 	gotlsConfig.SetEventCollectorAddr(globalConf.EventCollectorAddr)
 	// Run probe using the common entry point
 	return runProbe(factory.ProbeTypeGoTLS, gotlsConfig)

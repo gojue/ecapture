@@ -92,6 +92,20 @@ assert_file_not_contains() {
     fi
 }
 
+assert_output_isolation() {
+    local operational_log="$1"
+    local event_output="$2"
+    local captured_token="$3"
+    assert_file_contains "$operational_log" "Probe initialized" \
+        "BaseProbe initialization in --logaddr" || return 1
+    assert_file_contains "$operational_log" "Probe closed" \
+        "BaseProbe shutdown in --logaddr" || return 1
+    assert_file_not_contains "$operational_log" "$captured_token" \
+        "captured payload in operational log" || return 1
+    assert_file_not_contains "$event_output" "Probe initialized" \
+        "operational lifecycle in captured-event output" || return 1
+}
+
 print_plaintext_preview() {
     local file="$1"
     local token="$2"
