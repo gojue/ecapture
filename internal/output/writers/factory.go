@@ -79,6 +79,14 @@ type WriterFactory struct{}
 
 func NewWriterFactory() *WriterFactory { return &WriterFactory{} }
 
+// byteSinkPolicy contains transport construction details that vary by semantic
+// channel. Public callers still choose between operational and event sinks;
+// this policy only removes duplication in the shared ByteSink construction.
+type byteSinkPolicy struct {
+	fileConfig    FileWriterConfig
+	tcpBufferSize int
+}
+
 // ValidateEventSinkAddress rejects malformed or incompatible configurations
 // without opening a file or network connection.
 func (f *WriterFactory) ValidateEventSinkAddress(options EventSinkOptions) error {
@@ -117,37 +125,22 @@ func (f *WriterFactory) CreateEventSink(options EventSinkOptions) (ByteSink, err
 	if address == "" {
 		address = "stdout"
 	}
-	parsed, err := parseSinkAddress(address)
-	if err != nil {
-		return nil, err
-	}
 
-	switch parsed.kind {
-	case "stdout":
-		return NewStdoutWriter(), nil
-	case "file":
-		bufferSize := 0
-		truncate := options.Format == EventFormatKeylog || options.Format == EventFormatPcapng
-		if options.Format == EventFormatPcapng {
-			bufferSize = 64 * 1024
-		}
-		config := FileWriterConfig{Path: parsed.name, BufferSize: bufferSize, Truncate: truncate}
-		if options.Format == EventFormatKeylog || options.Format == EventFormatPcapng {
-			config.Permissions = 0600
-		}
-		if options.RotateConfig != nil {
-			config.EnableRotate = options.RotateConfig.EnableRotate
-			config.MaxSizeMB = options.RotateConfig.MaxSizeMB
-			config.MaxInterval = options.RotateConfig.MaxInterval
-		}
-		return NewFileWriter(config)
-	case "tcp":
-		return NewTcpWriter(parsed.name, 4096)
-	case "ws", "wss":
-		return NewWebSocketWriter(address)
-	default:
-		return nil, fmt.Errorf("unsupported sink kind %q", parsed.kind)
+	fileConfig := FileWriterConfig{
+		Truncate: options.Format == EventFormatKeylog || options.Format == EventFormatPcapng,
 	}
+	if options.Format == EventFormatPcapng {
+		fileConfig.BufferSize = 64 * 1024
+	}
+	if options.Format == EventFormatKeylog || options.Format == EventFormatPcapng {
+		fileConfig.Permissions = 0600
+	}
+	applyRotateConfig(&fileConfig, options.RotateConfig)
+
+	return f.createByteSink(address, byteSinkPolicy{
+		fileConfig:    fileConfig,
+		tcpBufferSize: 4096,
+	})
 }
 
 // CreateOperationalSink constructs a non-console operational destination. The
@@ -156,6 +149,12 @@ func (f *WriterFactory) CreateOperationalSink(address string, rotateConfig *Rota
 	if address == "" {
 		return nil, fmt.Errorf("operational sink address cannot be empty")
 	}
+	fileConfig := FileWriterConfig{Truncate: true}
+	applyRotateConfig(&fileConfig, rotateConfig)
+	return f.createByteSink(address, byteSinkPolicy{fileConfig: fileConfig})
+}
+
+func (f *WriterFactory) createByteSink(address string, policy byteSinkPolicy) (ByteSink, error) {
 	parsed, err := parseSinkAddress(address)
 	if err != nil {
 		return nil, err
@@ -164,20 +163,25 @@ func (f *WriterFactory) CreateOperationalSink(address string, rotateConfig *Rota
 	case "stdout":
 		return NewStdoutWriter(), nil
 	case "file":
-		config := FileWriterConfig{Path: parsed.name, Truncate: true}
-		if rotateConfig != nil {
-			config.EnableRotate = rotateConfig.EnableRotate
-			config.MaxSizeMB = rotateConfig.MaxSizeMB
-			config.MaxInterval = rotateConfig.MaxInterval
-		}
+		config := policy.fileConfig
+		config.Path = parsed.name
 		return NewFileWriter(config)
 	case "tcp":
-		return NewTcpWriter(parsed.name, 0)
+		return NewTcpWriter(parsed.name, policy.tcpBufferSize)
 	case "ws", "wss":
 		return NewWebSocketWriter(address)
 	default:
 		return nil, fmt.Errorf("unsupported sink kind %q", parsed.kind)
 	}
+}
+
+func applyRotateConfig(config *FileWriterConfig, rotateConfig *RotateConfig) {
+	if rotateConfig == nil {
+		return
+	}
+	config.EnableRotate = rotateConfig.EnableRotate
+	config.MaxSizeMB = rotateConfig.MaxSizeMB
+	config.MaxInterval = rotateConfig.MaxInterval
 }
 
 // CreateWriter preserves the old text-writer API during migration.
