@@ -68,6 +68,11 @@ and reattached after reload.
 | keylog | NSS Key Log lines | explicit stdout, file, TCP, binary WebSocket | structured sensitive event |
 | pcapng | ordered pcapng with DSB | explicit stdout, file, TCP, binary WebSocket | sensitive packet rows, never raw pcapng chunks |
 
+The maintained strict Linux E2E suites exercise operational logs and every
+event representation against all four ByteSink types for OpenSSL, GoTLS, and
+GnuTLS. They also run a typed eCaptureQ receiver for text, keylog, and pcapng
+and validate both semantic channels plus event metadata.
+
 Plain paths and `file://` are files. Unknown or malformed URI schemes fail
 validation. Rotation is valid only for file-backed text/keylog streams and is
 rejected for pcapng or network sinks. New keylog and pcapng files are created

@@ -170,14 +170,17 @@ The maintained Linux harness exercises OpenSSL, GoTLS, and GnuTLS against a
 deterministic local TLS fixture. Each suite verifies:
 
 - invalid/conflicting CLI combinations fail before capture;
-- text file and TCP streams contain captured plaintext and no lifecycle logs;
-- keylog file, TCP, and binary WebSocket streams contain valid NSS records and
-  decrypt an independent capture;
+- text stdout, file, TCP, and binary WebSocket streams contain captured
+  plaintext and no lifecycle logs;
+- keylog stdout, file, TCP, and binary WebSocket streams contain valid NSS
+  records and decrypt an independent capture;
 - pcapng file, TCP, binary WebSocket, and redirected stdout streams contain
   valid blocks, DSB material, and decrypt the deterministic token;
-- operational output contains lifecycle records and no plaintext or secrets;
-- the strict protobuf client observes both `PROCESS_LOG` and the correctly
-  classified `EVENT` while raw event output remains enabled;
+- operational stdout, file, TCP, and binary WebSocket output contains
+  lifecycle records and no plaintext or secrets;
+- the strict protobuf receiver observes both `PROCESS_LOG` and the correctly
+  classified text, keylog, or pcapng `EVENT`, including required metadata,
+  while raw event output remains enabled;
 - graceful process exit flushes the final record and closes receivers.
 
 Success paths remove sensitive artifacts without printing their contents.
