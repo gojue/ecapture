@@ -85,6 +85,7 @@ Captured SSL/TLS events containing:
 - Process ID and name
 - Source and destination IP/port
 - Event type and length
+- Capture format, sensitivity, direction, and optional stream sequence
 - Payload data (displayed as text or hex dump)
 
 ## Example Output

@@ -67,6 +67,7 @@ func TestPcapWriterPersistsBurstOnClose(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	pw := &PcapWriter{
 		writer:     ngWriter,
+		sink:       NewIOWriterAdapter(&output, "memory"),
 		ctx:        ctx,
 		ctxCancel:  cancel,
 		queueReady: make(chan struct{}, 1),
@@ -116,6 +117,7 @@ func TestPcapWriterKeepsDSBBeforeChronologicalPackets(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	pw := &PcapWriter{
 		writer:     ngWriter,
+		sink:       NewIOWriterAdapter(&output, "memory"),
 		ctx:        ctx,
 		ctxCancel:  cancel,
 		tcPackets:  []*TcPacket{},
@@ -178,6 +180,7 @@ func TestPcapWriterTimedFlushDrainsPendingDSBBeforePackets(t *testing.T) {
 
 	pw := &PcapWriter{
 		writer: ngWriter,
+		sink:   NewIOWriterAdapter(&output, "memory"),
 		tcPackets: []*TcPacket{{
 			ci:   gopacket.CaptureInfo{Timestamp: time.Unix(100, 0), CaptureLength: 60, Length: 60},
 			data: make([]byte, 60),
@@ -204,6 +207,7 @@ func TestPcapWriterStartsDSBGracePeriodWithFirstPacket(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	pw := &PcapWriter{
 		writer:     ngWriter,
+		sink:       NewIOWriterAdapter(&output, "memory"),
 		ctx:        ctx,
 		ctxCancel:  cancel,
 		tcPackets:  []*TcPacket{},
@@ -254,6 +258,7 @@ func TestPcapWriterRestartsDSBGracePeriodForNextBatch(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	pw := &PcapWriter{
 		writer:     ngWriter,
+		sink:       NewIOWriterAdapter(&output, "memory"),
 		ctx:        ctx,
 		ctxCancel:  cancel,
 		tcPackets:  []*TcPacket{},

@@ -15,7 +15,6 @@
 package ws
 
 import (
-	"encoding/base64"
 	"net/http/httptest"
 	"testing"
 
@@ -28,23 +27,16 @@ func TestClient_Write(t *testing.T) {
 		defer func() {
 			_ = ws.Close()
 		}()
-		var message string
+		var message []byte
 		err := websocket.Message.Receive(ws, &message)
 		if err != nil {
 			t.Errorf("Failed to receive message: %v", err)
 			return
 		}
 
-		// 验证收到的是base64编码的数据
-		decoded, err := base64.StdEncoding.DecodeString(message)
-		if err != nil {
-			t.Errorf("Failed to decode base64: %v", err)
-			return
-		}
-
 		expected := "test data"
-		if string(decoded) != expected {
-			t.Errorf("Expected %s, got %s", expected, string(decoded))
+		if string(message) != expected {
+			t.Errorf("Expected %s, got %s", expected, string(message))
 		}
 	}))
 	defer server.Close()

@@ -14,57 +14,169 @@
 
 package ecaptureq
 
-// Hub maintains the set of active clients and broadcasts messages to the
-// clients.
-type Hub struct {
-	// Registered clients.
-	clients map[*Client]bool
+import (
+	"context"
+	"errors"
+	"fmt"
+	"sync"
+	"sync/atomic"
+)
 
-	// Inbound messages from the clients.
-	broadcast chan []byte
+var ErrBackpressure = errors.New("ecaptureq backpressure")
 
-	// Register requests from the clients.
-	register chan *Client
-
-	// Unregister requests from clients.
-	unregister chan *Client
+type publishRequest struct {
+	message    []byte
+	processLog bool
+	result     chan error
 }
 
-func newHub() *Hub {
-	return &Hub{
-		broadcast:  make(chan []byte),
-		register:   make(chan *Client),
-		unregister: make(chan *Client),
-		clients:    make(map[*Client]bool),
+type registerRequest struct {
+	client *Client
+	result chan error
+}
+
+// Hub serializes publish, history, and client registration so a new client gets
+// a stable bounded history followed by live messages without a handoff race.
+type Hub struct {
+	ctx        context.Context
+	broadcast  chan publishRequest
+	register   chan registerRequest
+	unregister chan *Client
+	clients    map[*Client]struct{}
+	history    [][]byte
+	done       chan struct{}
+	closeOnce  sync.Once
+	dropped    atomic.Uint64
+}
+
+func newHub(ctx context.Context) *Hub {
+	h := &Hub{
+		ctx:        ctx,
+		broadcast:  make(chan publishRequest, 256),
+		register:   make(chan registerRequest, 32),
+		unregister: make(chan *Client, 32),
+		clients:    make(map[*Client]struct{}),
+		history:    make([][]byte, 0, LogBuffLen),
+		done:       make(chan struct{}),
 	}
+	go h.run()
+	return h
 }
 
 func (h *Hub) run() {
+	defer close(h.done)
 	for {
 		select {
-		case client := <-h.register:
-			h.clients[client] = true
+		case <-h.ctx.Done():
+			for client := range h.clients {
+				delete(h.clients, client)
+				close(client.send)
+			}
+			return
+		case request := <-h.register:
+			var err error
+			for _, message := range h.history {
+				select {
+				case request.client.send <- append([]byte(nil), message...):
+				default:
+					err = fmt.Errorf("%w: startup history exceeds client queue", ErrBackpressure)
+					h.dropped.Add(1)
+				}
+				if err != nil {
+					break
+				}
+			}
+			if err == nil {
+				h.clients[request.client] = struct{}{}
+			}
+			request.result <- err
 		case client := <-h.unregister:
 			if _, ok := h.clients[client]; ok {
 				delete(h.clients, client)
 				close(client.send)
 			}
-		case message := <-h.broadcast:
+		case request := <-h.broadcast:
+			if request.processLog {
+				h.appendHistory(request.message)
+			}
+			var deliveryErr error
 			for client := range h.clients {
 				select {
-				case client.send <- message:
+				case client.send <- append([]byte(nil), request.message...):
 				default:
-					close(client.send)
 					delete(h.clients, client)
+					close(client.send)
+					h.dropped.Add(1)
+					deliveryErr = fmt.Errorf("%w: client queue full", ErrBackpressure)
 				}
 			}
+			request.result <- deliveryErr
 		}
 	}
 }
 
-func (h *Hub) broadcastMessage(message []byte) {
+func (h *Hub) appendHistory(message []byte) {
+	copyMessage := append([]byte(nil), message...)
+	if len(h.history) < LogBuffLen {
+		h.history = append(h.history, copyMessage)
+		return
+	}
+	copy(h.history, h.history[1:])
+	h.history[len(h.history)-1] = copyMessage
+}
+
+func (h *Hub) publish(ctx context.Context, message []byte, processLog bool) error {
+	request := publishRequest{
+		message:    append([]byte(nil), message...),
+		processLog: processLog,
+		result:     make(chan error, 1),
+	}
 	select {
-	case h.broadcast <- message:
+	case h.broadcast <- request:
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-h.ctx.Done():
+		return context.Canceled
 	default:
+		h.dropped.Add(1)
+		return fmt.Errorf("%w: publisher queue full", ErrBackpressure)
+	}
+	select {
+	case err := <-request.result:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-h.ctx.Done():
+		return context.Canceled
 	}
 }
+
+func (h *Hub) registerClient(ctx context.Context, client *Client) error {
+	request := registerRequest{client: client, result: make(chan error, 1)}
+	select {
+	case h.register <- request:
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-h.ctx.Done():
+		return context.Canceled
+	}
+	select {
+	case err := <-request.result:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-h.ctx.Done():
+		return context.Canceled
+	}
+}
+
+func (h *Hub) unregisterClient(client *Client) {
+	select {
+	case h.unregister <- client:
+	case <-h.ctx.Done():
+	}
+}
+
+func (h *Hub) wait() { <-h.done }
+
+func (h *Hub) droppedCount() uint64 { return h.dropped.Load() }

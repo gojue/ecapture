@@ -347,9 +347,9 @@ func (p *Probe) getManagerOptions() manager.Options {
 }
 func (p *Probe) setupManagersKeyLog(keySection, keyFunc string) error {
 
-	keylogFile := p.config.GetKeylogFile()
-	if keylogFile == "" {
-		return fmt.Errorf("keylog mode requires keylog file path")
+	keylogAddr := p.config.GetEventCollectorAddr()
+	if keylogAddr == "" {
+		return fmt.Errorf("keylog mode requires an event destination")
 	}
 
 	var gotlsConf = p.config
@@ -380,10 +380,10 @@ func (p *Probe) setupManagersKeyLog(keySection, keyFunc string) error {
 		Str("Func", keyFunc).Str("GoTlsMasterSecretAddr", fmt.Sprintf("%X", p.config.GoTlsMasterSecretAddr)).
 		Msg("Added master secret probe")
 
-	keylogFileWriter, err := writers.NewFileWriter(writers.FileWriterConfig{
-		Path:       keylogFile,
-		BufferSize: 0,
-		Truncate:   true,
+	keylogFileWriter, err := writers.NewWriterFactory().CreateEventSink(writers.EventSinkOptions{
+		Address:      keylogAddr,
+		Format:       writers.EventFormatKeylog,
+		RotateConfig: writers.NewRotateConfig(p.config.GetEventRotation()),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create keylog writer: %w", err)
@@ -458,37 +458,33 @@ func (p *Probe) setupManagerPcapNG(keySection, keyFunc string) error {
 
 	keylogFile := p.config.GetKeylogFile()
 	if keylogFile != "" {
-		keylogFileWriter, err := writers.NewFileWriter(writers.FileWriterConfig{
-			Path:       keylogFile,
-			BufferSize: 0,
-			Truncate:   true,
+		keylogFileWriter, err := writers.NewWriterFactory().CreateEventSink(writers.EventSinkOptions{
+			Address: keylogFile,
+			Format:  writers.EventFormatKeylog,
 		})
 		if err != nil {
-			p.Logger().Warn().Err(err).Str("keylog file", p.config.GetKeylogFile()).Msg("Failed to create keylog handler, continuing without keylog")
-		} else {
-			keylogWriter := writers.NewKeylogWriter(keylogFileWriter)
-			keylogHandler := handlers.NewKeylogHandler(keylogWriter)
-			if err := p.BaseProbe.Dispatcher().Register(keylogHandler); err != nil {
-				_ = keylogWriter.Close()
-				return fmt.Errorf("failed to register keylog handler: %w", err)
-			}
-			// Note: keylogWriter will be closed through keylogHandler.Close() when dispatcher closes
-			// Don't add it to p.closer to avoid double-close
-			p.Logger().Info().Str("keylog_file", keylogFile).Msg("Keylog handler registered for pcapng mode")
+			return fmt.Errorf("failed to create standalone keylog sink: %w", err)
 		}
+		keylogWriter := writers.NewKeylogWriter(keylogFileWriter)
+		keylogHandler := handlers.NewKeylogHandler(keylogWriter)
+		if err := p.BaseProbe.Dispatcher().Register(keylogHandler); err != nil {
+			_ = keylogWriter.Close()
+			return fmt.Errorf("failed to register keylog handler: %w", err)
+		}
+		// Note: keylogWriter will be closed through keylogHandler.Close() when dispatcher closes
+		// Don't add it to p.closer to avoid double-close
+		p.Logger().Info().Str("keylog_file", keylogFile).Msg("Keylog handler registered for pcapng mode")
 	}
 
-	pcapFile := p.config.GetPcapFile()
-	if pcapFile == "" {
-		return fmt.Errorf("pcap mode requires pcap file path")
+	pcapAddr := p.config.GetEventCollectorAddr()
+	if pcapAddr == "" {
+		return fmt.Errorf("pcapng mode requires an event destination")
 	}
 
-	// Create file writer for pcap (use O_TRUNC to overwrite existing file)
-	// Note: pcap files should not use rotation
-	pcapWriter, err := writers.NewFileWriter(writers.FileWriterConfig{
-		Path:       pcapFile,
-		BufferSize: 65536, // 64KB buffer for better pcap write performance
-		Truncate:   true,  // Overwrite existing pcapng file on new capture
+	pcapWriter, err := writers.NewWriterFactory().CreateEventSink(writers.EventSinkOptions{
+		Address:      pcapAddr,
+		Format:       writers.EventFormatPcapng,
+		RotateConfig: writers.NewRotateConfig(p.config.GetEventRotation()),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create pcap writer: %w", err)
@@ -519,7 +515,7 @@ func (p *Probe) setupManagerPcapNG(keySection, keyFunc string) error {
 	}
 	// Note: pcapKeylogWriter will be closed through pcapKeylogHandler.Close()
 	// Don't add it to p.closer to avoid double-close
-	p.Logger().Info().Str("pcap_file", pcapFile).Msg("Pcap handler registered")
+	p.Logger().Info().Str("pcap_sink", pcapWriter.Name()).Msg("Pcap handler registered")
 	p.Logger().Debug().
 		Str("ifname", p.config.Ifname).
 		Msg("Added TC probes, SSL probes, and master secret probe for pcap mode")

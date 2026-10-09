@@ -14,6 +14,8 @@
 
 package writers
 
+import "bytes"
+
 // PcapKeylogWriter writes keylog to Pcap file.
 type PcapKeylogWriter struct {
 	*PcapWriter
@@ -24,8 +26,12 @@ func (w *PcapKeylogWriter) Name() string {
 }
 
 func (w *PcapKeylogWriter) Flush() error {
-	return w.PcapWriter.Flush()
+	return w.PcapWriter.FlushKeylogs()
 }
+
+// Close is intentionally a no-op. PcapKeylogWriter borrows the pcapng session;
+// PcapHandler is the sole close owner.
+func (w *PcapKeylogWriter) Close() error { return nil }
 
 func NewPcapKeylogWriter(pw *PcapWriter) *PcapKeylogWriter {
 	return &PcapKeylogWriter{
@@ -35,8 +41,9 @@ func NewPcapKeylogWriter(pw *PcapWriter) *PcapKeylogWriter {
 
 func (w *PcapKeylogWriter) Write(p []byte) (n int, err error) {
 	// Create a copy to avoid modifying the provided buffer
-	data := make([]byte, len(p)+1)
-	copy(data, p)
-	data[len(p)] = '\n'
+	record := bytes.TrimRight(p, "\r\n")
+	data := make([]byte, len(record)+1)
+	copy(data, record)
+	data[len(record)] = '\n'
 	return len(p), w.PcapWriter.WriteKeyLog(data)
 }

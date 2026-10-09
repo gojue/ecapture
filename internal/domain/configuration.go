@@ -60,6 +60,9 @@ type Configuration interface {
 
 	SetEventCollectorAddr(addr string)
 
+	// GetEventRotation returns maximum file size in MiB and interval in seconds.
+	GetEventRotation() (maxSizeMB uint16, maxSeconds uint16)
+
 	// GetEventWriter returns the pre-configured event writer (e.g., for ecaptureQ).
 	// Returns nil if no event writer is configured.
 	GetEventWriter() io.Writer
@@ -74,4 +77,10 @@ type Configuration interface {
 	// GetPerfReorder returns userland perf-buffer reorder settings (enabled, lag in nanoseconds).
 	// Probes embed config.BaseConfig; default is false, 0.
 	GetPerfReorder() (enabled bool, lagNs uint64)
+}
+
+// CaptureModeConfiguration is implemented only by probes whose captured-event
+// representation is selected by a mode.
+type CaptureModeConfiguration interface {
+	GetCaptureMode() string
 }

@@ -16,8 +16,11 @@ package writers
 
 import (
 	"bufio"
+	stderrors "errors"
 	"fmt"
+	"io"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/gojue/ecapture/v2/pkg/util/roratelog"
@@ -30,6 +33,9 @@ type FileWriter struct {
 	buffered  *bufio.Writer
 	path      string
 	useRotate bool
+	mu        sync.Mutex
+	closed    bool
+	closeErr  error
 }
 
 // FileWriterConfig configures file writer options.
@@ -40,6 +46,7 @@ type FileWriterConfig struct {
 	MaxInterval  time.Duration // Maximum time interval (for rotation)
 	BufferSize   int           // Buffer size in bytes (0 = unbuffered)
 	Truncate     bool          // Truncate file on open (instead of append)
+	Permissions  os.FileMode   // File permissions (zero defaults to 0644)
 }
 
 // NewFileWriter creates a new file writer.
@@ -71,7 +78,11 @@ func NewFileWriter(config FileWriterConfig) (*FileWriter, error) {
 	} else {
 		flags |= os.O_APPEND
 	}
-	file, err := os.OpenFile(config.Path, flags, 0644)
+	permissions := config.Permissions
+	if permissions == 0 {
+		permissions = 0644
+	}
+	file, err := os.OpenFile(config.Path, flags, permissions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open file %s: %w", config.Path, err)
 	}
@@ -88,39 +99,46 @@ func NewFileWriter(config FileWriterConfig) (*FileWriter, error) {
 
 // Write writes data to the file.
 func (w *FileWriter) Write(p []byte) (n int, err error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.closed {
+		return 0, fmt.Errorf("file sink %s is closed", w.path)
+	}
+	return w.writeLocked(p)
+}
+
+func (w *FileWriter) writeLocked(p []byte) (n int, err error) {
 	if w.rotateLog != nil {
-		return w.rotateLog.Write(p)
+		n, err = w.rotateLog.Write(p)
+	} else if w.buffered != nil {
+		n, err = w.buffered.Write(p)
+	} else {
+		n, err = w.file.Write(p)
 	}
-
-	if w.buffered != nil {
-		return w.buffered.Write(p)
+	if err == nil && n != len(p) {
+		err = io.ErrShortWrite
 	}
-
-	return w.file.Write(p)
+	return n, err
 }
 
 // Close closes the file and releases resources.
 func (w *FileWriter) Close() error {
-	err := w.Flush()
-	if err != nil {
-		return err
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.closed {
+		return w.closeErr
 	}
+	w.closed = true
 
+	flushErr := w.flushLocked()
+	var closeErr error
 	if w.rotateLog != nil {
-		return w.rotateLog.Close()
+		closeErr = w.rotateLog.Close()
+	} else if w.file != nil {
+		closeErr = w.file.Close()
 	}
-
-	if w.buffered != nil {
-		if err := w.buffered.Flush(); err != nil {
-			return err
-		}
-	}
-
-	if w.file != nil {
-		return w.file.Close()
-	}
-
-	return nil
+	w.closeErr = stderrors.Join(flushErr, closeErr)
+	return w.closeErr
 }
 
 // Name returns the writer name.
@@ -130,8 +148,19 @@ func (w *FileWriter) Name() string {
 
 // Flush flushes any buffered data to disk.
 func (w *FileWriter) Flush() error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.closed {
+		return w.closeErr
+	}
+	return w.flushLocked()
+}
+
+func (w *FileWriter) flushLocked() error {
 	if w.buffered != nil {
-		return w.buffered.Flush()
+		if err := w.buffered.Flush(); err != nil {
+			return err
+		}
 	}
 
 	if w.file != nil {

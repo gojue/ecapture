@@ -14,11 +14,7 @@
 
 package ws
 
-import (
-	"encoding/base64"
-
-	"golang.org/x/net/websocket"
-)
+import "golang.org/x/net/websocket"
 
 func NewClient() *Client {
 	return &Client{}
@@ -30,8 +26,9 @@ type Client struct {
 
 // Write 实现 io.Writer 接口
 func (w *Client) Write(p []byte) (n int, err error) {
-	// 使用base64编码器
-	err = websocket.Message.Send(w.conn, base64.StdEncoding.EncodeToString(p))
+	// []byte is encoded as a WebSocket binary message. Receivers reconstruct
+	// one ordered artifact stream by concatenating frame payloads.
+	err = websocket.Message.Send(w.conn, append([]byte(nil), p...))
 	if err != nil {
 		return 0, err
 	}
@@ -50,5 +47,8 @@ func (w *Client) Dial(url, protocol, origin string) error {
 
 // Close 关闭 WebSocket 连接
 func (w *Client) Close() error {
+	if w.conn == nil {
+		return nil
+	}
 	return w.conn.Close()
 }

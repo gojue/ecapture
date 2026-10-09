@@ -16,6 +16,7 @@ package handlers
 
 import (
 	"bytes"
+	stderrors "errors"
 	"sync"
 	"time"
 
@@ -96,10 +97,24 @@ type PcapHandler struct {
 	ifName          string
 	filter          string
 	logger          *logger.Logger
+	closed          bool
+	closeErr        error
 }
 
 func (h *PcapHandler) Writer() writers.OutputWriter {
 	return h.writer
+}
+
+func (h *PcapHandler) Supports(event domain.Event) bool {
+	return isPacketEvent(event)
+}
+
+func isPacketEvent(event domain.Event) bool {
+	if event == nil {
+		return false
+	}
+	_, ok := event.(PacketEvent)
+	return ok
 }
 
 // NewPcapHandler creates a new PcapHandler with the provided writer.
@@ -124,20 +139,16 @@ func NewPcapHandler(writer writers.OutputWriter, ifName, filter string, lger *lo
 
 // Handle processes a packet event and writes it to the pcapng file.
 func (h *PcapHandler) Handle(event domain.Event) error {
-	if event == nil {
-		return nil // Silently ignore nil events
+	if !h.Supports(event) {
+		return errors.New(errors.ErrCodeEventDispatch, "pcap handler does not support event")
 	}
-
-	// Type assert to packet event
-	pktEvent, ok := event.(PacketEvent)
-	if !ok {
-		h.logger.Debug().Msg("event is not a PacketEvent")
-		// Not a packet event, skip silently (other handlers will process it)
-		return nil
-	}
+	pktEvent := event.(PacketEvent)
 
 	h.mu.Lock()
 	defer h.mu.Unlock()
+	if h.closed {
+		return errors.New(errors.ErrCodeEventDispatch, "pcap handler is closed")
+	}
 
 	// Get packet data
 	packetData := pktEvent.GetPacketData()
@@ -162,20 +173,20 @@ func (h *PcapHandler) Handle(event domain.Event) error {
 func (h *PcapHandler) Close() error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
+	if h.closed {
+		return h.closeErr
+	}
+	h.closed = true
 
-	// Close the pcap writer (waits for Serve goroutine to drain and flush internally)
+	var closeErrors []error
 	if h.pcapWriter != nil {
-		if err := h.pcapWriter.Close(); err != nil {
-			return err
-		}
+		closeErrors = append(closeErrors, h.pcapWriter.Close())
 	}
-
-	// Finally close the underlying file writer
 	if h.writer != nil {
-		return h.writer.Close()
+		closeErrors = append(closeErrors, h.writer.Flush(), h.writer.Close())
 	}
-
-	return nil
+	h.closeErr = stderrors.Join(closeErrors...)
+	return h.closeErr
 }
 
 // Name returns the handler's identifier.

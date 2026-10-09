@@ -144,11 +144,24 @@ The OpenSSL module supports three capture modes:
 - `keylog`/`key` mode saves TLS handshake keys to a file.
 - `text` mode captures plaintext data directly, either writing it to a file or printing it to the console.
 
+For OpenSSL, GoTLS, and GnuTLS, `--eventaddr` is the uniform primary event
+destination. It accepts `stdout`, a plain path or `file://` URI,
+`tcp://host:port`, and `ws://`/`wss://` (ordered binary frames). The mode
+selects text, NSS Key Log, or pcapng representation; the address selects only
+the transport. `--keylogfile` and `--pcapfile` remain compatible primary-file
+aliases in their respective modes. Setting `--eventaddr` together with the
+corresponding alias is an error. In pcapng mode, `--keylogfile` is a separate
+optional keylog artifact.
+
+`--logaddr` carries eCapture runtime logs only. Console runtime logs use
+stderr, while captured stdout contains only event bytes. eCaptureQ is additive:
+enabling it does not replace `--eventaddr` or `--logaddr`.
+
 #### Pcap mode
 
 Supports TLS-encrypted HTTP `1.0/1.1/2.0` over TCP and HTTP/3 (QUIC) over UDP.
 
-You can specify `-m pcap` or `-m pcapng` together with `--pcapfile` and `-i`. The default value of `--pcapfile` is `ecapture_openssl.pcapng`.
+You can specify `-m pcap` or `-m pcapng` together with `--pcapfile` and `-i`. The current compatible default value of `--pcapfile` is `save.pcapng`.
 
 ```shell
 sudo ecapture tls -m pcap -i eth0 --pcapfile=ecapture.pcapng tcp port 443
@@ -160,7 +173,7 @@ This command saves captured plaintext packets as a pcapng file, which can be ope
 
 #### Keylog mode
 
-You can specify `-m keylog` or `-m key` together with the `--keylogfile` option. The default output file is `ecapture_masterkey.log`.
+You can specify `-m keylog` or `-m key` together with the `--keylogfile` option. The current compatible default output file is `ecapture_openssl_key.log`.
 
 The captured OpenSSL TLS master secret is saved to `--keylogfile`. You can also enable `tcpdump` capture and then open the file in Wireshark, setting the master secret path to view plaintext packets.
 

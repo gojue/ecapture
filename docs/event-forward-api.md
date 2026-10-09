@@ -11,7 +11,7 @@ This document briefly explains **how to receive events and runtime logs from eCa
 eCapture exposes three parameters related to log / event output:
 
 - `--logaddr`: output for **eCapture runtime logs** (text)
-- `--eventaddr`: output for **captured events** (text)
+- `--eventaddr`: byte destination for **captured events** (text, keylog, or pcapng according to `--model`)
 - `--ecaptureq`: WebSocket + Protobuf(LogEntry) endpoint for streaming **runtime logs and events** (structured)
 
 The repository already contains detailed protocol docs and a full demo client.  
@@ -31,10 +31,14 @@ This file is intentionally concise and mainly serves as an **index + behavior ov
 - Content: initialization info, module startup, configuration details, errors, etc.  
   Format: **plain text**.
 
-### 1.2 `--eventaddr`: captured events (text)
+### 1.2 `--eventaddr`: captured-event byte stream
 
-- Purpose: specify where **captured event logs** are written.
-- Supported targets: similar to `--logaddr` (file / TCP / WebSocket), but output is **text-formatted event logs**.
+- Purpose: select where the captured-event representation is written. The
+  capture mode selects text, NSS Key Log, or pcapng; the address selects
+  stdout, a plain/file URI path, TCP, or WebSocket.
+- TCP is one ordered raw byte stream. WebSocket uses ordered binary frames;
+  receivers reconstruct one artifact by concatenating frame payloads. There
+  is no implicit reconnect in the middle of an artifact.
 - Typical use cases:
     - Directly writing events into files, TCP streams, or an existing log pipeline;
     - When your downstream system prefers plain text logs and does not need protobuf parsing yet.
@@ -56,17 +60,14 @@ This file is intentionally concise and mainly serves as an **index + behavior ov
 
 ### 1.4 Relationship between `eventaddr` and `ecaptureq`
 
-Both parameters define “event output channels”:
+The parameters are additive outputs:
 
-- `--eventaddr`: event logs in **plain text format**;
-- `--ecaptureq`: events + logs in **Protobuf(LogEntry)** format via WebSocket.
+- `--eventaddr`: the selected raw text/keylog/pcapng representation;
+- `--ecaptureq`: typed `PROCESS_LOG` and `EVENT` messages via Protobuf WebSocket.
 
-**Priority:**
-
-- If **both `--ecaptureq` and `--eventaddr` are set**, eCapture will **prefer `--ecaptureq`** for streaming events.
-- You can think of it as:
-    - For **structured, programmatically consumable** event streams → use `--ecaptureq`;
-    - For **plain text log output** → use `--eventaddr`.
+When both are configured, both receive data. eCaptureQ publishes typed domain
+events; it does not parse or replace the raw artifact. `--logaddr` remains an
+independent operational-log fan-out in either case.
 
 ---
 
@@ -104,7 +105,8 @@ Together they define:
     - `LOG_TYPE_PROCESS_LOG` – eCapture runtime logs;
     - `LOG_TYPE_EVENT` – captured business events (e.g. TLS/HTTP data).
 - `Event` fields:
-    - `timestamp`, `uuid`, `src_ip`, `dst_ip`, `pid`, `pname`, `type`, `length`, `payload`, etc.
+    - `timestamp`, `uuid`, network tuple, `pid`, `pname`, `type`, `length`, and `payload`;
+    - `capture_format`, `sensitivity`, `direction`, `original_length`, optional `stream_id`, and `sequence`.
 - `Heartbeat` fields:
     - `timestamp`, `count`, `message`.
 
@@ -166,12 +168,12 @@ You can first run `examples/ecaptureq_client` to observe real traffic and then m
 
 ---
 
-## 3. Using `eventaddr` / `logaddr` for plain text logs
+## 3. Using `eventaddr` / `logaddr` byte destinations
 
-If you don’t want to deal with Protobuf and just need **plain text logs**:
+If you do not need Protobuf:
 
 - Use `--logaddr` for eCapture runtime logs;
-- Use `--eventaddr` for captured event logs (text).
+- Use `--eventaddr` for the captured representation selected by `--model`.
 
 Examples:
 
@@ -195,8 +197,12 @@ In this mode, as a “client” you only need to:
 - Read from the configured file or TCP stream;
 - Parse lines (or whatever text format was chosen) as logs/events.
 
-**Reminder:** If you set both `--ecaptureq` and `--eventaddr`, events will be streamed **via `--ecaptureq` first** (WebSocket + Protobuf).  
-`eventaddr` is mainly useful when you are **not** using eCaptureQ and just need text logs.
+Keylog requires an explicit destination. `--keylogfile` remains a compatibility
+alias for the primary keylog file. `--pcapfile` is the pcapng primary-file
+alias; in pcapng mode `--keylogfile` remains an optional second keylog artifact.
+An explicit `--eventaddr` conflicts with the corresponding primary legacy
+alias. Pcapng to stdout is binary and operational console output remains on
+stderr; explicitly setting both pcapng and `--logaddr stdout` is rejected.
 
 ---
 
@@ -207,10 +213,10 @@ In this mode, as a “client” you only need to:
         - `protobuf/proto/v1/ecaptureq.proto`
         - `protobuf/PROTOCOLS.md`
         - `examples/ecaptureq_client/`
-- For **plain text logs**:
+- For raw byte destinations:
     - Use `--logaddr` for runtime logs;
-    - Use `--eventaddr` for event logs (no Protobuf).
-- When both are configured, `--ecaptureq` has the **highest priority** and is used first to forward events and logs over WebSocket + Protobuf.
+    - Use `--eventaddr` for text, keylog, or pcapng bytes (no Protobuf).
+- eCaptureQ and raw destinations are additive, not priority alternatives.
 
 This document stays minimal on purpose.  
 For full details, always refer to the protocol docs and the demo client in this repository.

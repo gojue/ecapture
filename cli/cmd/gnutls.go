@@ -61,6 +61,9 @@ func init() {
 
 // gnuTlsCommandFunc executes the "gnutls" command using the new probe architecture.
 func gnuTlsCommandFunc(command *cobra.Command, args []string) error {
+	if err := normalizeTLSOutputFlags(command, gnutlsConfig.CaptureMode, &gnutlsConfig.KeylogFile, &gnutlsConfig.PcapFile); err != nil {
+		return err
+	}
 	if gnutlsConfig.PcapFilter == "" && len(args) != 0 {
 		gnutlsConfig.PcapFilter = strings.Join(args, " ")
 	}
@@ -73,6 +76,8 @@ func gnuTlsCommandFunc(command *cobra.Command, args []string) error {
 	gnutlsConfig.SetBTF(globalConf.BtfMode)
 	gnutlsConfig.SetPerCpuMapSize(globalConf.PerCpuMapSize)
 	gnutlsConfig.SetTruncateSize(globalConf.TruncateSize)
+	gnutlsConfig.SetLoggerAddr(globalConf.LoggerAddr)
+	gnutlsConfig.SetEventCollectorAddr(globalConf.EventCollectorAddr)
 
 	// Run probe using the common entry point
 	return runProbe(factory.ProbeTypeGnuTLS, gnutlsConfig)

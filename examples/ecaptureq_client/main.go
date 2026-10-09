@@ -161,8 +161,19 @@ func handleEvent(logEntry *pb.LogEntry) {
 	if event.Type > 0 {
 		fmt.Printf("📊 Type:         %d\n", event.Type)
 	}
+	fmt.Printf("🧩 Format:       %s\n", event.CaptureFormat.String())
+	fmt.Printf("🔐 Sensitivity:  %s\n", event.Sensitivity.String())
+	if event.Direction != "" {
+		fmt.Printf("↔️ Direction:    %s\n", event.Direction)
+	}
+	if event.StreamId != "" {
+		fmt.Printf("🆔 Stream:       %s (sequence %d)\n", event.StreamId, event.Sequence)
+	}
 	if event.Length > 0 {
 		fmt.Printf("📏 Length:       %d bytes\n", event.Length)
+	}
+	if event.OriginalLength > event.Length {
+		fmt.Printf("📏 Original:     %d bytes\n", event.OriginalLength)
 	}
 
 	// Display payload

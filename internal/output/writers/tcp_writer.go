@@ -16,7 +16,9 @@ package writers
 
 import (
 	"bufio"
+	stderrors "errors"
 	"fmt"
+	"io"
 	"net"
 	"sync"
 )
@@ -27,6 +29,8 @@ type TcpWriter struct {
 	buffered *bufio.Writer
 	addr     string
 	mu       sync.Mutex
+	closed   bool
+	closeErr error
 }
 
 // NewTcpWriter creates a new TCP writer by connecting to the specified address.
@@ -57,30 +61,41 @@ func NewTcpWriter(addr string, bufferSize int) (*TcpWriter, error) {
 func (w *TcpWriter) Write(p []byte) (n int, err error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-
-	if w.buffered != nil {
-		return w.buffered.Write(p)
+	if w.closed {
+		return 0, fmt.Errorf("TCP sink %s is closed", w.addr)
 	}
 
-	return w.conn.Write(p)
+	if w.buffered != nil {
+		n, err = w.buffered.Write(p)
+	} else {
+		n, err = w.conn.Write(p)
+	}
+	if err == nil && n != len(p) {
+		err = io.ErrShortWrite
+	}
+	return n, err
 }
 
 // Close closes the TCP connection.
 func (w *TcpWriter) Close() error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
+	if w.closed {
+		return w.closeErr
+	}
+	w.closed = true
 
+	var flushErr error
 	if w.buffered != nil {
-		if err := w.buffered.Flush(); err != nil {
-			return err
-		}
+		flushErr = w.buffered.Flush()
 	}
 
+	var closeErr error
 	if w.conn != nil {
-		return w.conn.Close()
+		closeErr = w.conn.Close()
 	}
-
-	return nil
+	w.closeErr = stderrors.Join(flushErr, closeErr)
+	return w.closeErr
 }
 
 // Name returns the writer name.
@@ -92,6 +107,9 @@ func (w *TcpWriter) Name() string {
 func (w *TcpWriter) Flush() error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
+	if w.closed {
+		return w.closeErr
+	}
 
 	if w.buffered != nil {
 		return w.buffered.Flush()
