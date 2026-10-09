@@ -11,10 +11,10 @@ OperationalLogRecord -> operational logger ------------------+-> stderr
                                                              +-> --logaddr ByteSink
                                                              +-> eCaptureQ PROCESS_LOG
 
-domain.Event -> EventDispatcher -> TextHandler --------------+-> event ByteSink
-                                -> KeylogHandler ------------+-> event ByteSink
-                                -> PcapHandler/Pcapng session +-> event ByteSink
-                                -> typed publisher ------------> eCaptureQ EVENT
+domain.Event -> EventDispatcher -> TextHandler ----------------+-> event ByteSink
+                                -> KeylogHandler --------------+-> event ByteSink
+                                -> PcapngHandler/pcapng.Session +-> event ByteSink
+                                -> typed publisher --------------> eCaptureQ EVENT
 ```
 
 The layers are:
@@ -48,9 +48,9 @@ connection terminates the stream; there is no reconnect in the middle of a
 pcapng artifact.
 
 The dispatcher owns registered handlers. A handler owns its encoder/session
-and the primary ByteSink it was constructed with. `PcapKeylogWriter` is a
+and the primary ByteSink it was constructed with. `pcapng.KeylogAdapter` is a
 borrowed DSB view: it may synchronously flush queued keylogs but never closes
-the pcapng session or sink. The pcap handler stops producers, drains DSBs and
+the `pcapng.Session` or sink. `PcapngHandler` stops producers, drains DSBs and
 packets, flushes the pcapng encoder and sink, then closes the sink. Close is
 idempotent and failures from every layer are joined and returned.
 

@@ -24,12 +24,8 @@ import (
 	"path/filepath"
 	"sync"
 	"testing"
-	"time"
 
-	"github.com/google/gopacket/pcapgo"
 	"golang.org/x/net/websocket"
-
-	internalLogger "github.com/gojue/ecapture/v2/internal/logger"
 )
 
 type recordingSink struct {
@@ -399,89 +395,6 @@ func TestKeylogWriterDestinations(t *testing.T) {
 	})
 }
 
-func TestPcapngGenericStreamDestinations(t *testing.T) {
-	tests := []struct {
-		name string
-		new  func(*testing.T) (ByteSink, <-chan []byte, func())
-	}{
-		{
-			name: "memory",
-			new: func(t *testing.T) (ByteSink, <-chan []byte, func()) {
-				sink := &recordingSink{}
-				result := make(chan []byte, 1)
-				return sink, result, func() { result <- sink.Bytes() }
-			},
-		},
-		{
-			name: "file",
-			new: func(t *testing.T) (ByteSink, <-chan []byte, func()) {
-				path := filepath.Join(t.TempDir(), "capture.pcapng")
-				sink, err := NewWriterFactory().CreateEventSink(EventSinkOptions{Format: EventFormatPcapng, Address: path})
-				if err != nil {
-					t.Fatal(err)
-				}
-				result := make(chan []byte, 1)
-				return sink, result, func() {
-					data, readErr := os.ReadFile(path)
-					if readErr != nil {
-						t.Error(readErr)
-					}
-					result <- data
-				}
-			},
-		},
-		{
-			name: "TCP",
-			new: func(t *testing.T) (ByteSink, <-chan []byte, func()) {
-				address, result, stop := startTCPReceiver(t)
-				sink, err := NewWriterFactory().CreateEventSink(EventSinkOptions{Format: EventFormatPcapng, Address: "tcp://" + address})
-				if err != nil {
-					t.Fatal(err)
-				}
-				return sink, result, stop
-			},
-		},
-		{
-			name: "WebSocket",
-			new: func(t *testing.T) (ByteSink, <-chan []byte, func()) {
-				url, result, stop := startWebSocketReceiver(t)
-				sink, err := NewWriterFactory().CreateEventSink(EventSinkOptions{Format: EventFormatPcapng, Address: url})
-				if err != nil {
-					t.Fatal(err)
-				}
-				return sink, result, stop
-			},
-		},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			sink, result, stop := test.new(t)
-			pcap, err := NewPcapWriter(sink, 65535, "lo", "", internalLogger.New(io.Discard, false))
-			if err != nil {
-				t.Fatal(err)
-			}
-			if err = pcap.WriteKeyLog([]byte("CLIENT_RANDOM aa bb\n")); err != nil {
-				t.Fatal(err)
-			}
-			packet := make([]byte, 60)
-			if err = pcap.WritePacket(packet, time.Unix(100, 0)); err != nil {
-				t.Fatal(err)
-			}
-			if err = pcap.Flush(); err != nil {
-				t.Fatal(err)
-			}
-			if err = pcap.Close(); err != nil {
-				t.Fatal(err)
-			}
-			if err = sink.Close(); err != nil {
-				t.Fatal(err)
-			}
-			stop()
-			assertPcapngPacketAndDSB(t, <-result)
-		})
-	}
-}
-
 func startTCPReceiver(t *testing.T) (string, <-chan []byte, func()) {
 	t.Helper()
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
@@ -519,32 +432,4 @@ func startWebSocketReceiver(t *testing.T) (string, <-chan []byte, func()) {
 	}))
 	var once sync.Once
 	return "ws" + server.URL[4:] + "/", result, func() { once.Do(server.Close) }
-}
-
-func assertPcapngPacketAndDSB(t *testing.T, data []byte) {
-	t.Helper()
-	if len(data) == 0 {
-		t.Fatal("empty pcapng stream")
-	}
-	reader, err := pcapgo.NewNgReader(bytes.NewReader(data), pcapgo.DefaultNgReaderOptions)
-	if err != nil {
-		t.Fatalf("invalid pcapng stream: %v", err)
-	}
-	if _, _, err = reader.ReadPacketData(); err != nil {
-		t.Fatalf("pcapng packet read failed: %v", err)
-	}
-	blockTypes, err := parsePcapngBlockTypes(data)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var hasDSB bool
-	for _, blockType := range blockTypes {
-		if blockType == 0x0000000a {
-			hasDSB = true
-			break
-		}
-	}
-	if !hasDSB {
-		t.Fatal("pcapng stream has no Decryption Secrets Block")
-	}
 }

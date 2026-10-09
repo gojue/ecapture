@@ -23,24 +23,24 @@ import (
 	"github.com/gojue/ecapture/v2/internal/logger"
 )
 
-// mockPcapWriter wraps bytes.Buffer to implement OutputWriter for testing
-type mockPcapWriter struct {
+// mockPcapngSink wraps bytes.Buffer to implement ByteSink for testing.
+type mockPcapngSink struct {
 	*bytes.Buffer
 }
 
-func newMockPcapWriter() *mockPcapWriter {
-	return &mockPcapWriter{Buffer: &bytes.Buffer{}}
+func newMockPcapngSink() *mockPcapngSink {
+	return &mockPcapngSink{Buffer: &bytes.Buffer{}}
 }
 
-func (m *mockPcapWriter) Close() error {
+func (m *mockPcapngSink) Close() error {
 	return nil
 }
 
-func (m *mockPcapWriter) Name() string {
-	return "mock-pcap-writer"
+func (m *mockPcapngSink) Name() string {
+	return "mock-pcapng-sink"
 }
 
-func (m *mockPcapWriter) Flush() error {
+func (m *mockPcapngSink) Flush() error {
 	return nil
 }
 
@@ -76,40 +76,40 @@ func newTestLogger() *logger.Logger {
 	return logger.New(os.Stdout, true)
 }
 
-func TestNewPcapHandler(t *testing.T) {
-	writer := newMockPcapWriter()
+func TestNewPcapngHandler(t *testing.T) {
+	sink := newMockPcapngSink()
 
-	handler, err := NewPcapHandler(writer, "test-interface", "tcp port 80", newTestLogger())
+	handler, err := NewPcapngHandler(sink, "test-interface", "tcp port 80", newTestLogger())
 	if err != nil {
-		t.Fatalf("NewPcapHandler returned error: %v", err)
+		t.Fatalf("NewPcapngHandler returned error: %v", err)
 		return
 	}
 	if handler == nil {
-		t.Fatal("NewPcapHandler returned nil")
+		t.Fatal("NewPcapngHandler returned nil")
 		return
 	}
-	if handler.pcapWriter == nil {
-		t.Error("PcapHandler pcapWriter not set correctly")
+	if handler.session == nil {
+		t.Error("PcapngHandler session not set correctly")
 	}
 	defer func() { _ = handler.Close() }()
 }
 
-func TestNewPcapHandler_NilWriter(t *testing.T) {
-	handler, err := NewPcapHandler(nil, "test-interface", "tcp port 80", newTestLogger())
+func TestNewPcapngHandler_NilSink(t *testing.T) {
+	handler, err := NewPcapngHandler(nil, "test-interface", "tcp port 80", newTestLogger())
 	if err == nil {
-		t.Fatal("NewPcapHandler should return error for nil writer")
+		t.Fatal("NewPcapngHandler should return error for nil sink")
 		return
 	}
 	if handler != nil {
-		t.Fatal("NewPcapHandler should return nil handler for nil writer")
+		t.Fatal("NewPcapngHandler should return nil handler for nil sink")
 	}
 }
 
-func TestPcapHandler_Handle(t *testing.T) {
-	writer := newMockPcapWriter()
-	handler, err := NewPcapHandler(writer, "test-interface", "tcp port 80", newTestLogger())
+func TestPcapngHandler_Handle(t *testing.T) {
+	sink := newMockPcapngSink()
+	handler, err := NewPcapngHandler(sink, "test-interface", "tcp port 80", newTestLogger())
 	if err != nil {
-		t.Fatalf("NewPcapHandler returned error: %v", err)
+		t.Fatalf("NewPcapngHandler returned error: %v", err)
 		return
 	}
 	defer func() { _ = handler.Close() }()
@@ -131,17 +131,17 @@ func TestPcapHandler_Handle(t *testing.T) {
 		return
 	}
 
-	// PCAPNG data is binary, just verify something was written
-	if writer.Len() == 0 {
-		t.Error("Expected data to be written to pcap file")
+	// PCAPNG data is binary, so just verify the stream is non-empty.
+	if sink.Len() == 0 {
+		t.Error("expected data to be written to pcapng stream")
 	}
 }
 
-func TestPcapHandler_Handle_NilEvent(t *testing.T) {
-	writer := newMockPcapWriter()
-	handler, err := NewPcapHandler(writer, "test-interface", "tcp port 80", newTestLogger())
+func TestPcapngHandler_Handle_NilEvent(t *testing.T) {
+	sink := newMockPcapngSink()
+	handler, err := NewPcapngHandler(sink, "test-interface", "tcp port 80", newTestLogger())
 	if err != nil {
-		t.Fatalf("NewPcapHandler returned error: %v", err)
+		t.Fatalf("NewPcapngHandler returned error: %v", err)
 		return
 	}
 	defer func() { _ = handler.Close() }()
@@ -163,11 +163,11 @@ func (m *mockNonPacketEvent) Clone() domain.Event               { return &mockNo
 func (m *mockNonPacketEvent) Type() domain.EventType            { return domain.EventTypeOutput }
 func (m *mockNonPacketEvent) UUID() string                      { return "" }
 
-func TestPcapHandler_Handle_InvalidEventType(t *testing.T) {
-	writer := newMockPcapWriter()
-	handler, err := NewPcapHandler(writer, "test-interface", "tcp port 80", newTestLogger())
+func TestPcapngHandler_Handle_InvalidEventType(t *testing.T) {
+	sink := newMockPcapngSink()
+	handler, err := NewPcapngHandler(sink, "test-interface", "tcp port 80", newTestLogger())
 	if err != nil {
-		t.Fatalf("NewPcapHandler returned error: %v", err)
+		t.Fatalf("NewPcapngHandler returned error: %v", err)
 		return
 	}
 	defer func() { _ = handler.Close() }()

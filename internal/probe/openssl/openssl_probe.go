@@ -28,6 +28,7 @@ import (
 
 	pkgebpf "github.com/gojue/ecapture/v2/pkg/util/ebpf"
 
+	"github.com/gojue/ecapture/v2/internal/output/pcapng"
 	"github.com/gojue/ecapture/v2/internal/output/writers"
 
 	"github.com/gojue/ecapture/v2/internal/factory"
@@ -471,41 +472,38 @@ func (p *Probe) setupManagerPcapNG() error {
 		return fmt.Errorf("pcapng mode requires an event destination")
 	}
 
-	pcapWriter, err := writers.NewWriterFactory().CreateEventSink(writers.EventSinkOptions{
+	pcapSink, err := writers.NewWriterFactory().CreateEventSink(writers.EventSinkOptions{
 		Address:      pcapAddr,
 		Format:       writers.EventFormatPcapng,
 		RotateConfig: writers.NewRotateConfig(p.config.GetEventRotation()),
 	})
 	if err != nil {
-		return fmt.Errorf("failed to create pcap writer: %w", err)
+		return fmt.Errorf("failed to create pcapng sink: %w", err)
 	}
 
-	pcapHandler, err := handlers.NewPcapHandler(pcapWriter, p.config.Ifname, p.config.PcapFilter, p.Logger())
+	pcapHandler, err := handlers.NewPcapngHandler(pcapSink, p.config.Ifname, p.config.PcapFilter, p.Logger())
 	if err != nil {
-		_ = pcapWriter.Close()
-		return fmt.Errorf("failed to create pcap handler: %w", err)
+		_ = pcapSink.Close()
+		return fmt.Errorf("failed to create pcapng handler: %w", err)
 	}
 
 	if err := p.BaseProbe.Dispatcher().Register(pcapHandler); err != nil {
 		_ = pcapHandler.Close()
-		_ = pcapWriter.Close()
-		return fmt.Errorf("failed to register pcap handler: %w", err)
+		_ = pcapSink.Close()
+		return fmt.Errorf("failed to register pcapng handler: %w", err)
 	}
-	// Note: pcapWriter will be closed through pcapHandler.Close() when dispatcher closes
-	// Don't add it to p.closer to avoid double-close
-	//p.Logger().Info().Str("Writer", pcapWriter.Name()).Msg("Pcap handler registered")
+	// pcapSink will be closed through pcapHandler.Close() when the dispatcher closes.
+	// Do not add it to p.closer to avoid double-close.
 
-	// Pcapng 的 Keylog writer
-	pcapKeylogWriter := writers.NewPcapKeylogWriter(pcapHandler.PcapWriter())
-	pcapKeylogHandler := handlers.NewKeylogHandler(pcapKeylogWriter)
+	keylogAdapter := pcapng.NewKeylogAdapter(pcapHandler.Session())
+	pcapKeylogHandler := handlers.NewKeylogHandler(keylogAdapter)
 	if err := p.BaseProbe.Dispatcher().Register(pcapKeylogHandler); err != nil {
 		_ = pcapHandler.Close()
-		_ = pcapWriter.Close()
-		return fmt.Errorf("failed to register pcapkeylog handler: %w", err)
+		_ = pcapSink.Close()
+		return fmt.Errorf("failed to register pcapng keylog handler: %w", err)
 	}
-	// Note: pcapKeylogWriter will be closed through pcapKeylogHandler.Close()
-	// Don't add it to p.closer to avoid double-close
-	p.Logger().Info().Str("pcap_sink", pcapWriter.Name()).Msg("Pcap handler registered")
+	// keylogAdapter borrows the session and does not own either it or pcapSink.
+	p.Logger().Info().Str("pcap_sink", pcapSink.Name()).Msg("Pcapng handler registered")
 	p.Logger().Debug().
 		Str("ifname", p.config.Ifname).
 		Msg("Added TC probes, SSL probes, and master secret probe for pcap mode")

@@ -19,7 +19,7 @@ main.go
   -> eBPF perf/ring-buffer sample
   -> EventDecoder.Decode()
   -> events.Dispatcher.Dispatch()
-  -> text / keylog / pcap handler
+  -> text / keylog / pcapng handler
   -> independently constructed ByteSink
   -> optional typed eCaptureQ EVENT publisher
 ```
@@ -69,7 +69,9 @@ targets and excludes zsh, GnuTLS, NSPR, MySQL, and PostgreSQL.
 - `internal/output/`: borrowed runtime output dependencies and the zerolog edge
   adapter for typed operational publishers.
 - `internal/output/writers/`: active stdout/file/TCP/WebSocket ByteSinks plus
-  keylog encoding and the serialized pcapng session.
+  keylog encoding.
+- `internal/output/pcapng/`: the serialized pcapng representation session and
+  its borrowed keylog adapter.
 - `internal/output/encoders/`: standalone abstractions not currently wired
   into the production probe path.
 - `kern/`: eBPF C sources and shared headers. `kern/bpf/<arch>/` contains

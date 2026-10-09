@@ -69,7 +69,7 @@ main.go -> cli.Start() -> Cobra RunE -> runProbe()
   -> Probe.Initialize() / Start()
   -> embedded eBPF asset + ebpfmanager
   -> perf/ringbuf sample -> EventDecoder.Decode()
-  -> events.Dispatcher -> text/keylog/pcap handler -> ByteSink
+  -> events.Dispatcher -> text/keylog/pcapng handler -> ByteSink
                        -> typed eCaptureQ EVENT publisher
 ```
 
