@@ -81,11 +81,12 @@ second keylog writer for the legacy standalone artifact.
 
 ### Pcapng
 
-`PcapWriter` is a serialized pcapng session over a generic ByteSink. One
-goroutine owns `pcapgo.NgWriter`; packet and Decryption Secrets Block requests
-are copied before enqueue, ordered, synchronously flushable, and fully drained
-at shutdown. `PcapKeylogWriter` is a borrowed view and never closes the shared
-session or sink. `PcapHandler` is the sole session/sink owner.
+`pcapng.Session` is a serialized pcapng representation session over a generic
+ByteSink. One goroutine owns `pcapgo.NgWriter`; packet and Decryption Secrets
+Block requests are copied before enqueue, ordered, synchronously flushable, and
+fully drained at shutdown. `pcapng.KeylogAdapter` is a borrowed view and never
+closes the shared session or sink. `PcapngHandler` is the sole session/sink
+owner.
 
 Memory, file, TCP, and binary-WebSocket integration tests validate both packet
 blocks and DSB blocks. Failure and race tests cover short writes, flushing,

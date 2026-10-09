@@ -206,9 +206,10 @@ Update all affected layers:
 - output-specific tests and strict E2E assertions.
 
 For TLS modes, keylog output must contain usable secrets. Pcap mode combines a
-packet `PcapHandler` with a `KeylogHandler`/`PcapKeylogWriter` sharing the pcap
-writer. The resulting pcapng must contain packet blocks and an embedded TLS
-Decryption Secrets Block that decrypts without an external keylog preference.
+packet `PcapngHandler` with a `KeylogHandler`/`pcapng.KeylogAdapter` sharing a
+`pcapng.Session`. The resulting pcapng must contain packet blocks and an
+embedded TLS Decryption Secrets Block that decrypts without an external keylog
+preference.
 
 ## Generated protocols and code
 

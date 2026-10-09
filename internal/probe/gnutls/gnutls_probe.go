@@ -28,6 +28,7 @@ import (
 	"github.com/gojue/ecapture/v2/internal/domain"
 	"github.com/gojue/ecapture/v2/internal/errors"
 	"github.com/gojue/ecapture/v2/internal/factory"
+	"github.com/gojue/ecapture/v2/internal/output/pcapng"
 	"github.com/gojue/ecapture/v2/internal/output/writers"
 	"github.com/gojue/ecapture/v2/internal/probe/base"
 	"github.com/gojue/ecapture/v2/internal/probe/base/handlers"
@@ -260,32 +261,32 @@ func (p *Probe) setupManagerPcapNG() error {
 		}
 	}
 
-	pcapFileWriter, err := writers.NewWriterFactory().CreateEventSink(writers.EventSinkOptions{
+	pcapSink, err := writers.NewWriterFactory().CreateEventSink(writers.EventSinkOptions{
 		Address:      p.config.GetEventCollectorAddr(),
 		Format:       writers.EventFormatPcapng,
 		RotateConfig: writers.NewRotateConfig(p.config.GetEventRotation()),
 	})
 	if err != nil {
-		return fmt.Errorf("failed to create pcap writer: %w", err)
+		return fmt.Errorf("failed to create pcapng sink: %w", err)
 	}
-	pcapHandler, err := handlers.NewPcapHandler(
-		pcapFileWriter, p.config.Ifname, p.config.PcapFilter, p.Logger())
+	pcapHandler, err := handlers.NewPcapngHandler(
+		pcapSink, p.config.Ifname, p.config.PcapFilter, p.Logger())
 	if err != nil {
-		_ = pcapFileWriter.Close()
-		return fmt.Errorf("failed to create pcap handler: %w", err)
+		_ = pcapSink.Close()
+		return fmt.Errorf("failed to create pcapng handler: %w", err)
 	}
 	if err := p.Dispatcher().Register(pcapHandler); err != nil {
 		_ = pcapHandler.Close()
-		return fmt.Errorf("failed to register pcap handler: %w", err)
+		return fmt.Errorf("failed to register pcapng handler: %w", err)
 	}
 
 	pcapKeylogHandler := handlers.NewKeylogHandler(
-		writers.NewPcapKeylogWriter(pcapHandler.PcapWriter()))
+		pcapng.NewKeylogAdapter(pcapHandler.Session()))
 	if err := p.Dispatcher().Register(pcapKeylogHandler); err != nil {
 		_ = pcapHandler.Close()
 		return fmt.Errorf("failed to register pcap keylog handler: %w", err)
 	}
-	p.Logger().Info().Str("pcap_sink", pcapFileWriter.Name()).Msg("Pcap handler registered")
+	p.Logger().Info().Str("pcap_sink", pcapSink.Name()).Msg("Pcapng handler registered")
 	return nil
 }
 

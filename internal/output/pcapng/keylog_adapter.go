@@ -12,38 +12,36 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package writers
+package pcapng
 
 import "bytes"
 
-// PcapKeylogWriter writes keylog to Pcap file.
-type PcapKeylogWriter struct {
-	*PcapWriter
+// KeylogAdapter lets a keylog handler add TLS secrets to a borrowed Session.
+type KeylogAdapter struct {
+	session *Session
 }
 
-func (w *PcapKeylogWriter) Name() string {
-	return "pcap_keylog_writer"
+func (w *KeylogAdapter) Name() string {
+	return "pcapng-keylog-adapter"
 }
 
-func (w *PcapKeylogWriter) Flush() error {
-	return w.PcapWriter.FlushKeylogs()
+func (w *KeylogAdapter) Flush() error {
+	return w.session.FlushKeylogs()
 }
 
-// Close is intentionally a no-op. PcapKeylogWriter borrows the pcapng session;
-// PcapHandler is the sole close owner.
-func (w *PcapKeylogWriter) Close() error { return nil }
+// Close is intentionally a no-op. KeylogAdapter borrows the pcapng session;
+// PcapngHandler is the sole close owner.
+func (w *KeylogAdapter) Close() error { return nil }
 
-func NewPcapKeylogWriter(pw *PcapWriter) *PcapKeylogWriter {
-	return &PcapKeylogWriter{
-		PcapWriter: pw,
-	}
+func NewKeylogAdapter(session *Session) *KeylogAdapter {
+	return &KeylogAdapter{session: session}
 }
 
-func (w *PcapKeylogWriter) Write(p []byte) (n int, err error) {
+func (w *KeylogAdapter) Write(p []byte) (n int, err error) {
 	// Create a copy to avoid modifying the provided buffer
 	record := bytes.TrimRight(p, "\r\n")
 	data := make([]byte, len(record)+1)
 	copy(data, record)
 	data[len(record)] = '\n'
-	return len(p), w.PcapWriter.WriteKeyLog(data)
+	return len(p), w.session.WriteKeyLog(data)
 }
