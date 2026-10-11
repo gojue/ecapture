@@ -233,7 +233,18 @@ sudo env PATH="$PATH" make e2e-gnutls
 `make e2e`, `make e2e-basic`, and `make e2e-advanced` are compatibility
 aliases for the same `e2e-linux` matrix; their names do not indicate different
 coverage. The default matrix is `tls gotls gnutls` in text, keylog, and pcapng
-modes.
+modes. Each module's text matrix also verifies same-probe HTTP reload output
+inheritance, explicit destination replacement, and rejection without losing
+the active output.
+
+Public text event destinations for Bash, Zsh, and MySQL have a separate strict
+suite. It requires interactive Bash/Zsh and a C++ compiler; the MySQL probe
+uses a deterministic local `dispatch_command` fixture rather than a host
+database version:
+
+```sh
+sudo env PATH="$PATH" bash test/e2e/linux/common_config_test.sh
+```
 
 GnuTLS is a strict gating suite alongside OpenSSL and GoTLS. Its versioned
 master-secret offsets mean that a passing build against one distribution does

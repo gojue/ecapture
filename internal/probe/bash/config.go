@@ -51,7 +51,7 @@ func NewConfig() *Config {
 
 // Validate checks if the configuration is valid.
 func (c *Config) Validate() error {
-	if err := c.BaseConfig.Validate(); err != nil {
+	if err := c.BaseConfig.ValidateTextOutput(); err != nil {
 		return errors.NewConfigurationError("bash config validation failed", err)
 	}
 

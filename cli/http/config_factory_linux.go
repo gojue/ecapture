@@ -28,37 +28,21 @@ import (
 )
 
 // createGnutlsConfig creates and decodes GnuTLS probe configuration from HTTP request
-func createGnutlsConfig(c *gin.Context) (domain.Configuration, error) {
-	conf := gnutlsProbe.NewConfig()
-	if err := c.ShouldBindJSON(conf); err != nil {
-		return nil, err
-	}
-	return conf, nil
+func createGnutlsConfig(c *gin.Context) (*ConfigUpdate, error) {
+	return decodeConfig(c, func() domain.Configuration { return gnutlsProbe.NewConfig() })
 }
 
 // createNsprConfig creates and decodes NSPR probe configuration from HTTP request
-func createNsprConfig(c *gin.Context) (domain.Configuration, error) {
-	conf := nsprProbe.NewConfig()
-	if err := c.ShouldBindJSON(conf); err != nil {
-		return nil, err
-	}
-	return conf, nil
+func createNsprConfig(c *gin.Context) (*ConfigUpdate, error) {
+	return decodeConfig(c, func() domain.Configuration { return nsprProbe.NewConfig() })
 }
 
 // createMysqlConfig creates and decodes MySQL probe configuration from HTTP request
-func createMysqlConfig(c *gin.Context) (domain.Configuration, error) {
-	conf := mysqlProbe.NewConfig()
-	if err := c.ShouldBindJSON(conf); err != nil {
-		return nil, err
-	}
-	return conf, nil
+func createMysqlConfig(c *gin.Context) (*ConfigUpdate, error) {
+	return decodeConfig(c, func() domain.Configuration { return mysqlProbe.NewConfig() })
 }
 
 // createPostgresConfig creates and decodes Postgres probe configuration from HTTP request
-func createPostgresConfig(c *gin.Context) (domain.Configuration, error) {
-	conf := postgresProbe.NewConfig()
-	if err := c.ShouldBindJSON(conf); err != nil {
-		return nil, err
-	}
-	return conf, nil
+func createPostgresConfig(c *gin.Context) (*ConfigUpdate, error) {
+	return decodeConfig(c, func() domain.Configuration { return postgresProbe.NewConfig() })
 }

@@ -15,37 +15,52 @@
 package http
 
 import (
+	"encoding/json"
+	"fmt"
+	"io"
+
 	"github.com/gin-gonic/gin"
 
+	"github.com/gojue/ecapture/v2/internal/config"
 	"github.com/gojue/ecapture/v2/internal/domain"
 	bashProbe "github.com/gojue/ecapture/v2/internal/probe/bash"
 	gotlsProbe "github.com/gojue/ecapture/v2/internal/probe/gotls"
 	opensslProbe "github.com/gojue/ecapture/v2/internal/probe/openssl"
 )
 
-// createOpensslConfig creates and decodes OpenSSL probe configuration from HTTP request
-func createOpensslConfig(c *gin.Context) (domain.Configuration, error) {
-	conf := opensslProbe.NewConfig()
-	if err := c.ShouldBindJSON(conf); err != nil {
+func decodeConfig(c *gin.Context, create func() domain.Configuration) (*ConfigUpdate, error) {
+	body, err := io.ReadAll(c.Request.Body)
+	if err != nil {
 		return nil, err
 	}
-	return conf, nil
+	if len(body) == 0 {
+		return nil, fmt.Errorf("request body is empty")
+	}
+	candidate := create()
+	if err = json.Unmarshal(body, candidate); err != nil {
+		return nil, err
+	}
+	patch, err := config.DecodeCommonConfigPatch(body)
+	if err != nil {
+		return nil, err
+	}
+	if err = patch.Apply(candidate); err != nil {
+		return nil, err
+	}
+	return newConfigUpdate(candidate, patch), nil
+}
+
+// createOpensslConfig creates and decodes OpenSSL probe configuration from HTTP request
+func createOpensslConfig(c *gin.Context) (*ConfigUpdate, error) {
+	return decodeConfig(c, func() domain.Configuration { return opensslProbe.NewConfig() })
 }
 
 // createGotlsConfig creates and decodes GoTLS probe configuration from HTTP request
-func createGotlsConfig(c *gin.Context) (domain.Configuration, error) {
-	conf := gotlsProbe.NewConfig()
-	if err := c.ShouldBindJSON(conf); err != nil {
-		return nil, err
-	}
-	return conf, nil
+func createGotlsConfig(c *gin.Context) (*ConfigUpdate, error) {
+	return decodeConfig(c, func() domain.Configuration { return gotlsProbe.NewConfig() })
 }
 
 // createBashConfig creates and decodes Bash probe configuration from HTTP request
-func createBashConfig(c *gin.Context) (domain.Configuration, error) {
-	conf := bashProbe.NewConfig()
-	if err := c.ShouldBindJSON(conf); err != nil {
-		return nil, err
-	}
-	return conf, nil
+func createBashConfig(c *gin.Context) (*ConfigUpdate, error) {
+	return decodeConfig(c, func() domain.Configuration { return bashProbe.NewConfig() })
 }

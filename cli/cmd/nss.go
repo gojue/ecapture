@@ -42,15 +42,12 @@ ecapture nspr --nspr=/lib/x86_64-linux-gnu/libnspr44.so
 
 func init() {
 	nssCmd.PersistentFlags().StringVar(&nsprConfig.NSPRPath, "nspr", "", "libnspr44.so file path, will automatically find it from curl default.")
-	nssCmd.PersistentFlags().StringVar(&nsprConfig.CGroupPath, "cgroup_path", "", "cgroup v2 path for container/process filtering. Empty disables cgroup filtering.")
+	nssCmd.PersistentFlags().StringVar(&globalConf.CGroupPath, "cgroup_path", "", "cgroup v2 path for container/process filtering. Empty disables cgroup filtering.")
 	rootCmd.AddCommand(nssCmd)
 }
 
 // nssCommandFunc executes the "nspr" command using the new probe architecture.
 func nssCommandFunc(command *cobra.Command, args []string) error {
-	// Set global config from BaseConfig
-	nsprConfig.Pid = globalConf.Pid
-
 	// Run probe using the common entry point
-	return runProbe(factory.ProbeTypeNSPR, nsprConfig)
+	return runConfiguredProbe(factory.ProbeTypeNSPR, nsprConfig)
 }

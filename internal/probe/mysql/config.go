@@ -82,7 +82,7 @@ func NewConfig() *Config {
 // Validate validates the MySQL probe configuration
 func (c *Config) Validate() error {
 	// Validate base configuration
-	if err := c.BaseConfig.Validate(); err != nil {
+	if err := c.BaseConfig.ValidateTextOutput(); err != nil {
 		return err
 	}
 

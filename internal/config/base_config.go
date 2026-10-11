@@ -22,6 +22,7 @@ import (
 	"time"
 
 	outputpipeline "github.com/gojue/ecapture/v2/internal/output"
+	"github.com/gojue/ecapture/v2/internal/output/writers"
 	"github.com/gojue/ecapture/v2/pkg/util/kernel"
 )
 
@@ -100,6 +101,26 @@ func (c *BaseConfig) Validate() error {
 		return fmt.Errorf("invalid byte_code_file_mode: %d", c.ByteCodeFileMode)
 	}
 	return nil
+}
+
+// ValidateTextOutput validates the common configuration and the captured-event
+// destination used by probes whose only representation is text. It performs no
+// I/O and is therefore safe to call repeatedly.
+func (c *BaseConfig) ValidateTextOutput() error {
+	if err := c.Validate(); err != nil {
+		return err
+	}
+	return writers.NewWriterFactory().ValidateEventSinkAddress(writers.EventSinkOptions{
+		Address:      c.EventCollectorAddr,
+		Format:       writers.EventFormatText,
+		RotateConfig: writers.NewRotateConfig(c.GetEventRotation()),
+	})
+}
+
+// GetBaseConfig exposes the embedded common configuration to shared CLI and
+// HTTP configuration application code.
+func (c *BaseConfig) GetBaseConfig() *BaseConfig {
+	return c
 }
 
 // GetPid returns the target process ID.

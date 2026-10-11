@@ -44,13 +44,13 @@ ecapture gotls -m pcap --pcapfile=save_android.pcapng -i wlan0 --elfpath=/home/c
 
 func init() {
 	gotlsCmd.PersistentFlags().StringVarP(&gotlsConfig.ElfPath, "elfpath", "e", "", "ELF path to binary built with Go toolchain.")
-	gotlsCmd.PersistentFlags().BoolVar(&gotlsConfig.PerfReorder, "perf-reorder", false, "enable userland reorder of per-CPU perf events by bpf ktime before dispatch (see also: tls, mysqld, postgres)")
-	gotlsCmd.PersistentFlags().UintVar(&gotlsConfig.PerfReorderLagMs, "perf-reorder-lag-ms", 10, "reorder batching window in milliseconds (only with --perf-reorder; default 10)")
+	gotlsCmd.PersistentFlags().BoolVar(&globalConf.PerfReorder, "perf-reorder", false, "enable userland reorder of per-CPU perf events by bpf ktime before dispatch (see also: tls, mysqld, postgres)")
+	gotlsCmd.PersistentFlags().UintVar(&globalConf.PerfReorderLagMs, "perf-reorder-lag-ms", 10, "reorder batching window in milliseconds (only with --perf-reorder; default 10)")
 	gotlsCmd.PersistentFlags().StringVarP(&gotlsConfig.PcapFile, "pcapfile", "w", "ecapture_gotls.pcapng", "write the  raw packets to file as pcapng format.")
 	gotlsCmd.PersistentFlags().StringVarP(&gotlsConfig.CaptureMode, "model", "m", "text", "capture model, such as : text, pcap/pcapng, key/keylog")
 	gotlsCmd.PersistentFlags().StringVarP(&gotlsConfig.KeylogFile, "keylogfile", "k", "ecapture_gotls_key.log", "The file stores SSL/TLS keys, and eCapture captures these keys during encrypted traffic communication and saves them to the file.")
 	gotlsCmd.PersistentFlags().StringVarP(&gotlsConfig.Ifname, "ifname", "i", "", "(TC Classifier) Interface name on which the probe will be attached.")
-	gotlsCmd.PersistentFlags().StringVar(&gotlsConfig.CGroupPath, "cgroup_path", "", "cgroup v2 path for container/process filtering. Empty disables cgroup filtering.")
+	gotlsCmd.PersistentFlags().StringVar(&globalConf.CGroupPath, "cgroup_path", "", "cgroup v2 path for container/process filtering. Empty disables cgroup filtering.")
 	rootCmd.AddCommand(gotlsCmd)
 }
 
@@ -63,16 +63,6 @@ func goTLSCommandFunc(command *cobra.Command, args []string) error {
 		gotlsConfig.PcapFilter = strings.Join(args, " ")
 	}
 
-	// Set global config from BaseConfig
-	gotlsConfig.SetPid(globalConf.Pid)
-	gotlsConfig.SetUid(globalConf.Uid)
-	gotlsConfig.SetDebug(globalConf.Debug)
-	gotlsConfig.SetHex(globalConf.IsHex)
-	gotlsConfig.SetBTF(globalConf.BtfMode)
-	gotlsConfig.SetPerCpuMapSize(globalConf.PerCpuMapSize)
-	gotlsConfig.SetTruncateSize(globalConf.TruncateSize)
-	gotlsConfig.SetLoggerAddr(globalConf.LoggerAddr)
-	gotlsConfig.SetEventCollectorAddr(globalConf.EventCollectorAddr)
 	// Run probe using the common entry point
-	return runProbe(factory.ProbeTypeGoTLS, gotlsConfig)
+	return runConfiguredProbe(factory.ProbeTypeGoTLS, gotlsConfig)
 }

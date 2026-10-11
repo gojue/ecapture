@@ -447,12 +447,116 @@ case_ecaptureq_pcapng() {
         "$pcap_file" "$E2E_TOKEN" "linux/gnutls/ecaptureq-pcapng"
 }
 
+case_text_reload_output() {
+    local capture_log="$WORK_DIR/reload.ecapture.log"
+    local operational_log="$WORK_DIR/reload.operational.log"
+    local original_events="$WORK_DIR/reload-original.events.log"
+    local updated_events="$WORK_DIR/reload-updated.events.log"
+    local port=$((30000 + RANDOM % 20000))
+    local endpoint="http://127.0.0.1:$port/gnutls"
+    local before_token="$E2E_TOKEN"_RELOAD_BEFORE
+    local inherited_token="$E2E_TOKEN"_RELOAD_INHERITED
+    local updated_token="$E2E_TOKEN"_RELOAD_UPDATED
+    local rejected_token="$E2E_TOKEN"_RELOAD_REJECTED
+    local request_body="$WORK_DIR/reload-request.json"
+    local response_body="$WORK_DIR/reload-response.json"
+
+    start_capture "$capture_log" gnutls --gnutls "$GNUTLS_LIB" --model text \
+        --listen "127.0.0.1:$port" \
+        --logaddr "$operational_log" --eventaddr "$original_events" \
+        --eventroratesize 64 --eventroratetime 3600 || return 1
+
+    timeout 15 "$GNUTLS_CLIENT" 127.0.0.1 "$TLS_SERVER_PORT" \
+        "/e2e?marker=$before_token" "$E2E_TOKEN" tls13 \
+        >"$WORK_DIR/reload-before.client.log" 2>&1 || {
+        stop_capture
+        return 1
+    }
+    sleep 1
+    assert_file_contains "$original_events" "$before_token" \
+        "GnuTLS event before reload" || {
+        stop_capture
+        return 1
+    }
+
+    printf '{"gnutlspath":"%s","capturemode":"text"}\n' "$GNUTLS_LIB" >"$request_body"
+    post_config_update "$endpoint" "$request_body" "$response_body" 1 || {
+        stop_capture
+        return 1
+    }
+    timeout 15 "$GNUTLS_CLIENT" 127.0.0.1 "$TLS_SERVER_PORT" \
+        "/e2e?marker=$inherited_token" "$E2E_TOKEN" tls13 \
+        >"$WORK_DIR/reload-inherited.client.log" 2>&1 || {
+        stop_capture
+        return 1
+    }
+    sleep 1
+    assert_file_contains "$original_events" "$inherited_token" \
+        "GnuTLS inherited event destination" || {
+        stop_capture
+        return 1
+    }
+
+    printf '{"gnutlspath":"%s","capturemode":"text","event_collector_addr":"%s"}\n' \
+        "$GNUTLS_LIB" "$updated_events" >"$request_body"
+    post_config_update "$endpoint" "$request_body" "$response_body" 1 || {
+        stop_capture
+        return 1
+    }
+    timeout 15 "$GNUTLS_CLIENT" 127.0.0.1 "$TLS_SERVER_PORT" \
+        "/e2e?marker=$updated_token" "$E2E_TOKEN" tls13 \
+        >"$WORK_DIR/reload-updated.client.log" 2>&1 || {
+        stop_capture
+        return 1
+    }
+    sleep 1
+    assert_file_contains "$updated_events" "$updated_token" \
+        "GnuTLS explicitly updated event destination" || {
+        stop_capture
+        return 1
+    }
+    assert_file_not_contains "$original_events" "$updated_token" \
+        "GnuTLS event written to retired destination" || {
+        stop_capture
+        return 1
+    }
+
+    printf '{"gnutlspath":"%s","capturemode":"text","event_collector_addr":"udp://127.0.0.1:9"}\n' \
+        "$GNUTLS_LIB" >"$request_body"
+    post_config_update "$endpoint" "$request_body" "$response_body" 0 || {
+        stop_capture
+        return 1
+    }
+    timeout 15 "$GNUTLS_CLIENT" 127.0.0.1 "$TLS_SERVER_PORT" \
+        "/e2e?marker=$rejected_token" "$E2E_TOKEN" tls13 \
+        >"$WORK_DIR/reload-rejected.client.log" 2>&1 || {
+        stop_capture
+        return 1
+    }
+    sleep 1
+    stop_capture
+
+    assert_file_contains "$updated_events" "$rejected_token" \
+        "GnuTLS output after rejected reload" || return 1
+    assert_file_not_contains "$operational_log" "$before_token" \
+        "GnuTLS captured payload in operational log" || return 1
+    assert_file_not_contains "$operational_log" "$inherited_token" \
+        "GnuTLS inherited payload in operational log" || return 1
+    assert_file_not_contains "$operational_log" "$updated_token" \
+        "GnuTLS updated payload in operational log" || return 1
+    assert_file_not_contains "$operational_log" "$rejected_token" \
+        "GnuTLS post-rejection payload in operational log" || return 1
+    assert_output_isolation "$operational_log" "$original_events" "$before_token" || return 1
+    assert_no_capture_errors "$capture_log"
+}
+
 main() {
     setup_linux_suite gnutls
     build_gnutls_client
 
     run_case "linux/gnutls/invalid-output-combinations" case_invalid_output_combinations
     mode_enabled text && run_case "linux/gnutls/text" case_text
+    mode_enabled text && run_case "linux/gnutls/text-reload-output" case_text_reload_output
     mode_enabled text && run_case "linux/gnutls/text-stdout" case_text_stdout
     mode_enabled text && run_case "linux/gnutls/text-tcp" case_text_stream tcp
     mode_enabled text && run_case "linux/gnutls/text-websocket" case_text_stream ws

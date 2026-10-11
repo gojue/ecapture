@@ -36,22 +36,13 @@ var postgresCmd = &cobra.Command{
 func init() {
 	postgresCmd.PersistentFlags().StringVarP(&postgresConfig.PostgresPath, "postgres", "m", "/usr/bin/postgres", "postgres binary file path, use to hook")
 	postgresCmd.PersistentFlags().StringVarP(&postgresConfig.FuncName, "funcname", "f", "", "function name to hook")
-	postgresCmd.PersistentFlags().BoolVar(&postgresConfig.PerfReorder, "perf-reorder", false, "enable userland reorder of per-CPU perf events by bpf ktime before dispatch")
-	postgresCmd.PersistentFlags().UintVar(&postgresConfig.PerfReorderLagMs, "perf-reorder-lag-ms", 10, "reorder batching window in ms (only with --perf-reorder; default 10)")
+	postgresCmd.PersistentFlags().BoolVar(&globalConf.PerfReorder, "perf-reorder", false, "enable userland reorder of per-CPU perf events by bpf ktime before dispatch")
+	postgresCmd.PersistentFlags().UintVar(&globalConf.PerfReorderLagMs, "perf-reorder-lag-ms", 10, "reorder batching window in ms (only with --perf-reorder; default 10)")
 	rootCmd.AddCommand(postgresCmd)
 }
 
 // postgres CommandFunc executes the "psql" command using the new probe architecture.
 func postgresCommandFunc(command *cobra.Command, args []string) error {
-	// Set global config to postgres-specific config
-	postgresConfig.SetPid(globalConf.Pid)
-	postgresConfig.SetUid(globalConf.Uid)
-	postgresConfig.SetDebug(globalConf.Debug)
-	postgresConfig.SetHex(globalConf.IsHex)
-	postgresConfig.SetBTF(globalConf.BtfMode)
-	postgresConfig.SetPerCpuMapSize(globalConf.PerCpuMapSize)
-	postgresConfig.SetTruncateSize(globalConf.TruncateSize)
-
 	// Run probe using the common entry point
-	return runProbe(factory.ProbeTypePostgres, postgresConfig)
+	return runConfiguredProbe(factory.ProbeTypePostgres, postgresConfig)
 }

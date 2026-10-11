@@ -50,7 +50,7 @@ func (c *Config) Validate() error {
 	if c.BaseConfig == nil {
 		return errors.NewConfigurationError("base config is nil", nil)
 	}
-	if err := c.BaseConfig.Validate(); err != nil {
+	if err := c.BaseConfig.ValidateTextOutput(); err != nil {
 		return errors.NewConfigurationError("nspr base config validation failed", err)
 	}
 

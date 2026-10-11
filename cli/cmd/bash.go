@@ -41,15 +41,6 @@ func init() {
 
 // bashCommandFunc executes the "bash" command using the new probe architecture.
 func bashCommandFunc(command *cobra.Command, args []string) error {
-	// Set global config to bash-specific config
-	bashConfig.SetPid(globalConf.Pid)
-	bashConfig.SetUid(globalConf.Uid)
-	bashConfig.SetDebug(globalConf.Debug)
-	bashConfig.SetHex(globalConf.IsHex)
-	bashConfig.SetBTF(globalConf.BtfMode)
-	bashConfig.SetPerCpuMapSize(globalConf.PerCpuMapSize)
-	bashConfig.SetTruncateSize(globalConf.TruncateSize)
-
 	// Run probe using the common entry point
-	return runProbe(factory.ProbeTypeBash, bashConfig)
+	return runConfiguredProbe(factory.ProbeTypeBash, bashConfig)
 }
