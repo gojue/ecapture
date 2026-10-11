@@ -33,7 +33,7 @@
 </p>
 
 > [!IMPORTANT]
-> Linux 支持 x86_64（内核 4.18+）、aarch64（内核 5.5+）和 LoongArch64/Go `loong64`（内核 6.6+）。Android 继续支持 x86_64 和 aarch64，且最低内核要求不变；不支持 Android/loong64。
+> Linux 支持 x86_64（内核 4.18+）、aarch64（内核 5.5+）和 LoongArch64 `loong64`（内核 6.6+）。Android 继续支持 x86_64 和 aarch64，且最低内核要求不变。
 > 需要 root 权限或特定的 [Linux capabilities](docs/minimum-privileges.md)。
 > 不支持 Windows 和 macOS。
 

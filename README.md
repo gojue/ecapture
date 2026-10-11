@@ -32,7 +32,7 @@
 </p>
 
 > [!IMPORTANT]
-> Supports Linux on x86_64 (kernel 4.18+), aarch64 (kernel **5.5+**), and LoongArch64/Go `loong64` (kernel **6.6+**). Android supports x86_64 and aarch64 with the existing kernel minimums; Android/loong64 is not supported.
+> Supports Linux on x86_64 (kernel 4.18+), aarch64 (kernel **5.5+**), and LoongArch64 `loong64` (kernel **6.6+**). Android supports x86_64 and aarch64 with the existing kernel minimums.
 > Requires root privileges or specific [Linux capabilities](docs/minimum-privileges.md).
 > Does not support Windows or macOS.
 

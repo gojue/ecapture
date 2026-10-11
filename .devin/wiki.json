@@ -1,309 +1,203 @@
 {
   "repo_notes": [
     {
-      "content": "Wiki generation rules for this repository:\n- Output language selection is authoritative: when the site locale is Chinese (zh-CN / zh-Hans), all user-facing titles, headings, labels, and explanatory text must be in Simple Chinese. English section titles are forbidden in the Chinese wiki.\n- Keep the content mix roughly 70% user-facing and 30% developer-facing. The user-facing chapters should be organized as: 简介, 快速开始, 探针功能, 使用要求, 故障排查. The developer-facing chapters should be organized as: 开发者指南, 系统架构.\n- Never write source-scoped markdown links or code-file citations in the summary or user-facing content, such as [utils/boringssl-offset.c#17-53](utils/boringssl-offset.c) or 'Sources: ...'. Omit file-path links entirely from summaries and from Mermaid diagrams.\n- Mermaid node labels and edges must use plain concepts such as 'OpenSSL Probe', 'BPF Program', and 'Output', not repository file paths or markdown hyperlinks.\n- If a page is user-facing, explain capabilities and usage; if it is developer-facing, explain architecture, build, extension, and CI/CD. Do not mix repo-source references into the user summary."
+      "content": "Generate separate, fully localized en and zh wikis. The English titles and parent names in pages are canonical outline identifiers, not text to copy into every locale. For en, write all user-facing titles, navigation, headings, summaries, diagrams, and prose in English. For zh / zh-CN / zh-Hans, translate them consistently into Simplified Chinese. Use these six Chinese top-level titles, in order: 入门指南, 核心 TLS 模块, 抓取模式, 进阶使用, 架构与探针开发, 构建、测试与发布. Translate Other Modules as 其他模块. Preserve product names, CLI flags, API paths, code identifiers, and standard technical terms such as TLS, eBPF, text, keylog, and pcapng. Check every generated page for wrong-language titles or prose."
+    },
+    {
+      "content": "Create exactly the six top-level sections in pages, with no extra top-level section. The first four sections contain 21 user-facing pages; the last two contain 9 developer-facing pages. Aim for about 70% of total explanatory content for users and 30% for developers, not just the page-count ratio. User pages explain selection, prerequisites, runnable workflows, expected output, interpretation, and troubleshooting. Developer pages explain architecture, event ABI, lifecycle, output routing, builds, tests, and extension. Keep NSS/NSPR, Bash, Zsh, MySQL/MariaDB, and PostgreSQL only in the single Other Modules page under Advanced Usage. Give no non-core probe its own page or chapter elsewhere."
+    },
+    {
+      "content": "The core of this wiki is tls (OpenSSL/BoringSSL), gotls, and gnutls. Spend most user-facing space on using these three commands and choosing among text, keylog, and pcapng. Each core module and each mode needs verified commands, required target or interface setup, expected artifact, a way to confirm success, and relevant limitations. Explain that text shows captured plaintext events, keylog provides TLS secrets for a separate packet capture, and pcapng contains packet blocks plus an embedded TLS Decryption Secrets Block. Do not imply keylog alone contains packets or pcapng is only a keylog file."
+    },
+    {
+      "content": "Verify facts against current source code, README, docs/agent/architecture.md, and docs/agent/output-pipeline.md. For tls, gotls, and gnutls, -m selects text, keylog, or pcap/pcapng representation; --eventaddr selects the primary captured-event destination; --logaddr carries operational logs only. Explain the legacy --keylogfile and --pcapfile aliases and mode-specific destination and rotation rules accurately. Do not invent commands, supported versions, or performance numbers. Do not put source-file links or code citations in summaries or user-facing explanatory text. Mermaid labels must describe concepts, not file paths or Markdown links."
     }
   ],
   "pages": [
     {
-      "title": "简介",
-      "purpose": "这是项目的总览页，面向普通用户介绍 eCapture 是什么、解决什么问题，以及它的主要应用场景。要点简洁，作为入口导航到“快速开始、探针功能、使用要求和故障排查”等章节。",
+      "title": "Getting Started",
+      "purpose": "User-facing entry point: what eCapture does for TLS capture, who should use tls, gotls, or gnutls, and a short route from prerequisites to first text capture and the three output modes.",
       "parent": null,
       "page_notes": [
         {
-          "content": "中文站点规则：本章必须使用简体中文，禁止出现英文标题或代码文件路径链接；用户文档与开发者文档的比例保持约 7:3。更重要的是，文档总结中不出现 source/file path 链接，也不要在 Mermaid 图中展示任何文件路径。"
+          "content": "User-facing section. Keep explanations task-oriented and put actionable examples before implementation detail. Link to the appropriate core TLS module and output mode pages."
         }
       ]
     },
     {
-      "title": "简介概览",
-      "purpose": "面向用户的详细介绍，说明 eCapture 的定位、核心能力和典型场景，包括 TLS/SSL 明文抓取、数据库 SQL 审计、Shell 命令审计，以及与传统抓包工具的差异。",
-      "parent": "简介",
+      "title": "Requirements and Installation",
+      "purpose": "Explain supported Linux and Android platforms, kernel and BTF requirements, installation, root or capabilities, and pcapng interface prerequisites. Mark differences among tls, gotls, and gnutls.",
+      "parent": "Getting Started"
+    },
+    {
+      "title": "Choosing a TLS Probe",
+      "purpose": "Compare tls for OpenSSL/BoringSSL, gotls for Go native TLS, and gnutls for GnuTLS with a decision table based on target library, binary, platform, and desired output.",
+      "parent": "Getting Started"
+    },
+    {
+      "title": "First OpenSSL and BoringSSL Capture",
+      "purpose": "Give a verified end-to-end tls text-mode command, traffic generator, expected event, and links to keylog and pcapng workflows.",
+      "parent": "Getting Started"
+    },
+    {
+      "title": "First GoTLS Capture",
+      "purpose": "Give a verified end-to-end gotls text-mode command with target Go binary and required flags, expected event, and links to keylog and pcapng workflows.",
+      "parent": "Getting Started"
+    },
+    {
+      "title": "First GnuTLS Capture",
+      "purpose": "Give a verified end-to-end gnutls text-mode command with suitable target and version checks, expected event, and links to keylog and pcapng workflows.",
+      "parent": "Getting Started"
+    },
+    {
+      "title": "Core TLS Modules",
+      "purpose": "User-facing guide to the shared workflow and main differences among the tls, gotls, and gnutls capture modules. Keep these three as the central capabilities.",
+      "parent": null,
       "page_notes": [
         {
-          "content": "本章使用面向用户的说明方式，不展示源代码文件路径或仓库链接；如需引用细节，请在开发者文档中单独说明，避免在用户总结和 Mermaid 图中加入任何文件级超链接。"
+          "content": "User-facing section. Keep explanations task-oriented and put actionable examples before implementation detail. Link to the appropriate core TLS module and output mode pages."
         }
       ]
     },
     {
-      "title": "使用要求",
-      "purpose": "说明 eCapture 的平台支持范围、最低内核要求、CO-RE 与非 CO-RE 模式差异，以及 Android / Linux 的适用条件。必须以中文写作，避免英文标题。",
-      "parent": "简介",
+      "title": "TLS Capture (OpenSSL and BoringSSL)",
+      "purpose": "Explain tls usage: target library discovery or --libssl, version mappings, Android BoringSSL where supported, capture setup, and verified text, keylog, and pcapng examples with expected results.",
+      "parent": "Core TLS Modules"
+    },
+    {
+      "title": "GoTLS Capture",
+      "purpose": "Explain gotls usage: Go binary selection, symbol and calling-convention considerations, supported versions, and verified text, keylog, and pcapng examples with expected results.",
+      "parent": "Core TLS Modules"
+    },
+    {
+      "title": "GnuTLS Capture",
+      "purpose": "Explain gnutls usage: target library and application, patch-specific version support, platform limits, and verified text, keylog, and pcapng examples with expected results.",
+      "parent": "Core TLS Modules"
+    },
+    {
+      "title": "Capture Modes",
+      "purpose": "User-facing guide to text, keylog, and pcapng for the three core TLS modules: what each mode produces, when to use it, destination requirements, and how to verify the result.",
+      "parent": null,
       "page_notes": [
         {
-          "content": "中文站点规则：本章必须使用简体中文，禁止出现英文标题或代码文件路径链接；用户文档与开发者文档的比例保持约 7:3。更重要的是，文档总结中不出现 source/file path 链接，也不要在 Mermaid 图中展示任何文件路径。"
+          "content": "User-facing section. Keep explanations task-oriented and put actionable examples before implementation detail. Link to the appropriate core TLS module and output mode pages."
         }
       ]
     },
     {
-      "title": "快速开始",
-      "purpose": "面向新用户的入门章节，覆盖安装步骤、环境检查、首次抓取示例、输出格式选择，以及 5 分钟内完成首个抓包的路径。",
-      "parent": "简介",
+      "title": "Choosing Text, Keylog, or pcapng",
+      "purpose": "Provide a decision table: immediate plaintext inspection uses text; a separate packet capture plus TLS secrets uses keylog; a pcapng artifact contains packet blocks and embedded decryption secrets. Explain caveats.",
+      "parent": "Capture Modes"
+    },
+    {
+      "title": "Text Mode",
+      "purpose": "Give verified text-mode commands for tls, gotls, and gnutls; explain event stdout by default, optional --eventaddr, expected plaintext events, and a simple verification flow.",
+      "parent": "Capture Modes"
+    },
+    {
+      "title": "Keylog Mode",
+      "purpose": "Give verified keylog-mode commands for tls, gotls, and gnutls; explain NSS Key Log lines, destination rules, --keylogfile compatibility, independent packet capture for Wireshark, and sensitive-file handling.",
+      "parent": "Capture Modes"
+    },
+    {
+      "title": "pcapng Mode",
+      "purpose": "Give verified -m pcap or -m pcapng commands for tls, gotls, and gnutls; explain interface selection, destination rules, --pcapfile compatibility, packet blocks with a TLS Decryption Secrets Block, and Wireshark inspection.",
+      "parent": "Capture Modes"
+    },
+    {
+      "title": "Event Destinations and Rotation",
+      "purpose": "Explain --eventaddr for captured events from all three TLS modules, stdout/file/TCP/WebSocket sinks, mode-specific destination and rotation limits, legacy output aliases, and separation from --logaddr.",
+      "parent": "Capture Modes"
+    },
+    {
+      "title": "Wireshark Decryption Workflows",
+      "purpose": "Show the difference between opening eCapture pcapng with embedded secrets and combining a separate packet capture with a keylog file. Give verifiable steps and mention when text mode is simpler.",
+      "parent": "Capture Modes"
+    },
+    {
+      "title": "Advanced Usage",
+      "purpose": "User-facing entry point for operating core TLS capture beyond the first example: troubleshooting, remote integration, and a brief pointer to the single Other Modules page.",
+      "parent": null,
       "page_notes": [
         {
-          "content": "中文站点规则：本章必须使用简体中文，禁止出现英文标题或代码文件路径链接；用户文档与开发者文档的比例保持约 7:3。更重要的是，文档总结中不出现 source/file path 链接，也不要在 Mermaid 图中展示任何文件路径。"
+          "content": "User-facing section. Keep explanations task-oriented and put actionable examples before implementation detail. Link to the appropriate core TLS module and output mode pages."
         }
       ]
     },
     {
-      "title": "安装与准备",
-      "purpose": "介绍安装方式、系统要求、权限准备、BTF 检查和常见前置条件，帮助用户快速准备运行环境。",
-      "parent": "快速开始",
-      "page_notes": [
-        {
-          "content": "本章使用面向用户的说明方式，不展示源代码文件路径或仓库链接；如需引用细节，请在开发者文档中单独说明，避免在用户总结和 Mermaid 图中加入任何文件级超链接。"
-        }
-      ]
-    },
-    {
-      "title": "最低权限要求",
-      "purpose": "说明 eCapture 在不同内核版本下需要的最小 Linux 权限，包括 CAP_BPF、CAP_PERFMON、CAP_SYS_PTRACE、CAP_SYS_ADMIN 和 pcapng 场景下的额外要求。",
-      "parent": "快速开始",
-      "page_notes": [
-        {
-          "content": "本章使用面向用户的说明方式，不展示源代码文件路径或仓库链接；如需引用细节，请在开发者文档中单独说明，避免在用户总结和 Mermaid 图中加入任何文件级超链接。"
-        }
-      ]
-    },
-    {
-      "title": "快速开始：5分钟跑通第一个示例",
-      "purpose": "提供一个最简单的 TLS 明文抓取示例，从启动程序到看到输出的完整流程，包含 curl、wget 或 nginx 等常见场景。",
-      "parent": "快速开始",
-      "page_notes": [
-        {
-          "content": "本章使用面向用户的说明方式，不展示源代码文件路径或仓库链接；如需引用细节，请在开发者文档中单独说明，避免在用户总结和 Mermaid 图中加入任何文件级超链接。"
-        }
-      ]
-    },
-    {
-      "title": "输出格式（文本 / pcap / keylog）",
-      "purpose": "详细讲解文本输出、pcap/pcapng 输出和 keylog 输出三种方式的适用场景、使用限制和示例命令。",
-      "parent": "快速开始",
-      "page_notes": [
-        {
-          "content": "本章使用面向用户的说明方式，不展示源代码文件路径或仓库链接；如需引用细节，请在开发者文档中单独说明，避免在用户总结和 Mermaid 图中加入任何文件级超链接。"
-        }
-      ]
-    },
-    {
-      "title": "探针功能",
-      "purpose": "按用户视角介绍所有探针功能，说明适用场景、可抓取对象、输出方式和注意事项，便于用户选用合适探针。",
-      "parent": "简介",
-      "page_notes": [
-        {
-          "content": "中文站点规则：本章必须使用简体中文，禁止出现英文标题或代码文件路径链接；用户文档与开发者文档的比例保持约 7:3。更重要的是，文档总结中不出现 source/file path 链接，也不要在 Mermaid 图中展示任何文件路径。"
-        }
-      ]
-    },
-    {
-      "title": "TLS/SSL 明文抓取（OpenSSL / BoringSSL）",
-      "purpose": "介绍 TLS/SSL 明文抓取能力，说明 OpenSSL / BoringSSL 自动发现、支持版本范围、抓取原理和 Wireshark 集成方式。",
-      "parent": "探针功能",
-      "page_notes": [
-        {
-          "content": "本章使用面向用户的说明方式，不展示源代码文件路径或仓库链接；如需引用细节，请在开发者文档中单独说明，避免在用户总结和 Mermaid 图中加入任何文件级超链接。"
-        }
-      ]
-    },
-    {
-      "title": "GoTLS 抓取",
-      "purpose": "介绍 Go 原生 TLS 方案的抓取能力，说明支持范围、调用约定差异、二进制要求和常见限制。",
-      "parent": "探针功能",
-      "page_notes": [
-        {
-          "content": "本章使用面向用户的说明方式，不展示源代码文件路径或仓库链接；如需引用细节，请在开发者文档中单独说明，避免在用户总结和 Mermaid 图中加入任何文件级超链接。"
-        }
-      ]
-    },
-    {
-      "title": "GnuTLS 抓取",
-      "purpose": "介绍 GnuTLS 场景下的抓取能力，包括适用程序、支持版本和 keylog 集成方式。",
-      "parent": "探针功能",
-      "page_notes": [
-        {
-          "content": "本章使用面向用户的说明方式，不展示源代码文件路径或仓库链接；如需引用细节，请在开发者文档中单独说明，避免在用户总结和 Mermaid 图中加入任何文件级超链接。"
-        }
-      ]
-    },
-    {
-      "title": "NSS / NSPR 抓取",
-      "purpose": "介绍 Firefox、Thunderbird 等依赖 NSS/NSPR 的抓取能力及适用场景。",
-      "parent": "探针功能",
-      "page_notes": [
-        {
-          "content": "本章使用面向用户的说明方式，不展示源代码文件路径或仓库链接；如需引用细节，请在开发者文档中单独说明，避免在用户总结和 Mermaid 图中加入任何文件级超链接。"
-        }
-      ]
-    },
-    {
-      "title": "数据库流量抓取（MySQL / PostgreSQL）",
-      "purpose": "介绍 MySQL / PostgreSQL 查询抓取能力，说明 SQL 审计的典型用途、输出格式和使用限制。",
-      "parent": "探针功能",
-      "page_notes": [
-        {
-          "content": "本章使用面向用户的说明方式，不展示源代码文件路径或仓库链接；如需引用细节，请在开发者文档中单独说明，避免在用户总结和 Mermaid 图中加入任何文件级超链接。"
-        }
-      ]
-    },
-    {
-      "title": "Shell 审计（Bash / Zsh）",
-      "purpose": "介绍 Bash / Zsh 命令审计能力，说明如何抓取 shell 历史命令、审计场景和典型输出。",
-      "parent": "探针功能",
-      "page_notes": [
-        {
-          "content": "本章使用面向用户的说明方式，不展示源代码文件路径或仓库链接；如需引用细节，请在开发者文档中单独说明，避免在用户总结和 Mermaid 图中加入任何文件级超链接。"
-        }
-      ]
+      "title": "TLS Troubleshooting",
+      "purpose": "Give a diagnostic checklist for tls, gotls, gnutls, and all three modes: library or binary mismatch, version support, empty events, missing secrets, incomplete pcapng, BTF, privileges, interface, and destination errors.",
+      "parent": "Advanced Usage"
     },
     {
       "title": "Integration and Deployment",
-      "purpose": "For users running eCapture in production. Covers remote event streaming, the HTTP dynamic configuration API, output and log configuration, and performance overhead.",
+      "purpose": "Concise production guidance for core TLS capture: event forwarding with --eventaddr, additive eCaptureQ, HTTP dynamic configuration, sensitive artifacts, and performance evaluation. Verify endpoint names.",
+      "parent": "Advanced Usage"
+    },
+    {
+      "title": "Other Modules",
+      "purpose": "Briefly list NSS/NSPR, Bash, Zsh, MySQL/MariaDB, and PostgreSQL probes, their supported targets, and pointers to current usage references. Keep all non-core probe coverage on this page.",
+      "parent": "Advanced Usage",
+      "page_notes": [
+        {
+          "content": "This is the only non-core module chapter. Keep it brief and do not create child pages or detailed tutorials for these probes."
+        }
+      ]
+    },
+    {
+      "title": "Architecture and Probe Development",
+      "purpose": "Developer-facing entry point for the architecture and extension of tls, gotls, and gnutls, including the three output modes.",
       "parent": null,
       "page_notes": [
         {
-          "content": "Chapter index. Sub-pages cover the WebSocket event stream, the HTTP dynamic config API, log/output configuration, and performance benchmarks."
+          "content": "Developer-facing section. Focus on the core TLS probes and their text, keylog, and pcapng behavior; keep user setup instructions in the first four sections."
         }
       ]
     },
     {
-      "title": "Remote Event Streaming (eCaptureQ WebSocket)",
-      "purpose": "Describes the eCaptureQ live event push mechanism: starting the WebSocket server (--ecaptureq), the Protobuf message format (LogEntry, LogType, Heartbeat), the 128-message startup buffer (history replay on connect), the reference Go client, and a multi-language client integration pattern.",
-      "parent": "Integration and Deployment",
-      "page_notes": [
-        {
-          "content": "本章使用面向用户的说明方式，不展示源代码文件路径或仓库链接；如需引用细节，请在开发者文档中单独说明，避免在用户总结和 Mermaid 图中加入任何文件级超链接。"
-        }
-      ]
+      "title": "TLS Capture Architecture",
+      "purpose": "Explain eBPF attachments, library and symbol resolution, C/Go event ABI, and the shared and module-specific flows in tls, gotls, and gnutls.",
+      "parent": "Architecture and Probe Development"
     },
     {
-      "title": "Remote Dynamic Configuration API",
-      "purpose": "Describes the runtime HTTP API for hot-updating eCapture configuration: starting the HTTP server (--listen, default 127.0.0.1:28256), the POST paths exposed by each probe (/tls, /gotls, /gnutls, /nss, /bash, /mysqld, /postgress, etc.), JSON request/response shapes, and platform-specific path differences (Linux vs Android). Includes curl examples and typical use cases (live retargeting without restarts).",
-      "parent": "Integration and Deployment",
-      "page_notes": [
-        {
-          "content": "本章使用面向用户的说明方式，不展示源代码文件路径或仓库链接；如需引用细节，请在开发者文档中单独说明，避免在用户总结和 Mermaid 图中加入任何文件级超链接。"
-        }
-      ]
+      "title": "Probe Framework and Lifecycle",
+      "purpose": "Explain factory registration, BaseProbe lifecycle, attachment and decoder setup, reader tracking, concurrency, shutdown, and reload using core TLS probes.",
+      "parent": "Architecture and Probe Development"
     },
     {
-      "title": "Logging and Output Configuration",
-      "purpose": "Documents every output-related flag: --logaddr (TCP log forwarding), --eventaddr (event forwarding address), output priority rules, log rotation (rotatelog), switching between stdout and file output, and integration patterns with external systems such as ELK and Kafka.",
-      "parent": "Integration and Deployment",
-      "page_notes": [
-        {
-          "content": "本章使用面向用户的说明方式，不展示源代码文件路径或仓库链接；如需引用细节，请在开发者文档中单独说明，避免在用户总结和 Mermaid 图中加入任何文件级超链接。"
-        }
-      ]
+      "title": "Event and Output Pipeline",
+      "purpose": "Trace core TLS events through decoding, dispatch, text/keylog/pcapng handlers, ByteSink destinations, embedded pcapng secrets, and additive eCaptureQ publication.",
+      "parent": "Architecture and Probe Development"
     },
     {
-      "title": "Performance Overhead and Benchmarks",
-      "purpose": "Explains the performance model of uprobe-based capture (uprobe enter/exit cost ~1-2us, eBPF program cost, perf buffer cost), benchmarking methodology (wrk + HTTPS server comparison), tuning guidance for high-throughput scenarios (ring buffer vs perf buffer, sampling rate), and a production performance evaluation checklist.",
-      "parent": "Integration and Deployment",
-      "page_notes": [
-        {
-          "content": "本章使用面向用户的说明方式，不展示源代码文件路径或仓库链接；如需引用细节，请在开发者文档中单独说明，避免在用户总结和 Mermaid 图中加入任何文件级超链接。"
-        }
-      ]
+      "title": "Extending a TLS Probe",
+      "purpose": "Explain how to extend tls, gotls, or gnutls while preserving attachment mappings, event ABI, version support, CO-RE and non-CO-RE assets, and mode-specific behavior.",
+      "parent": "Architecture and Probe Development"
     },
     {
-      "title": "故障排查",
-      "purpose": "聚合用户最常见的问题，覆盖权限不足、BTF 缺失、内核不支持、流量为空、Android 特有问题等，提供排查思路与诊断建议。",
-      "parent": "简介",
-      "page_notes": [
-        {
-          "content": "中文站点规则：本章必须使用简体中文，禁止出现英文标题或代码文件路径链接；用户文档与开发者文档的比例保持约 7:3。更重要的是，文档总结中不出现 source/file path 链接，也不要在 Mermaid 图中展示任何文件路径。"
-        }
-      ]
-    },
-    {
-      "title": "检测与防御",
-      "purpose": "说明如何检测主机上是否存在相似的 eBPF 监听工具，以及对应的安全防护建议。",
-      "parent": "故障排查",
-      "page_notes": [
-        {
-          "content": "本章使用面向用户的说明方式，不展示源代码文件路径或仓库链接；如需引用细节，请在开发者文档中单独说明，避免在用户总结和 Mermaid 图中加入任何文件级超链接。"
-        }
-      ]
-    },
-    {
-      "title": "系统架构",
-      "purpose": "面向开发者，说明 eCapture 的三层架构、探针框架、事件处理链路等核心设计。",
-      "parent": "开发者指南",
-      "page_notes": [
-        {
-          "content": "中文站点规则：本章必须使用简体中文，禁止出现英文标题或代码文件路径链接；用户文档与开发者文档的比例保持约 7:3。更重要的是，文档总结中不出现 source/file path 链接，也不要在 Mermaid 图中展示任何文件路径。"
-        }
-      ]
-    },
-    {
-      "title": "三层架构",
-      "purpose": "说明内核 eBPF 层、用户态探针层和输出层之间的数据流与职责划分。",
-      "parent": "系统架构",
-      "page_notes": [
-        {
-          "content": "本章使用面向用户的说明方式，不展示源代码文件路径或仓库链接；如需引用细节，请在开发者文档中单独说明，避免在用户总结和 Mermaid 图中加入任何文件级超链接。"
-        }
-      ]
-    },
-    {
-      "title": "探针框架与扩展机制",
-      "purpose": "说明 Probe、Event、Configuration、EventDecoder 等接口以及工厂注册、BaseProbe 模板方法等扩展机制。",
-      "parent": "系统架构",
-      "page_notes": [
-        {
-          "content": "本章使用面向用户的说明方式，不展示源代码文件路径或仓库链接；如需引用细节，请在开发者文档中单独说明，避免在用户总结和 Mermaid 图中加入任何文件级超链接。"
-        }
-      ]
-    },
-    {
-      "title": "事件处理管线",
-      "purpose": "描述事件从 eBPF 缓冲区到输出的完整处理链路，包括分发、解析和超时管理。",
-      "parent": "系统架构",
-      "page_notes": [
-        {
-          "content": "本章使用面向用户的说明方式，不展示源代码文件路径或仓库链接；如需引用细节，请在开发者文档中单独说明，避免在用户总结和 Mermaid 图中加入任何文件级超链接。"
-        }
-      ]
-    },
-    {
-      "title": "开发者指南",
-      "purpose": "针对贡献者和扩展开发者的文档入口，覆盖编译、探针扩展、测试和 CI/CD 过程，保持相对简洁。",
+      "title": "Build, Testing, and Release",
+      "purpose": "Developer-facing entry point for building and verifying the three core TLS modules and their text, keylog, and pcapng modes.",
       "parent": null,
       "page_notes": [
         {
-          "content": "中文站点规则：本章必须使用简体中文，禁止出现英文标题或代码文件路径链接；用户文档与开发者文档的比例保持约 7:3。更重要的是，文档总结中不出现 source/file path 链接，也不要在 Mermaid 图中展示任何文件路径。"
+          "content": "Developer-facing section. Focus on the core TLS probes and their text, keylog, and pcapng behavior; keep user setup instructions in the first four sections."
         }
       ]
     },
     {
-      "title": "编译与构建",
-      "purpose": "说明本地构建、跨架构编译和 CI 构建的关键流程，适合开发者和维护者参考。",
-      "parent": "开发者指南",
-      "page_notes": [
-        {
-          "content": "本章使用面向用户的说明方式，不展示源代码文件路径或仓库链接；如需引用细节，请在开发者文档中单独说明，避免在用户总结和 Mermaid 图中加入任何文件级超链接。"
-        }
-      ]
+      "title": "Build and Bytecode Assets",
+      "purpose": "Explain supported Linux build environments, architecture variants, CO-RE and non-CO-RE generated assets, and build prerequisites for tls, gotls, and gnutls.",
+      "parent": "Build, Testing, and Release"
     },
     {
-      "title": "如何新增探针",
-      "purpose": "说明新增探针时所需的接口实现、eBPF 程序编写、字节码嵌入、工厂注册和 CLI 接入流程。",
-      "parent": "开发者指南",
-      "page_notes": [
-        {
-          "content": "本章使用面向用户的说明方式，不展示源代码文件路径或仓库链接；如需引用细节，请在开发者文档中单独说明，避免在用户总结和 Mermaid 图中加入任何文件级超链接。"
-        }
-      ]
+      "title": "TLS Test and E2E Strategy",
+      "purpose": "Describe targeted unit tests, byte-level ABI checks, race and production-tag gates, and strict Linux/Android E2E cases for text, keylog, and pcapng across supported core modules.",
+      "parent": "Build, Testing, and Release"
     },
     {
-      "title": "测试策略与 CI/CD",
-      "purpose": "说明单元测试、E2E 测试、代码扫描和发布流程等开发实践。",
-      "parent": "开发者指南",
-      "page_notes": [
-        {
-          "content": "本章使用面向用户的说明方式，不展示源代码文件路径或仓库链接；如需引用细节，请在开发者文档中单独说明，避免在用户总结和 Mermaid 图中加入任何文件级超链接。"
-        }
-      ]
+      "title": "CI, Packaging, and Release",
+      "purpose": "Summarize core TLS CI coverage, least-privilege workflow boundaries, packaging, and release checks without turning this into a general non-core module guide.",
+      "parent": "Build, Testing, and Release"
     }
   ]
 }
