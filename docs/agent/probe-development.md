@@ -103,8 +103,9 @@ decoder.
 ### Start
 
 1. Call `BaseProbe.Start()`.
-2. Select the asset using platform, BTF/core mode, architecture, and library
-   version.
+2. Pass the probe/version-specific base asset name to
+   `BaseProbe.SelectBytecode`; the shared selector applies the stable BTF and
+   linked asset mode.
 3. Load bytes from the exact go-bindata key.
 4. Build probes, maps, constant editors, and manager options.
 5. Initialize and start the manager.
@@ -222,6 +223,8 @@ preference.
   documented `go generate`/stringer flow.
 - Real eBPF assets come from `kern/` through `bytecode/`; never patch embedded
   object bytes or `assets/ebpf_probe.go` directly.
+- Keep every probe on `BaseProbe.SelectBytecode`; do not add local
+  `GetBTF()==1` suffix logic. Non-CO-RE keys always end in `_noncore.o`.
 
 ## No-event troubleshooting order
 

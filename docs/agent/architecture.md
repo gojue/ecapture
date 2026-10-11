@@ -189,6 +189,12 @@ real asset file uses the `ebpfassets` tag; the stub lets clean-checkout code
 compile but `Asset()` cannot start a probe. The `dynamic` tag selects the real
 elibpcap integration.
 
+`make all`, `make core`, and `make nocore` link the embedded asset mode as
+`all`, `core`, and `noncore`, respectively. `base.BaseProbe` resolves the
+shared bytecode selector during initialization: auto mode uses the cached
+kernel BTF result subject to the linked asset set, and selection verifies the
+exact go-bindata key before a probe attempts to load it.
+
 - Linux production tags: `linux,netgo,ebpfassets,dynamic`.
 - Android production tags: `ecap_android,netgo,ebpfassets,dynamic`.
 - Android intentionally uses Linux system semantics plus `ecap_android`, not
@@ -210,12 +216,11 @@ elibpcap integration.
   rotation fields inherit from the active generation; explicit empty/zero
   values remain explicit.
 - Event rotation reaches file-backed text/keylog sinks and is rejected for
-  pcapng and network sinks. Truncate size and bytecode-file mode still have no
-  current production consumers.
-- `--btf=0` is described as auto, while several selectors choose CO-RE only
-  when the value is exactly `1`.
-- PostgreSQL's current non-core asset spelling is inconsistent with the
-  generated `*_kern_noncore.o` convention; do not copy it.
+  pcapng and network sinks. Truncate size still has no current production
+  consumer.
+- Bytecode selection is process-stable: `--btf=0` uses cached kernel BTF
+  detection, `1` requires CO-RE, and `2` requires non-CO-RE. Explicit requests
+  fail rather than switching when the current binary lacks that asset mode.
 - `pkg/event_processor` and `internal/output/encoders` are not in the live
   production event path. `pkg/event_processor` has a separate event interface
   and EventType ordering, so reconnecting it requires an explicit adapter.

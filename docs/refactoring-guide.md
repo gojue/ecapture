@@ -176,7 +176,10 @@ func (c *Config) Validate() error {
        }
        
        // Load eBPF bytecode
-       bpfFileName := p.BaseProbe.GetBPFName("bytecode/probe_kern.o")
+       bpfFileName, err := p.BaseProbe.SelectBytecode("bytecode/probe_kern.o")
+       if err != nil {
+           return errors.NewEBPFLoadError("probe bytecode selection", err)
+       }
        byteBuf, err := assets.Asset(bpfFileName)
        if err != nil {
            return errors.NewEBPFLoadError(bpfFileName, err)
@@ -586,7 +589,7 @@ Use this checklist when refactoring a probe:
 - [ ] Initialize() does proper type assertion
 - [ ] Initialize() logs relevant configuration
 - [ ] Start() calls BaseProbe.Start() first
-- [ ] Start() loads eBPF bytecode using GetBPFName()
+- [ ] Start() loads eBPF bytecode using `BaseProbe.SelectBytecode()`
 - [ ] Start() sets up eBPF manager with setupManager()
 - [ ] Start() initializes maps and starts event readers
 - [ ] setupManager() configures probes and maps correctly

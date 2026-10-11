@@ -87,7 +87,10 @@ func (p *Probe) Start(ctx context.Context) error {
 	}
 
 	// Load eBPF bytecode
-	bpfFileName := p.BaseProbe.GetBPFName("bytecode/bash_kern.o")
+	bpfFileName, err := p.BaseProbe.SelectBytecode("bytecode/bash_kern.o")
+	if err != nil {
+		return errors.NewEBPFLoadError("bash bytecode selection", err)
+	}
 	p.Logger().Info().Str("file", bpfFileName).Msg("Loading eBPF bytecode")
 
 	// Load from assets

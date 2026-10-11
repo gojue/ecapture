@@ -18,9 +18,9 @@ import (
 	"context"
 	"testing"
 
-	icfg "github.com/gojue/ecapture/v2/internal/config"
 	"github.com/gojue/ecapture/v2/internal/domain"
 	"github.com/gojue/ecapture/v2/internal/factory"
+	"github.com/gojue/ecapture/v2/internal/probe/bytecode"
 )
 
 func TestMysqlVersion_String(t *testing.T) {
@@ -270,38 +270,32 @@ func TestProbe_FactoryRegistration(t *testing.T) {
 	}
 }
 
-func TestProbe_getBPFName(t *testing.T) {
+func TestBytecodeAssetKeys(t *testing.T) {
 	tests := []struct {
 		name     string
-		btfMode  uint8
+		mode     bytecode.Mode
 		expected string
 	}{
 		{
 			name:     "core",
-			btfMode:  icfg.BTFModeCore,
+			mode:     bytecode.ModeCore,
 			expected: "bytecode/mysqld_kern_core.o",
 		},
 		{
 			name:     "non-core",
-			btfMode:  icfg.BTFModeNonCore,
-			expected: "bytecode/mysqld_kern_noncore.o",
-		},
-		{
-			name:     "auto-detect defaults to non-core name",
-			btfMode:  icfg.BTFModeAutoDetect,
+			mode:     bytecode.ModeNonCore,
 			expected: "bytecode/mysqld_kern_noncore.o",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			probe := NewProbe()
-			cfg := NewConfig()
-			cfg.SetBTF(tt.btfMode)
-			probe.config = cfg
-			got := probe.getBPFName()
+			got, err := bytecode.AssetName("bytecode/mysqld_kern.o", tt.mode)
+			if err != nil {
+				t.Fatalf("AssetName() error = %v", err)
+			}
 			if got != tt.expected {
-				t.Fatalf("getBPFName() = %q, want %q", got, tt.expected)
+				t.Fatalf("AssetName() = %q, want %q", got, tt.expected)
 			}
 		})
 	}

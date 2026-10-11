@@ -131,6 +131,9 @@ func Execute() {
 
 func init() {
 	cobra.EnablePrefixMatching = true
+	if embeddedMode, err := config.EmbeddedByteCodeFileMode(); err == nil {
+		globalConf.ByteCodeFileMode = embeddedMode
+	}
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	rootCmd.PersistentFlags().BoolVarP(&globalConf.Debug, "debug", "d", false, "enable debug logging")

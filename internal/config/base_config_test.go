@@ -28,6 +28,55 @@ func TestNewBaseConfig(t *testing.T) {
 		t.Errorf("expected PerCpuMapSize=%d, got %d", DefaultMapSizePerCpu, cfg.PerCpuMapSize)
 		return
 	}
+	embeddedMode, err := EmbeddedByteCodeFileMode()
+	if err != nil {
+		t.Fatalf("EmbeddedByteCodeFileMode() error = %v", err)
+	}
+	if cfg.ByteCodeFileMode != embeddedMode {
+		t.Errorf("expected ByteCodeFileMode=%d, got %d", embeddedMode, cfg.ByteCodeFileMode)
+	}
+}
+
+func TestParseByteCodeFileMode(t *testing.T) {
+	for _, tt := range []struct {
+		value   string
+		want    uint8
+		wantErr bool
+	}{
+		{value: "all", want: ByteCodeFileAll},
+		{value: "core", want: ByteCodeFileCore},
+		{value: "noncore", want: ByteCodeFileNonCore},
+		{value: " CORE ", want: ByteCodeFileCore},
+		{value: "invalid", wantErr: true},
+	} {
+		t.Run(tt.value, func(t *testing.T) {
+			got, err := ParseByteCodeFileMode(tt.value)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("ParseByteCodeFileMode() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if !tt.wantErr && got != tt.want {
+				t.Fatalf("ParseByteCodeFileMode() = %d, want %d", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestBaseConfigValidateRejectsEmbeddedAssetModeMismatch(t *testing.T) {
+	original := ByteCodeFiles
+	ByteCodeFiles = "noncore"
+	defer func() { ByteCodeFiles = original }()
+
+	cfg := NewBaseConfig()
+	if cfg.ByteCodeFileMode != ByteCodeFileNonCore {
+		t.Fatalf("NewBaseConfig() mode = %d, want noncore", cfg.ByteCodeFileMode)
+	}
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("matching Validate() error = %v", err)
+	}
+	cfg.ByteCodeFileMode = ByteCodeFileCore
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("Validate() accepted a mode not embedded in the binary")
+	}
 }
 
 func TestBaseConfigValidate(t *testing.T) {

@@ -163,7 +163,10 @@ func (p *Probe) Events() []*ebpf.Map {
 
 // loadBytecode loads the eBPF bytecode for the probe.
 func (p *Probe) loadBytecode() ([]byte, error) {
-	bpfFileName := p.getBPFName("bytecode/zsh_kern.o")
+	bpfFileName, err := p.SelectBytecode("bytecode/zsh_kern.o")
+	if err != nil {
+		return nil, fmt.Errorf("select zsh bytecode: %w", err)
+	}
 	p.Logger().Info().Str("file", bpfFileName).Msg("Loading BPF bytecode")
 
 	bytecode, err := assets.Asset(bpfFileName)
@@ -172,18 +175,6 @@ func (p *Probe) loadBytecode() ([]byte, error) {
 	}
 
 	return bytecode, nil
-}
-
-// getBPFName returns the appropriate eBPF bytecode filename based on BTF mode.
-func (p *Probe) getBPFName(baseName string) string {
-	// Determine if we should use core or non-core bytecode
-	useCoreMode := p.config.GetBTF() == 1 // BTFModeCore
-
-	// Replace .o extension
-	if useCoreMode {
-		return baseName[:len(baseName)-2] + "_core.o"
-	}
-	return baseName[:len(baseName)-2] + "_noncore.o"
 }
 
 // setupManager configures the eBPF manager with probes and maps.

@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"time"
 
 	outputpipeline "github.com/gojue/ecapture/v2/internal/output"
@@ -39,6 +40,44 @@ const (
 	ByteCodeFileCore    = 1
 	ByteCodeFileNonCore = 2
 )
+
+// ByteCodeFiles is set by the production linker to describe the eBPF assets
+// embedded in the current binary. Keep this as a string variable so Go's -X
+// linker flag can replace it.
+var ByteCodeFiles = "all"
+
+// ParseByteCodeFileMode converts the build-time asset mode to its config value.
+func ParseByteCodeFileMode(value string) (uint8, error) {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "all":
+		return ByteCodeFileAll, nil
+	case "core":
+		return ByteCodeFileCore, nil
+	case "noncore":
+		return ByteCodeFileNonCore, nil
+	default:
+		return 0, fmt.Errorf("invalid embedded bytecode asset mode %q (want all, core, or noncore)", value)
+	}
+}
+
+// EmbeddedByteCodeFileMode returns the asset mode linked into this binary.
+func EmbeddedByteCodeFileMode() (uint8, error) {
+	return ParseByteCodeFileMode(ByteCodeFiles)
+}
+
+// ByteCodeFileModeName returns the build-facing name for an asset mode.
+func ByteCodeFileModeName(mode uint8) string {
+	switch mode {
+	case ByteCodeFileAll:
+		return "all"
+	case ByteCodeFileCore:
+		return "core"
+	case ByteCodeFileNonCore:
+		return "noncore"
+	default:
+		return fmt.Sprintf("unknown(%d)", mode)
+	}
+}
 
 // DefaultMapSizePerCpu is the default eBPF map size per CPU (8MB).
 const DefaultMapSizePerCpu = 8 * 1024 * 1024
@@ -72,13 +111,17 @@ type BaseConfig struct {
 
 // NewBaseConfig creates a new BaseConfig with default values.
 func NewBaseConfig() *BaseConfig {
+	byteCodeFileMode := uint8(ByteCodeFileAll)
+	if embeddedMode, err := EmbeddedByteCodeFileMode(); err == nil {
+		byteCodeFileMode = embeddedMode
+	}
 	return &BaseConfig{
 		Pid:                0,
 		Uid:                0,
 		Debug:              false,
 		IsHex:              false,
 		BtfMode:            BTFModeAutoDetect,
-		ByteCodeFileMode:   ByteCodeFileAll,
+		ByteCodeFileMode:   byteCodeFileMode,
 		PerCpuMapSize:      DefaultMapSizePerCpu,
 		TruncateSize:       0,
 		LoggerAddr:         "",
@@ -99,6 +142,17 @@ func (c *BaseConfig) Validate() error {
 	}
 	if c.ByteCodeFileMode > ByteCodeFileNonCore {
 		return fmt.Errorf("invalid byte_code_file_mode: %d", c.ByteCodeFileMode)
+	}
+	embeddedMode, err := EmbeddedByteCodeFileMode()
+	if err != nil {
+		return err
+	}
+	if c.ByteCodeFileMode != embeddedMode {
+		return fmt.Errorf(
+			"byte_code_file_mode %q does not match embedded asset mode %q",
+			ByteCodeFileModeName(c.ByteCodeFileMode),
+			ByteCodeFileModeName(embeddedMode),
+		)
 	}
 	return nil
 }
