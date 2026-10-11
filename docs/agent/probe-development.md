@@ -33,8 +33,8 @@ is fully correct.
 5. Add `register.go` and register the constructor from `init()`.
 6. Import the package from the relevant CLI platform file so registration
    actually runs.
-7. Add a Cobra command in `cli/cmd/`, bind flags, copy shared config fields,
-   and pass the correct factory type.
+7. Add a Cobra command in `cli/cmd/`, bind module-specific flags, route shared
+   fields through `runConfiguredProbe`, and pass the correct factory type.
 8. Update `cli/http/` config factories if runtime configuration supports the
    module.
 9. Add `kern/<name>_kern.c` or reuse an intentional shared object. Add an
@@ -177,7 +177,7 @@ Trace the full path:
 ```text
 Cobra flag/binding
   -> module config
-  -> explicit BaseConfig field copy in RunE
+  -> shared CommonConfig application in runConfiguredProbe
   -> Validate()
   -> manager constants/attachments or handler setup
   -> cli/http runtime config factory
@@ -185,14 +185,16 @@ Cobra flag/binding
   -> unit and E2E tests
 ```
 
-Adding a field only to `BaseConfig` is insufficient because commands copy
-shared fields explicitly and not uniformly. Confirm Android/non-Android
-command files separately. Preserve the distinction between operational logs
-(`--logaddr`) and captured events (`--eventaddr`).
+Adding a field only to `BaseConfig` is insufficient. Add it to the shared
+`CommonConfig`/HTTP patch application path, then confirm Android/non-Android
+command files and every HTTP factory. Preserve the distinction between
+process-lifetime operational outputs (`--logaddr`, typed eCaptureQ) and
+serialized captured-event settings (`--eventaddr`, rotation).
 
-Reload work needs extra care: the current implementation reuses a canceled
-context and retains the original factory probe type. Do not describe or test it
-as reliable cross-probe hot swap without fixing those lifecycle constraints.
+Reload uses a fresh generation context, inherits omitted captured-event output
+fields, and acknowledges HTTP success only after the candidate starts. It
+still retains the original factory probe type; do not describe or test it as
+reliable cross-probe hot swap.
 
 ## Change a capture mode or output
 

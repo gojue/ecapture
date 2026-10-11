@@ -8,6 +8,12 @@ This directory keeps the actively maintained TLS E2E scope small and explicit:
 - Every Linux TLS module exercises text, keylog, and pcapng over stdout, file,
   local TCP, and binary WebSocket ByteSinks. Each representation is also
   observed by a strict typed eCaptureQ receiver.
+- Every Linux TLS text suite performs same-probe HTTP reloads that inherit the
+  original destination, switch to an explicit new destination only after
+  success, and reject an invalid destination while the active output continues.
+- A separate strict common-config suite verifies file `--eventaddr` and
+  operational-log isolation for Bash, Zsh, and the MySQL probe using local
+  deterministic fixtures.
 
 The tests require root and a real Linux/Android kernel with eBPF support. Building or running them on macOS is unsupported.
 
@@ -95,6 +101,14 @@ sudo make e2e-gnutls
 
 sudo E2E_MODULES='tls gotls' E2E_MODES=text bash test/e2e/run_e2e.sh
 sudo E2E_MODULES=gotls E2E_MODES='keylog pcapng' bash test/e2e/run_e2e.sh
+```
+
+Run the non-TLS common-config suite on a host with interactive Bash/Zsh and a
+C++ compiler. The database case uses a local `dispatch_command` fixture, so it
+does not depend on a particular installed MySQL build:
+
+```bash
+sudo env PATH="$PATH" bash test/e2e/linux/common_config_test.sh
 ```
 
 `make e2e` and `make e2e-basic` run the maintained Linux matrix. `make e2e-advanced`

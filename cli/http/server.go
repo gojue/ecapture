@@ -19,8 +19,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
-
-	"github.com/gojue/ecapture/v2/internal/domain"
 )
 
 type HttpServer struct {
@@ -29,13 +27,13 @@ type HttpServer struct {
 	loadStat  int8   // 加载状态，重启完成后，进行再次加载
 	ProbeType string //当前加载探针类型
 	probeConf any    //探针配置
-	confChan  chan domain.Configuration
+	confChan  chan *ConfigUpdate
 	ge        *gin.Engine
 	addr      string
 	logger    zerolog.Logger
 }
 
-func NewHttpServer(addr string, confChan chan domain.Configuration, zerologger zerolog.Logger) *HttpServer {
+func NewHttpServer(addr string, confChan chan *ConfigUpdate, zerologger zerolog.Logger) *HttpServer {
 	gin.SetMode(gin.ReleaseMode)
 	var errLogger = &ErrLogger{zerologger: zerologger}
 	var infoLogger = &InfoLogger{zerologger: zerologger}
@@ -107,24 +105,24 @@ func (hs *HttpServer) Bash(c *gin.Context) {
 
 func (hs *HttpServer) decodeConf(c *gin.Context, probeType string) {
 	// Create appropriate config based on probe type
-	var conf domain.Configuration
+	var update *ConfigUpdate
 	var err error
 
 	switch probeType {
 	case "openssl":
-		conf, err = createOpensslConfig(c)
+		update, err = createOpensslConfig(c)
 	case "gnutls":
-		conf, err = createGnutlsConfig(c)
+		update, err = createGnutlsConfig(c)
 	case "gotls":
-		conf, err = createGotlsConfig(c)
+		update, err = createGotlsConfig(c)
 	case "nspr":
-		conf, err = createNsprConfig(c)
+		update, err = createNsprConfig(c)
 	case "bash":
-		conf, err = createBashConfig(c)
+		update, err = createBashConfig(c)
 	case "mysql":
-		conf, err = createMysqlConfig(c)
+		update, err = createMysqlConfig(c)
 	case "postgres":
-		conf, err = createPostgresConfig(c)
+		update, err = createPostgresConfig(c)
 	default:
 		c.JSON(http.StatusBadRequest, Resp{
 			Code:       RespErrorNotFound,
@@ -145,27 +143,11 @@ func (hs *HttpServer) decodeConf(c *gin.Context, probeType string) {
 		return
 	}
 
-	// check config
-	err = conf.Validate()
-	if err != nil {
-		c.JSON(http.StatusBadRequest, Resp{
-			Code:       RespConfigCheckFailed,
-			ModuleType: probeType,
-			Msg:        err.Error(),
-			Data:       nil,
-		})
-		return
-	}
-
-	// send to channel
+	// Submit the candidate, then wait for the runtime to finish validation and
+	// the real generation switch. A queued request is not yet a successful
+	// reload.
 	select {
-	case hs.confChan <- conf:
-		c.JSON(http.StatusOK, Resp{
-			Code:       RespOK,
-			ModuleType: probeType,
-			Msg:        RespOK.String(),
-			Data:       nil,
-		})
+	case hs.confChan <- update:
 	default:
 		c.JSON(http.StatusServiceUnavailable, Resp{
 			Code:       RespSendToChanFailed,
@@ -173,6 +155,28 @@ func (hs *HttpServer) decodeConf(c *gin.Context, probeType string) {
 			Msg:        RespSendToChanFailed.String(),
 			Data:       nil,
 		})
+		return
 	}
-	hs.logger.Info().Interface("config", conf).Msg("config send to channel.")
+
+	select {
+	case applyErr := <-update.Result():
+		if applyErr != nil {
+			c.JSON(http.StatusBadRequest, Resp{
+				Code:       RespConfigCheckFailed,
+				ModuleType: probeType,
+				Msg:        applyErr.Error(),
+				Data:       nil,
+			})
+			return
+		}
+		c.JSON(http.StatusOK, Resp{
+			Code:       RespOK,
+			ModuleType: probeType,
+			Msg:        RespOK.String(),
+			Data:       nil,
+		})
+	case <-c.Request.Context().Done():
+		return
+	}
+	hs.logger.Info().Interface("config", update.Config).Msg("config applied.")
 }

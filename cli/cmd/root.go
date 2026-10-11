@@ -52,8 +52,6 @@ const (
 var (
 	// GitVersion default value, eg: linux_arm64:v0.8.10-20241116-fcddaeb:5.15.0-125-generic
 	GitVersion = "os_arch:v2.0.0-20260101-develop:default_kernel"
-	rorateSize = uint16(0)
-	rorateTime = uint16(0)
 )
 
 const (
@@ -67,33 +65,17 @@ const (
 	configUpdateAddr = ""
 )
 
-// CLIConfig extends BaseConfig with CLI-specific fields
+// CLIConfig keeps serializable per-generation probe settings separate from
+// process-lifetime output services owned by runProbe.
 type CLIConfig struct {
-	config.BaseConfig
-	LoggerAddr         string
-	EventCollectorAddr string
-	EcaptureQ          string
-	Listen             string
-	AddrType           uint8 // 用于存储日志地址类型
-}
-
-// GetDebug returns whether debug mode is enabled
-func (c *CLIConfig) GetDebug() bool {
-	return c.Debug
-}
-
-// SetAddrType sets the logger address type
-func (c *CLIConfig) SetAddrType(t uint8) {
-	c.AddrType = t
-}
-
-// GetAddrType returns the logger address type
-func (c *CLIConfig) GetAddrType() uint8 {
-	return c.AddrType
+	config.CommonConfig
+	PerCpuMapPages int
+	LoggerAddr     string
+	EcaptureQ      string
+	Listen         string
 }
 
 var globalConf = CLIConfig{}
-var modConfig = &globalConf // alias for backward compatibility
 var rootCmd = &cobra.Command{
 	Use:        CliName,
 	Short:      CliDescription,
@@ -152,9 +134,9 @@ func init() {
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	rootCmd.PersistentFlags().BoolVarP(&globalConf.Debug, "debug", "d", false, "enable debug logging")
-	rootCmd.PersistentFlags().Uint8VarP(&globalConf.BtfMode, "btf", "b", 0, "enable BTF mode.(0:auto; 1:core; 2:non-core)")
-	rootCmd.PersistentFlags().BoolVar(&globalConf.IsHex, "hex", false, "print byte strings as hex encoded strings")
-	rootCmd.PersistentFlags().IntVar(&globalConf.PerCpuMapSize, "mapsize", 1024, "eBPF map size per CPU,for events buffer. default:1024 * PAGESIZE. (KB)")
+	rootCmd.PersistentFlags().Uint8VarP(&globalConf.BTFMode, "btf", "b", 0, "enable BTF mode.(0:auto; 1:core; 2:non-core)")
+	rootCmd.PersistentFlags().BoolVar(&globalConf.Hex, "hex", false, "print byte strings as hex encoded strings")
+	rootCmd.PersistentFlags().IntVar(&globalConf.PerCpuMapPages, "mapsize", 1024, "eBPF map size per CPU,for events buffer. default:1024 * PAGESIZE. (KB)")
 	rootCmd.PersistentFlags().Uint64VarP(&globalConf.Pid, "pid", "p", defaultPid, "if pid is 0 then we target all pids")
 	rootCmd.PersistentFlags().Uint64VarP(&globalConf.Uid, "uid", "u", defaultUid, "if uid is 0 then we target all users")
 	rootCmd.PersistentFlags().StringVarP(&globalConf.LoggerAddr, "logaddr", "l", "", "send logs to this server. -l /tmp/ecapture.log or -l ws://127.0.0.1:8090/ecapture or -l tcp://127.0.0.1:8080")
@@ -162,8 +144,8 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&globalConf.EcaptureQ, "ecaptureq", "", "listening server, waiting for clients to connect before sending events and logs; false: send directly to the remote server.")
 	rootCmd.PersistentFlags().StringVar(&globalConf.Listen, "listen", configUpdateAddr, "Listens on a port, receives HTTP requests, and is used to update the runtime configuration. default: disabled. e.g. --listen 127.0.0.1:28256")
 	rootCmd.PersistentFlags().Uint64VarP(&globalConf.TruncateSize, "tsize", "t", defaultTruncateSize, "the truncate size in text mode, default: 0 (B), no truncate")
-	rootCmd.PersistentFlags().Uint16Var(&rorateSize, "eventroratesize", 0, "the rorate size(MB) of the event collector file, 1M~65535M, only works for eventaddr server is file. --eventaddr=tls.log --eventroratesize=1 --eventroratetime=30")
-	rootCmd.PersistentFlags().Uint16Var(&rorateTime, "eventroratetime", 0, "the rorate time(s) of the event collector file, 1s~65535s, only works for eventaddr server is file. --eventaddr=tls.log --eventroratesize=1 --eventroratetime=30")
+	rootCmd.PersistentFlags().Uint16Var(&globalConf.EventRotateSizeMB, "eventroratesize", 0, "the rorate size(MB) of the event collector file, 1M~65535M, only works for eventaddr server is file. --eventaddr=tls.log --eventroratesize=1 --eventroratetime=30")
+	rootCmd.PersistentFlags().Uint16Var(&globalConf.EventRotateSeconds, "eventroratetime", 0, "the rorate time(s) of the event collector file, 1s~65535s, only works for eventaddr server is file. --eventaddr=tls.log --eventroratesize=1 --eventroratetime=30")
 	rootCmd.SilenceUsage = true
 }
 
@@ -232,11 +214,120 @@ func attachRuntimeOutputs(cfg domain.Configuration, deps *outputpipeline.Runtime
 	return nil
 }
 
+var runConfiguredProbeFunc = runProbe
+
+// runConfiguredProbe is the single Cobra-to-probe configuration boundary.
+// Module-specific flags remain on their concrete config; all shared fields are
+// applied here with their final runtime units.
+func runConfiguredProbe(probeType factory.ProbeType, probeConfig domain.Configuration) error {
+	common := globalConf.CommonConfig
+	common.PerCpuMapSize = globalConf.PerCpuMapPages * os.Getpagesize()
+	if err := config.ApplyCommonConfig(probeConfig, common); err != nil {
+		return err
+	}
+	baseConfig, err := config.BaseConfigFor(probeConfig)
+	if err != nil {
+		return err
+	}
+	// The operational logger itself is a borrowed RuntimeDependency. Its
+	// address is retained only as immutable validation context (for example,
+	// pcapng stdout channel separation).
+	baseConfig.LoggerAddr = globalConf.LoggerAddr
+	return runConfiguredProbeFunc(probeType, probeConfig)
+}
+
+type probeGeneration struct {
+	probe  domain.Probe
+	ctx    context.Context
+	cancel context.CancelFunc
+}
+
+func startProbeGeneration(
+	parent context.Context,
+	probeType factory.ProbeType,
+	probeConfig domain.Configuration,
+	runtimeOutputs *outputpipeline.RuntimeDependencies,
+	logger *zerolog.Logger,
+	isReload bool,
+) (*probeGeneration, error) {
+	if err := attachRuntimeOutputs(probeConfig, runtimeOutputs); err != nil {
+		return nil, err
+	}
+	if err := probeConfig.Validate(); err != nil {
+		return nil, fmt.Errorf("config validation failed: %w", err)
+	}
+
+	probeCtx, cancelProbe := context.WithCancel(parent)
+	probe, err := factory.CreateProbe(probeType)
+	if err != nil {
+		cancelProbe()
+		return nil, fmt.Errorf("failed to create probe: %w", err)
+	}
+	if err = probe.Initialize(probeCtx, probeConfig); err != nil {
+		cancelProbe()
+		return nil, fmt.Errorf("probe initialization failed: %w", err)
+	}
+	logger.Info().Str("probeName", string(probeType)).Bool("isReload", isReload).Msg("probe initialization.")
+	if err = probe.Start(probeCtx); err != nil {
+		cancelProbe()
+		return nil, errors.Join(fmt.Errorf("probe start failed: %w", err), probe.Close())
+	}
+	logger.Info().Str("probeName", string(probeType)).Bool("isReload", isReload).Msg("probe started successfully.")
+	return &probeGeneration{
+		probe:  probe,
+		ctx:    probeCtx,
+		cancel: cancelProbe,
+	}, nil
+}
+
+func (g *probeGeneration) close() error {
+	if g == nil {
+		return nil
+	}
+	g.cancel()
+	var shutdownErrors []error
+	if err := g.probe.Stop(g.ctx); err != nil {
+		shutdownErrors = append(shutdownErrors, fmt.Errorf("probe stop failed: %w", err))
+	}
+	if err := g.probe.Close(); err != nil {
+		shutdownErrors = append(shutdownErrors, fmt.Errorf("probe close failed: %w", err))
+	}
+	return errors.Join(shutdownErrors...)
+}
+
+func prepareReloadConfig(
+	current domain.Configuration,
+	update *http.ConfigUpdate,
+	runtimeOutputs *outputpipeline.RuntimeDependencies,
+) error {
+	if update == nil || update.Config == nil {
+		return fmt.Errorf("reload configuration cannot be nil")
+	}
+	if err := config.MergeReloadOutput(current, update.Config, update.CommonPatch); err != nil {
+		return err
+	}
+	currentBase, err := config.BaseConfigFor(current)
+	if err != nil {
+		return err
+	}
+	candidateBase, err := config.BaseConfigFor(update.Config)
+	if err != nil {
+		return err
+	}
+	// Operational logging is a process-lifetime dependency. Keep its address as
+	// immutable validation context even if a request body includes logger_addr.
+	candidateBase.LoggerAddr = currentBase.LoggerAddr
+	if err = attachRuntimeOutputs(update.Config, runtimeOutputs); err != nil {
+		return err
+	}
+	if err = update.Config.Validate(); err != nil {
+		return fmt.Errorf("config validation failed: %w", err)
+	}
+	return nil
+}
+
 // runProbe runs a probe using the new internal/probe architecture
 func runProbe(probeType factory.ProbeType, probeConfig domain.Configuration) (runErr error) {
-	if setter, ok := probeConfig.(interface{ SetEventRotation(uint16, uint16) }); ok {
-		setter.SetEventRotation(rorateSize, rorateTime)
-	}
 	var eqServer *ecaptureq.Server
 	if globalConf.EcaptureQ != "" {
 		listenAddr, err := ecaptureQListenAddress(globalConf.EcaptureQ)
@@ -290,9 +381,9 @@ func runProbe(probeType factory.ProbeType, probeConfig domain.Configuration) (ru
 	logger.Info().Str("Listen", globalConf.Listen).Send()
 	logger.Info().Str("Listen for eCaptureQ", globalConf.EcaptureQ).Send()
 	logger.Info().Str("logger", globalConf.LoggerAddr).Msg("eCapture running logs")
-	logger.Info().Str("eventCollector", globalConf.EventCollectorAddr).Msg("the file handler that receives the captured event")
+	logger.Info().Str("eventCollector", probeConfig.GetEventCollectorAddr()).Msg("the file handler that receives the captured event")
 
-	var reloadConfig = make(chan domain.Configuration, 10)
+	var reloadConfig = make(chan *http.ConfigUpdate, 10)
 	var httpErrors <-chan error
 
 	// listen http server
@@ -331,92 +422,72 @@ func runProbe(probeType factory.ProbeType, probeConfig domain.Configuration) (ru
 	signal.Notify(stopper, os.Interrupt, syscall.SIGTERM)
 	defer signal.Stop(stopper)
 
-	isReload := false
+	active, err := startProbeGeneration(ctx, probeType, probeConfig, runtimeOutputs, logger, false)
+	if err != nil {
+		return err
+	}
 	for {
-		if err := attachRuntimeOutputs(probeConfig, runtimeOutputs); err != nil {
-			return err
-		}
-		if err := probeConfig.Validate(); err != nil {
-			return fmt.Errorf("config validation failed: %w", err)
-		}
-
-		probeCtx, cancelProbe := context.WithCancel(ctx)
-		// Create probe via factory
-		probe, err := factory.CreateProbe(probeType)
-		if err != nil {
-			cancelProbe()
-			return fmt.Errorf("failed to create probe: %w", err)
-		}
-
-		// Initialize probe
-		err = probe.Initialize(probeCtx, probeConfig)
-		if err != nil {
-			cancelProbe()
-			return fmt.Errorf("probe initialization failed: %w", err)
-		}
-		logger.Info().Str("probeName", string(probeType)).Bool("isReload", isReload).Msg("probe initialization.")
-
-		// Start probe
-		err = probe.Start(probeCtx)
-		if err != nil {
-			cancelProbe()
-			return errors.Join(fmt.Errorf("probe start failed: %w", err), probe.Close())
-		}
-		logger.Info().Str("probeName", string(probeType)).Bool("isReload", isReload).Msg("probe started successfully.")
-
-		isReload = false
-		var runtimeErr error
 		select {
 		case _, ok := <-stopper:
 			if !ok {
 				logger.Warn().Msg("reload stopper channel closed.")
 			}
-		case rc, ok := <-reloadConfig:
+			runErr = active.close()
+			logger.Info().Msg("bye bye.")
+			return runErr
+		case update, ok := <-reloadConfig:
 			if !ok {
-				runtimeErr = fmt.Errorf("reload config channel closed")
-			} else {
-				logger.Warn().Msg("========== Signal received; the probe will initiate a restart. ==========")
-				isReload = true
-				probeConfig = rc
+				runErr = errors.Join(fmt.Errorf("reload config channel closed"), active.close())
+				return runErr
 			}
+			if err = prepareReloadConfig(probeConfig, update, runtimeOutputs); err != nil {
+				update.Complete(err)
+				continue
+			}
+
+			logger.Warn().Msg("========== Reload accepted for switching; the probe will restart. ==========")
+			previousConfig := probeConfig
+			if err = active.close(); err != nil {
+				update.Complete(err)
+				return err
+			}
+
+			next, startErr := startProbeGeneration(ctx, probeType, update.Config, runtimeOutputs, logger, true)
+			if startErr != nil {
+				reloadErr := fmt.Errorf("reload generation failed: %w", startErr)
+				rollback, rollbackErr := startProbeGeneration(ctx, probeType, previousConfig, runtimeOutputs, logger, true)
+				if rollbackErr != nil {
+					fatalErr := errors.Join(reloadErr, fmt.Errorf("restore previous generation failed: %w", rollbackErr))
+					update.Complete(fatalErr)
+					return fatalErr
+				}
+				active = rollback
+				probeConfig = previousConfig
+				update.Complete(reloadErr)
+				logger.Error().Err(reloadErr).Msg("reload rejected; previous generation restored.")
+				continue
+			}
+
+			active = next
+			probeConfig = update.Config
+			update.Complete(nil)
+			logger.Info().RawJSON("config", probeConfig.Bytes()).Msg("probe reload completed.")
 		case serverErr, ok := <-eqErrors:
 			if !ok || serverErr == nil {
-				runtimeErr = fmt.Errorf("ecaptureq server stopped unexpectedly")
+				err = fmt.Errorf("ecaptureq server stopped unexpectedly")
 			} else {
-				runtimeErr = fmt.Errorf("ecaptureq server failed: %w", serverErr)
+				err = fmt.Errorf("ecaptureq server failed: %w", serverErr)
 			}
+			return errors.Join(err, active.close())
 		case serverErr, ok := <-httpErrors:
 			if !ok || serverErr == nil {
-				runtimeErr = fmt.Errorf("configuration HTTP server stopped unexpectedly")
+				err = fmt.Errorf("configuration HTTP server stopped unexpectedly")
 			} else {
-				runtimeErr = fmt.Errorf("configuration HTTP server failed: %w", serverErr)
+				err = fmt.Errorf("configuration HTTP server failed: %w", serverErr)
 			}
+			return errors.Join(err, active.close())
 		}
-		cancelProbe()
-
-		var shutdownErrors []error
-		if err := probe.Stop(probeCtx); err != nil {
-			shutdownErrors = append(shutdownErrors, fmt.Errorf("probe stop failed: %w", err))
-		}
-		if err := probe.Close(); err != nil {
-			shutdownErrors = append(shutdownErrors, fmt.Errorf("probe close failed: %w", err))
-		}
-		if runtimeErr != nil {
-			return errors.Join(runtimeErr, errors.Join(shutdownErrors...))
-		}
-		if err := errors.Join(shutdownErrors...); err != nil {
-			return err
-		}
-
-		if isReload {
-			logger.Info().RawJSON("config", probeConfig.Bytes()).Msg("reloading probe...")
-			continue
-		}
-		break
 	}
-
-	logger.Info().Msg("bye bye.")
-	return nil
 }
 
 func ecaptureQListenAddress(value string) (string, error) {

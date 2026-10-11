@@ -58,7 +58,10 @@ Typed destinations implement `OperationalLogSink` or `CapturedEventSink`.
 eCaptureQ implements both contracts and is deliberately not an `io.Writer` or
 ByteSink. The zerolog adapter exists only at the operational-logger edge.
 Injected runtime dependencies are borrowed, excluded from configuration JSON,
-and reattached after reload.
+and reattached after reload. Serializable captured-event destination and
+rotation settings remain in the probe configuration: omitted HTTP reload
+fields inherit from the active generation, while explicit empty/zero values
+are preserved.
 
 ## Mode and destination matrix
 

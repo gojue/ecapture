@@ -43,15 +43,6 @@ func init() {
 
 // zshCommandFunc executes the "zsh" command using the new probe architecture.
 func zshCommandFunc(command *cobra.Command, args []string) error {
-	// Set global config to zsh-specific config
-	zshConfig.SetPid(globalConf.Pid)
-	zshConfig.SetUid(globalConf.Uid)
-	zshConfig.SetDebug(globalConf.Debug)
-	zshConfig.SetHex(globalConf.IsHex)
-	zshConfig.SetBTF(globalConf.BtfMode)
-	zshConfig.SetPerCpuMapSize(globalConf.PerCpuMapSize)
-	zshConfig.SetTruncateSize(globalConf.TruncateSize)
-
 	// Run probe using the common entry point
-	return runProbe(factory.ProbeTypeZsh, zshConfig)
+	return runConfiguredProbe(factory.ProbeTypeZsh, zshConfig)
 }

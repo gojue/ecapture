@@ -43,7 +43,7 @@ func NewConfig() *Config {
 // Validate validates the PostgreSQL configuration
 func (c *Config) Validate() error {
 	// Validate base configuration
-	if err := c.BaseConfig.Validate(); err != nil {
+	if err := c.BaseConfig.ValidateTextOutput(); err != nil {
 		return errors.Wrap(errors.ErrCodeConfigValidation, "base config validation failed", err)
 	}
 

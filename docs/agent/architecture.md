@@ -203,7 +203,12 @@ elibpcap integration.
   and `variables.mk:TARGETS` synchronized.
 - Runtime reload uses a fresh probe context and reattaches borrowed runtime
   output dependencies, but keeps the originally selected factory probe type.
-- Shared CLI fields are copied manually into module configs, not uniformly.
+  HTTP success is sent only after the candidate generation starts; a failed
+  start restores the previous same-probe configuration when possible.
+- Shared serializable probe fields use `internal/config.CommonConfig` across
+  Cobra commands and HTTP config factories. Omitted HTTP event destination and
+  rotation fields inherit from the active generation; explicit empty/zero
+  values remain explicit.
 - Event rotation reaches file-backed text/keylog sinks and is rejected for
   pcapng and network sinks. Truncate size and bytecode-file mode still have no
   current production consumers.

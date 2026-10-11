@@ -185,8 +185,13 @@ verification matrix live in `docs/agent/build-test.md`.
 - Runtime reload reattaches process-lifetime output dependencies and creates a
   fresh probe context, but retains the original factory probe type; it is not
   a cross-probe hot-swap facility.
-- Shared CLI fields are copied into module configs manually and unevenly.
-  Trace every affected command and `cli/http/` config factory.
+- Shared serializable probe fields are applied through
+  `internal/config.CommonConfig` for every Cobra command and HTTP config
+  factory. Keep process-lifetime output dependencies out of that copy path.
+- HTTP reload distinguishes omitted captured-event destination/rotation fields
+  from explicit empty/zero values. Omitted fields inherit from the active
+  generation, while runtime logger and typed eCaptureQ dependencies are
+  reattached separately.
 - Probe registration currently discards duplicate-registration errors.
 - `--btf=0` is called auto, but several paths actually choose non-CO-RE unless
   the value is exactly `1`.

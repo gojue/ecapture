@@ -65,6 +65,7 @@ check_linux_environment() {
     require_command go
     require_command timeout
     require_command cc
+    require_command curl
     if mode_enabled keylog || mode_enabled pcapng; then
         require_command tshark
     fi
@@ -256,6 +257,37 @@ stop_capture() {
     fi
     wait "$CAPTURE_PID" 2>/dev/null || true
     CAPTURE_PID=""
+}
+
+post_config_update() {
+    local endpoint="$1"
+    local request_body="$2"
+    local response_file="$3"
+    local expect_success="$4"
+    local status
+
+    status="$(curl --silent --show-error --output "$response_file" \
+        --write-out '%{http_code}' \
+        --header 'Content-Type: application/json' \
+        --request POST \
+        --data-binary "@$request_body" \
+        "$endpoint")" || {
+        log_error "Configuration request failed before receiving an HTTP response"
+        return 1
+    }
+
+    if [[ "$expect_success" == "1" ]]; then
+        if [[ ! "$status" =~ ^2 ]]; then
+            log_error "Configuration update returned HTTP $status"
+            cat "$response_file" >&2 || true
+            return 1
+        fi
+        return 0
+    fi
+    if [[ "$status" =~ ^2 ]]; then
+        log_error "Invalid configuration update unexpectedly returned HTTP $status"
+        return 1
+    fi
 }
 
 assert_pcapng() {

@@ -55,7 +55,7 @@ func init() {
 	gnutlsCmd.PersistentFlags().StringVarP(&gnutlsConfig.PcapFile, "pcapfile", "w", "save.pcapng", "write the raw packets to file as pcapng format.")
 	gnutlsCmd.PersistentFlags().StringVarP(&gnutlsConfig.Ifname, "ifname", "i", "", "(TC Classifier) Interface name on which the probe will be attached.")
 	gnutlsCmd.PersistentFlags().StringVar(&gnutlsConfig.GnuVersion, "ssl_version", "", "GnuTLS version, e.g: --ssl_version=\"3.7.9\"")
-	gnutlsCmd.PersistentFlags().StringVar(&gnutlsConfig.CGroupPath, "cgroup_path", "", "cgroup v2 path for container/process filtering. Empty disables cgroup filtering.")
+	gnutlsCmd.PersistentFlags().StringVar(&globalConf.CGroupPath, "cgroup_path", "", "cgroup v2 path for container/process filtering. Empty disables cgroup filtering.")
 	rootCmd.AddCommand(gnutlsCmd)
 }
 
@@ -68,17 +68,6 @@ func gnuTlsCommandFunc(command *cobra.Command, args []string) error {
 		gnutlsConfig.PcapFilter = strings.Join(args, " ")
 	}
 
-	// Set global config to gnutls-specific config
-	gnutlsConfig.SetPid(globalConf.Pid)
-	gnutlsConfig.SetUid(globalConf.Uid)
-	gnutlsConfig.SetDebug(globalConf.Debug)
-	gnutlsConfig.SetHex(globalConf.IsHex)
-	gnutlsConfig.SetBTF(globalConf.BtfMode)
-	gnutlsConfig.SetPerCpuMapSize(globalConf.PerCpuMapSize)
-	gnutlsConfig.SetTruncateSize(globalConf.TruncateSize)
-	gnutlsConfig.SetLoggerAddr(globalConf.LoggerAddr)
-	gnutlsConfig.SetEventCollectorAddr(globalConf.EventCollectorAddr)
-
 	// Run probe using the common entry point
-	return runProbe(factory.ProbeTypeGnuTLS, gnutlsConfig)
+	return runConfiguredProbe(factory.ProbeTypeGnuTLS, gnutlsConfig)
 }

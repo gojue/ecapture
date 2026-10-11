@@ -21,26 +21,24 @@ import (
 	"fmt"
 
 	"github.com/gin-gonic/gin"
-
-	"github.com/gojue/ecapture/v2/internal/domain"
 )
 
 // createGnutlsConfig - GnuTLS is now supported on Android (via Termux or custom builds)
-func createGnutlsConfig(c *gin.Context) (domain.Configuration, error) {
+func createGnutlsConfig(c *gin.Context) (*ConfigUpdate, error) {
 	return nil, fmt.Errorf("GnuTLS probe not supported on Android")
 }
 
 // createNsprConfig - NSPR not supported on Android
-func createNsprConfig(c *gin.Context) (domain.Configuration, error) {
+func createNsprConfig(c *gin.Context) (*ConfigUpdate, error) {
 	return nil, fmt.Errorf("nspr probe not supported on Android")
 }
 
 // createMysqlConfig - MySQL not supported on Android
-func createMysqlConfig(c *gin.Context) (domain.Configuration, error) {
+func createMysqlConfig(c *gin.Context) (*ConfigUpdate, error) {
 	return nil, fmt.Errorf("mysql probe not supported on Android")
 }
 
 // createPostgresConfig - Postgres not supported on Android
-func createPostgresConfig(c *gin.Context) (domain.Configuration, error) {
+func createPostgresConfig(c *gin.Context) (*ConfigUpdate, error) {
 	return nil, fmt.Errorf("postgres probe not supported on Android")
 }

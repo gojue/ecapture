@@ -40,22 +40,13 @@ func init() {
 	mysqldCmd.PersistentFlags().StringVarP(&mysqlConfig.MysqlPath, "mysqld", "m", "/usr/sbin/mariadbd", "mysqld binary file path, use to hook")
 	mysqldCmd.PersistentFlags().Uint64VarP(&mysqlConfig.Offset, "offset", "", 0, "0x710410")
 	mysqldCmd.PersistentFlags().StringVarP(&mysqlConfig.FuncName, "funcname", "f", "", "function name to hook")
-	mysqldCmd.PersistentFlags().BoolVar(&mysqlConfig.PerfReorder, "perf-reorder", false, "enable userland reorder of per-CPU perf events by bpf ktime before dispatch")
-	mysqldCmd.PersistentFlags().UintVar(&mysqlConfig.PerfReorderLagMs, "perf-reorder-lag-ms", 10, "reorder batching window in ms (only with --perf-reorder; default 10)")
+	mysqldCmd.PersistentFlags().BoolVar(&globalConf.PerfReorder, "perf-reorder", false, "enable userland reorder of per-CPU perf events by bpf ktime before dispatch")
+	mysqldCmd.PersistentFlags().UintVar(&globalConf.PerfReorderLagMs, "perf-reorder-lag-ms", 10, "reorder batching window in ms (only with --perf-reorder; default 10)")
 	rootCmd.AddCommand(mysqldCmd)
 }
 
 // mysqldCommandFunc executes the "mysqld" command using the new probe architecture.
 func mysqldCommandFunc(command *cobra.Command, args []string) error {
-	// Set global config to mysql-specific config
-	mysqlConfig.SetPid(globalConf.Pid)
-	mysqlConfig.SetUid(globalConf.Uid)
-	mysqlConfig.SetDebug(globalConf.Debug)
-	mysqlConfig.SetHex(globalConf.IsHex)
-	mysqlConfig.SetBTF(globalConf.BtfMode)
-	mysqlConfig.SetPerCpuMapSize(globalConf.PerCpuMapSize)
-	mysqlConfig.SetTruncateSize(globalConf.TruncateSize)
-
 	// Run probe using the common entry point
-	return runProbe(factory.ProbeTypeMySQL, mysqlConfig)
+	return runConfiguredProbe(factory.ProbeTypeMySQL, mysqlConfig)
 }
