@@ -43,7 +43,7 @@ import (
 const (
 	CliName        = "eCapture"
 	CliNameZh      = "旁观者"
-	CliDescription = "Capturing SSL/TLS plaintext without a CA certificate using eBPF. Supported on Linux/Android kernels for amd64/arm64."
+	CliDescription = "Capturing SSL/TLS plaintext without a CA certificate using eBPF. Supports Linux amd64/arm64/loong64 and Android amd64/arm64."
 	CliHomepage    = "https://ecapture.cc"
 	CliAuthor      = "CFC4N <cfc4ncs@gmail.com>"
 	CliGithubRepo  = "https://github.com/gojue/ecapture"
@@ -85,7 +85,7 @@ var rootCmd = &cobra.Command{
 such as HTTPS and TLS without installing a CA certificate.
 It can also capture bash commands, which is suitable for
 security auditing scenarios, such as database auditing of mysqld, etc (disabled on Android).
-Support Linux(Android)  X86_64 4.18/aarch64 5.5 or newer.
+Support Linux x86_64 4.18+/aarch64 5.5+/LoongArch64 6.6+ and Android x86_64 4.18+/aarch64 5.5+.
 Repository: https://github.com/gojue/ecapture
 HomePage: https://ecapture.cc
 

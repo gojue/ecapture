@@ -29,7 +29,8 @@
 针对个别程序使用的openssl类库是静态编译，也可以自行修改源码实现。若函数名不在符号表里，也可以自行反编译找到函数的offset偏移地址，填写到
 `Uaddress`
 属性上，进行编译。
-笔者环境`ubuntu 21.04`， Linux Kernel 4.18以上通用。
+最低内核按架构区分：x86_64 为 4.18，aarch64 为 5.5，LoongArch64 为
+6.6；LoongArch64 仅支持 Linux，Android 仍只支持 x86_64/aarch64。
 **推荐使用`UBUNTU 20.04` 及以上版本的Linux测试。**
 
 > **Note**
@@ -38,7 +39,7 @@
 
 ## 工具链版本
 
-* golang 1.21 以上
+* golang 1.26.0 以上
 * clang 9.0 以上
 * cmake 3.18.4 以上
 * clang backend: llvm 9.0 以上
@@ -65,9 +66,7 @@
 
 **克隆仓库代码，并进行编译**
 
-注意：如果系统里没有 `/usr/local/lib/libpcap.a`，则下面 `make` 命令会将 libpcap
-编译并安装到 `/usr/local/lib` 目录下。如果系统里已经安装了 libpcap 但没有
-`/usr/local/lib/libpcap.a`，则 `make` 命令会破坏系统里的 libpcap 头文件。
+构建会把仓库固定版本的 libpcap 编译到 `.build/` 下按架构隔离的目录，不会安装或覆盖系统 libpcap。
 
 ```shell
 git clone --recurse-submodules git@github.com:gojue/ecapture.git
@@ -124,6 +123,23 @@ test -f .config || yes "" | sudo make oldconfig
 ```shell
 CROSS_ARCH=arm64 make
 ```
+
+### Loong64
+
+Loong64 仅在 Ubuntu 24.04 x86_64 上使用 LLVM 18 交叉构建。公开入口是
+`CROSS_ARCH=loong64`；Linux Kbuild 名称为 `loongarch`，Clang 与 sysroot target
+为 `loongarch64-linux-gnu`，三者不可混用。
+
+```shell
+builder/prepare-loong64-kernel.sh /path/to/linux-source
+make clean CROSS_ARCH=loong64
+KERN_HEADERS=/path/to/linux-source \
+  LOONG64_VMLINUX=/path/to/linux-source/vmlinux \
+  CROSS_ARCH=loong64 make all
+```
+
+软件包、wrapper 参数、BTF 来源、静态 PIE 验收和运行时验证限制见
+[Loong64 构建与验证](loong64-support.md)。
 
 # 原理
 

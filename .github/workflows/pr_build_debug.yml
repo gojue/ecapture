@@ -88,3 +88,90 @@ jobs:
           ls -la dist/
           echo "Artifact sizes:"
           du -h dist/*
+
+  build-debug-loong64:
+    runs-on: ubuntu-24.04
+    name: Build Debug Artifact (Linux/Loong64)
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.0'
+
+      - name: Install Loong64 LLVM 18 cross-build environment
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes \
+            bc bison clang-18 dwarves file flex \
+            libatomic1-loong64-cross libc6-dev-loong64-cross libelf-dev \
+            libgcc-13-dev-loong64-cross libssl-dev linux-libc-dev-loong64-cross \
+            linux-source linux-tools-common linux-tools-generic lld-18 \
+            llvm-18 llvm-18-tools make pkg-config qemu-user-static xz-utils
+          bpftool_bin="$(find /usr/lib -maxdepth 2 -type f -path '/usr/lib/linux-tools-*/bpftool' | sort -V | tail -n 1)"
+          test -x "$bpftool_bin"
+          sudo ln -sf "$bpftool_bin" /usr/local/bin/bpftool
+          dpkg-query -W \
+            clang-18 lld-18 llvm-18 libc6-dev-loong64-cross \
+            linux-libc-dev-loong64-cross libgcc-13-dev-loong64-cross linux-source
+
+      - name: Check Loong64 build configuration
+        run: bash test/build/loong64_config_test.sh
+
+      - name: Prepare Linux LoongArch BTF source
+        id: kernel
+        run: |
+          source_file="$(find /usr/src -maxdepth 1 -name 'linux-source*.tar.*' | head -n 1)"
+          test -n "$source_file"
+          mkdir -p "$RUNNER_TEMP/loong64-kernel"
+          tar -xf "$source_file" -C "$RUNNER_TEMP/loong64-kernel"
+          source_dir="$(find "$RUNNER_TEMP/loong64-kernel" -mindepth 1 -maxdepth 1 -type d -name 'linux-source*' | head -n 1)"
+          test -f "$source_dir/Makefile"
+          builder/prepare-loong64-kernel.sh "$source_dir"
+          echo "source_dir=$source_dir" >>"$GITHUB_OUTPUT"
+
+      - name: Build Debug loong64
+        env:
+          LOONG64_TOOLCHAIN_TRACE: '1'
+        run: |
+          set -o pipefail
+          KERN_HEADERS="${{ steps.kernel.outputs.source_dir }}" \
+            LOONG64_VMLINUX="${{ steps.kernel.outputs.source_dir }}/vmlinux" \
+            CROSS_ARCH=loong64 DEBUG=1 \
+            make -f builder/Makefile.release snapshot \
+              SNAPSHOT_VERSION=v0.0.0-pr-${{ github.event.number || 'dev' }}-debug \
+              2>&1 | tee "$RUNNER_TEMP/loong64-debug-build.log"
+          builder/verify-loong64-artifact.sh \
+            bin/ecapture \
+            .build/linux-loong64/libpcap/libpcap.a \
+            .build/linux-loong64/libpcap/config.log \
+            "$RUNNER_TEMP/loong64-debug-build.log"
+          cp bin/ecapture-*.tar.gz dist/
+
+      - name: Loong64 QEMU user-mode smoke and GoTLS instruction test
+        run: |
+          qemu-loongarch64-static bin/ecapture --help >/dev/null
+          CGO_ENABLED=0 GOOS=linux GOARCH=loong64 \
+            go test -c -o "$RUNNER_TEMP/gotls-loong64.test" ./internal/probe/gotls
+          qemu-loongarch64-static "$RUNNER_TEMP/gotls-loong64.test" \
+            -test.run '^TestDecodeInstructionLoong64$'
+
+      - name: Upload Debug Loong64 Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ecapture-v0.0.0-pr-${{ github.event.number || 'dev' }}-debug-linux-loong64.tar.gz
+          path: dist/ecapture-v0.0.0-pr-${{ github.event.number || 'dev' }}-debug-linux-loong64.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: List Built Artifact
+        run: |
+          echo "Built Loong64 debug artifact:"
+          ls -la dist/
+          du -h dist/*

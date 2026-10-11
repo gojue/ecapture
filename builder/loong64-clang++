@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+export LOONG64_CLANG_DRIVER=clang++-18
+exec "$(dirname "$0")/loong64-clang" "$@"

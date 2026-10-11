@@ -58,6 +58,7 @@ if [[ ${UNAME_M} =~ "x86_64" ]];then
     # 在ubuntu 24.04 上， 跨平台的GCC编译器的包名为“gcc-x86-64-linux-gnu”，不是以前的“x86_64-linux-gnu-gcc”
   else
     echo "unsupported arch ${UNAME_M}";
+    exit 1
 fi
 
 GOBIN_ZIP="go1.26.0.linux-${ARCH}.tar.gz"

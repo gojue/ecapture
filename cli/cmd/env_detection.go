@@ -29,20 +29,28 @@ func detectKernel() error {
 	if err != nil {
 		return fmt.Errorf("failed to get the host kernel version: %w", err)
 	}
-	switch runtime.GOARCH {
-	case "amd64":
-		if kv < kernel.VersionCode(4, 18, 0) {
-			return fmt.Errorf("the Linux/Android Kernel version %v (x86_64) is not supported. Requires a version greater than 4.18", kv)
-		}
-	case "arm64":
-		if kv < kernel.VersionCode(5, 5, 0) {
-			return fmt.Errorf("the Linux/Android Kernel version %v (aarch64) is not supported. Requires a version greater than 5.5", kv)
-		}
-	default:
-		return fmt.Errorf("unsupported CPU arch:%v", runtime.GOARCH)
+	minimum, displayArch, err := minimumKernelVersion(runtime.GOARCH)
+	if err != nil {
+		return err
+	}
+	if kv < minimum {
+		return fmt.Errorf("the Linux/Android kernel version %v (%s) is not supported; require %v or newer", kv, displayArch, minimum)
 	}
 
 	return nil
+}
+
+func minimumKernelVersion(goarch string) (kernel.Version, string, error) {
+	switch goarch {
+	case "amd64":
+		return kernel.VersionCode(4, 18, 0), "x86_64", nil
+	case "arm64":
+		return kernel.VersionCode(5, 5, 0), "aarch64", nil
+	case "loong64":
+		return kernel.VersionCode(6, 6, 0), "loongarch64", nil
+	default:
+		return 0, "", fmt.Errorf("unsupported CPU arch: %s", goarch)
+	}
 }
 func detectBpfCap() error {
 	// BPF 权限检测

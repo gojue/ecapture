@@ -45,12 +45,15 @@ define allow-override
 endef
 
 define gobuild
+	$(CMD_MKDIR) -p $(dir $(OUT_BIN)) $(dir $(COMPAT_OUT_BIN))
 	CGO_ENABLED=1 \
 	CGO_CFLAGS='-O2 -g -gdwarf-4 -I$(CURDIR)/lib/libpcap/' \
-	CGO_LDFLAGS='-O2 -g -L$(CURDIR)/lib/libpcap/ -lpcap -static' \
-	GOOS=linux GOARCH=$(GOARCH) CC=$(CMD_CC_PREFIX)$(CMD_CC) \
-	$(CMD_GO) build -trimpath -buildmode=pie -mod=readonly -tags '$(TARGET_TAG),netgo,ebpfassets,dynamic' -ldflags "-w -s -X 'github.com/gojue/ecapture/v2/cli/cmd.GitVersion=$(TARGET_TAG)_$(GOARCH):$(VERSION_NUM):$(VERSION_FLAG)' -X 'github.com/gojue/ecapture/v2/internal/config.ByteCodeFiles=$(2)' -linkmode=external -extldflags -static " -o $(OUT_BIN)
-	$(CMD_FILE) $(OUT_BIN)
+	CGO_LDFLAGS='-O2 -g -L$(CURDIR)/$(LIBPCAP_BUILD_DIR) -lpcap $(CGO_LINK_FLAGS)' \
+	GOOS=linux GOARCH=$(GOARCH) CC=$(CMD_CC_PREFIX)$(CMD_CC) CXX=$(CMD_CXX) \
+	AR=$(CMD_AR_PREFIX)$(CMD_AR) RANLIB=$(CMD_RANLIB) NM=$(CMD_NM) \
+	$(CMD_GO) build -trimpath -buildmode=pie -mod=readonly -tags '$(TARGET_TAG),netgo,ebpfassets,dynamic' -ldflags "-w -s -X 'github.com/gojue/ecapture/v2/cli/cmd.GitVersion=$(TARGET_TAG)_$(GOARCH):$(VERSION_NUM):$(VERSION_FLAG)' -X 'github.com/gojue/ecapture/v2/internal/config.ByteCodeFiles=$(2)' -linkmode=external -extld=$(CMD_CC_PREFIX)$(CMD_CC) -extldflags '$(GO_EXTLDFLAGS)'" -o $(OUT_BIN) || exit 1
+	$(CMD_CP) $(OUT_BIN) $(COMPAT_OUT_BIN) || exit 1
+	$(CMD_FILE) $(OUT_BIN) || exit 1
 endef
 
 
@@ -71,6 +74,6 @@ define release_tar
 	$(CMD_CP) CHANGELOG.md $(TAR_DIR)/CHANGELOG.md
 	$(CMD_CP) README.md $(TAR_DIR)/README.md
 	$(CMD_CP) README-zh_Hans.md $(TAR_DIR)/README-zh_Hans.md
-	$(CMD_CP) $(OUTPUT_DIR)/ecapture $(TAR_DIR)/ecapture
+	$(CMD_CP) $(OUT_BIN) $(TAR_DIR)/ecapture
 	$(CMD_TAR) -czf $(OUT_ARCHIVE) $(TAR_DIR)
 endef

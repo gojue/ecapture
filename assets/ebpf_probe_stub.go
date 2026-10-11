@@ -17,8 +17,9 @@
 // Package assets provides embedded eBPF bytecode assets.
 // This stub is used when the real assets have not been generated yet
 // (i.e. when building without the 'ebpfassets' build tag).
-// Run `make assets` to generate the real assets/ebpf_probe.go file,
-// which must be built with -tags ebpfassets.
+// Run `make assets` to generate the architecture-tagged
+// assets/ebpf_probe_<target>_<goarch>_bindata.go file, which must be built with
+// -tags ebpfassets.
 package assets
 
 import "fmt"

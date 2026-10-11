@@ -14,8 +14,9 @@ Fallback reminders:
 
 - Compile, lint, generate, test, and run only on Linux; macOS/Windows are
   editing-only environments.
-- Never hand-edit generated eBPF bytecode, `assets/ebpf_probe.go`, generated
-  Protobuf, or stringer output.
+- Never hand-edit generated eBPF bytecode,
+  `assets/ebpf_probe_<target>_<goarch>_bindata.go`, generated Protobuf, or stringer
+  output.
 - Keep kernel C event layouts, Go decoders, map names, manager definitions, and
   tests synchronized.
 - Preserve unrelated worktree changes. Do not stage, commit, push, tag,

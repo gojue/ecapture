@@ -10,7 +10,7 @@ the committed Agent entry points explicitly tell local agents to check it.
 - Local workstation OS: `<macOS | Linux | Windows>`
 - Linux builder: SSH alias `<alias from ~/.ssh/config>`
 - Remote repository path: `<absolute path on the Linux builder>`
-- Default build target: `<native | CROSS_ARCH=arm64 | CROSS_ARCH=amd64>`
+- Default build target: `<native | CROSS_ARCH=arm64 | CROSS_ARCH=amd64 | CROSS_ARCH=loong64>`
 - Android target, if any: `<device/emulator description without credentials>`
 
 ## Local workflow

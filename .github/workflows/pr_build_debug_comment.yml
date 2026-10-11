@@ -94,7 +94,7 @@ jobs:
                 '⏰ Files will be retained for 7 days, please download and test promptly.',
                 '',
                 '---',
-                '*This build includes debug binaries for: android/linux (arm64/amd64)*'
+                '*This build includes debug binaries for Linux (amd64/arm64/loong64) and Android (amd64/arm64).*'
               ].join('\n');
 
               await github.rest.issues.createComment({

@@ -178,6 +178,8 @@ func (c *Config) parserGoElf() error {
 		goElfArch = "arm64"
 	case elf.EM_X86_64.String():
 		goElfArch = "amd64"
+	case elf.EM_LOONGARCH.String():
+		goElfArch = "loong64"
 	default:
 		goElfArch = "unsupported_arch"
 	}
@@ -189,6 +191,7 @@ func (c *Config) parserGoElf() error {
 	switch goElfArch {
 	case "amd64":
 	case "arm64":
+	case "loong64":
 	default:
 		return fmt.Errorf("unsupport CPU arch :%s", goElfArch)
 	}

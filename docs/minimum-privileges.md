@@ -121,7 +121,9 @@ docker run --rm \
 
 eCapture performs runtime capability detection at startup (see [`cli/cmd/env_detection.go`](../cli/cmd/env_detection.go)):
 
-1. **Kernel version check**: Verifies minimum kernel version (x86_64: 4.18+, aarch64: 5.5+). These requirements apply per CPU architecture for both Linux and Android GKI.
+1. **Kernel version check**: Verifies minimum kernel version (x86_64: 4.18+,
+   aarch64: 5.5+, Linux LoongArch64: 6.6+). Android supports x86_64/aarch64
+   only and keeps the existing per-architecture minimums.
 2. **Capability check**: Verifies the process has `CAP_BPF` (kernel >= 5.8) or `CAP_SYS_ADMIN` (kernel < 5.8)
 
 If capabilities are insufficient, eCapture exits with a clear error message:
@@ -150,4 +152,3 @@ sudo chmod 750 /usr/local/bin/ecapture
 - [Defense and Detection Guide](./defense-detection.md) — Detecting unauthorized eBPF tool usage
 - [Linux Capabilities Manual](https://man7.org/linux/man-pages/man7/capabilities.7.html)
 - [Docker Security Best Practices](https://docs.docker.com/engine/security/)
-

@@ -178,8 +178,11 @@ var sslVersionBpfMap map[string]string // bpf map key: ssl version, value: bpf m
 // init initial BpfMap
 func init() {
 
-	if runtime.GOARCH == "arm64" {
+	switch runtime.GOARCH {
+	case "arm64":
 		defaultSoPath = "/lib/aarch64-linux-gnu"
+	case "loong64":
+		defaultSoPath = "/lib/loongarch64-linux-gnu"
 	}
 
 	sslVersionBpfMap = map[string]string{

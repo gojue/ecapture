@@ -15,7 +15,7 @@ Current build facts come from `go.mod`, `Makefile`, `variables.mk`,
 - macOS and Windows are limited to editing, direct formatting tools, and
   read-only checks. Do not invoke Makefile targets there.
 - Runtime targets are Linux/Android x86_64 kernel >= 4.18 and aarch64 kernel
-  >= 5.5.
+  >= 5.5, plus Linux LoongArch64 kernel >= 6.6. Android/loong64 is unsupported.
 - Probe execution needs root or documented capabilities. The maintained E2E
   shell harness explicitly requires EUID 0, so capabilities alone do not
   satisfy it.
@@ -47,6 +47,30 @@ Initialize dependencies on Linux:
 git submodule update --init --recursive
 ```
 
+Loong64 is a separate Ubuntu 24.04 x86_64 cross-build path. It requires the
+versioned LLVM 18 commands (`clang-18`, `clang++-18`, `llc-18`, `ld.lld-18`,
+and the `llvm-{ar,ranlib,nm,strip,objcopy,objdump,readelf}-18` tools),
+`libc6-dev-loong64-cross`, `linux-libc-dev-loong64-cross`,
+`libgcc-13-dev-loong64-cross`, and `libatomic1-loong64-cross`. The checked-in
+wrapper always selects `loongarch64-linux-gnu`, LP64D, the target sysroot, and
+the target libgcc runtime; it never invokes a GCC frontend. The final link is
+driven by that Clang wrapper with `-fuse-ld=lld`, not by calling `ld.lld-18`
+directly. See `../loong64-support.md` for the complete package and audit matrix.
+On Ubuntu, `LOONG64_SYSROOT=/` is intentional: the cross-glibc linker scripts
+contain absolute `/usr/loongarch64-linux-gnu/...` paths. The wrapper separately
+pins `LOONG64_TARGET_ROOT=/usr/loongarch64-linux-gnu` for target headers and
+libraries, preventing LLD from applying the target prefix twice.
+Link-only runtime and library flags are omitted for preprocessing and
+compile-only wrapper invocations so cgo's `-Werror` probes remain valid. The
+non-CO-RE path explicitly adds Clang 18's resource include directory; this is
+where LLVM provides the LoongArch `larchintrin.h` required by Linux headers.
+The Loong64 Go external-link flags are `-static -static-pie -fuse-ld=lld`;
+the sysroot preflight therefore also requires glibc's `rcrt1.o`.
+The amd64/arm64 cgo and external-link paths retain their existing `-static`
+flags and Ubuntu 22.04 release job. A separate Ubuntu 24.04 Loong64 release
+job uploads its assets after the primary release is published; Loong64
+failure does not hold up amd64/arm64 publication.
+
 Linux E2E additionally needs `go`, `timeout`, `cc`, OpenSSL development
 headers, and `tshark` for keylog/pcapng. The full GnuTLS contract also needs
 pkg-config and GnuTLS development headers.
@@ -74,9 +98,10 @@ device/emulator must be rooted/userdebug API 33+ with SELinux not Enforcing.
 
 ```text
 kern/*.c
-  -> bytecode/*_kern_core.o and *_kern_noncore.o
-  -> assets/ebpf_probe.go
-  -> bin/ecapture
+  -> .build/<target>-<goarch>/bytecode/*_kern_{core,noncore}.o
+  -> assets/ebpf_probe_<target>_<goarch>_bindata.go
+  -> .build/<target>-<goarch>/bin/ecapture
+  -> bin/ecapture (compatibility copy used by E2E and direct invocation)
 ```
 
 - Linux production tags: `linux,netgo,ebpfassets,dynamic`.
@@ -85,8 +110,9 @@ kern/*.c
   clean-checkout compile path but cannot load a real probe asset.
 - `dynamic` selects the real elibpcap integration; the build links the
   repository-built libpcap through CGO.
-- Do not hand-edit or commit `bytecode/*.o`, `bytecode/*.d`,
-  `assets/ebpf_probe.go`, `bin/ecapture`, `.check*`, or `coverage.out`.
+- Do not hand-edit or commit `bytecode/*.o`, `bytecode/*.d`, `.build/`,
+  generated `assets/ebpf_probe*.go`, generated LoongArch `vmlinux.h`,
+  `bin/ecapture`, `.check*`, or `coverage.out`.
 - Generate Protobuf and stringer files from their documented source commands;
   do not patch generated Go manually.
 
@@ -141,20 +167,44 @@ An aarch64 Linux host can target x86_64 with `CROSS_ARCH=amd64`. Use only
 architectures implemented by `variables.mk`, and match Android artifacts to
 the actual device/emulator architecture.
 
+Cross-build Linux/loong64 on Ubuntu 24.04 x86_64. First build a LoongArch
+Linux 6.6+ `vmlinux` with BTF from the installed `linux-source` package:
+
+```sh
+builder/prepare-loong64-kernel.sh /path/to/linux-source
+make clean CROSS_ARCH=loong64
+KERN_HEADERS=/path/to/linux-source \
+  LOONG64_VMLINUX=/path/to/linux-source/vmlinux \
+  CROSS_ARCH=loong64 make env
+KERN_HEADERS=/path/to/linux-source \
+  LOONG64_VMLINUX=/path/to/linux-source/vmlinux \
+  CROSS_ARCH=loong64 make all
+```
+
+The generator rejects a pre-6.6 source, a non-LoongArch ELF, or a `vmlinux`
+without `.BTF`, then records the kernel version, SHA-256, and bpftool version in
+the ignored `kern/bpf/loongarch/vmlinux.source`. Kbuild prepare uses
+`ARCH=loongarch LLVM=-18`; CO-RE uses `clang-18 -target bpfel`; non-CO-RE uses
+`clang-18 --target=loongarch64-linux-gnu` piped to `llc-18`.
+
 ### Build traps
 
 - `make build` is not a Go-only shortcut. Its phony dependencies trigger
   libpcap, core/non-core bytecode, and asset work.
-- Run `make clean` before switching architecture, `ANDROID`, or `all` versus
-  `nocore`. Asset rules consume `bytecode/*.o`, so stale objects can be
-  embedded into the wrong binary.
+- Architecture-specific libpcap, bytecode, Go intermediates, and generated
+  asset filenames live under `.build/` or include the target architecture.
+  Still run `make clean` before deterministic release validation and before
+  switching `all` versus `nocore` for the same target.
 - Prefer serial clean-first builds. `assets`, `assets_core`, and
-  `assets_noncore` all write `assets/ebpf_probe.go`; do not request those asset
-  targets together in one parallel make invocation.
+  `assets_noncore` all write the selected architecture's
+  `assets/ebpf_probe_<target>_<goarch>_bindata.go`; do not request those asset targets
+  together in one parallel make invocation.
 - `.check*` files cache tool checks. Clean after changing the toolchain.
-- `make clean` removes generated objects/dependencies, embedded assets,
-  `bin/ecapture`, check stamps, and libpcap build output; it does not remove
-  `coverage.out` or source directories.
+- `make clean` removes the selected target's `.build/` tree and generated
+  asset, the compatibility `bin/ecapture`, check stamps, and legacy shared
+  bytecode. It does not remove other architecture trees or `coverage.out`.
+- Archive and Debian recipes copy from the selected architecture's `.build/`
+  binary, not from the shared compatibility path.
 - Network/source-generation scripts under `utils/` are not routine build or
   validation steps. Read them before running them.
 
@@ -199,25 +249,34 @@ make all
 
 CGO_ENABLED=1 \
 CGO_CFLAGS="-O2 -g -I$PWD/lib/libpcap" \
-CGO_LDFLAGS="-O2 -g -L$PWD/lib/libpcap -lpcap" \
+CGO_LDFLAGS="-O2 -g -L$PWD/.build/linux-$(go env GOARCH)/libpcap -lpcap" \
 golangci-lint run --build-tags=ebpfassets,dynamic ./...
 
 make test-race
 ```
 
-The lint flags point CGO at the repository-built libpcap; installing its
-headers/library system-wide as CI does is an alternative. `make test-race`
-builds libpcap and supplies its own CGO flags, but it does not generate a
-missing `assets/ebpf_probe.go`. Default-tag race tests do not replace
+The lint flags point CGO at the repository-built libpcap; a deliberate local
+system-wide installation is an alternative but is not part of the maintained
+CI flow. `make test-race` builds libpcap and supplies its own CGO flags, but it
+does not generate a
+missing architecture-specific `assets/ebpf_probe_<target>_<goarch>_bindata.go`.
+Default-tag race tests do not replace
 production-tag validation.
 
 Unit tests do not prove that a probe can load, attach, or capture on a real
 kernel. Use strict E2E for runtime behavior.
 
+LoongArch has no GitHub-hosted native runner. The Loong64 job in
+`.github/workflows/pr_build_debug.yml` cross-builds on hosted Ubuntu 24.04 for
+pull requests, validates the artifact and toolchain, and runs QEMU user-mode
+CLI and GoTLS instruction smoke tests. There is no separate Loong64 branch-push
+workflow or maintained LoongArch E2E job; eBPF load, attach, and capture
+behavior remain unverified by CI.
+
 ## Maintained Linux E2E
 
-The maintained harness supports Ubuntu 22.04+ and uses deterministic local
-TLS workloads.
+The maintained harness supports Ubuntu 22.04+ on amd64/arm64 and uses
+deterministic local TLS workloads.
 
 ```sh
 make clean
@@ -345,6 +404,8 @@ logs. See `docs/performance-benchmarks.md` for tunables and result semantics.
 | CLI/output/capture mode | Relevant strict E2E mode on a real Linux/Android kernel |
 | OpenSSL/BoringSSL mapping | Mapping tests, both asset variants, and real-library validation |
 | CI workflow | Least privilege, fork/trusted boundary, and relevant workflow behavior |
+| Loong64 build/toolchain | Hosted Ubuntu 24.04 cross-build; LLVM-18 version gate; libpcap `config.log`; LoongArch ELF/archive members; static PIE; LLD evidence; QEMU user smoke |
+| Loong64 runtime | No maintained E2E gate; cross-build and QEMU user-mode smoke do not establish eBPF load/attach/capture correctness |
 
 If required infrastructure is unavailable, list the exact commands not run and
 why. A static inspection is not a successful Linux build, race test, probe

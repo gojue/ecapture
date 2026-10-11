@@ -8,11 +8,93 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
 
-  build-on-ubuntu2204:
+  build-loong64:
+    needs: build-amd64-arm64-and-publish
+    runs-on: ubuntu-24.04
+    name: Build and upload Linux Loong64 release artifacts
+    timeout-minutes: 90
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.0'
+
+      - name: Install Loong64 LLVM 18 cross-build environment
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes \
+            bc bison clang-18 dwarves file flex \
+            libatomic1-loong64-cross libc6-dev-loong64-cross libelf-dev \
+            libgcc-13-dev-loong64-cross libssl-dev linux-libc-dev-loong64-cross \
+            linux-source linux-tools-common linux-tools-generic lld-18 \
+            llvm-18 llvm-18-tools make pkg-config xz-utils
+          bpftool_bin="$(find /usr/lib -maxdepth 2 -type f -path '/usr/lib/linux-tools-*/bpftool' | sort -V | tail -n 1)"
+          test -x "$bpftool_bin"
+          sudo ln -sf "$bpftool_bin" /usr/local/bin/bpftool
+
+      - name: Prepare Linux LoongArch BTF source
+        id: kernel
+        run: |
+          source_file="$(find /usr/src -maxdepth 1 -name 'linux-source*.tar.*' | head -n 1)"
+          test -n "$source_file"
+          mkdir -p "$RUNNER_TEMP/loong64-kernel"
+          tar -xf "$source_file" -C "$RUNNER_TEMP/loong64-kernel"
+          source_dir="$(find "$RUNNER_TEMP/loong64-kernel" -mindepth 1 -maxdepth 1 -type d -name 'linux-source*' | head -n 1)"
+          builder/prepare-loong64-kernel.sh "$source_dir"
+          echo "source_dir=$source_dir" >>"$GITHUB_OUTPUT"
+
+      - name: Build Linux Loong64 archive and deb
+        env:
+          LOONG64_TOOLCHAIN_TRACE: '1'
+        run: |
+          KERN_HEADERS="${{ steps.kernel.outputs.source_dir }}" \
+            LOONG64_VMLINUX="${{ steps.kernel.outputs.source_dir }}/vmlinux" \
+            CROSS_ARCH=loong64 \
+            make -f builder/Makefile.release deb SNAPSHOT_VERSION=${{ github.ref_name }}
+          builder/verify-loong64-artifact.sh \
+            bin/ecapture \
+            .build/linux-loong64/libpcap/libpcap.a \
+            .build/linux-loong64/libpcap/config.log
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: loong64-release-files
+          path: |
+            bin/*linux-loong64*.tar.gz
+            bin/*linux_loong64.deb
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload Loong64 assets and checksum to the published release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd bin
+          sha256sum *linux-loong64*.tar.gz *linux_loong64.deb \
+            > "checksum-loong64-${{ github.ref_name }}.txt"
+          gh release upload "${{ github.ref_name }}" \
+            *linux-loong64*.tar.gz \
+            *linux_loong64.deb \
+            "checksum-loong64-${{ github.ref_name }}.txt"
+
+  build-amd64-arm64-and-publish:
     runs-on: ubuntu-22.04
-    name: release Linux/Android Version (amd64/arm64)
+    name: Build amd64/arm64 Linux/Android and publish release
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v6
         with:

@@ -66,7 +66,10 @@ var defaultGnuTLSPaths = []string{
 	"/usr/lib64/libgnutls.so.30",
 	"/usr/lib/libgnutls.so.30",
 	"/usr/lib/aarch64-linux-gnu/libgnutls.so.30",
+	"/usr/lib/loongarch64-linux-gnu/libgnutls.so.30",
 	"/lib/x86_64-linux-gnu/libgnutls.so.30",
+	"/lib/aarch64-linux-gnu/libgnutls.so.30",
+	"/lib/loongarch64-linux-gnu/libgnutls.so.30",
 	"/lib64/libgnutls.so.30",
 	"/lib/libgnutls.so.30",
 }
@@ -249,7 +252,7 @@ func readGnuTLSVersion(binaryPath string) (string, error) {
 	}()
 
 	switch r.FileHeader.Machine {
-	case elf.EM_X86_64, elf.EM_AARCH64:
+	case elf.EM_X86_64, elf.EM_AARCH64, elf.EM_LOONGARCH:
 	default:
 		return "", fmt.Errorf("unsupported architecture: %s", r.FileHeader.Machine.String())
 	}

@@ -33,7 +33,7 @@
 </p>
 
 > [!IMPORTANT]
-> 支持 Linux/Android 系统，x86_64 架构内核 4.18+，aarch64 架构内核 5.5+；内核版本要求按 CPU 架构分别适用。
+> Linux 支持 x86_64（内核 4.18+）、aarch64（内核 5.5+）和 LoongArch64/Go `loong64`（内核 6.6+）。Android 继续支持 x86_64 和 aarch64，且最低内核要求不变；不支持 Android/loong64。
 > 需要 root 权限或特定的 [Linux capabilities](docs/minimum-privileges.md)。
 > 不支持 Windows 和 macOS。
 
@@ -73,7 +73,7 @@ eCapture 使用 eBPF 的 `uprobe` / `Traffic Control` 等技术，在不修改�
 ### ELF 可执行文件
 
 > [!TIP]
-> 支持 Linux/Android 的 x86_64 和 aarch64 架构。
+> Linux 支持 x86_64、aarch64 和 LoongArch64；Android 支持 x86_64 和 aarch64。
 
 可从 [Release](https://github.com/gojue/ecapture/releases) 页面下载对应的二进制包，解压后直接使用：
 
@@ -292,6 +292,10 @@ https://github.com/user-attachments/assets/c8b7a84d-58eb-4fdb-9843-f775c97bdbfb
 ## 自行编译
 
 你可以按需定制功能，例如设置 `uprobe` 的偏移地址，以支持静态编译的 OpenSSL 库。编译方法可参考 [编译指南](docs/compilation-zh_Hans.md)。
+
+Loong64 发布产物在 Ubuntu 24.04 x86_64 上使用 LLVM 18 交叉构建，入口为
+`CROSS_ARCH=loong64`。sysroot、BTF、验收命令和当前运行时验证限制见
+[Loong64 构建与验证](docs/loong64-support.md)。
 
 ## 动态修改配置
 

@@ -47,7 +47,7 @@ git push origin v2.0.0
 ### 预发布版本（包含 alpha/beta/rc）
 
 ✅ 在 GitHub Releases 中标记为 **Pre-release**  
-✅ 构建 Linux amd64/arm64 版本  
+✅ 构建 Linux amd64/arm64/loong64 版本（loong64 使用独立 Ubuntu 24.04/LLVM 18 作业）
 ✅ 构建 Android 版本  
 ✅ 构建 Docker 镜像（仅标记版本号，**不标记** `latest`）  
 ✅ 生成 Release Notes  
@@ -166,4 +166,3 @@ git push origin v2.0.0-beta.1
 ```
 
 然后前往 GitHub Actions 查看构建进度，完成后在 Releases 页面查看发布的 beta 版本！
-

@@ -144,7 +144,7 @@ build_deb:
 	$(CMD_MKDIR) -p $(BUILD_DIR)/DEBIAN
 	$(CMD_MKDIR) -p $(BUILD_DIR)/usr/local/bin
     # 复制程序文件到软件包目录
-	$(CMD_CP) bin/ecapture $(BUILD_DIR)/usr/local/bin/ecapture  # 将二进制文件复制到目标位置
+	$(CMD_CP) $(OUT_BIN) $(BUILD_DIR)/usr/local/bin/ecapture  # 将当前架构的隔离产物复制到目标位置
     # 创建控制文件 (DEBIAN/control)
 	$(CMD_ECHO) "Package: $(PACKAGE_NAME)" > $(BUILD_DIR)/DEBIAN/control
 	$(CMD_ECHO) "Version: $(PACKAGE_VERSION)" >> $(BUILD_DIR)/DEBIAN/control
