@@ -22,6 +22,19 @@ entry points, not separate sources of project truth.
 - Keep this file and the relevant detailed guide synchronized when a change
   invalidates a command, path, invariant, or known limitation.
 
+## Product priorities
+
+- TLS capture is the project's core focus. Give the TLS, GoTLS, and GnuTLS
+  modules high priority, including support for OpenSSL, BoringSSL, Go TLS, and
+  GnuTLS. Protect their correctness, compatibility, and end-to-end behavior
+  when planning changes, reviews, and verification.
+- Bash, Zsh, MySQL, and other non-core modules have lower priority. Maintain
+  them, but prioritize core TLS functionality when work or coverage must be
+  allocated.
+- In user-facing material such as a promotional article, devote roughly 80%
+  of the attention to the core TLS modules and 20% to non-core modules. This
+  is an emphasis guideline, not a fixed quota for code or tests.
+
 ### Optional machine-local context
 
 If `AGENTS.local.md` exists at the repository root, read it before choosing an
@@ -172,7 +185,11 @@ verification matrix live in `docs/agent/build-test.md`.
   description.
 - The default branch is `master`. If asked to commit, follow
   `<package>: <what changed>`, keep the subject <= 70 characters, and explain
-  why in the body as documented in `CONTRIBUTING.md`.
+  why in the body as documented in `CONTRIBUTING.md`. Write the entire commit
+  message in English unless the user explicitly requests a specific other
+  language.
+- Write GitHub pull request titles and bodies in English unless the user
+  explicitly requests a specific other language.
 - Keep ordinary fork-PR build/test jobs read-only and secret-free. Keep
   scanner-specific write permissions narrowly scoped. Any trusted write-back
   workflow must not execute untrusted fork code or its artifacts.
