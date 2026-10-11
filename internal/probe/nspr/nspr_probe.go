@@ -92,7 +92,10 @@ func (p *Probe) Start(ctx context.Context) error {
 	}
 
 	// Load eBPF bytecode with correct filename (core vs noncore)
-	bpfFileName := p.BaseProbe.GetBPFName("bytecode/nspr_kern.o")
+	bpfFileName, err := p.BaseProbe.SelectBytecode("bytecode/nspr_kern.o")
+	if err != nil {
+		return errors.NewEBPFLoadError("nspr bytecode selection", err)
+	}
 	p.Logger().Info().Str("file", bpfFileName).Msg("Loading eBPF bytecode")
 
 	byteBuf, err := assets.Asset(bpfFileName)

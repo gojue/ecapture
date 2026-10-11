@@ -1,13 +1,17 @@
 include variables.mk
 include functions.mk
 
-.PHONY: all | env nocore
+.PHONY: all core nocore env
 # include core and non-core ebpf bytecode
-all: ebpf ebpf_noncore assets build
+all: build
+	@echo $(shell date)
+
+# include core ebpf bytecode only
+core: build_core
 	@echo $(shell date)
 
 # exclude core ebpf
-nocore: ebpf_noncore assets_noncore build_noncore
+nocore: build_noncore
 	@echo $(shell date)
 
 noncore: nocore
@@ -81,6 +85,8 @@ help:
 	@echo ""
 	@echo "# build"
 	@echo "    $$ make all					# build ecapture"
+	@echo "    $$ make core				# build ecapture with CO-RE assets only"
+	@echo "    $$ make nocore				# build ecapture with non-CO-RE assets only"
 	@echo ""
 	@echo "# build rpm"
 	@echo "    $$ make rpm VERSION=0.0.0 RELEASE=1		# build ecapture rpm"
@@ -162,7 +168,15 @@ $(KERN_OBJECTS_NOCORE): %.nocore: %.c \
 # Generate assets for all eBPF bytecode
 .PHONY: assets
 assets: .checkver_$(CMD_GO) ebpf ebpf_noncore
-	$(CMD_GO) run github.com/shuLhan/go-bindata/cmd/go-bindata $(IGNORE_LESS52) -pkg assets -o "assets/ebpf_probe.go" $(wildcard ./bytecode/*.o)
+	$(CMD_GO) run github.com/shuLhan/go-bindata/cmd/go-bindata $(IGNORE_LESS52) -pkg assets -o "assets/ebpf_probe.go" $(wildcard ./bytecode/*_core.o) $(wildcard ./bytecode/*_noncore.o)
+	sed -i '1s/^\/\/ Code generated/\/\/go:build ebpfassets\n\/\/ Code generated/' assets/ebpf_probe.go
+
+# Generate assets for core eBPF bytecode only
+.PHONY: assets_core
+assets_core: \
+	.checkver_$(CMD_GO) \
+	ebpf
+	$(CMD_GO) run github.com/shuLhan/go-bindata/cmd/go-bindata $(IGNORE_LESS52) -pkg assets -o "assets/ebpf_probe.go" $(wildcard ./bytecode/*_core.o)
 	sed -i '1s/^\/\/ Code generated/\/\/go:build ebpfassets\n\/\/ Code generated/' assets/ebpf_probe.go
 
 # Generate assets for non-core eBPF bytecode only
@@ -170,7 +184,7 @@ assets: .checkver_$(CMD_GO) ebpf ebpf_noncore
 assets_noncore: \
 	.checkver_$(CMD_GO) \
 	ebpf_noncore
-	$(CMD_GO) run github.com/shuLhan/go-bindata/cmd/go-bindata $(IGNORE_LESS52) -pkg assets -o "assets/ebpf_probe.go" $(wildcard ./bytecode/*.o)
+	$(CMD_GO) run github.com/shuLhan/go-bindata/cmd/go-bindata $(IGNORE_LESS52) -pkg assets -o "assets/ebpf_probe.go" $(wildcard ./bytecode/*_noncore.o)
 	sed -i '1s/^\/\/ Code generated/\/\/go:build ebpfassets\n\/\/ Code generated/' assets/ebpf_probe.go
 
 
@@ -186,11 +200,20 @@ $(TARGET_LIBPCAP):
 			--without-turbocap --host=$(LIBPCAP_ARCH) && \
 	CC=$(CMD_CC_PREFIX)$(CMD_CC) AR=$(CMD_AR_PREFIX)$(CMD_AR) make || exit 1
 
-# Build CO-RE eBPF bytecode and golang binary
+# Build binary with both CO-RE and non-CO-RE bytecode
 .PHONY: build
-build: .checkver_$(CMD_GO) $(TARGET_LIBPCAP) assets assets_noncore
+build: .checkver_$(CMD_GO) $(TARGET_LIBPCAP) assets
 	$(call allow-override,VERSION_FLAG,$(UNAME_R))
-	$(call gobuild, $(ANDROID))
+	$(call gobuild,$(ANDROID),all)
+
+# Build binary with CO-RE bytecode only
+.PHONY: build_core
+build_core: \
+	.checkver_$(CMD_GO) \
+	$(TARGET_LIBPCAP) \
+	assets_core
+	$(call allow-override,VERSION_FLAG,$(UNAME_R))
+	$(call gobuild,$(ANDROID),core)
 
 
 # Build non-core eBPF bytecode and golang binary
@@ -200,8 +223,7 @@ build_noncore: \
 	$(TARGET_LIBPCAP) \
 	assets_noncore
 	$(call allow-override,VERSION_FLAG,$(HOST_ARCH))
-	$(call allow-override,BYTECODE_FILES,noncore)
-	$(call gobuild, $(ANDROID))
+	$(call gobuild,$(ANDROID),noncore)
 
 # Format the code
 .PHONY: format
@@ -225,7 +247,9 @@ test-race: \
 	CGO_CFLAGS='-O2 -g -I$(CURDIR)/lib/libpcap/' \
 	CGO_LDFLAGS='-O2 -g -L$(CURDIR)/lib/libpcap/ -lpcap' \
 	GOOS=linux GOARCH=$(GOARCH) CC=$(CMD_CC_PREFIX)$(CMD_CC) \
-	go test -v -race -tags dynamic,ebpfassets ./... -coverprofile=coverage.out
+	go test -v -race -tags dynamic,ebpfassets \
+		-ldflags "-X github.com/gojue/ecapture/v2/internal/config.ByteCodeFiles=$(BYTECODE_FILES)" \
+		./... -coverprofile=coverage.out
 
 # run Bash module e2e test
 .PHONY: e2e-bash

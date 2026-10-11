@@ -27,15 +27,15 @@ import (
 	"github.com/cilium/ebpf/perf"
 	"github.com/cilium/ebpf/ringbuf"
 
+	"github.com/gojue/ecapture/v2/internal/config"
+	"github.com/gojue/ecapture/v2/internal/domain"
+	"github.com/gojue/ecapture/v2/internal/errors"
+	"github.com/gojue/ecapture/v2/internal/events"
+	"github.com/gojue/ecapture/v2/internal/logger"
 	outputpipeline "github.com/gojue/ecapture/v2/internal/output"
 	"github.com/gojue/ecapture/v2/internal/output/writers"
 	"github.com/gojue/ecapture/v2/internal/probe/base/handlers"
-
-	"github.com/gojue/ecapture/v2/internal/events"
-
-	"github.com/gojue/ecapture/v2/internal/domain"
-	"github.com/gojue/ecapture/v2/internal/errors"
-	"github.com/gojue/ecapture/v2/internal/logger"
+	"github.com/gojue/ecapture/v2/internal/probe/bytecode"
 )
 
 const (
@@ -51,6 +51,8 @@ type BaseProbe struct {
 	ctx          context.Context
 	config       domain.Configuration
 	dispatcher   domain.EventDispatcher
+	selector     *bytecode.Selector
+	newSelector  func(requestedMode, assetMode uint8) *bytecode.Selector
 	isRunning    atomic.Bool
 	readers      []io.Closer
 	readerLoopsW sync.WaitGroup // perf/ringbuf read goroutines; see GoReaderLoop
@@ -59,8 +61,9 @@ type BaseProbe struct {
 // NewBaseProbe creates a new BaseProbe instance.
 func NewBaseProbe(name string) *BaseProbe {
 	return &BaseProbe{
-		name:    name,
-		readers: make([]io.Closer, 0),
+		name:        name,
+		newSelector: bytecode.NewSelector,
+		readers:     make([]io.Closer, 0),
 	}
 }
 
@@ -88,6 +91,34 @@ func (p *BaseProbe) Initialize(ctx context.Context, cfg domain.Configuration) er
 			p.logger = runtimeOutput.OperationalLogger.WithProbe(p.name)
 		}
 	}
+
+	if p.selector == nil {
+		p.selector = p.newSelector(
+			p.config.GetBTF(),
+			p.config.GetByteCodeFileMode(),
+		)
+	} else if p.selector.RequestedMode() != p.config.GetBTF() ||
+		p.selector.AssetMode() != p.config.GetByteCodeFileMode() {
+		return errors.NewConfigurationError(
+			"bytecode mode cannot change after probe initialization",
+			fmt.Errorf(
+				"resolved request=%d assets=%d, new request=%d assets=%d",
+				p.selector.RequestedMode(),
+				p.selector.AssetMode(),
+				p.config.GetBTF(),
+				p.config.GetByteCodeFileMode(),
+			),
+		)
+	}
+	resolvedMode, err := p.selector.Resolve()
+	if err != nil {
+		return errors.NewConfigurationError("failed to resolve eBPF bytecode mode", err)
+	}
+	p.logger.Info().
+		Uint8("btf_mode", p.config.GetBTF()).
+		Str("asset_mode", config.ByteCodeFileModeName(p.config.GetByteCodeFileMode())).
+		Str("resolved_mode", resolvedMode.String()).
+		Msg("eBPF bytecode mode resolved")
 
 	p.logger.Info().
 		Uint64("pid", p.config.GetPid()).
@@ -171,16 +202,13 @@ func (p *BaseProbe) Stop(ctx context.Context) error {
 	return nil
 }
 
-// GetBPFName returns the appropriate eBPF bytecode filename.
-func (p *BaseProbe) GetBPFName(baseName string) string {
-	// Determine if we should use core or non-core bytecode
-	useCoreMode := p.config.GetBTF() == 1 // BTFModeCore
-
-	// Replace .o extension
-	if useCoreMode {
-		return baseName[:len(baseName)-2] + "_core.o"
+// SelectBytecode returns the stable, embedded bytecode key resolved during
+// Initialize.
+func (p *BaseProbe) SelectBytecode(baseName string) (string, error) {
+	if p.selector == nil {
+		return "", errors.NewConfigurationError("bytecode selector is not initialized", nil)
 	}
-	return baseName[:len(baseName)-2] + "_noncore.o"
+	return p.selector.Select(baseName)
 }
 
 // Close releases all resources.

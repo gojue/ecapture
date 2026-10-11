@@ -169,12 +169,9 @@ func (p *Probe) setupManager() error {
 
 // loadBytecode loads the eBPF bytecode for the PostgreSQL probe
 func (p *Probe) loadBytecode() ([]byte, error) {
-	// Determine which bytecode file to use based on BTF support
-	var bytecodeFile string
-	if p.config.GetBTF() == 1 { // BTFModeCore
-		bytecodeFile = "bytecode/postgres_kern_core.o"
-	} else {
-		bytecodeFile = "bytecode/postgres_kern.o"
+	bytecodeFile, err := p.SelectBytecode("bytecode/postgres_kern.o")
+	if err != nil {
+		return nil, fmt.Errorf("select PostgreSQL bytecode: %w", err)
 	}
 
 	// Load bytecode from assets

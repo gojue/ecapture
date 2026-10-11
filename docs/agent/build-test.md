@@ -110,6 +110,13 @@ make clean
 make nocore
 ```
 
+CO-RE-only build:
+
+```sh
+make clean
+make core
+```
+
 Cross-compile from x86_64 Linux to arm64 Linux:
 
 ```sh
@@ -141,9 +148,9 @@ the actual device/emulator architecture.
 - Run `make clean` before switching architecture, `ANDROID`, or `all` versus
   `nocore`. Asset rules consume `bytecode/*.o`, so stale objects can be
   embedded into the wrong binary.
-- Prefer serial `make clean && make all`. Parallel `make all -jN` can schedule
-  `assets` and `assets_noncore` together; both write
-  `assets/ebpf_probe.go`, creating a known race.
+- Prefer serial clean-first builds. `assets`, `assets_core`, and
+  `assets_noncore` all write `assets/ebpf_probe.go`; do not request those asset
+  targets together in one parallel make invocation.
 - `.check*` files cache tool checks. Clean after changing the toolchain.
 - `make clean` removes generated objects/dependencies, embedded assets,
   `bin/ecapture`, check stamps, and libpcap build output; it does not remove

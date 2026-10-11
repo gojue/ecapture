@@ -110,7 +110,10 @@ func (p *Probe) Start(ctx context.Context) error {
 	}
 
 	// Load eBPF bytecode
-	bpfFileName := p.BaseProbe.GetBPFName("bytecode/" + p.config.GetBPFFileName())
+	bpfFileName, err := p.BaseProbe.SelectBytecode("bytecode/" + p.config.GetBPFFileName())
+	if err != nil {
+		return errors.NewEBPFLoadError("gotls bytecode selection", err)
+	}
 	p.Logger().Info().Str("file", bpfFileName).Msg("Loading eBPF bytecode")
 
 	// Load from assets

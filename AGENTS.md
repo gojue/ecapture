@@ -193,15 +193,15 @@ verification matrix live in `docs/agent/build-test.md`.
   generation, while runtime logger and typed eCaptureQ dependencies are
   reattached separately.
 - Probe registration currently discards duplicate-registration errors.
-- `--btf=0` is called auto, but several paths actually choose non-CO-RE unless
-  the value is exactly `1`.
-- Do not copy PostgreSQL's current non-CO-RE asset spelling as a template;
-  generated objects follow `*_kern_noncore.o`.
+- Every probe uses the shared bytecode selector. `--btf=0` resolves kernel BTF
+  once per process, while explicit modes fail when the linked asset set cannot
+  satisfy them. Generated non-CO-RE objects use `*_kern_noncore.o`.
 - `pkg/event_processor` and `internal/output/encoders` are not in the current
   production CLI event path.
-- `make build` is not Go-only. Switching architecture/Android/core variants
-  without cleaning can embed stale objects, and parallel `make all -jN` has an
-  asset-generation write race.
+- `make build` is not Go-only. Switching architecture, Android, or asset modes
+  without cleaning can embed stale objects. The `assets`, `assets_core`, and
+  `assets_noncore` targets all write the same generated file; do not request
+  those targets together in one parallel make invocation.
 
 ## Focused references
 

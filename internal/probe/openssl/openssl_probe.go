@@ -114,7 +114,10 @@ func (p *Probe) Start(ctx context.Context) error {
 		p.Logger().Info().Bool("BoringSSL", p.config.IsBoringSSL).Str("sslVersion", sslVersion).Str("SslBpfFile", p.config.SslBpfFile).Msg("OpenSSL probe started")
 	}
 	// Load eBPF bytecode
-	bpfFileName := p.BaseProbe.GetBPFName("bytecode/" + p.config.GetBPFFileName())
+	bpfFileName, err := p.BaseProbe.SelectBytecode("bytecode/" + p.config.GetBPFFileName())
+	if err != nil {
+		return errors.NewEBPFLoadError("openssl bytecode selection", err)
+	}
 
 	// getSslBpfFile
 	p.Logger().Info().Str("file", bpfFileName).Msg("Loading eBPF bytecode")

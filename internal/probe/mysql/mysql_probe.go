@@ -27,7 +27,6 @@ import (
 	"github.com/gojue/ecapture/v2/internal/factory"
 
 	"github.com/gojue/ecapture/v2/assets"
-	"github.com/gojue/ecapture/v2/internal/config"
 	"github.com/gojue/ecapture/v2/internal/domain"
 	"github.com/gojue/ecapture/v2/internal/errors"
 	"github.com/gojue/ecapture/v2/internal/probe/base"
@@ -167,12 +166,14 @@ func (p *Probe) Close() error {
 
 // loadBytecode loads the eBPF bytecode for the MySQL probe
 func (p *Probe) loadBytecode() ([]byte, error) {
-	bpfFileName := p.getBPFName()
+	bpfFileName, err := p.SelectBytecode("bytecode/mysqld_kern.o")
+	if err != nil {
+		return nil, errors.NewEBPFLoadError("mysql bytecode selection", err)
+	}
 
 	p.Logger().Info().
 		Str("probe", p.Name()).
 		Str("bytecode", bpfFileName).
-		Bool("btf", p.config.GetBTF() != 0).
 		Msg("Loading eBPF bytecode")
 
 	// Load bytecode from assets
@@ -182,13 +183,6 @@ func (p *Probe) loadBytecode() ([]byte, error) {
 	}
 
 	return bytecode, nil
-}
-
-func (p *Probe) getBPFName() string {
-	if p.config.GetBTF() == config.BTFModeCore {
-		return "bytecode/mysqld_kern_core.o"
-	}
-	return "bytecode/mysqld_kern_noncore.o"
 }
 
 // setupManager sets up the eBPF manager with probes
