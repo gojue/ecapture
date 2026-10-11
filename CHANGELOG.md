@@ -1,3 +1,21 @@
+# v2.8.0 (2026-10-11)
+
+## What's Changed
+
+* build: support Linux/LoongArch64 (kernel 6.6+) cross-builds, tar/deb release artifacts, and QEMU user-mode smoke tests by @cfc4n in https://github.com/gojue/ecapture/pull/1058
+* feat(gnutls): add text, keylog, and pcapng capture modes by @cfc4n in https://github.com/gojue/ecapture/pull/1052
+* output: separate operational logs from captured event streams, unify `--eventaddr` destinations, and publish typed eCaptureQ events by @cfc4n in https://github.com/gojue/ecapture/pull/1055
+* fix(cli): apply shared probe configuration consistently and preserve event destinations and rotation across reloads by @cfc4n in https://github.com/gojue/ecapture/pull/1056
+* fix(probe): select CO-RE or non-CO-RE bytecode from the embedded assets available in each build by @cfc4n in https://github.com/gojue/ecapture/pull/1057
+* fix(pcapng): prevent packet loss during bursts and drain queued TLS secrets before packet flush by @cfc4n in https://github.com/gojue/ecapture/pull/1049
+* test: add TLS performance and event-loss benchmarks by @cfc4n in https://github.com/gojue/ecapture/pull/1051
+* docs: unify agent guidance and refresh the READMEs by @cfc4n in https://github.com/gojue/ecapture/pull/1048
+* docs: refine the README header layout by @cfc4n in https://github.com/gojue/ecapture/pull/1050
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v2.7.0...v2.8.0
+
+<hr>
+
 # v2.7.0 (2026-10-05)
 
 ## What's Changed
