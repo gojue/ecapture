@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+driver="${LOONG64_CLANG_DRIVER:-clang-18}"
+sysroot="${LOONG64_SYSROOT:-/}"
+target_root="${LOONG64_TARGET_ROOT:-/usr/loongarch64-linux-gnu}"
+runtime_dir="${LOONG64_GCC_RUNTIME_DIR:-/usr/lib/gcc-cross/loongarch64-linux-gnu/13}"
+
+# Make preflight checks the actual LLVM major once; pin the driver name here.
+case "$driver" in
+    clang-18|clang++-18) ;;
+    *)
+        echo "Loong64 compiler must be clang-18 or clang++-18; found $driver" >&2
+        exit 1
+        ;;
+esac
+if ! command -v "$driver" >/dev/null 2>&1; then
+    echo "missing required Loong64 compiler: $driver" >&2
+    exit 1
+fi
+if [[ ! -d "$sysroot" ]]; then
+    echo "Loong64 sysroot is unavailable: $sysroot" >&2
+    exit 1
+fi
+if [[ ! -d "$target_root/include" || ! -d "$target_root/lib" ]]; then
+    echo "Loong64 target root is unavailable: $target_root" >&2
+    exit 1
+fi
+if [[ ! -f "$runtime_dir/libgcc.a" ]]; then
+    echo "Loong64 libgcc runtime is unavailable: $runtime_dir/libgcc.a" >&2
+    exit 1
+fi
+
+args=(
+    --target=loongarch64-linux-gnu
+    -mabi=lp64d
+    --sysroot="$sysroot"
+    -isystem "$target_root/include"
+    --gcc-install-dir="$runtime_dir"
+)
+
+link_action=1
+for arg in "$@"; do
+    case "$arg" in
+        -c|-E|-S|-M|-MM|-fsyntax-only)
+            link_action=0
+            break
+            ;;
+    esac
+done
+if [[ "$link_action" == "1" ]]; then
+    args+=(
+        -L"$target_root/lib"
+        --rtlib=libgcc
+        -L"$runtime_dir"
+    )
+fi
+
+if [[ "${LOONG64_TOOLCHAIN_TRACE:-0}" == "1" ]]; then
+    printf '[loong64-toolchain]' >&2
+    printf ' %q' "$driver" "${args[@]}" "$@" >&2
+    printf '\n' >&2
+fi
+exec "$driver" "${args[@]}" "$@"

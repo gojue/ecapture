@@ -34,9 +34,9 @@ func upgradeCheck(ctx context.Context) (string, string, error) {
 		byteToString(uname.Release[:]), // 版本号
 		byteToString(uname.Machine[:]), // 机器类型
 	)
-	var arch = "amd64"
-	if byteToString(uname.Machine[:]) == "aarch64" {
-		arch = "arm64"
+	arch, err := releaseArch(byteToString(uname.Machine[:]))
+	if err != nil {
+		return "", "", err
 	}
 	rex := regexp.MustCompile(`([^:]*):v?(\d+\.\d+\.\d+)[^:]*:[^:]*`)
 	verMatch := rex.FindStringSubmatch(GitVersion)
@@ -69,6 +69,19 @@ func upgradeCheck(ctx context.Context) (string, string, error) {
 		}
 	}
 	return "", "", ErrOsArchNotFound
+}
+
+func releaseArch(machine string) (string, error) {
+	switch machine {
+	case "x86_64", "amd64":
+		return "amd64", nil
+	case "aarch64", "arm64":
+		return "arm64", nil
+	case "loongarch64", "loong64":
+		return "loong64", nil
+	default:
+		return "", fmt.Errorf("unsupported release architecture: %s", machine)
+	}
 }
 
 func byteToString(b []byte) string {

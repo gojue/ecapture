@@ -221,8 +221,9 @@ preference.
   `protobuf/gen/v1/` output. Never edit generated `*.pb.go` manually.
 - Regenerate `cli/http/status_string.go` from `cli/http/resp.go` with the
   documented `go generate`/stringer flow.
-- Real eBPF assets come from `kern/` through `bytecode/`; never patch embedded
-  object bytes or `assets/ebpf_probe.go` directly.
+- Real eBPF assets come from `kern/` through the architecture-isolated
+  `.build/<target>-<goarch>/bytecode/` tree; never patch embedded object bytes
+  or `assets/ebpf_probe_<target>_<goarch>_bindata.go` directly.
 - Keep every probe on `BaseProbe.SelectBytecode`; do not add local
   `GetBTF()==1` suffix logic. Non-CO-RE keys always end in `_noncore.o`.
 

@@ -386,8 +386,9 @@ func detectOpenssl(soPath string) (string, error) {
 	switch r.FileHeader.Machine {
 	case elf.EM_X86_64:
 	case elf.EM_AARCH64:
+	case elf.EM_LOONGARCH:
 	default:
-		return "", fmt.Errorf("unsupported arch library ,ELF Header Machine is :%s, must be one of EM_X86_64 and EM_AARCH64", r.FileHeader.Machine.String())
+		return "", fmt.Errorf("unsupported arch library, ELF machine is %s; supported machines are EM_X86_64, EM_AARCH64, and EM_LOONGARCH", r.FileHeader.Machine.String())
 	}
 
 	s := r.Section(".rodata")

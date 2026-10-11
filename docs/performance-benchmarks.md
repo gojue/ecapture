@@ -39,7 +39,8 @@ from request counts or log line totals.
 
 ### Requirements
 
-- Linux x86_64 with kernel 4.18+ or Linux aarch64 with kernel 5.5+;
+- Linux x86_64 with kernel 4.18+, Linux aarch64 with kernel 5.5+, or Linux
+  LoongArch64 with kernel 6.6+;
 - root;
 - a clean V2 build at `bin/ecapture`;
 - `go`, `cc`, OpenSSL development files, `ldd`, and GNU userland tools.

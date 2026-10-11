@@ -192,6 +192,8 @@ func getDynPathByElf(elfPath, soName string) (string, error) {
 				"/lib/aarch64-linux-gnu/" + lib,
 				"/usr/lib/x86_64-linux-gnu/" + lib,
 				"/usr/lib/aarch64-linux-gnu/" + lib,
+				"/lib/loongarch64-linux-gnu/" + lib,
+				"/usr/lib/loongarch64-linux-gnu/" + lib,
 				"/lib/" + lib,
 				"/usr/lib/" + lib,
 			}

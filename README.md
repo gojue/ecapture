@@ -32,7 +32,7 @@
 </p>
 
 > [!IMPORTANT]
-> Supports Linux and Android on x86_64 (kernel 4.18+) and aarch64 (kernel **5.5+**). The kernel requirement applies per CPU architecture for both Linux and Android.
+> Supports Linux on x86_64 (kernel 4.18+), aarch64 (kernel **5.5+**), and LoongArch64/Go `loong64` (kernel **6.6+**). Android supports x86_64 and aarch64 with the existing kernel minimums; Android/loong64 is not supported.
 > Requires root privileges or specific [Linux capabilities](docs/minimum-privileges.md).
 > Does not support Windows or macOS.
 
@@ -72,7 +72,7 @@
 ### ELF binary file
 
 > [!TIP]
-> Supports Linux/Android on x86_64 and aarch64.
+> Supports Linux on x86_64, aarch64, and LoongArch64; Android supports x86_64 and aarch64.
 
 Download the ELF binary package from the [releases page](https://github.com/gojue/ecapture/releases), extract it, and run:
 
@@ -282,6 +282,10 @@ See [CONTRIBUTING](./CONTRIBUTING.md) for details on submitting patches and the 
 ## Custom compilation
 
 You can customize the features you want, such as setting the `uprobe` offset address to support statically linked OpenSSL libraries. Refer to the [compilation guide](./docs/compilation.md) for detailed instructions.
+
+Loong64 releases are cross-built on Ubuntu 24.04 x86_64 with LLVM 18. Use
+`CROSS_ARCH=loong64`; the sysroot, BTF, verification steps, and current runtime
+validation limits are documented in [Loong64 build and validation](./docs/loong64-support.md).
 
 ## Remote configuration updates
 

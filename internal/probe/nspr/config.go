@@ -105,9 +105,13 @@ func (c *Config) Validate() error {
 func (c *Config) findNSSLibrary() (string, error) {
 	searchPaths := []string{
 		"/usr/lib/x86_64-linux-gnu/libnss3.so",
+		"/usr/lib/aarch64-linux-gnu/libnss3.so",
+		"/usr/lib/loongarch64-linux-gnu/libnss3.so",
 		"/usr/lib64/libnss3.so",
 		"/usr/lib/libnss3.so",
 		"/lib/x86_64-linux-gnu/libnss3.so",
+		"/lib/aarch64-linux-gnu/libnss3.so",
+		"/lib/loongarch64-linux-gnu/libnss3.so",
 		"/lib64/libnss3.so",
 		"/lib/libnss3.so",
 	}
@@ -125,9 +129,13 @@ func (c *Config) findNSSLibrary() (string, error) {
 func (c *Config) findNSPRLibrary() (string, error) {
 	searchPaths := []string{
 		"/usr/lib/x86_64-linux-gnu/libnspr4.so",
+		"/usr/lib/aarch64-linux-gnu/libnspr4.so",
+		"/usr/lib/loongarch64-linux-gnu/libnspr4.so",
 		"/usr/lib64/libnspr4.so",
 		"/usr/lib/libnspr4.so",
 		"/lib/x86_64-linux-gnu/libnspr4.so",
+		"/lib/aarch64-linux-gnu/libnspr4.so",
+		"/lib/loongarch64-linux-gnu/libnspr4.so",
 		"/lib64/libnspr4.so",
 		"/lib/libnspr4.so",
 	}

@@ -41,8 +41,9 @@ eCapture may be edited anywhere, but compilation, linking, linting, tests,
 eBPF generation, and execution require Linux. Android artifacts are also
 built on a Linux host.
 
-- Runtime targets: Linux and Android on `x86_64` or `aarch64`.
-- Minimum kernels on both OS targets: x86_64 >= 4.18; aarch64 >= 5.5.
+- Runtime targets: Linux on `x86_64`, `aarch64`, or `loongarch64`; Android on
+  `x86_64` or `aarch64`.
+- Minimum kernels: x86_64 >= 4.18; aarch64 >= 5.5; Linux loongarch64 >= 6.6.
 - Loading probes requires root or the capabilities documented in
   `docs/minimum-privileges.md`. Maintained E2E harnesses have stricter root
   requirements.
@@ -112,8 +113,9 @@ package ownership.
 - Linux production tags are `linux,netgo,ebpfassets,dynamic`; Android uses
   `ecap_android,netgo,ebpfassets,dynamic`. Preserve CO-RE and non-CO-RE paths.
 - Never hand-edit or commit generated `bytecode/*.o`, `bytecode/*.d`,
-  `assets/ebpf_probe.go`, `bin/ecapture`, or `coverage.out`. Regenerate
-  Protobuf and stringer outputs from their sources.
+  `.build/`, `assets/ebpf_probe_<target>_<goarch>_bindata.go`, generated LoongArch
+  `vmlinux.h`, `bin/ecapture`, or `coverage.out`. Regenerate Protobuf and
+  stringer outputs from their sources.
 
 ## Task guides and verification
 
@@ -199,9 +201,14 @@ verification matrix live in `docs/agent/build-test.md`.
 - `pkg/event_processor` and `internal/output/encoders` are not in the current
   production CLI event path.
 - `make build` is not Go-only. Switching architecture, Android, or asset modes
-  without cleaning can embed stale objects. The `assets`, `assets_core`, and
-  `assets_noncore` targets all write the same generated file; do not request
-  those targets together in one parallel make invocation.
+  still requires a clean serial validation even though libpcap, bytecode, Go
+  intermediates, and generated asset names are architecture-isolated. The
+  `assets`, `assets_core`, and `assets_noncore` targets for one architecture
+  write the same generated asset; do not request them together in one parallel
+  make invocation.
+- Loong64 is cross-built only on Ubuntu 24.04 x86_64 with `CROSS_ARCH=loong64`
+  and the repository's LLVM 18 wrappers. Do not substitute `loong64` for the
+  `loongarch64-linux-gnu` C target or `loongarch` Kbuild architecture.
 
 ## Focused references
 

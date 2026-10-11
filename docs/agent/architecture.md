@@ -74,12 +74,15 @@ targets and excludes zsh, GnuTLS, NSPR, MySQL, and PostgreSQL.
   its borrowed keylog adapter.
 - `internal/output/encoders/`: standalone abstractions not currently wired
   into the production probe path.
-- `kern/`: eBPF C sources and shared headers. `kern/bpf/<arch>/` contains
-  tracked headers; do not regenerate them casually.
+- `kern/`: eBPF C sources and shared headers. `kern/bpf/<arch>/` contains the
+  tracked x86/arm64 headers; LoongArch `vmlinux.h` is generated from a recorded
+  Linux 6.6+ BTF source and remains ignored.
 - `variables.mk`: targets, architectures, build tags, output names, tools.
   `functions.mk`: version checks and the Go link command.
-- `bytecode/`: generated core and non-core BPF objects.
-- `assets/ebpf_probe.go`: ignored generated go-bindata output.
+- `.build/<target>-<goarch>/bytecode/`: generated core and non-core BPF
+  objects. The root `bytecode/` path is a legacy generated location.
+- `assets/ebpf_probe_<target>_<goarch>_bindata.go`: ignored, architecture-tagged
+  go-bindata output.
   `assets/ebpf_probe_stub.go` only supports builds without real assets.
 - `pkg/ecaptureq/`: WebSocket/Protobuf event streaming.
 - `pkg/event_processor/`: standalone HTTP/1.x and HTTP/2 reconstruction with
@@ -179,9 +182,11 @@ ownership, the destination matrix, and eCaptureQ semantics.
 
 ```text
 kern/<target>_kern.c
-  +-> bytecode/<target>_kern_core.o ----+
-  +-> bytecode/<target>_kern_noncore.o -+-> assets/ebpf_probe.go
-                                             -> bin/ecapture
+  +-> .build/<platform>-<goarch>/bytecode/<target>_kern_core.o ----+
+  +-> .build/<platform>-<goarch>/bytecode/<target>_kern_noncore.o -+
+       -> assets/ebpf_probe_<platform>_<goarch>_bindata.go
+       -> .build/<platform>-<goarch>/bin/ecapture
+       -> bin/ecapture (E2E/direct-invocation compatibility copy)
 ```
 
 Asset keys, `variables.mk:TARGETS`, and Go selectors must agree exactly. The
@@ -197,6 +202,9 @@ exact go-bindata key before a probe attempts to load it.
 
 - Linux production tags: `linux,netgo,ebpfassets,dynamic`.
 - Android production tags: `ecap_android,netgo,ebpfassets,dynamic`.
+- Linux runtime architectures are amd64, arm64, and loong64. Loong64 requires
+  kernel 6.6+ and its generated asset is constrained by the `loong64` build
+  tag; Android remains amd64/arm64 only.
 - Android intentionally uses Linux system semantics plus `ecap_android`, not
   an ad-hoc `GOOS=android` workflow.
 - Most platform splits use `ecap_android`/`!ecap_android`; inspect nearby

@@ -90,6 +90,7 @@ check_environment() {
     case "$arch" in
         x86_64) required_major=4; required_minor=18 ;;
         aarch64|arm64) required_major=5; required_minor=5 ;;
+        loongarch64|loong64) required_major=6; required_minor=6 ;;
         *) fail "unsupported architecture: $(uname -m)" ;;
     esac
     if ((major < required_major || (major == required_major && minor < required_minor))); then

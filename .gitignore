@@ -31,7 +31,13 @@
 bin/*
 /.check*
 /deps/*
+/build/
+/.build/
 /assets/probe.go
+/assets/ebpf_probe_linux_*.go
+/assets/ebpf_probe_ecap_android_*.go
+/kern/bpf/loongarch/vmlinux.h
+/kern/bpf/loongarch/vmlinux.source
 docs/blog/*
 
 # Example binaries
