@@ -1,3 +1,14 @@
+# v2.8.1 (2026-10-14)
+
+## What's Changed
+
+* openssl: keep connection metadata private by @cfc4n in https://github.com/gojue/ecapture/pull/1061
+* build: make TARGET_ARCH the public artifact selector by @cfc4n in https://github.com/gojue/ecapture/pull/1062
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v2.8.0...v2.8.1
+
+<hr>
+
 # v2.8.0 (2026-10-11)
 
 ## What's Changed
