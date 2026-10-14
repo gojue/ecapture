@@ -83,6 +83,7 @@ main.go -> cli.Start() -> Cobra RunE -> runProbe()
   -> Probe.Initialize() / Start()
   -> embedded eBPF asset + ebpfmanager
   -> perf/ringbuf sample -> EventDecoder.Decode()
+  -> optional module-private EventPreprocessor
   -> events.Dispatcher -> text/keylog/pcapng handler -> ByteSink
                        -> typed eCaptureQ EVENT publisher
 ```
@@ -120,6 +121,9 @@ package ownership.
 - Dispatcher fan-out is synchronous and unordered. Multiple readers may call
   one handler concurrently; handlers/writers must be concurrency-safe and
   tolerate idempotent close. Perf reorder is per map/reader, not global.
+- Module-private records such as OpenSSL connection metadata are consumed
+  before output dispatch; they enrich captured output events instead of
+  becoming standalone text or typed events.
 - `--logaddr` is operational logging only. For TLS, GoTLS, and GnuTLS,
   `--eventaddr` is the primary captured-event destination for text, keylog,
   and pcapng. eCaptureQ is an additive typed publisher, not a ByteSink.

@@ -56,3 +56,9 @@ type EventDecoder interface {
 	// GetDecoder returns the event decoder for a specific eBPF map.
 	GetDecoder(em *ebpf.Map) (Event, bool)
 }
+
+// EventPreprocessor handles decoded module-private events before output
+// dispatch. A decoder implementing this interface consumes all its events.
+type EventPreprocessor interface {
+	Preprocess(event Event) error
+}

@@ -98,18 +98,22 @@ struct ssl_data_event_t {
 */
 // Event represents an OpenSSL TLS data event from eBPF.
 type Event struct {
-	DataType  int64             `json:"dataType"`
-	Timestamp uint64            `json:"timestamp"` // Nanosecond timestamp
-	Pid       uint32            `json:"pid"`       // Process ID
-	Tid       uint32            `json:"tid"`       // Thread ID
-	Data      [MaxDataSize]byte `json:"data"`      // TLS data payload
-	DataLen   int32             `json:"dataLen"`   // Length of actual data
-	Comm      [TaskCommLen]byte `json:"comm"`      // Process name
-	Fd        uint32            `json:"fd"`
-	Version   int32             `json:"version"` // TLS version (e.g., 771 for TLS 1.2)
-	Tuple     string
-	BioType   uint32
-	Sock      uint64
+	DataType        int64             `json:"dataType"`
+	Timestamp       uint64            `json:"timestamp"` // Nanosecond timestamp
+	Pid             uint32            `json:"pid"`       // Process ID
+	Tid             uint32            `json:"tid"`       // Thread ID
+	Data            [MaxDataSize]byte `json:"data"`      // TLS data payload
+	DataLen         int32             `json:"dataLen"`   // Length of actual data
+	Comm            [TaskCommLen]byte `json:"comm"`      // Process name
+	Fd              uint32            `json:"fd"`
+	Version         int32             `json:"version"` // TLS version (e.g., 771 for TLS 1.2)
+	Tuple           string
+	BioType         uint32
+	Sock            uint64
+	sourceIP        string
+	destinationIP   string
+	sourcePort      uint16
+	destinationPort uint16
 }
 
 // DecodeFromBytes deserializes the event from raw eBPF data.
@@ -176,12 +180,17 @@ func (e *Event) String() string {
 
 	dataStr := string(e.GetData())
 
-	return fmt.Sprintf("[%s] PID:%d TID:%d Comm:%s FD:%d %s (%d bytes):\n%s",
+	connection := ""
+	if e.Tuple != "" {
+		connection = " Tuple:" + e.Tuple
+	}
+	return fmt.Sprintf("[%s] PID:%d TID:%d Comm:%s FD:%d%s %s (%d bytes):\n%s",
 		eventTime.Format("2006-01-02 15:04:05.000"),
 		e.Pid,
 		e.Tid,
 		e.GetComm(),
 		e.Fd,
+		connection,
 		direction,
 		e.DataLen,
 		dataStr,
@@ -199,12 +208,17 @@ func (e *Event) StringHex() string {
 
 	hexData := dumpByteSlice(e.GetData(), "")
 
-	return fmt.Sprintf("[%s] PID:%d TID:%d Comm:%s FD:%d %s (%d bytes, hex):\n%s",
+	connection := ""
+	if e.Tuple != "" {
+		connection = " Tuple:" + e.Tuple
+	}
+	return fmt.Sprintf("[%s] PID:%d TID:%d Comm:%s FD:%d%s %s (%d bytes, hex):\n%s",
 		ts.Format("2006-01-02 15:04:05.000"),
 		e.Pid,
 		e.Tid,
 		e.GetComm(),
 		e.Fd,
+		connection,
 		direction,
 		e.DataLen,
 		hexData,
@@ -263,6 +277,11 @@ func (e *Event) Validate() error {
 func (e *Event) GetPid() uint32 {
 	return e.Pid
 }
+
+func (e *Event) GetSrcIP() string   { return e.sourceIP }
+func (e *Event) GetDstIP() string   { return e.destinationIP }
+func (e *Event) GetSrcPort() uint16 { return e.sourcePort }
+func (e *Event) GetDstPort() uint16 { return e.destinationPort }
 
 // GetComm returns the process name as a string.
 func (e *Event) GetComm() string {

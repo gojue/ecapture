@@ -332,7 +332,7 @@ its assertions.
 - New multi-connection tests must verify each stream independently. Android
   currently verifies its TLS 1.2 and TLS 1.3 streams separately; do not claim
   every existing Linux case does so.
-- Fatal logs, decoder failures, lost samples, buffer overflow, and
+- Fatal logs, decoder/preprocessor/dispatch failures, lost samples, buffer overflow, and
   load/attach/start failures are hard failures.
 - Successful plaintext previews are limited to 50 characters.
 - Failed artifacts are always preserved. Set `E2E_KEEP_ARTIFACTS=1` to keep

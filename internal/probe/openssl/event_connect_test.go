@@ -21,6 +21,9 @@ import (
 	"testing"
 
 	"golang.org/x/sys/unix"
+
+	"github.com/gojue/ecapture/v2/internal/domain"
+	"github.com/gojue/ecapture/v2/internal/probe/base/handlers"
 )
 
 // buildConnPayload builds a 90-byte payload that matches the C struct connect_event_t
@@ -219,5 +222,77 @@ func TestConnDataEvent_DecodeFromBytes_ShortPayload(t *testing.T) {
 	err := event.DecodeFromBytes(shortPayload)
 	if err == nil {
 		t.Error("DecodeFromBytes should return an error for a truncated payload")
+	}
+}
+
+func TestConnectionMetadataEnrichesTLSOutput(t *testing.T) {
+	probe, err := NewProbe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var source, destination, comm [16]byte
+	copy(source[:], []byte{127, 0, 0, 1})
+	copy(destination[:], []byte{8, 8, 8, 8})
+	copy(comm[:], "curl")
+	connect := &connectDecoder{probe: probe}
+	decoded, err := connect.Decode(nil, buildConnPayload(t,
+		source, destination, comm, 123, 0xdeadbeef,
+		1000, 1001, 7, unix.AF_INET, 54321, 443, 0,
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if decoded.Type() != domain.EventTypeModuleData || handlers.NewTextHandler(nil, false).Supports(decoded) {
+		t.Fatal("connection metadata must not be text output")
+	}
+	if err := connect.Preprocess(decoded); err != nil {
+		t.Fatalf("process connection metadata: %v", err)
+	}
+
+	output, err := (&tlsEventDecoder{probe: probe}).Decode(nil, benchmarkTLSDataSample(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	tlsEvent := output.(*Event)
+	if tlsEvent.Sock != 0xdeadbeef || tlsEvent.Tuple != "[127.0.0.1]:54321->[8.8.8.8]:443" {
+		t.Fatalf("TLS connection metadata = (%#x, %q)", tlsEvent.Sock, tlsEvent.Tuple)
+	}
+	if tlsEvent.GetSrcIP() != "127.0.0.1" || tlsEvent.GetDstIP() != "8.8.8.8" ||
+		tlsEvent.GetSrcPort() != 54321 || tlsEvent.GetDstPort() != 443 {
+		t.Fatalf("TLS endpoints = %s:%d -> %s:%d", tlsEvent.GetSrcIP(), tlsEvent.GetSrcPort(),
+			tlsEvent.GetDstIP(), tlsEvent.GetDstPort())
+	}
+	if !strings.Contains(tlsEvent.String(), "Tuple:"+tlsEvent.Tuple) {
+		t.Fatal("TLS text output does not contain enriched tuple")
+	}
+}
+
+func TestConnectionCacheDestroyAndReuse(t *testing.T) {
+	var cache connectionCache
+	first := &ConnDataEvent{connDataEvent: connDataEvent{
+		Pid: 42, Fd: 5, Sock: 100, Family: unix.AF_INET,
+	}, Tuple: "first"}
+	cache.observe(first)
+	old, ok := cache.lookup(42, 5)
+	if !ok {
+		t.Fatal("first connection missing")
+	}
+	cache.observe(&ConnDataEvent{connDataEvent: connDataEvent{Sock: 100, IsDestroy: 1}})
+	if _, ok := cache.lookup(42, 5); !ok {
+		t.Fatal("destroy removed connection before delayed TLS data could be read")
+	}
+
+	second := &ConnDataEvent{connDataEvent: connDataEvent{
+		Pid: 42, Fd: 5, Sock: 100, Family: unix.AF_INET,
+	}, Tuple: "second"}
+	cache.observe(second)
+	cache.expire(100, old.generation)
+	current, ok := cache.lookup(42, 5)
+	if !ok || current.tuple != "second" {
+		t.Fatalf("old destroy removed reused connection: %+v, exists=%t", current, ok)
+	}
+	cache.expire(100, current.generation)
+	if _, ok := cache.lookup(42, 5); ok {
+		t.Fatal("destroy did not remove the matching connection")
 	}
 }

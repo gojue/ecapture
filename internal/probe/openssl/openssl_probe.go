@@ -52,6 +52,7 @@ type Probe struct {
 	eventMaps        []*ebpf.Map
 	output           io.Writer
 	closer           []io.Closer
+	connections      connectionCache
 
 	sslBpfFile      string
 	isBoringSSL     bool
@@ -702,7 +703,7 @@ func (p *Probe) DecodeFun(em *ebpf.Map) (domain.EventDecoder, bool) {
 	return fun, found
 }
 
-// connectDecoder implements domain.EventDecoder for TLS data events
+// connectDecoder decodes connection metadata for module-private processing.
 type connectDecoder struct {
 	probe *Probe
 }
@@ -720,6 +721,15 @@ func (d *connectDecoder) Decode(_ *ebpf.Map, data []byte) (domain.Event, error) 
 
 func (d *connectDecoder) GetDecoder(_ *ebpf.Map) (domain.Event, bool) {
 	return &ConnDataEvent{}, true
+}
+
+func (d *connectDecoder) Preprocess(event domain.Event) error {
+	conn, ok := event.(*ConnDataEvent)
+	if !ok || conn == nil || d.probe == nil {
+		return fmt.Errorf("invalid OpenSSL connection event or probe: %T", event)
+	}
+	d.probe.connections.observe(conn)
+	return nil
 }
 
 // packetEventDecoder implements domain.EventDecoder for packet events
@@ -752,6 +762,16 @@ func (d *tlsEventDecoder) Decode(_ *ebpf.Map, data []byte) (domain.Event, error)
 	}
 	if err := event.Validate(); err != nil {
 		return nil, err
+	}
+	if d.probe != nil {
+		if conn, ok := d.probe.connections.lookup(event.Pid, event.Fd); ok {
+			event.Tuple = conn.tuple
+			event.Sock = conn.sock
+			event.sourceIP = conn.sourceIP
+			event.destinationIP = conn.destinationIP
+			event.sourcePort = conn.sourcePort
+			event.destinationPort = conn.destinationPort
+		}
 	}
 	return event, nil
 }

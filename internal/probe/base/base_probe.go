@@ -410,6 +410,9 @@ func (p *BaseProbe) perfEventLoop(rd *perf.Reader, em *ebpf.Map, decoder domain.
 			p.logger.Warn().Err(err).Msg("Failed to decode event")
 			continue
 		}
+		if !p.preprocessEvent(decoder, event) {
+			continue
+		}
 		p.logger.Debug().Str("event", event.String()).Msg("Perf event decoded")
 
 		if mn, ok := domain.AsMonoNsEvent(event); ok {
@@ -424,6 +427,18 @@ func (p *BaseProbe) perfEventLoop(rd *perf.Reader, em *ebpf.Map, decoder domain.
 func (p *BaseProbe) logPerfDispatchDebug(phase string, mn domain.MonoNsEvent) {
 	// Substrings "no reorder" / "after reorder" are relied on by external log verification tools.
 	p.logger.Debug().Msgf("%s perf dispatch (%s) mono_ns=%d", p.name, phase, mn.PerfMonoNs())
+}
+
+// preprocessEvent reports whether the event should enter output dispatch.
+func (p *BaseProbe) preprocessEvent(decoder domain.EventDecoder, event domain.Event) bool {
+	preprocessor, ok := decoder.(domain.EventPreprocessor)
+	if !ok {
+		return true
+	}
+	if err := preprocessor.Preprocess(event); err != nil {
+		p.logger.Warn().Err(err).Msg("Failed to preprocess event")
+	}
+	return false
 }
 
 func (p *BaseProbe) perfEventLoopOrdered(rd *perf.Reader, em *ebpf.Map, decoder domain.EventDecoder, lagNs uint64) {
@@ -469,6 +484,9 @@ func (p *BaseProbe) perfEventLoopOrdered(rd *perf.Reader, em *ebpf.Map, decoder 
 				continue
 			}
 			p.logger.Warn().Err(err).Msg("Failed to decode event")
+			continue
+		}
+		if !p.preprocessEvent(decoder, event) {
 			continue
 		}
 		p.logger.Debug().Str("event", event.String()).Msg("Perf event decoded")
@@ -538,6 +556,9 @@ func (p *BaseProbe) ringbufEventLoop(rd *ringbuf.Reader, em *ebpf.Map, decoder d
 		event, err := decoder.Decode(em, record.RawSample)
 		if err != nil {
 			p.logger.Warn().Err(err).Msg("Failed to decode event")
+			continue
+		}
+		if !p.preprocessEvent(decoder, event) {
 			continue
 		}
 

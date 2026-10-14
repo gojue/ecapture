@@ -120,6 +120,9 @@ treats any lost-sample evidence as a test failure; preserve that distinction.
 ### Readers and dispatch
 
 - Use BaseProbe's perf/ring-buffer helpers when possible.
+- Module-private records can be consumed by a decoder's optional
+  `domain.EventPreprocessor` before generic output dispatch. Keep that
+  preprocessing concurrency-safe when maps have separate reader loops.
 - A custom reader must be registered with `TrackReader()` and execute through
   `GoReaderLoop()` or equivalent tracked ownership.
 - Dispatcher fan-out is synchronous and unordered; it does not route on
