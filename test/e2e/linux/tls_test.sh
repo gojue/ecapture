@@ -93,7 +93,16 @@ case_text() {
     stop_capture
 
     assert_no_capture_errors "$capture_log" || return 1
+    assert_no_capture_errors "$operational_log" || return 1
     assert_file_contains "$event_file" "$E2E_TOKEN" "captured OpenSSL plaintext" || return 1
+    if ! grep -Eq '^\[[^]]+\] PID:[0-9]+.* FD:[0-9]+ Tuple:' "$event_file"; then
+        log_error "OpenSSL plaintext was not enriched with connection metadata"
+        return 1
+    fi
+    if grep -Eq '^PID:[0-9]+, Comm:.*Tuple:' "$event_file"; then
+        log_error "OpenSSL connection metadata was emitted as a standalone text event"
+        return 1
+    fi
     assert_output_isolation "$operational_log" "$event_file" "$E2E_TOKEN" || return 1
     print_plaintext_preview "$event_file" "$E2E_TOKEN" "linux/tls/text"
 }

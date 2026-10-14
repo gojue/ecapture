@@ -21,7 +21,7 @@ The tests require root and a real Linux/Android kernel with eBPF support. Buildi
 
 | Platform | Module/workload | text assertion | keylog assertion | pcapng assertion |
 | --- | --- | --- | --- | --- |
-| Ubuntu 22.04+ | OpenSSL C client | unique plaintext token | valid TLS 1.2 and 1.3 NSS secrets | SHB, IDB, packets, TLS DSB |
+| Ubuntu 22.04+ | OpenSSL C client | unique plaintext token with enriched connection tuple and no standalone connection records | valid TLS 1.2 and 1.3 NSS secrets | SHB, IDB, packets, TLS DSB |
 | Ubuntu 22.04+ advanced | 256 OpenSSL connections (64 concurrent) | n/a | n/a | at least 1024 packets, TLS DSB, no write/loss errors or per-packet INFO logs |
 | Ubuntu 22.04+ | Go HTTPS client | unique plaintext token | valid TLS 1.2 and 1.3 NSS secrets | SHB, IDB, packets, TLS DSB |
 | Ubuntu 22.04+ | GnuTLS C client | unique plaintext token | valid TLS 1.2 and 1.3 NSS secrets | SHB, IDB, packets, TLS DSB |
@@ -45,7 +45,7 @@ The pcapng check parses the block structure instead of accepting any non-empty f
 - at least one Enhanced Packet Block;
 - at least one TLS Decryption Secrets Block.
 
-Logs also fail on fatal errors, event-decode errors, lost perf samples, and eBPF load/attach/start errors. A probe merely staying alive is not considered a pass.
+Logs also fail on fatal errors, event-decode/preprocess/dispatch errors, lost perf samples, and eBPF load/attach/start errors. The OpenSSL text case checks both capture and operational logs. A probe merely staying alive is not considered a pass.
 
 The output cases additionally exercise `--logaddr` over stdout, file, TCP, and
 binary WebSocket. They require CLI and BaseProbe lifecycle records, prohibit

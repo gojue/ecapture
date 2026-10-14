@@ -18,6 +18,7 @@ main.go
   -> assets.Asset("bytecode/...") + ebpfmanager
   -> eBPF perf/ring-buffer sample
   -> EventDecoder.Decode()
+  -> optional EventPreprocessor for module-private records
   -> events.Dispatcher.Dispatch()
   -> text / keylog / pcapng handler
   -> independently constructed ByteSink
@@ -118,6 +119,10 @@ existing implementations make a populated deep copy. The dispatcher calls
 validation must be idempotent and free of destructive side effects.
 
 `domain.EventDecoder` instances are associated with maps by name or pointer.
+An optional `domain.EventPreprocessor` consumes decoded module-private
+records before output dispatch. OpenSSL uses this for connection metadata: its
+connection decoder updates a PID/FD cache, and its TLS data decoder enriches
+output events from that cache. Connection records never reach output handlers.
 `domain.MonoNsEvent` makes an event eligible for perf reorder and must preserve
 the BPF monotonic timestamp. Reorder also requires `GetPerfReorder()` to be
 enabled and the decoder's prototype event to implement that interface.
