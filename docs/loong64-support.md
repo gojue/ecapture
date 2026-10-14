@@ -100,13 +100,13 @@ same tree supplies non-CO-RE headers and the LoongArch BTF-bearing vmlinux:
 
 ```sh
 git submodule update --init --recursive
-make clean CROSS_ARCH=loong64
+make clean TARGET_ARCH=loong64
 KERN_HEADERS=/path/to/linux-source \
   LOONG64_VMLINUX=/path/to/linux-source/vmlinux \
-  CROSS_ARCH=loong64 make env
+  TARGET_ARCH=loong64 make env
 KERN_HEADERS=/path/to/linux-source \
   LOONG64_VMLINUX=/path/to/linux-source/vmlinux \
-  CROSS_ARCH=loong64 make all
+  TARGET_ARCH=loong64 make all
 ```
 
 libpcap, core/non-core bytecode, and Go intermediates are isolated below

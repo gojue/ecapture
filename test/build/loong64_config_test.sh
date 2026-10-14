@@ -16,8 +16,16 @@ fi
 assert_mapping() {
     local target="$1"
     local expected="$2"
-    local output
-    output="$(HOST_ARCH=x86_64 HOST_OS=Linux CROSS_ARCH="$target" make -s print-arch-vars)"
+    local output command_line_output legacy_output matching_output ignored_legacy_output
+    output="$(HOST_ARCH=x86_64 HOST_OS=Linux TARGET_ARCH="$target" make -s print-arch-vars)"
+    command_line_output="$(HOST_ARCH=x86_64 HOST_OS=Linux make -s print-arch-vars TARGET_ARCH="$target")"
+    legacy_output="$(HOST_ARCH=x86_64 HOST_OS=Linux CROSS_ARCH="$target" make -s print-arch-vars)"
+    matching_output="$(HOST_ARCH=x86_64 HOST_OS=Linux TARGET_ARCH="$target" CROSS_ARCH="$target" make -s print-arch-vars)"
+    ignored_legacy_output="$(HOST_ARCH=x86_64 HOST_OS=Linux TARGET_ARCH="$target" CROSS_ARCH=mips64 make -s print-arch-vars)"
+    if [[ "$output" != "$command_line_output" || "$output" != "$legacy_output" || "$output" != "$matching_output" || "$output" != "$ignored_legacy_output" ]]; then
+        echo "$target mapping differs between target selector forms" >&2
+        exit 1
+    fi
     while IFS= read -r line; do
         grep -Fxq "$line" <<<"$output" || {
             echo "$target mapping missing: $line" >&2
@@ -26,19 +34,35 @@ assert_mapping() {
     done <<<"$expected"
 }
 
-assert_mapping amd64 $'GOARCH=amd64\nTARGET_ARCH=x86_64\nLINUX_ARCH=x86\nLIBPCAP_ARCH=x86_64-pc-linux-gnu\nBPF_TARGET_TRIPLE=x86_64\nARCH_BUILD_DIR=.build/linux-amd64\nOUT_BIN=.build/linux-amd64/bin/ecapture'
-assert_mapping arm64 $'GOARCH=arm64\nTARGET_ARCH=aarch64\nLINUX_ARCH=arm64\nLIBPCAP_ARCH=aarch64-unknown-linux-gnu\nBPF_TARGET_TRIPLE=aarch64\nARCH_BUILD_DIR=.build/linux-arm64\nOUT_BIN=.build/linux-arm64/bin/ecapture'
-assert_mapping loong64 $'GOARCH=loong64\nTARGET_ARCH=loongarch64\nLINUX_ARCH=loongarch\nLIBPCAP_ARCH=loongarch64-unknown-linux-gnu\nBPF_TARGET_TRIPLE=loongarch64-linux-gnu\nCMD_CLANG=clang-18\nCMD_CXX='"$root_dir"$'/builder/loong64-clang++\nCMD_LLC=llc-18\nCMD_AR=llvm-ar-18\nCMD_RANLIB=llvm-ranlib-18\nCMD_NM=llvm-nm-18\nCMD_STRIP=llvm-strip-18\nCMD_OBJCOPY=llvm-objcopy-18\nCMD_OBJDUMP=llvm-objdump-18\nCMD_READELF=llvm-readelf-18\nCMD_LD_LLD=ld.lld-18\nKERNEL_HEADER_GEN=make ARCH=loongarch LLVM=-18 prepare V=0\nARCH_BUILD_DIR=.build/linux-loong64\nTARGET_LIBPCAP=.build/linux-loong64/libpcap/libpcap.a\nGENERATED_ASSET=assets/ebpf_probe_linux_loong64_bindata.go\nOUT_BIN=.build/linux-loong64/bin/ecapture\nLIBPCAP_LDFLAGS=-fuse-ld=lld --rtlib=libgcc -L/usr/lib/gcc-cross/loongarch64-linux-gnu/13\nGO_EXTLDFLAGS=-static -static-pie -fuse-ld=lld --rtlib=libgcc -L/usr/lib/gcc-cross/loongarch64-linux-gnu/13'
+assert_mapping amd64 $'GOARCH=amd64\nTARGET_ARCH=amd64\nTARGET_MACHINE_ARCH=x86_64\nLINUX_ARCH=x86\nLIBPCAP_ARCH=x86_64-pc-linux-gnu\nBPF_TARGET_TRIPLE=x86_64\nARCH_BUILD_DIR=.build/linux-amd64\nOUT_BIN=.build/linux-amd64/bin/ecapture'
+assert_mapping arm64 $'GOARCH=arm64\nTARGET_ARCH=arm64\nTARGET_MACHINE_ARCH=aarch64\nLINUX_ARCH=arm64\nLIBPCAP_ARCH=aarch64-unknown-linux-gnu\nBPF_TARGET_TRIPLE=aarch64\nARCH_BUILD_DIR=.build/linux-arm64\nOUT_BIN=.build/linux-arm64/bin/ecapture'
+assert_mapping loong64 $'GOARCH=loong64\nTARGET_ARCH=loong64\nTARGET_MACHINE_ARCH=loongarch64\nLINUX_ARCH=loongarch\nLIBPCAP_ARCH=loongarch64-unknown-linux-gnu\nBPF_TARGET_TRIPLE=loongarch64-linux-gnu\nCMD_CLANG=clang-18\nCMD_CXX='"$root_dir"$'/builder/loong64-clang++\nCMD_LLC=llc-18\nCMD_AR=llvm-ar-18\nCMD_RANLIB=llvm-ranlib-18\nCMD_NM=llvm-nm-18\nCMD_STRIP=llvm-strip-18\nCMD_OBJCOPY=llvm-objcopy-18\nCMD_OBJDUMP=llvm-objdump-18\nCMD_READELF=llvm-readelf-18\nCMD_LD_LLD=ld.lld-18\nKERNEL_HEADER_GEN=make ARCH=loongarch LLVM=-18 prepare V=0\nARCH_BUILD_DIR=.build/linux-loong64\nTARGET_LIBPCAP=.build/linux-loong64/libpcap/libpcap.a\nGENERATED_ASSET=assets/ebpf_probe_linux_loong64_bindata.go\nOUT_BIN=.build/linux-loong64/bin/ecapture\nLIBPCAP_LDFLAGS=-fuse-ld=lld --rtlib=libgcc -L/usr/lib/gcc-cross/loongarch64-linux-gnu/13\nGO_EXTLDFLAGS=-static -static-pie -fuse-ld=lld --rtlib=libgcc -L/usr/lib/gcc-cross/loongarch64-linux-gnu/13'
+
+native_mapping="$(HOST_ARCH=x86_64 HOST_OS=Linux make -s print-arch-vars)"
+grep -Fxq 'GOARCH=amd64' <<<"$native_mapping"
+grep -Fxq 'KERNEL_HEADER_GEN=whoami' <<<"$native_mapping"
+explicit_native_mapping="$(HOST_ARCH=x86_64 HOST_OS=Linux TARGET_ARCH=amd64 make -s print-arch-vars)"
+grep -Fq 'make ARCH=x86' <<<"$explicit_native_mapping"
+release_env="$(HOST_ARCH=x86_64 HOST_OS=Linux TARGET_ARCH=arm64 CROSS_ARCH=amd64 make -s -f builder/Makefile.release env)"
+grep -Fq 'TARGET_ARCH              arm64' <<<"$release_env"
+grep -Fq 'SELECTED_TARGET_ARCH     arm64' <<<"$release_env"
+legacy_release_env="$(HOST_ARCH=x86_64 HOST_OS=Linux CROSS_ARCH=arm64 make -s -f builder/Makefile.release env)"
+grep -Fq 'TARGET_ARCH              arm64' <<<"$legacy_release_env"
+grep -Fq 'SELECTED_TARGET_ARCH     arm64' <<<"$legacy_release_env"
+legacy_release_cli="$(HOST_ARCH=x86_64 HOST_OS=Linux make -s -f builder/Makefile.release env CROSS_ARCH=arm64)"
+grep -Fq 'TARGET_ARCH              arm64' <<<"$legacy_release_cli"
+override_release_cli="$(HOST_ARCH=x86_64 HOST_OS=Linux make -s -f builder/Makefile.release env TARGET_ARCH=arm64 CROSS_ARCH=amd64)"
+grep -Fq 'SELECTED_TARGET_ARCH     arm64' <<<"$override_release_cli"
 
 for target in amd64 arm64; do
-    env_output="$(HOST_ARCH=x86_64 HOST_OS=Linux CROSS_ARCH="$target" make -s env)"
+    env_output="$(HOST_ARCH=x86_64 HOST_OS=Linux TARGET_ARCH="$target" make -s env)"
     if grep -q '^LOONG64_' <<<"$env_output"; then
         echo "$target environment unexpectedly displays Loong64-only variables" >&2
         exit 1
     fi
     grep -Fq 'GO_EXTLDFLAGS            -static' <<<"$env_output"
 done
-loong_env="$(HOST_ARCH=x86_64 HOST_OS=Linux CROSS_ARCH=loong64 make -s env)"
+loong_env="$(HOST_ARCH=x86_64 HOST_OS=Linux TARGET_ARCH=loong64 make -s env)"
 grep -Fq 'LOONG64_SYSROOT          /' <<<"$loong_env"
 grep -Fq 'LOONG64_TARGET_ROOT      /usr/loongarch64-linux-gnu' <<<"$loong_env"
 grep -Fq 'LOONG64_GCC_RUNTIME_DIR  /usr/lib/gcc-cross/loongarch64-linux-gnu/13' <<<"$loong_env"
@@ -46,7 +70,7 @@ grep -Fq 'CGO_LINK_FLAGS := -static' variables.mk
 grep -Fq 'CGO_LDFLAGS=' functions.mk
 grep -Fq '$(CGO_LINK_FLAGS)' functions.mk
 
-loong_mapping="$(HOST_ARCH=x86_64 HOST_OS=Linux CROSS_ARCH=loong64 make -s print-arch-vars)"
+loong_mapping="$(HOST_ARCH=x86_64 HOST_OS=Linux TARGET_ARCH=loong64 make -s print-arch-vars)"
 grep -Fxq "CMD_CC=$root_dir/builder/loong64-clang" <<<"$loong_mapping"
 
 grep -Fq '$(CMD_CP) $(OUT_BIN) $(TAR_DIR)/ecapture' functions.mk
@@ -77,8 +101,23 @@ if HOST_ARCH=x86_64 HOST_OS=Linux CROSS_ARCH=mips64 make -s print-arch-vars >/de
     echo "unsupported CROSS_ARCH unexpectedly fell through" >&2
     exit 1
 fi
-if HOST_ARCH=x86_64 HOST_OS=Linux CROSS_ARCH=loong64 ANDROID=1 make -s print-arch-vars >/dev/null 2>&1; then
-    echo "unsupported Android/loong64 combination unexpectedly succeeded" >&2
+if HOST_ARCH=x86_64 HOST_OS=Linux TARGET_ARCH=mips64 make -s print-arch-vars >/dev/null 2>&1; then
+    echo "unsupported TARGET_ARCH unexpectedly fell through" >&2
+    exit 1
+fi
+if HOST_ARCH=x86_64 HOST_OS=Linux TARGET_ARCH='amd64 arm64' make -s print-arch-vars >/dev/null 2>&1; then
+    echo "multiple target architectures unexpectedly succeeded" >&2
+    exit 1
+fi
+override_mapping="$(HOST_ARCH=x86_64 HOST_OS=Linux CROSS_ARCH=amd64 make -s print-arch-vars TARGET_ARCH=arm64)"
+grep -Fxq 'TARGET_ARCH=arm64' <<<"$override_mapping"
+grep -Fxq 'TARGET_MACHINE_ARCH=aarch64' <<<"$override_mapping"
+empty_override_mapping="$(HOST_ARCH=x86_64 HOST_OS=Linux TARGET_ARCH= CROSS_ARCH=arm64 make -s print-arch-vars)"
+grep -Fxq 'TARGET_ARCH=amd64' <<<"$empty_override_mapping"
+empty_override_cli="$(HOST_ARCH=x86_64 HOST_OS=Linux make -s print-arch-vars TARGET_ARCH= CROSS_ARCH=arm64)"
+grep -Fxq 'TARGET_ARCH=amd64' <<<"$empty_override_cli"
+if HOST_ARCH=x86_64 HOST_OS=Linux TARGET_ARCH=loong64 ANDROID=1 make -s print-arch-vars >/dev/null 2>&1; then
+    echo "unsupported TARGET_ARCH Android/loong64 combination unexpectedly succeeded" >&2
     exit 1
 fi
 

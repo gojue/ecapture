@@ -123,7 +123,7 @@ only the `cap_net_raw` and `cap_net_admin` capabilities to that binary.
 Build the artifacts on Linux:
 
 ```bash
-ANDROID=1 CROSS_ARCH=arm64 make nocore
+ANDROID=1 TARGET_ARCH=arm64 make nocore
 ANDROID_API_LEVEL=33 bash test/e2e/android/build_boringssl_client.sh
 ```
 

@@ -64,13 +64,13 @@ jobs:
       - name: Build CO-RE (Cross-Compilation)
         run: |
           make clean
-          CROSS_ARCH=arm64 make env
-          CROSS_ARCH=arm64 make -j8
+          TARGET_ARCH=arm64 make env
+          TARGET_ARCH=arm64 make -j8
       - name: Build non-CO-RE (Cross-Compilation/Android)
         run: |
           make clean
-          CROSS_ARCH=arm64 make env
-          ANDROID=1 CROSS_ARCH=arm64 make nocore -j8
+          TARGET_ARCH=arm64 make env
+          ANDROID=1 TARGET_ARCH=arm64 make nocore -j8
       - name: Test
         run: go test -v -race ./...
 
@@ -129,12 +129,12 @@ jobs:
       - name: Build CO-RE (Cross-Compilation)
         run: |
           make clean
-          CROSS_ARCH=amd64 make env
-          CROSS_ARCH=amd64 make -j8
+          TARGET_ARCH=amd64 make env
+          TARGET_ARCH=amd64 make -j8
       - name: Build non-CO-RE (Cross-Compilation/Android)
         run: |
           make clean
-          CROSS_ARCH=amd64 make env
-          ANDROID=1 CROSS_ARCH=amd64 make nocore -j8
+          TARGET_ARCH=amd64 make env
+          ANDROID=1 TARGET_ARCH=amd64 make nocore -j8
       - name: Test
         run: go test -v -race ./...

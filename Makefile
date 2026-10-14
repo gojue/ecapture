@@ -27,7 +27,7 @@ env:
 	@echo ---------------------------------------
 	@echo "PARALLEL                 $(PARALLEL)"
 	@echo ----------------[ from args ]---------------
-	@echo "CROSS_ARCH               $(CROSS_ARCH)"
+	@echo "TARGET_ARCH              $(TARGET_ARCH)"
 	@echo "ANDROID                  $(ANDROID)"
 	@echo "DEBUG                    $(DEBUG)"
 	@echo "SNAPSHOT_VERSION         $(SNAPSHOT_VERSION)"
@@ -63,7 +63,8 @@ env:
 	@echo "LINUX_SOURCE_PATH        $(LINUX_SOURCE_PATH)"
 	@echo "KERN_BUILD_PATH          $(KERN_BUILD_PATH)"
 	@echo "KERN_SRC_PATH            $(KERN_SRC_PATH)"
-	@echo "TARGET_ARCH              $(TARGET_ARCH)"
+	@echo "SELECTED_TARGET_ARCH     $(SELECTED_TARGET_ARCH)"
+	@echo "TARGET_MACHINE_ARCH      $(TARGET_MACHINE_ARCH)"
 	@echo "GOARCH                   $(GOARCH)"
 	@echo "LINUX_ARCH               $(LINUX_ARCH)"
 	@echo "LIBPCAP_ARCH             $(LIBPCAP_ARCH)"
@@ -73,7 +74,7 @@ env:
 	@echo "GENERATED_ASSET          $(GENERATED_ASSET)"
 	@echo "OUT_BIN                  $(OUT_BIN)"
 	@echo "GO_EXTLDFLAGS            $(GO_EXTLDFLAGS)"
-	@if [ "$(TARGET_GOARCH)" = loong64 ]; then \
+	@if [ "$(SELECTED_TARGET_ARCH)" = loong64 ]; then \
 		echo "LOONG64_SYSROOT          $(LOONG64_SYSROOT)"; \
 		echo "LOONG64_TARGET_ROOT      $(LOONG64_TARGET_ROOT)"; \
 		echo "LOONG64_GCC_RUNTIME_DIR  $(LOONG64_GCC_RUNTIME_DIR)"; \
@@ -104,6 +105,9 @@ help:
 	@echo "    $$ make all					# build ecapture"
 	@echo "    $$ make core				# build ecapture with CO-RE assets only"
 	@echo "    $$ make nocore				# build ecapture with non-CO-RE assets only"
+	@echo "    $$ TARGET_ARCH=arm64 make all		# build for arm64(aarch64) on amd64(x86_64)"
+	@echo "    $$ TARGET_ARCH=loong64 KERN_HEADERS=/path/to/linux LOONG64_VMLINUX=/path/to/vmlinux make all"
+	@echo "    $$ CROSS_ARCH=arm64 make all		# legacy alias for TARGET_ARCH"
 	@echo ""
 	@echo "# build rpm"
 	@echo "    $$ make rpm VERSION=0.0.0 RELEASE=1		# build ecapture rpm"
@@ -112,8 +116,6 @@ help:
 	@echo "    $$ make clean				# wipe ./bin/ ./bytecode/ ./assets/"
 	@echo ""
 	@echo "# test"
-	@echo "    $$ CROSS_ARCH=arm64 make ...		# cross compile, build eCapture for arm64(aarch64) on amd64(x86_64) host"
-	@echo "    $$ CROSS_ARCH=loong64 KERN_HEADERS=/path/to/linux LOONG64_VMLINUX=/path/to/vmlinux make all"
 	@echo "    $$ sudo make benchmark-tls			# benchmark OpenSSL overhead and event loss on Linux"
 	@echo ""
 	@echo "# flags"
@@ -127,7 +129,8 @@ preflight:
 print-arch-vars:
 	@printf '%s\n' \
 		"GOARCH=$(GOARCH)" \
-		"TARGET_ARCH=$(TARGET_ARCH)" \
+		"TARGET_ARCH=$(SELECTED_TARGET_ARCH)" \
+		"TARGET_MACHINE_ARCH=$(TARGET_MACHINE_ARCH)" \
 		"LINUX_ARCH=$(LINUX_ARCH)" \
 		"LIBPCAP_ARCH=$(LIBPCAP_ARCH)" \
 		"BPF_TARGET_TRIPLE=$(BPF_TARGET_TRIPLE)" \
@@ -154,7 +157,7 @@ print-arch-vars:
 prepare: preflight
 	if [ -d "$(LINUX_SOURCE_PATH)" ]; then \
 		$(CMD_CD) $(LINUX_SOURCE_PATH) && $(KERNEL_HEADER_GEN) || { echo "Kernel header generation failed"; exit 1; } \
-	elif [ -n "$(CROSS_ARCH)" ]; then \
+	elif [ -n "$(EXPLICIT_TARGET_ARCH)" ]; then \
 		$(CMD_ECHO) "linux source not found with path: $(LINUX_SOURCE_PATH)"; \
 		exit 1; \
     fi

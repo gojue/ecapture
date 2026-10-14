@@ -62,7 +62,7 @@ jobs:
         run: |
           KERN_HEADERS="${{ steps.kernel.outputs.source_dir }}" \
             LOONG64_VMLINUX="${{ steps.kernel.outputs.source_dir }}/vmlinux" \
-            CROSS_ARCH=loong64 \
+            TARGET_ARCH=loong64 \
             make -f builder/Makefile.release deb SNAPSHOT_VERSION=${{ github.ref_name }}
           builder/verify-loong64-artifact.sh \
             bin/ecapture \
@@ -188,7 +188,7 @@ jobs:
         run: |
           make clean
           make env
-          CROSS_ARCH=arm64 make -f builder/Makefile.release release SNAPSHOT_VERSION=${{ github.ref_name }}
+          TARGET_ARCH=arm64 make -f builder/Makefile.release release SNAPSHOT_VERSION=${{ github.ref_name }}
       - name: Publish
         env:
           IS_PRERELEASE: ${{ steps.release_type.outputs.IS_PRERELEASE }}
