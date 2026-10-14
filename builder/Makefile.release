@@ -33,9 +33,11 @@ MAKEFLAGS += --no-print-directory
 # environment
 #
 
+# Normalize an explicit legacy selector before invoking the main Makefile;
+# keep native selection implicit when neither selector was provided.
 .PHONY: env
 env:
-	DEBUG=$(DEBUG) ANDROID=$(ANDROID) CROSS_ARCH=$(CROSS_ARCH) SNAPSHOT_VERSION=$(SNAPSHOT_VERSION) $(CMD_MAKE) env
+	DEBUG=$(DEBUG) ANDROID=$(ANDROID) TARGET_ARCH=$(if $(EXPLICIT_TARGET_ARCH),$(SELECTED_TARGET_ARCH)) SNAPSHOT_VERSION=$(SNAPSHOT_VERSION) $(CMD_MAKE) env
 
 #
 # usage

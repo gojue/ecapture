@@ -284,7 +284,7 @@ See [CONTRIBUTING](./CONTRIBUTING.md) for details on submitting patches and the 
 You can customize the features you want, such as setting the `uprobe` offset address to support statically linked OpenSSL libraries. Refer to the [compilation guide](./docs/compilation.md) for detailed instructions.
 
 Loong64 releases are cross-built on Ubuntu 24.04 x86_64 with LLVM 18. Use
-`CROSS_ARCH=loong64`; the sysroot, BTF, verification steps, and current runtime
+`TARGET_ARCH=loong64`; the sysroot, BTF, verification steps, and current runtime
 validation limits are documented in [Loong64 build and validation](./docs/loong64-support.md).
 
 ## Remote configuration updates

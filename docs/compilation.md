@@ -104,26 +104,32 @@ system, you need to install the gcc-x86-64-linux-gnu toolchain.
 
 ### Build Commands
 
-To build an `arm64` artifact on an ubuntu `amd64` system, you can set the `CROSS_ARCH` environment variable to achieve
-cross-compilation.
+Select the artifact architecture with `TARGET_ARCH=amd64`, `arm64`, or
+`loong64`. Without it, the host architecture is used. For example, to build
+an `arm64` artifact on an Ubuntu `amd64` system:
 
 ```shell
-CROSS_ARCH=arm64 make
+TARGET_ARCH=arm64 make
 ```
+
+`CROSS_ARCH` remains a compatible alias when `TARGET_ARCH` is unset. If both
+are set, `TARGET_ARCH` takes precedence. The `TARGET_MACHINE_ARCH` value
+shown by `make env` uses the toolchain spelling (`x86_64`, `aarch64`, or
+`loongarch64`).
 
 ### Loong64
 
 Loong64 is cross-built only on Ubuntu 24.04 x86_64 with LLVM 18. The public
-interface is `CROSS_ARCH=loong64`; Kbuild uses `loongarch`, while Clang and
+interface is `TARGET_ARCH=loong64`; Kbuild uses `loongarch`, while Clang and
 the sysroot use `loongarch64-linux-gnu`. Do not substitute one spelling for
 another.
 
 ```shell
 builder/prepare-loong64-kernel.sh /path/to/linux-source
-make clean CROSS_ARCH=loong64
+make clean TARGET_ARCH=loong64
 KERN_HEADERS=/path/to/linux-source \
   LOONG64_VMLINUX=/path/to/linux-source/vmlinux \
-  CROSS_ARCH=loong64 make all
+  TARGET_ARCH=loong64 make all
 ```
 
 See [Loong64 build and validation](loong64-support.md) for packages, wrapper

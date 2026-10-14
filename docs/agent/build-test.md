@@ -145,12 +145,17 @@ make core
 
 Cross-compile from x86_64 Linux to arm64 Linux:
 
+`TARGET_ARCH` selects the artifact architecture (`amd64`, `arm64`, or
+`loong64`). The former `CROSS_ARCH` selector remains supported when
+`TARGET_ARCH` is unset; if both are set, `TARGET_ARCH` takes precedence.
+Omit both for a native build.
+
 ```sh
 make clean
 KERN_HEADERS=/path/to/configured/linux-source \
-  CROSS_ARCH=arm64 make env
+  TARGET_ARCH=arm64 make env
 KERN_HEADERS=/path/to/configured/linux-source \
-  CROSS_ARCH=arm64 make all
+  TARGET_ARCH=arm64 make all
 ```
 
 Build an arm64 Android non-CO-RE artifact on Linux:
@@ -158,12 +163,12 @@ Build an arm64 Android non-CO-RE artifact on Linux:
 ```sh
 make clean
 KERN_HEADERS=/path/to/configured/linux-source \
-  ANDROID=1 CROSS_ARCH=arm64 make env
+  ANDROID=1 TARGET_ARCH=arm64 make env
 KERN_HEADERS=/path/to/configured/linux-source \
-  ANDROID=1 CROSS_ARCH=arm64 make nocore
+  ANDROID=1 TARGET_ARCH=arm64 make nocore
 ```
 
-An aarch64 Linux host can target x86_64 with `CROSS_ARCH=amd64`. Use only
+An aarch64 Linux host can target x86_64 with `TARGET_ARCH=amd64`. Use only
 architectures implemented by `variables.mk`, and match Android artifacts to
 the actual device/emulator architecture.
 
@@ -172,13 +177,13 @@ Linux 6.6+ `vmlinux` with BTF from the installed `linux-source` package:
 
 ```sh
 builder/prepare-loong64-kernel.sh /path/to/linux-source
-make clean CROSS_ARCH=loong64
+make clean TARGET_ARCH=loong64
 KERN_HEADERS=/path/to/linux-source \
   LOONG64_VMLINUX=/path/to/linux-source/vmlinux \
-  CROSS_ARCH=loong64 make env
+  TARGET_ARCH=loong64 make env
 KERN_HEADERS=/path/to/linux-source \
   LOONG64_VMLINUX=/path/to/linux-source/vmlinux \
-  CROSS_ARCH=loong64 make all
+  TARGET_ARCH=loong64 make all
 ```
 
 The generator rejects a pre-6.6 source, a non-LoongArch ELF, or a `vmlinux`
@@ -351,7 +356,7 @@ the configured kernel source described above:
 ```sh
 make clean
 KERN_HEADERS=/path/to/configured/linux-source \
-  ANDROID=1 CROSS_ARCH=arm64 make nocore
+  ANDROID=1 TARGET_ARCH=arm64 make nocore
 ANDROID_API_LEVEL=33 bash test/e2e/android/build_boringssl_client.sh
 ```
 

@@ -294,7 +294,7 @@ https://github.com/user-attachments/assets/c8b7a84d-58eb-4fdb-9843-f775c97bdbfb
 你可以按需定制功能，例如设置 `uprobe` 的偏移地址，以支持静态编译的 OpenSSL 库。编译方法可参考 [编译指南](docs/compilation-zh_Hans.md)。
 
 Loong64 发布产物在 Ubuntu 24.04 x86_64 上使用 LLVM 18 交叉构建，入口为
-`CROSS_ARCH=loong64`。sysroot、BTF、验收命令和当前运行时验证限制见
+`TARGET_ARCH=loong64`。sysroot、BTF、验收命令和当前运行时验证限制见
 [Loong64 构建与验证](docs/loong64-support.md)。
 
 ## 动态修改配置

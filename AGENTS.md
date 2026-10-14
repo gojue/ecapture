@@ -221,13 +221,16 @@ verification matrix live in `docs/agent/build-test.md`.
   satisfy them. Generated non-CO-RE objects use `*_kern_noncore.o`.
 - `pkg/event_processor` and `internal/output/encoders` are not in the current
   production CLI event path.
+- `TARGET_ARCH` selects the build artifact architecture (`amd64`, `arm64`,
+  or `loong64`). `CROSS_ARCH` is a compatible alias used only when
+  `TARGET_ARCH` is unset.
 - `make build` is not Go-only. Switching architecture, Android, or asset modes
   still requires a clean serial validation even though libpcap, bytecode, Go
   intermediates, and generated asset names are architecture-isolated. The
   `assets`, `assets_core`, and `assets_noncore` targets for one architecture
   write the same generated asset; do not request them together in one parallel
   make invocation.
-- Loong64 is cross-built only on Ubuntu 24.04 x86_64 with `CROSS_ARCH=loong64`
+- Loong64 is cross-built only on Ubuntu 24.04 x86_64 with `TARGET_ARCH=loong64`
   and the repository's LLVM 18 wrappers. Do not substitute `loong64` for the
   `loongarch64-linux-gnu` C target or `loongarch` Kbuild architecture.
 

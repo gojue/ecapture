@@ -118,24 +118,30 @@ test -f .config || yes "" | sudo make oldconfig
 
 ### 编译命令
 
-要在ubuntu `amd64` 系统上构建 `arm64`的产物，您可以设置 `CROSS_ARCH`环境变量来实现交叉编译。
+用 `TARGET_ARCH=amd64`、`arm64` 或 `loong64` 选择产物的目标架构；
+未指定时使用构建主机的架构。例如，在 Ubuntu `amd64` 上构建 `arm64` 产物：
 
 ```shell
-CROSS_ARCH=arm64 make
+TARGET_ARCH=arm64 make
 ```
+
+`CROSS_ARCH` 作为旧参数继续兼容；仅在未指定 `TARGET_ARCH` 时生效。
+同时指定两个参数时，以 `TARGET_ARCH` 为准。
+`make env` 显示的 `TARGET_MACHINE_ARCH` 使用工具链命名（`x86_64`、
+`aarch64` 或 `loongarch64`）。
 
 ### Loong64
 
 Loong64 仅在 Ubuntu 24.04 x86_64 上使用 LLVM 18 交叉构建。公开入口是
-`CROSS_ARCH=loong64`；Linux Kbuild 名称为 `loongarch`，Clang 与 sysroot target
+`TARGET_ARCH=loong64`；Linux Kbuild 名称为 `loongarch`，Clang 与 sysroot target
 为 `loongarch64-linux-gnu`，三者不可混用。
 
 ```shell
 builder/prepare-loong64-kernel.sh /path/to/linux-source
-make clean CROSS_ARCH=loong64
+make clean TARGET_ARCH=loong64
 KERN_HEADERS=/path/to/linux-source \
   LOONG64_VMLINUX=/path/to/linux-source/vmlinux \
-  CROSS_ARCH=loong64 make all
+  TARGET_ARCH=loong64 make all
 ```
 
 软件包、wrapper 参数、BTF 来源、静态 PIE 验收和运行时验证限制见

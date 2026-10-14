@@ -69,31 +69,46 @@ else
 	NATIVE_GOARCH := unsupported
 endif
 
-TARGET_GOARCH := $(if $(strip $(CROSS_ARCH)),$(strip $(CROSS_ARCH)),$(NATIVE_GOARCH))
-ifeq ($(filter $(TARGET_GOARCH),amd64 arm64 loong64),)
-	$(error unsupported target architecture "$(TARGET_GOARCH)"; use amd64, arm64, or loong64)
+# TARGET_ARCH is the public target selector. CROSS_ARCH is used only when
+# TARGET_ARCH is unset; explicit selection also prepares target kernel headers.
+# GNU Make's origin distinguishes an unset variable from TARGET_ARCH=, so an
+# explicitly empty TARGET_ARCH still suppresses the legacy alias and selects native.
+ifneq ($(origin TARGET_ARCH),undefined)
+	REQUESTED_TARGET_ARCH := $(strip $(TARGET_ARCH))
+	LEGACY_TARGET_ARCH :=
+else
+	REQUESTED_TARGET_ARCH :=
+	LEGACY_TARGET_ARCH := $(strip $(CROSS_ARCH))
+endif
+EXPLICIT_TARGET_ARCH := $(if $(or $(REQUESTED_TARGET_ARCH),$(LEGACY_TARGET_ARCH)),1,)
+SELECTED_TARGET_ARCH := $(if $(REQUESTED_TARGET_ARCH),$(REQUESTED_TARGET_ARCH),$(if $(LEGACY_TARGET_ARCH),$(LEGACY_TARGET_ARCH),$(NATIVE_GOARCH)))
+ifneq ($(words $(SELECTED_TARGET_ARCH)),1)
+	$(error unsupported target architecture "$(SELECTED_TARGET_ARCH)"; use amd64, arm64, or loong64)
+endif
+ifeq ($(filter $(SELECTED_TARGET_ARCH),amd64 arm64 loong64),)
+	$(error unsupported target architecture "$(SELECTED_TARGET_ARCH)"; use amd64, arm64, or loong64)
 endif
 
-ifeq ($(TARGET_GOARCH),amd64)
-	TARGET_ARCH := x86_64
+ifeq ($(SELECTED_TARGET_ARCH),amd64)
+	TARGET_MACHINE_ARCH := x86_64
 	LINUX_ARCH := x86
 	GOARCH := amd64
 	LIBPCAP_ARCH := x86_64-pc-linux-gnu
 	BPF_TARGET_TRIPLE := x86_64
-else ifeq ($(TARGET_GOARCH),arm64)
-	TARGET_ARCH := aarch64
+else ifeq ($(SELECTED_TARGET_ARCH),arm64)
+	TARGET_MACHINE_ARCH := aarch64
 	LINUX_ARCH := arm64
 	GOARCH := arm64
 	LIBPCAP_ARCH := aarch64-unknown-linux-gnu
 	BPF_TARGET_TRIPLE := aarch64
 	# bpf_probe_read_user arrived after the pre-5.2 compatibility asset.
 	IGNORE_LESS52 := -ignore '.*_less52\.o'
-else ifeq ($(TARGET_GOARCH),loong64)
+else ifeq ($(SELECTED_TARGET_ARCH),loong64)
 	LOONG64_SYSROOT ?= /
 	LOONG64_TARGET_ROOT ?= /usr/loongarch64-linux-gnu
 	LOONG64_GCC_RUNTIME_DIR ?= /usr/lib/gcc-cross/loongarch64-linux-gnu/13
 	LOONG64_VMLINUX ?=
-	TARGET_ARCH := loongarch64
+	TARGET_MACHINE_ARCH := loongarch64
 	LINUX_ARCH := loongarch
 	GOARCH := loong64
 	LIBPCAP_ARCH := loongarch64-unknown-linux-gnu
@@ -126,11 +141,11 @@ ifeq ($(GO_EXTLDFLAGS),)
 	GO_EXTLDFLAGS := -static
 endif
 
-ifneq ($(TARGET_GOARCH),$(NATIVE_GOARCH))
-	ifeq ($(TARGET_GOARCH),amd64)
+ifneq ($(SELECTED_TARGET_ARCH),$(NATIVE_GOARCH))
+	ifeq ($(SELECTED_TARGET_ARCH),amd64)
 		CMD_CC_PREFIX := x86_64-linux-gnu-
 		CMD_AR_PREFIX := x86_64-linux-gnu-
-	else ifeq ($(TARGET_GOARCH),arm64)
+	else ifeq ($(SELECTED_TARGET_ARCH),arm64)
 		CMD_CC_PREFIX := aarch64-linux-gnu-
 		CMD_AR_PREFIX := aarch64-linux-gnu-
 	endif
@@ -154,7 +169,7 @@ ifeq ($(ANDROID),1)
 	TARGET_OS = android
 endif
 
-ifeq ($(TARGET_GOARCH),loong64)
+ifeq ($(SELECTED_TARGET_ARCH),loong64)
 	ifeq ($(ANDROID),1)
 		$(error Android/loong64 is not supported; Loong64 is a Linux-only target)
 	endif
@@ -221,10 +236,10 @@ else
 	SUDO = sudo
 endif
 
-ifeq ($(TARGET_GOARCH),loong64)
+ifeq ($(SELECTED_TARGET_ARCH),loong64)
 	BPFHEADER += -I ./kern/bpf/loongarch
 	AUTOGENCMD = ./builder/generate-loong64-vmlinux-header.sh "$(KERN_SRC_PATH)" "$(LOONG64_VMLINUX)" "kern/bpf/loongarch/vmlinux.h"
-else ifeq ($(TARGET_GOARCH),arm64)
+else ifeq ($(SELECTED_TARGET_ARCH),arm64)
 	BPFHEADER += -I ./kern/bpf/arm64
 	AUTOGENCMD = test -f kern/bpf/arm64/vmlinux.h
 else
@@ -235,8 +250,8 @@ endif
 #
 # include vpath
 #
-ifdef CROSS_ARCH
-	ifeq ($(TARGET_GOARCH),loong64)
+ifdef EXPLICIT_TARGET_ARCH
+	ifeq ($(SELECTED_TARGET_ARCH),loong64)
 		KERNEL_HEADER_GEN = $(MAKE) ARCH=loongarch LLVM=-18 prepare V=0
 	else
 		KERNEL_HEADER_GEN = yes "" | $(SUDO) make ARCH=$(LINUX_ARCH) CROSS_COMPILE=$(CMD_CC_PREFIX) prepare V=0

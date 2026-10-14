@@ -120,7 +120,7 @@ jobs:
         run: |
           ANDROID=1 make clean
           ANDROID=1 make env
-          CROSS_ARCH=amd64 ANDROID=1 make nocore -j"$(nproc)"
+          TARGET_ARCH=amd64 ANDROID=1 make nocore -j"$(nproc)"
           test -x bin/ecapture
           file bin/ecapture | grep -Eq 'x86-64|x86_64'
 

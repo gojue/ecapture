@@ -6,7 +6,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 API_LEVEL="${ANDROID_API_LEVEL:-33}"
-TARGET_ARCH="${CROSS_ARCH:-arm64}"
+# Keep the old selector working when TARGET_ARCH is not set.
+target_arch="${TARGET_ARCH-${CROSS_ARCH:-arm64}}"
 
 if [[ "$(uname -s)" != "Linux" ]]; then
     echo "Android artifacts must be built on Linux" >&2
@@ -23,9 +24,9 @@ if ! command -v go >/dev/null 2>&1 || ! command -v clang >/dev/null 2>&1; then
 fi
 
 cd "$ROOT_DIR"
-CROSS_ARCH="$TARGET_ARCH" ANDROID=1 make nocore -j "$(nproc)"
+TARGET_ARCH="$target_arch" ANDROID=1 make nocore -j "$(nproc)"
 bash "$SCRIPT_DIR/build_boringssl_client.sh" "$API_LEVEL"
 
 test -x "$ROOT_DIR/bin/ecapture"
 test -s "$SCRIPT_DIR/android_boringssl_client.jar"
-echo "Built Android eCapture ($TARGET_ARCH) and BoringSSL E2E workload for API $API_LEVEL"
+echo "Built Android eCapture (${target_arch:-native}) and BoringSSL E2E workload for API $API_LEVEL"

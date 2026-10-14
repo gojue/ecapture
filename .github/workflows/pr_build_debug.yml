@@ -72,7 +72,7 @@ jobs:
         run: |
           make clean
           make env
-          DEBUG=1 CROSS_ARCH=arm64 make -f builder/Makefile.release release SNAPSHOT_VERSION=v0.0.0-pr-${{ github.event.number || 'dev' }}-debug
+          DEBUG=1 TARGET_ARCH=arm64 make -f builder/Makefile.release release SNAPSHOT_VERSION=v0.0.0-pr-${{ github.event.number || 'dev' }}-debug
           cp bin/ecapture-*.tar.gz dist/
 
       - name: Upload Debug Artifacts
@@ -143,7 +143,7 @@ jobs:
           set -o pipefail
           KERN_HEADERS="${{ steps.kernel.outputs.source_dir }}" \
             LOONG64_VMLINUX="${{ steps.kernel.outputs.source_dir }}/vmlinux" \
-            CROSS_ARCH=loong64 DEBUG=1 \
+            TARGET_ARCH=loong64 DEBUG=1 \
             make -f builder/Makefile.release snapshot \
               SNAPSHOT_VERSION=v0.0.0-pr-${{ github.event.number || 'dev' }}-debug \
               2>&1 | tee "$RUNNER_TEMP/loong64-debug-build.log"
