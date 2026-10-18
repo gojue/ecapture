@@ -28,6 +28,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/gojue/ecapture/v2/internal/config"
+	"github.com/gojue/ecapture/v2/internal/domain"
 	bashProbe "github.com/gojue/ecapture/v2/internal/probe/bash"
 )
 
@@ -105,6 +106,30 @@ func TestEveryHTTPConfigFactoryAppliesCommonConfig(t *testing.T) {
 				update.CommonPatch.EventRotateSizeMB == nil ||
 				update.CommonPatch.PerfReorder == nil {
 				t.Fatal("factory discarded common field-presence metadata")
+			}
+		})
+	}
+}
+
+func TestTLSHTTPConfigFactoriesPreserveTextSource(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	for _, test := range []struct {
+		name    string
+		factory httpConfigFactory
+	}{
+		{"tls", createOpensslConfig},
+		{"gotls", createGotlsConfig},
+		{"gnutls", createGnutlsConfig},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			update, err := test.factory(factoryContext(`{"text_source":"pcapng"}`))
+			if err != nil {
+				t.Fatal(err)
+			}
+			mode := update.Config.(domain.CaptureModeConfiguration)
+			source := update.Config.(domain.TextSourceConfiguration)
+			if mode.GetCaptureMode() != "text" || source.GetTextSource() != "pcapng" {
+				t.Fatalf("mode/source = %q/%q, want text/pcapng", mode.GetCaptureMode(), source.GetTextSource())
 			}
 		})
 	}

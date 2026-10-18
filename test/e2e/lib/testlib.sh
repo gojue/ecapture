@@ -80,6 +80,21 @@ assert_file_contains() {
     fi
 }
 
+wait_for_file_contains() {
+    local file="$1"
+    local literal="$2"
+    local description="$3"
+    local attempt
+    for ((attempt = 0; attempt < 40; attempt++)); do
+        if [[ -f "$file" ]] && grep -Fq -- "$literal" "$file"; then
+            return 0
+        fi
+        sleep 0.05
+    done
+    log_error "$description did not arrive before capture shutdown"
+    return 1
+}
+
 assert_file_not_contains() {
     local file="$1"
     local literal="$2"

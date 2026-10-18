@@ -20,7 +20,7 @@ main.go
   -> EventDecoder.Decode()
   -> optional EventPreprocessor for module-private records
   -> events.Dispatcher.Dispatch()
-  -> text / keylog / pcapng handler
+  -> text / keylog / pcapng handler or low-latency pcapng -> decrypt SDK -> HTTP output
   -> independently constructed ByteSink
   -> optional typed eCaptureQ EVENT publisher
 ```
@@ -39,9 +39,9 @@ concurrent probe use begins.
 
 | CLI | Go package | Main eBPF source | Notes |
 | --- | --- | --- | --- |
-| `tls` | `internal/probe/openssl` | `kern/openssl*_kern.c`, `kern/boringssl*_kern.c` | OpenSSL/BoringSSL; text, keylog, pcapng |
-| `gotls` | `internal/probe/gotls` | `kern/gotls_kern.c` | Go symbol/ABI discovery; text, keylog, pcapng |
-| `gnutls` | `internal/probe/gnutls` | `kern/gnutls_*_kern.c` | Versioned offsets; text, keylog, pcapng |
+| `tls` | `internal/probe/openssl` | `kern/openssl*_kern.c`, `kern/boringssl*_kern.c` | OpenSSL/BoringSSL; text (hook or pcapng source), keylog, pcapng |
+| `gotls` | `internal/probe/gotls` | `kern/gotls_kern.c` | Go symbol/ABI discovery; text (hook or pcapng source), keylog, pcapng |
+| `gnutls` | `internal/probe/gnutls` | `kern/gnutls_*_kern.c` | Versioned offsets; text (hook or pcapng source), keylog, pcapng |
 | `nspr` (`nss` alias) | `internal/probe/nspr` | `kern/nspr_kern.c` | NSS/NSPR |
 | `bash` | `internal/probe/bash` | `kern/bash_kern.c` | Shell command auditing |
 | `zsh` | `internal/probe/zsh` | `kern/zsh_kern.c` | Non-Android |
@@ -73,6 +73,8 @@ targets and excludes zsh, GnuTLS, NSPR, MySQL, and PostgreSQL.
   keylog encoding.
 - `internal/output/pcapng/`: the serialized pcapng representation session and
   its borrowed keylog adapter.
+- `internal/output/decrypt/`: in-process pcapng pipe to the independent
+  decryptor SDK and reconstructed HTTP output routing.
 - `internal/output/encoders/`: standalone abstractions not currently wired
   into the production probe path.
 - `kern/`: eBPF C sources and shared headers. `kern/bpf/<arch>/` contains the

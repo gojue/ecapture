@@ -28,6 +28,7 @@ import (
 
 	pkgebpf "github.com/gojue/ecapture/v2/pkg/util/ebpf"
 
+	"github.com/gojue/ecapture/v2/internal/output/decrypt"
 	"github.com/gojue/ecapture/v2/internal/output/pcapng"
 	"github.com/gojue/ecapture/v2/internal/output/writers"
 
@@ -472,6 +473,17 @@ func (p *Probe) setupManagerPcapNG() error {
 	}
 
 	pcapAddr := p.config.GetEventCollectorAddr()
+	if handlers.IsPcapngText(p.config.CaptureMode, p.config.TextSource) {
+		var eventSinks []domain.CapturedEventSink
+		if runtime := p.config.GetRuntimeOutput(); runtime != nil {
+			eventSinks = runtime.EventSinks
+		}
+		if err := decrypt.Register(p.Dispatcher(), p.config.Ifname, p.config.PcapFilter, p.Logger(), pcapAddr, p.config.PcapFile, writers.NewRotateConfig(p.config.GetEventRotation()), eventSinks); err != nil {
+			return err
+		}
+		p.bpfManager = &manager.Manager{Probes: probes, Maps: maps}
+		return nil
+	}
 	if pcapAddr == "" {
 		return fmt.Errorf("pcapng mode requires an event destination")
 	}
@@ -612,7 +624,15 @@ func (p *Probe) setupManager() error {
 	// Mode-specific probe and map setup
 	switch p.config.CaptureMode {
 	case handlers.ModeText:
-		err = p.setupManagerText()
+		if p.config.TextSource == handlers.TextSourcePcapng {
+			err = p.setupManagerPcapNG()
+			if err == nil && p.config.PcapFilter != "" {
+				ebpfFuncs := []string{base.TcFuncNameIngress, base.TcFuncNameEgress}
+				p.bpfManager.InstructionPatchers = pkgebpf.PrepareInsnPatchers(p.bpfManager, ebpfFuncs, p.config.PcapFilter)
+			}
+		} else {
+			err = p.setupManagerText()
+		}
 	case handlers.ModeKeylog, handlers.ModeKey:
 		err = p.setupManagerKeyLog()
 	case handlers.ModePcap, handlers.ModePcapng:

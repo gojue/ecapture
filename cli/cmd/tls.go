@@ -50,7 +50,8 @@ docker run --rm --privileged=true --net=host -v /etc:/etc -v /usr:/usr -v ${PWD}
 func init() {
 	opensslCmd.PersistentFlags().StringVar(&opensslConfig.OpensslPath, "libssl", "", "libssl.so file path, will automatically find it from curl default.")
 	opensslCmd.PersistentFlags().StringVar(&globalConf.CGroupPath, "cgroup_path", "", "cgroup v2 path for container/process filtering. Empty disables cgroup filtering.")
-	opensslCmd.PersistentFlags().StringVarP(&opensslConfig.CaptureMode, "model", "m", "text", "capture model, such as : text, pcap/pcapng, key/keylog")
+	opensslCmd.PersistentFlags().StringVarP(&opensslConfig.CaptureMode, "model", "m", "text", "capture mode: text, pcap/pcapng, key/keylog")
+	opensslCmd.PersistentFlags().StringVar(&opensslConfig.TextSource, "text-source", "hook", "text capture source: hook or pcapng (live TLS decryption)")
 	opensslCmd.PersistentFlags().StringVarP(&opensslConfig.KeylogFile, "keylogfile", "k", "ecapture_openssl_key.log", "The file stores SSL/TLS keys, and eCapture captures these keys during encrypted traffic communication and saves them to the file.")
 	opensslCmd.PersistentFlags().StringVarP(&opensslConfig.PcapFile, "pcapfile", "w", "save.pcapng", "write the raw packets to file as pcapng format.")
 	opensslCmd.PersistentFlags().StringVarP(&opensslConfig.Ifname, "ifname", "i", "", "(TC Classifier) Interface name on which the probe will be attached.")
@@ -62,7 +63,7 @@ func init() {
 
 // openSSLCommandFunc executes the "tls" command using the new probe architecture.
 func openSSLCommandFunc(command *cobra.Command, args []string) error {
-	if err := normalizeTLSOutputFlags(command, opensslConfig.CaptureMode, &opensslConfig.KeylogFile, &opensslConfig.PcapFile); err != nil {
+	if err := normalizeTLSOutputFlags(command, opensslConfig.CaptureMode, opensslConfig.TextSource, &opensslConfig.KeylogFile, &opensslConfig.PcapFile); err != nil {
 		return err
 	}
 	if opensslConfig.PcapFilter == "" && len(args) != 0 {

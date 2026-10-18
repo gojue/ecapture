@@ -166,6 +166,62 @@ case_pcapng() {
         "$pcap_file" "$E2E_TOKEN" "linux/tls/pcapng"
 }
 
+case_text_pcapng() {
+    local capture_log="$WORK_DIR/decrypt.ecapture.log"
+    local operational_log="$WORK_DIR/decrypt.operational.log"
+    local event_file="$WORK_DIR/decrypt.events.log"
+    local pcap_file="$WORK_DIR/decrypt.pcapng"
+    local typed_log="$WORK_DIR/decrypt.ecaptureq.log"
+    local port=$((30000 + RANDOM % 20000))
+    local endpoint="ws://127.0.0.1:${port}/"
+    "$WORK_DIR/helpers/ecaptureq_assert" --server "$endpoint" --format text --sensitive \
+        --token "$E2E_TOKEN" >"$typed_log" 2>&1 &
+    local typed_pid=$!
+    start_capture "$capture_log" tls --libssl "$OPENSSL_LIB" --model text --text-source pcapng \
+        --logaddr "$operational_log" --eventaddr "$event_file" --ifname lo \
+        --pcapfile "$pcap_file" --ecaptureq "$endpoint" "tcp port $TLS_SERVER_PORT" || {
+        kill -TERM "$typed_pid" 2>/dev/null || true
+        wait "$typed_pid" 2>/dev/null || true
+        return 1
+    }
+    if ! run_openssl_request tls13 "$WORK_DIR/decrypt.client.log"; then
+        stop_capture
+        kill -TERM "$typed_pid" 2>/dev/null || true
+        wait "$typed_pid" 2>/dev/null || true
+        return 1
+    fi
+    if ! wait_for_file_contains "$event_file" "$E2E_TOKEN" "live decrypted HTTP response"; then
+        stop_capture
+        kill -TERM "$typed_pid" 2>/dev/null || true
+        wait "$typed_pid" 2>/dev/null || true
+        return 1
+    fi
+    if ! run_openssl_request tls12 "$WORK_DIR/decrypt.tls12.client.log"; then
+        stop_capture
+        kill -TERM "$typed_pid" 2>/dev/null || true
+        wait "$typed_pid" 2>/dev/null || true
+        return 1
+    fi
+    local typed_status=0
+    wait "$typed_pid" || typed_status=$?
+    sleep 2
+    stop_capture
+    if ((typed_status != 0)); then
+        log_error "Strict decrypted eCaptureQ client failed"
+        return 1
+    fi
+    assert_file_contains "$typed_log" \
+        "PROCESS_LOG=1 EVENT=1 FORMAT=CAPTURE_FORMAT_TEXT METADATA=1" \
+        "typed decrypted event result" || return 1
+    assert_no_capture_errors "$capture_log" || return 1
+    assert_file_contains "$event_file" "$E2E_TOKEN" "decrypted HTTP response" || return 1
+    grep -Eq 'http/(1\.1|2) request .*host="[^"]+"' "$event_file" || return 1
+    grep -Eq 'http/(1\.1|2) response .*host="[^"]+"' "$event_file" || return 1
+    assert_output_isolation "$operational_log" "$event_file" "$E2E_TOKEN" || return 1
+    assert_file_not_contains "$operational_log" "CLIENT_RANDOM " "TLS secret in operational log" || return 1
+    assert_pcapng "$pcap_file" || return 1
+}
+
 case_text_stream() {
     local transport="$1"
     local capture_log="$WORK_DIR/text-${transport}.ecapture.log"
@@ -630,6 +686,7 @@ main() {
     mode_enabled pcapng && run_case "linux/tls/pcapng-websocket" case_pcapng_stream ws
     mode_enabled pcapng && run_case "linux/tls/pcapng-stdout" case_pcapng_stdout
     mode_enabled pcapng && run_case "linux/tls/ecaptureq-receiver-pcapng" case_ecaptureq_pcapng
+    mode_enabled text && run_case "linux/tls/text-pcapng-http" case_text_pcapng
     if mode_enabled pcapng && [[ "${E2E_STRESS:-0}" == "1" ]]; then
         run_case "linux/tls/pcapng-burst-no-drop" case_pcapng_burst
     fi

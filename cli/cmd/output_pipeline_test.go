@@ -172,10 +172,38 @@ func TestNormalizeTLSOutputFlagsConflicts(t *testing.T) {
 			if err := command.Flags().Set(test.legacyFlag, test.legacyValue); err != nil {
 				t.Fatal(err)
 			}
-			err := normalizeTLSOutputFlags(command, test.mode, &keylogFile, &pcapFile)
+			err := normalizeTLSOutputFlags(command, test.mode, "hook", &keylogFile, &pcapFile)
 			if (err != nil) != test.wantErr {
 				t.Fatalf("normalizeTLSOutputFlags() error = %v, wantErr %v", err, test.wantErr)
 			}
 		})
+	}
+}
+
+func TestNormalizeTLSPcapngTextOutputFlags(t *testing.T) {
+	for _, savePcap := range []bool{false, true} {
+		command := &cobra.Command{Use: "test"}
+		var eventAddress, keylogFile, pcapFile string
+		command.Flags().StringVar(&eventAddress, "eventaddr", "", "")
+		command.Flags().StringVar(&keylogFile, "keylogfile", "default.keys", "")
+		command.Flags().StringVar(&pcapFile, "pcapfile", "default.pcapng", "")
+		if savePcap {
+			if err := command.Flags().Set("pcapfile", "capture.pcapng"); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := normalizeTLSOutputFlags(command, "text", "pcapng", &keylogFile, &pcapFile); err != nil {
+			t.Fatal(err)
+		}
+		if keylogFile != "" {
+			t.Fatalf("default keylog artifact was enabled: %q", keylogFile)
+		}
+		wantPcap := ""
+		if savePcap {
+			wantPcap = "capture.pcapng"
+		}
+		if pcapFile != wantPcap {
+			t.Fatalf("pcap artifact = %q, want %q", pcapFile, wantPcap)
+		}
 	}
 }

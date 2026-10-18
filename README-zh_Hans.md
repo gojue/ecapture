@@ -144,17 +144,35 @@ eCapture 默认会读取 `/etc/ld.so.conf` 中的库加载目录并定位 `opens
 
 如果目标程序使用静态编译方式，则可以直接将 `--libssl` 参数设置为该程序的路径。
 
-OpenSSL 模块支持三种捕获模式：
+OpenSSL 模块支持三种输出模式：
 
-- `pcap` / `pcapng`：将捕获到的明文数据保存为 `pcap-NG` 格式。
+- `pcap` / `pcapng`：将加密网络包和 TLS 密钥保存为 `pcap-NG` 格式。
 - `keylog` / `key`：将 TLS 握手密钥保存到文件中。
-- `text`：直接抓取明文数据，并输出到指定文件或命令行终端。
+- `text`：默认通过函数 hook 抓取明文；指定 `--text-source=pcapng` 时实时解密 pcapng 与 DSB，输出完整 HTTP/1.1 与 HTTP/2 请求和响应。
 
 对 OpenSSL、GoTLS 和 GnuTLS，`--eventaddr` 是统一的主事件目的端，支持
 `stdout`、普通路径或 `file://` URI、`tcp://host:port` 以及使用有序二进制帧的
-`ws://`/`wss://`。模式决定 text、NSS Key Log 或 pcapng 表示，地址只决定传输方式。
+`ws://`/`wss://`。模式决定 text、NSS Key Log 或 pcapng 输出形式，地址只决定传输方式。
 `--keylogfile` 和 `--pcapfile` 仍是相应模式的兼容文件别名；显式 `--eventaddr`
 不能与对应的主别名同时使用。pcapng 模式下的 `--keylogfile` 仍是独立的可选密钥文件。
+
+#### text 模式下实时解密
+
+`tls`、`gotls`、`gnutls` 均可使用 `-m text --text-source=pcapng`。输出按完整 HTTP/1.1 或
+HTTP/2 请求/响应划分，包含方向、时间、源和目标 IP/端口、连接标识及 HTTP/2
+流标识。`host` 优先取 HTTP `Host`，其次取 HTTP/2 `:authority`；两者都没有时
+使用服务器 IP，并标注 `domain_source="server_ip"`。明文写入 `--eventaddr`，
+默认 stdout。默认不保存原始 pcapng 或独立密钥文件；需要时显式指定
+`--pcapfile` 或 `--keylogfile`。
+
+```shell
+sudo ecapture tls -m text --text-source=pcapng -i eth0 --eventaddr /tmp/http.events 'tcp port 443'
+sudo ecapture gotls -m text --text-source=pcapng --elfpath /path/to/go-client -i eth0 --pcapfile /tmp/raw.pcapng 'tcp port 443'
+sudo ecapture gnutls -m text --text-source=pcapng --gnutls /path/to/libgnutls.so -i eth0 'tcp port 443'
+```
+
+DSB 密钥块即使晚于握手和数据包写入，也会被 SDK 用于回放解密。此来源目前支持
+TCP TLS 上的 HTTP/1.1 与 HTTP/2，不输出通用 TLS 记录或 QUIC/HTTP/3。
 
 `--logaddr` 只承载 eCapture 自身的运行日志。控制台运行日志输出到 stderr，而
 事件 stdout 只包含捕获数据。eCaptureQ 是附加的 typed publisher，不会取代

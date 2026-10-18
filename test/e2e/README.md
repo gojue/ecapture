@@ -4,7 +4,11 @@ This directory keeps the actively maintained TLS E2E scope small and explicit:
 
 - Linux on GitHub Actions Ubuntu 22.04 or newer: `tls` (OpenSSL), `gotls`, and `gnutls`.
 - Android 13/API 33 or newer: `tls` against the platform Conscrypt/BoringSSL library. CI covers every stable release from Android 13 through Android 16 (API 33-36).
-- Every module is exercised in `text`, `keylog`, and `pcapng` modes.
+- Every Linux TLS module is exercised in `text`, `keylog`, and `pcapng` modes; text covers hook and pcapng sources.
+  Android continues to exercise `text`, `keylog`, and `pcapng`.
+- The Linux `decrypt` cases assert plaintext arrives before probe shutdown,
+  verify TLS 1.2 and 1.3, and check the optional pcapng DSB. OpenSSL also
+  checks the sensitive reconstructed event on eCaptureQ.
 - Every Linux TLS module exercises text, keylog, and pcapng over stdout, file,
   local TCP, and binary WebSocket ByteSinks. Each representation is also
   observed by a strict typed eCaptureQ receiver.
@@ -101,6 +105,7 @@ sudo make e2e-gnutls
 
 sudo E2E_MODULES='tls gotls' E2E_MODES=text bash test/e2e/run_e2e.sh
 sudo E2E_MODULES=gotls E2E_MODES='keylog pcapng' bash test/e2e/run_e2e.sh
+sudo E2E_MODES=text bash test/e2e/run_e2e.sh  # includes hook and pcapng text sources
 ```
 
 Run the non-TLS common-config suite on a host with interactive Bash/Zsh and a
@@ -141,7 +146,7 @@ The Java workload is intentional: Android `HttpsURLConnection` uses Conscrypt/Bo
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `E2E_MODULES` | `tls gotls gnutls` | Linux modules to run |
-| `E2E_MODES` | `text keylog pcapng` | Modes to run |
+| `E2E_MODES` | `text keylog pcapng` | Output modes to run; text covers hook and pcapng sources |
 | `E2E_STRESS` | `0` | Run burst regressions when set to `1` |
 | `E2E_ARTIFACT_ROOT` | `/tmp/ecapture-e2e*` | Host artifact parent directory |
 | `E2E_KEEP_ARTIFACTS` | `0` | Preserve successful test artifacts when set to `1` |

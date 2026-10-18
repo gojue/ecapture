@@ -60,6 +60,7 @@ type Config struct {
 
 	// CaptureMode specifies the output mode: "text", "keylog", or "pcap"
 	CaptureMode string `json:"capture_mode"`
+	TextSource  string `json:"text_source"` // "hook" (default) or "pcapng"
 
 	// KeylogFile is the path to write TLS keylog output (for keylog mode)
 	KeylogFile string `json:"keylog_file"`
@@ -105,6 +106,7 @@ func NewConfig() *Config {
 	return &Config{
 		BaseConfig:    config.NewBaseConfig(),
 		CaptureMode:   "text",
+		TextSource:    handlers.TextSourceHook,
 		GoVersion:     "",
 		IsRegisterABI: false,
 	}
@@ -259,9 +261,17 @@ func (c *Config) parserGoElf() error {
 // validateCaptureMode validates the capture mode and related configurations
 func (c *Config) validateCaptureMode() error {
 	mode := strings.ToLower(c.CaptureMode)
+	var err error
+	c.TextSource, err = handlers.NormalizeTextSource(mode, c.TextSource)
+	if err != nil {
+		return err
+	}
 	switch mode {
 	case "", handlers.ModeText:
 		c.CaptureMode = handlers.ModeText
+		if c.TextSource == handlers.TextSourcePcapng {
+			return c.validatePcapngTextSource()
+		}
 		addr, err := writers.NormalizeEventAddress(writers.EventFormatText, c.EventCollectorAddr, c.KeylogFile, c.PcapFile)
 		if err != nil {
 			return err
@@ -317,6 +327,31 @@ func (c *Config) validateCaptureMode() error {
 	default:
 		return fmt.Errorf("invalid capture mode: %s (must be 'text', 'keylog', or 'pcap')", c.CaptureMode)
 	}
+}
+
+func (c *Config) validatePcapngTextSource() error {
+	c.setDefaultIfname()
+	if c.Ifname == "" {
+		return fmt.Errorf("pcapng text source requires Ifname to be set")
+	}
+	addr, err := writers.NormalizeEventAddress(writers.EventFormatText, c.EventCollectorAddr, c.KeylogFile, c.PcapFile)
+	if err != nil {
+		return err
+	}
+	c.EventCollectorAddr = addr
+	factory := writers.NewWriterFactory()
+	if err := factory.ValidateEventSinkAddress(writers.EventSinkOptions{Address: addr, Format: writers.EventFormatText, RotateConfig: writers.NewRotateConfig(c.GetEventRotation()), Sensitive: true}); err != nil {
+		return err
+	}
+	if c.PcapFile != "" {
+		if err := factory.ValidateEventSinkAddress(writers.EventSinkOptions{Address: c.PcapFile, Format: writers.EventFormatPcapng}); err != nil {
+			return err
+		}
+	}
+	if err := c.validateNetworkInterface(); err != nil {
+		return err
+	}
+	return c.checkTCSupport()
 }
 
 // validateNetworkInterface validates that the network interface exists and is UP
@@ -538,6 +573,8 @@ func (c *Config) addrToOffset(elfFile *elf.File, addr uint64) uint64 {
 func (c *Config) GetCaptureMode() string {
 	return c.CaptureMode
 }
+
+func (c *Config) GetTextSource() string { return c.TextSource }
 
 // GetPcapFile returns the pcap file path.
 func (c *Config) GetPcapFile() string {

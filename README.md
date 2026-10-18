@@ -138,11 +138,11 @@ eCapture searches the default library paths from `/etc/ld.so.conf` to locate sha
 
 If the target program is statically linked, you can set the program path directly as the value of the `--libssl` flag.
 
-The OpenSSL module supports three capture modes:
+The OpenSSL module supports three output modes:
 
-- `pcap`/`pcapng` mode stores captured plaintext data in `pcap-NG` format.
+- `pcap`/`pcapng` mode stores encrypted network packets and TLS secrets in `pcap-NG` format.
 - `keylog`/`key` mode saves TLS handshake keys to a file.
-- `text` mode captures plaintext data directly, either writing it to a file or printing it to the console.
+- `text` mode captures plaintext through function hooks by default, or reconstructs complete HTTP/1.1 and HTTP/2 messages from live pcapng and DSB data with `--text-source=pcapng`.
 
 For OpenSSL, GoTLS, and GnuTLS, `--eventaddr` is the uniform primary event
 destination. It accepts `stdout`, a plain path or `file://` URI,
@@ -152,6 +152,27 @@ the transport. `--keylogfile` and `--pcapfile` remain compatible primary-file
 aliases in their respective modes. Setting `--eventaddr` together with the
 corresponding alias is an error. In pcapng mode, `--keylogfile` is a separate
 optional keylog artifact.
+
+#### Live decryption for text output
+
+Use `-m text --text-source=pcapng` with `tls`, `gotls`, or `gnutls` to reconstruct complete
+HTTP/1.1 and HTTP/2 messages from the captured network stream. Each message
+includes direction, timestamp, IP/port tuple, connection identity, and an
+HTTP/2 stream ID when applicable. `host` comes from the HTTP `Host` header or
+HTTP/2 `:authority`; `domain_source="server_ip"` marks a fallback to the
+server IP. Output goes to `--eventaddr` (stdout by default). Raw pcapng and a
+standalone keylog are disabled by default; specify `--pcapfile` or
+`--keylogfile` to save either artifact.
+
+```shell
+sudo ecapture tls -m text --text-source=pcapng -i eth0 --eventaddr /tmp/http.events 'tcp port 443'
+sudo ecapture gotls -m text --text-source=pcapng --elfpath /path/to/go-client -i eth0 --pcapfile /tmp/raw.pcapng 'tcp port 443'
+sudo ecapture gnutls -m text --text-source=pcapng --gnutls /path/to/libgnutls.so -i eth0 'tcp port 443'
+```
+
+The decryptor waits for TLS secrets that may appear in a DSB after the
+corresponding packets. The pcapng text source supports TCP TLS with HTTP/1.1 or HTTP/2
+payloads; it does not emit generic TLS records or QUIC/HTTP/3.
 
 `--logaddr` carries eCapture runtime logs only. Console runtime logs use
 stderr, while captured stdout contains only event bytes. eCaptureQ is additive:

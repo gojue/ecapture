@@ -36,6 +36,7 @@ type EventSinkOptions struct {
 	Address      string
 	Format       EventFormat
 	RotateConfig *RotateConfig
+	Sensitive    bool // restrict file permissions for reconstructed plaintext
 }
 
 type sinkAddress struct {
@@ -133,6 +134,9 @@ func (f *WriterFactory) CreateEventSink(options EventSinkOptions) (ByteSink, err
 		fileConfig.BufferSize = 64 * 1024
 	}
 	if options.Format == EventFormatKeylog || options.Format == EventFormatPcapng {
+		fileConfig.Permissions = 0600
+	}
+	if options.Sensitive {
 		fileConfig.Permissions = 0600
 	}
 	applyRotateConfig(&fileConfig, options.RotateConfig)

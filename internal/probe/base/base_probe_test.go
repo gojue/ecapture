@@ -20,6 +20,8 @@ import (
 	"time"
 
 	"github.com/gojue/ecapture/v2/internal/config"
+	"github.com/gojue/ecapture/v2/internal/domain"
+	"github.com/gojue/ecapture/v2/internal/probe/base/handlers"
 )
 
 func TestNewBaseProbe(t *testing.T) {
@@ -33,6 +35,25 @@ func TestNewBaseProbe(t *testing.T) {
 	}
 	if probe.IsRunning() {
 		t.Error("newly created probe should not be running")
+	}
+}
+
+type textSourceConfig struct {
+	*config.BaseConfig
+	mode, source string
+}
+
+func (c *textSourceConfig) GetCaptureMode() string { return c.mode }
+func (c *textSourceConfig) GetTextSource() string  { return c.source }
+
+func TestTextSourceOutputRouting(t *testing.T) {
+	cfg := &textSourceConfig{BaseConfig: config.NewBaseConfig(), mode: handlers.ModeText, source: handlers.TextSourceHook}
+	if !usesTextOutput(cfg) || usesPcapngTextSource(cfg) || captureFormat(cfg) != domain.CaptureFormatText {
+		t.Fatal("hook text must use the normal text output")
+	}
+	cfg.source = handlers.TextSourcePcapng
+	if usesTextOutput(cfg) || !usesPcapngTextSource(cfg) || captureFormat(cfg) != domain.CaptureFormatText {
+		t.Fatal("pcapng text must use only the reconstructed text output")
 	}
 }
 

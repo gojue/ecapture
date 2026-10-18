@@ -84,3 +84,9 @@ type Configuration interface {
 type CaptureModeConfiguration interface {
 	GetCaptureMode() string
 }
+
+// TextSourceConfiguration is implemented by TLS probes that can obtain text
+// through either function hooks or live pcapng decryption.
+type TextSourceConfiguration interface {
+	GetTextSource() string
+}
