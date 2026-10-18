@@ -7,7 +7,9 @@ This directory keeps the actively maintained TLS E2E scope small and explicit:
 - Every Linux TLS module is exercised in `text`, `keylog`, and `pcapng` modes; text covers hook and pcapng sources.
   Android continues to exercise `text`, `keylog`, and `pcapng`.
 - The Linux `decrypt` cases assert plaintext arrives before probe shutdown,
-  verify TLS 1.2 and 1.3, and check the optional pcapng DSB. OpenSSL also
+  verify TLS 1.2 and 1.3, and independently decrypt the optional pcapng with
+  tshark using its embedded DSB. They also check current HTTP event timestamps.
+  OpenSSL also
   checks the sensitive reconstructed event on eCaptureQ.
 - Every Linux TLS module exercises text, keylog, and pcapng over stdout, file,
   local TCP, and binary WebSocket ByteSinks. Each representation is also

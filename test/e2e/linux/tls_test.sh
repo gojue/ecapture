@@ -220,6 +220,8 @@ case_text_pcapng() {
     assert_output_isolation "$operational_log" "$event_file" "$E2E_TOKEN" || return 1
     assert_file_not_contains "$operational_log" "CLIENT_RANDOM " "TLS secret in operational log" || return 1
     assert_pcapng "$pcap_file" || return 1
+    assert_http_event_timestamps_current "$event_file" "linux/tls/text-pcapng" || return 1
+    assert_pcapng_plaintext_preview "$pcap_file" "$E2E_TOKEN" "linux/tls/text-pcapng" || return 1
 }
 
 case_text_stream() {

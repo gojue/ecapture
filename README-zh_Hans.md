@@ -174,6 +174,12 @@ sudo ecapture gnutls -m text --text-source=pcapng --gnutls /path/to/libgnutls.so
 DSB 密钥块即使晚于握手和数据包写入，也会被 SDK 用于回放解密。此来源目前支持
 TCP TLS 上的 HTTP/1.1 与 HTTP/2，不输出通用 TLS 记录或 QUIC/HTTP/3。
 
+若要独立验证明文确实来自 pcapng，在采集命令中加入 `--pcapfile /tmp/raw.pcapng`，
+并发送带唯一请求路径或响应标记的请求。停止 eCapture 后执行
+`tshark -n -r /tmp/raw.pcapng -o tls.keylog_file: -q -z follow,tls,ascii,0`，
+将独立解密出的请求和响应与事件文本对比。空的外部 keylog 设置确保 tshark
+使用 pcapng 内嵌的 DSB。可选文件与实时 SDK 输入接收的是同一份 pcapng 字节流。
+
 `--logaddr` 只承载 eCapture 自身的运行日志。控制台运行日志输出到 stderr，而
 事件 stdout 只包含捕获数据。eCaptureQ 是附加的 typed publisher，不会取代
 `--eventaddr` 或 `--logaddr`。

@@ -18,6 +18,10 @@ import (
 	"bytes"
 	"os"
 	"testing"
+	"time"
+
+	"github.com/google/gopacket/pcapgo"
+	"golang.org/x/sys/unix"
 
 	"github.com/gojue/ecapture/v2/internal/domain"
 	"github.com/gojue/ecapture/v2/internal/logger"
@@ -134,6 +138,39 @@ func TestPcapngHandler_Handle(t *testing.T) {
 	// PCAPNG data is binary, so just verify the stream is non-empty.
 	if sink.Len() == 0 {
 		t.Error("expected data to be written to pcapng stream")
+	}
+}
+
+func TestPcapngHandlerConvertsMonotonicPacketTimestamp(t *testing.T) {
+	sink := newMockPcapngSink()
+	handler, err := NewLowLatencyPcapngHandler(sink, "lo", "", newTestLogger())
+	if err != nil {
+		t.Fatalf("NewLowLatencyPcapngHandler: %v", err)
+	}
+	var mono unix.Timespec
+	if err := unix.ClockGettime(unix.CLOCK_MONOTONIC, &mono); err != nil {
+		t.Fatalf("CLOCK_MONOTONIC: %v", err)
+	}
+	before := time.Now()
+	if err := handler.Handle(&mockPacketEvent{
+		timestamp: uint64(mono.Nano()), packetData: make([]byte, 60), packetLen: 60,
+	}); err != nil {
+		t.Fatalf("Handle: %v", err)
+	}
+	if err := handler.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	after := time.Now()
+	reader, err := pcapgo.NewNgReader(bytes.NewReader(sink.Bytes()), pcapgo.DefaultNgReaderOptions)
+	if err != nil {
+		t.Fatalf("NewNgReader: %v", err)
+	}
+	_, capture, err := reader.ReadPacketData()
+	if err != nil {
+		t.Fatalf("ReadPacketData: %v", err)
+	}
+	if capture.Timestamp.Before(before.Add(-time.Second)) || capture.Timestamp.After(after.Add(time.Second)) {
+		t.Fatalf("pcapng timestamp = %s, expected capture time near %s", capture.Timestamp, before)
 	}
 }
 

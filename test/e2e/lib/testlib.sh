@@ -260,6 +260,29 @@ assert_pcapng_plaintext_preview() {
         "CLIENT_RANDOM=$client_random"
 }
 
+assert_http_event_timestamps_current() {
+    local event_file="$1"
+    local label="$2"
+    local now timestamp event_epoch delta count=0
+    now="$(date -u +%s)"
+    while IFS= read -r timestamp; do
+        event_epoch="$(date -u -d "$timestamp" +%s)" || {
+            log_error "Invalid HTTP event timestamp for $label: $timestamp"
+            return 1
+        }
+        delta=$((now - event_epoch))
+        if ((delta < -120 || delta > 120)); then
+            log_error "HTTP event timestamp is not current for $label: $timestamp"
+            return 1
+        fi
+        count=$((count + 1))
+    done < <(sed -nE 's/^\[([0-9]{4}-[0-9T:.+Z-]+)\] http\/(1\.1|2) (request|response) .*/\1/p' "$event_file")
+    if ((count == 0)); then
+        log_error "No timestamped HTTP events found for $label"
+        return 1
+    fi
+}
+
 assert_no_capture_errors() {
     local log_file="$1"
     assert_file_nonempty "$log_file" "eCapture log" || return 1

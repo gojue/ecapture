@@ -174,6 +174,13 @@ The decryptor waits for TLS secrets that may appear in a DSB after the
 corresponding packets. The pcapng text source supports TCP TLS with HTTP/1.1 or HTTP/2
 payloads; it does not emit generic TLS records or QUIC/HTTP/3.
 
+To verify the source independently, add `--pcapfile /tmp/raw.pcapng` to the
+capture command and send a request with a unique path or response token. After
+stopping eCapture, run `tshark -n -r /tmp/raw.pcapng -o tls.keylog_file: -q -z
+follow,tls,ascii,0` and compare the request and response with the text output.
+The empty keylog setting makes tshark use the DSB embedded in that pcapng.
+The optional file receives the same pcapng bytes as the live SDK stream.
+
 `--logaddr` carries eCapture runtime logs only. Console runtime logs use
 stderr, while captured stdout contains only event bytes. eCaptureQ is additive:
 enabling it does not replace `--eventaddr` or `--logaddr`.
