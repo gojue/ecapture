@@ -63,17 +63,21 @@ endef
 
 # build and tar
 define release_tar
+	set -e
 	$(call allow-override,CORE_PREFIX,$(call CHECK_IS_NON_CORE,$(2),nocore))
 	$(call allow-override,TAR_DIR,ecapture-$(DEB_VERSION)-$(1)-$(GOARCH)$(CORE_PREFIX))
 	$(call allow-override,OUT_ARCHIVE,$(OUTPUT_DIR)/$(TAR_DIR).tar.gz)
 	$(CMD_MAKE) clean
 	ANDROID=$(ANDROID) $(CMD_MAKE) $(2)
 	# create the tar ball and checksum files
+	$(CMD_RM) -rf $(TAR_DIR)
 	$(CMD_MKDIR) -p $(TAR_DIR)
 	$(CMD_CP) LICENSE $(TAR_DIR)/LICENSE
 	$(CMD_CP) CHANGELOG.md $(TAR_DIR)/CHANGELOG.md
 	$(CMD_CP) README.md $(TAR_DIR)/README.md
 	$(CMD_CP) README-zh_Hans.md $(TAR_DIR)/README-zh_Hans.md
+	test -x $(OUT_BIN)
 	$(CMD_CP) $(OUT_BIN) $(TAR_DIR)/ecapture
 	$(CMD_TAR) -czf $(OUT_ARCHIVE) $(TAR_DIR)
+	$(CMD_TAR) -tzf $(OUT_ARCHIVE) $(TAR_DIR)/ecapture >/dev/null
 endef
