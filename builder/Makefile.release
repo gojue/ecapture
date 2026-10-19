@@ -104,13 +104,18 @@ snapshot: \
 	$(call release_tar,linux,)
 
 .PHONY: snapshot_android
-snapshot_android: \
+snapshot_android:
+	$(CMD_MAKE) -f builder/Makefile.release snapshot_android_package ANDROID=1
+
+# Parse variables.mk again with ANDROID=1 so OUT_BIN and the generated asset
+# paths refer to the Android build rather than the preceding Linux snapshot.
+.PHONY: snapshot_android_package
+snapshot_android_package: \
 	$(OUTPUT_DIR) \
 	| .check_tree \
 	.check_$(CMD_TAR) \
 	.check_$(CMD_CHECKSUM) \
 	.check_$(CMD_GITHUB)
-	$(call allow-override,ANDROID,1)
 	$(call release_tar,android,)
 
 .PHONY: publish
