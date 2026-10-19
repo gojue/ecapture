@@ -3,7 +3,7 @@ module github.com/gojue/ecapture/v2
 go 1.26.0
 
 require (
-	github.com/cfc4n/ecapture_decryptor v1.0.1-0.20261016094704-8d93ac0decb7
+	github.com/cfc4n/ecapture_decryptor v1.1.0
 	github.com/cilium/ebpf v0.22.0
 	github.com/gin-gonic/gin v1.12.0
 	github.com/gojue/ebpfmanager v0.6.0

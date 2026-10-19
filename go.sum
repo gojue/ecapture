@@ -6,8 +6,8 @@ github.com/bytedance/sonic v1.15.0 h1:/PXeWFaR5ElNcVE84U0dOHjiMHQOwNIx3K4ymzh/uS
 github.com/bytedance/sonic v1.15.0/go.mod h1:tFkWrPz0/CUCLEF4ri4UkHekCIcdnkqXw9VduqpJh0k=
 github.com/bytedance/sonic/loader v0.5.0 h1:gXH3KVnatgY7loH5/TkeVyXPfESoqSBSBEiDd5VjlgE=
 github.com/bytedance/sonic/loader v0.5.0/go.mod h1:AR4NYCk5DdzZizZ5djGqQ92eEhCCcdf5x77udYiSJRo=
-github.com/cfc4n/ecapture_decryptor v1.0.1-0.20261016094704-8d93ac0decb7 h1:NTpQY4vcZRQbBEyqFvymOpGO24VJy257tRLqmUEYe18=
-github.com/cfc4n/ecapture_decryptor v1.0.1-0.20261016094704-8d93ac0decb7/go.mod h1:0MPah5k3eMGmZscHLGU5eotWoIJ/k33NFe5baG54kcQ=
+github.com/cfc4n/ecapture_decryptor v1.1.0 h1:dD/sBm1N/ZyPcWPgsoCFVzrmfHgRmTGevE2Vylrzeho=
+github.com/cfc4n/ecapture_decryptor v1.1.0/go.mod h1:0MPah5k3eMGmZscHLGU5eotWoIJ/k33NFe5baG54kcQ=
 github.com/cfc4n/gopacket v1.1.20 h1:jTdmP93F+wCvLaJPk9AhwVjY2F5J4BFkk9MhXzg+5dA=
 github.com/cfc4n/gopacket v1.1.20/go.mod h1:riddUzxTSBpJXk3qBHtYr4qOhFhT6k/1c0E3qkQjQpA=
 github.com/cilium/ebpf v0.5.0/go.mod h1:4tRaxcgiL706VnOzHOdBlY8IEAIdxINsQBcU4xJJXRs=
