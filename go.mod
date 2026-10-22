@@ -3,10 +3,10 @@ module github.com/gojue/ecapture/v2
 go 1.26.0
 
 require (
-	github.com/cfc4n/ecapture_decryptor v1.1.0
 	github.com/cilium/ebpf v0.22.0
 	github.com/gin-gonic/gin v1.12.0
 	github.com/gojue/ebpfmanager v0.6.0
+	github.com/gojue/ecapture_decryptor v1.2.0
 	github.com/google/gopacket v1.1.19
 	github.com/jschwinger233/elibpcap v1.1.0
 	github.com/rs/zerolog v1.35.1
@@ -16,9 +16,9 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/ulikunitz/xz v0.5.17
 	golang.org/x/arch v0.31.0
-	golang.org/x/crypto v0.57.0
-	golang.org/x/net v0.59.0
-	golang.org/x/sys v0.48.0
+	golang.org/x/crypto v0.58.0
+	golang.org/x/net v0.61.0
+	golang.org/x/sys v0.49.0
 	google.golang.org/protobuf v1.36.10
 )
 
@@ -62,8 +62,8 @@ require (
 	github.com/vishvananda/netlink v1.3.1 // indirect
 	github.com/vishvananda/netns v0.0.5 // indirect
 	go.mongodb.org/mongo-driver/v2 v2.5.0 // indirect
-	golang.org/x/sync v0.23.0 // indirect
-	golang.org/x/text v0.42.0 // indirect
+	golang.org/x/sync v0.24.0 // indirect
+	golang.org/x/text v0.43.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 

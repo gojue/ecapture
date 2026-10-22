@@ -25,8 +25,8 @@ import (
 	"sync"
 	"sync/atomic"
 
-	decryptor "github.com/cfc4n/ecapture_decryptor"
-	"github.com/cfc4n/ecapture_decryptor/types"
+	decryptor "github.com/gojue/ecapture_decryptor"
+	"github.com/gojue/ecapture_decryptor/types"
 
 	"github.com/gojue/ecapture/v2/internal/domain"
 	"github.com/gojue/ecapture/v2/internal/logger"
