@@ -15,9 +15,11 @@
 package http
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
+	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
 )
 
@@ -28,22 +30,14 @@ type HttpServer struct {
 	ProbeType string //当前加载探针类型
 	probeConf any    //探针配置
 	confChan  chan *ConfigUpdate
-	ge        *gin.Engine
+	handler   http.Handler
 	addr      string
 	logger    zerolog.Logger
 }
 
 func NewHttpServer(addr string, confChan chan *ConfigUpdate, zerologger zerolog.Logger) *HttpServer {
-	gin.SetMode(gin.ReleaseMode)
-	var errLogger = &ErrLogger{zerologger: zerologger}
-	var infoLogger = &InfoLogger{zerologger: zerologger}
-	gin.DefaultWriter = infoLogger
-	gin.DefaultErrorWriter = errLogger
-	r := gin.Default()
-	r.Use(gin.Recovery())
 	hs := &HttpServer{
 		confChan: confChan,
-		ge:       r,
 		addr:     addr,
 		logger:   zerologger,
 	}
@@ -53,78 +47,80 @@ func NewHttpServer(addr string, confChan chan *ConfigUpdate, zerologger zerolog.
 }
 
 func (hs *HttpServer) attachEndpoints() {
+	mux := http.NewServeMux()
 	// TLS/SSL related endpoints (available on both Linux and Android)
-	hs.ge.POST("/tls", hs.Tls)
-	hs.ge.POST("/openssl", hs.Tls)
-	hs.ge.POST("/boringssl", hs.Tls)
-	hs.ge.POST("/gotls", hs.Gotls)
+	mux.HandleFunc("POST /tls", hs.Tls)
+	mux.HandleFunc("POST /openssl", hs.Tls)
+	mux.HandleFunc("POST /boringssl", hs.Tls)
+	mux.HandleFunc("POST /gotls", hs.Gotls)
 
 	// Shell endpoints (bash available on both, others Linux-only but registered here)
-	hs.ge.POST("/bash", hs.Bash)
+	mux.HandleFunc("POST /bash", hs.Bash)
 
 	// Database and other Linux-specific endpoints (will fail gracefully if probe not registered)
-	hs.ge.POST("/gnutls", hs.Gnutls)
-	hs.ge.POST("/mysqld", hs.Mysqld)
-	hs.ge.POST("/postgres", hs.Postgress)
-	hs.ge.POST("/postgress", hs.Postgress)
-	hs.ge.POST("/nss", hs.Nss)
-	hs.ge.POST("/nspr", hs.Nss)
+	mux.HandleFunc("POST /gnutls", hs.Gnutls)
+	mux.HandleFunc("POST /mysqld", hs.Mysqld)
+	mux.HandleFunc("POST /postgres", hs.Postgress)
+	mux.HandleFunc("POST /postgress", hs.Postgress)
+	mux.HandleFunc("POST /nss", hs.Nss)
+	mux.HandleFunc("POST /nspr", hs.Nss)
+	hs.handler = hs.logAndRecover(mux)
 }
 
 func (hs HttpServer) Run() error {
-	return hs.ge.Run(hs.addr)
+	return http.ListenAndServe(hs.addr, hs.handler)
 }
 
-func (hs *HttpServer) Tls(c *gin.Context) {
-	hs.decodeConf(c, "openssl")
+func (hs *HttpServer) Tls(w http.ResponseWriter, r *http.Request) {
+	hs.decodeConf(w, r, "openssl")
 }
 
-func (hs *HttpServer) Gnutls(c *gin.Context) {
-	hs.decodeConf(c, "gnutls")
+func (hs *HttpServer) Gnutls(w http.ResponseWriter, r *http.Request) {
+	hs.decodeConf(w, r, "gnutls")
 }
 
-func (hs *HttpServer) Mysqld(c *gin.Context) {
-	hs.decodeConf(c, "mysql")
+func (hs *HttpServer) Mysqld(w http.ResponseWriter, r *http.Request) {
+	hs.decodeConf(w, r, "mysql")
 }
 
-func (hs *HttpServer) Postgress(c *gin.Context) {
-	hs.decodeConf(c, "postgres")
+func (hs *HttpServer) Postgress(w http.ResponseWriter, r *http.Request) {
+	hs.decodeConf(w, r, "postgres")
 }
 
-func (hs *HttpServer) Gotls(c *gin.Context) {
-	hs.decodeConf(c, "gotls")
+func (hs *HttpServer) Gotls(w http.ResponseWriter, r *http.Request) {
+	hs.decodeConf(w, r, "gotls")
 }
 
-func (hs *HttpServer) Nss(c *gin.Context) {
-	hs.decodeConf(c, "nspr")
+func (hs *HttpServer) Nss(w http.ResponseWriter, r *http.Request) {
+	hs.decodeConf(w, r, "nspr")
 }
 
-func (hs *HttpServer) Bash(c *gin.Context) {
-	hs.decodeConf(c, "bash")
+func (hs *HttpServer) Bash(w http.ResponseWriter, r *http.Request) {
+	hs.decodeConf(w, r, "bash")
 }
 
-func (hs *HttpServer) decodeConf(c *gin.Context, probeType string) {
+func (hs *HttpServer) decodeConf(w http.ResponseWriter, r *http.Request, probeType string) {
 	// Create appropriate config based on probe type
 	var update *ConfigUpdate
 	var err error
 
 	switch probeType {
 	case "openssl":
-		update, err = createOpensslConfig(c)
+		update, err = createOpensslConfig(r)
 	case "gnutls":
-		update, err = createGnutlsConfig(c)
+		update, err = createGnutlsConfig(r)
 	case "gotls":
-		update, err = createGotlsConfig(c)
+		update, err = createGotlsConfig(r)
 	case "nspr":
-		update, err = createNsprConfig(c)
+		update, err = createNsprConfig(r)
 	case "bash":
-		update, err = createBashConfig(c)
+		update, err = createBashConfig(r)
 	case "mysql":
-		update, err = createMysqlConfig(c)
+		update, err = createMysqlConfig(r)
 	case "postgres":
-		update, err = createPostgresConfig(c)
+		update, err = createPostgresConfig(r)
 	default:
-		c.JSON(http.StatusBadRequest, Resp{
+		writeJSON(w, http.StatusBadRequest, Resp{
 			Code:       RespErrorNotFound,
 			ModuleType: probeType,
 			Msg:        "unknown probe type",
@@ -134,7 +130,7 @@ func (hs *HttpServer) decodeConf(c *gin.Context, probeType string) {
 	}
 
 	if err != nil {
-		c.JSON(http.StatusBadRequest, Resp{
+		writeJSON(w, http.StatusBadRequest, Resp{
 			Code:       RespConfigDecodeFailed,
 			ModuleType: probeType,
 			Msg:        err.Error(),
@@ -149,7 +145,7 @@ func (hs *HttpServer) decodeConf(c *gin.Context, probeType string) {
 	select {
 	case hs.confChan <- update:
 	default:
-		c.JSON(http.StatusServiceUnavailable, Resp{
+		writeJSON(w, http.StatusServiceUnavailable, Resp{
 			Code:       RespSendToChanFailed,
 			ModuleType: probeType,
 			Msg:        RespSendToChanFailed.String(),
@@ -161,7 +157,7 @@ func (hs *HttpServer) decodeConf(c *gin.Context, probeType string) {
 	select {
 	case applyErr := <-update.Result():
 		if applyErr != nil {
-			c.JSON(http.StatusBadRequest, Resp{
+			writeJSON(w, http.StatusBadRequest, Resp{
 				Code:       RespConfigCheckFailed,
 				ModuleType: probeType,
 				Msg:        applyErr.Error(),
@@ -169,14 +165,63 @@ func (hs *HttpServer) decodeConf(c *gin.Context, probeType string) {
 			})
 			return
 		}
-		c.JSON(http.StatusOK, Resp{
+		writeJSON(w, http.StatusOK, Resp{
 			Code:       RespOK,
 			ModuleType: probeType,
 			Msg:        RespOK.String(),
 			Data:       nil,
 		})
-	case <-c.Request.Context().Done():
+	case <-r.Context().Done():
 		return
 	}
 	hs.logger.Info().Interface("config", update.Config).Msg("config applied.")
+}
+
+func writeJSON(w http.ResponseWriter, status int, response Resp) {
+	body, err := json.Marshal(response)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("encode response: %v", err), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(status)
+	_, _ = w.Write(body)
+}
+
+func (hs *HttpServer) logAndRecover(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		started := time.Now()
+		response := &statusResponseWriter{ResponseWriter: w, status: http.StatusOK}
+		defer func() {
+			if recovered := recover(); recovered != nil {
+				hs.logger.Error().Interface("panic", recovered).Str("path", r.URL.Path).Msg("HTTP handler panic")
+				response.WriteHeader(http.StatusInternalServerError)
+			}
+			hs.logger.Info().Str("method", r.Method).Str("path", r.URL.Path).
+				Int("status", response.status).Dur("duration", time.Since(started)).Msg("HTTP request")
+		}()
+		next.ServeHTTP(response, r)
+	})
+}
+
+type statusResponseWriter struct {
+	http.ResponseWriter
+	status      int
+	wroteHeader bool
+}
+
+func (w *statusResponseWriter) WriteHeader(status int) {
+	if w.wroteHeader {
+		return
+	}
+	w.status = status
+	w.wroteHeader = true
+	w.ResponseWriter.WriteHeader(status)
+}
+
+func (w *statusResponseWriter) Write(body []byte) (int, error) {
+	if !w.wroteHeader {
+		w.WriteHeader(http.StatusOK)
+	}
+	return w.ResponseWriter.Write(body)
 }

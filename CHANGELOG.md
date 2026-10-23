@@ -1,3 +1,13 @@
+# v2.8.2 (2026-10-19)
+
+## What's Changed
+
+* build: include Android executable in release archives by @cfc4n in https://github.com/gojue/ecapture/pull/1065
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v2.8.1...v2.8.2
+
+<hr>
+
 # v2.8.1 (2026-10-14)
 
 ## What's Changed
