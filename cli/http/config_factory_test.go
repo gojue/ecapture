@@ -24,25 +24,21 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
 
 	"github.com/gojue/ecapture/v2/internal/config"
 	bashProbe "github.com/gojue/ecapture/v2/internal/probe/bash"
 )
 
-type httpConfigFactory func(*gin.Context) (*ConfigUpdate, error)
+type httpConfigFactory func(*http.Request) (*ConfigUpdate, error)
 
-func factoryContext(body string) *gin.Context {
-	recorder := httptest.NewRecorder()
-	context, _ := gin.CreateTestContext(recorder)
-	context.Request = httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString(body))
-	context.Request.Header.Set("Content-Type", "application/json")
-	return context
+func factoryRequest(body string) *http.Request {
+	request := httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString(body))
+	request.Header.Set("Content-Type", "application/json")
+	return request
 }
 
 func TestEveryHTTPConfigFactoryAppliesCommonConfig(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 	body := `{
 		"pid":101,
 		"uid":202,
@@ -90,7 +86,7 @@ func TestEveryHTTPConfigFactoryAppliesCommonConfig(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			update, err := test.factory(factoryContext(body))
+			update, err := test.factory(factoryRequest(body))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -111,7 +107,6 @@ func TestEveryHTTPConfigFactoryAppliesCommonConfig(t *testing.T) {
 }
 
 func TestHTTPReloadOutputMergeSemantics(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 	current := bashProbe.NewConfig()
 	current.EventCollectorAddr = "/tmp/original-events.log"
 	current.EventRotateSizeMB = 11
@@ -158,7 +153,7 @@ func TestHTTPReloadOutputMergeSemantics(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			update, err := createBashConfig(factoryContext(test.body))
+			update, err := createBashConfig(factoryRequest(test.body))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -190,7 +185,6 @@ func TestHTTPReloadOutputMergeSemantics(t *testing.T) {
 }
 
 func TestHTTPResponseWaitsForRuntimeDecision(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 	updates := make(chan *ConfigUpdate, 1)
 	server := NewHttpServer("", updates, zerolog.Nop())
 
@@ -214,7 +208,7 @@ func TestHTTPResponseWaitsForRuntimeDecision(t *testing.T) {
 			request := httptest.NewRequest(http.MethodPost, "/bash", bytes.NewBufferString(`{"event_collector_addr":"/tmp/http-ack.log"}`))
 			request.Header.Set("Content-Type", "application/json")
 			recorder := httptest.NewRecorder()
-			server.ge.ServeHTTP(recorder, request)
+			server.handler.ServeHTTP(recorder, request)
 			<-done
 
 			if recorder.Code != test.wantStatus {

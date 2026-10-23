@@ -18,7 +18,7 @@
 package http
 
 import (
-	"github.com/gin-gonic/gin"
+	"net/http"
 
 	"github.com/gojue/ecapture/v2/internal/domain"
 	gnutlsProbe "github.com/gojue/ecapture/v2/internal/probe/gnutls"
@@ -28,21 +28,21 @@ import (
 )
 
 // createGnutlsConfig creates and decodes GnuTLS probe configuration from HTTP request
-func createGnutlsConfig(c *gin.Context) (*ConfigUpdate, error) {
-	return decodeConfig(c, func() domain.Configuration { return gnutlsProbe.NewConfig() })
+func createGnutlsConfig(r *http.Request) (*ConfigUpdate, error) {
+	return decodeConfig(r, func() domain.Configuration { return gnutlsProbe.NewConfig() })
 }
 
 // createNsprConfig creates and decodes NSPR probe configuration from HTTP request
-func createNsprConfig(c *gin.Context) (*ConfigUpdate, error) {
-	return decodeConfig(c, func() domain.Configuration { return nsprProbe.NewConfig() })
+func createNsprConfig(r *http.Request) (*ConfigUpdate, error) {
+	return decodeConfig(r, func() domain.Configuration { return nsprProbe.NewConfig() })
 }
 
 // createMysqlConfig creates and decodes MySQL probe configuration from HTTP request
-func createMysqlConfig(c *gin.Context) (*ConfigUpdate, error) {
-	return decodeConfig(c, func() domain.Configuration { return mysqlProbe.NewConfig() })
+func createMysqlConfig(r *http.Request) (*ConfigUpdate, error) {
+	return decodeConfig(r, func() domain.Configuration { return mysqlProbe.NewConfig() })
 }
 
 // createPostgresConfig creates and decodes Postgres probe configuration from HTTP request
-func createPostgresConfig(c *gin.Context) (*ConfigUpdate, error) {
-	return decodeConfig(c, func() domain.Configuration { return postgresProbe.NewConfig() })
+func createPostgresConfig(r *http.Request) (*ConfigUpdate, error) {
+	return decodeConfig(r, func() domain.Configuration { return postgresProbe.NewConfig() })
 }

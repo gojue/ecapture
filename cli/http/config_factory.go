@@ -18,8 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-
-	"github.com/gin-gonic/gin"
+	"net/http"
 
 	"github.com/gojue/ecapture/v2/internal/config"
 	"github.com/gojue/ecapture/v2/internal/domain"
@@ -28,8 +27,8 @@ import (
 	opensslProbe "github.com/gojue/ecapture/v2/internal/probe/openssl"
 )
 
-func decodeConfig(c *gin.Context, create func() domain.Configuration) (*ConfigUpdate, error) {
-	body, err := io.ReadAll(c.Request.Body)
+func decodeConfig(r *http.Request, create func() domain.Configuration) (*ConfigUpdate, error) {
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -51,16 +50,16 @@ func decodeConfig(c *gin.Context, create func() domain.Configuration) (*ConfigUp
 }
 
 // createOpensslConfig creates and decodes OpenSSL probe configuration from HTTP request
-func createOpensslConfig(c *gin.Context) (*ConfigUpdate, error) {
-	return decodeConfig(c, func() domain.Configuration { return opensslProbe.NewConfig() })
+func createOpensslConfig(r *http.Request) (*ConfigUpdate, error) {
+	return decodeConfig(r, func() domain.Configuration { return opensslProbe.NewConfig() })
 }
 
 // createGotlsConfig creates and decodes GoTLS probe configuration from HTTP request
-func createGotlsConfig(c *gin.Context) (*ConfigUpdate, error) {
-	return decodeConfig(c, func() domain.Configuration { return gotlsProbe.NewConfig() })
+func createGotlsConfig(r *http.Request) (*ConfigUpdate, error) {
+	return decodeConfig(r, func() domain.Configuration { return gotlsProbe.NewConfig() })
 }
 
 // createBashConfig creates and decodes Bash probe configuration from HTTP request
-func createBashConfig(c *gin.Context) (*ConfigUpdate, error) {
-	return decodeConfig(c, func() domain.Configuration { return bashProbe.NewConfig() })
+func createBashConfig(r *http.Request) (*ConfigUpdate, error) {
+	return decodeConfig(r, func() domain.Configuration { return bashProbe.NewConfig() })
 }
