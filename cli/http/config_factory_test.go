@@ -108,7 +108,6 @@ func TestEveryHTTPConfigFactoryAppliesCommonConfig(t *testing.T) {
 }
 
 func TestTLSHTTPConfigFactoriesPreserveTextSource(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 	for _, test := range []struct {
 		name    string
 		factory httpConfigFactory
@@ -118,7 +117,7 @@ func TestTLSHTTPConfigFactoriesPreserveTextSource(t *testing.T) {
 		{"gnutls", createGnutlsConfig},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			update, err := test.factory(factoryContext(`{"text_source":"pcapng"}`))
+			update, err := test.factory(factoryRequest(`{"text_source":"pcapng"}`))
 			if err != nil {
 				t.Fatal(err)
 			}
