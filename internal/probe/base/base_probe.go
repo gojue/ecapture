@@ -143,7 +143,7 @@ func (p *BaseProbe) Initialize(ctx context.Context, cfg domain.Configuration) er
 		}
 		p.Logger().Info().Str("sink", textWriter.Name()).Msg("Text event sink created")
 	}
-	if runtimeOutput != nil {
+	if runtimeOutput != nil && !usesPcapngTextSource(cfg) {
 		for _, sink := range runtimeOutput.EventSinks {
 			publisher, err := handlers.NewPublisherHandler(sink, format, p.config.GetHex())
 			if err != nil {
@@ -165,7 +165,16 @@ func (p *BaseProbe) Initialize(ctx context.Context, cfg domain.Configuration) er
 
 func usesTextOutput(cfg domain.Configuration) bool {
 	modeConfig, ok := cfg.(domain.CaptureModeConfiguration)
-	return !ok || handlers.IsModeText(modeConfig.GetCaptureMode())
+	return (!ok || handlers.IsModeText(modeConfig.GetCaptureMode())) && !usesPcapngTextSource(cfg)
+}
+
+func usesPcapngTextSource(cfg domain.Configuration) bool {
+	modeConfig, ok := cfg.(domain.CaptureModeConfiguration)
+	if !ok {
+		return false
+	}
+	sourceConfig, ok := cfg.(domain.TextSourceConfiguration)
+	return ok && handlers.IsPcapngText(modeConfig.GetCaptureMode(), sourceConfig.GetTextSource())
 }
 
 func captureFormat(cfg domain.Configuration) domain.CaptureFormat {

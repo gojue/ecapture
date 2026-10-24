@@ -47,7 +47,8 @@ func init() {
 	gotlsCmd.PersistentFlags().BoolVar(&globalConf.PerfReorder, "perf-reorder", false, "enable userland reorder of per-CPU perf events by bpf ktime before dispatch (see also: tls, mysqld, postgres)")
 	gotlsCmd.PersistentFlags().UintVar(&globalConf.PerfReorderLagMs, "perf-reorder-lag-ms", 10, "reorder batching window in milliseconds (only with --perf-reorder; default 10)")
 	gotlsCmd.PersistentFlags().StringVarP(&gotlsConfig.PcapFile, "pcapfile", "w", "ecapture_gotls.pcapng", "write the  raw packets to file as pcapng format.")
-	gotlsCmd.PersistentFlags().StringVarP(&gotlsConfig.CaptureMode, "model", "m", "text", "capture model, such as : text, pcap/pcapng, key/keylog")
+	gotlsCmd.PersistentFlags().StringVarP(&gotlsConfig.CaptureMode, "model", "m", "text", "capture mode: text, pcap/pcapng, key/keylog")
+	gotlsCmd.PersistentFlags().StringVar(&gotlsConfig.TextSource, "text-source", "hook", "text capture source: hook or pcapng (live TLS decryption)")
 	gotlsCmd.PersistentFlags().StringVarP(&gotlsConfig.KeylogFile, "keylogfile", "k", "ecapture_gotls_key.log", "The file stores SSL/TLS keys, and eCapture captures these keys during encrypted traffic communication and saves them to the file.")
 	gotlsCmd.PersistentFlags().StringVarP(&gotlsConfig.Ifname, "ifname", "i", "", "(TC Classifier) Interface name on which the probe will be attached.")
 	gotlsCmd.PersistentFlags().StringVar(&globalConf.CGroupPath, "cgroup_path", "", "cgroup v2 path for container/process filtering. Empty disables cgroup filtering.")
@@ -56,7 +57,7 @@ func init() {
 
 // goTLSCommandFunc executes the "gotls" command using the new probe architecture.
 func goTLSCommandFunc(command *cobra.Command, args []string) error {
-	if err := normalizeTLSOutputFlags(command, gotlsConfig.CaptureMode, &gotlsConfig.KeylogFile, &gotlsConfig.PcapFile); err != nil {
+	if err := normalizeTLSOutputFlags(command, gotlsConfig.CaptureMode, gotlsConfig.TextSource, &gotlsConfig.KeylogFile, &gotlsConfig.PcapFile); err != nil {
 		return err
 	}
 	if gotlsConfig.PcapFilter == "" && len(args) != 0 {

@@ -21,12 +21,21 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func normalizeTLSOutputFlags(command *cobra.Command, mode string, keylogFile, pcapFile *string) error {
+func normalizeTLSOutputFlags(command *cobra.Command, mode, textSource string, keylogFile, pcapFile *string) error {
+	mode = strings.ToLower(mode)
+	if (mode == "" || mode == "text") && strings.EqualFold(textSource, "pcapng") {
+		if flag := command.Flag("keylogfile"); flag == nil || !flag.Changed {
+			*keylogFile = ""
+		}
+		if flag := command.Flag("pcapfile"); flag == nil || !flag.Changed {
+			*pcapFile = ""
+		}
+		return nil
+	}
 	eventFlag := command.Flag("eventaddr")
 	if eventFlag == nil || !eventFlag.Changed {
 		return nil
 	}
-	mode = strings.ToLower(mode)
 	switch mode {
 	case "key", "keylog":
 		if flag := command.Flag("keylogfile"); flag != nil && flag.Changed {

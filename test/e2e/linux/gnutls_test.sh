@@ -133,6 +133,39 @@ case_pcapng() {
         "$pcap_file" "$E2E_TOKEN" "linux/gnutls/pcapng"
 }
 
+case_text_pcapng() {
+    local capture_log="$WORK_DIR/decrypt.ecapture.log"
+    local operational_log="$WORK_DIR/decrypt.operational.log"
+    local event_file="$WORK_DIR/decrypt.events.log"
+    local pcap_file="$WORK_DIR/decrypt.pcapng"
+    start_capture "$capture_log" gnutls --gnutls "$GNUTLS_LIB" --model text --text-source pcapng \
+        --logaddr "$operational_log" --eventaddr "$event_file" --ifname lo \
+        --pcapfile "$pcap_file" "tcp port $TLS_SERVER_PORT" || return 1
+    if ! run_gnutls_request tls13 "$WORK_DIR/decrypt.client.log"; then
+        stop_capture
+        return 1
+    fi
+    if ! wait_for_file_contains "$event_file" "$E2E_TOKEN" "live decrypted HTTP response"; then
+        stop_capture
+        return 1
+    fi
+    if ! run_gnutls_request tls12 "$WORK_DIR/decrypt.tls12.client.log"; then
+        stop_capture
+        return 1
+    fi
+    sleep 2
+    stop_capture
+    assert_no_capture_errors "$capture_log" || return 1
+    assert_file_contains "$event_file" "$E2E_TOKEN" "decrypted HTTP response" || return 1
+    grep -Eq 'http/(1\.1|2) request .*host="[^"]+"' "$event_file" || return 1
+    grep -Eq 'http/(1\.1|2) response .*host="[^"]+"' "$event_file" || return 1
+    assert_output_isolation "$operational_log" "$event_file" "$E2E_TOKEN" || return 1
+    assert_file_not_contains "$operational_log" "CLIENT_RANDOM " "TLS secret in operational log" || return 1
+    assert_pcapng "$pcap_file" || return 1
+    assert_http_event_timestamps_current "$event_file" "linux/gnutls/text-pcapng" || return 1
+    assert_pcapng_plaintext_preview "$pcap_file" "$E2E_TOKEN" "linux/gnutls/text-pcapng" || return 1
+}
+
 case_text_stream() {
     local transport="$1"
     local capture_log="$WORK_DIR/text-${transport}.ecapture.log"
@@ -574,6 +607,7 @@ main() {
     mode_enabled pcapng && run_case "linux/gnutls/pcapng-websocket" case_pcapng_stream ws
     mode_enabled pcapng && run_case "linux/gnutls/pcapng-stdout" case_pcapng_stdout
     mode_enabled pcapng && run_case "linux/gnutls/ecaptureq-receiver-pcapng" case_ecaptureq_pcapng
+    mode_enabled text && run_case "linux/gnutls/text-pcapng-http" case_text_pcapng
 
     print_summary "Linux GnuTLS E2E"
 }

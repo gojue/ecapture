@@ -8,10 +8,16 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
 GO_CLIENT=""
+HTTP_REASSEMBLY_CLIENT=""
 
 build_go_client() {
     GO_CLIENT="$WORK_DIR/helpers/go_https_client"
     CGO_ENABLED=0 go build -o "$GO_CLIENT" "$E2E_DIR/go_https_client.go"
+}
+
+build_http_reassembly_client() {
+    HTTP_REASSEMBLY_CLIENT="$WORK_DIR/helpers/http_reassembly_client"
+    CGO_ENABLED=0 go build -o "$HTTP_REASSEMBLY_CLIENT" "$E2E_DIR/fixtures/http_reassembly_client/main.go"
 }
 
 run_go_request() {
@@ -126,6 +132,141 @@ case_pcapng() {
     assert_pcapng "$pcap_file" || return 1
     assert_pcapng_plaintext_preview \
         "$pcap_file" "$E2E_TOKEN" "linux/gotls/pcapng"
+}
+
+case_text_pcapng() {
+    local capture_log="$WORK_DIR/decrypt.ecapture.log"
+    local operational_log="$WORK_DIR/decrypt.operational.log"
+    local event_file="$WORK_DIR/decrypt.events.log"
+    local pcap_file="$WORK_DIR/decrypt.pcapng"
+    start_capture "$capture_log" gotls --elfpath "$GO_CLIENT" --model text --text-source pcapng \
+        --logaddr "$operational_log" --eventaddr "$event_file" --ifname lo \
+        --pcapfile "$pcap_file" "tcp port $TLS_SERVER_PORT" || return 1
+    if ! run_go_request tls13 "$WORK_DIR/decrypt.client.log"; then
+        stop_capture
+        return 1
+    fi
+    if ! wait_for_file_contains "$event_file" "$E2E_TOKEN" "live decrypted HTTP response"; then
+        stop_capture
+        return 1
+    fi
+    if ! run_go_request tls12 "$WORK_DIR/decrypt.tls12.client.log"; then
+        stop_capture
+        return 1
+    fi
+    sleep 2
+    stop_capture
+    assert_no_capture_errors "$capture_log" || return 1
+    assert_file_contains "$event_file" "$E2E_TOKEN" "decrypted HTTP response" || return 1
+    grep -Eq 'http/(1\.1|2) request .*host="[^"]+"' "$event_file" || return 1
+    grep -Eq 'http/(1\.1|2) response .*host="[^"]+"' "$event_file" || return 1
+    assert_output_isolation "$operational_log" "$event_file" "$E2E_TOKEN" || return 1
+    assert_file_not_contains "$operational_log" "CLIENT_RANDOM " "TLS secret in operational log" || return 1
+    assert_pcapng "$pcap_file" || return 1
+    assert_http_event_timestamps_current "$event_file" "linux/gotls/text-pcapng" || return 1
+    assert_pcapng_plaintext_preview "$pcap_file" "$E2E_TOKEN" "linux/gotls/text-pcapng" || return 1
+}
+
+case_text_pcapng_multi_chunk_http1() {
+    local chunk_size=8192
+    local chunk_count=6
+    local capture_log="$WORK_DIR/reassembly-h1.ecapture.log"
+    local operational_log="$WORK_DIR/reassembly-h1.operational.log"
+    local event_file="$WORK_DIR/reassembly-h1.events.log"
+    local pcap_file="$WORK_DIR/reassembly-h1.pcapng"
+    local client_log="$WORK_DIR/reassembly-h1.client.log"
+    local request_body="$WORK_DIR/reassembly-h1.request.body"
+
+    start_http_reassembly_fixture false || return 1
+    start_capture "$capture_log" gotls --elfpath "$HTTP_REASSEMBLY_CLIENT" --model text \
+        --text-source pcapng --logaddr "$operational_log" --eventaddr "$event_file" \
+        --ifname lo --pcapfile "$pcap_file" "tcp port $HTTP_REASSEMBLY_PORT" || {
+        stop_http_reassembly_fixture
+        return 1
+    }
+
+    if ! timeout 30 "$HTTP_REASSEMBLY_CLIENT" --url "$HTTP_REASSEMBLY_URL/echo" --insecure \
+        --tls-version 1.3 --token "$E2E_TOKEN" --chunk-size "$chunk_size" --chunk-count "$chunk_count" \
+        --out-request-body "$request_body" >"$client_log" 2>&1; then
+        log_error "HTTP/1.1 multi-chunk client failed"
+        cat "$client_log" >&2 || true
+        stop_capture
+        stop_http_reassembly_fixture
+        return 1
+    fi
+    if ! wait_for_file_contains "$event_file" "$E2E_TOKEN" "live decrypted HTTP/1.1 body"; then
+        stop_capture
+        stop_http_reassembly_fixture
+        return 1
+    fi
+    sleep 2
+    stop_capture
+    stop_http_reassembly_fixture
+
+    assert_no_capture_errors "$capture_log" || return 1
+    assert_file_contains "$event_file" "$E2E_TOKEN" "decrypted HTTP/1.1 body" || return 1
+    grep -Eq 'http/1\.1 request .*host="[^"]+"' "$event_file" || return 1
+    grep -Eq 'http/1\.1 response .*host="[^"]+"' "$event_file" || return 1
+    assert_chunks_in_order "$event_file" "$E2E_TOKEN" "$chunk_count" "HTTP/1.1 reassembled body" || return 1
+    assert_output_isolation "$operational_log" "$event_file" "$E2E_TOKEN" || return 1
+    assert_file_not_contains "$operational_log" "CLIENT_RANDOM " "TLS secret in operational log" || return 1
+    assert_pcapng "$pcap_file" || return 1
+    assert_http_event_timestamps_current "$event_file" "linux/gotls/text-pcapng-multi-chunk-http1" || return 1
+}
+
+case_text_pcapng_http2_keepalive() {
+    local chunk_size=8192
+    local chunk_count=6
+    local request_count=3
+    local capture_log="$WORK_DIR/reassembly-h2.ecapture.log"
+    local operational_log="$WORK_DIR/reassembly-h2.operational.log"
+    local event_file="$WORK_DIR/reassembly-h2.events.log"
+    local pcap_file="$WORK_DIR/reassembly-h2.pcapng"
+    local client_log="$WORK_DIR/reassembly-h2.client.log"
+    local request_body="$WORK_DIR/reassembly-h2.request.body"
+    local i
+
+    start_http_reassembly_fixture true || return 1
+    start_capture "$capture_log" gotls --elfpath "$HTTP_REASSEMBLY_CLIENT" --model text \
+        --text-source pcapng --logaddr "$operational_log" --eventaddr "$event_file" \
+        --ifname lo --pcapfile "$pcap_file" "tcp port $HTTP_REASSEMBLY_PORT" || {
+        stop_http_reassembly_fixture
+        return 1
+    }
+
+    if ! timeout 60 "$HTTP_REASSEMBLY_CLIENT" --url "$HTTP_REASSEMBLY_URL/echo" --insecure --h2 \
+        --tls-version 1.3 --token "$E2E_TOKEN" --chunk-size "$chunk_size" --chunk-count "$chunk_count" \
+        --requests "$request_count" --out-request-body "$request_body" >"$client_log" 2>&1; then
+        log_error "HTTP/2 keep-alive client failed"
+        cat "$client_log" >&2 || true
+        stop_capture
+        stop_http_reassembly_fixture
+        return 1
+    fi
+    if ! wait_for_file_contains "$event_file" "$E2E_TOKEN" "live decrypted HTTP/2 body"; then
+        stop_capture
+        stop_http_reassembly_fixture
+        return 1
+    fi
+    sleep 2
+    stop_capture
+    stop_http_reassembly_fixture
+
+    assert_no_capture_errors "$capture_log" || return 1
+    assert_file_contains "$event_file" "$E2E_TOKEN" "decrypted HTTP/2 body" || return 1
+    grep -Eq 'http/2 request .*host="[^"]+"' "$event_file" || return 1
+    grep -Eq 'http/2 response .*host="[^"]+"' "$event_file" || return 1
+    for ((i = 0; i < request_count; i++)); do
+        if ! grep -Fq -- "/echo?req=$i " "$event_file"; then
+            log_error "HTTP/2 keep-alive request $i not captured"
+            return 1
+        fi
+    done
+    assert_chunks_in_order "$event_file" "$E2E_TOKEN" "$chunk_count" "HTTP/2 reassembled body" || return 1
+    assert_output_isolation "$operational_log" "$event_file" "$E2E_TOKEN" || return 1
+    assert_file_not_contains "$operational_log" "CLIENT_RANDOM " "TLS secret in operational log" || return 1
+    assert_pcapng "$pcap_file" || return 1
+    assert_http_event_timestamps_current "$event_file" "linux/gotls/text-pcapng-http2-keepalive" || return 1
 }
 
 case_text_stream() {
@@ -548,6 +689,7 @@ case_text_reload_output() {
 main() {
     setup_linux_suite gotls
     build_go_client
+    build_http_reassembly_client
 
     run_case "linux/gotls/invalid-output-combinations" case_invalid_output_combinations
     mode_enabled text && run_case "linux/gotls/text" case_text
@@ -569,6 +711,9 @@ main() {
     mode_enabled pcapng && run_case "linux/gotls/pcapng-websocket" case_pcapng_stream ws
     mode_enabled pcapng && run_case "linux/gotls/pcapng-stdout" case_pcapng_stdout
     mode_enabled pcapng && run_case "linux/gotls/ecaptureq-receiver-pcapng" case_ecaptureq_pcapng
+    mode_enabled text && run_case "linux/gotls/text-pcapng-http" case_text_pcapng
+    mode_enabled text && run_case "linux/gotls/text-pcapng-multi-chunk-http1" case_text_pcapng_multi_chunk_http1
+    mode_enabled text && run_case "linux/gotls/text-pcapng-http2-keepalive" case_text_pcapng_http2_keepalive
 
     print_summary "Linux GoTLS E2E"
 }

@@ -5,6 +5,7 @@ go 1.26.0
 require (
 	github.com/cilium/ebpf v0.22.0
 	github.com/gojue/ebpfmanager v0.6.0
+	github.com/gojue/ecapture_decryptor v1.2.0
 	github.com/google/gopacket v1.1.19
 	github.com/jschwinger233/elibpcap v1.1.0
 	github.com/rs/zerolog v1.35.1
@@ -33,6 +34,7 @@ require (
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/mdlayher/netlink v1.11.2 // indirect
 	github.com/mdlayher/socket v0.8.0 // indirect
+	github.com/quic-go/qpack v0.6.0 // indirect
 	github.com/vishvananda/netlink v1.3.1 // indirect
 	github.com/vishvananda/netns v0.0.5 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect

@@ -17,10 +17,12 @@ package handlers
 import (
 	"bytes"
 	stderrors "errors"
+	"math"
 	"sync"
 	"time"
 
 	"github.com/google/gopacket"
+	"golang.org/x/sys/unix"
 
 	"github.com/gojue/ecapture/v2/internal/domain"
 	"github.com/gojue/ecapture/v2/internal/errors"
@@ -98,6 +100,8 @@ type PcapngHandler struct {
 	logger          *logger.Logger
 	closed          bool
 	closeErr        error
+	clockOffsetNs   int64
+	clockSampledAt  time.Time
 }
 
 func (h *PcapngHandler) Writer() writers.OutputWriter {
@@ -118,12 +122,26 @@ func isPacketEvent(event domain.Event) bool {
 
 // NewPcapngHandler creates a new PcapngHandler with the provided byte sink.
 func NewPcapngHandler(sink writers.ByteSink, ifName, filter string, lger *logger.Logger) (*PcapngHandler, error) {
+	return newPcapngHandler(sink, ifName, filter, lger, false)
+}
+
+// NewLowLatencyPcapngHandler is used when an SDK consumer can recover from
+// DSBs arriving after packets and needs prompt packet delivery.
+func NewLowLatencyPcapngHandler(sink writers.ByteSink, ifName, filter string, lger *logger.Logger) (*PcapngHandler, error) {
+	return newPcapngHandler(sink, ifName, filter, lger, true)
+}
+
+func newPcapngHandler(sink writers.ByteSink, ifName, filter string, lger *logger.Logger, lowLatency bool) (*PcapngHandler, error) {
 	if sink == nil {
 		return nil, errors.New(errors.ErrCodeResourceAllocation, "pcapng sink cannot be nil")
 	}
 
 	// Create a pcapng session with Ethernet link type and 65535 snaplen.
-	session, err := pcapng.NewSession(sink, 65535, ifName, filter, lger)
+	newSession := pcapng.NewSession
+	if lowLatency {
+		newSession = pcapng.NewLowLatencySession
+	}
+	session, err := newSession(sink, 65535, ifName, filter, lger)
 	if err != nil {
 		return nil, errors.Wrap(errors.ErrCodeResourceAllocation, "failed to create pcapng session", err)
 	}
@@ -156,8 +174,24 @@ func (h *PcapngHandler) Handle(event domain.Event) error {
 		return nil // Empty packet, skip
 	}
 
-	// Convert timestamp from nanoseconds to time.Time
-	timestamp := time.Unix(0, int64(pktEvent.GetTimestamp()))
+	// TC packet timestamps come from bpf_ktime_get_ns (CLOCK_MONOTONIC),
+	// whereas pcapng packet timestamps and SDK HTTP events use Unix time.
+	// Refresh the offset so long-running captures follow wall-clock changes.
+	if h.clockSampledAt.IsZero() || time.Since(h.clockSampledAt) >= time.Second {
+		wallBefore := time.Now()
+		var mono unix.Timespec
+		if err := unix.ClockGettime(unix.CLOCK_MONOTONIC, &mono); err != nil {
+			return errors.Wrap(errors.ErrCodeEventDispatch, "read monotonic clock for pcapng timestamp", err)
+		}
+		wallAfter := time.Now()
+		h.clockOffsetNs = wallBefore.Add(wallAfter.Sub(wallBefore)/2).UnixNano() - mono.Nano()
+		h.clockSampledAt = wallAfter
+	}
+	packetNs := pktEvent.GetTimestamp()
+	if packetNs > math.MaxInt64 || int64(packetNs) > math.MaxInt64-h.clockOffsetNs {
+		return errors.New(errors.ErrCodeEventDispatch, "pcapng packet timestamp overflows Unix nanoseconds")
+	}
+	timestamp := time.Unix(0, int64(packetNs)+h.clockOffsetNs)
 
 	// Write packet to pcapng file
 	err := h.session.WritePacket(packetData, timestamp)

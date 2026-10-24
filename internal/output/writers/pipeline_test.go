@@ -325,6 +325,26 @@ func TestTextAndOperationalFilePoliciesRemainDistinct(t *testing.T) {
 	})
 }
 
+func TestSensitiveTextFilePermissions(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "reconstructed.log")
+	sink, err := NewWriterFactory().CreateEventSink(EventSinkOptions{
+		Address: path, Format: EventFormatText, Sensitive: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := sink.Close(); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := info.Mode().Perm(); got != 0600 {
+		t.Fatalf("sensitive text permissions = %o, want 600", got)
+	}
+}
+
 func TestKeylogWriterDestinations(t *testing.T) {
 	const record = "CLIENT_RANDOM aa bb"
 	t.Run("file", func(t *testing.T) {

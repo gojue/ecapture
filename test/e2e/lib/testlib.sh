@@ -80,6 +80,45 @@ assert_file_contains() {
     fi
 }
 
+wait_for_file_contains() {
+    local file="$1"
+    local literal="$2"
+    local description="$3"
+    local attempt
+    for ((attempt = 0; attempt < 40; attempt++)); do
+        if [[ -f "$file" ]] && grep -Fq -- "$literal" "$file"; then
+            return 0
+        fi
+        sleep 0.05
+    done
+    log_error "$description did not arrive before capture shutdown"
+    return 1
+}
+
+assert_chunks_in_order() {
+    local file="$1"
+    local token="$2"
+    local count="$3"
+    local description="${4:-body chunks}"
+    local i line prev=0
+
+    assert_file_nonempty "$file" "$description" || return 1
+    for ((i = 0; i < count; i++)); do
+        # A marker occupies its own line inside the reconstructed body, so the
+        # word boundary prevents CHUNK_1 from also matching CHUNK_10.
+        line="$(grep -aEn -- "${token}_CHUNK_${i}\b" "$file" | head -n 1 | cut -d: -f1)"
+        if [[ -z "$line" ]]; then
+            log_error "$description chunk $i not found in $file"
+            return 1
+        fi
+        if ((line <= prev)); then
+            log_error "$description chunk $i out of order in $file (line $line, previous $prev)"
+            return 1
+        fi
+        prev=$line
+    done
+}
+
 assert_file_not_contains() {
     local file="$1"
     local literal="$2"
@@ -243,6 +282,29 @@ assert_pcapng_plaintext_preview() {
 
     print_plaintext_preview "$plaintext_file" "$token" "$label" \
         "CLIENT_RANDOM=$client_random"
+}
+
+assert_http_event_timestamps_current() {
+    local event_file="$1"
+    local label="$2"
+    local now timestamp event_epoch delta count=0
+    now="$(date -u +%s)"
+    while IFS= read -r timestamp; do
+        event_epoch="$(date -u -d "$timestamp" +%s)" || {
+            log_error "Invalid HTTP event timestamp for $label: $timestamp"
+            return 1
+        }
+        delta=$((now - event_epoch))
+        if ((delta < -120 || delta > 120)); then
+            log_error "HTTP event timestamp is not current for $label: $timestamp"
+            return 1
+        fi
+        count=$((count + 1))
+    done < <(sed -nE 's/^\[([0-9]{4}-[0-9T:.+Z-]+)\] http\/(1\.1|2) (request|response) .*/\1/p' "$event_file")
+    if ((count == 0)); then
+        log_error "No timestamped HTTP events found for $label"
+        return 1
+    fi
 }
 
 assert_no_capture_errors() {

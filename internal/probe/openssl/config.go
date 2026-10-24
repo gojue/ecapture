@@ -46,6 +46,7 @@ type Config struct {
 
 	// Capture mode configuration
 	CaptureMode string `json:"capturemode"` // "text", "keylog", or "pcap"
+	TextSource  string `json:"text_source"` // "hook" (default) or "pcapng"
 	KeylogFile  string `json:"keylogfile"`  // Path to keylog file (for keylog mode)
 
 	// Pcap mode configuration
@@ -70,6 +71,7 @@ func NewConfig() *Config {
 	return &Config{
 		BaseConfig:  config.NewBaseConfig(),
 		CaptureMode: "text", // Default to text mode
+		TextSource:  handlers.TextSourceHook,
 	}
 }
 
@@ -113,7 +115,7 @@ func (c *Config) Validate() error {
 		return errors.NewConfigurationError("capture mode validation failed", err)
 	}
 
-	if c.IsAndroid && c.IsBoringSSL && c.CaptureMode != "text" {
+	if c.IsAndroid && c.IsBoringSSL && (c.CaptureMode != handlers.ModeText || c.TextSource == handlers.TextSourcePcapng) {
 		address, err := findBoringSSLKeylogAddress(c.OpensslPath)
 		if err != nil {
 			// Some OEM builds may omit Android's mini debug symbol table. Keep the
@@ -140,10 +142,18 @@ func (c *Config) validateCaptureMode() error {
 	// Normalize capture mode
 	mode := strings.ToLower(c.CaptureMode)
 	c.CaptureMode = mode
+	var err error
+	c.TextSource, err = handlers.NormalizeTextSource(mode, c.TextSource)
+	if err != nil {
+		return err
+	}
 
 	switch mode {
 	case "text", "":
 		c.CaptureMode = "text"
+		if c.TextSource == handlers.TextSourcePcapng {
+			return c.validatePcapngTextSource()
+		}
 		addr, err := writers.NormalizeEventAddress(writers.EventFormatText, c.EventCollectorAddr, c.KeylogFile, c.PcapFile)
 		if err != nil {
 			return err
@@ -189,6 +199,30 @@ func (c *Config) validateCaptureMode() error {
 	default:
 		return fmt.Errorf("unsupported capture mode: %s (supported: text, keylog, pcap)", mode)
 	}
+}
+
+func (c *Config) validatePcapngTextSource() error {
+	if c.Ifname == "" {
+		return fmt.Errorf("pcapng text source requires Ifname (network interface) to be set")
+	}
+	addr, err := writers.NormalizeEventAddress(writers.EventFormatText, c.EventCollectorAddr, c.KeylogFile, c.PcapFile)
+	if err != nil {
+		return err
+	}
+	c.EventCollectorAddr = addr
+	factory := writers.NewWriterFactory()
+	if err := factory.ValidateEventSinkAddress(writers.EventSinkOptions{Address: addr, Format: writers.EventFormatText, RotateConfig: writers.NewRotateConfig(c.GetEventRotation()), Sensitive: true}); err != nil {
+		return err
+	}
+	if c.PcapFile != "" {
+		if err := factory.ValidateEventSinkAddress(writers.EventSinkOptions{Address: c.PcapFile, Format: writers.EventFormatPcapng}); err != nil {
+			return err
+		}
+	}
+	if err := c.validateNetworkInterface(); err != nil {
+		return err
+	}
+	return c.checkTCSupport()
 }
 
 // IsSupportedVersion checks if the detected version is supported.
@@ -269,6 +303,8 @@ func (c *Config) checkTCSupport() error {
 func (c *Config) GetCaptureMode() string {
 	return c.CaptureMode
 }
+
+func (c *Config) GetTextSource() string { return c.TextSource }
 
 // GetPcapFile returns the pcap file path.
 func (c *Config) GetPcapFile() string {

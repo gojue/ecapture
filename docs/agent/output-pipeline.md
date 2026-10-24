@@ -14,6 +14,7 @@ OperationalLogRecord -> operational logger ------------------+-> stderr
 domain.Event -> EventDispatcher -> TextHandler ----------------+-> event ByteSink
                                 -> KeylogHandler --------------+-> event ByteSink
                                 -> PcapngHandler/pcapng.Session +-> event ByteSink
+                                -> low-latency pcapng -> SDK -> HTTP ByteSink
                                 -> typed publisher --------------> eCaptureQ EVENT
 ```
 
@@ -63,23 +64,35 @@ rotation settings remain in the probe configuration: omitted HTTP reload
 fields inherit from the active generation, while explicit empty/zero values
 are preserved.
 
-## Mode and destination matrix
+## Mode, text source, and destination matrix
 
-| Mode | Representation | Valid primary ByteSink | eCaptureQ event |
+| Mode / text source | Representation | Valid primary ByteSink | eCaptureQ event |
 | --- | --- | --- | --- |
-| text | UTF-8 event text | empty/stdout, file, TCP, binary WebSocket | structured ordinary event |
+| text (hook) | UTF-8 event text | empty/stdout, file, TCP, binary WebSocket | structured ordinary event |
+| text (pcapng source) | complete HTTP/1.1 or HTTP/2 messages | empty/stdout, file, TCP, binary WebSocket | sensitive reconstructed message with text format |
 | keylog | NSS Key Log lines | explicit stdout, file, TCP, binary WebSocket | structured sensitive event |
 | pcapng | ordered pcapng with DSB | explicit stdout, file, TCP, binary WebSocket | sensitive packet rows, never raw pcapng chunks |
 
-The maintained strict Linux E2E suites exercise operational logs and every
-event representation against all four ByteSink types for OpenSSL, GoTLS, and
-GnuTLS. They also run a typed eCaptureQ receiver for text, keylog, and pcapng
-and validate both semantic channels plus event metadata.
+`-m text --text-source=pcapng` uses the same packet and keylog dispatcher records as pcapng, but
+passes their pcapng encoding through a pipe to `ecapture_decryptor`. The SDK
+reads DSB blocks incrementally, waits for late secrets, reassembles TCP and
+HTTP, then emits one request/response at a time. The pcapng session flushes
+at a short interval without a fixed DSB grace period. The plaintext sink is
+the primary destination; a pcapng copy and standalone keylog are optional.
+The SDK callback publishes the reconstructed message to eCaptureQ directly;
+the raw packet publisher is not registered for this text source.
+
+The maintained strict Linux E2E suites exercise operational logs and the
+text, keylog, and pcapng representations against all four ByteSink types for
+OpenSSL, GoTLS, and GnuTLS. The pcapng text source has a strict live-output file case
+with optional pcapng for each module. Typed eCaptureQ receivers cover text,
+keylog, pcapng, and the decrypted HTTP path in the OpenSSL suite.
 
 Plain paths and `file://` are files. Unknown or malformed URI schemes fail
 validation. Rotation is valid only for file-backed text/keylog streams and is
-rejected for pcapng or network sinks. New keylog and pcapng files are created
-with sensitive permissions and are truncated at capture start.
+rejected for pcapng or network sinks. New keylog, pcapng, and reconstructed
+plaintext files are created with sensitive permissions. Keylog and pcapng
+files are truncated at capture start.
 
 Operational console output uses stderr. Pcapng stdout therefore contains only
 binary pcapng. An explicit `--logaddr stdout` plus pcapng `--eventaddr stdout`
@@ -96,6 +109,9 @@ GnuTLS. Mode selects representation; address selects transport.
 - pcapng requires a destination; `--pcapfile` is its legacy primary-file
   alias;
 - in pcapng mode, `--keylogfile` is a separate optional keylog artifact;
+- text with `--text-source=pcapng` defaults to plaintext stdout; `--pcapfile` and `--keylogfile` are
+  optional artifacts and their Cobra defaults are cleared unless explicitly
+  set;
 - explicitly setting `--eventaddr` and the corresponding legacy primary flag
   is an error.
 

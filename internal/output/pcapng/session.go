@@ -77,6 +77,16 @@ type Session struct {
 
 // NewSession creates a stateful pcapng encoding session over sink.
 func NewSession(sink writers.ByteSink, snaplen uint32, ifName, filter string, logger *lger.Logger) (*Session, error) {
+	return newSession(sink, snaplen, ifName, filter, logger, pcapFlushInterval, dsbGracePeriod)
+}
+
+// NewLowLatencySession emits packet batches without a fixed DSB grace period.
+// Consumers must handle DSBs that arrive after the encrypted packets.
+func NewLowLatencySession(sink writers.ByteSink, snaplen uint32, ifName, filter string, logger *lger.Logger) (*Session, error) {
+	return newSession(sink, snaplen, ifName, filter, logger, 50*time.Millisecond, 0)
+}
+
+func newSession(sink writers.ByteSink, snaplen uint32, ifName, filter string, logger *lger.Logger, flushInterval, gracePeriod time.Duration) (*Session, error) {
 	if sink == nil {
 		return nil, fmt.Errorf("pcapng sink cannot be nil")
 	}
@@ -161,7 +171,7 @@ func NewSession(sink writers.ByteSink, snaplen uint32, ifName, filter string, lo
 		isClosed:    false,
 		logger:      logger,
 	}
-	go pw.run()
+	go pw.serve(flushInterval, gracePeriod)
 	return pw, nil
 }
 

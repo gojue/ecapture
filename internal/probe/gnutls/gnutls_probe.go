@@ -28,6 +28,7 @@ import (
 	"github.com/gojue/ecapture/v2/internal/domain"
 	"github.com/gojue/ecapture/v2/internal/errors"
 	"github.com/gojue/ecapture/v2/internal/factory"
+	"github.com/gojue/ecapture/v2/internal/output/decrypt"
 	"github.com/gojue/ecapture/v2/internal/output/pcapng"
 	"github.com/gojue/ecapture/v2/internal/output/writers"
 	"github.com/gojue/ecapture/v2/internal/probe/base"
@@ -174,7 +175,15 @@ func (p *Probe) setupManager() error {
 	var err error
 	switch p.config.CaptureMode {
 	case handlers.ModeText:
-		err = p.setupManagerText()
+		if p.config.TextSource == handlers.TextSourcePcapng {
+			err = p.setupManagerPcapNG()
+			if err == nil && p.config.PcapFilter != "" {
+				functions := []string{base.TcFuncNameIngress, base.TcFuncNameEgress}
+				p.bpfManager.InstructionPatchers = pkgebpf.PrepareInsnPatchers(p.bpfManager, functions, p.config.PcapFilter)
+			}
+		} else {
+			err = p.setupManagerText()
+		}
 	case handlers.ModeKeylog, handlers.ModeKey:
 		err = p.setupManagerKeylog()
 	case handlers.ModePcap, handlers.ModePcapng:
@@ -262,6 +271,13 @@ func (p *Probe) setupManagerPcapNG() error {
 		if err := p.registerKeylogSink(p.config.KeylogFile, false); err != nil {
 			return err
 		}
+	}
+	if handlers.IsPcapngText(p.config.CaptureMode, p.config.TextSource) {
+		var eventSinks []domain.CapturedEventSink
+		if runtime := p.config.GetRuntimeOutput(); runtime != nil {
+			eventSinks = runtime.EventSinks
+		}
+		return decrypt.Register(p.Dispatcher(), p.config.Ifname, p.config.PcapFilter, p.Logger(), p.config.GetEventCollectorAddr(), p.config.PcapFile, writers.NewRotateConfig(p.config.GetEventRotation()), eventSinks)
 	}
 
 	pcapSink, err := writers.NewWriterFactory().CreateEventSink(writers.EventSinkOptions{

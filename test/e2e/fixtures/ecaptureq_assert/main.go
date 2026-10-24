@@ -17,10 +17,11 @@ import (
 )
 
 var (
-	server = flag.String("server", "", "eCaptureQ WebSocket URL")
-	format = flag.String("format", "text", "required capture format")
-	token  = flag.String("token", "", "required text payload token")
-	wait   = flag.Duration("timeout", 20*time.Second, "overall timeout")
+	server    = flag.String("server", "", "eCaptureQ WebSocket URL")
+	format    = flag.String("format", "text", "required capture format")
+	sensitive = flag.Bool("sensitive", false, "require sensitive text metadata")
+	token     = flag.String("token", "", "required text payload token")
+	wait      = flag.Duration("timeout", 20*time.Second, "overall timeout")
 )
 
 func main() {
@@ -69,7 +70,7 @@ func main() {
 			if captured == nil || captured.GetCaptureFormat() != wantFormat {
 				continue
 			}
-			if err := validateEvent(captured, wantFormat); err != nil {
+			if err := validateEvent(captured, wantFormat, *sensitive); err != nil {
 				fatalf("invalid EVENT metadata: %v", err)
 			}
 			if *token == "" || strings.Contains(string(captured.GetPayload()), *token) {
@@ -84,7 +85,7 @@ func main() {
 	fatalf("timed out: PROCESS_LOG=%v EVENT=%v", processLog, event)
 }
 
-func validateEvent(event *pb.Event, wantFormat pb.CaptureFormat) error {
+func validateEvent(event *pb.Event, wantFormat pb.CaptureFormat, sensitiveText bool) error {
 	if event.GetTimestamp() == 0 {
 		return fmt.Errorf("timestamp is zero")
 	}
@@ -98,7 +99,7 @@ func validateEvent(event *pb.Event, wantFormat pb.CaptureFormat) error {
 		return fmt.Errorf("original_length=%d length=%d", event.GetOriginalLength(), event.GetLength())
 	}
 	wantSensitivity := pb.Sensitivity_SENSITIVITY_NORMAL
-	if wantFormat != pb.CaptureFormat_CAPTURE_FORMAT_TEXT {
+	if wantFormat != pb.CaptureFormat_CAPTURE_FORMAT_TEXT || sensitiveText {
 		wantSensitivity = pb.Sensitivity_SENSITIVITY_SENSITIVE
 	}
 	if event.GetSensitivity() != wantSensitivity {

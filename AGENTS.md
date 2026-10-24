@@ -85,6 +85,7 @@ main.go -> cli.Start() -> Cobra RunE -> runProbe()
   -> perf/ringbuf sample -> EventDecoder.Decode()
   -> optional module-private EventPreprocessor
   -> events.Dispatcher -> text/keylog/pcapng handler -> ByteSink
+                       -> low-latency pcapng -> decrypt SDK -> HTTP ByteSink
                        -> typed eCaptureQ EVENT publisher
 ```
 
@@ -125,8 +126,9 @@ package ownership.
   before output dispatch; they enrich captured output events instead of
   becoming standalone text or typed events.
 - `--logaddr` is operational logging only. For TLS, GoTLS, and GnuTLS,
-  `--eventaddr` is the primary captured-event destination for text, keylog,
-  and pcapng. eCaptureQ is an additive typed publisher, not a ByteSink.
+  `--eventaddr` is the primary captured-event destination for text (hook or
+  pcapng source), keylog, and pcapng. eCaptureQ is an additive typed publisher,
+  not a ByteSink.
 - Linux production tags are `linux,netgo,ebpfassets,dynamic`; Android uses
   `ecap_android,netgo,ebpfassets,dynamic`. Preserve CO-RE and non-CO-RE paths.
 - Never hand-edit or commit generated `bytecode/*.o`, `bytecode/*.d`,
