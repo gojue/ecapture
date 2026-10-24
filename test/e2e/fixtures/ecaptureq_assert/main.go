@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gojue/ecapture/v2/internal/probe/base/handlers"
 	"golang.org/x/net/websocket"
 	"google.golang.org/protobuf/proto"
 
@@ -110,11 +111,11 @@ func validateEvent(event *pb.Event, wantFormat pb.CaptureFormat, sensitiveText b
 
 func parseFormat(value string) (pb.CaptureFormat, error) {
 	switch value {
-	case "text":
+	case handlers.ModeText:
 		return pb.CaptureFormat_CAPTURE_FORMAT_TEXT, nil
-	case "keylog":
+	case handlers.ModeKeylog:
 		return pb.CaptureFormat_CAPTURE_FORMAT_KEYLOG, nil
-	case "pcapng":
+	case handlers.ModePcapng:
 		return pb.CaptureFormat_CAPTURE_FORMAT_PCAPNG, nil
 	default:
 		return pb.CaptureFormat_CAPTURE_FORMAT_UNSPECIFIED, fmt.Errorf("unsupported format %q", value)

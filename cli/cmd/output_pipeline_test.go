@@ -28,6 +28,7 @@ import (
 	"github.com/gojue/ecapture/v2/internal/domain"
 	outputpipeline "github.com/gojue/ecapture/v2/internal/output"
 	"github.com/gojue/ecapture/v2/internal/probe/base"
+	"github.com/gojue/ecapture/v2/internal/probe/base/handlers"
 )
 
 type pipelineEvent struct{ payload []byte }
@@ -192,7 +193,7 @@ func TestNormalizeTLSPcapngTextOutputFlags(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		if err := normalizeTLSOutputFlags(command, "text", "pcapng", &keylogFile, &pcapFile); err != nil {
+		if err := normalizeTLSOutputFlags(command, handlers.ModeText, handlers.TextSourcePcapng, &keylogFile, &pcapFile); err != nil {
 			t.Fatal(err)
 		}
 		if keylogFile != "" {

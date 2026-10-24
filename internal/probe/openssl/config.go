@@ -70,7 +70,7 @@ type Config struct {
 func NewConfig() *Config {
 	return &Config{
 		BaseConfig:  config.NewBaseConfig(),
-		CaptureMode: "text", // Default to text mode
+		CaptureMode: handlers.ModeText, // Default to text mode
 		TextSource:  handlers.TextSourceHook,
 	}
 }
@@ -149,8 +149,8 @@ func (c *Config) validateCaptureMode() error {
 	}
 
 	switch mode {
-	case "text", "":
-		c.CaptureMode = "text"
+	case handlers.ModeText, "":
+		c.CaptureMode = handlers.ModeText
 		if c.TextSource == handlers.TextSourcePcapng {
 			return c.validatePcapngTextSource()
 		}
