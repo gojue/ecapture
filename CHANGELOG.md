@@ -1,3 +1,20 @@
+# v2.9.0 (2026-10-24)
+
+## 🚀 Features
+- Add `pcapng` as a new data source for text mode across the `openssl` (aka `tls`), `gotls`, and `gnutls` modules. Set with `--text-source pcapng`, it streams captured packets and DSB blocks through the decrypt SDK and reconstructs complete HTTP/1.1 and HTTP/2 requests and responses with network metadata.
+  - `hook` remains the default text source; a raw pcapng copy is saved only when `--pcapfile` is specified.
+  - Packet timestamps are converted from TC monotonic time to Unix time before pcapng serialization.
+
+## What's Changed
+
+* cli: hint text mode to use --text-source pcapng by @cfc4n in https://github.com/gojue/ecapture/pull/1066
+* tls: stream pcapng DSB into HTTP text output by @cfc4n in https://github.com/gojue/ecapture/pull/1063
+* refactor: replace gin.Context with net/http.Request in config factory functions by @cfc4n
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v2.8.2...v2.9.0
+
+<hr>
+
 # v2.8.2 (2026-10-19)
 
 ## What's Changed
