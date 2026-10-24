@@ -184,6 +184,10 @@ func writeJSON(w http.ResponseWriter, status int, response Resp) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	// Prevent browsers from ever sniffing the JSON body as HTML. The JSON
+	// encoding already escapes <, > and & (json.Marshal does this by default),
+	// so this header is defense-in-depth against reflected-XSS.
+	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.WriteHeader(status)
 	_, _ = w.Write(body)
 }
