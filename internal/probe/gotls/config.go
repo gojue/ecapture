@@ -105,7 +105,7 @@ type Config struct {
 func NewConfig() *Config {
 	return &Config{
 		BaseConfig:    config.NewBaseConfig(),
-		CaptureMode:   "text",
+		CaptureMode:   handlers.ModeText,
 		TextSource:    handlers.TextSourceHook,
 		GoVersion:     "",
 		IsRegisterABI: false,

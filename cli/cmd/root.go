@@ -22,6 +22,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -29,6 +30,7 @@ import (
 	internalLogger "github.com/gojue/ecapture/v2/internal/logger"
 	outputpipeline "github.com/gojue/ecapture/v2/internal/output"
 	"github.com/gojue/ecapture/v2/internal/output/writers"
+	"github.com/gojue/ecapture/v2/internal/probe/base/handlers"
 	"github.com/gojue/ecapture/v2/pkg/ecaptureq"
 
 	"github.com/rs/zerolog"
@@ -239,6 +241,23 @@ func runConfiguredProbe(probeType factory.ProbeType, probeConfig domain.Configur
 	return runConfiguredProbeFunc(probeType, probeConfig)
 }
 
+// logTextSourceHint reminds TLS probes running in text mode that they can
+// switch to the pcapng text source for more complete plaintext data.
+func logTextSourceHint(logger *zerolog.Logger, probeConfig domain.Configuration) {
+	modeConfig, ok := probeConfig.(domain.CaptureModeConfiguration)
+	if !ok {
+		return
+	}
+	textConfig, ok := probeConfig.(domain.TextSourceConfiguration)
+	if !ok {
+		return
+	}
+	if strings.EqualFold(modeConfig.GetCaptureMode(), handlers.ModeText) &&
+		!strings.EqualFold(textConfig.GetTextSource(), handlers.TextSourcePcapng) {
+		logger.Warn().Msg("text mode: for more complete data, use '--text-source pcapng' to decrypt directly from pcapng packets")
+	}
+}
+
 type probeGeneration struct {
 	probe  domain.Probe
 	ctx    context.Context
@@ -385,6 +404,8 @@ func runProbe(probeType factory.ProbeType, probeConfig domain.Configuration) (ru
 	logger.Info().Str("Listen for eCaptureQ", globalConf.EcaptureQ).Send()
 	logger.Info().Str("logger", globalConf.LoggerAddr).Msg("eCapture running logs")
 	logger.Info().Str("eventCollector", probeConfig.GetEventCollectorAddr()).Msg("the file handler that receives the captured event")
+
+	logTextSourceHint(logger, probeConfig)
 
 	var reloadConfig = make(chan *http.ConfigUpdate, 10)
 	var httpErrors <-chan error

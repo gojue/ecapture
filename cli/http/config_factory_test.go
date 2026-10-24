@@ -28,6 +28,7 @@ import (
 
 	"github.com/gojue/ecapture/v2/internal/config"
 	"github.com/gojue/ecapture/v2/internal/domain"
+	"github.com/gojue/ecapture/v2/internal/probe/base/handlers"
 	bashProbe "github.com/gojue/ecapture/v2/internal/probe/bash"
 )
 
@@ -123,7 +124,7 @@ func TestTLSHTTPConfigFactoriesPreserveTextSource(t *testing.T) {
 			}
 			mode := update.Config.(domain.CaptureModeConfiguration)
 			source := update.Config.(domain.TextSourceConfiguration)
-			if mode.GetCaptureMode() != "text" || source.GetTextSource() != "pcapng" {
+			if mode.GetCaptureMode() != handlers.ModeText || source.GetTextSource() != handlers.TextSourcePcapng {
 				t.Fatalf("mode/source = %q/%q, want text/pcapng", mode.GetCaptureMode(), source.GetTextSource())
 			}
 		})

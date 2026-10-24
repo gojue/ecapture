@@ -19,11 +19,13 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+
+	"github.com/gojue/ecapture/v2/internal/probe/base/handlers"
 )
 
 func normalizeTLSOutputFlags(command *cobra.Command, mode, textSource string, keylogFile, pcapFile *string) error {
 	mode = strings.ToLower(mode)
-	if (mode == "" || mode == "text") && strings.EqualFold(textSource, "pcapng") {
+	if (mode == "" || mode == handlers.ModeText) && strings.EqualFold(textSource, handlers.TextSourcePcapng) {
 		if flag := command.Flag("keylogfile"); flag == nil || !flag.Changed {
 			*keylogFile = ""
 		}
@@ -37,12 +39,12 @@ func normalizeTLSOutputFlags(command *cobra.Command, mode, textSource string, ke
 		return nil
 	}
 	switch mode {
-	case "key", "keylog":
+	case handlers.ModeKey, handlers.ModeKeylog:
 		if flag := command.Flag("keylogfile"); flag != nil && flag.Changed {
 			return fmt.Errorf("--eventaddr and --keylogfile cannot both select the primary keylog destination")
 		}
 		*keylogFile = ""
-	case "pcap", "pcapng":
+	case handlers.ModePcap, handlers.ModePcapng:
 		if flag := command.Flag("pcapfile"); flag != nil && flag.Changed {
 			return fmt.Errorf("--eventaddr and --pcapfile cannot both select the primary pcapng destination")
 		}
