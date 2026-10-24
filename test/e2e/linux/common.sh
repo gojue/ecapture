@@ -16,6 +16,10 @@ TLS_SERVER_PID=""
 WORK_DIR=""
 TLS_SERVER_PORT=""
 TLS_SERVER_URL=""
+HTTP_REASSEMBLY_SERVER=""
+HTTP_REASSEMBLY_PID=""
+HTTP_REASSEMBLY_PORT=""
+HTTP_REASSEMBLY_URL=""
 E2E_TOKEN=""
 PCAPNG_CHECK=""
 OUTPUT_RECEIVER_PID=""
@@ -88,6 +92,8 @@ build_host_helpers() {
     local helper_dir="$WORK_DIR/helpers"
     mkdir -p "$helper_dir"
     go build -o "$helper_dir/tls_server" "$E2E_DIR/fixtures/tls_server/main.go"
+    go build -o "$helper_dir/http_reassembly_server" "$E2E_DIR/fixtures/http_reassembly_server/main.go"
+    HTTP_REASSEMBLY_SERVER="$helper_dir/http_reassembly_server"
     go build -o "$helper_dir/pcapng_check" "$E2E_DIR/fixtures/pcapng_check/main.go"
     go build -o "$helper_dir/output_receiver" "$E2E_DIR/fixtures/output_receiver/main.go"
     go build -o "$helper_dir/ecaptureq_assert" "$E2E_DIR/fixtures/ecaptureq_assert/main.go"
@@ -176,6 +182,50 @@ start_tls_fixture() {
 
     log_error "Timed out waiting for TLS fixture"
     return 1
+}
+
+start_http_reassembly_fixture() {
+    local enable_h2="$1"  # "true" or "false"
+    local ready_file="$WORK_DIR/http-reassembly-server.addr"
+    local server_log="$WORK_DIR/http-reassembly-server.log"
+    rm -f -- "$ready_file"
+    "$HTTP_REASSEMBLY_SERVER" \
+        --listen 127.0.0.1:0 \
+        --ready-file "$ready_file" \
+        --token "$E2E_TOKEN" \
+        --h2="$enable_h2" >"$server_log" 2>&1 &
+    HTTP_REASSEMBLY_PID=$!
+
+    local attempt
+    for attempt in $(seq 1 50); do
+        if [[ -s "$ready_file" ]]; then
+            local address
+            address="$(tr -d '\r\n' <"$ready_file")"
+            HTTP_REASSEMBLY_PORT="${address##*:}"
+            HTTP_REASSEMBLY_URL="https://127.0.0.1:$HTTP_REASSEMBLY_PORT"
+            log_info "Local HTTP reassembly fixture: $HTTP_REASSEMBLY_URL (h2=$enable_h2)"
+            return 0
+        fi
+        if ! kill -0 "$HTTP_REASSEMBLY_PID" 2>/dev/null; then
+            log_error "HTTP reassembly fixture exited before becoming ready"
+            cat "$server_log" >&2 || true
+            return 1
+        fi
+        sleep 0.1
+    done
+
+    log_error "Timed out waiting for HTTP reassembly fixture"
+    return 1
+}
+
+stop_http_reassembly_fixture() {
+    if [[ -n "$HTTP_REASSEMBLY_PID" ]] && kill -0 "$HTTP_REASSEMBLY_PID" 2>/dev/null; then
+        kill -TERM "$HTTP_REASSEMBLY_PID" 2>/dev/null || true
+        wait "$HTTP_REASSEMBLY_PID" 2>/dev/null || true
+    fi
+    HTTP_REASSEMBLY_PID=""
+    HTTP_REASSEMBLY_PORT=""
+    HTTP_REASSEMBLY_URL=""
 }
 
 start_capture() {
@@ -314,6 +364,7 @@ linux_suite_cleanup() {
     stop_output_receiver || true
     stop_packet_capture || true
     stop_capture || true
+    stop_http_reassembly_fixture || true
     if [[ -n "$TLS_SERVER_PID" ]] && kill -0 "$TLS_SERVER_PID" 2>/dev/null; then
         kill -TERM "$TLS_SERVER_PID" 2>/dev/null || true
         wait "$TLS_SERVER_PID" 2>/dev/null || true

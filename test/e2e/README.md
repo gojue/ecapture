@@ -17,6 +17,11 @@ This directory keeps the actively maintained TLS E2E scope small and explicit:
 - Every Linux TLS text suite performs same-probe HTTP reloads that inherit the
   original destination, switch to an explicit new destination only after
   success, and reject an invalid destination while the active output continues.
+- The GoTLS pcapng text source additionally verifies that an HTTP body split
+  across multiple TCP segments (PSH packets) is reconstructed completely and
+  in order for both HTTP/1.1 and HTTP/2 keep-alive connections. HTTP/3
+  (QUIC/UDP) text reconstruction is not yet supported by eCapture, so it is
+  out of scope for these cases.
 - A separate strict common-config suite verifies file `--eventaddr` and
   operational-log isolation for Bash, Zsh, and the MySQL probe using local
   deterministic fixtures.

@@ -95,6 +95,30 @@ wait_for_file_contains() {
     return 1
 }
 
+assert_chunks_in_order() {
+    local file="$1"
+    local token="$2"
+    local count="$3"
+    local description="${4:-body chunks}"
+    local i line prev=0
+
+    assert_file_nonempty "$file" "$description" || return 1
+    for ((i = 0; i < count; i++)); do
+        # A marker occupies its own line inside the reconstructed body, so the
+        # word boundary prevents CHUNK_1 from also matching CHUNK_10.
+        line="$(grep -aEn -- "${token}_CHUNK_${i}\b" "$file" | head -n 1 | cut -d: -f1)"
+        if [[ -z "$line" ]]; then
+            log_error "$description chunk $i not found in $file"
+            return 1
+        fi
+        if ((line <= prev)); then
+            log_error "$description chunk $i out of order in $file (line $line, previous $prev)"
+            return 1
+        fi
+        prev=$line
+    done
+}
+
 assert_file_not_contains() {
     local file="$1"
     local literal="$2"
