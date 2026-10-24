@@ -1,4 +1,4 @@
-// File: test/e2e/http_reassembly_client.go
+// File: test/e2e/fixtures/http_reassembly_client/main.go
 // Deterministic TLS client for the eCapture E2E "multi-PSH body reassembly"
 // cases. It sends a POST body built from several chunks and verifies the
 // server echoes it back verbatim.

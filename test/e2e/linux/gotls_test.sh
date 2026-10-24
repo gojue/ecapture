@@ -17,7 +17,7 @@ build_go_client() {
 
 build_http_reassembly_client() {
     HTTP_REASSEMBLY_CLIENT="$WORK_DIR/helpers/http_reassembly_client"
-    CGO_ENABLED=0 go build -o "$HTTP_REASSEMBLY_CLIENT" "$E2E_DIR/http_reassembly_client.go"
+    CGO_ENABLED=0 go build -o "$HTTP_REASSEMBLY_CLIENT" "$E2E_DIR/fixtures/http_reassembly_client/main.go"
 }
 
 run_go_request() {
