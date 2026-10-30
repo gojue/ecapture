@@ -186,6 +186,7 @@ $(KERN_OBJECTS): $(BYTECODE_DIR)/%_core.o: kern/%.c \
 		-target bpfel -c $< -o $@ \
 		-fno-ident -fdebug-compilation-dir . -g -D__BPF_TARGET_MISSING="GCC error \"The eBPF is using target specific macros, please provide -target\"" \
 		-MD -MP -MF $(@:.o=.d) || exit 1
+	$(CMD_STRIP) -g $@
 
 .PHONY: autogen
 autogen: .checkver_$(CMD_BPFTOOL)
@@ -220,6 +221,7 @@ $(KERN_OBJECTS_NOCORE): $(BYTECODE_DIR)/%_noncore.o: kern/%.c \
 			-march=bpf \
 			-filetype=obj \
 			-o $@ || exit 1
+	$(CMD_STRIP) -g $@
 
 # Generate assets for all eBPF bytecode
 .PHONY: assets
