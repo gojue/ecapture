@@ -40,6 +40,8 @@ jobs:
           sudo make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- prepare V=0
           ls -al /usr/src/$source_dir
         shell: bash
+      - name: Check non-CO-RE compiler compatibility
+        run: bash test/build/nocore_cflags_test.sh
       - name: Build CO-RE
         run: |
           make clean
@@ -105,6 +107,8 @@ jobs:
           sudo make ARCH=x86 CROSS_COMPILE=x86_64-linux-gnu- prepare V=0 > /dev/null
           ls -al /usr/src/$source_dir
         shell: bash
+      - name: Check non-CO-RE compiler compatibility
+        run: bash test/build/nocore_cflags_test.sh
       - name: Build CO-RE
         run: |
           make clean

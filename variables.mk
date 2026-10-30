@@ -327,9 +327,11 @@ EXTRA_CFLAGS ?= -O2 -mcpu=v1 \
 	-Wno-pointer-sign
 
 CLANG_SYSTEM_INCLUDE = $(shell $(CMD_CLANG) -print-file-name=include)
+# Match Kbuild's support for tagged anonymous fields in newer kernel headers.
 EXTRA_CFLAGS_NOCORE ?= -emit-llvm -O2 -S\
 	-D__TARGET_ARCH_$(LINUX_ARCH) \
 	-xc -g -isystem $(CLANG_SYSTEM_INCLUDE) \
+	-fms-extensions \
 	-D__BPF_TRACING__ \
 	-D__KERNEL__ \
 	-DNOCORE \
@@ -351,6 +353,7 @@ EXTRA_CFLAGS_NOCORE ?= -emit-llvm -O2 -S\
 	-Wno-compare-distinct-pointer-types \
 	-Wno-address-of-packed-member \
 	-Wno-unknown-attributes \
+	-Wno-microsoft-anon-tag \
 	-fno-stack-protector \
 	-fno-jump-tables \
 	-fno-unwind-tables \

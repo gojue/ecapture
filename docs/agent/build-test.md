@@ -93,6 +93,12 @@ device/emulator must be rooted/userdebug API 33+ with SELinux not Enforcing.
   usable `.config` and cross toolchain.
 - Merely installing a `linux-source` tarball is insufficient. CI extracts it,
   creates/configures `.config`, and prepares it for the target architecture.
+- Linux 6.19+ headers use tagged anonymous struct/union fields. The non-CO-RE
+  Clang flags must retain `-fms-extensions`, matching Kbuild, so those fields
+  have the correct layout and remain accessible. `-Wno-microsoft-anon-tag`
+  accepts this intentional extension without hiding other diagnostics.
+  `bash test/build/nocore_cflags_test.sh` checks the layout and field access
+  through the production Clang-to-BPF flags, even on an older build kernel.
 
 ## Build graph, tags, and generated files
 
