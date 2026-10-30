@@ -135,10 +135,10 @@ else ifeq ($(SELECTED_TARGET_ARCH),loong64)
 endif
 
 ifeq ($(CGO_LINK_FLAGS),)
-	CGO_LINK_FLAGS := -static
+	CGO_LINK_FLAGS := -static-pie
 endif
 ifeq ($(GO_EXTLDFLAGS),)
-	GO_EXTLDFLAGS := -static
+	GO_EXTLDFLAGS := -static-pie
 endif
 
 ifneq ($(SELECTED_TARGET_ARCH),$(NATIVE_GOARCH))
