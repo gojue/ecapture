@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./images/ecapture-logo.png" alt="eCapture logo" width="180" />
+  <img src="./images/ecapture-logo.svg" alt="eCapture logo" width="180" />
 </p>
 
 <p align="center">
