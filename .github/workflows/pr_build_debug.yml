@@ -46,8 +46,8 @@ jobs:
             echo "LOONG64_VMLINUX=$kernel_source/vmlinux" >> "$GITHUB_ENV"
           fi
 
-      - name: Check build configuration
-        run: bash test/build/loong64_config_test.sh
+      - name: Check architecture build configuration
+        run: bash test/build/architecture_config_test.sh
 
       - name: Build Debug artifacts
         env:
@@ -60,8 +60,6 @@ jobs:
           make env
           DEBUG=1 make -f builder/Makefile.release release SNAPSHOT_VERSION="$BUILD_VERSION" \
             2>&1 | tee "$RUNNER_TEMP/ecapture-build.log"
-          mkdir -p dist
-          cp bin/ecapture-*.tar.gz dist/
 
       - name: Verify Loong64 artifact and startup
         if: matrix.arch == 'loong64'
@@ -74,17 +72,26 @@ jobs:
             -o "$RUNNER_TEMP/gotls.test" ./internal/probe/gotls
           qemu-loongarch64-static "$RUNNER_TEMP/gotls.test" -test.run '^TestDecodeInstructionLoong64$'
 
-      - name: Upload Debug Artifacts
-        uses: actions/upload-artifact@v4
+      - name: Upload Linux debug package
+        uses: actions/upload-artifact@v7
         with:
-          name: ecapture-v0.0.0-pr-${{ github.event.number || 'dev' }}-debug-${{ matrix.arch }}
-          path: dist/*.tar.gz
+          path: bin/ecapture-v0.0.0-pr-${{ github.event.number || 'dev' }}-debug-linux-${{ matrix.arch }}.tar.gz
+          archive: false
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload Android debug package
+        if: matrix.arch != 'loong64'
+        uses: actions/upload-artifact@v7
+        with:
+          path: bin/ecapture-v0.0.0-pr-${{ github.event.number || 'dev' }}-debug-android-${{ matrix.arch }}.tar.gz
+          archive: false
           if-no-files-found: error
           retention-days: 7
 
       - name: List Built Artifacts
         run: |
           echo "Built debug artifacts:"
-          ls -la dist/
+          ls -lh bin/ecapture-*.tar.gz
           echo "Artifact sizes:"
-          du -h dist/*
+          du -h bin/ecapture-*.tar.gz

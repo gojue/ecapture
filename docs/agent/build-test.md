@@ -54,6 +54,8 @@ initializes submodules and prepares target kernel inputs under
 `.build/kernel-<target>/`. It prints the environment exports needed by `make`.
 For Loong64 it calls `prepare-loong64-kernel.sh` to build the target BTF source.
 The PR build matrix runs this same initializer for every architecture.
+`bash test/build/architecture_config_test.sh` checks all three target mappings,
+selector precedence and unsupported combinations, so it runs for every target.
 
 All release architectures use the shared Ubuntu 24.04 x86_64 job. Loong64
 is a target selected through `TARGET_ARCH`, just like amd64/arm64. It requires the
@@ -82,6 +84,9 @@ job builds all architectures through `builder/Makefile.release release`,
 omitting Android for Loong64. Loong64 dependency installation, build and audit
 are one optional step; failure removes its incomplete artifacts before the
 common publish/checksum step. AMD64/ARM64 failures remain fatal.
+PR debug packages use `actions/upload-artifact@v7` with `archive: false`:
+each Linux/Android `.tar.gz` is uploaded separately without an outer ZIP,
+preserving executable permissions inside the tar archive.
 
 Changing the build runner does not change the documented target kernel
 minimums. Ubuntu 24.04 supplies newer libc and kernel headers; static linking

@@ -91,10 +91,12 @@ jobs:
                 '',
                 artifactSection,
                 '',
+                'Each link downloads a single `.tar.gz` package; extract it once to get the executable.',
+                '',
                 '⏰ Files will be retained for 7 days, please download and test promptly.',
                 '',
                 '---',
-                '*This build includes debug binaries for Linux (amd64/arm64/loong64) and Android (amd64/arm64).*'
+                '*Build targets: Linux (amd64/arm64/loong64) and Android (amd64/arm64). Available packages are listed above.*'
               ].join('\n');
 
               await github.rest.issues.createComment({
