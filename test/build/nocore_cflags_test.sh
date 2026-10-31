@@ -16,20 +16,27 @@ trap 'rm -rf -- "$test_dir"' EXIT
 # Linux 6.19+ embeds tagged structs anonymously. Without the matching C
 # dialect, Clang drops the fields, breaking both layout and member access.
 cat >"$test_dir/anonymous_fields.c" <<'C'
-struct filename_head {
+#include "ecapture.h"
+
+/* Exercise the x86 tracing-header contract even on older kernel headers. */
+#ifdef __TARGET_ARCH_x86
+#include <asm/ftrace.h>
+#endif
+
+struct test_filename_head {
     const char *name;
     const char *uptr;
 };
 
-struct filename {
-    struct filename_head;
+struct test_filename {
+    struct test_filename_head;
     char iname[32];
 };
 
-_Static_assert(__builtin_offsetof(struct filename, iname) == sizeof(struct filename_head),
+_Static_assert(__builtin_offsetof(struct test_filename, iname) == sizeof(struct test_filename_head),
     "anonymous fields must preserve the kernel structure layout");
 
-int read_filename(struct filename *filename) { return filename->name != 0 && filename->uptr != 0; }
+int read_filename(struct test_filename *filename) { return filename->name != 0 && filename->uptr != 0; }
 C
 
 # Use the production flags and the same Clang -> LLVM IR -> BPF pipeline.
@@ -38,7 +45,7 @@ cat >"$test_dir/rules.mk" <<'MAKE'
 .PHONY: check-nocore-cflags
 check-nocore-cflags: preflight
 	set -euo pipefail
-	$(CMD_CLANG) $(EXTRA_CFLAGS_NOCORE) -c "$(NOCORE_CFLAGS_TEST_DIR)/anonymous_fields.c" -o "$(NOCORE_CFLAGS_TEST_DIR)/anonymous_fields.ll"
+	$(CMD_CLANG) $(EXTRA_CFLAGS_NOCORE) $(KERN_INCLUDES_NOCORE) -c "$(NOCORE_CFLAGS_TEST_DIR)/anonymous_fields.c" -o "$(NOCORE_CFLAGS_TEST_DIR)/anonymous_fields.ll"
 	$(CMD_LLC) -march=bpf -filetype=obj "$(NOCORE_CFLAGS_TEST_DIR)/anonymous_fields.ll" -o "$(NOCORE_CFLAGS_TEST_DIR)/anonymous_fields.o"
 	$(CMD_STRIP) -g "$(NOCORE_CFLAGS_TEST_DIR)/anonymous_fields.o"
 	$(CMD_READELF) -h "$(NOCORE_CFLAGS_TEST_DIR)/anonymous_fields.o" | grep -Eq 'Machine:.*BPF'
@@ -46,4 +53,4 @@ MAKE
 
 make --no-print-directory -s -f Makefile -f "$test_dir/rules.mk" \
     NOCORE_CFLAGS_TEST_DIR="$test_dir" check-nocore-cflags
-echo "non-CO-RE anonymous-field compilation passed"
+echo "non-CO-RE kernel-header and anonymous-field compilation passed"

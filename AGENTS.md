@@ -229,6 +229,8 @@ verification matrix live in `docs/agent/build-test.md`.
 - Non-CO-RE compilation must retain Kbuild's `-fms-extensions` support for
   tagged anonymous fields in Linux 6.19+ headers; dropping it breaks field
   access and structure layout on Linux 7.x.
+  x86 non-CO-RE headers also require `CC_USING_FENTRY` when function tracing
+  is configured; do not enable native `-pg`/`-mfentry` instrumentation for BPF.
 - `make build` is not Go-only. Switching architecture, Android, or asset modes
   still requires a clean serial validation even though libpcap, bytecode, Go
   intermediates, and generated asset names are architecture-isolated. The

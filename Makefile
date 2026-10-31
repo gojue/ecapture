@@ -207,15 +207,7 @@ $(KERN_OBJECTS_NOCORE): $(BYTECODE_DIR)/%_noncore.o: kern/%.c \
 	$(CMD_MKDIR) -p $(BYTECODE_DIR)
 	$(CMD_CLANG) \
 			$(EXTRA_CFLAGS_NOCORE) \
-			$(BPFHEADER) \
-			-I $(KERN_SRC_PATH)/arch/$(LINUX_ARCH)/include \
-			-I $(KERN_BUILD_PATH)/arch/$(LINUX_ARCH)/include/generated \
-			-I $(KERN_SRC_PATH)/include \
-			-I $(KERN_SRC_PATH)/include/linux \
-			-I $(KERN_SRC_PATH)/arch/$(LINUX_ARCH)/include/uapi \
-			-I $(KERN_BUILD_PATH)/arch/$(LINUX_ARCH)/include/generated/uapi \
-			-I $(KERN_SRC_PATH)/include/uapi \
-			-I $(KERN_BUILD_PATH)/include/generated/uapi \
+			$(KERN_INCLUDES_NOCORE) \
 			-c $< \
 			-o - |$(CMD_LLC) \
 			-march=bpf \

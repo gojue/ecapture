@@ -267,6 +267,16 @@ KERN_RELEASE ?= $(UNAME_R)
 KERN_BUILD_PATH ?= $(if $(KERN_HEADERS),$(KERN_HEADERS),/lib/modules/$(KERN_RELEASE)/build)
 KERN_SRC_PATH ?= $(if $(KERN_HEADERS),$(KERN_HEADERS),$(if $(wildcard /lib/modules/$(KERN_RELEASE)/source),/lib/modules/$(KERN_RELEASE)/source,$(KERN_BUILD_PATH)))
 
+KERN_INCLUDES_NOCORE = $(BPFHEADER) \
+	-I $(KERN_SRC_PATH)/arch/$(LINUX_ARCH)/include \
+	-I $(KERN_BUILD_PATH)/arch/$(LINUX_ARCH)/include/generated \
+	-I $(KERN_SRC_PATH)/include \
+	-I $(KERN_SRC_PATH)/include/linux \
+	-I $(KERN_SRC_PATH)/arch/$(LINUX_ARCH)/include/uapi \
+	-I $(KERN_BUILD_PATH)/arch/$(LINUX_ARCH)/include/generated/uapi \
+	-I $(KERN_SRC_PATH)/include/uapi \
+	-I $(KERN_BUILD_PATH)/include/generated/uapi
+
 BPF_NOCORE_TAG = $(subst .,_,$(KERN_RELEASE)):$(subst .,_,$(VERSION_NUM))
 
 #
@@ -328,8 +338,11 @@ EXTRA_CFLAGS ?= -O2 -mcpu=v1 \
 
 CLANG_SYSTEM_INCLUDE = $(shell $(CMD_CLANG) -print-file-name=include)
 # Match Kbuild's support for tagged anonymous fields in newer kernel headers.
+# x86 tracing headers also require Kbuild's fentry declaration macro, without
+# enabling native function instrumentation (-pg/-mfentry) in BPF programs.
 EXTRA_CFLAGS_NOCORE ?= -emit-llvm -O2 -S\
 	-D__TARGET_ARCH_$(LINUX_ARCH) \
+	$(if $(filter x86,$(LINUX_ARCH)),-DCC_USING_FENTRY) \
 	-xc -g -isystem $(CLANG_SYSTEM_INCLUDE) \
 	-fms-extensions \
 	-D__BPF_TRACING__ \
