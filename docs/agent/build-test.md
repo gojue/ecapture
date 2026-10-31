@@ -88,6 +88,22 @@ PR debug packages use `actions/upload-artifact@v7` with `archive: false`:
 each Linux/Android `.tar.gz` is uploaded separately without an outer ZIP,
 preserving executable permissions inside the tar archive.
 
+Docker images are packaged after publishing in the same release job. The job
+extracts the amd64/arm64 Linux release binaries into a small build context with
+`amd64/ecapture` and `arm64/ecapture`. `builder/Dockerfile` uses BuildKit's
+`TARGETARCH` to copy the matching binary into Alpine; it does not install a
+toolchain, compile, or require QEMU. The image binary and version are identical
+to the Linux release package, without a separate `_docker` version suffix.
+Docker targets remain `linux/amd64` and `linux/arm64`.
+
+To package existing Linux release binaries locally, prepare that context and
+run on Linux (use `--push` instead of `--load` for a multi-platform image):
+
+```sh
+docker buildx build --platform linux/arm64 --load \
+  -f builder/Dockerfile -t ecapture:local /path/to/prepared-context
+```
+
 Changing the build runner does not change the documented target kernel
 minimums. Ubuntu 24.04 supplies newer libc and kernel headers; static linking
 and successful builds alone do not establish old-kernel capture compatibility.

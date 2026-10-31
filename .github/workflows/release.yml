@@ -15,7 +15,7 @@ jobs:
 
   build-and-publish:
     runs-on: ubuntu-24.04
-    name: Build Linux/Android artifacts and publish release
+    name: Build and publish release artifacts and Docker images
     timeout-minutes: 120
     permissions:
       contents: write
@@ -158,25 +158,21 @@ jobs:
           IS_PRERELEASE: ${{ steps.release_type.outputs.IS_PRERELEASE }}
         run: |
           make -f builder/Makefile.release publish SNAPSHOT_VERSION=${{ github.ref_name }}
-  build-docker-image:
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-      - name: Check Release Type
-        id: release_type
+
+      - name: Prepare Docker binaries from release packages
+        env:
+          RELEASE_VERSION: ${{ github.ref_name }}
         run: |
-          TAG_NAME=${{ github.ref_name }}
-          if [[ "$TAG_NAME" =~ (alpha|beta|rc) ]]; then
-            echo "IS_PRERELEASE=true" >> $GITHUB_OUTPUT
-            echo "🚧 Pre-release detected for Docker: $TAG_NAME"
-          else
-            echo "IS_PRERELEASE=false" >> $GITHUB_OUTPUT
-            echo "📦 Stable release detected for Docker: $TAG_NAME"
-          fi
-        shell: bash
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v4
+          set -euo pipefail
+          for arch in amd64 arm64; do
+            package="ecapture-$RELEASE_VERSION-linux-$arch"
+            destination="$RUNNER_TEMP/ecapture-docker/$arch"
+            mkdir -p "$destination"
+            tar -xzf "bin/$package.tar.gz" -C "$destination" \
+              --strip-components=1 "$package/ecapture"
+            test -x "$destination/ecapture"
+          done
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
       - name: Login to Docker Hub
@@ -184,8 +180,6 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: Update submodule
-        run: git submodule update --init
       - name: Prepare Docker Tags
         id: docker_tags
         run: |
@@ -203,11 +197,8 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v7
         with:
-          context: .
-          build-args: VERSION=${{ github.ref_name }}
+          context: ${{ runner.temp }}/ecapture-docker
           file: ./builder/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
-          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/ecapture:buildcache
-          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/ecapture:buildcache,mode=max
           tags: ${{ steps.docker_tags.outputs.TAGS }}
