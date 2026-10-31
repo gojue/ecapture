@@ -93,6 +93,18 @@ device/emulator must be rooted/userdebug API 33+ with SELinux not Enforcing.
   usable `.config` and cross toolchain.
 - Merely installing a `linux-source` tarball is insufficient. CI extracts it,
   creates/configures `.config`, and prepares it for the target architecture.
+- Linux 6.19+ headers use tagged anonymous struct/union fields. The non-CO-RE
+  Clang flags must retain `-fms-extensions`, matching Kbuild, so those fields
+  have the correct layout and remain accessible. `-Wno-microsoft-anon-tag`
+  accepts this intentional extension without hiding other diagnostics.
+- x86 headers with `CONFIG_FUNCTION_TRACER=y` also require Kbuild's
+  `CC_USING_FENTRY` declaration macro. Non-CO-RE builds define it for x86
+  header compatibility without enabling `-pg` or `-mfentry` instrumentation.
+- `bash test/build/nocore_cflags_test.sh` compiles the real probe headers,
+  explicitly includes x86 `asm/ftrace.h`, and checks anonymous-field layout
+  and access through the production Clang-to-BPF flags and include paths.
+  It requires prepared target headers and accepts `KERN_HEADERS` and
+  `TARGET_ARCH` in the environment, just like a normal non-CO-RE build.
 
 ## Build graph, tags, and generated files
 
