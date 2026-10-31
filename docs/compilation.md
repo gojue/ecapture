@@ -44,6 +44,12 @@ compilation environment.
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/gojue/ecapture/master/builder/init_env.sh)"
 ```
 
+The initializer defaults to the host architecture. In an existing checkout,
+use `TARGET_ARCH=loong64 bash builder/init_env.sh` on Ubuntu 24.04 x86_64 to
+install the cross-toolchain and prepare the target kernel/BTF inputs. It also
+accepts `TARGET_ARCH=amd64` or `arm64`. Follow the environment exports and build
+command printed when initialization finishes.
+
 #### other Linux
 
 In addition to the software listed in the 'Toolchain Version' section above, the following software is also required for

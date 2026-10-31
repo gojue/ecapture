@@ -32,56 +32,19 @@ jobs:
         with:
           go-version: '1.26.0'
 
-      - name: Install Compilers
+      - name: Initialize build environment
+        env:
+          TARGET_ARCH: ${{ matrix.arch }}
         shell: bash
         run: |
-          sudo apt-get update
-          sudo apt-get install --yes \
-            build-essential \
-            pkgconf \
-            libelf-dev \
-            llvm-14 \
-            clang-14 \
-            bc bison dwarves flex libssl-dev \
-            linux-tools-common \
-            linux-tools-generic \
-            gcc \
-            gcc-aarch64-linux-gnu \
-            linux-source
-          if [[ "${{ matrix.arch }}" == loong64 ]]; then
-            sudo apt-get install --yes clang-18 lld-18 llvm-18 llvm-18-tools \
-              libc6-dev-loong64-cross linux-libc-dev-loong64-cross \
-              libgcc-13-dev-loong64-cross libatomic1-loong64-cross qemu-user-static
-          fi
-          bpftool_bin=$(find /usr/lib -maxdepth 2 -type f -path '/usr/lib/linux-tools-*/bpftool' | sort -V | tail -n 1)
-          test -x "$bpftool_bin"
-          sudo ln -sf "$bpftool_bin" /usr/local/bin/bpftool
-          for tool in "clang" "llc" "llvm-strip"
-          do
-            sudo rm -f /usr/bin/$tool
-            sudo ln -s /usr/bin/$tool-14 /usr/bin/$tool
-          done
-          cd /usr/src
-          source_file=$(find . -maxdepth 1 -name "*linux-source*.tar.bz2")
-          source_dir=$(echo "$source_file" | sed 's/\.tar\.bz2//g')
-          sudo tar -xf $source_file
-          cd $source_dir
-          test -f .config || sudo make oldconfig
-          sudo make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- prepare V=0
-
-
-      - name: Prepare Loong64 target kernel
-        if: matrix.arch == 'loong64'
-        run: |
           set -euo pipefail
-          source_file=$(find /usr/src -maxdepth 1 -name 'linux-source*.tar.*' | sort -V | tail -n 1)
-          test -f "$source_file"
-          mkdir -p "$RUNNER_TEMP/loong64-kernel"
-          tar -xf "$source_file" -C "$RUNNER_TEMP/loong64-kernel"
-          source_dir=$(find "$RUNNER_TEMP/loong64-kernel" -mindepth 1 -maxdepth 1 -type d -name 'linux-source*' | head -n 1)
-          builder/prepare-loong64-kernel.sh "$source_dir"
-          echo "KERN_HEADERS=$source_dir" >> "$GITHUB_ENV"
-          echo "LOONG64_VMLINUX=$source_dir/vmlinux" >> "$GITHUB_ENV"
+          bash builder/init_env.sh
+          kernel_source=$(find "$PWD/.build/kernel-$TARGET_ARCH" -mindepth 1 -maxdepth 1 -type d -name 'linux-source*' | sort -V | tail -n 1)
+          test -f "$kernel_source/Makefile"
+          echo "KERN_HEADERS=$kernel_source" >> "$GITHUB_ENV"
+          if [[ "$TARGET_ARCH" == loong64 ]]; then
+            echo "LOONG64_VMLINUX=$kernel_source/vmlinux" >> "$GITHUB_ENV"
+          fi
 
       - name: Check build configuration
         run: bash test/build/loong64_config_test.sh
@@ -93,7 +56,6 @@ jobs:
           LOONG64_TOOLCHAIN_TRACE: '1'
         run: |
           set -euo pipefail
-          if [[ "$TARGET_ARCH" == amd64 ]]; then unset TARGET_ARCH; fi
           make clean
           make env
           DEBUG=1 make -f builder/Makefile.release release SNAPSHOT_VERSION="$BUILD_VERSION" \

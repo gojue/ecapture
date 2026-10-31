@@ -24,7 +24,21 @@ another OS, release, or host architecture before libpcap or eBPF compilation.
 
 ## Toolchain and sysroot
 
-Install LLVM/Clang/LLD 18 and the Loong64 cross sysroot:
+From an existing checkout on Ubuntu 24.04 x86_64, initialize the complete
+cross-build environment with:
+
+```sh
+TARGET_ARCH=loong64 bash builder/init_env.sh
+```
+
+The initializer installs the LLVM 18 tools, target static libraries and QEMU,
+initializes libpcap, and calls the existing kernel preparation script to build
+a BTF-bearing `vmlinux`. Its kernel tree lives under `.build/kernel-loong64/`,
+separate from other architectures. It prints the `TARGET_ARCH`, `KERN_HEADERS`
+and `LOONG64_VMLINUX` exports and the build command to run next. This prepares
+build inputs; it does not install or boot the target kernel.
+
+For manual installation, install LLVM/Clang/LLD 18 and the Loong64 cross sysroot:
 
 ```sh
 sudo apt-get update
@@ -92,8 +106,23 @@ The script uses `ARCH=loongarch LLVM=-18`, enables DWARF5 and
 build, `builder/generate-loong64-vmlinux-header.sh` verifies that the input is
 a LoongArch ELF containing `.BTF`, generates the header with bpftool, and
 writes an ignored source record containing the kernel version, vmlinux
-SHA-256, and bpftool version. CI also records the exact Ubuntu package versions
-with `dpkg-query`.
+SHA-256, and bpftool version.
+
+## Build helper responsibilities
+
+These helpers are called by the shared build flow and remain necessary on
+Ubuntu 24.04:
+
+| Helper in `builder/` | Responsibility |
+| --- | --- |
+| `loong64-clang`, `loong64-clang++` | Select the LoongArch C/C++ target, LP64D ABI, sysroot and static runtime paths for libpcap, cgo and external linking. |
+| `prepare-loong64-kernel.sh` | Configure a Linux 6.6+ LoongArch kernel and build `vmlinux` with BTF. |
+| `generate-loong64-vmlinux-header.sh` | Verify the target ELF and BTF, then generate the CO-RE header during `make`. |
+| `verify-loong64-artifact.sh` | Audit the final binary, libpcap archive and compiler/linker evidence. |
+
+`init_env.sh` orchestrates installation and preparation; it reuses these
+helpers. `check-build-environment.sh` validates the supported host and
+toolchain before compilation.
 
 ## Build
 

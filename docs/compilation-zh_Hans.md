@@ -55,6 +55,11 @@
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/gojue/ecapture/master/builder/init_env.sh)"
 ```
 
+脚本默认准备本机架构。在已有仓库中，可在 Ubuntu 24.04 x86_64 上执行
+`TARGET_ARCH=loong64 bash builder/init_env.sh`，安装交叉工具链并准备目标内核和
+BTF 输入；也支持 `TARGET_ARCH=amd64` 或 `arm64`。完成后，按脚本输出设置
+环境变量并执行构建命令。
+
 ### 其他Linux
 
 编译环境除了上面`工具链版本`列出的软件外，还需要以下软件，请自行安装。

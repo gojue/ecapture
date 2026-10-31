@@ -47,6 +47,14 @@ Initialize dependencies on Linux:
 git submodule update --init --recursive
 ```
 
+On Ubuntu, `bash builder/init_env.sh` prepares the native target by default;
+`TARGET_ARCH=amd64|arm64|loong64` selects a cross-build target. Loong64 requires
+Ubuntu 24.04 x86_64. The initializer reuses its checkout, installs dependencies,
+initializes submodules and prepares target kernel inputs under
+`.build/kernel-<target>/`. It prints the environment exports needed by `make`.
+For Loong64 it calls `prepare-loong64-kernel.sh` to build the target BTF source.
+The PR build matrix runs this same initializer for every architecture.
+
 All release architectures use the shared Ubuntu 24.04 x86_64 job. Loong64
 is a target selected through `TARGET_ARCH`, just like amd64/arm64. It requires the
 versioned LLVM 18 commands (`clang-18`, `clang++-18`, `llc-18`, `ld.lld-18`,
