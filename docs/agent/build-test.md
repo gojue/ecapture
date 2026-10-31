@@ -47,7 +47,8 @@ Initialize dependencies on Linux:
 git submodule update --init --recursive
 ```
 
-Loong64 is a separate Ubuntu 24.04 x86_64 cross-build path. It requires the
+All release architectures use the shared Ubuntu 24.04 x86_64 job. Loong64
+is a target selected through `TARGET_ARCH`, just like amd64/arm64. It requires the
 versioned LLVM 18 commands (`clang-18`, `clang++-18`, `llc-18`, `ld.lld-18`,
 and the `llvm-{ar,ranlib,nm,strip,objcopy,objdump,readelf}-18` tools),
 `libc6-dev-loong64-cross`, `linux-libc-dev-loong64-cross`,
@@ -66,10 +67,19 @@ non-CO-RE path explicitly adds Clang 18's resource include directory; this is
 where LLVM provides the LoongArch `larchintrin.h` required by Linux headers.
 The Loong64 Go external-link flags are `-static -static-pie -fuse-ld=lld`;
 the sysroot preflight therefore also requires glibc's `rcrt1.o`.
-The amd64/arm64 cgo and external-link paths retain their existing `-static`
-flags and Ubuntu 22.04 release job. A separate Ubuntu 24.04 Loong64 release
-job uploads its assets after the primary release is published; Loong64
-failure does not hold up amd64/arm64 publication.
+The amd64/arm64 BPF compiler remains LLVM 14; Loong64 uses LLVM 18.
+The shared Go link recipe checks every binary for static PIE, no ELF
+interpreter, and no shared-library `DT_NEEDED` before packaging. The release
+job builds all architectures through `builder/Makefile.release release`,
+omitting Android for Loong64. Loong64 dependency installation, build and audit
+are one optional step; failure removes its incomplete artifacts before the
+common publish/checksum step. AMD64/ARM64 failures remain fatal.
+
+Changing the build runner does not change the documented target kernel
+minimums. Ubuntu 24.04 supplies newer libc and kernel headers; static linking
+and successful builds alone do not establish old-kernel capture compatibility.
+Validate on the target kernels, especially the non-CO-RE path, before claiming
+that a new artifact passes the minimum-kernel runtime contract.
 
 Linux E2E additionally needs `go`, `timeout`, `cc`, OpenSSL development
 headers, and `tshark` for keylog/pcapng. The full GnuTLS contract also needs
