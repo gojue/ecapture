@@ -1,3 +1,15 @@
+# v2.9.1 (2026-10-31)
+
+## What's Changed
+
+* build: fix non-CO-RE compilation with Linux 6.19+ / 7.x kernel headers, including tagged anonymous fields and x86 ftrace declarations; add compiler regression checks to amd64 and arm64 CI by @cfc4n in https://github.com/gojue/ecapture/pull/1069
+* build: use `-static-pie` for amd64/arm64 cgo and external linking to produce static PIE binaries by @RocketMaDev in https://github.com/gojue/ecapture/pull/1068
+* build: strip DWARF debug information from CO-RE and non-CO-RE eBPF objects with `llvm-strip`, retaining BTF and reducing binary size by @RocketMaDev in https://github.com/gojue/ecapture/pull/1067
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v2.9.0...v2.9.1
+
+<hr>
+
 # v2.9.0 (2026-10-24)
 
 ## 🚀 Features
