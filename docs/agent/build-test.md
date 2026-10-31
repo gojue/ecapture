@@ -47,7 +47,18 @@ Initialize dependencies on Linux:
 git submodule update --init --recursive
 ```
 
-Loong64 is a separate Ubuntu 24.04 x86_64 cross-build path. It requires the
+On Ubuntu, `bash builder/init_env.sh` prepares the native target by default;
+`TARGET_ARCH=amd64|arm64|loong64` selects a cross-build target. Loong64 requires
+Ubuntu 24.04 x86_64. The initializer reuses its checkout, installs dependencies,
+initializes submodules and prepares target kernel inputs under
+`.build/kernel-<target>/`. It prints the environment exports needed by `make`.
+For Loong64 it calls `prepare-loong64-kernel.sh` to build the target BTF source.
+The PR build matrix runs this same initializer for every architecture.
+`bash test/build/architecture_config_test.sh` checks all three target mappings,
+selector precedence and unsupported combinations, so it runs for every target.
+
+All release architectures use the shared Ubuntu 24.04 x86_64 job. Loong64
+is a target selected through `TARGET_ARCH`, just like amd64/arm64. It requires the
 versioned LLVM 18 commands (`clang-18`, `clang++-18`, `llc-18`, `ld.lld-18`,
 and the `llvm-{ar,ranlib,nm,strip,objcopy,objdump,readelf}-18` tools),
 `libc6-dev-loong64-cross`, `linux-libc-dev-loong64-cross`,
@@ -66,10 +77,38 @@ non-CO-RE path explicitly adds Clang 18's resource include directory; this is
 where LLVM provides the LoongArch `larchintrin.h` required by Linux headers.
 The Loong64 Go external-link flags are `-static -static-pie -fuse-ld=lld`;
 the sysroot preflight therefore also requires glibc's `rcrt1.o`.
-The amd64/arm64 cgo and external-link paths retain their existing `-static`
-flags and Ubuntu 22.04 release job. A separate Ubuntu 24.04 Loong64 release
-job uploads its assets after the primary release is published; Loong64
-failure does not hold up amd64/arm64 publication.
+The amd64/arm64 BPF compiler remains LLVM 14; Loong64 uses LLVM 18.
+The shared Go link recipe checks every binary for static PIE, no ELF
+interpreter, and no shared-library `DT_NEEDED` before packaging. The release
+job builds all architectures through `builder/Makefile.release release`,
+omitting Android for Loong64. Loong64 dependency installation, build and audit
+are one optional step; failure removes its incomplete artifacts before the
+common publish/checksum step. AMD64/ARM64 failures remain fatal.
+PR debug packages use `actions/upload-artifact@v7` with `archive: false`:
+each Linux/Android `.tar.gz` is uploaded separately without an outer ZIP,
+preserving executable permissions inside the tar archive.
+
+Docker images are packaged after publishing in the same release job. The job
+extracts the amd64/arm64 Linux release binaries into a small build context with
+`amd64/ecapture` and `arm64/ecapture`. `builder/Dockerfile` uses BuildKit's
+`TARGETARCH` to copy the matching binary into Alpine; it does not install a
+toolchain, compile, or require QEMU. The image binary and version are identical
+to the Linux release package, without a separate `_docker` version suffix.
+Docker targets remain `linux/amd64` and `linux/arm64`.
+
+To package existing Linux release binaries locally, prepare that context and
+run on Linux (use `--push` instead of `--load` for a multi-platform image):
+
+```sh
+docker buildx build --platform linux/arm64 --load \
+  -f builder/Dockerfile -t ecapture:local /path/to/prepared-context
+```
+
+Changing the build runner does not change the documented target kernel
+minimums. Ubuntu 24.04 supplies newer libc and kernel headers; static linking
+and successful builds alone do not establish old-kernel capture compatibility.
+Validate on the target kernels, especially the non-CO-RE path, before claiming
+that a new artifact passes the minimum-kernel runtime contract.
 
 Linux E2E additionally needs `go`, `timeout`, `cc`, OpenSSL development
 headers, and `tshark` for keylog/pcapng. The full GnuTLS contract also needs

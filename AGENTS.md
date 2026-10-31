@@ -237,7 +237,9 @@ verification matrix live in `docs/agent/build-test.md`.
   `assets`, `assets_core`, and `assets_noncore` targets for one architecture
   write the same generated asset; do not request them together in one parallel
   make invocation.
-- Loong64 is cross-built only on Ubuntu 24.04 x86_64 with `TARGET_ARCH=loong64`
+- Linux release builds share an Ubuntu 24.04 x86_64 job. Loong64 joins the
+  same release entry point and PR architecture matrix; only amd64/arm64
+  produce Android artifacts. Loong64 is cross-built with `TARGET_ARCH=loong64`
   and the repository's LLVM 18 wrappers. Do not substitute `loong64` for the
   `loongarch64-linux-gnu` C target or `loongarch` Kbuild architecture.
 

@@ -2,8 +2,10 @@
 
 eCapture supports Linux/LoongArch64 with Go's `GOARCH=loong64` on kernel 6.6
 or newer. Android/loong64 is not supported. The existing Linux/Android amd64
-and arm64 paths keep their Ubuntu 22.04, GCC cross-toolchain, glibc, and kernel
-minimums.
+and arm64 paths share the Ubuntu 24.04 release runner and retain their GCC
+compiler selection, LLVM 14 BPF compiler, and documented kernel minimums.
+Runner upgrades still require target-kernel runtime verification; successful
+static linking alone is not proof of compatibility with an older kernel.
 
 ## Architecture names
 
@@ -22,7 +24,21 @@ another OS, release, or host architecture before libpcap or eBPF compilation.
 
 ## Toolchain and sysroot
 
-Install LLVM/Clang/LLD 18 and the Loong64 cross sysroot:
+From an existing checkout on Ubuntu 24.04 x86_64, initialize the complete
+cross-build environment with:
+
+```sh
+TARGET_ARCH=loong64 bash builder/init_env.sh
+```
+
+The initializer installs the LLVM 18 tools, target static libraries and QEMU,
+initializes libpcap, and calls the existing kernel preparation script to build
+a BTF-bearing `vmlinux`. Its kernel tree lives under `.build/kernel-loong64/`,
+separate from other architectures. It prints the `TARGET_ARCH`, `KERN_HEADERS`
+and `LOONG64_VMLINUX` exports and the build command to run next. This prepares
+build inputs; it does not install or boot the target kernel.
+
+For manual installation, install LLVM/Clang/LLD 18 and the Loong64 cross sysroot:
 
 ```sh
 sudo apt-get update
@@ -90,8 +106,23 @@ The script uses `ARCH=loongarch LLVM=-18`, enables DWARF5 and
 build, `builder/generate-loong64-vmlinux-header.sh` verifies that the input is
 a LoongArch ELF containing `.BTF`, generates the header with bpftool, and
 writes an ignored source record containing the kernel version, vmlinux
-SHA-256, and bpftool version. CI also records the exact Ubuntu package versions
-with `dpkg-query`.
+SHA-256, and bpftool version.
+
+## Build helper responsibilities
+
+These helpers are called by the shared build flow and remain necessary on
+Ubuntu 24.04:
+
+| Helper in `builder/` | Responsibility |
+| --- | --- |
+| `loong64-clang`, `loong64-clang++` | Select the LoongArch C/C++ target, LP64D ABI, sysroot and static runtime paths for libpcap, cgo and external linking. |
+| `prepare-loong64-kernel.sh` | Configure a Linux 6.6+ LoongArch kernel and build `vmlinux` with BTF. |
+| `generate-loong64-vmlinux-header.sh` | Verify the target ELF and BTF, then generate the CO-RE header during `make`. |
+| `verify-loong64-artifact.sh` | Audit the final binary, libpcap archive and compiler/linker evidence. |
+
+`init_env.sh` orchestrates installation and preparation; it reuses these
+helpers. `check-build-environment.sh` validates the supported host and
+toolchain before compilation.
 
 ## Build
 
@@ -115,7 +146,8 @@ libpcap, core/non-core bytecode, and Go intermediates are isolated below
 copies the selected `.build/linux-loong64/bin/ecapture` instead of trusting the
 shared path. Release archives use `linux-loong64`; Debian packages use
 architecture `loong64`. The current RPM spec remains a native rpmbuild flow and
-is not part of the Loong64 cross release job.
+is not part of the shared release job. The common `release` target builds
+Linux tar/deb artifacts for all architectures and Android only for amd64/arm64.
 
 ## Verification
 
@@ -137,7 +169,7 @@ interpreter and `DT_NEEDED`, Clang's `-###` linker choice, the final ELF's LLD
 executions in the verbose log. QEMU user mode covers only CLI startup and the
 GoTLS instruction unit test.
 
-There is no LoongArch64 E2E job. The PR Debug Loong64 job cross-builds and
+There is no LoongArch64 E2E job. The PR Debug Loong64 matrix entry cross-builds and
 checks the static artifact, then runs QEMU user-mode CLI and GoTLS instruction
 smoke tests; it does not boot a LoongArch kernel or exercise eBPF load,
 attachment, or capture.
@@ -157,7 +189,7 @@ source, not on assumed upstream support:
 | `golang.org/x/arch` v0.31.0 | Supplies the Loong64 decoder used to find GoTLS return instructions. Go's ABI documentation defines integer arguments in R4-R19; eCapture reads the first eight through LoongArch PT_REGS R4-R11. |
 | bpftool/BTF | Header generation is from the verified LoongArch Linux 6.6+ vmlinux built in the same configured source tree, never from host x86 BTF. |
 | PT_REGS/ELF | The repository's libbpf-style tracing header defines LoongArch `user_pt_regs`, arguments, return value, SP, FP, and IP. Runtime ELF checks accept `EM_LOONGARCH`; LoongArch is little-endian in the audited Go/x/sys and cilium/ebpf sources. |
-| Packaging/CI/E2E | Tar/deb names use `loong64`. The independent Loong64 release job starts only after amd64/arm64 publishing succeeds, then uploads its tar/deb files and a separate `checksum-loong64-<tag>.txt`; its failure cannot block the primary release. The PR Debug Loong64 job cross-builds and runs QEMU user-mode smoke tests; there is no LoongArch E2E job. |
+| Packaging/CI/E2E | Tar/deb names use `loong64`. The shared Ubuntu 24.04 release job builds amd64, arm64 and loong64 through the same entry point and publishes successful artifacts with one checksum file. Loong64 installation/build/audit failures remove incomplete artifacts and do not block amd64/arm64 publication. The shared PR matrix adds Loong64 ELF/toolchain checks and QEMU user-mode smoke tests; there is no LoongArch E2E job. |
 
 Without a real LoongArch64 kernel test, static PIE startup, CO-RE relocation
 against runtime BTF, uprobes/kprobes, TC attachment, and capture correctness
