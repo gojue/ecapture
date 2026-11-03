@@ -174,6 +174,73 @@ checks the static artifact, then runs QEMU user-mode CLI and GoTLS instruction
 smoke tests; it does not boot a LoongArch kernel or exercise eBPF load,
 attachment, or capture.
 
+## Dedicated runner
+
+Use a dedicated Debian 13+ LoongArch64 host with kernel >= 6.6, Go 1.26+
+under `/usr/local/go`, Python 3 with Linux pidfd support, systemd, and outbound
+GitHub HTTPS access. Verify the release digest and native Node executables of
+the community [loong64/runner](https://github.com/loong64/runner) distribution.
+Register with labels `self-hosted`, `Linux`, `loongarch64`, `ecapture` and
+`--disableupdate`; install verified community updates manually while idle.
+
+Create the ordinary `ecapture-runner` account with home `/var/lib/ecapture-runner`
+and workspace `/var/lib/ecapture-runner/_work`. Keep the runner installation at
+`/opt/ecapture-actions-runner` root-owned, with writable diagnostics for the
+account. The `self-hosted-loong64.yml` workflow runs native TLS package unit
+tests with stub assets and `CGO_ENABLED=0`, only on `master`, `v2`, `v1`
+push/manual events. Root-owned hooks enforce the workflow and trusted refs;
+fork/PR code is excluded. These tests do not establish capture correctness.
+
+Before enabling the hooks, provision a compatible E2E harness at
+`/opt/ecapture-e2e/source`, its matching binary at
+`/opt/ecapture-e2e/artifact/ecapture`, and the source revision in
+`/opt/ecapture-e2e/SOURCE_COMMIT`; retain patch/artifact hashes. Keep the bundle
+and its parents root-owned and not writable by the runner. This fixed bundle
+does not test the Actions checkout's SHA. Debian/LoongArch E2E needs the
+corresponding harness support, workload dependencies, and verified root access
+to BPF loading, uprobes/kprobes, perf events and TC attachment.
+
+Install from the repository root:
+
+```sh
+sudo install -d -o root -g root -m 0700 /var/lib/ecapture-e2e
+sudo install -d -o root -g ecapture-runner -m 0750 /var/log/ecapture-e2e
+sudo install -d -o root -g root -m 0755 /etc/ecapture-runner /usr/local/libexec
+sudo install -o root -g root -m 0750 builder/runner/runner-e2e-job.sh /usr/local/libexec/ecapture-e2e-job
+sudo install -o root -g root -m 0644 builder/runner/runner-e2e-finish.py /usr/local/libexec/ecapture-e2e-finish.py
+sudo install -o root -g root -m 0644 builder/runner/ecapture-e2e.service /etc/systemd/system/
+sudo visudo -cf builder/runner/runner-e2e.sudoers
+sudo install -o root -g root -m 0440 builder/runner/runner-e2e.sudoers /etc/sudoers.d/ecapture-e2e
+sudo install -o root -g root -m 0755 builder/runner/runner-job-started.sh /etc/ecapture-runner/job-started.sh
+sudo install -o root -g root -m 0755 builder/runner/runner-job-completed.sh /etc/ecapture-runner/job-completed.sh
+sudo install -o root -g root -m 0644 builder/runner/runner-job-cleanup.py /etc/ecapture-runner/job-cleanup.py
+sudo install -o root -g root -m 0644 builder/runner/ecapture-actions-runner.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now ecapture-actions-runner.service
+```
+
+The dedicated-host runner service omits mount isolation for LXC compatibility
+and uses `NoNewPrivileges=false`. Its sudoers file permits only
+`sudo -n /usr/bin/systemctl start ecapture-e2e.service` and the matching `stop`;
+do not grant general sudo or Docker access. The fixed root E2E unit retains
+`NoNewPrivileges=true`. Check command status and the source/artifact identity
+in `/var/log/ecapture-e2e/latest-summary.json`; an early failure can leave an
+older summary. Raw captures stay root-private under `/var/log/ecapture-e2e/`.
+
+Start/end hooks stop E2E, reap tracked job processes and clear the checkout,
+task HOME/temp/Go caches and downloaded actions/tools. Startup recovers
+interrupted jobs. Root E2E cleanup removes its process group, task caches and
+test-owned loopback TC state; pre-existing ingress/clsact state is rejected.
+Registration, installed tools, diagnostics and private reports persist.
+After service changes, reload systemd and restart while idle; inspect
+`systemctl status ecapture-actions-runner.service` and its journal.
+
+Validate on Linux with `python3 test/build/runner_cleanup_test.py -v`,
+`python3 test/build/runner_e2e_finish_test.py -v`, and
+`actionlint -config-file .github/actionlint.yaml .github/workflows/self-hosted-loong64.yml`.
+Publish the workflow before verifying GitHub dispatch; manual runs and mocked
+checks do not establish that dispatch works.
+
 ## Dependency audit
 
 The support decision is based on the pinned repository versions and their

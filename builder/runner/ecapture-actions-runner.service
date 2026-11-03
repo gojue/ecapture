@@ -1,0 +1,29 @@
+[Unit]
+Description=eCapture GitHub Actions runner (LoongArch64)
+Wants=network-online.target
+After=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+User=ecapture-runner
+Group=ecapture-runner
+WorkingDirectory=/opt/ecapture-actions-runner
+Environment=HOME=/var/lib/ecapture-runner
+Environment=PATH=/usr/local/go/bin:/usr/local/bin:/usr/bin:/bin
+Environment=ACTIONS_RUNNER_HOOK_JOB_STARTED=/etc/ecapture-runner/job-started.sh
+Environment=ACTIONS_RUNNER_HOOK_JOB_COMPLETED=/etc/ecapture-runner/job-completed.sh
+ExecStartPre=/usr/bin/sudo -n /usr/bin/systemctl stop ecapture-e2e.service
+ExecStartPre=/usr/bin/timeout 120s /usr/bin/python3 /etc/ecapture-runner/job-cleanup.py startup
+ExecStart=/opt/ecapture-actions-runner/runsvc.sh
+Restart=always
+RestartSec=10
+KillSignal=SIGTERM
+KillMode=mixed
+TimeoutStopSec=5min
+UMask=0077
+# Allow only the fixed sudoers entry that starts/stops the root-owned E2E unit.
+NoNewPrivileges=false
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target

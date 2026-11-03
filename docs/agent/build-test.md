@@ -325,8 +325,10 @@ kernel. Use strict E2E for runtime behavior.
 LoongArch has no GitHub-hosted native runner. The Loong64 job in
 `.github/workflows/pr_build_debug.yml` cross-builds on hosted Ubuntu 24.04 for
 pull requests, validates the artifact and toolchain, and runs QEMU user-mode
-CLI and GoTLS instruction smoke tests. There is no separate Loong64 branch-push
-workflow or maintained LoongArch E2E job; eBPF load, attach, and capture
+CLI and GoTLS instruction smoke tests. The dedicated runner's
+`self-hosted-loong64.yml` adds native TLS package unit tests for trusted branch
+pushes and manual runs; see [deployment and cleanup](../loong64-support.md#dedicated-runner).
+There is no maintained LoongArch E2E job; eBPF load, attach, and capture
 behavior remain unverified by CI.
 
 ## Maintained Linux E2E
