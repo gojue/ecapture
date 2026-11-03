@@ -125,17 +125,15 @@ shown by `make env` uses the toolchain spelling (`x86_64`, `aarch64`, or
 
 ### Loong64
 
-Loong64 is cross-built only on Ubuntu 24.04 x86_64 with LLVM 18. The public
-interface is `TARGET_ARCH=loong64`; Kbuild uses `loongarch`, while Clang and
+Loong64 supports Ubuntu 24.04 x86_64 cross-builds and Debian 13+ native
+builds with LLVM/Clang/LLD 22.1.8. The public interface is `TARGET_ARCH=loong64`; Kbuild uses `loongarch`, while Clang and
 the sysroot use `loongarch64-linux-gnu`. Do not substitute one spelling for
 another.
 
 ```shell
-builder/prepare-loong64-kernel.sh /path/to/linux-source
-make clean TARGET_ARCH=loong64
-KERN_HEADERS=/path/to/linux-source \
-  LOONG64_VMLINUX=/path/to/linux-source/vmlinux \
-  TARGET_ARCH=loong64 make all
+TARGET_ARCH=loong64 bash builder/init_env.sh
+# Apply the environment exports printed by the initializer.
+make clean && make all
 ```
 
 See [Loong64 build and validation](loong64-support.md) for packages, wrapper

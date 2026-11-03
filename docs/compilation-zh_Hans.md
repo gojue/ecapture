@@ -137,16 +137,15 @@ TARGET_ARCH=arm64 make
 
 ### Loong64
 
-Loong64 仅在 Ubuntu 24.04 x86_64 上使用 LLVM 18 交叉构建。公开入口是
+Loong64 支持 Ubuntu 24.04 x86_64 交叉构建和 Debian 13+ 原生构建，
+统一使用 LLVM/Clang/LLD 22.1.8。公开入口是
 `TARGET_ARCH=loong64`；Linux Kbuild 名称为 `loongarch`，Clang 与 sysroot target
 为 `loongarch64-linux-gnu`，三者不可混用。
 
 ```shell
-builder/prepare-loong64-kernel.sh /path/to/linux-source
-make clean TARGET_ARCH=loong64
-KERN_HEADERS=/path/to/linux-source \
-  LOONG64_VMLINUX=/path/to/linux-source/vmlinux \
-  TARGET_ARCH=loong64 make all
+TARGET_ARCH=loong64 bash builder/init_env.sh
+# 应用初始化脚本打印的环境变量。
+make clean && make all
 ```
 
 软件包、wrapper 参数、BTF 来源、静态 PIE 验收和运行时验证限制见

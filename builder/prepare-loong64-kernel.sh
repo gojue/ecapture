@@ -2,6 +2,9 @@
 
 set -euo pipefail
 
+# shellcheck source=builder/loong64-toolchain.sh
+source "$(dirname "$0")/loong64-toolchain.sh"
+
 kernel_source="${1:-}"
 jobs="${JOBS:-$(nproc)}"
 
@@ -23,7 +26,7 @@ if [[ "$(printf '%s\n%s\n' 6.6 "$kernel_version" | sort -V | head -n 1)" != "6.6
     exit 1
 fi
 
-make -C "$kernel_source" ARCH=loongarch LLVM=-18 defconfig
+make -C "$kernel_source" ARCH=loongarch LLVM="-$llvm_major" defconfig
 # Ubuntu's 6.8 source enables a Loongson DRM driver that calls a helper absent
 # from the same source package. Display support is not needed for BTF headers.
 "$kernel_source/scripts/config" --file "$kernel_source/.config" \
@@ -33,5 +36,5 @@ make -C "$kernel_source" ARCH=loongarch LLVM=-18 defconfig
     --disable DEBUG_INFO_NONE \
     --disable DEBUG_INFO_REDUCED \
     --disable DRM_LOONGSON
-make -C "$kernel_source" ARCH=loongarch LLVM=-18 olddefconfig
-make -C "$kernel_source" ARCH=loongarch LLVM=-18 -j"$jobs" vmlinux
+make -C "$kernel_source" ARCH=loongarch LLVM="-$llvm_major" olddefconfig
+make -C "$kernel_source" ARCH=loongarch LLVM="-$llvm_major" -j"$jobs" vmlinux

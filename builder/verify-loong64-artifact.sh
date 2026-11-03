@@ -2,6 +2,9 @@
 
 set -euo pipefail
 
+# shellcheck source=builder/loong64-toolchain.sh
+source "$(dirname "$0")/loong64-toolchain.sh"
+
 binary="${1:-}"
 archive="${2:-}"
 config_log="${3:-}"
@@ -20,28 +23,28 @@ done
 archive="$(realpath "$archive")"
 "$(dirname "$0")/check-build-environment.sh" loong64 linux
 
-elf_header="$(llvm-readelf-18 -h "$binary")"
+elf_header="$("llvm-readelf-$llvm_major" -h "$binary")"
 grep -Eq 'Machine:.*LoongArch' <<<"$elf_header"
 grep -Eq 'Type:.*DYN' <<<"$elf_header"
-program_headers="$(llvm-readelf-18 -l "$binary")"
+program_headers="$("llvm-readelf-$llvm_major" -l "$binary")"
 if grep -q 'INTERP' <<<"$program_headers"; then
     echo "Loong64 binary unexpectedly has a dynamic interpreter" >&2
     exit 1
 fi
-dynamic_section="$(llvm-readelf-18 -d "$binary" 2>/dev/null || true)"
+dynamic_section="$("llvm-readelf-$llvm_major" -d "$binary" 2>/dev/null || true)"
 if grep -q 'NEEDED' <<<"$dynamic_section"; then
     echo "Loong64 binary unexpectedly has dynamic dependencies" >&2
     exit 1
 fi
-if ! grep -Eq 'clang version 18|clang-18' "$config_log"; then
-    echo "libpcap config.log does not prove Clang 18 was used" >&2
+if ! grep -Eq "clang version $llvm_major|clang-$llvm_major" "$config_log"; then
+    echo "libpcap config.log does not prove Clang $llvm_major was used" >&2
     exit 1
 fi
 if ! grep -Eq "^CC='.*builder/loong64-clang'" "$config_log"; then
     echo "libpcap config.log did not record the Loong64 Clang wrapper as CC" >&2
     exit 1
 fi
-for assignment in "AR='llvm-ar-18'" "RANLIB='llvm-ranlib-18'"; do
+for assignment in "AR='llvm-ar-$llvm_major'" "RANLIB='llvm-ranlib-$llvm_major'"; do
     if ! grep -Fxq "$assignment" "$config_log"; then
         echo "libpcap config.log is missing LLVM tool assignment: $assignment" >&2
         exit 1
@@ -52,12 +55,12 @@ tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/ecapture-libpcap-loong64.XXXXXX")"
 trap 'rm -rf -- "$tmp_dir"' EXIT
 (
     cd "$tmp_dir"
-    llvm-ar-18 x "$archive"
+    "llvm-ar-$llvm_major" x "$archive"
 )
 found_object=0
 while IFS= read -r object; do
     found_object=1
-    object_header="$(llvm-readelf-18 -h "$object")"
+    object_header="$("llvm-readelf-$llvm_major" -h "$object")"
     if ! grep -Eq 'Machine:.*LoongArch' <<<"$object_header"; then
         echo "libpcap contains a non-LoongArch object: $object" >&2
         exit 1
@@ -68,17 +71,19 @@ if [[ "$found_object" != "1" ]]; then
     exit 1
 fi
 
-link_trace="$("$(dirname "$0")/loong64-clang" -### -fuse-ld=lld -static -static-pie -x c /dev/null -o /dev/null 2>&1 || true)"
-if ! grep -Eq 'ld\.lld-18|/ld\.lld' <<<"$link_trace"; then
-    echo "Clang driver trace does not select LLD" >&2
+link_trace="$("$(dirname "$0")/loong64-clang" -### "-fuse-ld=$linker" -static -static-pie -x c /dev/null -o /dev/null 2>&1 || true)"
+if ! grep -Eq "ld\.$linker" <<<"$link_trace"; then
+    echo "Clang driver trace does not select $linker" >&2
     exit 1
 fi
-elf_comment="$(llvm-readelf-18 -p .comment "$binary" 2>/dev/null || true)"
-if grep -Eq 'Linker: LLD 18' <<<"$elf_comment"; then
-    echo "LLD 18 recorded in final ELF .comment"
-else
-    echo "final ELF has no retained LLD 18 .comment; Clang -### trace proves the selected linker"
+elf_comment=$("llvm-readelf-$llvm_major" -p .comment "$binary" 2>/dev/null || true)
+lld_path=$(command -v ld.lld-22)
+if ! grep -Fq "\"$lld_path\"" <<<"$link_trace" ||
+    ! grep -Eq "Linker: (Debian |Ubuntu )?LLD ${llvm_version//./[.]}([^0-9.]|$)" <<<"$elf_comment"; then
+    echo "Loong64 artifact and Clang driver must select LLD $llvm_version ($lld_path)" >&2
+    exit 1
 fi
+echo "Clang driver and ELF confirm LLD $llvm_version"
 
 if [[ -n "$build_log" ]]; then
     if [[ ! -f "$build_log" ]]; then

@@ -126,15 +126,9 @@ jobs:
           LOONG64_TOOLCHAIN_TRACE: '1'
         run: |
           set -euo pipefail
-          sudo apt-get install --yes clang-18 lld-18 llvm-18 llvm-18-tools \
-            libc6-dev-loong64-cross linux-libc-dev-loong64-cross \
-            libgcc-13-dev-loong64-cross libatomic1-loong64-cross
-          source_file=$(find /usr/src -maxdepth 1 -name 'linux-source*.tar.*' | sort -V | tail -n 1)
-          test -f "$source_file"
-          mkdir -p "$RUNNER_TEMP/loong64-kernel"
-          tar -xf "$source_file" -C "$RUNNER_TEMP/loong64-kernel"
-          source_dir=$(find "$RUNNER_TEMP/loong64-kernel" -mindepth 1 -maxdepth 1 -type d -name 'linux-source*' | head -n 1)
-          builder/prepare-loong64-kernel.sh "$source_dir"
+          TARGET_ARCH=loong64 bash builder/init_env.sh
+          source_dir=$(find "$PWD/.build/kernel-loong64" -mindepth 1 -maxdepth 1 -type d -name 'linux-source*' | sort -V | tail -n 1)
+          test -f "$source_dir/vmlinux"
           export TARGET_ARCH=loong64 KERN_HEADERS="$source_dir" LOONG64_VMLINUX="$source_dir/vmlinux"
           make clean
           make env

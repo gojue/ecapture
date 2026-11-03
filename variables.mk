@@ -104,9 +104,18 @@ else ifeq ($(SELECTED_TARGET_ARCH),arm64)
 	# bpf_probe_read_user arrived after the pre-5.2 compatibility asset.
 	IGNORE_LESS52 := -ignore '.*_less52\.o'
 else ifeq ($(SELECTED_TARGET_ARCH),loong64)
+	override LOONG64_LLVM_VERSION := 22
+	override LOONG64_LINKER := lld
 	LOONG64_SYSROOT ?= /
-	LOONG64_TARGET_ROOT ?= /usr/loongarch64-linux-gnu
-	LOONG64_GCC_RUNTIME_DIR ?= /usr/lib/gcc-cross/loongarch64-linux-gnu/13
+	ifeq ($(NATIVE_GOARCH),loong64)
+		LOONG64_TARGET_ROOT ?= /usr
+		LOONG64_TARGET_LIBDIR ?= $(LOONG64_TARGET_ROOT)/lib/loongarch64-linux-gnu
+		LOONG64_GCC_RUNTIME_DIR ?= $(shell dirname "$$(gcc -print-libgcc-file-name 2>/dev/null)")
+	else
+		LOONG64_TARGET_ROOT ?= /usr/loongarch64-linux-gnu
+		LOONG64_TARGET_LIBDIR ?= $(LOONG64_TARGET_ROOT)/lib
+		LOONG64_GCC_RUNTIME_DIR ?= /usr/lib/gcc-cross/loongarch64-linux-gnu/13
+	endif
 	LOONG64_VMLINUX ?=
 	TARGET_MACHINE_ARCH := loongarch64
 	LINUX_ARCH := loongarch
@@ -115,23 +124,23 @@ else ifeq ($(SELECTED_TARGET_ARCH),loong64)
 	BPF_TARGET_TRIPLE := loongarch64-linux-gnu
 	TARGET_C_ABI_FLAGS := -mabi=lp64d
 	IGNORE_LESS52 := -ignore '.*_less52\.o'
-	override CMD_CLANG := clang-18
-	override CMD_LLC := llc-18
+	override CMD_CLANG := clang-$(LOONG64_LLVM_VERSION)
+	override CMD_LLC := llc-$(LOONG64_LLVM_VERSION)
 	override CMD_CC := $(CURDIR)/builder/loong64-clang
 	override CMD_CXX := $(CURDIR)/builder/loong64-clang++
-	override CMD_AR := llvm-ar-18
-	override CMD_RANLIB := llvm-ranlib-18
-	override CMD_NM := llvm-nm-18
-	override CMD_STRIP := llvm-strip-18
-	override CMD_OBJCOPY := llvm-objcopy-18
-	override CMD_OBJDUMP := llvm-objdump-18
-	override CMD_READELF := llvm-readelf-18
-	override CMD_LD_LLD := ld.lld-18
+	override CMD_AR := llvm-ar-$(LOONG64_LLVM_VERSION)
+	override CMD_RANLIB := llvm-ranlib-$(LOONG64_LLVM_VERSION)
+	override CMD_NM := llvm-nm-$(LOONG64_LLVM_VERSION)
+	override CMD_STRIP := llvm-strip-$(LOONG64_LLVM_VERSION)
+	override CMD_OBJCOPY := llvm-objcopy-$(LOONG64_LLVM_VERSION)
+	override CMD_OBJDUMP := llvm-objdump-$(LOONG64_LLVM_VERSION)
+	override CMD_READELF := llvm-readelf-$(LOONG64_LLVM_VERSION)
+	override CMD_LD_LLD := ld.lld-$(LOONG64_LLVM_VERSION)
 	LOONG64_RUNTIME_FLAGS := --rtlib=libgcc -L$(LOONG64_GCC_RUNTIME_DIR)
-	LIBPCAP_LDFLAGS := -fuse-ld=lld $(LOONG64_RUNTIME_FLAGS)
-	GO_EXTLDFLAGS := -static -static-pie -fuse-ld=lld $(LOONG64_RUNTIME_FLAGS)
+	LIBPCAP_LDFLAGS := -fuse-ld=$(LOONG64_LINKER) $(LOONG64_RUNTIME_FLAGS)
+	GO_EXTLDFLAGS := -static -static-pie -fuse-ld=$(LOONG64_LINKER) $(LOONG64_RUNTIME_FLAGS)
 	CGO_LINK_FLAGS := $(LIBPCAP_LDFLAGS)
-	export LOONG64_SYSROOT LOONG64_TARGET_ROOT LOONG64_GCC_RUNTIME_DIR
+	export LOONG64_SYSROOT LOONG64_TARGET_ROOT LOONG64_TARGET_LIBDIR LOONG64_GCC_RUNTIME_DIR
 endif
 
 ifeq ($(CGO_LINK_FLAGS),)
@@ -252,7 +261,7 @@ endif
 #
 ifdef EXPLICIT_TARGET_ARCH
 	ifeq ($(SELECTED_TARGET_ARCH),loong64)
-		KERNEL_HEADER_GEN = $(MAKE) ARCH=loongarch LLVM=-18 prepare V=0
+		KERNEL_HEADER_GEN = $(MAKE) ARCH=loongarch LLVM=-$(LOONG64_LLVM_VERSION) prepare V=0
 	else
 		KERNEL_HEADER_GEN = yes "" | $(SUDO) make ARCH=$(LINUX_ARCH) CROSS_COMPILE=$(CMD_CC_PREFIX) prepare V=0
 	endif
@@ -261,6 +270,17 @@ ifdef EXPLICIT_TARGET_ARCH
 	else
 		KERN_HEADERS = $(LINUX_SOURCE_PATH)
     endif
+endif
+
+# A native Loong64 build with an explicitly supplied source tree also prepares
+# headers when TARGET_ARCH was omitted and selected from uname.
+ifeq ($(SELECTED_TARGET_ARCH),loong64)
+ifndef EXPLICIT_TARGET_ARCH
+ifneq ($(strip $(KERN_HEADERS)),)
+	LINUX_SOURCE_PATH = $(KERN_HEADERS)
+	KERNEL_HEADER_GEN = $(MAKE) ARCH=loongarch LLVM=-$(LOONG64_LLVM_VERSION) prepare V=0
+endif
+endif
 endif
 
 KERN_RELEASE ?= $(UNAME_R)
