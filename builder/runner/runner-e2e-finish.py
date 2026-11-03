@@ -27,6 +27,10 @@ def main():
         raise RuntimeError('Invalid root-owned E2E state')
     report = LOGS / run_id
     job = BASE / 'job-state'
+    is_ci = (job / 'ci-requested').exists()
+    bundle = job / 'bundle' if is_ci else BUNDLE
+    modules = ('tls', 'gotls') if is_ci else ('tls', 'gotls', 'gnutls')
+    identity = json.loads((job / 'ci.json').read_text()) if (job / 'ci.json').exists() else {}
     if (BASE / 'owns-loopback-clsact').exists():
         subprocess.run(['/usr/sbin/tc', 'qdisc', 'del', 'dev', 'lo', 'clsact'],
                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
@@ -45,11 +49,19 @@ def main():
         'finished_at': datetime.datetime.now(datetime.timezone.utc).isoformat(),
         'service_result': os.environ.get('SERVICE_RESULT', 'unknown'),
         'exit_status': os.environ.get('EXIT_STATUS', 'unknown'),
-        'source_commit': (BUNDLE / 'SOURCE_COMMIT').read_text().strip(),
-        'binary_sha256': hashlib.sha256((BUNDLE / 'artifact/ecapture').read_bytes()).hexdigest(),
+        'source_commit': ((bundle / 'SOURCE_COMMIT').read_text().strip()
+                          if (bundle / 'SOURCE_COMMIT').exists() else None),
+        'binary_sha256': (hashlib.sha256((bundle / 'artifact/ecapture').read_bytes()).hexdigest()
+                          if (bundle / 'artifact/ecapture').exists() else None),
+        'modules': list(modules),
+        'modes': ['text', 'keylog', 'pcapng'],
+        'stress': is_ci,
+        'ci_run_id': identity.get('ci_run_id'),
+        'ci_run_attempt': identity.get('ci_run_attempt'),
+        'ci_job_id': identity.get('ci_job_id'),
         'harness_sha256': {
-            str(path.relative_to(BUNDLE / 'source')): hashlib.sha256(path.read_bytes()).hexdigest()
-            for path in sorted((BUNDLE / 'source/test/e2e').rglob('*')) if path.is_file()
+            str(path.relative_to(bundle / 'source')): hashlib.sha256(path.read_bytes()).hexdigest()
+            for path in sorted((bundle / 'source/test/e2e').rglob('*')) if path.is_file()
         },
         'passed': sum(case['status'] == 'pass' for case in cases),
         'failed': sum(case['status'] == 'fail' for case in cases),
@@ -59,7 +71,7 @@ def main():
         summary['service_result'] == 'success' and summary['exit_status'] == '0'
         and summary['failed'] == 0
         and all(any(case['name'].startswith(f'linux/{module}/') for case in cases)
-                for module in ('tls', 'gotls', 'gnutls'))
+                for module in modules)
         and text.rstrip().endswith('[PASS] All Linux E2E suites passed')
     )
     if (job / 'artifacts').exists():

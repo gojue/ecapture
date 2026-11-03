@@ -194,10 +194,9 @@ The verbose build log must not execute GNU compiler/linker/archive frontends.
 QEMU user mode covers only CLI startup and the GoTLS instruction unit test;
 validate the cross-built artifact on a real LoongArch kernel for capture.
 
-There is no LoongArch64 E2E job. The PR Debug Loong64 matrix entry cross-builds and
-checks the static artifact, then runs QEMU user-mode CLI and GoTLS instruction
-smoke tests; it does not boot a LoongArch kernel or exercise eBPF load,
-attachment, or capture.
+The PR Debug Loong64 job audits cross-built artifacts and runs QEMU smoke
+checks. The dedicated runner below separately builds and exercises native
+CO-RE OpenSSL/GoTLS capture on a real LoongArch kernel.
 
 ## Dedicated runner
 
@@ -213,17 +212,34 @@ and workspace `/var/lib/ecapture-runner/_work`. Keep the runner installation at
 `/opt/ecapture-actions-runner` root-owned, with writable diagnostics for the
 account. The `self-hosted-loong64.yml` workflow runs native TLS package unit
 tests with stub assets and `CGO_ENABLED=0`, only on `master`, `v2`, `v1`
-push/manual events. Root-owned hooks enforce the workflow and trusted refs;
-fork/PR code is excluded. These tests do not establish capture correctness.
+push/manual events. The `loong64-e2e` job in `E2E Tests` also accepts
+same-repository PRs targeting these branches on opened/synchronize/reopened.
+Root-owned hooks enforce the workflow, job and trusted refs; fork PRs retain
+hosted checks. These controls assume trusted repository writers, not hostile
+code isolation.
 
-Before enabling the hooks, provision a compatible E2E harness at
+Provision native LLVM 22.1.8 and the [E2E dependencies](../test/e2e/README.md#linux)
+before enabling CI. Each job clean-builds CO-RE at the event SHA with running
+kernel BTF, audits the static PIE/toolchain/startup, and stages its binary hash.
+Jobs do not install dependencies or build a kernel. The fixed root service
+checks the live run/attempt, workflow, job/runner and PR through GitHub's API;
+PRs must remain open and match both the head and current merge SHA. It fetches
+that exact commit into a root-private snapshot and rechecks the binary hash.
+The temporary token has only `contents: read` and `actions: read`, is never
+passed to Git or test children, and is removed by cleanup. API errors fail closed.
+
+CI runs OpenSSL/GoTLS text, keylog and pcapng cases, including stress. Reports
+must match the run/attempt, source SHA and binary hash; only sanitized summaries
+are uploaded. GnuTLS remains in the hosted matrix pending its separate Debian
+compatibility work. This job does not validate non-CO-RE capture.
+
+For manual runs without a CI request, provision a compatible E2E harness at
 `/opt/ecapture-e2e/source`, its matching binary at
 `/opt/ecapture-e2e/artifact/ecapture`, and the source revision in
 `/opt/ecapture-e2e/SOURCE_COMMIT`; retain patch/artifact hashes. Keep the bundle
-and its parents root-owned and not writable by the runner. This fixed bundle
-does not test the Actions checkout's SHA. Debian/LoongArch E2E needs the
-corresponding harness support, workload dependencies, and verified root access
-to BPF loading, uprobes/kprobes, perf events and TC attachment.
+and its parents root-owned and not writable by the runner. The manual bundle
+runs all three TLS modules; it does not test another Actions SHA. Verify root
+access to BPF loading, uprobes/kprobes, perf events and TC attachment before E2E.
 
 Install from the repository root:
 
@@ -233,6 +249,7 @@ sudo install -d -o root -g ecapture-runner -m 0750 /var/log/ecapture-e2e
 sudo install -d -o root -g root -m 0755 /etc/ecapture-runner /usr/local/libexec
 sudo install -o root -g root -m 0750 builder/runner/runner-e2e-job.sh /usr/local/libexec/ecapture-e2e-job
 sudo install -o root -g root -m 0644 builder/runner/runner-e2e-finish.py /usr/local/libexec/ecapture-e2e-finish.py
+sudo install -o root -g root -m 0644 builder/runner/runner-e2e-prepare.py /usr/local/libexec/ecapture-e2e-prepare.py
 sudo install -o root -g root -m 0644 builder/runner/ecapture-e2e.service /etc/systemd/system/
 sudo visudo -cf builder/runner/runner-e2e.sudoers
 sudo install -o root -g root -m 0440 builder/runner/runner-e2e.sudoers /etc/sudoers.d/ecapture-e2e
@@ -254,15 +271,16 @@ older summary. Raw captures stay root-private under `/var/log/ecapture-e2e/`.
 
 Start/end hooks stop E2E, reap tracked job processes and clear the checkout,
 task HOME/temp/Go caches and downloaded actions/tools. Startup recovers
-interrupted jobs. Root E2E cleanup removes its process group, task caches and
-test-owned loopback TC state; pre-existing ingress/clsact state is rejected.
+interrupted jobs. Completion, cancellation and timeout stop the E2E cgroup and
+remove its source snapshot, caches and test-owned loopback TC state;
+pre-existing ingress/clsact state is rejected.
 Registration, installed tools, diagnostics and private reports persist.
 After service changes, reload systemd and restart while idle; inspect
 `systemctl status ecapture-actions-runner.service` and its journal.
 
 Validate on Linux with `python3 test/build/runner_cleanup_test.py -v`,
 `python3 test/build/runner_e2e_finish_test.py -v`, and
-`actionlint -config-file .github/actionlint.yaml .github/workflows/self-hosted-loong64.yml`.
+`actionlint -config-file .github/actionlint.yaml .github/workflows/self-hosted-loong64.yml .github/workflows/e2e.yml`.
 Publish the workflow before verifying GitHub dispatch; manual runs and mocked
 checks do not establish that dispatch works.
 
@@ -279,10 +297,10 @@ source, not on assumed upstream support:
 | libpcap 1.10.4, gitlink `104271ba4a14de6743e43bcf87536786d8fddea4` | Its `config.sub` recognizes `loongarch64`; CI checks Clang 22 configuration and audits every archive member. |
 | `golang.org/x/sys` v0.48.0 | Contains Linux Loong64 syscall, type, assembly, CPU, and little-endian files. |
 | `golang.org/x/arch` v0.31.0 | Supplies the Loong64 decoder used to find GoTLS return instructions. Go's ABI documentation defines integer arguments in R4-R19; eCapture reads the first eight through LoongArch PT_REGS R4-R11. |
-| bpftool/BTF | Header generation is from the verified LoongArch Linux 6.6+ vmlinux built in the same configured source tree, never from host x86 BTF. |
+| bpftool/BTF | Cross-builds use verified LoongArch Linux 6.6+ ELF BTF; native CO-RE may use the running LoongArch kernel BTF without headers. Host x86 BTF is rejected. |
 | PT_REGS/ELF | The repository's libbpf-style tracing header defines LoongArch `user_pt_regs`, arguments, return value, SP, FP, and IP. Runtime ELF checks accept `EM_LOONGARCH`; LoongArch is little-endian in the audited Go/x/sys and cilium/ebpf sources. |
-| Packaging/CI/E2E | Tar/deb names use `loong64`. The shared Ubuntu 24.04 release job builds amd64, arm64 and loong64 through the same entry point and publishes successful artifacts with one checksum file. Loong64 installation/build/audit failures remove incomplete artifacts and do not block amd64/arm64 publication. The shared PR matrix adds Loong64 ELF/toolchain checks and QEMU user-mode smoke tests; there is no LoongArch E2E job. |
+| Packaging/CI/E2E | Tar/deb names use `loong64`. The shared Ubuntu 24.04 release job builds amd64, arm64 and loong64 through the same entry point and publishes successful artifacts with one checksum file. Loong64 installation/build/audit failures remove incomplete artifacts and do not block amd64/arm64 publication. The shared PR matrix adds ELF/toolchain checks and QEMU smoke tests; trusted refs also run native CO-RE OpenSSL/GoTLS E2E on the dedicated runner. |
 
-Without a real LoongArch64 kernel test, static PIE startup, CO-RE relocation
-against runtime BTF, uprobes/kprobes, TC attachment, and capture correctness
-remain unverified runtime risks.
+The native E2E gate exercises CO-RE TLS capture on its running kernel. It does
+not establish non-CO-RE capture compatibility, other kernel versions, or
+correctness of every non-TLS probe.

@@ -351,10 +351,12 @@ KERN_OBJECTS := $(addprefix $(BYTECODE_DIR)/,$(addsuffix _core.o,$(KERN_BASENAME
 KERN_OBJECTS_NOCORE := $(addprefix $(BYTECODE_DIR)/,$(addsuffix _noncore.o,$(KERN_BASENAMES)))
 
 
+# Runtime LoongArch BTF can contain Kbuild's tagged anonymous struct/union fields.
 EXTRA_CFLAGS ?= -O2 -mcpu=v1 \
 	$(DEBUG_PRINT)	\
 	-nostdinc \
-	-Wno-pointer-sign
+	-Wno-pointer-sign \
+	$(if $(filter loong64,$(SELECTED_TARGET_ARCH)),-fms-extensions -Wno-microsoft-anon-tag)
 
 CLANG_SYSTEM_INCLUDE = $(shell $(CMD_CLANG) -print-file-name=include)
 # Match Kbuild's support for tagged anonymous fields in newer kernel headers.

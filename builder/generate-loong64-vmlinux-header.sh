@@ -19,25 +19,29 @@ if [[ "$(uname -s)" != "Linux" ]]; then
     echo "LoongArch vmlinux.h generation requires Linux" >&2
     exit 1
 fi
-if [[ -z "$kernel_source" || ! -f "$kernel_source/Makefile" ]]; then
-    echo "configured Linux source tree not found: ${kernel_source:-unset}" >&2
-    exit 1
-fi
-if [[ -z "$vmlinux" ]]; then
-    vmlinux="$kernel_source/vmlinux"
+if [[ "$vmlinux" == /sys/kernel/btf/vmlinux ]]; then
+    # Native CO-RE uses the running kernel's types; it does not consume headers.
+    kernel_version="$(uname -r)"
+    header_kernel_version='not-used (native CO-RE)'
+else
+    if [[ -z "$kernel_source" || ! -f "$kernel_source/Makefile" ]]; then
+        echo "configured Linux source tree not found: ${kernel_source:-unset}" >&2
+        exit 1
+    fi
+    vmlinux="${vmlinux:-$kernel_source/vmlinux}"
+    kernel_version="$(make -s -C "$kernel_source" kernelversion)"
+    if ! version_at_least "$kernel_version" "6.6"; then
+        echo "LoongArch BTF source must be Linux 6.6 or newer; found $kernel_version" >&2
+        exit 1
+    fi
+    header_kernel_version="$kernel_version"
 fi
 if [[ -z "$output" || ! -f "$vmlinux" ]]; then
     echo "LoongArch vmlinux with BTF not found: ${vmlinux:-unset}" >&2
     exit 1
 fi
 
-kernel_version="$(make -s -C "$kernel_source" kernelversion)"
-if ! version_at_least "$kernel_version" "6.6"; then
-    echo "LoongArch BTF source must be Linux 6.6 or newer; found $kernel_version" >&2
-    exit 1
-fi
 btf_source='LoongArch ELF with .BTF'
-header_kernel_version="$kernel_version"
 if [[ "$vmlinux" == /sys/kernel/btf/vmlinux ]]; then
     case "$(uname -m)" in
         loongarch64|loong64) ;;

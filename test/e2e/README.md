@@ -2,7 +2,10 @@
 
 This directory keeps the actively maintained TLS E2E scope small and explicit:
 
-- Linux on GitHub Actions Ubuntu 22.04 or newer: `tls` (OpenSSL), `gotls`, and `gnutls`.
+- Linux on Ubuntu 22.04+ or Debian 13+: `tls` (OpenSSL), `gotls`, and `gnutls`.
+  Supported architectures are x86_64 (kernel >= 4.18), aarch64/arm64 (>= 5.5),
+  and loongarch64/loong64 (>= 6.6). GitHub-hosted CI uses Ubuntu; trusted
+  LoongArch jobs use the dedicated Debian runner.
 - Android 13/API 33 or newer: `tls` against the platform Conscrypt/BoringSSL library. CI covers every stable release from Android 13 through Android 16 (API 33-36).
 - Every Linux TLS module is exercised in `text`, `keylog`, and `pcapng` modes; text covers hook and pcapng sources.
   Android continues to exercise `text`, `keylog`, and `pcapng`.
@@ -32,10 +35,10 @@ The tests require root and a real Linux/Android kernel with eBPF support. Buildi
 
 | Platform | Module/workload | text assertion | keylog assertion | pcapng assertion |
 | --- | --- | --- | --- | --- |
-| Ubuntu 22.04+ | OpenSSL C client | unique plaintext token with enriched connection tuple and no standalone connection records | valid TLS 1.2 and 1.3 NSS secrets | SHB, IDB, packets, TLS DSB |
-| Ubuntu 22.04+ advanced | 256 OpenSSL connections (64 concurrent) | n/a | n/a | at least 1024 packets, TLS DSB, no write/loss errors or per-packet INFO logs |
-| Ubuntu 22.04+ | Go HTTPS client | unique plaintext token | valid TLS 1.2 and 1.3 NSS secrets | SHB, IDB, packets, TLS DSB |
-| Ubuntu 22.04+ | GnuTLS C client | unique plaintext token | valid TLS 1.2 and 1.3 NSS secrets | SHB, IDB, packets, TLS DSB |
+| Ubuntu 22.04+ / Debian 13+ | OpenSSL C client | unique plaintext token with enriched connection tuple and no standalone connection records | valid TLS 1.2 and 1.3 NSS secrets | SHB, IDB, packets, TLS DSB |
+| Linux advanced | 256 OpenSSL connections (64 concurrent) | n/a | n/a | at least 1024 packets, TLS DSB, no write/loss errors or per-packet INFO logs |
+| Ubuntu 22.04+ / Debian 13+ | Go HTTPS client | unique plaintext token | valid TLS 1.2 and 1.3 NSS secrets | SHB, IDB, packets, TLS DSB |
+| Ubuntu 22.04+ / Debian 13+ | GnuTLS C client | unique plaintext token | valid TLS 1.2 and 1.3 NSS secrets | SHB, IDB, packets, TLS DSB |
 | Android 13+ | `app_process` + Conscrypt | unique plaintext token | valid TLS 1.2 and 1.3 NSS secrets | SHB, IDB, packets, TLS DSB |
 
 The maintained Linux destination matrix is complete for every TLS module:
@@ -88,7 +91,7 @@ maintained TLS module suite.
 
 ## Linux
 
-Install the test dependencies on Ubuntu:
+Install the test dependencies on Ubuntu or Debian:
 
 ```bash
 sudo apt-get update
@@ -102,6 +105,23 @@ Build eCapture on Linux, then run all three modules:
 make all
 sudo make e2e-linux
 ```
+
+For a LoongArch test host, use a Loong64 artifact from the supported Ubuntu
+24.04 x86_64 cross-build or Debian native LLVM 22.1.8 build and
+verify that it matches the intended source commit. A host running an existing
+artifact does not need the build toolchain or kernel headers
+to run a CO-RE artifact against its kernel BTF:
+
+```bash
+sudo env PATH="$PATH" ECAPTURE_BINARY=/absolute/path/to/ecapture \
+  E2E_KEEP_ARTIFACTS=1 bash test/e2e/run_e2e.sh
+```
+
+`bash test/e2e/linux/platform_test.sh` checks distribution, root, architecture,
+and kernel boundaries on Linux without loading eBPF. Platform acceptance alone
+is not a capture pass. All existing plaintext, keylog, pcapng, reload, and
+output assertions remain mandatory. The text suite also needs tshark because
+it validates the pcapng text source.
 
 Run one module or one mode:
 
@@ -148,6 +168,14 @@ make e2e-android-all
 
 The Java workload is intentional: Android `HttpsURLConnection` uses Conscrypt/BoringSSL. A statically built Go HTTPS client uses Go's own TLS implementation and therefore cannot validate the Android BoringSSL `tls` probe.
 
+## LoongArch CI
+
+The `loong64-e2e` job shares `E2E Tests` push/PR/manual triggers for trusted
+repository refs; fork PRs retain the hosted Ubuntu jobs. It builds native
+CO-RE at the event SHA and runs OpenSSL/GoTLS with stress. Debian GnuTLS and
+non-CO-RE capture remain separate. See
+[runner deployment, identity checks and cleanup](../../docs/loong64-support.md#dedicated-runner).
+
 ## Configuration and artifacts
 
 | Variable | Default | Purpose |
@@ -161,7 +189,9 @@ The Java workload is intentional: Android `HttpsURLConnection` uses Conscrypt/Bo
 | `ADB_SERIAL` | unset | Select a device when more than one is attached |
 | `ANDROID_BORINGSSL_CLIENT` | generated jar in `android/` | Override the Android workload jar |
 
-Failed-suite artifacts are always preserved. CI sets `E2E_KEEP_ARTIFACTS=1` and uploads them.
+Failed-suite artifacts are always preserved. Hosted CI uploads captures with
+`E2E_KEEP_ARTIFACTS=1`; the dedicated runner keeps raw evidence private and
+uploads only sanitized summaries.
 
 Every successful mode prints a `[PLAINTEXT]` line containing at most 50
 characters of plaintext from the verified capture. Text mode reads the

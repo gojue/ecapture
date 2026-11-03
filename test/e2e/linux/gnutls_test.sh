@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# GnuTLS probe E2E tests for Ubuntu 22.04+.
+# GnuTLS probe E2E tests for supported Ubuntu and Debian hosts.
 
 set -euo pipefail
 

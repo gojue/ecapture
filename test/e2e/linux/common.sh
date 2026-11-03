@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Linux-only E2E harness. Supported environment: GitHub Actions Ubuntu 22.04+.
+# Linux-only E2E harness: Ubuntu 22.04+ or Debian 13+, including LoongArch64.
 
 set -euo pipefail
 
@@ -9,6 +9,8 @@ ROOT_DIR="$(cd "$E2E_DIR/../.." && pwd)"
 
 # shellcheck source=test/e2e/lib/testlib.sh
 source "$E2E_DIR/lib/testlib.sh"
+# shellcheck source=test/e2e/linux/platform.sh
+source "$LINUX_E2E_DIR/platform.sh"
 
 ECAPTURE_BINARY="${ECAPTURE_BINARY:-$ROOT_DIR/bin/ecapture}"
 CAPTURE_PID=""
@@ -25,54 +27,25 @@ PCAPNG_CHECK=""
 OUTPUT_RECEIVER_PID=""
 OUTPUT_RECEIVER_URI=""
 
-version_at_least() {
-    local actual="$1"
-    local required="$2"
-    [[ "$(printf '%s\n%s\n' "$required" "$actual" | sort -V | head -n 1)" == "$required" ]]
-}
-
 check_linux_environment() {
     if [[ "$(uname -s)" != "Linux" ]]; then
         log_error "E2E execution requires Linux; current OS is $(uname -s)"
         return 1
     fi
 
-    # GitHub-hosted images expose the Ubuntu release here. Keeping this strict
-    # prevents accidental support claims for untested distributions.
+    # Keep an explicit distribution/architecture matrix. Platform checks must
+    # precede helper compilation and all eBPF work.
+    local ID="" VERSION_ID=""
     # shellcheck disable=SC1091
     source /etc/os-release
-    if [[ "${ID:-}" != "ubuntu" ]] || ! version_at_least "${VERSION_ID:-0}" "22.04"; then
-        log_error "Linux E2E supports GitHub Actions Ubuntu 22.04+ only (found ${PRETTY_NAME:-unknown})"
-        return 1
-    fi
-    if ((EUID != 0)); then
-        log_error "E2E tests require root; run with sudo"
-        return 1
-    fi
+    check_linux_platform "$(uname -s)" "$ID" "$VERSION_ID" \
+        "$(uname -m)" "$(uname -r)" "$EUID" || return 1
 
-    local arch major minor required_major required_minor
-    arch="$(uname -m)"
-    IFS=. read -r major minor _ <<<"$(uname -r)"
-    case "$arch" in
-        x86_64) required_major=4; required_minor=18 ;;
-        aarch64|arm64) required_major=5; required_minor=5 ;;
-        *)
-            log_error "Unsupported architecture: $arch"
-            return 1
-            ;;
-    esac
-    if ((major < required_major || (major == required_major && minor < required_minor))); then
-        log_error "Kernel $(uname -r) is too old for $arch"
-        return 1
-    fi
-
-    require_command go
-    require_command timeout
-    require_command cc
-    require_command curl
-    if mode_enabled keylog || mode_enabled pcapng; then
-        require_command tshark
-    fi
+    # The text suite also decrypts its pcapng source, so it needs tshark too.
+    local tool
+    for tool in go timeout cc curl tshark; do
+        require_command "$tool" || return 1
+    done
     [[ -x "$ECAPTURE_BINARY" ]] || {
         log_error "eCapture binary not found: $ECAPTURE_BINARY (build with make all first)"
         return 1

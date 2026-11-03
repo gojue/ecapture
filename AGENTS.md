@@ -229,6 +229,7 @@ verification matrix live in `docs/agent/build-test.md`.
 - Non-CO-RE compilation must retain Kbuild's `-fms-extensions` support for
   tagged anonymous fields in Linux 6.19+ headers; dropping it breaks field
   access and structure layout on Linux 7.x.
+  LoongArch CO-RE needs the same support for generated runtime BTF headers.
   x86 non-CO-RE headers also require `CC_USING_FENTRY` when function tracing
   is configured; do not enable native `-pg`/`-mfentry` instrumentation for BPF.
 - `make build` is not Go-only. Switching architecture, Android, or asset modes
@@ -249,6 +250,12 @@ verification matrix live in `docs/agent/build-test.md`.
   BTF; non-CO-RE still requires prepared LoongArch kernel headers. Building
   against packaged headers does not establish non-CO-RE compatibility with a
   different running kernel. See `docs/loong64-support.md`.
+- The dedicated LoongArch E2E job shares `e2e.yml` push/PR/manual triggers,
+  but only trusted repository refs enter the host. It builds CO-RE at the event
+  SHA with LLVM 22.1.8 and runs OpenSSL/GoTLS through a fixed root service that
+  verifies the live Actions identity and fetches a per-job source snapshot.
+  Fork PRs retain hosted checks. Reports must match the run/attempt, source SHA
+  and binary hash; the fixed manual bundle is not evidence for another SHA.
 
 ## Focused references
 

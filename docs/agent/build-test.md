@@ -138,6 +138,9 @@ device/emulator must be rooted/userdebug API 33+ with SELinux not Enforcing.
   Clang flags must retain `-fms-extensions`, matching Kbuild, so those fields
   have the correct layout and remain accessible. `-Wno-microsoft-anon-tag`
   accepts this intentional extension without hiding other diagnostics.
+  LoongArch CO-RE uses the same dialect for generated BTF headers; the native
+  architecture regression compiles the running header and checks anonymous-field
+  layout.
 - x86 headers with `CONFIG_FUNCTION_TRACER=y` also require Kbuild's
   `CC_USING_FENTRY` declaration macro. Non-CO-RE builds define it for x86
   header compatibility without enabling `-pg` or `-mfentry` instrumentation.
@@ -332,19 +335,28 @@ production-tag validation.
 Unit tests do not prove that a probe can load, attach, or capture on a real
 kernel. Use strict E2E for runtime behavior.
 
-LoongArch has no GitHub-hosted native runner. The Loong64 job in
-`.github/workflows/pr_build_debug.yml` cross-builds on hosted Ubuntu 24.04 for
-pull requests, validates the artifact and toolchain, and runs QEMU user-mode
-CLI and GoTLS instruction smoke tests. The dedicated runner's
-`self-hosted-loong64.yml` adds native TLS package unit tests for trusted branch
-pushes and manual runs; see [deployment and cleanup](../loong64-support.md#dedicated-runner).
-There is no maintained LoongArch E2E job; eBPF load, attach, and capture
-behavior remain unverified by CI.
+The Loong64 PR debug job cross-builds on hosted Ubuntu 24.04 and runs artifact
+and QEMU checks. The dedicated runner adds native TLS unit tests for trusted
+branch pushes/manual runs, plus CO-RE OpenSSL/GoTLS E2E in `e2e.yml` for those
+events and same-repository PRs. Forks retain hosted checks. The native job
+builds the event SHA with LLVM 22.1.8 and running-kernel BTF; its privileged
+service verifies source/artifact identity and cleanup. Debian GnuTLS and
+non-CO-RE capture remain separate. See
+[deployment and trust boundaries](../loong64-support.md#dedicated-runner).
+
+Run runner lifecycle/admission regressions on Linux with
+`python3 test/build/runner_cleanup_test.py -v` and
+`python3 test/build/runner_e2e_finish_test.py -v`.
 
 ## Maintained Linux E2E
 
-The maintained harness supports Ubuntu 22.04+ on amd64/arm64 and uses
-deterministic local TLS workloads.
+The maintained harness supports Ubuntu 22.04+ or Debian 13+ on amd64,
+arm64 and loong64 with deterministic local TLS workloads. It requires root
+and kernels >= 4.18, 5.5 and 6.6 respectively. Run
+`bash test/e2e/linux/platform_test.sh` on Linux to check platform boundaries.
+Use `ECAPTURE_BINARY` to select a verified artifact; the harness does not
+provision a build environment. All modes, including text, require tshark.
+Keep per-run capture results and source/binary hashes outside Git.
 
 ```sh
 make clean
@@ -473,7 +485,7 @@ logs. See `docs/performance-benchmarks.md` for tunables and result semantics.
 | OpenSSL/BoringSSL mapping | Mapping tests, both asset variants, and real-library validation |
 | CI workflow | Least privilege, fork/trusted boundary, and relevant workflow behavior |
 | Loong64 build/toolchain | Ubuntu 24.04 cross-build or Debian 13+ native build; exact LLVM/LLD 22.1.8 version gate; libpcap `config.log`; LoongArch ELF/archive members; static PIE; LLD evidence; QEMU user smoke |
-| Loong64 runtime | No maintained E2E gate; cross-build and QEMU user-mode smoke do not establish eBPF load/attach/capture correctness |
+| Loong64 runtime | Trusted native CO-RE OpenSSL/GoTLS E2E with source/artifact identity and cleanup; non-CO-RE capture and Debian GnuTLS require separate validation |
 
 If required infrastructure is unavailable, list the exact commands not run and
 why. A static inspection is not a successful Linux build, race test, probe

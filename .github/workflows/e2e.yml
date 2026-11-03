@@ -16,6 +16,122 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  loong64-e2e:
+    name: E2E Tests (OpenSSL/GoTLS) / Debian LoongArch64
+    # A same-repository branch requires repository write access. Fork PRs keep
+    # the hosted matrix below; they must not execute on the privileged runner.
+    if: >-
+      github.repository == 'gojue/ecapture' &&
+      ((github.event_name == 'pull_request' &&
+        github.event.pull_request.head.repo.full_name == github.repository) ||
+       (github.event_name != 'pull_request' &&
+        contains(fromJSON('["refs/heads/master","refs/heads/v2","refs/heads/v1"]'), github.ref)))
+    runs-on: [self-hosted, Linux, loongarch64, ecapture]
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      actions: read
+    env:
+      PATH: /usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      GOTOOLCHAIN: local
+      TARGET_ARCH: loong64
+      LOONG64_TOOLCHAIN_TRACE: '1'
+      LOONG64_VMLINUX: /sys/kernel/btf/vmlinux
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+          persist-credentials: false
+          clean: true
+
+      - name: Check native environment and source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(uname -s)/$(uname -m)" = Linux/loongarch64
+          test "$(go env GOOS)/$(go env GOARCH)" = linux/loong64
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          for tool in bpftool make cc curl openssl tshark; do command -v "$tool"; done
+          bash builder/check-build-environment.sh loong64 linux
+          bash test/e2e/linux/platform_test.sh
+
+      - name: Build and audit current commit with LLVM 22
+        shell: bash
+        run: |
+          set -euo pipefail
+          make clean
+          make core VERSION_NUM="v0.0.0-ci-${GITHUB_SHA:0:12}" \
+            2>&1 | tee "$RUNNER_TEMP/loong64-build.log"
+          builder/verify-loong64-artifact.sh \
+            bin/ecapture .build/linux-loong64/libpcap/libpcap.a \
+            .build/linux-loong64/libpcap/config.log "$RUNNER_TEMP/loong64-build.log"
+          bin/ecapture --help >/dev/null
+          bin/ecapture --version
+
+      - name: Stage the audited binary for the fixed root service
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number || 0 }}
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib, shutil
+          os.umask(0o077)
+          target = pathlib.Path('/var/lib/ecapture-runner/job-state/e2e-input')
+          target.mkdir()
+          shutil.copyfile('bin/ecapture', target / 'ecapture')
+          digest = hashlib.sha256((target / 'ecapture').read_bytes()).hexdigest()
+          request = {'run_id': os.environ['GITHUB_RUN_ID'],
+                     'run_attempt': os.environ['GITHUB_RUN_ATTEMPT'],
+                     'sha': os.environ['GITHUB_SHA'], 'binary_sha256': digest,
+                     'pull_request': os.environ['PR_NUMBER']}
+          (target / 'github-token').write_text(os.environ['GH_TOKEN'])
+          (target / 'request.json').write_text(json.dumps(request))
+          with open(os.environ['GITHUB_ENV'], 'a') as file:
+              file.write(f'E2E_BINARY_SHA256={digest}\n')
+          PY
+
+      - name: OpenSSL and GoTLS E2E on the real kernel (gating)
+        id: capture
+        run: sudo -n /usr/bin/systemctl start ecapture-e2e.service
+
+      - name: Stop privileged work and collect this attempt's summary
+        id: summary
+        if: always() && steps.capture.outcome != 'skipped'
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo -n /usr/bin/systemctl stop ecapture-e2e.service
+          python3 - <<'PY'
+          import json, os, pathlib
+          summary = json.loads(pathlib.Path('/var/log/ecapture-e2e/latest-summary.json').read_text())
+          expected = {'ci_run_id': os.environ['GITHUB_RUN_ID'],
+                      'ci_run_attempt': os.environ['GITHUB_RUN_ATTEMPT'],
+                      'source_commit': os.environ['GITHUB_SHA'],
+                      'binary_sha256': os.environ['E2E_BINARY_SHA256']}
+          if any(summary.get(key) != value for key, value in expected.items()):
+              raise SystemExit('No matching E2E summary for this commit and run attempt')
+          pathlib.Path(os.environ['RUNNER_TEMP'], 'loong64-e2e-summary.json').write_text(
+              json.dumps(summary, indent=2) + '\n')
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as file:
+              file.write('validated=true\n')
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as file:
+              file.write(f"LoongArch E2E: {summary['passed']} passed, {summary['failed']} failed.\n\n"
+                         f"Commit: `{summary['source_commit']}`\n\n"
+                         f"Binary SHA-256: `{summary['binary_sha256']}`\n")
+          if not all(summary.get(key) is True for key in
+                     ('completed', 'job_state_cleaned', 'loopback_tc_cleaned')):
+              raise SystemExit('E2E execution or cleanup did not complete successfully')
+          PY
+
+      - name: Upload sanitized LoongArch E2E summary
+        if: always() && steps.summary.outputs.validated == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: loong64-e2e-summary-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/loong64-e2e-summary.json
+          if-no-files-found: ignore
+          retention-days: 7
+
   tls-e2e:
     name: E2E Tests (TLS/GnuTLS/GoTLS) / ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
