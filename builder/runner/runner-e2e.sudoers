@@ -1,0 +1,3 @@
+# The service executes only an administrator-provisioned, root-owned bundle.
+# No editable checkout, binary path, environment, or additional argument is accepted.
+ecapture-runner ALL=(root) NOPASSWD: /usr/bin/systemctl start ecapture-e2e.service, /usr/bin/systemctl stop ecapture-e2e.service

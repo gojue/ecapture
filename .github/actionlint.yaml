@@ -1,0 +1,5 @@
+self-hosted-runner:
+  labels:
+    - loongarch64
+    - loong64
+    - ecapture
