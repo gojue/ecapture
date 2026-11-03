@@ -58,6 +58,10 @@ var gnuTLSVersionAssets = map[string]string{
 	"3.8.7":  "gnutls_3_8_7_kern.o",
 	"3.8.8":  "gnutls_3_8_7_kern.o",
 	"3.8.9":  "gnutls_3_8_7_kern.o",
+	"3.8.10": "gnutls_3_8_10_kern.o",
+	"3.8.11": "gnutls_3_8_11_kern.o",
+	"3.8.12": "gnutls_3_8_11_kern.o",
+	"3.8.13": "gnutls_3_8_11_kern.o",
 }
 
 // Default library paths to search for GnuTLS
@@ -141,7 +145,7 @@ func (c *Config) Validate() error {
 	// Validate that the detected version is supported
 	if !c.IsSupportedVersion() {
 		return errors.New(errors.ErrCodeConfiguration,
-			fmt.Sprintf("unsupported GnuTLS version: %s (supported: 3.6.12-3.6.16, 3.7.0-3.7.11, 3.8.0-3.8.9)", c.GnuVersion))
+			fmt.Sprintf("unsupported GnuTLS version: %s (supported: 3.6.12-3.6.16, 3.7.0-3.7.11, 3.8.0-3.8.13)", c.GnuVersion))
 	}
 
 	// Validate capture mode

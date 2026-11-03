@@ -49,6 +49,11 @@ func TestConfig_IsSupportedVersion(t *testing.T) {
 			version: "3.8.0",
 			want:    true,
 		},
+		{name: "GnuTLS 3.8.9", version: "3.8.9", want: true},
+		{name: "GnuTLS 3.8.10", version: "3.8.10", want: true},
+		{name: "GnuTLS 3.8.11", version: "3.8.11", want: true},
+		{name: "GnuTLS 3.8.12", version: "3.8.12", want: true},
+		{name: "GnuTLS 3.8.13", version: "3.8.13", want: true},
 		{
 			name:    "Unsupported version",
 			version: "3.5.0",
@@ -56,7 +61,7 @@ func TestConfig_IsSupportedVersion(t *testing.T) {
 		},
 		{
 			name:    "Unsupported newer patch",
-			version: "3.8.10",
+			version: "3.8.14",
 			want:    false,
 		},
 		{
@@ -113,6 +118,11 @@ func TestConfig_GetBPFFileName(t *testing.T) {
 			version: "3.8.9",
 			want:    "gnutls_3_8_7_kern.o",
 		},
+		{name: "GnuTLS 3.8.10", version: "3.8.10", want: "gnutls_3_8_10_kern.o"},
+		{name: "GnuTLS 3.8.11", version: "3.8.11", want: "gnutls_3_8_11_kern.o"},
+		{name: "GnuTLS 3.8.12", version: "3.8.12", want: "gnutls_3_8_11_kern.o"},
+		{name: "GnuTLS 3.8.13", version: "3.8.13", want: "gnutls_3_8_11_kern.o"},
+		{name: "Unsupported future version", version: "3.8.14", want: ""},
 		{
 			name:    "Unknown version",
 			version: "3.5.0",

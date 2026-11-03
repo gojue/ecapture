@@ -1,82 +1,82 @@
 #!/usr/bin/env bash
-set -e
+# Generate offsets from real GnuTLS source on a supported Linux host.
+set -euo pipefail
 
-PROJECT_ROOT_DIR=$(pwd)
-GNUTLS_DIR="${PROJECT_ROOT_DIR}/deps/gnutls"
-OUTPUT_DIR="${PROJECT_ROOT_DIR}/kern"
-
-if [[ ! -f "go.mod" ]]; then
-  echo "Run the script from the project root directory"
-  exit 1
-fi
-
-echo "check file exists: ${GNUTLS_DIR}/.git"
-# skip cloning if the header file of the max supported version is already generated
-if [[ ! -f "${GNUTLS_DIR}/.git" ]]; then
-  echo "check directory exists: ${GNUTLS_DIR}"
-  # skip cloning if the gnutls directory already exists
-  if [[ ! -d "${GNUTLS_DIR}" ]]; then
-    echo "git clone gnutls to ${GNUTLS_DIR}"
-    git clone https://github.com/gnutls/gnutls.git ${GNUTLS_DIR}
-  fi
-fi
-
-
-function run() {
-  git fetch --tags
-  cp -f ${PROJECT_ROOT_DIR}/utils/gnutls_offset.c ${GNUTLS_DIR}/offset.c
-  # 3.6.{12 ~ 16}
-  # 3.7.{0 ~ 11}
-  # 3.8.{0 ~ 9}
-  main_version="3.8"
-
-  for ver in $(seq 0 9); do
-    tag="${main_version}.${ver}"
-    underline_tag=$(echo $tag | tr "." "_")
-    header_file="${OUTPUT_DIR}/gnutls_${underline_tag}_kern.c"
-    header_define="GNUTLS_${underline_tag}_KERN_H"
-
-    if [[ -f ${header_file} ]]; then
-      echo "Skip ${header_file}"
-      continue
-    fi
-    echo "git checkout -f ${tag}"
-    git checkout -f ${tag}
-    echo "Generating ${header_file}"
-
-    # init
-    ./bootstrap --skip-po --force --no-bootstrap-sync
-    ./configure --without-p11-kit --without-brotli --without-zstd --without-zlib --without-tpm --disable-doc --disable-tests
-    clang -I gnulib/lib -I lib -I lib/includes -I . offset.c -o offset
-
-    echo -e "#ifndef ECAPTURE_${header_define}" >${header_file}
-    echo -e "#define ECAPTURE_${header_define}\n" >>${header_file}
-    ./offset >>${header_file}
-    echo -e "\n#include \"gnutls.h\"" >>${header_file}
-    echo -e "#include \"gnutls_masterkey.h\"" >>${header_file}
-    echo -e "\n#endif" >>${header_file}
-
-    # clean up
-    make clean
-  done
-
-  rm offset.c
+[[ "$(uname -s)" == Linux ]] || { echo 'Offset generation requires Linux' >&2; exit 1; }
+case "$(uname -m)" in
+  x86_64) minimum_kernel=4.18 ;;
+  aarch64|arm64) minimum_kernel=5.5 ;;
+  loongarch64|loong64) minimum_kernel=6.6 ;;
+  *) echo 'Unsupported offset-generation architecture' >&2; exit 1 ;;
+esac
+kernel=$(uname -r | cut -d- -f1)
+[[ "$(printf '%s\n%s\n' "$minimum_kernel" "$kernel" | sort -V | head -n 1)" == "$minimum_kernel" ]] || {
+  echo "Kernel $kernel is too old; require $minimum_kernel" >&2; exit 1;
 }
+project_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+output_dir=${GNUTLS_OUTPUT_DIR:-$project_root/kern}
+compiler=${CC:-clang}
+command -v "$compiler" >/dev/null
+versions=("$@")
+if ((${#versions[@]} == 0)); then
+  # Preserve the supported generation range: 3.8.{0 ~ 13}.
+  for patch in $(seq 0 13); do versions+=("3.8.$patch"); done
+fi
+for version in "${versions[@]}"; do
+  [[ "$version" =~ ^3[.]8[.]([0-9]|1[0-3])$ ]] || {
+    echo "Unsupported generation version: $version (use 3.8.0 through 3.8.13)" >&2; exit 1;
+  }
+done
+if [[ -n "${GNUTLS_SOURCE_DIR:-}" && ${#versions[@]} != 1 ]]; then
+  echo 'GNUTLS_SOURCE_DIR requires exactly one version argument' >&2; exit 1
+fi
+mkdir -p "$output_dir"
+output_dir=$(cd "$output_dir" && pwd)
+work=$(mktemp -d "${TMPDIR:-/tmp}/ecapture-gnutls-offset.XXXXXX")
+trap 'rm -rf -- "$work"' EXIT
 
-# install deps
-sudo apt install -y \
-  libtool \
-  gettext \
-  gperf \
-  autopoint \
-  gtk-doc-tools \
-  nettle-dev \
-  libev-dev \
-  libtasn1-6-dev \
-  libunistring-dev \
-  libunbound-dev
-
-pushd ${GNUTLS_DIR}
-(run)
-[[ "$?" != 0 ]] && popd
-popd
+for version in "${versions[@]}"; do
+  suffix=${version//./_}
+  destination="$output_dir/gnutls_${suffix}_kern.c"
+  if [[ -e "$destination" ]]; then
+    echo "Skip existing $destination; use a separate GNUTLS_OUTPUT_DIR to compare layouts"
+    continue
+  fi
+  if [[ -n "${GNUTLS_SOURCE_DIR:-}" ]]; then
+    # Read-only input: configure this source separately with the library's
+    # real build options, including downstream patches when applicable.
+    source_dir=$(cd "$GNUTLS_SOURCE_DIR" && pwd)
+    source_id=${GNUTLS_SOURCE_ID:?Set GNUTLS_SOURCE_ID to the source commit or release archive SHA-256}
+  else
+    source_dir="$work/gnutls-$version"
+    git clone --depth 1 --branch "$version" https://github.com/gnutls/gnutls.git "$source_dir"
+    source_id=$(git -C "$source_dir" rev-parse HEAD)
+    (
+      cd "$source_dir"
+      ./bootstrap --skip-po --force --no-bootstrap-sync
+      ./configure --without-p11-kit --without-brotli --without-zstd --without-zlib \
+        --without-tpm --disable-doc --disable-tests
+    )
+  fi
+  [[ "$source_id" =~ ^[[:xdigit:]]{40}([[:xdigit:]]{24})?$ ]] || {
+    echo 'Source identity must be a full Git commit or SHA-256 digest' >&2; exit 1;
+  }
+  test -f "$source_dir/config.h"
+  grep -Fxq "#define PACKAGE_VERSION \"$version\"" "$source_dir/config.h" || {
+    echo "Configured source does not match requested version $version" >&2; exit 1;
+  }
+  "$compiler" -I "$source_dir/gnulib/lib" -I "$source_dir/gl" -I "$source_dir/lib" \
+    -I "$source_dir/lib/includes" -I "$source_dir" \
+    "$project_root/utils/gnutls_offset.c" -o "$work/offset"
+  config_hash=$(sha256sum "$source_dir/config.h" | cut -d' ' -f1)
+  {
+    printf '#ifndef ECAPTURE_GNUTLS_%s_KERN_H\n#define ECAPTURE_GNUTLS_%s_KERN_H\n\n' "$suffix" "$suffix"
+    printf '// GnuTLS %s; source %s\n' "$version" "$source_id"
+    printf '// config.h SHA-256: %s\n\n' "$config_hash"
+    "$work/offset"
+    printf '\n#include "gnutls.h"\n#include "gnutls_masterkey.h"\n\n#endif\n'
+  } > "$work/result.c"
+  # Configure and compile must succeed before publishing an output.
+  cp "$work/result.c" "$destination"
+  echo "Generated $destination"
+done
