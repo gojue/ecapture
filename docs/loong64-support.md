@@ -19,7 +19,7 @@ These names belong to different interfaces and are not interchangeable:
 | libpcap canonical host | `loongarch64-unknown-linux-gnu` |
 | eBPF target macro | `__TARGET_ARCH_loongarch` |
 
-Use an Ubuntu 24.04 x86_64 host. `builder/check-build-environment.sh` rejects
+Use Ubuntu 24.04 x86_64 for cross-builds or Debian 13+ LoongArch64 for native builds. `builder/check-build-environment.sh` rejects
 another OS, release, or host architecture before libpcap or eBPF compilation.
 
 ## Toolchain and sysroot
@@ -31,29 +31,26 @@ cross-build environment with:
 TARGET_ARCH=loong64 bash builder/init_env.sh
 ```
 
-The initializer installs the LLVM 18 tools, target static libraries and QEMU,
+The initializer installs the LLVM 22.1.8 tools, target static libraries and QEMU,
 initializes libpcap, and calls the existing kernel preparation script to build
 a BTF-bearing `vmlinux`. Its kernel tree lives under `.build/kernel-loong64/`,
 separate from other architectures. It prints the `TARGET_ARCH`, `KERN_HEADERS`
 and `LOONG64_VMLINUX` exports and the build command to run next. This prepares
 build inputs; it does not install or boot the target kernel.
 
-For manual installation, install LLVM/Clang/LLD 18 and the Loong64 cross sysroot:
+For Ubuntu cross-builds, the initializer configures the signed
+[LLVM 22 package source](https://apt.llvm.org/) and selects packages whose
+upstream version is exactly 22.1.8. It verifies the repository key fingerprint
+and does not execute a downloaded installer. On disposable GitHub-hosted runners,
+failed system DNS resolution for `apt.llvm.org` falls back to Google DNS over
+HTTPS and a job-local hosts entry, retaining TLS and package signature checks.
+Native Debian uses its configured
+package sources. Missing 22.1.8 packages fail initialization instead of falling
+back to another toolchain version.
 
-```sh
-sudo apt-get update
-sudo apt-get install --yes \
-  bc bison clang-18 dwarves file flex \
-  libatomic1-loong64-cross libc6-dev-loong64-cross libelf-dev \
-  libgcc-13-dev-loong64-cross libssl-dev linux-libc-dev-loong64-cross \
-  linux-source linux-tools-common linux-tools-generic lld-18 \
-  llvm-18 llvm-18-tools make pkg-config xz-utils
-```
-
-The build requires `clang-18`, `clang++-18`, `llc-18`, `ld.lld-18`, and the
-versioned LLVM 18 `ar`, `ranlib`, `nm`, `strip`, `objcopy`, `objdump`, and
-`readelf` tools. The single `builder/check-build-environment.sh` preflight
-checks every major version and verifies target headers, `crt1.o`, `Scrt1.o`,
+The build requires versioned `clang-22`, `clang++-22`, `llc-22`, `ld.lld-22`,
+and LLVM 22 archive and inspection tools. The shared preflight checks every
+tool's full 22.1.8 version and verifies target headers, `crt1.o`, `Scrt1.o`,
 `rcrt1.o`, `crti.o`, `crtn.o`, static glibc, `libgcc.a`, and `libatomic.a`.
 
 The default sysroot root is `/`, while target headers and libraries are pinned
@@ -82,12 +79,12 @@ For link actions it additionally supplies `--rtlib=libgcc` and the target
 library/runtime `-L` paths. Those link-only flags are intentionally omitted
 for `-E`, `-c`, `-S`, dependency-only, and syntax-only invocations so cgo's
 `-Werror` compiler probes do not reject them as unused. Non-CO-RE eBPF builds
-add the Clang 18 resource include directory for LLVM's LoongArch intrinsic
-headers before compiling LLVM IR and passing it to `llc-18`.
+add the Clang 22 resource include directory for LLVM's LoongArch intrinsic
+headers before compiling LLVM IR and passing it to `llc-22`.
 
-libpcap and cgo set that wrapper as `CC`, use LLVM 18 archive tools, and pass
+libpcap and cgo set that wrapper as `CC`, use LLVM 22.1.8 archive tools, and pass
 `-fuse-ld=lld` at link time. Go's external linker is the Clang driver wrapper;
-`ld.lld-18` is never used directly as `-extld`. The final static PIE link uses
+`ld.lld-22` is never used directly as `-extld`. The final static PIE link uses
 `-static -static-pie -fuse-ld=lld`; retaining `-static` preserves the existing
 link contract while `-static-pie` makes the required ELF `ET_DYN` result
 explicit.
@@ -101,7 +98,7 @@ with BTF from Ubuntu 24.04's installed `linux-source` package:
 builder/prepare-loong64-kernel.sh /path/to/extracted/linux-source
 ```
 
-The script uses `ARCH=loongarch LLVM=-18`, enables DWARF5 and
+The script uses `ARCH=loongarch LLVM=-22`, enables DWARF5 and
 `CONFIG_DEBUG_INFO_BTF`, and rejects Linux older than 6.6. During the eCapture
 build, `builder/generate-loong64-vmlinux-header.sh` verifies that the input is
 a LoongArch ELF containing `.BTF`, generates the header with bpftool, and
@@ -149,6 +146,31 @@ architecture `loong64`. The current RPM spec remains a native rpmbuild flow and
 is not part of the shared release job. The common `release` target builds
 Linux tar/deb artifacts for all architectures and Android only for amd64/arm64.
 
+## Native Debian build
+
+Debian 13+ LoongArch64 (kernel >= 6.6) uses LLVM/Clang/LLD 22.1.8:
+
+```sh
+bash builder/init_env.sh
+# Apply the PATH, TARGET_ARCH, KERN_HEADERS and LOONG64_VMLINUX exports.
+make clean && make all
+bash test/build/architecture_config_test.sh
+```
+
+The initializer installs native LLVM 22 packages, bpftool and build dependencies.
+The Clang wrapper drives versioned `ld.lld-22` for static PIE and retains
+native glibc/libgcc; Go's `-extld` must not invoke LLD directly. Preflight
+checks the validated 22.1.8 tools, and the audit checks the linker trace and
+ELF linker identity. Cross-builds use the same toolchain version.
+
+With running-kernel BTF, packaged kernel source is prepared only for non-CO-RE
+headers. Without it, the kernel helper builds a BTF-bearing vmlinux. Raw BTF
+is accepted only from `/sys/kernel/btf/vmlinux` on a native LoongArch host;
+provenance distinguishes the BTF kernel from the header-source kernel.
+Compilation against packaged headers does not prove capture on a different
+running kernel. LLVM 20/21 were not tested; no compatibility claim is made
+for those releases.
+
 ## Verification
 
 Run the repository verifier after a verbose build:
@@ -159,15 +181,18 @@ builder/verify-loong64-artifact.sh \
   .build/linux-loong64/libpcap/libpcap.a \
   .build/linux-loong64/libpcap/config.log \
   /path/to/verbose-build.log
+# Native host: bin/ecapture --help
+# Cross-build host:
 qemu-loongarch64-static bin/ecapture --help
 ```
 
-It checks the LLVM 18 versions, libpcap's recorded compiler, every libpcap
-archive member's ELF machine, final LoongArch ELF type, absence of an ELF
-interpreter and `DT_NEEDED`, Clang's `-###` linker choice, the final ELF's LLD
-18 `.comment` when stripping retained it, and obvious GNU frontend/binutil
-executions in the verbose log. QEMU user mode covers only CLI startup and the
-GoTLS instruction unit test.
+It checks LLVM/Clang/LLD 22.1.8 on both build paths, libpcap's recorded
+compiler, every archive member's ELF machine, final LoongArch static PIE,
+absence of an ELF interpreter and `DT_NEEDED`, and Clang's explicit selection
+of `ld.lld-22`. The final ELF must retain the matching LLD 22.1.8 identity.
+The verbose build log must not execute GNU compiler/linker/archive frontends.
+QEMU user mode covers only CLI startup and the GoTLS instruction unit test;
+validate the cross-built artifact on a real LoongArch kernel for capture.
 
 There is no LoongArch64 E2E job. The PR Debug Loong64 matrix entry cross-builds and
 checks the static artifact, then runs QEMU user-mode CLI and GoTLS instruction
@@ -251,7 +276,7 @@ source, not on assumed upstream support:
 | Go 1.26.0 | The Go platform table marks `linux/loong64` cgo-capable and supports PIE; runtime/cgo contains Loong64 assembly. The build CI exercises cgo plus external static PIE linking. |
 | `github.com/cilium/ebpf` v0.22.0 | Little-endian and 64-bit build constraints include `loong64`; generated BPF examples include it. Its syscall-wrapper feature table has no LoongArch prefix, consistent with LoongArch not selecting `ARCH_HAS_SYSCALL_WRAPPER`; native load/attach remains unverified. |
 | `github.com/gojue/ebpfmanager` v0.6.0 | Linux code is not restricted to amd64/arm64. Kprobe resolution first accepts the exact kallsyms symbol used by eCapture; fallback behavior remains unverified on a LoongArch kernel. |
-| libpcap 1.10.4, gitlink `104271ba4a14de6743e43bcf87536786d8fddea4` | Its `config.sub` recognizes `loongarch64`; CI proves Clang 18 configuration and audits every archive member. |
+| libpcap 1.10.4, gitlink `104271ba4a14de6743e43bcf87536786d8fddea4` | Its `config.sub` recognizes `loongarch64`; CI checks Clang 22 configuration and audits every archive member. |
 | `golang.org/x/sys` v0.48.0 | Contains Linux Loong64 syscall, type, assembly, CPU, and little-endian files. |
 | `golang.org/x/arch` v0.31.0 | Supplies the Loong64 decoder used to find GoTLS return instructions. Go's ABI documentation defines integer arguments in R4-R19; eCapture reads the first eight through LoongArch PT_REGS R4-R11. |
 | bpftool/BTF | Header generation is from the verified LoongArch Linux 6.6+ vmlinux built in the same configured source tree, never from host x86 BTF. |

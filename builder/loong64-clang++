@@ -2,5 +2,7 @@
 
 set -euo pipefail
 
-export LOONG64_CLANG_DRIVER=clang++-18
+# shellcheck source=builder/loong64-toolchain.sh
+source "$(dirname "$0")/loong64-toolchain.sh"
+export LOONG64_CLANG_DRIVER="clang++-$llvm_major"
 exec "$(dirname "$0")/loong64-clang" "$@"

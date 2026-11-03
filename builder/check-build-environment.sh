@@ -45,20 +45,31 @@ case "$target_arch" in
             echo "Loong64 is supported only for Linux" >&2
             exit 1
         fi
-        if [[ "$host_arch" != "x86_64" ]]; then
-            echo "Loong64 release builds require an x86_64 cross-build host; found $host_arch" >&2
-            exit 1
-        fi
         if [[ ! -r /etc/os-release ]]; then
             echo "cannot identify Loong64 cross-build distribution: /etc/os-release is missing" >&2
             exit 1
         fi
         # shellcheck disable=SC1091
         source /etc/os-release
-        if [[ "${ID:-}" != "ubuntu" || "${VERSION_ID:-}" != "24.04" ]]; then
-            echo "Loong64 cross-builds require Ubuntu 24.04 x86_64; found ${PRETTY_NAME:-unknown}" >&2
-            exit 1
-        fi
+        case "$host_arch" in
+            x86_64)
+                if [[ "${ID:-}" != ubuntu || "${VERSION_ID:-}" != 24.04 ]]; then
+                    echo 'Loong64 cross-builds require Ubuntu 24.04 x86_64' >&2
+                    exit 1
+                fi
+                ;;
+            loongarch64|loong64)
+                if [[ "${ID:-}" != debian || ! "${VERSION_ID:-}" =~ ^[0-9]+([.][0-9]+)*$ ]] ||
+                    ! version_at_least "$VERSION_ID" 13; then
+                    echo 'Native Loong64 builds require Debian 13 or newer' >&2
+                    exit 1
+                fi
+                ;;
+            *)
+                echo "Unsupported Loong64 build host: $host_arch" >&2
+                exit 1
+                ;;
+        esac
         ;;
     *)
         echo "unsupported target architecture: $target_arch" >&2
@@ -73,15 +84,22 @@ if ! version_at_least "$host_kernel" "$minimum_kernel"; then
 fi
 
 if [[ "$target_arch" == "loong64" ]]; then
-    required_major=18
+    # shellcheck source=builder/loong64-toolchain.sh
+    source "$(dirname "$0")/loong64-toolchain.sh"
+    required_major="$llvm_major"
     tools=(
-        clang-18 clang++-18 llc-18 ld.lld-18 llvm-ar-18 llvm-ranlib-18
-        llvm-nm-18 llvm-strip-18 llvm-objcopy-18 llvm-objdump-18 llvm-readelf-18
+        "clang-$llvm_major" "clang++-$llvm_major" "llc-$llvm_major" "ld.lld-$llvm_major"
+        "llvm-ar-$llvm_major" "llvm-ranlib-$llvm_major" "llvm-nm-$llvm_major"
+        "llvm-strip-$llvm_major" "llvm-objcopy-$llvm_major" "llvm-objdump-$llvm_major"
+        "llvm-readelf-$llvm_major"
     )
 
     tool_major() {
-        "$1" --version 2>&1 |
-            sed -nE '/([Vv]ersion|LLD)[[:space:]]+[0-9]+/ { s/.*([Vv]ersion|LLD)[[:space:]]+([0-9]+).*/\2/; p; q; }'
+        local version_output
+        # Consume the full output before selecting a line: LLVM tools can exit
+        # with a broken-pipe error when sed quits early under pipefail.
+        version_output="$("$1" --version 2>&1)"
+        sed -nE '/([Vv]ersion|LLD)[[:space:]]+[0-9]+/ { s/.*([Vv]ersion|LLD)[[:space:]]+([0-9]+).*/\2/; p; q; }' <<<"$version_output"
     }
 
     for tool in "${tools[@]}"; do
@@ -94,29 +112,27 @@ if [[ "$target_arch" == "loong64" ]]; then
             echo "$tool must be LLVM major $required_major; found ${major:-unknown}" >&2
             exit 1
         fi
+        if [[ -n "$llvm_version" ]]; then
+            version_output=$("$tool" --version 2>&1)
+            if ! grep -Eq "([Vv]ersion|LLD)[[:space:]]+${llvm_version//./[.]}([^0-9.]|$)" <<<"$version_output"; then
+                echo "$tool must be the validated LLVM $llvm_version" >&2
+                exit 1
+            fi
+        fi
     done
-
-    sysroot="${LOONG64_SYSROOT:-/}"
-    target_root="${LOONG64_TARGET_ROOT:-/usr/loongarch64-linux-gnu}"
-    runtime_dir="${LOONG64_GCC_RUNTIME_DIR:-/usr/lib/gcc-cross/loongarch64-linux-gnu/13}"
 
     if [[ ! -d "$sysroot" ]]; then
         echo "Loong64 sysroot is unavailable: $sysroot" >&2
         exit 1
     fi
 
-    required_target_files=(
-        include/stdio.h
-        lib/crt1.o
-        lib/Scrt1.o
-        lib/rcrt1.o
-        lib/crti.o
-        lib/crtn.o
-        lib/libc.a
-    )
-    for relative_path in "${required_target_files[@]}"; do
-        if [[ ! -f "$target_root/$relative_path" ]]; then
-            echo "incomplete Loong64 target root: missing $target_root/$relative_path" >&2
+    required_target_files=("$target_root/include/stdio.h")
+    for library in crt1.o Scrt1.o rcrt1.o crti.o crtn.o libc.a; do
+        required_target_files+=("$target_libdir/$library")
+    done
+    for target_file in "${required_target_files[@]}"; do
+        if [[ ! -f "$target_file" ]]; then
+            echo "incomplete Loong64 target root: missing $target_file" >&2
             exit 1
         fi
     done

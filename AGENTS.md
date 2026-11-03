@@ -240,8 +240,15 @@ verification matrix live in `docs/agent/build-test.md`.
 - Linux release builds share an Ubuntu 24.04 x86_64 job. Loong64 joins the
   same release entry point and PR architecture matrix; only amd64/arm64
   produce Android artifacts. Loong64 is cross-built with `TARGET_ARCH=loong64`
-  and the repository's LLVM 18 wrappers. Do not substitute `loong64` for the
+  and the repository's LLVM 22.1.8 wrappers. Do not substitute `loong64` for the
   `loongarch64-linux-gnu` C target or `loongarch` Kbuild architecture.
+- Native Linux/loong64 production builds also support Debian 13+ with Clang/
+  LLVM 22.1.8, versioned LLD 22 linking and native multiarch libraries.
+  The Clang driver remains Go's external linker entry point.
+  `builder/init_env.sh` prepares dependencies and kernel inputs. Native CO-RE may use the running kernel's
+  BTF; non-CO-RE still requires prepared LoongArch kernel headers. Building
+  against packaged headers does not establish non-CO-RE compatibility with a
+  different running kernel. See `docs/loong64-support.md`.
 
 ## Focused references
 

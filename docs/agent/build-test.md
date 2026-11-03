@@ -47,25 +47,27 @@ Initialize dependencies on Linux:
 git submodule update --init --recursive
 ```
 
-On Ubuntu, `bash builder/init_env.sh` prepares the native target by default;
-`TARGET_ARCH=amd64|arm64|loong64` selects a cross-build target. Loong64 requires
-Ubuntu 24.04 x86_64. The initializer reuses its checkout, installs dependencies,
-initializes submodules and prepares target kernel inputs under
-`.build/kernel-<target>/`. It prints the environment exports needed by `make`.
-For Loong64 it calls `prepare-loong64-kernel.sh` to build the target BTF source.
+`bash builder/init_env.sh` prepares the native target by default;
+`TARGET_ARCH=amd64|arm64|loong64` selects a target. `CROSS_ARCH` is used only
+when `TARGET_ARCH` is unset. Loong64 supports Ubuntu 24.04 x86_64 cross-builds
+or Debian 13+ native builds, both with Clang/LLVM/LLD 22.1.8.
+The initializer reuses its checkout, installs dependencies and prepares kernel
+inputs under `.build/kernel-<target>/`. Cross-builds prepare a target BTF source;
+native LoongArch uses running-kernel BTF when available and prepares headers
+for non-CO-RE. It prints the environment exports needed by `make`.
 The PR build matrix runs this same initializer for every architecture.
 `bash test/build/architecture_config_test.sh` checks all three target mappings,
 selector precedence and unsupported combinations, so it runs for every target.
 
 All release architectures use the shared Ubuntu 24.04 x86_64 job. Loong64
 is a target selected through `TARGET_ARCH`, just like amd64/arm64. It requires the
-versioned LLVM 18 commands (`clang-18`, `clang++-18`, `llc-18`, `ld.lld-18`,
-and the `llvm-{ar,ranlib,nm,strip,objcopy,objdump,readelf}-18` tools),
+versioned LLVM 22.1.8 commands (`clang-22`, `clang++-22`, `llc-22`, `ld.lld-22`,
+and the `llvm-{ar,ranlib,nm,strip,objcopy,objdump,readelf}-22` tools),
 `libc6-dev-loong64-cross`, `linux-libc-dev-loong64-cross`,
 `libgcc-13-dev-loong64-cross`, and `libatomic1-loong64-cross`. The checked-in
 wrapper always selects `loongarch64-linux-gnu`, LP64D, the target sysroot, and
 the target libgcc runtime; it never invokes a GCC frontend. The final link is
-driven by that Clang wrapper with `-fuse-ld=lld`, not by calling `ld.lld-18`
+driven by that Clang wrapper with `-fuse-ld=lld`, not by calling `ld.lld-22`
 directly. See `../loong64-support.md` for the complete package and audit matrix.
 On Ubuntu, `LOONG64_SYSROOT=/` is intentional: the cross-glibc linker scripts
 contain absolute `/usr/loongarch64-linux-gnu/...` paths. The wrapper separately
@@ -73,11 +75,11 @@ pins `LOONG64_TARGET_ROOT=/usr/loongarch64-linux-gnu` for target headers and
 libraries, preventing LLD from applying the target prefix twice.
 Link-only runtime and library flags are omitted for preprocessing and
 compile-only wrapper invocations so cgo's `-Werror` probes remain valid. The
-non-CO-RE path explicitly adds Clang 18's resource include directory; this is
+non-CO-RE path explicitly adds Clang 22's resource include directory; this is
 where LLVM provides the LoongArch `larchintrin.h` required by Linux headers.
 The Loong64 Go external-link flags are `-static -static-pie -fuse-ld=lld`;
 the sysroot preflight therefore also requires glibc's `rcrt1.o`.
-The amd64/arm64 BPF compiler remains LLVM 14; Loong64 uses LLVM 18.
+The amd64/arm64 BPF compiler remains LLVM 14; Loong64 uses LLVM 22.1.8.
 The shared Go link recipe checks every binary for static PIE, no ELF
 interpreter, and no shared-library `DT_NEEDED` before packaging. The release
 job builds all architectures through `builder/Makefile.release release`,
@@ -240,8 +242,16 @@ KERN_HEADERS=/path/to/linux-source \
 The generator rejects a pre-6.6 source, a non-LoongArch ELF, or a `vmlinux`
 without `.BTF`, then records the kernel version, SHA-256, and bpftool version in
 the ignored `kern/bpf/loongarch/vmlinux.source`. Kbuild prepare uses
-`ARCH=loongarch LLVM=-18`; CO-RE uses `clang-18 -target bpfel`; non-CO-RE uses
-`clang-18 --target=loongarch64-linux-gnu` piped to `llc-18`.
+`ARCH=loongarch LLVM=-22`; CO-RE uses `clang-22 -target bpfel`; non-CO-RE uses
+`clang-22 --target=loongarch64-linux-gnu` piped to `llc-22`.
+
+Native Debian 13+ LoongArch64 uses Clang/LLVM/LLD 22.1.8 with libgcc.
+Run `bash builder/init_env.sh` and apply its printed exports before a clean
+build. The Clang wrapper remains Go's external-link driver and selects
+`ld.lld-22` explicitly. Run `bash test/build/architecture_config_test.sh` for
+static PIE startup, linker selection and BTF boundary checks. Running-kernel
+BTF is accepted only on native LoongArch64 >= 6.6; prepared non-CO-RE headers
+must match the target kernel for capture validation. See `../loong64-support.md`.
 
 ### Build traps
 
@@ -462,7 +472,7 @@ logs. See `docs/performance-benchmarks.md` for tunables and result semantics.
 | CLI/output/capture mode | Relevant strict E2E mode on a real Linux/Android kernel |
 | OpenSSL/BoringSSL mapping | Mapping tests, both asset variants, and real-library validation |
 | CI workflow | Least privilege, fork/trusted boundary, and relevant workflow behavior |
-| Loong64 build/toolchain | Hosted Ubuntu 24.04 cross-build; LLVM-18 version gate; libpcap `config.log`; LoongArch ELF/archive members; static PIE; LLD evidence; QEMU user smoke |
+| Loong64 build/toolchain | Ubuntu 24.04 cross-build or Debian 13+ native build; exact LLVM/LLD 22.1.8 version gate; libpcap `config.log`; LoongArch ELF/archive members; static PIE; LLD evidence; QEMU user smoke |
 | Loong64 runtime | No maintained E2E gate; cross-build and QEMU user-mode smoke do not establish eBPF load/attach/capture correctness |
 
 If required infrastructure is unavailable, list the exact commands not run and
