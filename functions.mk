@@ -52,6 +52,14 @@ define gobuild
 	GOOS=linux GOARCH=$(GOARCH) CC=$(CMD_CC_PREFIX)$(CMD_CC) CXX=$(CMD_CXX) \
 	AR=$(CMD_AR_PREFIX)$(CMD_AR) RANLIB=$(CMD_RANLIB) NM=$(CMD_NM) \
 	$(CMD_GO) build -trimpath -buildmode=pie -mod=readonly -tags '$(TARGET_TAG),netgo,ebpfassets,dynamic' -ldflags "-w -s -X 'github.com/gojue/ecapture/v2/cli/cmd.GitVersion=$(TARGET_TAG)_$(GOARCH):$(VERSION_NUM):$(VERSION_FLAG)' -X 'github.com/gojue/ecapture/v2/internal/config.ByteCodeFiles=$(2)' -linkmode=external -extld=$(CMD_CC_PREFIX)$(CMD_CC) -extldflags '$(GO_EXTLDFLAGS)'" -o $(OUT_BIN) || exit 1
+	# Verify the static PIE contract before copying or packaging any target.
+	elf_header=$$($(CMD_READELF) -h $(OUT_BIN)) || exit 1
+	program_headers=$$($(CMD_READELF) -l $(OUT_BIN)) || exit 1
+	dynamic_section=$$($(CMD_READELF) -d $(OUT_BIN)) || exit 1
+	if ! grep -Eq 'Type:.*DYN' <<<"$$elf_header" || grep -q INTERP <<<"$$program_headers" || grep -q NEEDED <<<"$$dynamic_section"; then
+		echo "eCapture must be a static PIE without a dynamic interpreter or shared-library dependencies" >&2
+		exit 1
+	fi
 	$(CMD_CP) $(OUT_BIN) $(COMPAT_OUT_BIN) || exit 1
 	$(CMD_FILE) $(OUT_BIN) || exit 1
 endef

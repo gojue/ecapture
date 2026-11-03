@@ -7,7 +7,10 @@ include functions.mk
 
 .PHONY: all
 all: help
-release: snapshot build_deb snapshot_android
+release: snapshot build_deb
+ifneq ($(SELECTED_TARGET_ARCH),loong64)
+release: snapshot_android
+endif
 
 #
 # make

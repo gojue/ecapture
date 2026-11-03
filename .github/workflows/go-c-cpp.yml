@@ -20,7 +20,7 @@ jobs:
           go-version: '1.26.0'
 
       - name: Check architecture build configuration
-        run: bash test/build/loong64_config_test.sh
+        run: bash test/build/architecture_config_test.sh
 
       - name: Install Compilers
         run: |

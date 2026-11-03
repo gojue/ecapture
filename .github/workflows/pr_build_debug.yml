@@ -14,12 +14,14 @@ concurrency:
 
 jobs:
   build-debug-artifacts:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     name: Build Debug Artifacts
+    timeout-minutes: 90
+    continue-on-error: ${{ matrix.arch == 'loong64' }}
     strategy:
+      fail-fast: false
       matrix:
-        os: [ android, linux ]
-        arch: [ arm64, amd64 ]
+        arch: [arm64, amd64, loong64]
     steps:
       - uses: actions/checkout@v6
         with:
@@ -30,148 +32,66 @@ jobs:
         with:
           go-version: '1.26.0'
 
-      - name: Install Compilers
+      - name: Initialize build environment
+        env:
+          TARGET_ARCH: ${{ matrix.arch }}
         shell: bash
         run: |
-          sudo apt-get update
-          sudo apt-get install --yes \
-            build-essential \
-            pkgconf \
-            libelf-dev \
-            llvm-14 \
-            clang-14 \
-            linux-tools-common \
-            linux-tools-generic \
-            gcc \
-            gcc-aarch64-linux-gnu \
-            linux-source
-          for tool in "clang" "llc" "llvm-strip"
-          do
-            sudo rm -f /usr/bin/$tool
-            sudo ln -s /usr/bin/$tool-14 /usr/bin/$tool
-          done
-          cd /usr/src
-          source_file=$(find . -maxdepth 1 -name "*linux-source*.tar.bz2")
-          source_dir=$(echo "$source_file" | sed 's/\.tar\.bz2//g')
-          sudo tar -xf $source_file
-          cd $source_dir
-          test -f .config || sudo make oldconfig
-          sudo make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- prepare V=0
+          set -euo pipefail
+          bash builder/init_env.sh
+          kernel_source=$(find "$PWD/.build/kernel-$TARGET_ARCH" -mindepth 1 -maxdepth 1 -type d -name 'linux-source*' | sort -V | tail -n 1)
+          test -f "$kernel_source/Makefile"
+          echo "KERN_HEADERS=$kernel_source" >> "$GITHUB_ENV"
+          if [[ "$TARGET_ARCH" == loong64 ]]; then
+            echo "LOONG64_VMLINUX=$kernel_source/vmlinux" >> "$GITHUB_ENV"
+          fi
 
+      - name: Check architecture build configuration
+        run: bash test/build/architecture_config_test.sh
 
-      - name: Build Debug amd64
-        if: matrix.arch == 'amd64'
+      - name: Build Debug artifacts
+        env:
+          TARGET_ARCH: ${{ matrix.arch }}
+          BUILD_VERSION: v0.0.0-pr-${{ github.event.number || 'dev' }}-debug
+          LOONG64_TOOLCHAIN_TRACE: '1'
         run: |
+          set -euo pipefail
           make clean
           make env
-          DEBUG=1 make -f builder/Makefile.release release SNAPSHOT_VERSION=v0.0.0-pr-${{ github.event.number || 'dev' }}-debug
-          cp bin/ecapture-*.tar.gz dist/
+          DEBUG=1 make -f builder/Makefile.release release SNAPSHOT_VERSION="$BUILD_VERSION" \
+            2>&1 | tee "$RUNNER_TEMP/ecapture-build.log"
 
-      - name: Build Debug arm64
-        if: matrix.arch == 'arm64'
+      - name: Verify Loong64 artifact and startup
+        if: matrix.arch == 'loong64'
         run: |
-          make clean
-          make env
-          DEBUG=1 TARGET_ARCH=arm64 make -f builder/Makefile.release release SNAPSHOT_VERSION=v0.0.0-pr-${{ github.event.number || 'dev' }}-debug
-          cp bin/ecapture-*.tar.gz dist/
+          builder/verify-loong64-artifact.sh \
+            .build/linux-loong64/bin/ecapture .build/linux-loong64/libpcap/libpcap.a \
+            .build/linux-loong64/libpcap/config.log "$RUNNER_TEMP/ecapture-build.log"
+          qemu-loongarch64-static bin/ecapture --help >/dev/null
+          CGO_ENABLED=0 GOOS=linux GOARCH=loong64 go test -c \
+            -o "$RUNNER_TEMP/gotls.test" ./internal/probe/gotls
+          qemu-loongarch64-static "$RUNNER_TEMP/gotls.test" -test.run '^TestDecodeInstructionLoong64$'
 
-      - name: Upload Debug Artifacts
-        uses: actions/upload-artifact@v4
+      - name: Upload Linux debug package
+        uses: actions/upload-artifact@v7
         with:
-          name: ecapture-v0.0.0-pr-${{ github.event.number || 'dev' }}-debug-${{ matrix.os }}-${{ matrix.arch }}.tar.gz
-          path: dist/ecapture-v0.0.0-pr-${{ github.event.number || 'dev' }}-debug-${{ matrix.os }}-${{ matrix.arch }}.tar.gz
+          path: bin/ecapture-v0.0.0-pr-${{ github.event.number || 'dev' }}-debug-linux-${{ matrix.arch }}.tar.gz
+          archive: false
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload Android debug package
+        if: matrix.arch != 'loong64'
+        uses: actions/upload-artifact@v7
+        with:
+          path: bin/ecapture-v0.0.0-pr-${{ github.event.number || 'dev' }}-debug-android-${{ matrix.arch }}.tar.gz
+          archive: false
+          if-no-files-found: error
           retention-days: 7
 
       - name: List Built Artifacts
         run: |
           echo "Built debug artifacts:"
-          ls -la dist/
+          ls -lh bin/ecapture-*.tar.gz
           echo "Artifact sizes:"
-          du -h dist/*
-
-  build-debug-loong64:
-    runs-on: ubuntu-24.04
-    name: Build Debug Artifact (Linux/Loong64)
-    timeout-minutes: 90
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          submodules: recursive
-          fetch-depth: 0
-
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.26.0'
-
-      - name: Install Loong64 LLVM 18 cross-build environment
-        env:
-          DEBIAN_FRONTEND: noninteractive
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes \
-            bc bison clang-18 dwarves file flex \
-            libatomic1-loong64-cross libc6-dev-loong64-cross libelf-dev \
-            libgcc-13-dev-loong64-cross libssl-dev linux-libc-dev-loong64-cross \
-            linux-source linux-tools-common linux-tools-generic lld-18 \
-            llvm-18 llvm-18-tools make pkg-config qemu-user-static xz-utils
-          bpftool_bin="$(find /usr/lib -maxdepth 2 -type f -path '/usr/lib/linux-tools-*/bpftool' | sort -V | tail -n 1)"
-          test -x "$bpftool_bin"
-          sudo ln -sf "$bpftool_bin" /usr/local/bin/bpftool
-          dpkg-query -W \
-            clang-18 lld-18 llvm-18 libc6-dev-loong64-cross \
-            linux-libc-dev-loong64-cross libgcc-13-dev-loong64-cross linux-source
-
-      - name: Check Loong64 build configuration
-        run: bash test/build/loong64_config_test.sh
-
-      - name: Prepare Linux LoongArch BTF source
-        id: kernel
-        run: |
-          source_file="$(find /usr/src -maxdepth 1 -name 'linux-source*.tar.*' | head -n 1)"
-          test -n "$source_file"
-          mkdir -p "$RUNNER_TEMP/loong64-kernel"
-          tar -xf "$source_file" -C "$RUNNER_TEMP/loong64-kernel"
-          source_dir="$(find "$RUNNER_TEMP/loong64-kernel" -mindepth 1 -maxdepth 1 -type d -name 'linux-source*' | head -n 1)"
-          test -f "$source_dir/Makefile"
-          builder/prepare-loong64-kernel.sh "$source_dir"
-          echo "source_dir=$source_dir" >>"$GITHUB_OUTPUT"
-
-      - name: Build Debug loong64
-        env:
-          LOONG64_TOOLCHAIN_TRACE: '1'
-        run: |
-          set -o pipefail
-          KERN_HEADERS="${{ steps.kernel.outputs.source_dir }}" \
-            LOONG64_VMLINUX="${{ steps.kernel.outputs.source_dir }}/vmlinux" \
-            TARGET_ARCH=loong64 DEBUG=1 \
-            make -f builder/Makefile.release snapshot \
-              SNAPSHOT_VERSION=v0.0.0-pr-${{ github.event.number || 'dev' }}-debug \
-              2>&1 | tee "$RUNNER_TEMP/loong64-debug-build.log"
-          builder/verify-loong64-artifact.sh \
-            bin/ecapture \
-            .build/linux-loong64/libpcap/libpcap.a \
-            .build/linux-loong64/libpcap/config.log \
-            "$RUNNER_TEMP/loong64-debug-build.log"
-          cp bin/ecapture-*.tar.gz dist/
-
-      - name: Loong64 QEMU user-mode smoke and GoTLS instruction test
-        run: |
-          qemu-loongarch64-static bin/ecapture --help >/dev/null
-          CGO_ENABLED=0 GOOS=linux GOARCH=loong64 \
-            go test -c -o "$RUNNER_TEMP/gotls-loong64.test" ./internal/probe/gotls
-          qemu-loongarch64-static "$RUNNER_TEMP/gotls-loong64.test" \
-            -test.run '^TestDecodeInstructionLoong64$'
-
-      - name: Upload Debug Loong64 Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ecapture-v0.0.0-pr-${{ github.event.number || 'dev' }}-debug-linux-loong64.tar.gz
-          path: dist/ecapture-v0.0.0-pr-${{ github.event.number || 'dev' }}-debug-linux-loong64.tar.gz
-          if-no-files-found: error
-          retention-days: 7
-
-      - name: List Built Artifact
-        run: |
-          echo "Built Loong64 debug artifact:"
-          ls -la dist/
-          du -h dist/*
+          du -h bin/ecapture-*.tar.gz

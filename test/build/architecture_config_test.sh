@@ -260,4 +260,4 @@ if PATH="$fake_tools:/usr/bin:/bin" \
     exit 1
 fi
 
-printf 'Loong64 build configuration checks passed\n'
+printf 'Architecture build configuration checks passed\n'
