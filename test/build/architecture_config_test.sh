@@ -214,6 +214,30 @@ EOF
     expect_rejected builder/generate-loong64-vmlinux-header.sh \
         "$tmp/kernel" "$tmp/untrusted-btf" "$tmp/vmlinux.h"
     grep -Fxq 'preserved header' "$tmp/vmlinux.h"
+    # A clean native CO-RE job must work without a prepared kernel checkout.
+    builder/generate-loong64-vmlinux-header.sh "$tmp/no-kernel-source" \
+        /sys/kernel/btf/vmlinux "$tmp/running.h"
+    test -s "$tmp/running.h"
+    grep -Fxq 'header_kernel_version=not-used (native CO-RE)' "$tmp/running.source"
+    # Parse real BTF with production CO-RE flags and check tagged anonymous
+    # members even when the running kernel predates their use in Linux 6.19.
+    cat > "$tmp/core-header.c" <<'EOF'
+#include "running.h"
+struct core_test_head { const char *name; const char *uptr; };
+struct core_test_filename { struct core_test_head; char iname[32]; };
+_Static_assert(__builtin_offsetof(struct core_test_filename, iname) == sizeof(struct core_test_head),
+               "CO-RE anonymous fields must preserve structure layout");
+const char *read_core_test_name(struct core_test_filename *value) { return value->name; }
+EOF
+    cat > "$tmp/core-header.mk" <<'EOF'
+.PHONY: check-core-header
+check-core-header: preflight
+	set -euo pipefail
+	$(CMD_CLANG) $(EXTRA_CFLAGS) -Werror -g -target bpfel -c "$(CORE_HEADER_TEST_DIR)/core-header.c" -o "$(CORE_HEADER_TEST_DIR)/core-header.o"
+	$(CMD_READELF) -h "$(CORE_HEADER_TEST_DIR)/core-header.o" | grep -Eq 'Machine:.*(BPF|EM_BPF)'
+EOF
+    make --no-print-directory -s -f Makefile -f "$tmp/core-header.mk" \
+        CORE_HEADER_TEST_DIR="$tmp" check-core-header
     echo 'Native Loong64 configuration and BTF boundary checks passed'
 )
 if [[ "$loong64_build_host" == 1 ]]; then

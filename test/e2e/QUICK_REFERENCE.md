@@ -1,6 +1,6 @@
 # E2E quick reference
 
-Linux (GitHub Actions Ubuntu 22.04+ only):
+Linux (Ubuntu 22.04+ or Debian 13+; x86_64, aarch64/arm64, or LoongArch64):
 
 ```bash
 make all
@@ -14,6 +14,9 @@ sudo make e2e-advanced
 sudo E2E_MODULES=tls E2E_MODES=text bash test/e2e/run_e2e.sh
 sudo E2E_MODULES='tls gotls gnutls' E2E_MODES='keylog pcapng' bash test/e2e/run_e2e.sh
 ```
+
+LoongArch requires kernel >= 6.6. To run an existing verified artifact, set
+`ECAPTURE_BINARY=/absolute/path/to/ecapture`; see [Linux setup](README.md#linux).
 
 Android 13+ (rooted/userdebug):
 
