@@ -338,6 +338,8 @@ ifeq ($(ANDROID),0)
 	TARGETS += kern/gnutls_3_7_7
 	TARGETS += kern/gnutls_3_8_4
 	TARGETS += kern/gnutls_3_8_7
+	TARGETS += kern/gnutls_3_8_10
+	TARGETS += kern/gnutls_3_8_11
 	TARGETS += kern/nspr
 	TARGETS += kern/mysqld
 	TARGETS += kern/postgres

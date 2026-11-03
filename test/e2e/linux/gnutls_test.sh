@@ -109,7 +109,9 @@ case_keylog() {
         return 1
     }
     assert_tls_plaintext_preview \
-        "$packet_file" "$keylog_file" "$E2E_TOKEN" "linux/gnutls/keylog"
+        "$packet_file" "$keylog_file" "$E2E_TOKEN" "linux/gnutls/keylog" 0 || return 1
+    assert_tls_plaintext_preview \
+        "$packet_file" "$keylog_file" "$E2E_TOKEN" "linux/gnutls/keylog" 1
 }
 
 case_pcapng() {

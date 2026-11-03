@@ -3,6 +3,7 @@
 // clang -I gnulib/lib/ -I lib/ -I . gnutls_offset.c -o offset
 
 #include <config.h>
+#include <ctype.h>
 #include <lib/gnutls_int.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -24,28 +25,28 @@
     Y(security_parameters_st, pversion) \
     Y(version_entry_st, id)
 
-void toUpper(char *s) {
+void toUpper(char* s) {
     int i = 0;
     while (s[i] != '\0') {
         if (s[i] == '.') {
             putchar('_');
         } else {
-            putchar(toupper(s[i]));
+            putchar(toupper((unsigned char)s[i]));
         }
         i++;
     }
 }
 
-void format(char *struct_name, char *field_name, size_t offset) {
+void format(char* struct_name, char* field_name, size_t offset) {
     printf("// %s->%s\n", struct_name, field_name);
     printf("#define ");
     toUpper(struct_name);
     printf("_");
     toUpper(field_name);
-    printf(" 0x%lx\n\n", offset);
+    printf(" 0x%zx\n\n", offset);
 }
 
-int main() {
+int main(void) {
 #define X(struct_name, field_name) format(#struct_name, #field_name, offsetof(struct struct_name, field_name));
     SSL_STRUCT_OFFSETS
 #undef X

@@ -208,5 +208,7 @@ The GnuTLS probe attaches version-specific data and master-secret uprobes plus
 TC programs for pcapng mode. Its strict text, keylog, and pcapng cases are CI
 gates, matching the observable contracts used for OpenSSL and GoTLS. Keep the
 version-to-asset mapping synchronized with the offsets in
-`kern/gnutls_*_kern.c`; do not weaken assertions to accept startup logs or
-empty artifacts.
+`kern/gnutls_*_kern.c`; upstream 3.8.9 reuses the 3.8.7 asset, 3.8.10 has a
+new layout, and 3.8.11-3.8.13 share the 3.8.11 asset. Distribution patches may
+change private layouts without changing the library version; do not weaken
+assertions to accept startup logs or empty artifacts.
