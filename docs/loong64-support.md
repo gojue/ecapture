@@ -210,47 +210,44 @@ Register with labels `self-hosted`, `Linux`, `loongarch64`, `ecapture` and
 Create the ordinary `ecapture-runner` account with home `/var/lib/ecapture-runner`
 and workspace `/var/lib/ecapture-runner/_work`. Keep the runner installation at
 `/opt/ecapture-actions-runner` root-owned, with writable diagnostics for the
-account. The `self-hosted-loong64.yml` workflow runs native TLS package unit
-tests with stub assets and `CGO_ENABLED=0`, only on `master`, `v2`, `v1`
-push/manual events. The `loong64-e2e` job in `E2E Tests` also accepts
-same-repository PRs targeting these branches on opened/synchronize/reopened.
+account. The `loong64-e2e` job in `E2E Tests` accepts `master`, `v2`, `v1`
+push/manual events and same-repository PRs targeting these branches on
+opened/synchronize/reopened. Its check name explicitly includes `Self-hosted`.
+Unit tests run in the shared GO/C/C++ CI workflow.
 Root-owned hooks enforce the workflow, job and trusted refs; fork PRs retain
 hosted checks. These controls assume trusted repository writers, not hostile
 code isolation.
 
 Provision native LLVM 22.1.8 and the [E2E dependencies](../test/e2e/README.md#linux)
-before enabling CI. Each job clean-builds CO-RE at the event SHA with running
-kernel BTF, audits the static PIE/toolchain/startup, and stages its binary hash.
-Jobs do not install dependencies or build a kernel. The fixed root service
-checks the live run/attempt, workflow, job/runner and PR through GitHub's API;
-PRs must remain open and match both the head and current merge SHA. It fetches
-that exact commit into a root-private snapshot and rechecks the binary hash.
-The temporary token has only `contents: read` and `actions: read`, is never
-passed to Git or test children, and is removed by cleanup. API errors fail closed.
+before enabling CI. Each job verifies the checkout SHA, clean-builds CO-RE with
+running-kernel BTF, and audits the static PIE/toolchain/startup. Jobs do not
+install dependencies or build a kernel.
 
-CI runs OpenSSL/GoTLS text, keylog and pcapng cases, including stress. Reports
-must match the run/attempt, source SHA and binary hash; only sanitized summaries
-are uploaded. GnuTLS remains in the hosted matrix pending its separate Debian
-compatibility work. This job does not validate non-CO-RE capture.
+The Actions Shell step calls the fixed `sudo -n /usr/local/libexec/ecapture-e2e-job`
+entry point. It runs `bash test/e2e/run_e2e.sh` directly from the Actions checkout
+with the just-built binary. Progress, plaintext previews and per-case PASS/FAIL
+results stream into the step log, which is uploaded on success or failure.
+The workflow uses only `contents: read`; no API token, separate source snapshot,
+service report renderer or E2E systemd unit is needed. Trusted repository writers
+can execute root test code through this checkout, as on hosted runners; the
+workflow guard and root-owned admission hook continue to reject fork PRs.
 
-For manual runs without a CI request, provision a compatible E2E harness at
-`/opt/ecapture-e2e/source`, its matching binary at
-`/opt/ecapture-e2e/artifact/ecapture`, and the source revision in
-`/opt/ecapture-e2e/SOURCE_COMMIT`; retain patch/artifact hashes. Keep the bundle
-and its parents root-owned and not writable by the runner. The manual bundle
-runs all three TLS modules; it does not test another Actions SHA. Verify root
-access to BPF loading, uprobes/kprobes, perf events and TC attachment before E2E.
+The fixed root Shell wrapper accepts no arguments, clears inherited environment,
+sets `no_new_privs`, serializes runs with a lock and enforces a 25-minute timeout.
+It runs OpenSSL/GoTLS text, keylog, pcapng and stress cases. Debian GnuTLS and
+non-CO-RE capture remain separate. EXIT/signal traps, the workflow's `always()`
+step and the runner start/end hooks reuse the existing pidfd cleanup to reap
+root E2E children, clear private caches and remove only test-owned loopback TC.
+Pre-existing ingress/clsact state is rejected. Raw captures remain root-private
+under `/var/log/ecapture-e2e/run.*/`; the administrator manages their retention.
 
-Install from the repository root:
+Install from the repository root while the runner is idle:
 
 ```sh
 sudo install -d -o root -g root -m 0700 /var/lib/ecapture-e2e
 sudo install -d -o root -g ecapture-runner -m 0750 /var/log/ecapture-e2e
 sudo install -d -o root -g root -m 0755 /etc/ecapture-runner /usr/local/libexec
 sudo install -o root -g root -m 0750 builder/runner/runner-e2e-job.sh /usr/local/libexec/ecapture-e2e-job
-sudo install -o root -g root -m 0644 builder/runner/runner-e2e-finish.py /usr/local/libexec/ecapture-e2e-finish.py
-sudo install -o root -g root -m 0644 builder/runner/runner-e2e-prepare.py /usr/local/libexec/ecapture-e2e-prepare.py
-sudo install -o root -g root -m 0644 builder/runner/ecapture-e2e.service /etc/systemd/system/
 sudo visudo -cf builder/runner/runner-e2e.sudoers
 sudo install -o root -g root -m 0440 builder/runner/runner-e2e.sudoers /etc/sudoers.d/ecapture-e2e
 sudo install -o root -g root -m 0755 builder/runner/runner-job-started.sh /etc/ecapture-runner/job-started.sh
@@ -261,26 +258,23 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now ecapture-actions-runner.service
 ```
 
-The dedicated-host runner service omits mount isolation for LXC compatibility
-and uses `NoNewPrivileges=false`. Its sudoers file permits only
-`sudo -n /usr/bin/systemctl start ecapture-e2e.service` and the matching `stop`;
-do not grant general sudo or Docker access. The fixed root E2E unit retains
-`NoNewPrivileges=true`. Check command status and the source/artifact identity
-in `/var/log/ecapture-e2e/latest-summary.json`; an early failure can leave an
-older summary. Raw captures stay root-private under `/var/log/ecapture-e2e/`.
+The Actions listener service remains necessary to receive GitHub jobs. It omits
+mount isolation for LXC compatibility and uses `NoNewPrivileges=false` to permit
+only the fixed E2E Shell and cleanup sudo commands. Do not grant general sudo or
+Docker access. Its hooks also clear the checkout, task HOME/temp/Go caches and
+downloaded actions/tools. Registration, installed tools and diagnostics persist.
 
-Start/end hooks stop E2E, reap tracked job processes and clear the checkout,
-task HOME/temp/Go caches and downloaded actions/tools. Startup recovers
-interrupted jobs. Completion, cancellation and timeout stop the E2E cgroup and
-remove its source snapshot, caches and test-owned loopback TC state;
-pre-existing ingress/clsact state is rejected.
-Registration, installed tools, diagnostics and private reports persist.
-After service changes, reload systemd and restart while idle; inspect
-`systemctl status ecapture-actions-runner.service` and its journal.
+To migrate an existing installation, first drain jobs and stop the listener and
+old `ecapture-e2e.service`. Install the new Shell, cleanup, hooks, sudoers and
+runner unit together. Remove the old `/etc/systemd/system/ecapture-e2e.service`
+and `/usr/local/libexec/ecapture-e2e-{prepare,finish}.py`, then reload systemd.
+Restart the listener only when the allowed workflow revisions use the new Shell
+entry point: old revisions invoking `systemctl start` are incompatible with the
+new sudoers. The old `/opt/ecapture-e2e` manual bundle is no longer used.
 
 Validate on Linux with `python3 test/build/runner_cleanup_test.py -v`,
-`python3 test/build/runner_e2e_finish_test.py -v`, and
-`actionlint -config-file .github/actionlint.yaml .github/workflows/self-hosted-loong64.yml .github/workflows/e2e.yml`.
+`visudo -cf builder/runner/runner-e2e.sudoers`, and
+`actionlint -config-file .github/actionlint.yaml .github/workflows/e2e.yml .github/workflows/android_e2e.yml`.
 Publish the workflow before verifying GitHub dispatch; manual runs and mocked
 checks do not establish that dispatch works.
 

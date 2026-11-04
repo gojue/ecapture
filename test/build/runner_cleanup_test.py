@@ -136,6 +136,61 @@ class CleanupTest(unittest.TestCase):
         self.assertFalse((self.job / 'previous-job').exists())
         self.assertEqual(list(self.workspace.iterdir()), [])
 
+    def test_e2e_cleanup_reaps_only_capture_processes_and_owned_tc(self):
+        e2e = self.base / 'privileged-e2e'
+        (e2e / 'job-state').mkdir(parents=True)
+        (e2e / 'job-state/cache').touch()
+        (e2e / 'owns-loopback-clsact').touch()
+        tracked = self.spawn_process('ecapture-root-e2e')
+        unrelated = self.spawn_process('unrelated-' + str(os.getpid()))
+        with mock.patch.object(cleanup, 'E2E', e2e), mock.patch('os.geteuid', return_value=0), \
+             mock.patch('subprocess.run') as tc, mock.patch('subprocess.check_output', return_value=b'[]'):
+            cleanup.main('e2e')
+            cleanup.main('e2e')  # EXIT trap and always() cleanup are idempotent.
+        self.assertEqual(tracked.wait(timeout=5), -9)
+        self.assertIsNone(unrelated.poll())
+        self.assertEqual(list((e2e / 'job-state').iterdir()), [])
+        self.assertFalse((e2e / 'owns-loopback-clsact').exists())
+        tc.assert_called_once()
+
+    def test_e2e_cleanup_preserves_unowned_tc_and_failed_cleanup_state(self):
+        e2e = self.base / 'privileged-e2e'
+        with mock.patch.object(cleanup, 'E2E', e2e), mock.patch('os.geteuid', return_value=0), \
+             mock.patch.object(cleanup, 'terminate_tracked'), mock.patch('subprocess.run') as tc:
+            cleanup.main('e2e')
+            tc.assert_not_called()
+            (e2e / 'owns-loopback-clsact').touch()
+            with mock.patch('subprocess.check_output', return_value=b'[{"kind":"clsact"}]'):
+                with self.assertRaises(RuntimeError):
+                    cleanup.main('e2e')
+            self.assertTrue((e2e / 'owns-loopback-clsact').exists())
+        with mock.patch('os.geteuid', return_value=1000):
+            with self.assertRaises(RuntimeError):
+                cleanup.main('e2e')
+
+    def test_start_hook_admits_only_trusted_e2e_jobs(self):
+        event = self.base / 'event.json'
+        pr = {'head': {'repo': {'full_name': 'gojue/ecapture'}},
+              'base': {'repo': {'full_name': 'gojue/ecapture'}, 'ref': 'master'}}
+        # Stop admitted jobs at the first sudo call, before touching host state.
+        sudo = self.base / 'sudo'
+        sudo.write_text('#!/bin/sh\nexit 77\n')
+        sudo.chmod(0o700)
+        environment = dict(os.environ, PATH=f'{self.base}:/usr/bin:/bin',
+                           GITHUB_REPOSITORY='gojue/ecapture',
+                           GITHUB_EVENT_NAME='pull_request', GITHUB_REF='refs/pull/42/merge',
+                           GITHUB_WORKFLOW_REF='gojue/ecapture/.github/workflows/e2e.yml@refs/pull/42/merge',
+                           GITHUB_JOB='loong64-e2e', GITHUB_EVENT_PATH=str(event))
+        command = ['bash', str(SOURCE.with_name('runner-job-started.sh'))]
+        for repository, code in [('gojue/ecapture', 77), ('outsider/ecapture', 1)]:
+            pr['head']['repo']['full_name'] = repository
+            event.write_text(json.dumps({'action': 'opened', 'number': 42, 'pull_request': pr}))
+            self.assertEqual(subprocess.run(command, env=environment, capture_output=True).returncode, code)
+        environment.update(GITHUB_EVENT_NAME='push', GITHUB_REF='refs/heads/master',
+                           GITHUB_WORKFLOW_REF='gojue/ecapture/.github/workflows/self-hosted-loong64.yml@refs/heads/master',
+                           GITHUB_JOB='tls-unit')
+        self.assertEqual(subprocess.run(command, env=environment, capture_output=True).returncode, 1)
+
 
 if __name__ == '__main__':
     if sys.platform != 'linux':

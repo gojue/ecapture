@@ -336,17 +336,18 @@ Unit tests do not prove that a probe can load, attach, or capture on a real
 kernel. Use strict E2E for runtime behavior.
 
 The Loong64 PR debug job cross-builds on hosted Ubuntu 24.04 and runs artifact
-and QEMU checks. The dedicated runner adds native TLS unit tests for trusted
-branch pushes/manual runs, plus CO-RE OpenSSL/GoTLS E2E in `e2e.yml` for those
-events and same-repository PRs. Forks retain hosted checks. The native job
-builds the event SHA with LLVM 22.1.8 and running-kernel BTF; its privileged
-service verifies source/artifact identity and cleanup. Debian GnuTLS and
+and QEMU checks. The dedicated runner runs CO-RE OpenSSL/GoTLS E2E in `e2e.yml`
+for trusted branch pushes/manual runs and same-repository PRs. Forks retain
+hosted checks. Unit tests remain in the shared GO/C/C++ CI workflow. The native job
+builds the event SHA with LLVM 22.1.8 and running-kernel BTF, then invokes the
+maintained harness in a foreground sudo Shell step with live output and an
+uploaded test log. Root-owned hooks restrict admission and clean privileged
+processes, caches and owned TC state. Debian GnuTLS and
 non-CO-RE capture remain separate. See
 [deployment and trust boundaries](../loong64-support.md#dedicated-runner).
 
-Run runner lifecycle/admission regressions on Linux with
-`python3 test/build/runner_cleanup_test.py -v` and
-`python3 test/build/runner_e2e_finish_test.py -v`.
+Run runner lifecycle/admission and privileged-cleanup regressions on Linux with
+`python3 test/build/runner_cleanup_test.py -v`.
 
 ## Maintained Linux E2E
 
@@ -501,7 +502,7 @@ logs. See `docs/performance-benchmarks.md` for tunables and result semantics.
 | OpenSSL/BoringSSL mapping | Mapping tests, both asset variants, and real-library validation |
 | CI workflow | Least privilege, fork/trusted boundary, and relevant workflow behavior |
 | Loong64 build/toolchain | Ubuntu 24.04 cross-build or Debian 13+ native build; exact LLVM/LLD 22.1.8 version gate; libpcap `config.log`; LoongArch ELF/archive members; static PIE; LLD evidence; QEMU user smoke |
-| Loong64 runtime | Trusted native CO-RE OpenSSL/GoTLS E2E with source/artifact identity and cleanup; non-CO-RE capture and Debian GnuTLS require separate validation |
+| Loong64 runtime | Trusted native CO-RE OpenSSL/GoTLS E2E at the event SHA with live logs and cleanup; non-CO-RE capture and Debian GnuTLS require separate validation |
 
 If required infrastructure is unavailable, list the exact commands not run and
 why. A static inspection is not a successful Linux build, race test, probe

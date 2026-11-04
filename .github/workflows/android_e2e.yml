@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   boringssl-e2e:
-    name: Android E2E Tests / API ${{ matrix.api-level }} / BoringSSL
+    name: API ${{ matrix.api-level }} / BoringSSL
     runs-on: ubuntu-22.04
     strategy:
       fail-fast: false

@@ -8,16 +8,8 @@ deny() {
 }
 
 [[ "${GITHUB_REPOSITORY:-}" == gojue/ecapture ]] || deny
-case "${GITHUB_WORKFLOW_REF:-}" in
-    "gojue/ecapture/.github/workflows/self-hosted-loong64.yml@${GITHUB_REF:-}")
-        [[ "${GITHUB_JOB:-}" == tls-unit ]] || deny
-        [[ "${GITHUB_EVENT_NAME:-}" != pull_request ]] || deny
-        ;;
-    "gojue/ecapture/.github/workflows/e2e.yml@${GITHUB_REF:-}")
-        [[ "${GITHUB_JOB:-}" == loong64-e2e ]] || deny
-        ;;
-    *) deny ;;
-esac
+[[ "${GITHUB_WORKFLOW_REF:-}" == "gojue/ecapture/.github/workflows/e2e.yml@${GITHUB_REF:-}" ]] || deny
+[[ "${GITHUB_JOB:-}" == loong64-e2e ]] || deny
 case "${GITHUB_EVENT_NAME:-}" in
     push|workflow_dispatch)
         case "${GITHUB_REF:-}" in
@@ -26,8 +18,7 @@ case "${GITHUB_EVENT_NAME:-}" in
         esac
         ;;
     pull_request)
-        # Reject forks before checkout or build. The root E2E service independently
-        # verifies the live run/job/PR through GitHub before executing its snapshot.
+        # Reject forks before checkout, build, or privileged E2E execution.
         /usr/bin/python3 -I - <<'PY' || deny
 import json, os
 with open(os.environ['GITHUB_EVENT_PATH']) as file:
@@ -43,6 +34,6 @@ PY
     *) deny ;;
 esac
 
-sudo -n /usr/bin/systemctl stop ecapture-e2e.service
+sudo -n /usr/bin/python3 -I /etc/ecapture-runner/job-cleanup.py e2e
 timeout 120s /usr/bin/python3 /etc/ecapture-runner/job-cleanup.py start
 echo 'Trusted native Loong64 workflow accepted.'

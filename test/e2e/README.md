@@ -240,7 +240,10 @@ The `loong64-e2e` job shares `E2E Tests` push/PR/manual triggers for trusted
 repository refs; fork PRs retain the hosted Ubuntu jobs. It builds native
 CO-RE at the event SHA and runs OpenSSL/GoTLS with stress. Debian GnuTLS and
 non-CO-RE capture remain separate. See
-[runner deployment, identity checks and cleanup](../../docs/loong64-support.md#dedicated-runner).
+[runner deployment, trusted refs and cleanup](../../docs/loong64-support.md#dedicated-runner).
+The foreground Shell step runs this harness directly and streams case progress,
+plaintext previews and PASS/FAIL results into Actions, like hosted jobs. Its
+test log is also uploaded, including on failure; no E2E systemd unit is used.
 
 ## Configuration and artifacts
 
@@ -262,7 +265,7 @@ non-CO-RE capture remain separate. See
 
 Failed-suite artifacts are always preserved. Hosted CI uploads captures with
 `E2E_KEEP_ARTIFACTS=1`; the dedicated runner keeps raw evidence private and
-uploads only sanitized summaries.
+uploads the harness test log. Raw keylogs and packet captures remain private.
 
 Every successful mode prints a `[PLAINTEXT]` line containing at most 50
 characters of plaintext from the verified capture. Text mode reads the
