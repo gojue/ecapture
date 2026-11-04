@@ -28,6 +28,39 @@ func TestConfigImplementsCaptureModeConfiguration(t *testing.T) {
 	}
 }
 
+func TestConfigTextRaw(t *testing.T) {
+	for _, test := range []struct {
+		name, mode, source string
+		raw, wantErr       bool
+	}{
+		{"default parsed hook", "text", "hook", false, false},
+		{"parsed pcapng", "text", "pcapng", false, false},
+		{"raw pcapng", "text", "pcapng", true, false},
+		{"normalized raw pcapng", "TEXT", " PCAPNG ", true, false},
+		{"default text mode", "", "pcapng", true, false},
+		{"reject hook", "text", "hook", true, true},
+		{"reject default hook", "text", "", true, true},
+		{"reject keylog", "keylog", "hook", true, true},
+		{"reject pcapng", "pcapng", "hook", true, true},
+		{"reject nontext source", "keylog", "pcapng", true, true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			cfg := NewConfig()
+			cfg.CaptureMode, cfg.TextSource, cfg.TextRaw = test.mode, test.source, test.raw
+			cfg.Ifname = "lo"
+			for attempt := 0; attempt < 2; attempt++ {
+				err := cfg.validateCaptureMode()
+				if (err != nil) != test.wantErr {
+					t.Fatalf("validation %d error = %v, wantErr %v", attempt, err, test.wantErr)
+				}
+				if cfg.TextRaw != test.raw {
+					t.Fatal("validation changed text_raw")
+				}
+			}
+		})
+	}
+}
+
 func TestConfig_IsSupportedVersion(t *testing.T) {
 	tests := []struct {
 		name    string

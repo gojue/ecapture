@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -11,6 +12,7 @@ import (
 	"encoding/pem"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"math/big"
 	"net"
@@ -25,6 +27,7 @@ func main() {
 	listenAddr := flag.String("listen", "127.0.0.1:0", "address to listen on")
 	readyFile := flag.String("ready-file", "", "file that receives the selected listen address")
 	token := flag.String("token", "ECAPTURE_E2E_OK", "response token")
+	raw := flag.Bool("raw", false, "serve a server-first binary TLS exchange")
 	flag.Parse()
 
 	certificate, err := selfSignedCertificate()
@@ -42,6 +45,12 @@ func main() {
 		MinVersion:   tls.VersionTLS12,
 		MaxVersion:   tls.VersionTLS13,
 	})
+	if *raw {
+		if err := serveRaw(tlsListener, *readyFile, *token); err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/e2e", func(writer http.ResponseWriter, request *http.Request) {
@@ -75,6 +84,49 @@ func main() {
 
 	if err := server.Serve(tlsListener); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("serve: %v", err)
+	}
+}
+
+func serveRaw(listener net.Listener, readyFile, token string) error {
+	if readyFile == "" {
+		return fmt.Errorf("--ready-file is required")
+	}
+	if err := os.WriteFile(readyFile, []byte(listener.Addr().String()+"\n"), 0o600); err != nil {
+		return err
+	}
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
+	go func() {
+		<-ctx.Done()
+		_ = listener.Close()
+	}()
+	for {
+		conn, err := listener.Accept()
+		if err != nil {
+			if ctx.Err() != nil {
+				return nil
+			}
+			return err
+		}
+		func() {
+			defer conn.Close()
+			stopClose := context.AfterFunc(ctx, func() { _ = conn.Close() })
+			defer stopClose()
+			_ = conn.SetDeadline(time.Now().Add(15 * time.Second))
+			greeting := append([]byte{0, 0xff}, []byte(token+"_SERVER\n")...)
+			if _, err := conn.Write(greeting[:2]); err != nil {
+				return
+			}
+			if _, err := conn.Write(greeting[2:]); err != nil {
+				return
+			}
+			want := append([]byte{0, 0xff}, []byte(token+"_CLIENT\n")...)
+			got := make([]byte, len(want))
+			if _, err := io.ReadFull(conn, got); err != nil || !bytes.Equal(got, want) {
+				return
+			}
+			_, _ = conn.Write([]byte{0x7f}) // Acknowledges exact request bytes.
+		}()
 	}
 }
 

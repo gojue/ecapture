@@ -14,7 +14,7 @@ OperationalLogRecord -> operational logger ------------------+-> stderr
 domain.Event -> EventDispatcher -> TextHandler ----------------+-> event ByteSink
                                 -> KeylogHandler --------------+-> event ByteSink
                                 -> PcapngHandler/pcapng.Session +-> event ByteSink
-                                -> low-latency pcapng -> SDK -> HTTP ByteSink
+                                -> low-latency pcapng -> SDK -> text ByteSink
                                 -> typed publisher --------------> eCaptureQ EVENT
 ```
 
@@ -78,7 +78,7 @@ are preserved.
 | Mode / text source | Representation | Valid primary ByteSink | eCaptureQ event |
 | --- | --- | --- | --- |
 | text (hook) | UTF-8 event text | empty/stdout, file, TCP, binary WebSocket | structured ordinary event |
-| text (pcapng source) | complete HTTP/1.1 or HTTP/2 messages | empty/stdout, file, TCP, binary WebSocket | sensitive reconstructed message with text format |
+| text (pcapng source) | HTTP messages or explicit raw TLS/QUIC chunks | empty/stdout, file, TCP, binary WebSocket | sensitive reconstructed message/chunk with text format |
 | keylog | NSS Key Log lines | explicit stdout, file, TCP, binary WebSocket | structured sensitive event |
 | pcapng | ordered pcapng with DSB | explicit stdout, file, TCP, binary WebSocket | sensitive packet rows, never raw pcapng chunks |
 
@@ -90,6 +90,16 @@ at a short interval without a fixed DSB grace period. The plaintext sink is
 the primary destination; a pcapng copy and standalone keylog are optional.
 The SDK callback publishes the reconstructed message to eCaptureQ directly;
 the raw packet publisher is not registered for this text source.
+
+`--text-raw` selects authenticated TLS bytes and QUIC STREAM chunks without
+application parsing. The SDK's existing packet metadata carries kind, offset,
+end and optional stream ID. Text sinks and typed EVENT payloads use the same
+lossless hex representation; its header records the decoded byte length.
+Typed `OriginalLength` is the length of that text representation. A TLS end
+marker denotes the end of captured input, not a complete application message;
+QUIC end denotes STREAM FIN. Raw mode does not add DATAGRAM, ALPN dispatch or
+additional TLS/QUIC cryptographic capabilities. Diagnostic observers receive
+only connection/stage/reason fields and write to the operational logger.
 
 The maintained strict Linux E2E suites exercise operational logs and the
 text, keylog, and pcapng representations against all four ByteSink types for

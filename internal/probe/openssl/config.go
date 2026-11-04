@@ -47,6 +47,7 @@ type Config struct {
 	// Capture mode configuration
 	CaptureMode string `json:"capturemode"` // "text", "keylog", or "pcap"
 	TextSource  string `json:"text_source"` // "hook" (default) or "pcapng"
+	TextRaw     bool   `json:"text_raw"`    // Emit decrypted byte chunks for the pcapng text source
 	KeylogFile  string `json:"keylogfile"`  // Path to keylog file (for keylog mode)
 
 	// Pcap mode configuration
@@ -146,6 +147,9 @@ func (c *Config) validateCaptureMode() error {
 	c.TextSource, err = handlers.NormalizeTextSource(mode, c.TextSource)
 	if err != nil {
 		return err
+	}
+	if c.TextRaw && c.TextSource != handlers.TextSourcePcapng {
+		return fmt.Errorf("text-raw requires text capture mode with text-source=pcapng")
 	}
 
 	switch mode {

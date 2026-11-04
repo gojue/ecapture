@@ -9,6 +9,8 @@ source "$SCRIPT_DIR/common.sh"
 
 GO_CLIENT=""
 HTTP_REASSEMBLY_CLIENT=""
+HTTP3_FIXTURE=""
+TLS_RAW_CLIENT=""
 
 build_go_client() {
     GO_CLIENT="$WORK_DIR/helpers/go_https_client"
@@ -18,6 +20,23 @@ build_go_client() {
 build_http_reassembly_client() {
     HTTP_REASSEMBLY_CLIENT="$WORK_DIR/helpers/http_reassembly_client"
     CGO_ENABLED=0 go build -o "$HTTP_REASSEMBLY_CLIENT" "$E2E_DIR/fixtures/http_reassembly_client/main.go"
+}
+
+build_http3_fixture() {
+    local tshark_version
+    tshark_version="$(tshark --version | awk 'NR == 1 { print $3 }')"
+    if [[ ! "$tshark_version" =~ ^([0-9]+)\.([0-9]+)\. ]] ||
+        ((BASH_REMATCH[1] < 4 || (BASH_REMATCH[1] == 4 && BASH_REMATCH[2] < 4))); then
+        log_error "GoTLS HTTP/3 E2E requires tshark >= 4.4 (found $tshark_version)"
+        return 1
+    fi
+    HTTP3_FIXTURE="$WORK_DIR/helpers/http3"
+    (cd "$E2E_DIR/fixtures/http3" && GOWORK=off CGO_ENABLED=0 go build -buildvcs=false -mod=readonly -o "$HTTP3_FIXTURE" .)
+}
+
+build_tls_raw_client() {
+    TLS_RAW_CLIENT="$WORK_DIR/helpers/tls_raw_client"
+    CGO_ENABLED=0 go build -o "$TLS_RAW_CLIENT" "$E2E_DIR/fixtures/tls_raw_client/main.go"
 }
 
 run_go_request() {
@@ -268,6 +287,340 @@ case_text_pcapng_http2_keepalive() {
     assert_pcapng "$pcap_file" || return 1
     assert_http_event_timestamps_current "$event_file" "linux/gotls/text-pcapng-http2-keepalive" || return 1
 }
+
+assert_http3_events() {
+    # Validate each message in its connection/stream envelope, including the
+    # direction and exactly-once delivery. Tokens appear only in body lines.
+    awk -v token="$E2E_TOKEN" '
+        /^\[/ {
+            messages++
+            direction = $3
+            connection = $0
+            sub(/.* connection="/, "", connection)
+            sub(/".*/, "", connection)
+            stream = $0
+            sub(/.* stream=/, "", stream)
+            valid = ($2 == "http/3" && connection != "" && stream ~ /^(0|4)$/)
+        }
+        {
+            sub(/\r$/, "")
+            for (c = 0; c < 2; c++) {
+                for (s = 0; s <= 4; s += 4) {
+                    for (d = 0; d < 2; d++) {
+                        label = d ? "RESPONSE" : "REQUEST"
+                        if ($0 != token "_C" c "_S" s "_" label) continue
+                        if (!valid || stream != s || direction != tolower(label)) bad = 1
+                        if (connections[c] != "" && connections[c] != connection) bad = 1
+                        connections[c] = connection
+                        seen[c, s, d]++
+                    }
+                }
+            }
+        }
+        END {
+            for (c = 0; c < 2; c++)
+                for (s = 0; s <= 4; s += 4)
+                    for (d = 0; d < 2; d++)
+                        if (seen[c, s, d] != 1) bad = 1
+            if (messages != 8 || connections[0] == connections[1]) bad = 1
+            exit bad
+        }
+    ' "$1" || {
+        log_error "HTTP/3 output must contain both directions on streams 0 and 4 of two distinct connections"
+        return 1
+    }
+}
+
+assert_http3_pcapng() {
+    local pcap_file="$1" expected_version="$2"
+    local connection_file="${pcap_file}.connections"
+    local tshark_log="${pcap_file}.tshark.log"
+    local connections=() labels=() connection stream direction plaintext marker label candidate
+    # No external keylog is accepted: independently decrypt eCapture's DSB.
+    if ! tshark -n -r "$pcap_file" -o tls.keylog_file: \
+        -Y quic.connection.number -T fields -e quic.connection.number -e quic.version -E occurrence=f \
+        >"$connection_file" 2>"$tshark_log"; then
+        log_error "tshark could not identify HTTP/3 connections"
+        return 1
+    fi
+    mapfile -t connections < <(cut -f1 "$connection_file" | sort -un | sed '/^$/d')
+    if ((${#connections[@]} != 2)); then
+        log_error "Expected two QUIC connections in eCapture pcapng"
+        return 1
+    fi
+    for connection in "${connections[@]}"; do
+        # Prove the version on the wire for both connections, including the
+        # server's long-header packets; fixture flags alone cannot prove it.
+        if ! awk -F '\t' -v connection="$connection" -v version="$expected_version" '
+            $1 == connection && $2 != "" { seen = 1; if ($2 != version) bad = 1 }
+            END { exit !seen || bad }
+        ' "$connection_file"; then
+            log_error "QUIC connection $connection did not exclusively use version $expected_version"
+            return 1
+        fi
+        label=""
+        for stream in 0 4; do
+            plaintext="${pcap_file}.connection-${connection}.stream-${stream}.plaintext.txt"
+            if ! tshark -n -r "$pcap_file" -o tls.keylog_file: -q \
+                -z "follow,quic,ascii,$connection,$stream" \
+                >"$plaintext" 2>>"$tshark_log"; then
+                log_error "tshark could not decrypt QUIC connection $connection stream $stream from DSB"
+                return 1
+            fi
+            if [[ "$stream" == 0 ]]; then
+                # Concurrent handshakes make tshark's connection numbering
+                # independent of the fixture's C0/C1 body labels.
+                for candidate in 0 1; do
+                    if grep -Fq -- "${E2E_TOKEN}_C${candidate}_S0_REQUEST" "$plaintext"; then
+                        if [[ -n "$label" ]]; then
+                            log_error "QUIC connection $connection contains multiple fixture labels"
+                            return 1
+                        fi
+                        label="$candidate"
+                    fi
+                done
+                if [[ -z "$label" || -n "${labels[$label]:-}" ]]; then
+                    log_error "QUIC connection $connection has a missing or repeated fixture label"
+                    return 1
+                fi
+                labels[label]=1
+            fi
+            for direction in REQUEST RESPONSE; do
+                marker="${E2E_TOKEN}_C${label}_S${stream}_${direction}"
+                # tshark follow may repeat loopback packet copies. Exactly-once
+                # application delivery is checked in assert_http3_events.
+                if ! grep -Fq -- "$marker" "$plaintext"; then
+                    log_error "DSB plaintext missing C$label stream $stream $direction marker"
+                    return 1
+                fi
+            done
+        done
+    done
+}
+
+case_text_pcapng_http3() {
+    local version="$1" expected_version
+    case "$version" in
+        v1) expected_version="0x00000001" ;;
+        v2) expected_version="0x6b3343cf" ;;
+        *) log_error "Unknown QUIC fixture version: $version"; return 1 ;;
+    esac
+    local capture_log="$WORK_DIR/http3-$version.ecapture.log"
+    local operational_log="$WORK_DIR/http3-$version.operational.log"
+    local event_file="$WORK_DIR/http3-$version.events.log"
+    local pcap_file="$WORK_DIR/http3-$version.pcapng"
+    local ready_file="$WORK_DIR/http3-$version.addr"
+    local address="" attempt connection stream direction
+
+    # Baseline captures one UDP datagram per skb; GSO/GRO coverage is separate.
+    QUIC_GO_DISABLE_GSO=true "$HTTP3_FIXTURE" --mode server --ready-file "$ready_file" \
+        --quic-version "$version" --token "$E2E_TOKEN" >"$WORK_DIR/http3-$version.server.log" 2>&1 &
+    HTTP3_PID=$!
+    for attempt in $(seq 1 50); do
+        if [[ -s "$ready_file" ]]; then
+            address="$(tr -d '\r\n' <"$ready_file")"
+            break
+        fi
+        kill -0 "$HTTP3_PID" 2>/dev/null || break
+        sleep 0.1
+    done
+    if [[ -z "$address" ]]; then
+        log_error "HTTP/3 fixture did not become ready"
+        return 1
+    fi
+    start_capture "$capture_log" gotls --elfpath "$HTTP3_FIXTURE" --model text --text-source pcapng \
+        --logaddr "$operational_log" --eventaddr "$event_file" --ifname lo \
+        --pcapfile "$pcap_file" "udp port ${address##*:}" || return 1
+    if ! QUIC_GO_DISABLE_GSO=true timeout 45 "$HTTP3_FIXTURE" --mode client --address "$address" \
+        --quic-version "$version" --token "$E2E_TOKEN" >"$WORK_DIR/http3-$version.client.log" 2>&1; then
+        stop_capture
+        log_error "HTTP/3 fixture client failed"
+        return 1
+    fi
+    for connection in 0 1; do
+        for stream in 0 4; do
+            for direction in REQUEST RESPONSE; do
+                if ! wait_for_file_contains "$event_file" "${E2E_TOKEN}_C${connection}_S${stream}_${direction}" \
+                    "live HTTP/3 connection $connection stream $stream $direction"; then
+                    stop_capture
+                    return 1
+                fi
+            done
+        done
+    done
+    # Assert the full result while the probe is still running, before EOF flush.
+    kill -0 "$CAPTURE_PID" 2>/dev/null || return 1
+    assert_http3_events "$event_file" || { stop_capture; return 1; }
+    stop_capture
+    kill -TERM "$HTTP3_PID" 2>/dev/null || true
+    wait "$HTTP3_PID" 2>/dev/null || true
+    HTTP3_PID=""
+    assert_no_capture_errors "$capture_log" || return 1
+    assert_output_isolation "$operational_log" "$event_file" "$E2E_TOKEN" || return 1
+    assert_file_not_contains "$operational_log" "TRAFFIC_SECRET" "TLS secret in operational log" || return 1
+    assert_pcapng "$pcap_file" || return 1
+    assert_http3_pcapng "$pcap_file" "$expected_version"
+}
+
+assert_tls_raw_events() {
+    local file="$1" client_hex="$2" server_hex="$3" require_end="${4:-0}"
+    [[ -s "$file" ]] || return 1
+    awk -v client="$client_hex" -v server="$server_hex" -v require_end="$require_end" '
+        /^\[/ {
+            direction = $3
+            if ($2 != "tls" || (direction != "client_to_server" && direction != "server_to_client")) bad = 1
+            connection = $0
+            sub(/.* connection="/, "", connection)
+            sub(/".*/, "", connection)
+            if (connection == "" || (identity != "" && identity != connection)) bad = 1
+            identity = connection
+            kind = offset = end = size = encoding = ""
+            for (i = 7; i <= NF; i++) {
+                split($i, field, "=")
+                if (field[1] == "kind") kind = field[2]
+                if (field[1] == "offset") offset = field[2]
+                if (field[1] == "end") end = field[2]
+                if (field[1] == "length") size = field[2]
+                if (field[1] == "encoding") encoding = field[2]
+            }
+            if ((getline hex) <= 0) { bad = 1; next }
+            if (encoding != "hex" || hex !~ /^[0-9a-f]*$/ || size !~ /^[0-9]+$/ ||
+                offset !~ /^[0-9]+$/ || length(hex) != size * 2 ||
+                offset != length(data[direction]) / 2 || ended[direction]) bad = 1
+            if (kind == "stream_end" && end == "true" && size == 0) ended[direction]++
+            else if (kind != "stream_chunk" || end != "false" || size == 0) bad = 1
+            data[direction] = data[direction] hex
+        }
+        END {
+            if (data["client_to_server"] != client || data["server_to_client"] != server) bad = 1
+            if (require_end && (ended["client_to_server"] != 1 || ended["server_to_client"] != 1)) bad = 1
+            exit bad
+        }
+    ' "$file"
+}
+
+case_text_pcapng_raw() (
+    local destination="$1"
+    local prefix="$WORK_DIR/raw-${destination}"
+    local capture_log="${prefix}.ecapture.log" operational_log="${prefix}.operational.log"
+    local event_file="${prefix}.events.log" ready_file="${prefix}.addr"
+    local event_addr="$event_file" address="" attempt live=0
+    local client_hex server_hex token_hex receiver_pid="" receiver_status=0 server_pid=""
+    local capture_options=()
+    trap '
+        stop_capture || true
+        stop_output_receiver || true
+        if [[ -n "$receiver_pid" ]]; then
+            kill -TERM "$receiver_pid" 2>/dev/null || true
+            wait "$receiver_pid" 2>/dev/null || true
+        fi
+        if [[ -n "$server_pid" ]]; then
+            kill -TERM "$server_pid" 2>/dev/null || true
+            wait "$server_pid" 2>/dev/null || true
+        fi
+    ' EXIT
+    client_hex="$(printf '\000\377%s_CLIENT\n' "$E2E_TOKEN" | od -An -tx1 | tr -d ' \n')"
+    server_hex="$(printf '\000\377%s_SERVER\n\177' "$E2E_TOKEN" | od -An -tx1 | tr -d ' \n')"
+    token_hex="$(printf '%s' "$E2E_TOKEN" | od -An -tx1 | tr -d ' \n')"
+
+    "$WORK_DIR/helpers/tls_server" --raw --listen 127.0.0.1:0 --ready-file "$ready_file" \
+        --token "$E2E_TOKEN" >"${prefix}.server.log" 2>&1 &
+    server_pid=$!
+    for attempt in $(seq 1 50); do
+        if [[ -s "$ready_file" ]]; then
+            address="$(tr -d '\r\n' <"$ready_file")"
+            break
+        fi
+        kill -0 "$server_pid" 2>/dev/null || break
+        sleep 0.1
+    done
+    if [[ -z "$address" ]]; then
+        log_error "Binary TLS fixture did not become ready"
+        return 1
+    fi
+    case "$destination" in
+        tcp|ws)
+            start_output_receiver "$destination" "$event_file" || return 1
+            event_addr="$OUTPUT_RECEIVER_URI"
+            ;;
+        ecaptureq)
+            local port=$((30000 + RANDOM % 20000))
+            local endpoint="ws://127.0.0.1:${port}/"
+            "$WORK_DIR/helpers/ecaptureq_assert" --server "$endpoint" --format text \
+                --sensitive --token "$token_hex" >"${prefix}.receiver.log" 2>&1 &
+            receiver_pid=$!
+            capture_options+=(--ecaptureq "$endpoint")
+            ;;
+    esac
+    if [[ "$destination" != messages ]]; then
+        capture_options+=(--text-raw)
+    fi
+    if [[ "$destination" == stdout ]]; then
+        start_capture_split "$event_file" "$capture_log" gotls --elfpath "$TLS_RAW_CLIENT" \
+            --model text --text-source pcapng --eventaddr stdout --logaddr "$operational_log" \
+            --ifname lo "${capture_options[@]}" "tcp port ${address##*:}" || return 1
+    else
+        start_capture "$capture_log" gotls --elfpath "$TLS_RAW_CLIENT" --model text --text-source pcapng \
+            --eventaddr "$event_addr" --logaddr "$operational_log" --ifname lo \
+            "${capture_options[@]}" "tcp port ${address##*:}" || return 1
+    fi
+    if ! timeout 15 "$TLS_RAW_CLIENT" --address "$address" --token "$E2E_TOKEN" >"${prefix}.client.log" 2>&1; then
+        stop_capture
+        log_error "Binary TLS fixture client failed"
+        return 1
+    fi
+    if [[ "$destination" == messages ]]; then
+        wait_for_file_contains "$operational_log" unsupported_protocol "non-HTTP protocol diagnostic" || {
+            stop_capture
+            return 1
+        }
+    else
+        for ((attempt = 0; attempt < 40; attempt++)); do
+            if assert_tls_raw_events "$event_file" "$client_hex" "$server_hex"; then
+                live=1
+                break
+            fi
+            sleep 0.1
+        done
+        if ((live == 0)) || ! kill -0 "$CAPTURE_PID" 2>/dev/null; then
+            stop_capture
+            log_error "Exact bidirectional binary bytes did not arrive before capture shutdown"
+            return 1
+        fi
+    fi
+    if [[ -n "$receiver_pid" ]]; then
+        wait "$receiver_pid" || receiver_status=$?
+        receiver_pid=""
+    fi
+    stop_capture
+    if [[ "$destination" == tcp || "$destination" == ws ]]; then
+        stop_output_receiver || return 1
+    fi
+    kill -TERM "$server_pid" 2>/dev/null || true
+    wait "$server_pid" 2>/dev/null || true
+    server_pid=""
+    assert_no_capture_errors "$capture_log" || return 1
+    assert_file_not_contains "$operational_log" "$token_hex" "hex plaintext in operational log" || return 1
+    assert_file_not_contains "$operational_log" "TRAFFIC_SECRET" "TLS secret in operational log" || return 1
+    if [[ "$destination" == messages ]]; then
+        assert_file_contains "$operational_log" "Probe closed" "clean message-mode shutdown" || return 1
+        assert_file_not_contains "$operational_log" "$E2E_TOKEN" "binary payload in operational log" || return 1
+        if [[ -s "$event_file" ]]; then
+            log_error "Default message mode emitted a false application message for binary TLS"
+            return 1
+        fi
+    else
+        assert_output_isolation "$operational_log" "$event_file" "$E2E_TOKEN" || return 1
+        assert_tls_raw_events "$event_file" "$client_hex" "$server_hex" 1 || {
+            log_error "Binary raw bytes, offsets or input-end records are incorrect"
+            return 1
+        }
+        if ((receiver_status != 0)); then
+            log_error "Strict eCaptureQ raw receiver failed"
+            return 1
+        fi
+    fi
+)
 
 case_text_stream() {
     local transport="$1"
@@ -690,6 +1043,10 @@ main() {
     setup_linux_suite gotls
     build_go_client
     build_http_reassembly_client
+    if mode_enabled text; then
+        build_http3_fixture
+        build_tls_raw_client
+    fi
 
     run_case "linux/gotls/invalid-output-combinations" case_invalid_output_combinations
     mode_enabled text && run_case "linux/gotls/text" case_text
@@ -714,6 +1071,16 @@ main() {
     mode_enabled text && run_case "linux/gotls/text-pcapng-http" case_text_pcapng
     mode_enabled text && run_case "linux/gotls/text-pcapng-multi-chunk-http1" case_text_pcapng_multi_chunk_http1
     mode_enabled text && run_case "linux/gotls/text-pcapng-http2-keepalive" case_text_pcapng_http2_keepalive
+    if mode_enabled text; then
+        local quic_version
+        for quic_version in v1 v2; do
+            run_case "linux/gotls/text-pcapng-http3-${quic_version}" case_text_pcapng_http3 "$quic_version"
+        done
+        local raw_destination
+        for raw_destination in file stdout tcp ws ecaptureq messages; do
+            run_case "linux/gotls/text-pcapng-raw-${raw_destination}" case_text_pcapng_raw "$raw_destination"
+        done
+    fi
 
     print_summary "Linux GoTLS E2E"
 }

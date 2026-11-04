@@ -85,7 +85,7 @@ main.go -> cli.Start() -> Cobra RunE -> runProbe()
   -> perf/ringbuf sample -> EventDecoder.Decode()
   -> optional module-private EventPreprocessor
   -> events.Dispatcher -> text/keylog/pcapng handler -> ByteSink
-                       -> low-latency pcapng -> decrypt SDK -> HTTP ByteSink
+                       -> low-latency pcapng -> decrypt SDK -> text ByteSink
                        -> typed eCaptureQ EVENT publisher
 ```
 

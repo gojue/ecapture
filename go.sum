@@ -22,6 +22,12 @@ github.com/gojue/ebpfmanager v0.6.0 h1:oJecixZVS7Jo3i/dib4jjNFj4pfVZmQzOEpqjZdFN
 github.com/gojue/ebpfmanager v0.6.0/go.mod h1:3PWyPhkyEdE9r3PYCpOzGQRpISf6qathvTT0KznIXsU=
 github.com/gojue/ecapture_decryptor v1.2.0 h1:7hUtp6nsnuuX+p+MVYxmrumk34rO5+18jd7MHinFEb4=
 github.com/gojue/ecapture_decryptor v1.2.0/go.mod h1:AeCJShO5EAnQPUptd+Fai4C0GszB4tVYa6fyISUW9HE=
+github.com/gojue/ecapture_decryptor v1.3.0 h1:ryo//KBMp+RpPpDqfTwZQDaTKq75aTJu/ylrtGGXZao=
+github.com/gojue/ecapture_decryptor v1.3.0/go.mod h1:AeCJShO5EAnQPUptd+Fai4C0GszB4tVYa6fyISUW9HE=
+github.com/gojue/ecapture_decryptor v1.3.1 h1:97Y38/zpc3mfMZJyRVH7nNXDNlMQ/R4NM/dnI4YktOU=
+github.com/gojue/ecapture_decryptor v1.3.1/go.mod h1:AeCJShO5EAnQPUptd+Fai4C0GszB4tVYa6fyISUW9HE=
+github.com/gojue/ecapture_decryptor v1.3.2 h1:W52mhl7sCOPLicpZZbL3G0yTH2WP0wcBom83UdUAKOo=
+github.com/gojue/ecapture_decryptor v1.3.2/go.mod h1:AeCJShO5EAnQPUptd+Fai4C0GszB4tVYa6fyISUW9HE=
 github.com/google/go-cmp v0.2.0/go.mod h1:oXzfMopK8JAjlY9xF4vHSVASa0yLyX7SntLO5aqRK0M=
 github.com/google/go-cmp v0.3.1/go.mod h1:8QqcDgzrUqlUb/G2PQTWiueGozuR1884gddMywk6iLU=
 github.com/google/go-cmp v0.4.0/go.mod h1:v8dTdLbMG2kIc/vJvl+f65V22dbkXbowE6jgT/gNBxE=
