@@ -113,12 +113,13 @@ Validate on the target kernels, especially the non-CO-RE path, before claiming
 that a new artifact passes the minimum-kernel runtime contract.
 
 Linux E2E additionally needs `go`, `timeout`, `cc`, OpenSSL development
-headers, and `tshark` for keylog/pcapng. The full GnuTLS contract also needs
+headers, and Wireshark >= 4.4 (`tshark` and `editcap`) for pcapng validation.
+The full GnuTLS contract also needs
 pkg-config and GnuTLS development headers.
 
 Android E2E additionally needs a Linux host with kernel >= 4.18, Go, `timeout`,
 `adb`, a modern JDK with `javac` and a `jar` supporting `--create --file`
-(JDK 9+), `tshark`, and host dumpcap capture permission.
+(JDK 9+), Wireshark >= 4.4 (`tshark` and `editcap`), and host dumpcap capture permission.
 Set `ANDROID_SDK_ROOT` or `ANDROID_HOME`; install the selected
 `platforms/android-<API>/android.jar` and build-tools containing `d8`. The
 device/emulator must be rooted/userdebug API 33+ with SELinux not Enforcing.
@@ -420,8 +421,9 @@ its assertions.
 - Text mode must find the deterministic captured plaintext token.
 - Keylog mode must use eCapture-emitted TLS secrets to decrypt an independent
   simultaneous packet capture with `tshark`.
-- Pcapng mode must clear external keylog preferences and decrypt eCapture's
-  own pcapng using its embedded TLS Decryption Secrets Block.
+- Pcapng mode must override external keylog preferences and decrypt eCapture's
+  own pcapng using only its embedded TLS Decryption Secrets Blocks, preloaded
+  with `editcap` so secrets arriving after their packets also work.
 - Output-pipeline changes must also run the maintained operational-log and
   text/keylog/pcapng cases over file, TCP, binary WebSocket, and stdout. They
   verify operational/event isolation, final flush, valid network pcapng

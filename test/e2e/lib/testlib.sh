@@ -252,18 +252,30 @@ assert_pcapng_plaintext_preview() {
     local tshark_log="${pcap_file}.stream-${tls_stream}.tshark.log"
     local client_random_file="${pcap_file}.stream-${tls_stream}.client-randoms.txt"
     local client_random_log="${pcap_file}.stream-${tls_stream}.client-randoms.tshark.log"
-    local client_random
+    local client_random keylog_file
 
     assert_file_nonempty "$pcap_file" "pcapng capture for $label" || return 1
-    # Clear any keylog configured in the host's Wireshark profile. Successful
-    # decryption must come from the TLS Decryption Secrets Block embedded in
-    # eCapture's pcapng output.
-    if ! tshark -n -r "$pcap_file" -o tls.keylog_file: -q -z "follow,tls,ascii,$tls_stream" \
+    require_command editcap || return 1
+    # Low-latency output can write DSBs after the packets they decrypt. Preload
+    # only this capture's embedded secrets so tshark can also decrypt those
+    # packets, overriding any keylog configured in the host's profile.
+    keylog_file="$(mktemp "${pcap_file}.embedded-keys.XXXXXX")" || return 1
+    if ! editcap --extract-secrets "$pcap_file" - >"$keylog_file" 2>"$tshark_log" ||
+        [[ ! -s "$keylog_file" ]]; then
+        rm -f -- "$keylog_file"
+        log_error "Could not extract embedded pcapng secrets for $label (editcap >= 4.4 required)"
+        cat "$tshark_log" >&2 || true
+        return 1
+    fi
+    if ! tshark -n -r "$pcap_file" -o "tls.keylog_file:$keylog_file" \
+        -q -z "follow,tls,ascii,$tls_stream" \
         >"$plaintext_file" 2>"$tshark_log"; then
+        rm -f -- "$keylog_file"
         log_error "tshark could not decrypt embedded pcapng secrets for $label (TLS stream $tls_stream)"
         cat "$tshark_log" >&2 || true
         return 1
     fi
+    rm -f -- "$keylog_file"
     assert_file_contains "$plaintext_file" "$token" \
         "DSB-decrypted TLS plaintext for $label (TLS stream $tls_stream)" || return 1
 

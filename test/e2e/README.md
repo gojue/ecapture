@@ -51,6 +51,9 @@ entry points:
   deterministic fixtures.
 
 The tests require root and a real Linux/Android kernel with eBPF support. Building or running them on macOS is unsupported.
+Linux and Android host-side pcapng validation requires Wireshark's `tshark`
+and `editcap` >= 4.4. Ubuntu 22.04/24.04 hosts need the stable PPA linked above;
+both CI workflows configure it before installing `tshark`.
 
 ## Test matrix
 
@@ -290,9 +293,9 @@ uploads the harness test log. Raw keylogs and packet captures remain private.
 Every successful mode prints a `[PLAINTEXT]` line containing at most 50
 characters of plaintext from the verified capture. Text mode reads the
 eCapture event log; keylog mode decrypts a simultaneous packet capture with
-the keys emitted by eCapture; pcapng mode invokes tshark without an external
-keylog and decrypts eCapture's own pcapng output using its embedded TLS
-Decryption Secrets Block. Pcapng previews also include the 64-hex-character
+the keys emitted by eCapture; pcapng mode preloads only eCapture's embedded TLS
+Decryption Secrets Blocks with editcap before invoking tshark, so DSBs that
+arrive after their packets also work. Pcapng previews include the 64-hex-character
 `CLIENT_RANDOM` extracted from the captured ClientHello. The preview is
 therefore capture evidence, not a copy of the workload's client output.
 
