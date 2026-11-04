@@ -167,8 +167,12 @@ sudo ecapture gotls -m text --text-source=pcapng --elfpath /path/to/go-client -i
 sudo ecapture gnutls -m text --text-source=pcapng --gnutls /path/to/libgnutls.so -i eth0 'tcp port 443'
 ```
 
-DSB 密钥块即使晚于握手和数据包写入，也会被 SDK 用于回放解密。此来源目前支持
-TCP TLS 上的 HTTP/1.1 与 HTTP/2，不输出通用 TLS 记录或 QUIC/HTTP/3。
+DSB 密钥块即使晚于握手和数据包写入，也会被 SDK 用于回放解密。基础 HTTP/3 over
+QUIC v1 已有 GoTLS 测试用例；实际支持取决于对应 TLS 后端能否提供所需密钥。
+添加 `--text-raw` 可输出经过认证的 TLS 明文字节或 QUIC STREAM 分块，跳过应用解析。
+每块使用无损 hex，包含方向、offset 和结束标记；分块不等同于应用消息。
+暂不包含 QUIC DATAGRAM 和自动 ALPN 分发。无明文/密钥内容的解密诊断单独写入运营日志。
+HTTP reload 可传 `text_raw`；与其他模块字段一样，省略时采用默认 `false`。
 
 若要独立验证明文确实来自 pcapng，在采集命令中加入 `--pcapfile /tmp/raw.pcapng`，
 并发送带唯一请求路径或响应标记的请求。停止 eCapture 后执行

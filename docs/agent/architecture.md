@@ -20,7 +20,7 @@ main.go
   -> EventDecoder.Decode()
   -> optional EventPreprocessor for module-private records
   -> events.Dispatcher.Dispatch()
-  -> text / keylog / pcapng handler or low-latency pcapng -> decrypt SDK -> HTTP output
+  -> text / keylog / pcapng handler or low-latency pcapng -> decrypt SDK -> text output
   -> independently constructed ByteSink
   -> optional typed eCaptureQ EVENT publisher
 ```
@@ -74,7 +74,7 @@ targets and excludes zsh, GnuTLS, NSPR, MySQL, and PostgreSQL.
 - `internal/output/pcapng/`: the serialized pcapng representation session and
   its borrowed keylog adapter.
 - `internal/output/decrypt/`: in-process pcapng pipe to the independent
-  decryptor SDK and reconstructed HTTP output routing.
+  decryptor SDK and reconstructed message/raw chunk output routing.
 - `internal/output/encoders/`: standalone abstractions not currently wired
   into the production probe path.
 - `kern/`: eBPF C sources and shared headers. `kern/bpf/<arch>/` contains the

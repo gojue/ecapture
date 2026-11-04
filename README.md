@@ -168,8 +168,14 @@ sudo ecapture gnutls -m text --text-source=pcapng --gnutls /path/to/libgnutls.so
 ```
 
 The decryptor waits for TLS secrets that may appear in a DSB after the
-corresponding packets. The pcapng text source supports TCP TLS with HTTP/1.1 or HTTP/2
-payloads; it does not emit generic TLS records or QUIC/HTTP/3.
+corresponding packets. Basic HTTP/3 over QUIC v1 has a GoTLS test fixture;
+support depends on the TLS backend supplying the required secrets.
+Add `--text-raw` to emit authenticated TLS bytes or QUIC STREAM chunks instead
+of parsed messages. Each chunk is lossless hex with direction, offset and an
+end marker; chunks are not application messages. QUIC DATAGRAM and automatic
+ALPN routing are not included. Operational logs report payload-free decryption
+diagnostics separately from captured data. HTTP reload accepts `text_raw`;
+omitting it uses the default `false`, as with other module-specific settings.
 
 To verify the source independently, add `--pcapfile /tmp/raw.pcapng` to the
 capture command and send a request with a unique path or response token. After

@@ -23,9 +23,29 @@ entry points:
   success, and reject an invalid destination while the active output continues.
 - The GoTLS pcapng text source additionally verifies that an HTTP body split
   across multiple TCP segments (PSH packets) is reconstructed completely and
-  in order for both HTTP/1.1 and HTTP/2 keep-alive connections. HTTP/3
-  (QUIC/UDP) text reconstruction is not yet supported by eCapture, so it is
-  out of scope for these cases.
+  in order for both HTTP/1.1 and HTTP/2 keep-alive connections.
+- GoTLS also tests server-first binary TLS 1.3 with `--text-raw` over file,
+  stdout, TCP, WebSocket and eCaptureQ. ByteSinks are checked for exact bytes,
+  per-direction offsets, live delivery and input-end markers; eCaptureQ checks
+  the sensitive event and its metadata. Default message mode must report an
+  unsupported protocol without emitting a false HTTP message.
+- The GoTLS HTTP/3 baseline tests QUIC v1 and v2 separately on loopback with
+  `QUIC_GO_DISABLE_GSO=true`, two concurrent connections and two request
+  streams per connection. A server barrier waits for both connections' first
+  requests before replying; each connection retains streams 0 and 4. It checks
+  all eight request/response bodies and their connection/stream identities
+  before probe shutdown, then independently decrypts every stream with tshark
+  using eCapture's embedded DSB. Both endpoints are pinned to the selected
+  version, and each captured connection's long headers must carry that version.
+  The comparison associates connections by body labels, independent of handshake
+  order. Each version has separate artifacts; the fixture never writes keylogs.
+  0-RTT, migration, dynamic QPACK and GSO/GRO are outside this baseline.
+  Its pinned quic-go dependency is isolated in `fixtures/http3/go.mod`; the
+  first GoTLS text-suite build needs access to those Go module dependencies.
+  Independent QUIC decryption requires tshark >= 4.4: older versions can
+  misidentify loopback connections, lack QUIC v2, or omit responses from
+  stream-follow output. Ubuntu 22.04/24.04 CI installs tshark from the
+  [Wireshark stable PPA](https://launchpad.net/~wireshark-dev/+archive/ubuntu/stable).
 - A separate strict common-config suite verifies file `--eventaddr` and
   operational-log isolation for Bash, Zsh, and the MySQL probe using local
   deterministic fixtures.

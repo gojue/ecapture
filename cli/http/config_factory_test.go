@@ -19,6 +19,7 @@ package http
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -108,7 +109,7 @@ func TestEveryHTTPConfigFactoryAppliesCommonConfig(t *testing.T) {
 	}
 }
 
-func TestTLSHTTPConfigFactoriesPreserveTextSource(t *testing.T) {
+func TestTLSHTTPConfigFactoriesPreserveTextOptions(t *testing.T) {
 	for _, test := range []struct {
 		name    string
 		factory httpConfigFactory
@@ -118,14 +119,45 @@ func TestTLSHTTPConfigFactoriesPreserveTextSource(t *testing.T) {
 		{"gnutls", createGnutlsConfig},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			update, err := test.factory(factoryRequest(`{"text_source":"pcapng"}`))
+			current, err := test.factory(factoryRequest(`{"text_source":"pcapng","text_raw":true}`))
 			if err != nil {
 				t.Fatal(err)
 			}
-			mode := update.Config.(domain.CaptureModeConfiguration)
-			source := update.Config.(domain.TextSourceConfiguration)
-			if mode.GetCaptureMode() != handlers.ModeText || source.GetTextSource() != handlers.TextSourcePcapng {
-				t.Fatalf("mode/source = %q/%q, want text/pcapng", mode.GetCaptureMode(), source.GetTextSource())
+			for _, option := range []struct {
+				name, body string
+				wantRaw    bool
+			}{
+				{"enabled", `{"text_source":"pcapng","text_raw":true}`, true},
+				{"explicit false", `{"text_source":"pcapng","text_raw":false}`, false},
+				{"omitted uses module default", `{"text_source":"pcapng"}`, false},
+			} {
+				t.Run(option.name, func(t *testing.T) {
+					update, err := test.factory(factoryRequest(option.body))
+					if err != nil {
+						t.Fatal(err)
+					}
+					if err := config.MergeReloadOutput(current.Config, update.Config, update.CommonPatch); err != nil {
+						t.Fatal(err)
+					}
+					mode := update.Config.(domain.CaptureModeConfiguration)
+					source := update.Config.(domain.TextSourceConfiguration)
+					if mode.GetCaptureMode() != handlers.ModeText || source.GetTextSource() != handlers.TextSourcePcapng {
+						t.Fatalf("mode/source = %q/%q, want text/pcapng", mode.GetCaptureMode(), source.GetTextSource())
+					}
+					encoded, err := json.Marshal(update.Config)
+					if err != nil {
+						t.Fatal(err)
+					}
+					var decoded struct {
+						TextRaw bool `json:"text_raw"`
+					}
+					if err := json.Unmarshal(encoded, &decoded); err != nil {
+						t.Fatal(err)
+					}
+					if decoded.TextRaw != option.wantRaw {
+						t.Fatalf("text_raw = %v, want %v", decoded.TextRaw, option.wantRaw)
+					}
+				})
 			}
 		})
 	}

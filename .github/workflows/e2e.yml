@@ -112,6 +112,9 @@ jobs:
           DEBIAN_FRONTEND: noninteractive
         run: |
           sudo apt-get update
+          # Distribution tshark 3.6/4.2 cannot validate the QUIC v1/v2 fixtures.
+          sudo apt-get install --yes software-properties-common
+          sudo add-apt-repository --yes ppa:wireshark-dev/stable
           sudo apt-get install --yes \
             build-essential \
             pkg-config \

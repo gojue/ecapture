@@ -22,6 +22,7 @@ HTTP_REASSEMBLY_SERVER=""
 HTTP_REASSEMBLY_PID=""
 HTTP_REASSEMBLY_PORT=""
 HTTP_REASSEMBLY_URL=""
+HTTP3_PID=""
 E2E_TOKEN=""
 PCAPNG_CHECK=""
 OUTPUT_RECEIVER_PID=""
@@ -338,6 +339,10 @@ linux_suite_cleanup() {
     stop_packet_capture || true
     stop_capture || true
     stop_http_reassembly_fixture || true
+    if [[ -n "$HTTP3_PID" ]]; then
+        kill -TERM "$HTTP3_PID" 2>/dev/null || true
+        wait "$HTTP3_PID" 2>/dev/null || true
+    fi
     if [[ -n "$TLS_SERVER_PID" ]] && kill -0 "$TLS_SERVER_PID" 2>/dev/null; then
         kill -TERM "$TLS_SERVER_PID" 2>/dev/null || true
         wait "$TLS_SERVER_PID" 2>/dev/null || true
