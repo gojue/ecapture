@@ -12,7 +12,7 @@ Environment=HOME=/var/lib/ecapture-runner
 Environment=PATH=/usr/local/go/bin:/usr/local/bin:/usr/bin:/bin
 Environment=ACTIONS_RUNNER_HOOK_JOB_STARTED=/etc/ecapture-runner/job-started.sh
 Environment=ACTIONS_RUNNER_HOOK_JOB_COMPLETED=/etc/ecapture-runner/job-completed.sh
-ExecStartPre=/usr/bin/sudo -n /usr/bin/systemctl stop ecapture-e2e.service
+ExecStartPre=/usr/bin/sudo -n /usr/bin/python3 -I /etc/ecapture-runner/job-cleanup.py e2e
 ExecStartPre=/usr/bin/timeout 120s /usr/bin/python3 /etc/ecapture-runner/job-cleanup.py startup
 ExecStart=/opt/ecapture-actions-runner/runsvc.sh
 Restart=always
@@ -21,7 +21,7 @@ KillSignal=SIGTERM
 KillMode=mixed
 TimeoutStopSec=5min
 UMask=0077
-# Allow only the fixed sudoers entry that starts/stops the root-owned E2E unit.
+# Allow only the fixed sudoers entries for foreground E2E and its cleanup.
 NoNewPrivileges=false
 RestrictSUIDSGID=true
 

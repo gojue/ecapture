@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Clean one dedicated, sequential eCapture runner without touching its identity."""
 
+import fcntl
 import json
 import os
 from pathlib import Path
@@ -8,6 +9,7 @@ import pwd
 import select
 import signal
 import stat
+import subprocess
 import sys
 
 BASE = Path('/var/lib/ecapture-runner')
@@ -15,6 +17,7 @@ WORK = BASE / '_work'
 WORKSPACE = WORK / 'ecapture' / 'ecapture'
 JOB = BASE / 'job-state'
 CONTROL = BASE / '.job-cleanup.json'
+E2E = Path('/var/lib/ecapture-e2e')
 
 
 def open_directory(path):
@@ -137,7 +140,32 @@ def previous_token():
     return value
 
 
+def cleanup_e2e():
+    """The only root cleanup entry point: fixed E2E processes, TC and caches."""
+    if os.geteuid() != 0:
+        raise RuntimeError('E2E cleanup requires root')
+    E2E.mkdir(mode=0o700, exist_ok=True)
+    # The shell EXIT trap and the always() step may arrive together.
+    with (E2E / 'cleanup.lock').open('a') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        terminate_tracked({'ecapture-root-e2e'})
+        owned = E2E / 'owns-loopback-clsact'
+        if owned.exists():
+            subprocess.run(['/usr/sbin/tc', 'qdisc', 'del', 'dev', 'lo', 'clsact'],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+            qdiscs = json.loads(subprocess.check_output(
+                ['/usr/sbin/tc', '-j', 'qdisc', 'show', 'dev', 'lo']))
+            if any(q['kind'] == 'clsact' for q in qdiscs):
+                raise RuntimeError('Failed to remove test-owned loopback TC qdisc')
+            owned.unlink()
+        empty_directory(E2E / 'job-state')
+    print('Privileged E2E processes, caches and owned TC state cleaned.')
+
+
 def main(phase):
+    if sys.platform == 'linux' and phase == 'e2e':
+        cleanup_e2e()
+        return
     if sys.platform != 'linux' or pwd.getpwuid(os.getuid()).pw_name != 'ecapture-runner':
         raise RuntimeError('Run on Linux as the ecapture-runner service account')
     if phase not in ('start', 'end', 'startup'):

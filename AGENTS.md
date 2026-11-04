@@ -163,6 +163,9 @@ verification matrix live in `docs/agent/build-test.md`.
   suffix in new imports.
 - Keep changes focused and follow the nearest working implementation. Probe
   implementations are not perfectly uniform, so do not copy one blindly.
+- Do not add files unless necessary for the requested change. Prefer reusing
+  existing code, scripts, and tests, and keep changes as small as practical.
+  Avoid unrelated refactors and unnecessary helper layers.
 - In probe/domain lifecycle code, prefer structured constructors and codes in
   `internal/errors`, adding context where useful. Preserve normal `%w`
   wrapping at boundaries where that is the local pattern.
@@ -252,10 +255,10 @@ verification matrix live in `docs/agent/build-test.md`.
   different running kernel. See `docs/loong64-support.md`.
 - The dedicated LoongArch E2E job shares `e2e.yml` push/PR/manual triggers,
   but only trusted repository refs enter the host. It builds CO-RE at the event
-  SHA with LLVM 22.1.8 and runs OpenSSL/GoTLS through a fixed root service that
-  verifies the live Actions identity and fetches a per-job source snapshot.
-  Fork PRs retain hosted checks. Reports must match the run/attempt, source SHA
-  and binary hash; the fixed manual bundle is not evidence for another SHA.
+  SHA with LLVM 22.1.8 and runs OpenSSL/GoTLS directly from that checkout through
+  a fixed sudo Shell entry point. Harness output streams live to Actions.
+  Fork PRs retain hosted checks. Root-owned hooks enforce trusted refs and
+  clean job processes, caches and owned TC state; there is no separate E2E unit.
 
 ## Focused references
 
