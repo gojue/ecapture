@@ -48,11 +48,20 @@ WebSocket artifact by concatenating frame payloads in arrival order. A failed
 connection terminates the stream; there is no reconnect in the middle of a
 pcapng artifact.
 
+`writers.WriterFactory` centralizes raw destination construction for the
+default text path and TLS keylog/pcapng paths. Text handlers preserve event
+`String()` / `StringHex()` output without operational-log fields.
+`KeylogWriter` normalizes each record to one trailing newline without
+modifying caller-owned bytes, reports short writes, and forwards flush/close
+errors. `KeylogHandler` owns keylog deduplication.
+
 The dispatcher owns registered handlers. A handler owns its encoder/session
 and the primary ByteSink it was constructed with. `pcapng.KeylogAdapter` is a
 borrowed DSB view: it may synchronously flush queued keylogs but never closes
-the `pcapng.Session` or sink. `PcapngHandler` stops producers, drains DSBs and
-packets, flushes the pcapng encoder and sink, then closes the sink. Close is
+the `pcapng.Session` or sink. The session copies packet and keylog bytes before
+queueing them; its serving goroutine serializes encoder writes.
+`PcapngHandler` stops producers, drains DSBs and packets, flushes the pcapng
+encoder and sink, then closes the sink. Close is
 idempotent and failures from every layer are joined and returned.
 
 Typed destinations implement `OperationalLogSink` or `CapturedEventSink`.
@@ -138,3 +147,20 @@ serialized handoff. Captured events are not retained in startup history.
 Queue saturation returns an error and increments the observable dropped count.
 Server close cancels the hub, unblocks clients, joins owned goroutines, and is
 idempotent.
+
+## Verification contract
+
+Changes must preserve content and failure behavior, not merely create output:
+
+- Unit and race coverage checks short writes, flush/close errors, concurrent
+  producers, repeated close, pcapng packet/DSB drain, and queue saturation.
+- Runtime dependencies stay out of configuration JSON and remain borrowed
+  across reload; repeated validation and legacy flag conflicts are tested.
+- Strict TLS E2E checks all supported ByteSinks, independent keylog/DSB
+  decryption, operational/event isolation, typed eCaptureQ classification
+  alongside raw output, and final delivery during graceful shutdown.
+
+Use [build and verification](build-test.md) for commands and platform gates,
+and the [E2E guide](../../test/e2e/README.md) for the maintained matrix. Retain
+the performance checks in [performance benchmarks](../performance-benchmarks.md)
+when changing hot-path decode, dispatch, or output work.

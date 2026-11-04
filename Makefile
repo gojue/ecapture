@@ -316,20 +316,22 @@ test-race: \
 		-ldflags "-X github.com/gojue/ecapture/v2/internal/config.ByteCodeFiles=$(BYTECODE_FILES)" \
 		./... -coverprofile=coverage.out
 
+# Strict non-TLS suites share deterministic workloads and output assertions.
+# The MySQL fixture checks dispatch_command capture without changing a database.
 # run Bash module e2e test
 .PHONY: e2e-bash
 e2e-bash:
-	bash ./test/e2e/bash_e2e_test.sh
+	E2E_NON_TLS_MODULES=bash bash ./test/e2e/linux/common_config_test.sh
 
 # run Zsh module e2e test
 .PHONY: e2e-zsh
 e2e-zsh:
-	bash ./test/e2e/zsh_e2e_test.sh
+	E2E_NON_TLS_MODULES=zsh bash ./test/e2e/linux/common_config_test.sh
 
 # run MySQL module e2e test
 .PHONY: e2e-mysql
 e2e-mysql:
-	bash ./test/e2e/mysql_e2e_test.sh
+	E2E_NON_TLS_MODULES=mysqld bash ./test/e2e/linux/common_config_test.sh
 
 # run PostgreSQL module e2e test
 .PHONY: e2e-postgres
@@ -374,22 +376,22 @@ e2e-gotls-advanced:
 # run advanced Bash tests
 .PHONY: e2e-bash-advanced
 e2e-bash-advanced:
-	bash ./test/e2e/bash_advanced_test.sh
+	E2E_NON_TLS_MODULES=bash E2E_NON_TLS_ADVANCED=1 bash ./test/e2e/linux/common_config_test.sh
 
 # run advanced MySQL tests
 .PHONY: e2e-mysql-advanced
 e2e-mysql-advanced:
-	bash ./test/e2e/mysql_advanced_test.sh
+	E2E_NON_TLS_MODULES=mysqld E2E_NON_TLS_ADVANCED=1 bash ./test/e2e/linux/common_config_test.sh
 
 # run edge cases and error handling tests
 .PHONY: e2e-edge-cases
 e2e-edge-cases:
 	bash ./test/e2e/edge_cases_test.sh
 
-# run ecaptureQ WebSocket event streaming e2e test
+# Typed eCaptureQ assertions run inside the full maintained TLS mode matrix.
+# This compatibility target runs all selected TLS suites, not a connectivity smoke.
 .PHONY: e2e-ecaptureq
-e2e-ecaptureq:
-	bash ./test/e2e/ecaptureq_e2e_test.sh
+e2e-ecaptureq: e2e-linux
 
 # Maintained Linux scope: OpenSSL TLS, GoTLS, and GnuTLS. Every suite covers
 # text, keylog, and pcapng modes against a deterministic local TLS endpoint.

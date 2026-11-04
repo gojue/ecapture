@@ -1,42 +1,32 @@
-# Protobuf Compilation Guide
+# Generating Protobuf messages
 
-This project uses Protocol Buffers to define the messages used by ecapture.
-The generated Go code lives under `protobuf/gen`, and the source `.proto` files
-are under `protobuf/proto`.
+[中文](README-zh_Hans.md) · [Wire protocol](PROTOCOLS.md)
 
-## Prerequisites
+Source: [proto/v1/ecaptureq.proto](proto/v1/ecaptureq.proto).
+Generated Go messages: [gen/v1/ecaptureq.pb.go](gen/v1/ecaptureq.pb.go).
+Edit the schema and regenerate; do not hand-edit generated code.
 
-Make sure you have the following tools installed:
-
-- `protoc` (Protocol Buffers compiler)
-- `protoc-gen-go`
-- `protoc-gen-go-grpc`
-
-The current generated files were built with:
+The checked-in generated header records:
 
 ```text
-protoc-gen-go v1.36.6
+protoc-gen-go v1.36.10
 protoc        v6.32.1
 ```
 
-It is recommended to use these versions or newer when regenerating the code.
+Use these recorded versions for reproducible regeneration. `protoc-gen-go`
+must be on `PATH`; the version of the Go Protobuf runtime in `go.mod` is a
+separate dependency. The schema defines messages and enums, with no gRPC
+service, so `protoc-gen-go-grpc` is not needed.
 
-## How to Re-Generate Go Code
-
-From the **repository root directory**, run:
+On Linux, from the repository root:
 
 ```bash
 protoc --proto_path=protobuf/proto \
-	--go_out=protobuf/gen --go_opt=paths=source_relative \
-	--go-grpc_out=protobuf/gen --go-grpc_opt=paths=source_relative \
-	protobuf/proto/v1/ecaptureq.proto
+  --go_out=protobuf/gen --go_opt=paths=source_relative \
+  protobuf/proto/v1/ecaptureq.proto
 ```
 
-This command will:
-
-- Read `.proto` files from `protobuf/proto`
-- Generate Go files into `protobuf/gen` with paths relative to the source
-- Generate both regular protobuf messages and gRPC service stubs (if any)
-
-After regenerating, commit the updated files under `protobuf/gen/v1`.
-
+Review the schema and generated diff together and include both in the same
+change. Preserve existing field numbers and enum values for wire compatibility.
+Consumers import `github.com/gojue/ecapture/v2/protobuf/gen/v1` as `pb`;
+`option go_package = "./pb"` in the schema does not change that module import.

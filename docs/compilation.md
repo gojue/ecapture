@@ -1,7 +1,7 @@
 <!-- MarkdownTOC autolink="true" -->
 
 - [How eCapture works](#how-ecapture-works)
-- [eCapture Architecture](#ecapture-architecture)
+- [Architecture](#architecture)
 - [Compilation instructions](#compilation-instructions)
   - [Compiling from source on Linux](#compiling-from-source-on-linux)
   - [compile without BTF](#compile-without-btf)
@@ -13,11 +13,11 @@
 
 # How eCapture works
 
-![](./images/how-ecapture-works.png)
+![How eCapture works](../images/how-ecapture-works.png)
 
 # Architecture
 
-![](./images/ecapture-architecture.png)
+![eCapture architecture](../images/ecapture-architecture.png)
 
 # Compilation instructions
 
@@ -27,6 +27,8 @@
 
 Linux x86_64 requires kernel 4.18+, aarch64 requires 5.5+, and LoongArch64
 requires 6.6+. Android supports x86_64 and aarch64 only.
+Compilation, linking, tests, and eBPF generation require a Linux host;
+macOS and Windows are editing environments only.
 
 **prerequisites**
 
@@ -74,10 +76,12 @@ bin/ecapture
 
 ## compile without BTF
 
-eCapture support BTF disabled with command `make nocore` to compile at 2022/04/17. It can work normally even on Linux
-systems that do not support BTF.
+Use `make nocore` for a target without kernel BTF. Non-CO-RE builds require
+prepared headers compatible with the target kernel. Clean before switching
+asset modes:
 
 ```shell
+make clean
 make nocore
 bin/ecapture --help
 ```
@@ -115,6 +119,7 @@ Select the artifact architecture with `TARGET_ARCH=amd64`, `arm64`, or
 an `arm64` artifact on an Ubuntu `amd64` system:
 
 ```shell
+make clean TARGET_ARCH=arm64
 TARGET_ARCH=arm64 make
 ```
 
@@ -157,10 +162,11 @@ sudo make e2e-gnutls   # Test GnuTLS capture
 sudo make e2e-gotls    # Test Go TLS capture
 ```
 
-**Prerequisites**: Linux kernel >= 4.18 (x86_64) or >= 5.5 (aarch64), root
-access, and required tools (see [docs/e2e-tests.md](./docs/e2e-tests.md)).
-
-For detailed information about the test suite, troubleshooting, and CI integration, see [docs/e2e-tests.md](./docs/e2e-tests.md).
+The maintained harness requires root on Ubuntu 22.04+ or Debian 13+, with
+kernel >= 4.18 (x86_64), >= 5.5 (aarch64), or >= 6.6 (LoongArch64).
+See the [E2E guide](../test/e2e/README.md) for dependencies, deterministic local
+fixtures, assertions, and CI coverage. The [build and test guide](agent/build-test.md)
+contains the full unit, race, lint, and production-build verification gates.
 
 # What's eBPF
 

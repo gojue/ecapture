@@ -1,28 +1,14 @@
-# eCapture Event Forwarding
+# 社区事件转发集成
 
-## Application (GUI Client)
-### eCaptureQ
-作者 zenyanle
-星标 : ⭐️ 213
-> eCaptureQ 是 eCapture 的跨平台 GUI，将其 eBPF 抓包能力以可视化方式呈现：无需 CA / MITM，在内核侧捕获 TLS 明文。
-> 这意味着您可以更简单、更高效、更无侵入地调试和分析任何程序的加密通信。
+以下项目提供 GUI 或 Burp Suite 接入。这里保留发现入口，不据此声明其与当前 eCapture
+协议兼容；使用前请核对目标项目支持的 eCapture 版本及消息格式。
 
-GitHub Repo:  https://github.com/gojue/ecaptureQ 
+| 项目 | 用途 | 作者 |
+| --- | --- | --- |
+| [eCaptureQ](https://github.com/gojue/ecaptureQ) | eCapture 的跨平台 GUI 客户端 | zenyanle |
+| [eCapture Burp Bridge](https://github.com/hypernova274/eCapture-burp-bridge) | 通过 WebSocket 向 Burp Suite 转发捕获流量的桥接项目 | hypernova274 |
+| [eCapture Burp](https://github.com/zitoxxx/eCaptureBurp) | 接收 eCapture TLS/HTTP 流量的 Burp Suite 扩展 | zitoxxx |
 
-## Burp Suite Plugin
-
-### eCapture Burp Bridge
-作者 hypernova274
-星标 : ⭐️ 2
-> eCapture v1.5 与 Burp Suite 的中间件插件。通过 WebSocket 转发 Android HTTPS 流量进行无证书抓包
-
-GitHub Repo:  https://github.com/hypernova274/eCapture-burp-bridge
-
-### 
-### eCapture Burp
-作者 zitoxxx
-星标 : ⭐️ 65
-
-> Burp Suite extension for receiving TLS/HTTP traffic captured by eCapture (eBPF)
-
-https://github.com/zitoxxx/eCaptureBurp
+当前仓库的接入契约见[事件转发 API](event-forward-api-zh_Hans.md)和
+[Protobuf 协议](../protobuf/PROTOCOLS-zh_Hans.md)。
+`--eventaddr` 原始字节流与 `--ecaptureq` 类型化 Protobuf 消息是不同接口，集成时需匹配。

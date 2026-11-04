@@ -1,179 +1,33 @@
-## eCapture WebSocket API 文档
+# eCaptureQ WebSocket 发布包
 
-适用于 eCapture 的 WebSocket 接口，允许客户端连接到 eCapture 服务端以接收实时事件和日志。
+本包为 eCapture 提供类型化运行日志和捕获事件发布。
+CLI 通过 `--ecaptureq=ws://127.0.0.1:28257/` 启用监听，默认关闭。
+它与 `--eventaddr` 的原始 text/keylog/pcapng 输出可以同时工作。
 
-### 连接方式
+## 接入入口
 
-- **协议**：WebSocket
-- **地址**：`ws://<server_host>:<server_port>/`
+- [事件转发 API](../../docs/event-forward-api-zh_Hans.md)：选择输出、连接方向、原始字节与类型化消息的区别。
+- [协议字段参考](../../protobuf/PROTOCOLS-zh_Hans.md)：`LogEntry`、枚举和完整 `Event` 字段。
+- [Go 客户端示例](../../examples/ecaptureq_client/README.md)：独立模块构建、运行及手工检查。
+- [协议源文件](../../protobuf/proto/v1/ecaptureq.proto)与[生成方法](../../protobuf/README-zh_Hans.md)。
 
-> 取决于 eCapture 的启动参数，比如：`sudo /usr/bin/ecapture tls --ecaptureq ws://192.168.71.123:28257/`
->
-> **注意**：URL 必须包含尾部斜杠 `/`，且应使用具体的 IP 地址（如 `127.0.0.1` 或您的机器 IP），而不是 `0.0.0.0`
+监听器只接受 CLI 的 `ws://` 配置；它不提供 TLS 或应用层认证。
+尾部 `/` 不由 CLI 强制要求，`0.0.0.0` 可以用于绑定；客户端连接实际可达的地址。
+Go 消费者导入 `github.com/gojue/ecapture/v2/protobuf/gen/v1`，包名为 `pb`。
 
-### 消息格式
+## 包内职责
 
-所有消息均为 **Protocol Buffers (protobuf)** 编码格式，结构如下：
+`NewServer(addr, logWriter)` 接受 `host:port` 监听地址。
+`Start` 阻塞服务，`StartAsync` 在绑定成功后返回错误通道，`Close` 可重复调用。
+CLI 创建并持有服务器，把它作为进程级依赖跨探针重载复用。
 
-#### LogEntry (Protobuf)
+- `PublishLog` 发布 `PROCESS_LOG`，只接受运行日志。
+- `PublishEvent` 发布 `EVENT`，从领域事件信封生成 Protobuf，不反向解析输出文件。
+- `Hub` 串行处理订阅、有限历史及广播；只保留最近最多 128 条运行日志，不缓存捕获事件。
+- `Client` 负责读写连接；连接后立即发送心跳，随后每 15 秒发送。
+- 队列满会返回 `ErrBackpressure` 并增加 `DroppedMessages()` 计数；慢客户端可能被断开。
 
-```protobuf
-message LogEntry {
-  LogType log_type = 1;
-  
-  oneof payload {
-    Event event_payload = 2;
-    Heartbeat heartbeat_payload = 3;
-    string run_log = 4;
-  }
-}
-```
+它实现 `internal/domain` 的日志与事件发布接口，不是 `io.Writer`/ByteSink。
+外部客户端应依赖公开的生成协议类型；仓库外的 Go 模块不能直接导入 `internal/domain`。
 
-#### 消息类型
-
-| log_type              | 说明      | payload结构        |
-|-----------------------|---------|------------------|
-| 0 (LOG_TYPE_HEARTBEAT)  | 心跳包     | Heartbeat |
-| 1 (LOG_TYPE_PROCESS_LOG) | 程序运行日志  | string (run_log)       |
-| 2 (LOG_TYPE_EVENT)      | 捕获的事件详情 | Event           |
-
-##### 心跳包
-
-心跳包的`log_type` 为 0，表示心跳包，protobuf 结构：
-
-```protobuf
-message Heartbeat {
-  int64 timestamp = 1;
-  int64 count = 2;
-  string message = 3;
-}
-```
-
-##### 程序运行日志
-
-当服务端发送程序运行日志时，`log_type` 为 1，`payload` 为 `run_log` 字符串字段，包含日志内容。
-
-当客户端连接上服务端后，会收到服务端（即eCapture）发送的程序运行日志，比如：
-
-```
-2025-08-02T14:16:10Z INF AppName="eCapture(旁观者)"
-2025-08-02T14:16:10Z INF HomePage=https://ecapture.cc
-2025-08-02T14:16:10Z INF Repository=https://github.com/gojue/ecapture
-2025-08-02T14:16:10Z INF Author="CFC4N <cfc4ncs@gmail.com>"
-2025-08-02T14:16:10Z INF Description="Capturing SSL/TLS plaintext without a CA certificate using eBPF. Supported on Linux/Android kernels for amd64/arm64."
-2025-08-02T14:16:10Z INF Version=linux_arm64:v1.3.1-20250629-b395562:5.15.0-143-generic
-2025-08-02T14:16:10Z INF Listen=localhost:28256
-2025-08-02T14:16:10Z INF Listen for eCaptureQ=ws://172.16.71.129:9999
-```
-
-> 即使eCapture先启动，客户端连接后也会收到这些日志。eCapture 会缓存最近 128 条运行日志；事件不进入历史缓存，已连接客户端会立即收到实时日志和事件。
-
-##### 捕获的事件详情
-
-当服务端捕获到 hook 事件时，会以 `log_type: 2` 的消息推送事件详情，`payload` 为 `event_payload` 字段。
-
-Protobuf 结构：
-
-```protobuf
-message Event {
-  int64 timestamp = 1;
-  string uuid = 2;
-  string src_ip = 3;
-  uint32 src_port = 4;
-  string dst_ip = 5;
-  uint32 dst_port = 6;
-  int64 pid = 7;
-  string pname = 8;
-  uint32 type = 9;
-  uint32 length = 10;
-  bytes payload = 11;
-  CaptureFormat capture_format = 12;
-  Sensitivity sensitivity = 13;
-  string direction = 14;
-  uint32 original_length = 15;
-  string stream_id = 16;
-  uint64 sequence = 17;
-}
-```
-
-`PROCESS_LOG` 只包含 eCapture 自身的启动、生命周期、健康和错误信息；捕获的
-明文、密钥和数据包只能通过 `EVENT` 发送。`capture_format` 标识
-text/keylog/pcapng 表示，`sensitivity` 标识需要敏感数据处理的事件。
-
----
-
-## Client 实现示例（Go 语言）
-
-我们提供了一个完整的 WebSocket 客户端实现示例，位于 `examples/ecaptureq_client` 目录。
-
-### 快速开始
-
-```bash
-# 构建客户端
-cd examples/ecaptureq_client
-go build -o ecaptureq_client main.go
-
-# 连接到 eCapture 服务器
-./ecaptureq_client -server ws://127.0.0.1:28257/
-```
-
-### 核心代码片段
-
-```go
-package main
-
-import (
-	pb "github.com/gojue/ecapture/protobuf/gen/v1"
-	"golang.org/x/net/websocket"
-	"google.golang.org/protobuf/proto"
-)
-
-func main() {
-	// 连接到 WebSocket 服务器
-	ws, err := websocket.Dial("ws://127.0.0.1:28257/", "", "http://localhost/")
-	if err != nil {
-		panic(err)
-	}
-	defer ws.Close()
-
-	// 接收消息
-	for {
-		var msgData []byte
-		err := websocket.Message.Receive(ws, &msgData)
-		if err != nil {
-			break
-		}
-
-		// 解码 protobuf 消息
-		var logEntry pb.LogEntry
-		err = proto.Unmarshal(msgData, &logEntry)
-		if err != nil {
-			continue
-		}
-
-		// 处理不同类型的消息
-		switch logEntry.LogType {
-		case pb.LogType_LOG_TYPE_HEARTBEAT:
-			hb := logEntry.GetHeartbeatPayload()
-			// 处理心跳...
-		case pb.LogType_LOG_TYPE_PROCESS_LOG:
-			log := logEntry.GetRunLog()
-			// 处理日志...
-		case pb.LogType_LOG_TYPE_EVENT:
-			event := logEntry.GetEventPayload()
-			// 处理事件...
-		}
-	}
-}
-```
-
-完整实现请参考 `examples/ecaptureq_client/` 目录，包含详细的文档和使用说明。
-
----
-
-## 说明
-
-1. 客户端通过 WebSocket 连接到服务端，持续读取消息。
-2. 消息使用 **Protocol Buffers** 编码，需要使用 `protobuf/gen/v1` 包中的定义进行解码。
-3. 根据 `log_type` 字段判断消息类型，分别处理心跳、日志和事件。
-4. 事件详情通过 `log_type: 2` 推送，`event_payload` 中的 `payload` 字段是原始字节数组，包含捕获的数据内容。
+维护变更时还需核对[输出架构](../../docs/agent/output-pipeline.md)及本目录测试。

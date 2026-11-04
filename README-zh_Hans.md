@@ -96,11 +96,11 @@ docker run --rm --privileged=true --net=host -v ${HOST_PATH}:${CONTAINER_PATH} g
 
 > **⚠️ 安全提醒**：`--privileged=true` 会授予容器完整的宿主机访问权限。生产环境中，建议优先使用更细粒度的 Linux capabilities。详情请参阅 [最小权限指南](docs/minimum-privileges.md#method-3-docker-with-specific-capabilities)。
 
-See [Docker Hub](https://hub.docker.com/r/gojue/ecapture) for more information.
+更多信息请参阅 [Docker Hub](https://hub.docker.com/r/gojue/ecapture)。
 
 ## 快速体验
 
-![](./images/ecapture-help-v0.8.9.svg)
+运行 `ecapture --help`，查看当前安装版本支持的命令和参数。
 
 下面以捕获基于 OpenSSL 动态链接库加密的网络通讯为例：
 
@@ -108,20 +108,16 @@ See [Docker Hub](https://hub.docker.com/r/gojue/ecapture) for more information.
 sudo ecapture tls
 ```
 
-eCapture 会自动检测系统中的 OpenSSL 库并开始抓取明文数据。当你发起 HTTPS 请求，例如 `curl https://baidu.com` 时，抓取到的请求和响应会直接显示出来：
+eCapture 会自动检测系统中的 OpenSSL 库并开始抓取明文数据。使用链接 OpenSSL 的客户端发起 HTTPS 请求，即可看到捕获的读写内容。下面是用于说明文本格式的合成 HTTP/1.1 示例：
 
 ```text
-...
-INF module started successfully. moduleName=EBPFProbeOPENSSL
-??? UUID:233479_233479_curl_5_1_39.156.66.10:443, Name:HTTPRequest, Type:1, Length:73
+[2026-01-01 12:00:00.000] PID:1234 TID:1234 Comm:curl FD:5 WRITE (37 bytes):
 GET / HTTP/1.1
-Host: baidu.com
-Accept: */*
-User-Agent: curl/7.81.0
-...
+Host: example.com
+
 ```
 
-> 📄 更多完整的输出示例，请参阅 [docs/example-outputs.md](docs/example-outputs.md)。
+> 📄 输出格式和验证示例请参阅 [docs/example-outputs.md](docs/example-outputs.md)。
 
 ## 模块介绍
 
@@ -194,7 +190,7 @@ TCP TLS 上的 HTTP/1.1 与 HTTP/2，不输出通用 TLS 记录或 QUIC/HTTP/3�
 sudo ecapture tls -m pcap -i eth0 --pcapfile=ecapture.pcapng tcp port 443
 ```
 
-该命令会将捕获到的明文数据包保存为 pcapng 文件，可使用 Wireshark 打开进行分析。
+该命令会将捕获的网络数据包和 TLS 密钥保存为 pcapng 文件。Wireshark 使用文件内嵌的密钥解密受支持的 TLS 流量。
 
 > 📄 完整的 pcapng 模式输出示例，请参阅 [docs/example-outputs.md](docs/example-outputs.md#tls-module--pcapng-mode)。
 
@@ -205,13 +201,13 @@ sudo ecapture tls -m pcap -i eth0 --pcapfile=ecapture.pcapng tcp port 443
 捕获到的 OpenSSL TLS `Master Secret` 信息会保存到 `--keylogfile` 中。你也可以同时开启 `tcpdump` 抓包，然后使用 Wireshark 打开对应 pcap 文件，并设置 `Master Secret` 路径，即可解密并查看明文数据包。
 
 ```shell
-sudo ecapture tls -m keylog -keylogfile=openssl_keylog.log
+sudo ecapture tls -m keylog --keylogfile=openssl_keylog.log
 ```
 
 也可以直接使用 `tshark` 进行实时解密和展示：
 
 ```shell
-tshark -o tls.keylog_file:ecapture_masterkey.log -Y http -T fields -e http.file_data -f "port 443" -i eth0
+tshark -o tls.keylog_file:openssl_keylog.log -Y http -T fields -e http.file_data -f "port 443" -i eth0
 ```
 
 #### Text 模式
@@ -220,7 +216,7 @@ tshark -o tls.keylog_file:ecapture_masterkey.log -Y http -T fields -e http.file_
 sudo ecapture tls -m text
 ```
 
-该命令会输出所有明文数据包。
+该命令会输出从 TLS 读写函数中捕获的明文字节。
 
 ### GoTLS 模块
 
@@ -228,16 +224,16 @@ sudo ecapture tls -m text
 
 #### 启动方式
 
-Step 1：
+步骤 1：
 
 ```shell
-sudo ecapture gotls --elfpath=/home/cfc4n/go_https_client --hex
+sudo ecapture gotls --elfpath=/path/to/go-client --hex
 ```
 
-Step 2：
+步骤 2：
 
 ```shell
-/home/cfc4n/go_https_client
+/path/to/go-client
 ```
 
 #### 更多帮助
@@ -275,7 +271,7 @@ eCapture 还支持其他模块，例如 `bash`、`mysqld`、`nss`、`postgres` �
 
 ### 事件转发项目
 
-[事件转发相关项目](./EVENT_FORWARD.md)
+[事件转发相关项目](./docs/event-forward.md)
 
 ### 视频演示
 

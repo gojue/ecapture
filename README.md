@@ -63,7 +63,7 @@
 * Audits bash and zsh command history for host security monitoring.
 * Audits MySQL queries and supports MySQL 5.6/5.7/8.0 and MariaDB.
 
-![](./images/ecapture-help-v0.8.9.svg)
+Run `ecapture --help` for the commands and flags available in your installed version.
 
 # Getting started
 
@@ -103,19 +103,16 @@ See [Docker Hub](https://hub.docker.com/r/gojue/ecapture) for more information.
 sudo ecapture tls
 ```
 
-eCapture automatically detects the system's OpenSSL library and starts capturing plaintext traffic. When you make an HTTPS request, such as `curl https://google.com`, the captured request and response are displayed:
+eCapture automatically detects the system's OpenSSL library and starts capturing plaintext traffic. Generate an HTTPS request with an OpenSSL-linked client to see its captured reads and writes. This synthetic HTTP/1.1 example illustrates the text format:
+
+```text
+[2026-01-01 12:00:00.000] PID:1234 TID:1234 Comm:curl FD:5 WRITE (37 bytes):
+GET / HTTP/1.1
+Host: example.com
 
 ```
-...
-INF module started successfully. moduleName=EBPFProbeOPENSSL
-??? UUID:233851_233851_curl_5_1_172.16.71.1:51837, Name:HTTP2Request, Type:2, Length:304
-header field ":method" = "GET"
-header field ":path" = "/"
-header field ":authority" = "google.com"
-...
-```
 
-> 📄 For complete output examples, see [docs/example-outputs.md](docs/example-outputs.md).
+> 📄 For output formats and verification examples, see [docs/example-outputs.md](docs/example-outputs.md).
 
 ## Modules
 
@@ -195,9 +192,9 @@ You can specify `-m pcap` or `-m pcapng` together with `--pcapfile` and `-i`. Th
 sudo ecapture tls -m pcap -i eth0 --pcapfile=ecapture.pcapng tcp port 443
 ```
 
-This command saves captured plaintext packets as a pcapng file, which can be opened with Wireshark.
+This command saves captured network packets and TLS secrets in a pcapng file. Wireshark uses its embedded secrets to decrypt supported TLS traffic.
 
-> 📄 For complete pcapng mode output, see [docs/example-outputs.md](docs/example-outputs.md#tls-module--pcapng-mode).
+> 📄 For pcapng verification, see [docs/example-outputs.md](docs/example-outputs.md#tls-module--pcapng-mode).
 
 #### Keylog mode
 
@@ -206,13 +203,13 @@ You can specify `-m keylog` or `-m key` together with the `--keylogfile` option.
 The captured OpenSSL TLS master secret is saved to `--keylogfile`. You can also enable `tcpdump` capture and then open the file in Wireshark, setting the master secret path to view plaintext packets.
 
 ```shell
-sudo ecapture tls -m keylog -keylogfile=openssl_keylog.log
+sudo ecapture tls -m keylog --keylogfile=openssl_keylog.log
 ```
 
 You can also use `tshark` for real-time decryption and display:
 
 ```shell
-tshark -o tls.keylog_file:ecapture_masterkey.log -Y http -T fields -e http.file_data -f "port 443" -i eth0
+tshark -o tls.keylog_file:openssl_keylog.log -Y http -T fields -e http.file_data -f "port 443" -i eth0
 ```
 
 #### Text mode
@@ -221,7 +218,7 @@ tshark -o tls.keylog_file:ecapture_masterkey.log -Y http -T fields -e http.file_
 sudo ecapture tls -m text
 ```
 
-This outputs all plaintext data packets.
+This outputs plaintext bytes captured from the hooked TLS reads and writes.
 
 ### GoTLS module
 
@@ -234,13 +231,13 @@ Capture TLS plaintext data.
 Step 1:
 
 ```shell
-sudo ecapture gotls --elfpath=/home/cfc4n/go_https_client --hex
+sudo ecapture gotls --elfpath=/path/to/go-client --hex
 ```
 
 Step 2:
 
 ```shell
-/home/cfc4n/go_https_client
+/path/to/go-client
 ```
 
 #### More help
@@ -269,7 +266,7 @@ It supports two modes:
 
 ### Event forwarding
 
-[Event forwarding projects](./EVENT_FORWARD.md)
+[Event forwarding projects](./docs/event-forward.md)
 
 ### Video demonstration
 

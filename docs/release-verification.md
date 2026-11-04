@@ -1,84 +1,58 @@
 # Release Verification Guide
 
-This document describes how to verify the integrity of eCapture release artifacts.
+Verify a downloaded package before extracting or running it. The current
+[publishing recipe](../builder/Makefile.release) generates
+`checksum-<release-tag>.txt`, with SHA256 checksums for the release packages.
+For older releases, use the checksum asset actually listed on that release.
 
-## SHA256 Checksum Verification
+## Download and verify
 
-Every eCapture release includes a `SHA256SUMS` file containing checksums for all release binaries.
-
-### Download and Verify
-
-```bash
-# 1. Download the release binary and checksum file
-RELEASE_VERSION="v2.0.1"
-wget https://github.com/gojue/ecapture/releases/download/${RELEASE_VERSION}/ecapture-${RELEASE_VERSION}-linux-amd64.tar.gz
-wget https://github.com/gojue/ecapture/releases/download/${RELEASE_VERSION}/SHA256SUMS
-
-# 2. Verify the checksum
-sha256sum -c SHA256SUMS --ignore-missing
-```
-
-Expected output:
-```
-ecapture-v2.0.1-linux-amd64.tar.gz: OK
-```
-
-### Manual Verification
+On Linux, set the tag and architecture to the release you selected:
 
 ```bash
-# Compute checksum of the downloaded file
-sha256sum ecapture-${RELEASE_VERSION}-linux-amd64.tar.gz
+RELEASE_VERSION="v2.9.1"
+RELEASE_ARCH="amd64"
+RELEASE_BASE="https://github.com/gojue/ecapture/releases/download/${RELEASE_VERSION}"
+RELEASE_ARCHIVE="ecapture-${RELEASE_VERSION}-linux-${RELEASE_ARCH}.tar.gz"
 
-# Compare with the value in SHA256SUMS
-grep "ecapture-${RELEASE_VERSION}-linux-amd64.tar.gz" SHA256SUMS
+wget "${RELEASE_BASE}/${RELEASE_ARCHIVE}"
+wget "${RELEASE_BASE}/checksum-${RELEASE_VERSION}.txt"
+sha256sum --check --ignore-missing "checksum-${RELEASE_VERSION}.txt"
 ```
 
-## Docker Image Verification
+The command must succeed and print `OK` for the archive you downloaded, for
+example:
 
-### Verify Image Digest
+```text
+ecapture-v2.9.1-linux-amd64.tar.gz: OK
+```
+
+`--ignore-missing` skips packages for other architectures that you did not
+download. To inspect one checksum manually:
 
 ```bash
-# Pull with digest verification
-docker pull gojue/ecapture:latest
-
-# Check the image digest
-docker inspect --format='{{index .RepoDigests 0}}' gojue/ecapture:latest
+sha256sum "${RELEASE_ARCHIVE}"
+grep -F -- "${RELEASE_ARCHIVE}" "checksum-${RELEASE_VERSION}.txt"
 ```
 
-### Pin to Specific Digest
+Compare the full SHA256 value. A checksum checks integrity against the
+published manifest; it is not a digital signature. The current publishing
+workflow does not generate cosign signatures or artifact attestations.
 
-For production environments, pin the Docker image to a specific digest instead of a mutable tag:
+## Docker image digests
+
+After pulling a versioned image, inspect its digest:
 
 ```bash
-# Get the digest
-docker inspect --format='{{index .RepoDigests 0}}' gojue/ecapture:latest
-# Output: gojue/ecapture@sha256:<digest>
-
-# Use the digest in your deployment
-docker run --rm --privileged=true --net=host gojue/ecapture@sha256:<digest> tls
+docker pull "gojue/ecapture:${RELEASE_VERSION}"
+docker inspect --format='{{index .RepoDigests 0}}' "gojue/ecapture:${RELEASE_VERSION}"
 ```
 
-## Planned: Cosign Signature Verification
+The result has the form `gojue/ecapture@sha256:<digest>`. Use that digest as
+the image reference in deployment configuration to pin the image contents.
+See the [minimum privileges guide](minimum-privileges.md) for runtime flags.
 
-> **Status: Planned for a future release**
+## Reporting integrity issues
 
-We are working on adopting [Sigstore cosign](https://github.com/sigstore/cosign) for cryptographic signing of release artifacts. Once implemented, you will be able to verify releases as follows:
-
-```bash
-# Future: Verify with cosign
-cosign verify-blob \
-  --signature ecapture-${RELEASE_VERSION}-linux-amd64.tar.gz.sig \
-  --certificate ecapture-${RELEASE_VERSION}-linux-amd64.tar.gz.cert \
-  ecapture-${RELEASE_VERSION}-linux-amd64.tar.gz
-```
-
-## Planned: GitHub Actions Artifact Attestations
-
-> **Status: Planned for a future release**
-
-We plan to leverage [GitHub Artifact Attestations](https://docs.github.com/en/actions/security-guides/using-artifact-attestations-to-establish-provenance-for-builds) to provide SLSA provenance for all release builds. This will allow verification that artifacts were built in our CI/CD pipeline.
-
-## Reporting Integrity Issues
-
-If you find a checksum mismatch or suspect that a release has been tampered with, please immediately report it via our [security vulnerability reporting process](../SECURITY.md#reporting-a-vulnerability).
-
+If a checksum differs, do not run the downloaded package. Report suspected
+tampering through the [security reporting process](../SECURITY.md#reporting-a-vulnerability).

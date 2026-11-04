@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Linux-only OpenSSL/eBPF benchmark modeled on GitHub issue #990.
+# Linux-only OpenSSL/eBPF benchmarks for short connections and frequent writes.
 
 set -euo pipefail
 
@@ -14,6 +14,8 @@ BENCH_DELAY_MS="${BENCH_DELAY_MS:-10}"
 BENCH_RUNS="${BENCH_RUNS:-3}"
 BENCH_MAP_PAGES="${BENCH_MAP_PAGES:-8192}"
 BENCH_TLS_VERSION="${BENCH_TLS_VERSION:-tls13}"
+BENCH_MODE="${BENCH_MODE:-text}"
+BENCH_WRITE_BYTES="${BENCH_WRITE_BYTES:-0}"
 BENCH_FAIL_ON_LOSS="${BENCH_FAIL_ON_LOSS:-0}"
 BENCH_ARTIFACT_ROOT="${BENCH_ARTIFACT_ROOT:-/tmp/ecapture-benchmark}"
 
@@ -77,7 +79,7 @@ cleanup() {
     fi
     if [[ -n "$WORK_DIR" ]]; then
         log "artifacts preserved in $WORK_DIR"
-        log "warning: captured plaintext in this directory may contain sensitive data"
+        log "warning: this directory may contain captured plaintext and TLS secrets"
     fi
 }
 
@@ -119,6 +121,12 @@ check_environment() {
     [[ "$BENCH_DELAY_MS" =~ ^[0-9]+([.][0-9]+)?$ ]] || fail "BENCH_DELAY_MS must be non-negative"
     [[ "$BENCH_TLS_VERSION" == "tls12" || "$BENCH_TLS_VERSION" == "tls13" ]] || \
         fail "BENCH_TLS_VERSION must be tls12 or tls13"
+    [[ "$BENCH_MODE" == "text" || "$BENCH_MODE" == "keylog" ]] || \
+        fail "BENCH_MODE must be text or keylog"
+    [[ "$BENCH_WRITE_BYTES" =~ ^(0|[1-9][0-9]{0,9})$ ]] && \
+        ((BENCH_WRITE_BYTES <= 2147483647)) || fail "BENCH_WRITE_BYTES must be 0 through 2147483647"
+    [[ "$BENCH_MODE" == "keylog" || "$BENCH_WRITE_BYTES" == "0" ]] || \
+        fail "Nonzero BENCH_WRITE_BYTES requires keylog mode; text markers need whole-request writes"
     [[ "$BENCH_FAIL_ON_LOSS" == "0" || "$BENCH_FAIL_ON_LOSS" == "1" ]] || \
         fail "BENCH_FAIL_ON_LOSS must be 0 or 1"
 }
@@ -144,9 +152,9 @@ write_environment() {
         date -Iseconds
         printf 'repository_commit: '
         git -C "$ROOT_DIR" rev-parse HEAD
-        printf 'benchmark_config: requests=%s concurrency=%s payload_bytes=%s delay_ms=%s runs=%s map_pages=%s tls=%s\n' \
+        printf 'benchmark_config: requests=%s concurrency=%s payload_bytes=%s delay_ms=%s runs=%s map_pages=%s tls=%s mode=%s write_bytes=%s\n' \
             "$BENCH_REQUESTS" "$BENCH_CONCURRENCY" "$BENCH_PAYLOAD_BYTES" "$BENCH_DELAY_MS" \
-            "$BENCH_RUNS" "$BENCH_MAP_PAGES" "$BENCH_TLS_VERSION"
+            "$BENCH_RUNS" "$BENCH_MAP_PAGES" "$BENCH_TLS_VERSION" "$BENCH_MODE" "$BENCH_WRITE_BYTES"
         printf 'client_libssl: %s\n' "$OPENSSL_LIB"
         printf 'page_size_bytes: '
         getconf PAGESIZE
@@ -199,7 +207,7 @@ start_capture() {
 
     "$ECAPTURE_BINARY" tls \
         --libssl "$OPENSSL_LIB" \
-        --model text \
+        --model "$BENCH_MODE" \
         --mapsize "$BENCH_MAP_PAGES" \
         --eventaddr "$event_log" >"$capture_log" 2>&1 &
     CAPTURE_PID=$!
@@ -252,6 +260,26 @@ sum_lost_samples() {
         awk -F'[=:]' '{gsub(/[[:space:]]/, "", $2); sum += $2} END {print sum + 0}'
 }
 
+keylog_records() {
+    awk -v tls="$BENCH_TLS_VERSION" '
+        BEGIN {
+            if (tls == "tls12") {
+                labels["CLIENT_RANDOM"] = 1
+            } else {
+                labels["CLIENT_HANDSHAKE_TRAFFIC_SECRET"] = 1
+                labels["SERVER_HANDSHAKE_TRAFFIC_SECRET"] = 1
+                labels["CLIENT_TRAFFIC_SECRET_0"] = 1
+                labels["SERVER_TRAFFIC_SECRET_0"] = 1
+            }
+        }
+        NF == 3 && ($1 in labels) && length($2) == 64 && $2 ~ /^[[:xdigit:]]+$/ &&
+            $3 ~ /^[[:xdigit:]]+$/ &&
+            (length($3) == 96 || (tls == "tls13" && length($3) == 64)) {
+                print $1, tolower($2), tolower($3)
+            }
+    ' "$@" | sort -u
+}
+
 run_load() {
     local phase="$1"
     local run="$2"
@@ -269,15 +297,20 @@ run_load() {
         start_capture "$capture_log" "$event_log" "$sample_file"
     fi
 
-    local started_ns finished_ns request token result_file error_file
+    local started_ns finished_ns request token result_file error_file reference_file
     local -a batch_pids=()
     started_ns="$(date +%s%N)"
     for ((request = 1; request <= BENCH_REQUESTS; request++)); do
         token="$(printf '%sREQ_%06d' "$prefix" "$request")"
         result_file="$(printf '%s/%06d.duration' "$client_dir" "$request")"
         error_file="$(printf '%s/%06d.stderr' "$client_dir" "$request")"
-        timeout 30 "$CLIENT_BINARY" 127.0.0.1 "$SERVER_PORT" "$token" \
-            "$BENCH_PAYLOAD_BYTES" "$BENCH_TLS_VERSION" >"$result_file" 2>"$error_file" &
+        reference_file=""
+        if [[ "$BENCH_MODE" == "keylog" ]]; then
+            reference_file="$(printf '%s/%06d.keys' "$client_dir" "$request")"
+        fi
+        BENCH_REFERENCE_KEYLOG="$reference_file" timeout 30 "$CLIENT_BINARY" \
+            127.0.0.1 "$SERVER_PORT" "$token" "$BENCH_PAYLOAD_BYTES" \
+            "$BENCH_TLS_VERSION" "$BENCH_WRITE_BYTES" >"$result_file" 2>"$error_file" &
         batch_pids+=("$!")
 
         if [[ "$BENCH_DELAY_MS" != "0" ]]; then
@@ -317,14 +350,50 @@ run_load() {
             print values[p50], values[p95], values[p99]
         }' "$durations_file")
 
+    local expected_requests="-" expected_responses="-"
     local captured_requests="-" captured_responses="-" loss_pct="-" lost_samples="-"
     local cpu_avg="-" rss_max="-" capture_errors="-"
+    local expected_keys="-" captured_keys="-" key_loss_pct="-"
+    if [[ "$BENCH_MODE" == "text" ]]; then
+        expected_requests="$BENCH_REQUESTS"
+        expected_responses="$BENCH_REQUESTS"
+    else
+        local -a reference_files=("$client_dir"/*.keys)
+        local reference_keys="$run_dir/reference.keys"
+        : >"$reference_keys"
+        if [[ -f "${reference_files[0]}" ]]; then
+            keylog_records "${reference_files[@]}" >"$reference_keys"
+        fi
+        expected_keys="$(awk 'END {print NR}' "$reference_keys")"
+        local keys_per_connection=1
+        [[ "$BENCH_TLS_VERSION" == "tls13" ]] && keys_per_connection=4
+        if ((expected_keys != BENCH_REQUESTS * keys_per_connection)); then
+            log "$phase run $run has an incomplete reference keylog ($expected_keys records)"
+            INFRA_FAILURES=$((INFRA_FAILURES + 1))
+        fi
+    fi
     if [[ "$phase" == "capture" ]]; then
-        captured_requests="$(count_unique_markers "$event_log" "${prefix}REQ_[0-9]{6}")"
-        captured_responses="$(count_unique_markers "$event_log" "${prefix}RESP_[0-9]{6}")"
-        loss_pct="$(awk -v expected="$((BENCH_REQUESTS * 2))" \
-            -v observed="$((captured_requests + captured_responses))" \
-            'BEGIN {missing = expected - observed; if (missing < 0) missing = 0; printf "%.4f", missing * 100 / expected}')"
+        local missing_records=0 records_incomplete=0
+        if [[ "$BENCH_MODE" == "text" ]]; then
+            captured_requests="$(count_unique_markers "$event_log" "${prefix}REQ_[0-9]{6}")"
+            captured_responses="$(count_unique_markers "$event_log" "${prefix}RESP_[0-9]{6}")"
+            missing_records="$((BENCH_REQUESTS * 2 - captured_requests - captured_responses))"
+            loss_pct="$(awk -v expected="$((BENCH_REQUESTS * 2))" -v missing="$missing_records" \
+                'BEGIN {if (missing < 0) missing = 0; printf "%.4f", missing * 100 / expected}')"
+            if ((captured_requests != BENCH_REQUESTS || captured_responses != BENCH_REQUESTS)); then
+                records_incomplete=1
+            fi
+        else
+            keylog_records "$event_log" >"$run_dir/captured.keys"
+            captured_keys="$(awk 'NR == FNR {expected[$0] = 1; next}
+                $0 in expected {matched[$0] = 1}
+                END {for (record in matched) count++; print count + 0}' \
+                "$run_dir/reference.keys" "$run_dir/captured.keys")"
+            missing_records="$((expected_keys - captured_keys))"
+            ((missing_records == 0)) || records_incomplete=1
+            key_loss_pct="$(awk -v expected="$expected_keys" -v missing="$missing_records" \
+                'BEGIN {if (expected == 0) print "-"; else printf "%.4f", missing * 100 / expected}')"
+        fi
         lost_samples="$(sum_lost_samples "$capture_log")"
         read -r cpu_avg rss_max < <(awk '
             NF >= 2 {cpu += $1; count++; if ($2 > rss) rss = $2}
@@ -337,7 +406,7 @@ run_load() {
             INFRA_FAILURES=$((INFRA_FAILURES + 1))
         fi
         if [[ "$BENCH_FAIL_ON_LOSS" == "1" ]] && \
-           ((captured_requests != BENCH_REQUESTS || captured_responses != BENCH_REQUESTS || lost_samples != 0)); then
+           ((records_incomplete != 0 || lost_samples != 0)); then
             LOSS_FAILURES=$((LOSS_FAILURES + 1))
         fi
     fi
@@ -345,24 +414,25 @@ run_load() {
     if ((successes != BENCH_REQUESTS)); then
         log "$phase run $run completed only $successes/$BENCH_REQUESTS requests"
     fi
-    printf '%s\t%d\t%d\t%d\t%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+    printf '%s\t%d\t%d\t%d\t%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
         "$phase" "$run" "$BENCH_REQUESTS" "$successes" "$wall_ms" "$requests_per_second" \
-        "$p50" "$p95" "$p99" "$BENCH_REQUESTS" "$captured_requests" "$BENCH_REQUESTS" \
+        "$p50" "$p95" "$p99" "$expected_requests" "$captured_requests" "$expected_responses" \
         "$captured_responses" "$loss_pct" "$lost_samples" "$capture_errors" "$cpu_avg" "$rss_max" \
+        "$BENCH_MODE" "$BENCH_WRITE_BYTES" "$expected_keys" "$captured_keys" "$key_loss_pct" \
         >>"$WORK_DIR/summary.tsv"
 }
 
 write_comparison() {
     awk -F '\t' 'BEGIN {
         OFS = "\t"
-        print "run", "throughput_delta_pct", "p99_delta_pct", "marker_loss_pct", "perf_lost_samples", "capture_errors", "ecapture_cpu_avg_pct", "ecapture_rss_max_kb"
+        print "run", "throughput_delta_pct", "p99_delta_pct", "marker_loss_pct", "perf_lost_samples", "capture_errors", "ecapture_cpu_avg_pct", "ecapture_rss_max_kb", "capture_mode", "write_bytes", "keylog_loss_pct"
     }
     NR == 1 {next}
     $1 == "baseline" {base_rps[$2] = $6; base_p99[$2] = $9; next}
     $1 == "capture" {
         rps_delta = base_rps[$2] == 0 ? 0 : ($6 - base_rps[$2]) * 100 / base_rps[$2]
         p99_delta = base_p99[$2] == 0 ? 0 : ($9 - base_p99[$2]) * 100 / base_p99[$2]
-        printf "%d\t%.2f\t%.2f\t%s\t%s\t%s\t%s\t%s\n", $2, rps_delta, p99_delta, $14, $15, $16, $17, $18
+        printf "%d\t%.2f\t%.2f\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", $2, rps_delta, p99_delta, $14, $15, $16, $17, $18, $19, $20, $23
     }' "$WORK_DIR/summary.tsv" >"$WORK_DIR/comparison.tsv"
 }
 
@@ -379,16 +449,17 @@ main() {
         printf 'phase\trun\trequests\tsuccesses\twall_ms\trequests_per_sec\tp50_us\tp95_us\tp99_us\t'
         printf 'expected_request_markers\tcaptured_request_markers\texpected_response_markers\t'
         printf 'captured_response_markers\tmarker_loss_pct\tperf_lost_samples\tcapture_errors\t'
-        printf 'ecapture_cpu_avg_pct\tecapture_rss_max_kb\n'
+        printf 'ecapture_cpu_avg_pct\tecapture_rss_max_kb\tcapture_mode\twrite_bytes\t'
+        printf 'expected_keylog_records\tcaptured_keylog_records\tkeylog_loss_pct\n'
     } >"$WORK_DIR/summary.tsv"
 
     log "OpenSSL library: $OPENSSL_LIB"
-    log "requests=$BENCH_REQUESTS concurrency=$BENCH_CONCURRENCY payload_bytes=$BENCH_PAYLOAD_BYTES delay_ms=$BENCH_DELAY_MS runs=$BENCH_RUNS map_pages=$BENCH_MAP_PAGES"
+    log "mode=$BENCH_MODE write_bytes=$BENCH_WRITE_BYTES requests=$BENCH_REQUESTS concurrency=$BENCH_CONCURRENCY payload_bytes=$BENCH_PAYLOAD_BYTES delay_ms=$BENCH_DELAY_MS runs=$BENCH_RUNS map_pages=$BENCH_MAP_PAGES"
     local run
     for ((run = 1; run <= BENCH_RUNS; run++)); do
         log "run $run/$BENCH_RUNS: baseline"
         run_load baseline "$run"
-        log "run $run/$BENCH_RUNS: eCapture text mode"
+        log "run $run/$BENCH_RUNS: eCapture $BENCH_MODE mode"
         run_load capture "$run"
     done
     write_comparison

@@ -1,249 +1,108 @@
-# utils — Struct Offset Generation Scripts
+# TLS structure offset tools
 
-This directory contains tooling to generate eBPF-compatible C header files
-(`kern/boringssl_a_XX_kern.c`, `kern/boringssl_na_kern.c`, `kern/gnutls_*.c`,
-`kern/openssl_*.c`, …).  Each header defines `#define` constants for the byte
-offsets of TLS-critical fields within the target library's internal structs,
-which the eBPF probes in `kern/` use to read plaintext keys from process memory.
+These tools compile against a TLS library's internal headers and emit the
+field offsets used by eCapture's eBPF probes. The version-specific files in
+`kern/` are source inputs, not disposable build artifacts.
 
----
+See the [probe development guide](../docs/agent/probe-development.md) for
+library mappings, asset variants, and verification requirements.
+[简体中文](README-zh_Hans.md)
 
-## Directory layout
+## Tools
 
-```
-utils/
-├── boringssl-offset.c            # C++17 offset-probe tool (Android BoringSSL)
-├── boringssl_android_offset.sh   # Driver: Android 13-16 BoringSSL
-├── boringssl_non_android_offset.sh # Driver: non-Android (upstream) BoringSSL
-├── gnutls_offset.c / gnutls_offset.sh
-├── openssl_*_offset.c / openssl_offset_*.sh
-└── README.md                     # this file
-```
+| Files | Purpose |
+| --- | --- |
+| `boringssl_android_offset.sh`, `boringssl-offset.c` | Android 13–17 BoringSSL offsets |
+| `boringssl_non_android_offset.sh`, `boringssl-offset.c` | Upstream BoringSSL offsets |
+| `gnutls_offset.sh`, `gnutls_offset.c` | Versioned GnuTLS offsets from configured source |
+| `openssl_offset_*.sh`, `openssl_*_offset.c` | OpenSSL 1.0.2, 1.1.0, 1.1.1, 3.x, and 4.0 mappings |
+| `protobuf_visualizer/` | Separate WebSocket/Protobuf [debugging client](protobuf_visualizer/README.md) |
 
----
+## Running the tools
 
-## Quick start
+Compile and execute the offset tools on Linux, including when the target is
+Android. The measured layout must match the target library's version, build
+configuration, and CPU ABI; do not assume offsets generated on a different
+architecture are interchangeable. See the [build guide](../docs/agent/build-test.md)
+for supported environments.
 
-All scripts **must be run from the project root directory** (the one that
-contains `go.mod`):
+Run these commands from the repository root:
 
 ```bash
-# Android BoringSSL (android13 – android16)
 bash utils/boringssl_android_offset.sh
-
-# Non-Android (upstream) BoringSSL
 bash utils/boringssl_non_android_offset.sh
-
-# GnuTLS
-bash utils/gnutls_offset.sh
-
-# OpenSSL (pick the right version script)
 bash utils/openssl_offset_3.5.sh
+bash utils/gnutls_offset.sh 3.8.11
 ```
 
-Generated files are written to `kern/`.  If a target file already exists the
-script skips that version.  Delete the file to force regeneration.
+OpenSSL/BoringSSL scripts fetch library sources into `deps/`, check out the
+mapped version, compile an offset tool, and write the corresponding file in
+`kern/`. Existing output files are skipped. Use an isolated checkout when
+regenerating tracked files for comparison; review changes before adopting them.
 
-> **Platform requirement**: scripts compile native C++ and must run on a
-> Linux / Android build host (x86\_64 kernel ≥ 4.18, aarch64 ≥ 5.5).
-> They will not work on macOS.  Use the remote Linux server via SSH:
-> ```bash
-> ssh cfc4n@172.16.71.128
-> cd /home/cfc4n/project/ecapture
-> bash utils/boringssl_android_offset.sh
-> ```
+The scripts' version tables may map several library releases to one shared
+asset. Preserve those mappings even when the shell workflows look similar.
+Generating an offset file alone does not add runtime support: update the Go
+selector and build target list when needed, then validate both asset variants
+against the real library.
 
----
+## BoringSSL field detection
 
-## How `boringssl_android_offset.sh` works
+`boringssl-offset.c` needs C++17. It uses `std::void_t` and partial template
+specialization to select emitters only when the relevant field exists.
+`offsetof(T, field)` remains a dependent expression, so a removed field is not
+compiled in an unselected emitter. A non-template `if constexpr` is not a
+substitute for this pattern.
 
-### Overview
+The emitted macros are consumed by
+[`boringssl_const.h`](../kern/boringssl_const.h) and
+[`boringssl_masterkey.h`](../kern/boringssl_masterkey.h):
 
-```
-boringssl_android_offset.sh
-        │
-        ├─ git clone / checkout  android13-release … android16-release
-        │
-        ├─ compile  boringssl-offset.c  (C++17, against boringssl headers)
-        │
-        ├─ run ./offset  →  emits #define constants + feature-flag macros
-        │
-        └─ wrap output  →  kern/boringssl_a_XX_kern.c
-```
+| Layout change | Tool/consumer contract |
+| --- | --- |
+| `ssl_st::version` absent in Android 16+ | Emit `SSL_SESSION_ST_SSL_VERSION`; use the alternate version/layout path |
+| `ssl_session_st::secret_length` absent | Emit the `0xFF` sentinel for the maximum master-secret length |
+| `SSL3_STATE::version` available | Emit `BSSL__SSL3_STATE_VERSION` for protocol selection |
+| Public `SSL3_STATE` traffic-secret vectors | Emit read/write storage and length offsets; use the endpoint role to select client/server labels |
+| `ssl_cipher_st::id` renamed in Android 17 | Emit `SSL_CIPHER_ST_ID` from `protocol_id` |
 
-### Adding a new Android version
+The TLS 1.3 handshake secret spacing is derived in `boringssl_const.h`: raw
+arrays use 48-byte steps, while the relevant `InplaceVector` layout uses
+49-byte steps. Do not hand-edit offsets to compensate for a new layout.
+Add the necessary detector/emitter and update its consumers, then add the
+version to the Android driver's map and validate it.
 
-Edit the `sslVerMap` in `boringssl_android_offset.sh` and add one line:
+The Android driver can continue with cached branches when `git fetch --tags`
+fails. Record the actual source revision used; this fallback does not prove
+that the cached source matches a newer release.
+
+## GnuTLS source identity and comparison
+
+`gnutls_offset.sh` accepts one or more versions in `3.8.0` through `3.8.13`;
+without arguments it iterates that range. This generation range is distinct
+from the runtime's supported version-to-asset table. The default compiler is
+`clang`, overridable with `CC`.
+
+Use a separate output directory to compare regenerated offsets:
 
 ```bash
-sslVerMap["5"]="17"   # android17-release
+GNUTLS_OUTPUT_DIR=/tmp/ecapture-gnutls-offsets \
+  bash utils/gnutls_offset.sh 3.8.11
 ```
 
-Then re-run the script.  No other changes are needed in most cases—see the
-[Design philosophy](#design-philosophy) section below.
+By default the script clones and configures the selected upstream release.
+For a distribution-patched library, supply its already configured source and
+exact source identity; this form accepts exactly one version:
 
----
-
-## `boringssl-offset.c` — the offset-probe tool
-
-### Purpose
-
-The tool is compiled **against the target library's own headers**, so
-`offsetof(struct_name, field)` returns the exact byte offset for that
-specific library version and architecture.
-
-It produces output like:
-
-```c
-// ssl_st->session
-#define SSL_ST_SESSION 0x58
-
-// ssl_session_st->ssl_version
-#define SSL_SESSION_ST_SSL_VERSION 0x4
+```bash
+GNUTLS_SOURCE_DIR=/path/to/configured/gnutls \
+GNUTLS_SOURCE_ID='<full-git-commit-or-release-archive-sha256>' \
+GNUTLS_OUTPUT_DIR=/tmp/ecapture-gnutls-offsets \
+  bash utils/gnutls_offset.sh 3.8.11
 ```
 
-These `#define` values are pasted verbatim into the generated kern header and
-consumed by `kern/boringssl_masterkey.h` at eBPF compile time.
-
-### Design philosophy — automatic version detection via C++17 type traits
-
-Older versions of the tool used a fixed field list and relied on `sed`
-post-processing in the shell script to cope with fields that were removed or
-renamed between Android releases.  This approach was fragile: every new
-Android version that changed a struct required a new version-specific `sed`
-rule.
-
-The current tool uses **C++17 type traits (`std::void_t` + SFINAE)** to probe
-whether a field is publicly accessible at compile time, then selects the
-correct output via **partial template specialisation**:
-
-```
-                  field present?
-                  ┌─── yes ──→  emit offsetof(T, field)
- type-trait probe ┤
-                  └─── no  ──→  emit alternative macro / sentinel
-```
-
-Key design rules:
-
-1. **`if constexpr` is NOT used** for this purpose.  In a non-template
-   function, both branches of `if constexpr` are still parsed and checked by
-   the compiler, so `offsetof(T, removed_field)` would be a hard error even
-   in the untaken branch.
-
-2. **Partial specialisation IS used**.  The body of
-   `emit_foo<T, true>::emit()` contains `offsetof(T, field)` as a
-   *dependent expression* (it depends on `T`).  The compiler only instantiates
-   and checks it when `T` is actually substituted—i.e. only when the
-   `Present=true` branch is selected.
-
-3. **Feature-flag macros are a by-product of detection**.  When a field is
-   absent, the tool emits an *alternative* macro whose presence in the
-   generated header signals downstream consumers:
-
-   | Absent field | Emitted macro | Consumed by |
-   |---|---|---|
-   | `ssl_st::version` | `SSL_SESSION_ST_SSL_VERSION` | `boringssl_const.h`, `boringssl_masterkey.h` |
-   | `ssl_session_st::secret_length` | `SSL_SESSION_ST_SECRET_LENGTH 0xFF` (sentinel) | `boringssl_masterkey.h` |
-   | *(none)* | `BSSL__SSL3_STATE_VERSION` (when present) | `boringssl_masterkey.h` |
-
-### Currently tracked field changes
-
-| Android version | Change | Tool behaviour |
-|---|---|---|
-| ≤ 15 | `ssl_st::version` present | emits `SSL_ST_VERSION` |
-| 16+ | `ssl_st::version` **removed** | emits `SSL_SESSION_ST_SSL_VERSION` (feature flag) |
-| ≤ 15 | `ssl_session_st::secret_length` present | emits `SSL_SESSION_ST_SECRET_LENGTH <offset>` |
-| 16+ | `ssl_session_st::secret_length` **removed** | emits `SSL_SESSION_ST_SECRET_LENGTH 0xFF` (sentinel) |
-| ≤ 15 | `SSL3_STATE::version` absent | nothing emitted |
-| 16+ | `SSL3_STATE::version` **added** | emits `BSSL__SSL3_STATE_VERSION` (feature flag) |
-
-### Supporting future Android versions
-
-If a new Android release changes or removes a struct field:
-
-1. **Add a new type-trait probe** in `boringssl-offset.c`:
-   ```cpp
-   template <typename T, typename = void>
-   struct foo_has_new_field : std::false_type {};
-   template <typename T>
-   struct foo_has_new_field<T, std::void_t<decltype(std::declval<T>().new_field)>>
-       : std::true_type {};
-   ```
-
-2. **Add a new emitter pair** (primary template + `<T,true>` partial spec):
-   ```cpp
-   template <typename T, bool Present>
-   struct emit_new_field { static void emit() { /* absent: emit alternative */ } };
-   template <typename T>
-   struct emit_new_field<T, true> { static void emit() { format("foo", "new_field", offsetof(T, new_field)); } };
-   ```
-
-3. **Call the emitter** from `main()`:
-   ```cpp
-   emit_new_field<foo_t, foo_has_new_field<foo_t>::value>::emit();
-   ```
-
-4. **Handle the feature flag** in `boringssl_const.h` or
-   `boringssl_masterkey.h` using `#ifdef NEW_FEATURE_FLAG`.
-
-5. **Register the new Android version** in `boringssl_android_offset.sh`:
-   ```bash
-   sslVerMap["5"]="17"   # android17-release
-   ```
-
-No `sed` rules, no hardcoded version numbers in the tool itself.
-
----
-
-## `boringssl_const.h` and `boringssl_masterkey.h` — the adaptive headers
-
-These two headers already contain **all version-specific logic as pure C
-preprocessor conditionals**.  They require no manual edits when a new Android
-version is supported, provided the offset tool emits the correct feature flags.
-
-### `boringssl_const.h` — TLS 1.3 secret offsets
-
-Uses `#ifdef SSL_SESSION_ST_SSL_VERSION` (the Android 16+ feature flag) to
-select between two offset formulas for the `SSL_HANDSHAKE` TLS 1.3 secret
-fields:
-
-| | Android ≤ 15 | Android 16+ |
-|---|---|---|
-| Secret storage type | `private uint8_t secret_[48]` | `public InplaceVector<uint8_t,48>` |
-| Field step size | 48 bytes | 49 bytes (`SSL_HANDSHAKE_FIELD_STEP`) |
-| `SSL_HANDSHAKE_SECRET_` base | `roundup(MAX_VERSION+2, 8) + 8` | `MAX_VERSION + 2` |
-| `SSL_HANDSHAKE_HASH_LEN_` | separate `size_t hash_len_` field | `secret.size_` at `SECRET_ + 48` |
-
-All 6 downstream field offsets (`EARLY_TRAFFIC_SECRET_`, etc.) are computed
-with a single shared formula `SECRET_ + FIELD_STEP * N`, requiring no
-duplication.
-
-### `boringssl_masterkey.h` — TLS version detection
-
-Uses two feature flags to work correctly on all Android versions:
-
-- `#ifndef SSL_SESSION_ST_SSL_VERSION` — Android ≤ 15: reads TLS version from
-  `ssl_st.version`.
-- `#ifdef BSSL__SSL3_STATE_VERSION` — Android 16+: reads TLS version from
-  `SSL3_STATE.version` (offset `0xd0`), **before** the TLS 1.2 / 1.3 branch
-  decision, so TLS 1.3 connections are correctly identified.
-- `#ifdef SSL_SESSION_ST_SSL_VERSION` — inside the TLS 1.2 block, re-reads
-  version from `ssl_session_st.ssl_version` for accurate reporting.
-
----
-
-## Notes and caveats
-
-- **Network access**: `git fetch --tags` is attempted at startup; if the
-  network is unavailable the script continues with locally cached branches.
-- **Architecture**: offsets are architecture-specific.  The tool must be
-  compiled and run on the **same CPU architecture** as the target device
-  (e.g. aarch64 for Android ARM64 devices).  Cross-architecture offset
-  generation will produce wrong values.
-- **Duplicate definitions**: the shell script no longer appends any hardcoded
-  `#define` after the tool output.  All defines come exclusively from the
-  tool.  Editing the tool output by hand will cause drift; regenerate instead.
-- **`boringssl-offset.c` requires C++17**: the `-std=c++17` flag is mandatory
-  for `std::void_t`.  The script passes it automatically.
-
+Replace the angle-bracket placeholder before running. The script checks
+`config.h` against the requested version and records the source identity and
+`config.h` SHA256 in the generated file. Configure/compile failures prevent
+publishing the output. Keep the library's real build options and downstream
+patches when preparing the source.
