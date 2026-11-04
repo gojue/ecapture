@@ -116,37 +116,32 @@ sudo augenrules --load
 
 ### 4. Docker Security Hardening
 
-> **⚠️ Warning**: Running eCapture with `docker run --privileged=true` grants the container full host access. This is a significant security risk in production environments.
-
-Instead of `--privileged`, use specific capabilities:
-
-```bash
-# Minimum capabilities for eCapture in Docker
-docker run --rm \
-  --cap-add=SYS_ADMIN \
-  --cap-add=BPF \
-  --cap-add=PERFMON \
-  --cap-add=NET_ADMIN \
-  --pid=host \
-  --net=host \
-  -v /sys/kernel/debug:/sys/kernel/debug:ro \
-  -v /sys/fs/bpf:/sys/fs/bpf \
-  gojue/ecapture:latest tls
-```
-
-> **Note**: On kernel versions < 5.8, `CAP_SYS_ADMIN` is required as `CAP_BPF` and `CAP_PERFMON` are not yet available.
+Avoid granting full host access with `--privileged` when narrower permissions
+meet the capture requirements. Capabilities and mounts depend on the kernel
+and capture mode; use the [minimum privileges guide](minimum-privileges.md#method-3-docker-with-specific-capabilities)
+as the shared deployment reference.
 
 ### 5. Network-level Detection
 
-If eCapture is configured to forward events over the network (e.g., to eCaptureQ GUI), monitor for:
+Inspect the addresses configured on the running process:
 
-- Unexpected gRPC/protobuf traffic on eCapture's default port (`28256`)
-- Outbound connections from processes that shouldn't need them
+- `--listen` enables the HTTP runtime-configuration service; it is disabled
+  by default. `127.0.0.1:28256` is an example address, not an always-open port.
+- `--ecaptureq ws://host:port/` enables a WebSocket listener carrying Protobuf
+  messages. It is also disabled by default; examples often use port `28257`.
+- Network destinations in `--eventaddr` or `--logaddr` create outbound
+  TCP/WebSocket connections to the configured receiver.
 
 ```bash
-# Check for eCapture's default listening port
-ss -tlnp | grep 28256
+# Inspect listeners and established connections, then correlate their owners
+# with the process configuration and authorized receivers.
+sudo ss -tlnp
+sudo ss -tnp
 ```
+
+A fixed-port check cannot establish whether capture is active: the addresses
+are configurable, and local file/stdout output needs no network listener.
+See the [event forwarding API](event-forward-api.md) for channel formats.
 
 ## Responsible Use Guidelines
 

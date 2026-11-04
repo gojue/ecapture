@@ -18,10 +18,34 @@ sudo E2E_MODULES='tls gotls gnutls' E2E_MODES='keylog pcapng' bash test/e2e/run_
 LoongArch requires kernel >= 6.6. To run an existing verified artifact, set
 `ECAPTURE_BINARY=/absolute/path/to/ecapture`; see [Linux setup](README.md#linux).
 
+Separate non-TLS and CLI suites (same Linux/root requirements):
+
+```bash
+sudo make e2e-bash
+sudo make e2e-zsh
+sudo make e2e-mysql
+sudo make e2e-bash-advanced
+sudo make e2e-mysql-advanced
+sudo make e2e-postgres
+sudo make e2e-edge-cases
+
+sudo E2E_NON_TLS_MODULES='bash mysqld' E2E_NON_TLS_ADVANCED=1 \
+  bash test/e2e/linux/common_config_test.sh
+```
+
+MySQL uses a local capture fixture. PostgreSQL requires an existing local
+database and performs only read-only SELECTs over a Unix socket. Advanced
+non-TLS cases default to off. The opt-in `E2E_BASH_ERRNO=1` reproduces a known
+production bug and is expected to fail until fixed. See
+[prerequisites and scope](README.md#non-tls-and-cli-checks).
+`make e2e-ecaptureq` runs the maintained Linux TLS matrix with typed receiver
+assertions; `make e2e-advanced` adds TLS stress only.
+
 Android 13+ (rooted/userdebug):
 
 ```bash
-ANDROID=1 make nocore
+make clean
+ANDROID=1 TARGET_ARCH=arm64 make nocore
 bash test/e2e/android/build_boringssl_client.sh 33
 make setup-android-env
 make e2e-android-all

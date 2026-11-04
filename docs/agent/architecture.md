@@ -128,6 +128,8 @@ output events from that cache. Connection records never reach output handlers.
 `domain.MonoNsEvent` makes an event eligible for perf reorder and must preserve
 the BPF monotonic timestamp. Reorder also requires `GetPerfReorder()` to be
 enabled and the decoder's prototype event to implement that interface.
+See [perf event reorder](probe-development.md#perf-event-reorder) for the
+configuration, timestamp sources, and reader shutdown contract.
 
 ## Lifecycle and concurrency
 

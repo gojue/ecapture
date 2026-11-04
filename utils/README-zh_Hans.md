@@ -1,229 +1,91 @@
-# utils — 结构体偏移地址生成脚本
+# TLS 结构体偏移工具
 
-本目录包含用于生成 eBPF 兼容 C 头文件的工具集
-（`kern/boringssl_a_XX_kern.c`、`kern/boringssl_na_kern.c`、`kern/gnutls_*.c`、
-`kern/openssl_*.c` 等）。每个头文件定义了 TLS 关键字段在目标库内部结构体中的字节偏移地址常量（`#define`），eBPF 探针在运行时通过这些常量从进程内存中读取明文密钥。
+这些工具针对 TLS 库的内部头文件编译，输出 eCapture eBPF 探针所需的字段偏移。
+`kern/` 中按版本区分的文件是源码输入，不是可以随意清理的构建产物。
 
----
+库版本映射、资产变体和验证要求见 [探针开发指南](../docs/agent/probe-development.md)。
+[English](README.md)
 
-## 目录结构
+## 工具分工
 
-```
-utils/
-├── boringssl-offset.c              # C++17 偏移探测工具（Android BoringSSL 专用）
-├── boringssl_android_offset.sh     # 驱动脚本：Android 13–16 BoringSSL
-├── boringssl_non_android_offset.sh # 驱动脚本：非 Android（上游）BoringSSL
-├── gnutls_offset.c / gnutls_offset.sh
-├── openssl_*_offset.c / openssl_offset_*.sh
-└── README-zh_Hans.md               # 本文件
-```
+| 文件 | 用途 |
+| --- | --- |
+| `boringssl_android_offset.sh`、`boringssl-offset.c` | Android 13–17 BoringSSL 偏移 |
+| `boringssl_non_android_offset.sh`、`boringssl-offset.c` | 上游 BoringSSL 偏移 |
+| `gnutls_offset.sh`、`gnutls_offset.c` | 从已配置源码生成版本化 GnuTLS 偏移 |
+| `openssl_offset_*.sh`、`openssl_*_offset.c` | OpenSSL 1.0.2、1.1.0、1.1.1、3.x、4.0 的版本映射 |
+| `protobuf_visualizer/` | 独立的 WebSocket/Protobuf [调试客户端](protobuf_visualizer/README_CN.md) |
 
----
+## 运行方式
 
-## 快速开始
+偏移工具的编译和执行必须在 Linux 上进行，Android 目标也使用 Linux 构建主机。
+测量得到的布局必须匹配目标库的版本、构建配置和 CPU ABI，不能假定不同架构的
+偏移相同。支持的执行环境见 [构建指南](../docs/agent/build-test.md)。
 
-所有脚本**必须在项目根目录**（包含 `go.mod` 的目录）下执行：
+在仓库根目录执行：
 
 ```bash
-# Android BoringSSL（android13 – android16）
 bash utils/boringssl_android_offset.sh
-
-# 非 Android（上游）BoringSSL
 bash utils/boringssl_non_android_offset.sh
-
-# GnuTLS
-bash utils/gnutls_offset.sh
-
-# OpenSSL（选择对应版本的脚本）
 bash utils/openssl_offset_3.5.sh
+bash utils/gnutls_offset.sh 3.8.11
 ```
 
-生成的文件写入 `kern/` 目录。若目标文件已存在，脚本会跳过该版本。删除文件可强制重新生成。
+OpenSSL/BoringSSL 脚本将库源码获取到 `deps/`，切换到映射的版本，编译偏移工具，
+再写入 `kern/` 中的对应文件。已有输出会被跳过。需要重新生成已跟踪文件以比较
+布局时，使用独立检出目录，并在采用前审查差异。
 
-> **平台要求**：脚本需要编译原生 C++ 代码，必须在 Linux / Android 构建主机上运行
-> （x86\_64 内核 ≥ 4.18，aarch64 ≥ 5.5），**不支持 macOS**。
-> 请通过 SSH 登录远程 Linux 服务器执行：
-> ```bash
-> ssh cfc4n@172.16.71.128
-> cd /home/cfc4n/project/ecapture
-> bash utils/boringssl_android_offset.sh
-> ```
+脚本的版本表可能将多个库版本映射到同一资产；即使流程相似，也要保留这些映射。
+生成偏移文件不等于新增运行时支持：必要时还须更新 Go 选择器和构建目标，并针对
+真实库验证 CO-RE 与 non-CO-RE 两种资产。
 
----
+## BoringSSL 字段探测
 
-## `boringssl_android_offset.sh` 工作原理
+`boringssl-offset.c` 需要 C++17。它用 `std::void_t` 和偏模板特化选择字段存在时
+才实例化的 emitter，使 `offsetof(T, field)` 保持为依赖表达式，避免编译不存在的
+字段。非模板函数中的 `if constexpr` 不能替代此模式。
 
-### 流程概览
+生成的宏由 [`boringssl_const.h`](../kern/boringssl_const.h) 和
+[`boringssl_masterkey.h`](../kern/boringssl_masterkey.h) 使用：
 
-```
-boringssl_android_offset.sh
-        │
-        ├─ git clone / checkout  android13-release … android16-release
-        │
-        ├─ 编译  boringssl-offset.c  （C++17，链接 boringssl 头文件）
-        │
-        ├─ 运行 ./offset  →  输出 #define 常量 + feature-flag 宏
-        │
-        └─ 包装输出  →  kern/boringssl_a_XX_kern.c
-```
+| 布局变化 | 工具与消费方的约定 |
+| --- | --- |
+| Android 16+ 缺少 `ssl_st::version` | 输出 `SSL_SESSION_ST_SSL_VERSION`，选择另一条版本和布局处理路径 |
+| 缺少 `ssl_session_st::secret_length` | 输出 `0xFF` 哨兵，表示使用最大 master-secret 长度 |
+| 存在 `SSL3_STATE::version` | 输出 `BSSL__SSL3_STATE_VERSION`，用于协议版本判断 |
+| `SSL3_STATE` 的流量密钥向量公开 | 输出读写存储及长度偏移，并按端点角色选择 client/server 标签 |
+| Android 17 将 `ssl_cipher_st::id` 重命名 | 从 `protocol_id` 输出 `SSL_CIPHER_ST_ID` |
 
-### 添加新 Android 版本
+TLS 1.3 握手密钥的字段间隔由 `boringssl_const.h` 推导：原始数组使用 48 字节步长，
+对应的 `InplaceVector` 布局使用 49 字节步长。遇到新布局时，应补充探测器、emitter
+和消费逻辑，再更新 Android 驱动脚本的版本表并验证，不要直接手改偏移常量。
 
-在 `boringssl_android_offset.sh` 的 `sslVerMap` 中加一行：
+Android 驱动在 `git fetch --tags` 失败后可以使用缓存分支继续执行。需要记录实际
+使用的源码提交；缓存回退并不能证明本地源码已对应新版发布。
+
+## GnuTLS 源码身份与布局比较
+
+`gnutls_offset.sh` 接受 `3.8.0` 至 `3.8.13` 范围内的一个或多个版本；不传参数时
+遍历整个范围。可生成的版本范围与运行时支持的版本映射是两回事。默认编译器为
+`clang`，可通过 `CC` 覆盖。
+
+用独立输出目录比较重新生成的偏移：
 
 ```bash
-sslVerMap["5"]="17"   # android17-release
+GNUTLS_OUTPUT_DIR=/tmp/ecapture-gnutls-offsets \
+  bash utils/gnutls_offset.sh 3.8.11
 ```
 
-重新运行脚本即可，大多数情况下无需其他改动——详见下方[设计思路](#boringssl-offsetc--偏移探测工具)。
+脚本默认克隆并配置指定的上游版本。对于含发行版补丁的库，传入已配置的源码目录
+及准确的源码身份；这种形式只接受一个版本：
 
----
-
-## `boringssl-offset.c` — 偏移探测工具
-
-### 用途
-
-该工具**针对目标库自身的头文件编译**，因此 `offsetof(struct_name, field)` 返回的是该特定库版本与 CPU 架构下的精确字节偏移。
-
-输出示例：
-
-```c
-// ssl_st->session
-#define SSL_ST_SESSION 0x58
-
-// ssl_session_st->ssl_version
-#define SSL_SESSION_ST_SSL_VERSION 0x4
+```bash
+GNUTLS_SOURCE_DIR=/path/to/configured/gnutls \
+GNUTLS_SOURCE_ID='<full-git-commit-or-release-archive-sha256>' \
+GNUTLS_OUTPUT_DIR=/tmp/ecapture-gnutls-offsets \
+  bash utils/gnutls_offset.sh 3.8.11
 ```
 
-这些 `#define` 值原样写入生成的 kern 头文件，在 eBPF 编译阶段被 `kern/boringssl_masterkey.h` 使用。
-
-### 设计思路 — 基于 C++17 类型特征的自动版本探测
-
-旧版工具使用固定的字段列表，依赖 shell 脚本中的 `sed` 后处理来应对不同 Android 版本间被删除或重命名的字段。这种方式很脆弱：每当新 Android 版本改动了某个结构体，就需要在脚本里增加一条专用的 `sed` 规则。
-
-当前工具改用 **C++17 类型特征（`std::void_t` + SFINAE）** 在编译期探测字段是否可访问，再通过**偏模板特化（partial template specialisation）** 选择正确的输出路径：
-
-```
-                  字段是否存在？
-                  ┌─── 存在 ──→  输出 offsetof(T, field) 的值
- 类型特征探测 ────┤
-                  └─── 不存在 ──→  输出替代宏 / 哨兵值
-```
-
-#### 关键设计原则
-
-1. **不使用 `if constexpr`**。在非模板函数中，`if constexpr` 的两个分支仍然都会被编译器进行语法检查，因此即使在未执行的分支中，`offsetof(T, 已删除字段)` 也会触发硬错误。
-
-2. **使用偏模板特化**。`emit_foo<T, true>::emit()` 的函数体中包含 `offsetof(T, field)` 这一**依赖表达式**（依赖于模板参数 `T`），编译器只有在该特化被实际实例化时才会检查它——即只有在选择 `Present=true` 分支时才会编译。
-
-3. **feature-flag 宏是探测的副产品**。当某个字段不存在时，工具会输出一个**替代宏**，该宏的存在本身就是一个版本特性标志，供下游消费者判断：
-
-   | 不存在的字段 | 输出的宏 | 消费方 |
-   |---|---|---|
-   | `ssl_st::version` | `SSL_SESSION_ST_SSL_VERSION` | `boringssl_const.h`、`boringssl_masterkey.h` |
-   | `ssl_session_st::secret_length` | `SSL_SESSION_ST_SECRET_LENGTH 0xFF`（哨兵） | `boringssl_masterkey.h` |
-   | `SSL3_STATE::version`（存在时） | `BSSL__SSL3_STATE_VERSION` | `boringssl_masterkey.h` |
-
-### 已跟踪的字段变化
-
-| Android 版本 | 变化 | 工具行为 |
-|---|---|---|
-| ≤ 15 | `ssl_st::version` 存在 | 输出 `SSL_ST_VERSION` |
-| 16+ | `ssl_st::version` **被删除** | 输出 `SSL_SESSION_ST_SSL_VERSION`（feature flag） |
-| ≤ 15 | `ssl_session_st::secret_length` 存在 | 输出 `SSL_SESSION_ST_SECRET_LENGTH <偏移值>` |
-| 16+ | `ssl_session_st::secret_length` **被删除** | 输出 `SSL_SESSION_ST_SECRET_LENGTH 0xFF`（哨兵） |
-| ≤ 15 | `SSL3_STATE::version` 不存在 | 不输出任何内容 |
-| 16+ | `SSL3_STATE::version` **新增** | 输出 `BSSL__SSL3_STATE_VERSION`（feature flag） |
-
-### 支持未来新版本 Android 的步骤
-
-若新版 Android 删除或改动了某个结构体字段：
-
-1. **在 `boringssl-offset.c` 中添加类型特征探测**：
-   ```cpp
-   template <typename T, typename = void>
-   struct foo_has_new_field : std::false_type {};
-   template <typename T>
-   struct foo_has_new_field<T, std::void_t<decltype(std::declval<T>().new_field)>>
-       : std::true_type {};
-   ```
-
-2. **添加一对 emitter**（主模板 + `<T,true>` 偏特化）：
-   ```cpp
-   template <typename T, bool Present>
-   struct emit_new_field {
-       static void emit() { /* 字段不存在：输出替代宏 */ }
-   };
-   template <typename T>
-   struct emit_new_field<T, true> {
-       static void emit() { format("foo", "new_field", offsetof(T, new_field)); }
-   };
-   ```
-
-3. **在 `main()` 中调用 emitter**：
-   ```cpp
-   emit_new_field<foo_t, foo_has_new_field<foo_t>::value>::emit();
-   ```
-
-4. **在 `boringssl_const.h` 或 `boringssl_masterkey.h` 中处理 feature flag**：
-   ```c
-   #ifdef NEW_FEATURE_FLAG
-   // 新版本特有逻辑
-   #endif
-   ```
-
-5. **在 `boringssl_android_offset.sh` 中注册新版本**：
-   ```bash
-   sslVerMap["5"]="17"   # android17-release
-   ```
-
-全程无需 `sed` 规则，工具本身不包含任何硬编码的版本号判断。
-
----
-
-## `boringssl_const.h` 与 `boringssl_masterkey.h` — 自适应头文件
-
-这两个头文件已将**所有版本特定逻辑实现为纯 C 预处理器条件编译**，只要偏移工具输出了正确的 feature flag，就无需手动修改。
-
-### `boringssl_const.h` — TLS 1.3 密钥偏移地址
-
-通过 `#ifdef SSL_SESSION_ST_SSL_VERSION`（Android 16+ feature flag）在两套偏移计算公式间切换，用于 `SSL_HANDSHAKE` 结构体中 TLS 1.3 密钥字段：
-
-| | Android ≤ 15 | Android 16+ |
-|---|---|---|
-| 密钥存储类型 | `private uint8_t secret_[48]`（私有 raw 数组） | `public InplaceVector<uint8_t,48>`（公有） |
-| 字段步长 | 48 字节 | 49 字节（`SSL_HANDSHAKE_FIELD_STEP`） |
-| `SSL_HANDSHAKE_SECRET_` 基址 | `roundup(MAX_VERSION+2, 8) + 8` | `MAX_VERSION + 2` |
-| `SSL_HANDSHAKE_HASH_LEN_` | 独立的 `size_t hash_len_` 字段 | `secret.size_`，位于 `SECRET_ + 48` |
-
-6 个下游字段偏移（`EARLY_TRAFFIC_SECRET_` 等）统一用 `SECRET_ + FIELD_STEP * N` 一条公式计算，无重复代码。
-
-### `boringssl_masterkey.h` — TLS 版本探测
-
-使用两个 feature flag 确保在所有 Android 版本上正确工作：
-
-- `#ifndef SSL_SESSION_ST_SSL_VERSION` — Android ≤ 15：从 `ssl_st.version` 读取 TLS 版本。
-- `#ifdef BSSL__SSL3_STATE_VERSION` — Android 16+：在 TLS 1.2 / 1.3 分支判断**之前**，从 `SSL3_STATE.version`（偏移 `0xd0`）读取版本，确保 TLS 1.3 连接被正确识别、密钥被正确捕获。
-- `#ifdef SSL_SESSION_ST_SSL_VERSION` — 在 TLS 1.2 分支内部，从 `ssl_session_st.ssl_version` 补读版本，用于准确上报。
-
-#### Android 16 的背景
-
-Android 16 对 BoringSSL 做了较大重构，主要影响：
-
-| 变化 | 影响 |
-|---|---|
-| `ssl_st.version` 字段删除 | 无法直接从 SSL 对象读取协议版本 |
-| `ssl_session_st.secret_length` 字段删除 | master secret 长度需用最大值（48）替代 |
-| `ssl_session_st.secret` 类型从 `uint8_t[]` 改为 `InplaceVector<uint8_t,48>` | 偏移值不变（`storage_` 在首位），但 TLS 1.3 所有握手密钥字段同样改为 InplaceVector |
-| `SSL_HANDSHAKE` TLS 1.3 密钥从 `private uint8_t[]` 改为 `public InplaceVector` | 字段步长从 48 变为 49，整体基址前移 8 字节 |
-| `SSL3_STATE.version` 新增 | 替代被删除的 `ssl_st.version`，用于读取协议版本 |
-
----
-
-## 注意事项
-
-- **网络访问**：启动时会尝试 `git fetch --tags`；若网络不可用，脚本会使用本地已缓存的分支继续执行。
-- **CPU 架构**：偏移地址与 CPU 架构强相关。工具必须在**与目标设备相同的 CPU 架构**上编译并运行（例如，为 Android ARM64 设备生成偏移时须在 aarch64 主机上运行），跨架构生成会得到错误的偏移值。
-- **不要手动编辑生成文件**：脚本不再在工具输出之后追加任何硬编码的 `#define`，所有常量均由工具统一输出。手动修改生成文件会导致与源码漂移，应重新运行脚本生成。
-- **`boringssl-offset.c` 需要 C++17**：`std::void_t` 依赖 C++17 标准，编译时必须传入 `-std=c++17`，脚本已自动添加该参数。
-
+执行前替换尖括号占位符。脚本会核对 `config.h` 中的版本，并在输出文件中记录
+源码身份和 `config.h` 的 SHA256；配置或编译失败不会发布输出。准备源码时，应
+保留目标库实际使用的构建选项及发行版补丁。

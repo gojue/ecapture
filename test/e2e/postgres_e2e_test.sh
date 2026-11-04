@@ -1,195 +1,109 @@
 #!/usr/bin/env bash
-# File: test/e2e/postgres_e2e_test.sh
-# End-to-end test for ecapture PostgreSQL module
+# Strict, read-only PostgreSQL integration against an existing local database.
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+E2E_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=test/e2e/linux/common_config_test.sh
+source "$E2E_SCRIPT_DIR/linux/common_config_test.sh"
 
-# Source common utilities
-# shellcheck source=test/e2e/common.sh
-source "$SCRIPT_DIR/common.sh"
+PSQL_PID=""
+SQL_FD_OPEN=0
+POSTGRES_BACKEND_PID=""
 
-# Test configuration
-TEST_NAME="PostgreSQL E2E Test"
-ECAPTURE_BINARY="$ROOT_DIR/bin/ecapture"
-TMP_DIR="/tmp/ecapture_postgres_e2e_$$"
-OUTPUT_DIR="$TMP_DIR/output"
-
-# Log files
-ECAPTURE_LOG="$OUTPUT_DIR/ecapture.log"
-
-# Test results
-TEST_FAILED=0
-
-# Cleanup function
-cleanup_handler() {
-    log_info "=== Cleanup ==="
-    
-    # Kill ecapture by pattern
-    kill_by_pattern "$ECAPTURE_BINARY.*postgres" || true
-    
-    # Show logs on failure
-    if [ "$TEST_FAILED" = "1" ]; then
-        log_error "Test failed. Showing logs:"
-        echo "=== eCapture Log ==="
-        cat "$ECAPTURE_LOG" 2>/dev/null || echo "No ecapture log"
+stop_postgres_client() {
+    local attempt status=0
+    if ((SQL_FD_OPEN)); then
+        printf '\\q\n' >&3 || true
+        exec 3>&-
+        SQL_FD_OPEN=0
     fi
-    
-    # Clean up temporary directory
-    if [ -d "$TMP_DIR" ]; then
-        rm -rf "$TMP_DIR"
+    [[ -n "$PSQL_PID" ]] || return 0
+    for ((attempt = 0; attempt < 50; attempt++)); do
+        kill -0 "$PSQL_PID" 2>/dev/null || break
+        sleep 0.1
+    done
+    if kill -0 "$PSQL_PID" 2>/dev/null; then
+        log_error "psql did not exit after closing its session"
+        kill -TERM "$PSQL_PID" 2>/dev/null || true
+        status=1
     fi
+    wait "$PSQL_PID" 2>/dev/null || status=1
+    PSQL_PID=""
+    return "$status"
 }
 
-# Setup trap
-setup_cleanup_trap
+cleanup_postgres() {
+    local status="$1"
+    stop_postgres_client || status=1
+    common_config_cleanup "$status"
+}
+trap 'status=$?; cleanup_postgres "$status"; exit $?' EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
-# Check if PostgreSQL is available
-check_postgres_available() {
-    log_info "Checking for PostgreSQL client/server..."
-    
-    # Check if psql client is available
-    if ! command_exists psql; then
-        log_warn "psql client is not installed"
+case_postgres_query() {
+    prepare_common_case postgres || return 1
+    local os_user="${E2E_POSTGRES_OS_USER:-postgres}"
+    local database="${E2E_POSTGRES_DATABASE:-postgres}" backend_binary attempt
+    # The backend PID is meaningful only for a local Unix-socket connection.
+    if [[ -n "${PGSERVICE:-}" ]]; then
+        log_error "PostgreSQL E2E does not accept PGSERVICE; use an explicit local Unix socket"
         return 1
     fi
-    
-    # Check if PostgreSQL server is running
-    if ! pgrep -x postgres >/dev/null 2>&1 && ! pgrep -x postmaster >/dev/null 2>&1; then
-        log_warn "PostgreSQL server is not running"
+    if [[ -n "${PGHOSTADDR:-}" || ( -n "${PGHOST:-}" && "${PGHOST}" != /* ) || "${PGHOST:-}" == *,* ]]; then
+        log_error "PostgreSQL E2E requires a local Unix socket (PGHOST unset or one absolute socket directory)"
         return 1
     fi
-    
-    log_success "PostgreSQL is available"
-    return 0
+    if [[ "$database" == *'='* || "$database" == *'://'* ]]; then
+        log_error "E2E_POSTGRES_DATABASE must be a database name, not a connection string"
+        return 1
+    fi
+    id "$os_user" >/dev/null 2>&1 || { log_error "PostgreSQL OS user does not exist: $os_user"; return 1; }
+    mkfifo "$CASE_DIR/queries" || return 1
+    # Keep one session open so discovery and the captured query use the same backend.
+    exec 3<>"$CASE_DIR/queries"
+    SQL_FD_OPEN=1
+    timeout --signal=TERM --kill-after=2s 60s runuser -u "$os_user" -- env PGCONNECT_TIMEOUT=5 \
+        psql -X -qAt -w --set=ON_ERROR_STOP=1 --dbname "$database" \
+        <"$CASE_DIR/queries" >"$CASE_DIR/workload.log" 2>"$CASE_DIR/psql.stderr.log" 3>&- &
+    PSQL_PID=$!
+    printf 'SELECT pg_backend_pid();\n' >&3
+    for ((attempt = 0; attempt < 100; attempt++)); do
+        POSTGRES_BACKEND_PID="$(sed -n '1p' "$CASE_DIR/workload.log")"
+        [[ "$POSTGRES_BACKEND_PID" =~ ^[1-9][0-9]*$ ]] && break
+        if ! kill -0 "$PSQL_PID" 2>/dev/null; then
+            log_error "psql could not establish the local database session; see $CASE_DIR/psql.stderr.log"
+            return 1
+        fi
+        sleep 0.1
+    done
+    [[ "$POSTGRES_BACKEND_PID" =~ ^[1-9][0-9]*$ ]] || { log_error "No PostgreSQL backend PID received"; return 1; }
+    backend_binary="$(readlink -f "/proc/$POSTGRES_BACKEND_PID/exe")" || return 1
+    [[ -x "$backend_binary" ]] || { log_error "Local PostgreSQL backend binary is unavailable"; return 1; }
+    start_common_capture postgres postgres --postgres "$backend_binary" --pid "$POSTGRES_BACKEND_PID" || return 1
+    # No DDL/DML, temporary tables, or database cleanup: only a literal SELECT.
+    printf "SELECT '%s';\n" "$CASE_TOKEN" >&3
+    wait_for_file_contains "$CASE_DIR/workload.log" "$CASE_TOKEN" "successful PostgreSQL SELECT" || return 1
+    stop_postgres_client || return 1
+    sleep 1
+    stop_common_capture || return 1
+    assert_common_case postgres || return 1
+    assert_file_contains "$EVENT_FILE" "PID=$POSTGRES_BACKEND_PID " "actual PostgreSQL backend PID"
 }
 
-# Main test function
-run_postgres_test() {
-    log_info "=== Starting $TEST_NAME ==="
-    
-    # Prerequisites
-    log_info "Checking prerequisites..."
-    check_root || exit 1
-    check_kernel_version 4 18 || exit 1
-    check_prerequisites "$ECAPTURE_BINARY" || exit 1
-    
-    # Check if PostgreSQL is available
-    if ! check_postgres_available; then
-        log_warn "PostgreSQL is not available, skipping PostgreSQL test"
-        log_info "To install PostgreSQL: sudo apt-get install postgresql postgresql-client (Debian/Ubuntu)"
-        exit 0
-    fi
-    
-    # Create output directory
-    mkdir -p "$OUTPUT_DIR"
-    
-    # Build ecapture if needed
-    build_ecapture "$ECAPTURE_BINARY" || {
-        log_error "Failed to build ecapture"
-        exit 1
+main() {
+    setup_common_config_suite || return 1
+    # Older kernels cannot apply the PID filter that isolates our own backend.
+    version_at_least "$(uname -r)" 5.2 || {
+        log_error "PostgreSQL E2E requires kernel 5.2+ for backend PID isolation"
+        return 1
     }
-    
-    # Test: PostgreSQL query capture
-    log_info "=== Test: PostgreSQL Query Capture ==="
-    
-    # Get PostgreSQL server PID (main postmaster process)
-    local postgres_pid
-    postgres_pid=$(pgrep -x postgres | head -1 || pgrep -x postmaster | head -1 || echo "")
-    
-    if [ -z "$postgres_pid" ]; then
-        log_error "Could not find PostgreSQL server process"
-        TEST_FAILED=1
-        return 1
-    fi
-    
-    log_info "PostgreSQL PID: $postgres_pid"
-    
-    # Start ecapture for PostgreSQL
-    log_info "Running: $ECAPTURE_BINARY postgres --pid $postgres_pid"
-    "$ECAPTURE_BINARY" postgres --pid "$postgres_pid" > "$ECAPTURE_LOG" 2>&1 &
-    local ecapture_pid=$!
-    log_info "eCapture PID: $ecapture_pid"
-    
-    # Wait for initialization
-    sleep 3
-    
-    # Check if still running
-    if ! kill -0 "$ecapture_pid" 2>/dev/null; then
-        log_error "eCapture process died during initialization"
-        cat "$ECAPTURE_LOG"
-        TEST_FAILED=1
-        return 1
-    fi
-    
-    # Execute test queries
-    log_info "Executing test PostgreSQL queries..."
-    
-    # Try to connect and run some basic queries
-    # Note: This requires PostgreSQL to be configured to allow connections
-    sudo -u postgres psql -c "SELECT 1 AS test_query;" >/dev/null 2>&1 || \
-    psql -U postgres -c "SELECT 1 AS test_query;" >/dev/null 2>&1 || \
-    psql -c "SELECT 1 AS test_query;" >/dev/null 2>&1 || \
-    log_warn "Could not connect to PostgreSQL to run test queries"
-    
-    # Wait for capture
-    sleep 3
-    
-    # Stop ecapture
-    if kill -0 "$ecapture_pid" 2>/dev/null; then
-        log_info "Stopping ecapture..."
-        kill -INT "$ecapture_pid" 2>/dev/null || true
-        sleep 2
-        
-        # Force kill if still running
-        if kill -0 "$ecapture_pid" 2>/dev/null; then
-            kill -9 "$ecapture_pid" 2>/dev/null || true
-        fi
-    fi
-    
-    # Verify results
-    log_info "=== Verifying Results ==="
-    
-    local test_passed=0
-    
-    if [ ! -s "$ECAPTURE_LOG" ]; then
-        log_error "eCapture log is empty"
-        TEST_FAILED=1
-        return 1
-    fi
-    
-    log_info "eCapture log size: $(wc -c < "$ECAPTURE_LOG") bytes"
-    log_info "Sample output (first 50 lines):"
-    head -n 50 "$ECAPTURE_LOG"
-    
-    # Check if we captured some PostgreSQL activity
-    if grep -iq "postgres\|query\|SELECT\|INSERT\|UPDATE\|DELETE" "$ECAPTURE_LOG"; then
-        log_success "Found PostgreSQL-related content in capture"
-        test_passed=1
-    else
-        log_warn "Could not find PostgreSQL query patterns in output"
-        log_info "This might be due to PostgreSQL not being actively queried or configuration issues"
-        # Still consider test passed if ecapture ran without errors
-        if grep -iq "module.*started\|initialization" "$ECAPTURE_LOG"; then
-            log_info "eCapture initialized successfully for PostgreSQL"
-            test_passed=1
-        fi
-    fi
-    
-    # Overall result
-    if [ "$test_passed" = "1" ]; then
-        log_success "=== $TEST_NAME PASSED ==="
-        return 0
-    else
-        log_error "=== $TEST_NAME FAILED ==="
-        TEST_FAILED=1
-        return 1
-    fi
+    require_command psql || return 1
+    require_command runuser || return 1
+    require_command readlink || return 1
+    run_case "linux/postgres/read-only-query-eventaddr-isolation" case_postgres_query
+    print_summary "Linux PostgreSQL E2E"
 }
 
-# Run the test
-run_postgres_test
-
-exit $?
+main "$@"

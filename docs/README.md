@@ -1,75 +1,58 @@
-# eCapture Documentation
+# eCapture documentation
 
-This directory contains comprehensive documentation for the eCapture project.
+Start with the project [README](../README.md) or
+[中文说明](../README-zh_Hans.md) for supported capture modes and quick starts.
 
-## Documentation Index
+## Build and verification
 
-### Getting Started
-- [**compilation.md**](compilation.md) - Build and compilation guide (English)
-- [**compilation-zh_Hans.md**](compilation-zh_Hans.md) - 编译指南 (汉字)
+- [Compilation](compilation.md) / [中文编译指南](compilation-zh_Hans.md)
+- [Loong64 build, validation, and dedicated runner](loong64-support.md)
+- [Build and test guide](agent/build-test.md): commands, platform boundaries,
+  production tags, and verification requirements
+- [E2E tests](../test/e2e/README.md) and
+  [quick reference](../test/e2e/QUICK_REFERENCE.md): maintained Linux/Android
+  coverage, prerequisites, assertions, and artifacts
+- [Performance benchmarks](performance-benchmarks.md): OpenSSL userspace
+  microbenchmarks and real-kernel TLS overhead/loss measurements
+- [Pre-release conventions](beta-release-guide.md)
+- [Release verification](release-verification.md)
 
-### Architecture & Development
-- [**refactoring-guide.md**](refactoring-guide.md) - Probe refactoring patterns and best practices
-- [**probe-refactoring-playbook.md**](probe-refactoring-playbook.md) - Detailed refactoring tutorial with step-by-step instructions
-- [**migration-v2.md**](migration-v2.md) - Migration guide from v1 to v2 architecture
-- [**gotls-refactoring-summary.md**](gotls-refactoring-summary.md) - GoTLS probe refactoring case study
+## Architecture and development
 
-### Testing
-- [**e2e-tests.md**](e2e-tests.md) - End-to-end testing guide
+- [Architecture](agent/architecture.md): runtime flow, package ownership,
+  supported probes, and implementation boundaries
+- [Probe development](agent/probe-development.md): attachment/ABI contracts,
+  lifecycle, event reorder, configuration, and generated protocols
+- [Output pipeline](agent/output-pipeline.md): representation, destinations,
+  typed publishers, ownership, and validation contracts
+- [Internal package map](../internal/README.md)
+- [Repository agent guide](../AGENTS.md) and
+  [contribution guide](../CONTRIBUTING.md)
 
-### Security & Operations
-- [**defense-detection.md**](defense-detection.md) - Detection and defense against unauthorized eBPF tool usage
-- [**minimum-privileges.md**](minimum-privileges.md) - Required Linux capabilities and least-privilege configuration
-- [**performance-benchmarks.md**](performance-benchmarks.md) - Performance overhead measurement methodology
-- [**release-verification.md**](release-verification.md) - How to verify release artifact integrity
+## APIs and examples
 
-### API Documentation
-- [**event-forward-api.md**](event-forward-api.md) - Event forwarding API documentation (English)
-- [**event-forward-api-zh_Hans.md**](event-forward-api-zh_Hans.md) - 事件转发API文档 (汉字)
-- [**remote-config-update-api.md**](remote-config-update-api.md) - Remote configuration update API (English)
-- [**remote-config-update-api-zh_Hans.md**](remote-config-update-api-zh_Hans.md) - 远程配置更新API (汉字)
+- Event forwarding: [English](event-forward-api.md) /
+  [中文](event-forward-api-zh_Hans.md)
+- Runtime configuration: [English](remote-config-update-api.md) /
+  [中文](remote-config-update-api-zh_Hans.md)
+- [Protobuf protocols](../protobuf/PROTOCOLS.md) and
+  [code generation](../protobuf/README.md)
+- [eCaptureQ package](../pkg/ecaptureq/README.md) and
+  [Go client example](../examples/ecaptureq_client/README.md)
+- [Community integrations](event-forward.md)
+- [Output examples](example-outputs.md)
 
-### Integration
-- [**event-forward.md**](event-forward.md) - Event forwarding applications and GUI clients
+## Security and operation
 
-### Examples
-- [**example-outputs.md**](example-outputs.md) - Detailed output examples for all eCapture modes and modules
+- [Minimum privileges](minimum-privileges.md)
+- [Defense and detection](defense-detection.md)
+- [Security policy](../SECURITY.md)
 
-## Document Organization
+## Maintaining documentation
 
-### Root Directory (`/`)
-The project root contains standard GitHub community health files:
-- `README.md` - Project overview and quick start
-- `CONTRIBUTING.md` - Contribution guidelines
-- `CODE_OF_CONDUCT.md` - Community code of conduct
-- `SECURITY.md` - Security policy
-- `CHANGELOG.md` - Release history
-
-### Docs Directory (`/docs`)
-Technical documentation, guides, and API references are organized here.
-
-### Internal Directory (`/internal`)
-Contains architecture documentation for internal packages (see `internal/README.md`).
-
-## Naming Convention
-
-All documentation files in this directory follow the **lowercase-with-hyphens** (kebab-case) naming convention for consistency and web compatibility.
-
-Examples:
-- ✅ `refactoring-guide.md`
-- ✅ `e2e-tests.md`
-- ✅ `event-forward-api.md`
-
-## Contributing to Documentation
-
-When adding new documentation:
-1. Place it in the appropriate directory (`/docs` for technical docs, `/` for community files)
-2. Use lowercase with hyphens for file names
-3. Update this README to include your new document
-4. Ensure proper cross-references to related documents
-
-## Language Versions
-
-Chinese versions of documents are indicated with a `-zh_Hans` suffix:
-- `compilation.md` (English) / `compilation-zh_Hans.md` (汉字)
-- `event-forward-api.md` (English) / `event-forward-api-zh_Hans.md` (汉字)
+Keep long-lived behavior and commands with the relevant guide; use links
+instead of duplicating architecture, test matrices, or protocol definitions.
+Update this index when a maintained guide moves or is added. Check relative
+links and keep English/Chinese versions synchronized. Historical task plans,
+local validation evidence, and publication drafts are not current feature
+specifications.

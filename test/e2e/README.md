@@ -1,6 +1,7 @@
 # eCapture E2E tests
 
-This directory keeps the actively maintained TLS E2E scope small and explicit:
+The default E2E matrix focuses on TLS; non-TLS and CLI checks have separate
+entry points:
 
 - Linux on Ubuntu 22.04+ or Debian 13+: `tls` (OpenSSL), `gotls`, and `gnutls`.
   Supported architectures are x86_64 (kernel >= 4.18), aarch64/arm64 (>= 5.5),
@@ -50,7 +51,7 @@ The maintained Linux destination matrix is complete for every TLS module:
 | keylog | valid NSS secrets and decryption | valid NSS secrets and decryption | valid NSS secrets and decryption | valid NSS secrets and decryption | `PROCESS_LOG` plus sensitive keylog `EVENT` |
 | pcapng | valid blocks, DSB, and decryption | valid blocks, DSB, and decryption | valid reconstructed artifact | valid reconstructed artifact | `PROCESS_LOG` plus sensitive packet `EVENT` |
 
-All traffic goes to a short-lived local TLS server. Linux uses loopback directly. Android reaches the same host-side server through `adb reverse`, so the suite does not depend on public DNS, public CAs, or a third-party response body.
+All TLS traffic goes to a short-lived local server. Linux uses loopback directly. Android reaches the same host-side server through `adb reverse`, so the TLS suite does not depend on public DNS, public CAs, or a third-party response body.
 
 The pcapng check parses the block structure instead of accepting any non-empty file. It requires:
 
@@ -80,14 +81,30 @@ test/e2e/
 ├── linux/                    # maintained Linux harness and module suites
 ├── android/                  # Android 13+ BoringSSL harness and workload
 ├── run_e2e.sh                # Linux suite runner
+├── postgres_e2e_test.sh      # existing local database, read-only SELECT
+├── edge_cases_test.sh        # CLI rejection and graceful shutdown
 ├── tls_e2e_test.sh           # compatibility entry points
 ├── gotls_e2e_test.sh
 └── gnutls_e2e_test.sh
 ```
 
-Older Bash/database scripts and the permissive legacy eCaptureQ script remain
-outside this maintained TLS scope. Typed eCaptureQ assertions now live in each
-maintained TLS module suite.
+Bash, Zsh, and MySQL checks share `linux/common_config_test.sh`. Typed
+eCaptureQ assertions live in each maintained TLS module suite;
+`make e2e-ecaptureq` is an alias for that Linux matrix.
+
+## Extending the suite
+
+Use the maintained platform helpers and `lib/testlib.sh` assertions. New or
+changed entry points must reject unsupported OS, architecture, and kernel
+combinations before eBPF work. Keep traffic local and deterministic, use
+unique captured tokens, bound waits, and install cleanup traps for only the
+processes and network state the test owns. Preserve failure artifacts for
+diagnosis; review and redact captures before sharing them.
+
+For output changes, preserve CLI conflict checks and graceful-exit delivery
+as well as the content, decryption, channel-isolation, and typed-message
+assertions above. Add the case to the appropriate module runner and update
+this matrix; do not create a second completion-status document.
 
 ## Linux
 
@@ -135,16 +152,58 @@ sudo E2E_MODULES=gotls E2E_MODES='keylog pcapng' bash test/e2e/run_e2e.sh
 sudo E2E_MODES=text bash test/e2e/run_e2e.sh  # includes hook and pcapng text sources
 ```
 
-Run the non-TLS common-config suite on a host with interactive Bash/Zsh and a
-C++ compiler. The database case uses a local `dispatch_command` fixture, so it
-does not depend on a particular installed MySQL build:
+`make e2e` and `make e2e-basic` run the maintained Linux TLS matrix.
+`make e2e-advanced` adds the OpenSSL pcapng burst regression case; it does not
+select the separate non-TLS advanced cases.
+
+### Non-TLS and CLI checks
+
+Run the common-config suite separately. Bash/Zsh cases require the selected
+shell and `script` for an interactive terminal; MySQL requires a C++ compiler.
+All cases verify captured tokens, file `--eventaddr`, operational-log
+isolation, and successful probe shutdown:
 
 ```bash
 sudo env PATH="$PATH" bash test/e2e/linux/common_config_test.sh
+sudo make e2e-bash
+sudo make e2e-zsh
+sudo make e2e-mysql
+sudo make e2e-bash-advanced
+sudo make e2e-mysql-advanced
 ```
 
-`make e2e` and `make e2e-basic` run the maintained Linux matrix. `make e2e-advanced`
-also runs the OpenSSL pcapng burst regression case.
+`E2E_NON_TLS_MODULES` selects `bash`, `zsh`, and/or `mysqld` (all three by
+default). `E2E_NON_TLS_ADVANCED=1` adds Bash command shapes and truncation, or
+MySQL query shapes, truncation, and concurrent inputs. It defaults to `0`.
+The MySQL cases call a local `dispatch_command` fixture: they validate probe
+capture, not execution against a database server.
+
+The separate opt-in `E2E_BASH_ERRNO=1` strictly reproduces a known production
+bug: the Bash probe discards the matching return-value event. This case must
+fail until the implementation is fixed; it is not passing default coverage:
+
+```bash
+sudo E2E_NON_TLS_MODULES=bash E2E_BASH_ERRNO=1 \
+  bash test/e2e/linux/common_config_test.sh
+```
+
+`sudo make e2e-postgres` requires an existing local PostgreSQL server, `psql`,
+a non-interactive connection as the selected OS user, and kernel 5.2+ so the
+probe can filter by backend PID. This case-specific minimum does not change
+the project's x86_64 runtime minimum of 4.18. It runs only
+`SELECT pg_backend_pid()` and a literal-token `SELECT`, attaches to that
+session's actual backend PID, and verifies captured SQL and output isolation.
+The running server binary must retain an ELF symbol named `exec_simple_query`
+(typically an unstripped PostgreSQL build). Stripped binaries without that
+symbol are unsupported by the current probe, and the suite fails explicitly.
+It does not provision or modify databases or tables. `PGHOST` must be unset
+or one absolute Unix-socket directory; nonempty `PGHOSTADDR` or `PGSERVICE`,
+TCP hosts, connection strings, and multiple hosts are rejected.
+
+`sudo make e2e-edge-cases` verifies prompt rejection of invalid CLI inputs and
+clean SIGINT/SIGTERM shutdown. It requires the OpenSSL development libraries
+and a C compiler. These separate suites share the common-config lifecycle
+helpers and the same Linux/root platform boundary.
 
 ## Android
 
@@ -168,7 +227,14 @@ make e2e-android-all
 
 The Java workload is intentional: Android `HttpsURLConnection` uses Conscrypt/BoringSSL. A statically built Go HTTPS client uses Go's own TLS implementation and therefore cannot validate the Android BoringSSL `tls` probe.
 
-## LoongArch CI
+## CI coverage
+
+Hosted Linux CI runs the TLS matrix on Ubuntu 22.04 and 24.04. Android CI
+covers API 33–36. The workflow definitions are the source of truth for job
+selection; these matrices are verification requirements, not a record that
+an arbitrary local checkout has passed.
+
+### LoongArch CI
 
 The `loong64-e2e` job shares `E2E Tests` push/PR/manual triggers for trusted
 repository refs; fork PRs retain the hosted Ubuntu jobs. It builds native
@@ -183,6 +249,11 @@ non-CO-RE capture remain separate. See
 | `E2E_MODULES` | `tls gotls gnutls` | Linux modules to run |
 | `E2E_MODES` | `text keylog pcapng` | Output modes to run; text covers hook and pcapng sources |
 | `E2E_STRESS` | `0` | Run burst regressions when set to `1` |
+| `E2E_NON_TLS_MODULES` | `bash zsh mysqld` | Modules selected by the separate common-config suite |
+| `E2E_NON_TLS_ADVANCED` | `0` | Add Bash/MySQL command, length, and concurrency cases where applicable |
+| `E2E_BASH_ERRNO` | `0` | Opt into the strict known-failing Bash return-value regression |
+| `E2E_POSTGRES_OS_USER` | `postgres` | OS user for the existing local PostgreSQL connection |
+| `E2E_POSTGRES_DATABASE` | `postgres` | Existing database name; connection strings are rejected |
 | `E2E_ARTIFACT_ROOT` | `/tmp/ecapture-e2e*` | Host artifact parent directory |
 | `E2E_KEEP_ARTIFACTS` | `0` | Preserve successful test artifacts when set to `1` |
 | `ECAPTURE_BINARY` | `bin/ecapture` | Override the eCapture binary |

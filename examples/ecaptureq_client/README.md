@@ -1,208 +1,102 @@
-# eCapture WebSocket Client
+# eCaptureQ Go client example
 
-This is a standalone Go client that connects to an eCapture WebSocket server (ecaptureq) to receive real-time events and logs.
+This client reads binary Protobuf messages from an eCapture `--ecaptureq`
+listener. It prints operational logs and captured events, including available
+process/network metadata, format, sensitivity, direction, and payload in
+text/hex plus base64. `-verbose` also displays heartbeats.
 
-## Overview
+## Build and connect
 
-The eCapture WebSocket server (`--ecaptureq`) allows you to stream captured events in real-time using WebSocket protocol. This client demonstrates how to:
-
-1. Connect to the WebSocket server
-2. Receive and decode protobuf-encoded messages
-3. Display events, logs, and heartbeats
-
-## Building
+Use Linux and Go 1.26.0 or newer. This directory is a separate Go module;
+its `go.mod` replaces `github.com/gojue/ecapture/v2` with the repository root.
+Build from this directory, not with `go build ./examples/ecaptureq_client`
+from the root module:
 
 ```bash
 cd examples/ecaptureq_client
-go build -o ecaptureq_client main.go
+go build -o ecaptureq_client .
 ```
 
-Or from the repository root:
+In another terminal, from the repository root, start a built eCapture binary
+on a supported capture host with the required probe privileges:
 
 ```bash
-go build -o ecaptureq_client ./examples/ecaptureq_client
+sudo ./bin/ecapture tls --ecaptureq=ws://127.0.0.1:28257/
 ```
 
-## Usage
-
-### 1. Start eCapture with WebSocket server
-
-First, start eCapture with the `--ecaptureq` parameter. The URL format should be `ws://HOST:PORT/`:
+Then, in the client directory:
 
 ```bash
-# Example: Listen on localhost port 28257
-sudo ./ecapture tls --ecaptureq=ws://127.0.0.1:28257/
-
-# Example: Listen on all interfaces port 28257
-# Note: Use a specific IP address, not 0.0.0.0
-sudo ./ecapture tls --ecaptureq=ws://192.168.1.100:28257/
-```
-
-**Important Notes:**
-- The server will listen on the HOST:PORT specified in the URL
-- Use a specific IP address (like `127.0.0.1` or your machine's IP) instead of `0.0.0.0`
-- The WebSocket endpoint is at the root path `/`
-
-### 2. Run the client
-
-```bash
-# Connect to default server (ws://127.0.0.1:28257/)
-./ecaptureq_client
-
-# Connect to custom server
-./ecaptureq_client -server ws://192.168.1.100:28257/
-
-# Enable verbose logging (shows heartbeats)
 ./ecaptureq_client -server ws://127.0.0.1:28257/ -verbose
 ```
 
-## Command-line Options
+| Client flag | Default | Purpose |
+| --- | --- | --- |
+| `-server` | `ws://127.0.0.1:28257/` | WebSocket URL to connect to |
+| `-verbose` | `false` | Show heartbeats |
 
-- `-server`: WebSocket server URL (default: `ws://127.0.0.1:28257/`)
-- `-verbose`: Enable verbose logging, including heartbeat messages
+The client URL default does not enable a server listener: eCapture's
+`--ecaptureq` and HTTP `--listen` are disabled unless explicitly configured.
+The server accepts `ws://`; a trailing `/` is conventional, not mandatory in
+the CLI. `0.0.0.0` is a possible bind address; remote clients use a reachable
+server address. The built-in server has no application authentication or TLS.
 
-## Message Types
+## Manual smoke checks
 
-The client handles three types of messages:
+These checks verify client behavior; use the [maintained E2E harness](../../test/e2e/README.md) for capture, decryption,
+and strict typed-message assertions.
 
-### 1. Heartbeat (LOG_TYPE_HEARTBEAT = 0)
+1. **Connection and history:** connect after eCapture starts. Expect operational
+   logs (at most the latest 128), followed by live logs. Historical captured
+   events are not replayed.
+2. **Heartbeat:** with `-verbose`, expect an immediate heartbeat and then one
+   every 15 seconds. Counts start at zero for each client connection.
+3. **Captured data:** generate known TLS traffic from an application using the
+   OpenSSL/BoringSSL library selected by the running probe. Confirm the expected
+   content appears as an event. A connection or heartbeat alone is not evidence
+   that capture works. For GoTLS/GnuTLS, start the matching probe and workload.
+4. **Multiple clients:** connect two clients before generating new traffic.
+   Under normal load both should receive the live events. Events produced before
+   a client connects are not replayed; bounded queues can disconnect slow clients.
+5. **Disconnect:** stop eCapture and confirm `Connection closed` is reported.
+   The example does not reconnect automatically. Its main goroutine still waits
+   for a signal after the receiver exits, so press Ctrl+C to end the process.
+6. **Client shutdown:** Ctrl+C closes the client connection. Other connected
+   clients should continue receiving live messages.
 
-Sent periodically by the server to keep the connection alive. Only displayed in verbose mode.
+Raw event output can be checked alongside this client by starting eCapture
+with an additional `--eventaddr=/tmp/events.txt`. Typed pcapng events contain
+packet payloads, not a reconstructable pcapng file; use the raw destination
+when a file artifact is needed.
 
-### 2. Process Log (LOG_TYPE_PROCESS_LOG = 1)
+## Integrating the receive loop
 
-Log messages from the eCapture process itself, such as:
-- Startup information
-- Module initialization
-- Configuration details
-- Runtime status
-
-### 3. Event (LOG_TYPE_EVENT = 2)
-
-Captured SSL/TLS events containing:
-- Timestamp
-- UUID
-- Process ID and name
-- Source and destination IP/port
-- Event type and length
-- Capture format, sensitivity, direction, and optional stream sequence
-- Payload data (displayed as text or hex dump)
-
-## Example Output
-
-```
-Connecting to eCapture WebSocket server at ws://127.0.0.1:28257/
-Connected successfully!
-2025-01-15T10:30:45Z INF AppName="eCapture(旁观者)"
-2025-01-15T10:30:45Z INF HomePage=https://v2.ecapture.cc
-2025-01-15T10:30:45Z INF Version=linux_amd64:v1.4.3-20250115:5.15.0
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🔍 Captured Event
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🆔 UUID:         12345_12345_curl_5_1_192.168.1.100:54870-180.101.49.44:443
-🔢 PID:          12345
-📝 Process:      curl
-🔗 Source:       192.168.1.100:54870
-🎯 Destination:  180.101.49.44:443
-📊 Type:         1
-📏 Length:       104 bytes
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📦 Payload:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-GET / HTTP/1.1
-Host: www.baidu.com
-Accept: */*
-User-Agent: curl/7.81.0
-
-Base64 encoded:
-R0VUIC8gSFRUUC8xLjENCkhvc3Q6IHd3dy5iYWlkdS5jb20NCkFjY2VwdDogKi8qDQpVc2VyLUFnZW50OiBjdXJsLzcuODEuMA0KDQo=
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-```
-
-## Protocol Details
-
-The communication protocol uses Protocol Buffers (protobuf) with the following message structure:
-
-```protobuf
-message LogEntry {
-  LogType log_type = 1;
-  
-  oneof payload {
-    Event event_payload = 2;
-    Heartbeat heartbeat_payload = 3;
-    string run_log = 4;
-  }
-}
-```
-
-Where:
-- `LogType` can be: `LOG_TYPE_HEARTBEAT` (0), `LOG_TYPE_PROCESS_LOG` (1), or `LOG_TYPE_EVENT` (2)
-- Each message type has its specific payload structure
-
-## Troubleshooting
-
-### Connection Refused
-
-If you get "connection refused" error:
-
-1. Make sure eCapture is running with `--ecaptureq` parameter
-2. Check that the server URL matches the one specified in eCapture command
-3. Verify the port is not blocked by firewall
-4. Ensure you're using the correct IP address (not 0.0.0.0)
-
-### No Events Received
-
-If connected but not receiving events:
-
-1. Make sure eCapture is capturing traffic (check with `-d` debug flag)
-2. Generate some SSL/TLS traffic (e.g., `curl https://www.baidu.com`)
-3. Enable verbose mode to see heartbeat messages: `./ecaptureq_client -verbose`
-
-### Bad Handshake
-
-If you get "websocket: bad handshake" error:
-
-1. Ensure the URL format is correct: `ws://HOST:PORT/` (with trailing slash)
-2. Check that eCapture is actually listening (use `netstat -tlnp | grep PORT`)
-3. Verify you're connecting to the correct port
-
-## Integration Example
-
-This client can be used as a reference for integrating eCapture into other systems:
+The complete implementation is in [main.go](main.go). It uses:
 
 ```go
 import (
-	pb "github.com/gojue/ecapture/protobuf/gen/v1"
-	"golang.org/x/net/websocket"
-	"google.golang.org/protobuf/proto"
+    pb "github.com/gojue/ecapture/v2/protobuf/gen/v1"
+    "golang.org/x/net/websocket"
+    "google.golang.org/protobuf/proto"
 )
-
-// Connect
-ws, err := websocket.Dial("ws://127.0.0.1:28257/", "", "http://localhost/")
-if err != nil {
-	// Handle error
-}
-defer ws.Close()
-
-// Receive messages
-for {
-	var msgData []byte
-	err := websocket.Message.Receive(ws, &msgData)
-	if err != nil {
-		break
-	}
-	
-	var logEntry pb.LogEntry
-	err = proto.Unmarshal(msgData, &logEntry)
-	if err != nil {
-		continue
-	}
-	
-	// Process logEntry based on logEntry.LogType
-}
 ```
 
-## License
+Read each WebSocket message into `[]byte`, unmarshal one `pb.LogEntry`, then
+dispatch by `LogType` and its matching payload. Keep `PROCESS_LOG` and captured
+`EVENT` data separate. Handle empty metadata and unknown enum values.
+See the [protocol reference](../../protobuf/PROTOCOLS.md) for field semantics.
 
-Same as eCapture - Apache License 2.0
+## Troubleshooting
+
+- **Connection refused / bad handshake:** confirm eCapture started successfully,
+  the `--ecaptureq` listener is enabled, and the client's host/port matches it.
+  The raw `--eventaddr` WebSocket sink is an outgoing connection, not this server.
+- **Connected but no events:** verify target library/ELF, PID/UID filters, probe
+  startup, and actual traffic. Heartbeats only prove connection health.
+- **Decode errors:** use the current schema and ensure the endpoint sends typed
+  eCaptureQ messages rather than raw event bytes.
+- **Connection closed:** inspect server/probe errors and client backpressure;
+  restart the example manually after correcting the cause.
+
+For output modes and listener behavior, see the
+[event forwarding API](../../docs/event-forward-api.md).

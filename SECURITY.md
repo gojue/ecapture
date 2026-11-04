@@ -2,12 +2,9 @@
 
 ## Supported Versions
 
-| Version  | Supported          |
-|----------|--------------------|
-| >= 2.0.x | :white_check_mark: |
-| < 2.0.0  | :x:                |
-
-We only provide security patches for the latest minor release. Users on older versions are encouraged to upgrade.
+We only provide security patches for the latest minor release. Earlier minor
+releases and versions before v2.0.0 are unsupported. Users on older versions
+are encouraged to upgrade.
 
 ## Reporting a Vulnerability
 

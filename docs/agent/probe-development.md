@@ -126,16 +126,37 @@ treats any lost-sample evidence as a test failure; preserve that distinction.
 - A custom reader must be registered with `TrackReader()` and execute through
   `GoReaderLoop()` or equivalent tracked ownership.
 - Dispatcher fan-out is synchronous and unordered; it does not route on
-  `Event.Type()`.
+  `Event.Type()`. Only handlers whose `Supports(event)` returns true run.
 - Multiple readers can invoke one handler concurrently. Writers and handlers
   need synchronization and must not depend on handler order.
-- A registered handler needs a non-nil writer and a unique
-  `handler.Name() + "-" + handler.Writer().Name()` identity.
-- Dispatch returns a handler error only if every handler fails; one successful
-  handler masks other handler errors from the caller, although they are logged.
+- A byte-backed handler is registered under
+  `handler.Name() + "-" + handler.Writer().Name()`. A typed publisher handler
+  may have a nil writer and must supply a unique `handler.Name()` instead.
+- Dispatch joins every supported-handler error, even when another handler
+  succeeds. An event with no supporting handler is also an error.
 - Heavy work in a synchronous handler can increase sample loss. Add bounded,
   explicit async behavior only when ordering and shutdown are defined.
-- Reorder queues are per reader/map, not a cross-map global timeline.
+
+### Perf event reorder
+
+Per-CPU perf buffers can deliver samples out of timestamp order.
+`BaseProbe.StartPerfEventReader` can reorder them within a lag window before
+dispatch. `BaseConfig.PerfReorder` (`perf_reorder`) enables this behavior;
+`PerfReorderLagMs` (`perf_reorder_lag_ms`) selects the window, with zero using
+the default 10 ms.
+
+To reorder an event, both the decoder's `GetDecoder(map)` prototype and the
+emitted event must implement `domain.MonoNsEvent`. `PerfMonoNs()` must return
+the original `bpf_ktime_get_ns()` timestamp, never a wall-clock conversion.
+GoTLS preserves this value in `GoTLSDataEvent.BpfMonoNs`; OpenSSL, GnuTLS,
+MySQL, and PostgreSQL return their raw `Timestamp`. A decoder without a
+qualifying prototype falls back to the ordinary reader and logs that reorder
+was ignored.
+
+Reorder is per reader/map, not a global timeline across maps. The bounded
+queue flushes under pressure and drains on reader exit; shutdown must join
+that final dispatch before closing handlers. Cover ordering, unsupported
+decoders, and shutdown drain when changing this path.
 
 ### Stop and close
 
@@ -143,12 +164,13 @@ treats any lost-sample evidence as a test failure; preserve that distinction.
   reader.
 - Normal successful concrete close paths stop the eBPF manager and
   module-specific closers, then call `BaseProbe.Close()`.
-- Base close closes tracked readers, joins their goroutines, closes common
-  closers, then closes the dispatcher.
+- Base close closes tracked readers, joins their goroutines, then closes the
+  dispatcher, joining reader and dispatcher errors.
 - Release resources safely after full and partial starts. Change this ordering
   only as an explicit lifecycle refactor with concurrency tests.
-- Make repeated close safe. Existing common handlers may be reachable from
-  more than one closer.
+- Make repeated close safe. The dispatcher owns registered handlers; a
+  handler owns its primary sink/session, while typed publishers and the
+  pcapng keylog adapter are borrowed. See `output-pipeline.md` for ownership.
 
 PostgreSQL currently returns early when manager stop fails and can skip Base
 close. Treat that as an existing cleanup defect, not a pattern to copy.

@@ -14,20 +14,21 @@
 
 # eCapture 系统架构
 
-![](./images/ecapture-architecture.png)
+![eCapture 系统架构](../images/ecapture-architecture.png)
 
 # eCapture 工作原理
 
-![](./images/how-ecapture-works.png)
+![eCapture 工作原理](../images/how-ecapture-works.png)
 
 ## 自行编译
 
-自行编译对编译环境有要求，参考**原理**章节的介绍。
+编译、链接、测试和 eBPF 生成必须在 Linux 主机上执行；macOS 和 Windows
+仅用于编辑。具体依赖见下面的工具链和编译环境说明。
 
 # 编译方法
 
 针对个别程序使用的openssl类库是静态编译，也可以自行修改源码实现。若函数名不在符号表里，也可以自行反编译找到函数的offset偏移地址，填写到
-`Uaddress`
+`UAddress`
 属性上，进行编译。
 最低内核按架构区分：x86_64 为 4.18，aarch64 为 5.5，LoongArch64 为
 6.6；LoongArch64 仅支持 Linux，Android 仍只支持 x86_64/aarch64。
@@ -88,13 +89,13 @@ export GOPROXY=https://goproxy.cn
 
 ## 未开启BTF的编译
 
-2022/04/17起，eCapture支持了未开启BTF的系统编译，编译指令为：`make nocore`，即在不支持BTF的Linux上也可以正常工作。
+目标系统没有内核 BTF 时，使用 `make nocore`。non-CO-RE 构建需要准备与目标
+内核兼容的头文件；切换资源模式前先清理。以下命令在已初始化子模块的仓库中执行：
 
 ```shell
-git clone git@github.com:gojue/ecapture.git
-cd ecapture
+make clean
 make nocore
-bin/ecapture
+bin/ecapture --help
 ```
 
 ## 交叉编译
@@ -127,6 +128,7 @@ test -f .config || yes "" | sudo make oldconfig
 未指定时使用构建主机的架构。例如，在 Ubuntu `amd64` 上构建 `arm64` 产物：
 
 ```shell
+make clean TARGET_ARCH=arm64
 TARGET_ARCH=arm64 make
 ```
 
@@ -150,6 +152,19 @@ make clean && make all
 
 软件包、wrapper 参数、BTF 来源、静态 PIE 验收和运行时验证限制见
 [Loong64 构建与验证](loong64-support.md)。
+
+## 测试
+
+维护中的 TLS、GoTLS 和 GnuTLS E2E 使用本地确定性流量，需要 root，支持
+Ubuntu 22.04+ 或 Debian 13+；最低内核为 x86_64 4.18、aarch64 5.5、
+LoongArch64 6.6。完成 Linux 构建后执行：
+
+```shell
+sudo make e2e-linux
+```
+
+依赖、Android 测试、输出断言和产物规则见 [E2E 指南](../test/e2e/README.md)。
+单元测试、race、生产标签 lint 和构建门禁见 [构建与验证指南](agent/build-test.md)。
 
 # 原理
 

@@ -1,402 +1,145 @@
-# eCapture 远程配置修改 API
+# 运行时配置 HTTP API
 
-本文档介绍 **eCapture 运行过程中如何通过 HTTP 接口远程修改配置**，面向调用方（HTTP Client），说明如何构造请求和 payload 与 eCapture 通讯。
+[English](remote-config-update-api.md)
 
-> 说明：
-> - 默认：**禁用**（不启动 HTTP 服务）。通过 `--listen` 启用，例如：`--listen 127.0.0.1:28256`
-> - 设置 `--listen ""` 可显式禁用 HTTP 服务（运行时配置更新将不可用）
-> - 所有接口均为 **HTTP POST + JSON**，路径不带前缀，直接是模块名（例如 `/tls`、`/gotls`）
+此 API 用新配置重启当前探针。启动 eCapture 时须显式启用；`--listen` 默认为空，即关闭：
 
----
+```bash
+sudo ./bin/ecapture tls --listen=127.0.0.1:28256 \
+  --eventaddr=/tmp/events.txt
+```
 
-## 1. 总体说明
+请求使用 `POST` 和 `Content-Type: application/json`。
+内置 HTTP 服务器没有应用层认证或 TLS，示例绑定回环地址。
+此接口与 `--ecaptureq` 事件监听器相互独立。
 
-### 1.1 使用场景
+## 范围与路由
 
-- 在不重启 eCapture 进程的情况下，调整各模块的抓取行为
-- 通过外部管理程序、控制台、脚本，实现“点击后生效”的参数更新
-- 按不同场景动态更改目标进程、端口、过滤规则等
+只向进程启动时选择的**同一探针类型**提交配置。
+例如，用 `tls` 启动的进程通过 `/tls`、`/openssl` 或 `/boringssl` 更新 TLS 配置。
+运行时始终保留原来的 factory probe type，不支持跨探针热切换。
+向其他探针路由提交配置不是切换模块的方法，可能在重新初始化时失败。
 
-### 1.2 基本约定
+| POST 路径 | 配置类型 | Linux | Android 构建 |
+| --- | --- | --- | --- |
+| `/tls`、`/openssl`、`/boringssl` | OpenSSL/BoringSSL | 支持 | 支持 |
+| `/gotls` | GoTLS | 支持 | 支持 |
+| `/bash` | Bash | 支持 | 支持 |
+| `/gnutls` | GnuTLS | 支持 | 不支持 |
+| `/nss`、`/nspr` | NSPR/NSS | 支持 | 不支持 |
+| `/mysqld` | MySQL | 支持 | 不支持 |
+| `/postgres`、`/postgress` | PostgreSQL | 支持 | 不支持 |
 
-- **协议**：HTTP
-- **方法**：`POST`
-- **Content-Type**：`application/json`
-- **请求体**：模块对应的配置 JSON（结构与 eCapture 内部 `config.*Config` 一致）
-- **响应体**：统一 JSON 格式，包含状态码和模块名
+两种构建都会注册这些路由。Android 不支持的配置工厂返回 HTTP 400、`code: 4`，并非路由不存在。
+当前没有 `/zsh` 路由，`/postgress` 保留为兼容别名。
+平台支持不代表目标库/可执行文件无需满足各探针的要求。
 
----
+## 配置替换与继承
 
-## 2. 支持的 HTTP 路径与平台差异
+服务器将请求解码到**新建的模块配置**中，再校验和应用，并非对运行中的配置执行通用 JSON patch。
+只有下列三个字段在省略时继承当前实例的值：
 
-eCapture 在不同平台支持的配置更新路径略有差异：
+| JSON 字段 | 含义 | 显式值 |
+| --- | --- | --- |
+| `event_collector_addr` | 主捕获事件目的地 | `""` 在模式归一化前显式清空目的地 |
+| `event_rotate_size_mb` | 文件轮转大小 | `0` 关闭此大小阈值 |
+| `event_rotate_seconds` | 文件轮转间隔 | `0` 关闭此时间阈值 |
 
-### 2.1 Linux 平台可用路径
+其他省略的公共字段和模块字段使用构造函数默认值或零值，不继承当前值。
+请重新提供需要保留的库/ELF 路径、模式、过滤器等设置。CLI 参数名不等于 JSON 字段名。
+当前解码器通常忽略未知 JSON 字段，拼写错误可能使配置静默保留默认值。
 
-Linux 下可以通过以下 HTTP 路径更新配置：
+空事件目的地在 text 模式下归一化为 stdout；keylog/pcapng 归一化后仍须有目的地，
+可以由旧文件字段提供。轮转只支持文件型 text/keylog 输出。
+从轮转文件切到网络目的地时，应显式将两个轮转字段设为零，避免继承不适用的配置。
 
-| 路径        | 用途简述                          |
-|-------------|-----------------------------------|
-| `/tls`      | OpenSSL / TLS 模块                |
-| `/openssl`  | 同 `/tls`，别名                   |
-| `/boringssl`| 同 `/tls`，别名                   |
-| `/gotls`    | Go TLS 模块                       |
-| `/gnutls`   | GnuTLS 模块                       |
-| `/nss`      | NSS / NSPR 模块                   |
-| `/nspr`     | 同 `/nss`，别名                   |
-| `/bash`     | Bash 命令捕获（仅 Linux）         |
-| `/mysqld`   | MySQLd 协议捕获（仅 Linux）       |
-| `/postgress`| PostgreSQL 协议捕获（仅 Linux）   |
+运行日志和类型化 eCaptureQ 发布器是进程级依赖，会重新绑定到新探针。
+此 API 不会更改 `--logaddr`、`--ecaptureq` 或 HTTP 监听地址。
 
-> 提醒：
-> - `/openssl`、`/boringssl` 是 `/tls` 的别名，配置结构完全一致；
-> - `/nss` 与 `/nspr` 使用同一套配置结构；
-> - `/bash`、`/mysqld`、`/postgress` 在 Android GKI 平台上 **不可用**。
+## 请求字段
 
-### 2.2 Android GKI 平台可用路径
+公共字段以 [BaseConfig](../internal/config/base_config.go) 和
+[CommonConfigPatch](../internal/config/common.go) 为准：
 
-Android GKI 下支持的路径为：
+| JSON 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `pid`、`uid` | 无符号整数 | 进程/用户过滤，`0` 表示不按该项过滤 |
+| `debug`、`is_hex` | 布尔 | 探针调试与十六进制表示设置 |
+| `btf_mode` | 无符号整数 | `0` 自动、`1` CO-RE、`2` non-CO-RE；须由内嵌资产支持 |
+| `per_cpu_map_size` | 整数 | 正数，单位为**字节**；CLI `--mapsize` 的单位为页 |
+| `event_collector_addr` | 字符串 | stdout、文件/路径、TCP 或 WebSocket 目的地 |
+| `event_rotate_size_mb`、`event_rotate_seconds` | 无符号 16 位整数 | 文件轮转设置 |
+| `cgroup_path` | 字符串 | 支持该能力的探针使用的 cgroup 过滤 |
+| `perf_reorder`、`perf_reorder_lag_ms` | 布尔、无符号整数 | 支持该能力的探针/读取器使用的事件重排设置 |
 
-| 路径        | 用途简述                          |
-|-------------|-----------------------------------|
-| `/tls`      | OpenSSL / TLS 模块                |
-| `/openssl`  | 同 `/tls`，别名                   |
-| `/boringssl`| 同 `/tls`，别名                   |
-| `/gotls`    | Go TLS 模块                       |
-| `/gnutls`   | GnuTLS 模块                       |
-| `/nss`      | NSS / NSPR 模块                   |
-| `/nspr`     | 同 `/nss`，别名                   |
+`byte_code_file_mode` 必须匹配二进制内嵌资产模式，通常保留配置工厂默认值。
+`truncate_size` 虽被序列化，当前生产路径没有消费方，不应依赖它限制输出。
 
-> 提醒：
-> - Android 平台 **没有** `/bash`、`/mysqld`、`/postgress` 这些配置更新接口；
-> - 如果你的管理程序需要同时兼容 Linux 和 Android，请在调用前根据平台做一次能力判断。
+常用模块字段：
 
----
+| 探针 | JSON 字段名 | 定义 |
+| --- | --- | --- |
+| OpenSSL/BoringSSL | `opensslpath`、`capturemode`、`text_source`、`keylogfile`、`pcapfile`、`ifname`、`pcapfilter` | [config.go](../internal/probe/openssl/config.go) |
+| GoTLS | `elf_path`、`capture_mode`、`text_source`、`keylog_file`、`pcap_file`、`ifname`、`pcap_filter` | [config.go](../internal/probe/gotls/config.go) |
+| GnuTLS | `gnutlspath`、`capturemode`、`text_source`、`keylogfile`、`pcapfile`、`ifname`、`pcapfilter` | [config.go](../internal/probe/gnutls/config.go) |
+| NSPR/NSS | `nss_path`、`nspr_path` | [config.go](../internal/probe/nspr/config.go) |
+| Bash | `bashpath`、`readline`、`errno` | [config.go](../internal/probe/bash/config.go) |
+| MySQL | `MysqlPath`、`FuncName`、`Offset` | [config.go](../internal/probe/mysql/config.go) |
+| PostgreSQL | `PostgresPath`、`FuncName`、`Offset` | [config.go](../internal/probe/postgres/config.go) |
 
-## 3. 通用请求与响应格式
+MySQL/PostgreSQL 的模块字段目前没有显式 JSON tag，因此使用 Go 导出字段名。
+TLS 模式接受 `text`、`keylog`、`pcap`/`pcapng`；text 模式下的 `text_source` 可选 `hook` 或 `pcapng`。
+数据包捕获及 pcapng 文本源需要网卡。模式与目的地的关系见[事件输出说明](event-forward-api-zh_Hans.md)。
 
-### 3.1 请求格式
+## 调用示例
 
-所有模块配置更新接口都使用相同的 HTTP 请求格式：
+请将示例路径和过滤条件改为捕获主机上的实际值。
+下面更新正在运行的 TLS 探针，并继承当前事件目的地及轮转设置：
 
-- **方法**：`POST`
-- **URL**：`http://<listen-address>/<path>`  
-  示例：`http://127.0.0.1:28256/tls`
-- **Header**：
-    - `Content-Type: application/json`
-- **Body**：
-    - JSON 对象，字段取决于具体模块。
-    - 一般包含：
-        - 通用字段：如 `pid`、`uid`、`debug`、`hex`、`btf`、`per_cpu_map_size`、`truncate_size` 等
-        - 模块特有字段：如目标进程名、端口、协议相关参数等
+```bash
+curl --fail-with-body -X POST http://127.0.0.1:28256/tls \
+  -H 'Content-Type: application/json' \
+  --data '{"opensslpath":"/usr/lib/x86_64-linux-gnu/libssl.so.3","capturemode":"text","text_source":"hook","pid":1234}'
+```
 
-> 配置字段请以实际版本中 `user/config/*.go` 的结构体为准，下面示例仅用于演示调用方式。
+将目的地替换为已经启动的 TCP 接收端：
 
-### 3.2 响应格式
+```bash
+curl --fail-with-body -X POST http://127.0.0.1:28256/tls \
+  -H 'Content-Type: application/json' \
+  --data '{"opensslpath":"/usr/lib/x86_64-linux-gnu/libssl.so.3","capturemode":"text","pid":1234,"event_collector_addr":"tcp://127.0.0.1:9000","event_rotate_size_mb":0,"event_rotate_seconds":0}'
+```
 
-所有接口的响应体为统一结构：
+对于最初用 `gotls` 启动的进程，使用对应字段名并重新提供 ELF 路径：
+
+```bash
+curl --fail-with-body -X POST http://127.0.0.1:28256/gotls \
+  -H 'Content-Type: application/json' \
+  --data '{"elf_path":"/absolute/path/to/go-app","capture_mode":"text","text_source":"hook","pid":1234}'
+```
+
+## 响应与失败行为
 
 ```json
-{
-  "code": 0,
-  "module_type": "openssl",
-  "msg": "RespOK",
-  "data": null
-}
+{"code":0,"module_type":"openssl","msg":"RespOK","data":null}
 ```
 
-字段说明：
-
-- `code` (`number`)：状态码
-    - `0`：成功（`RespOK`）
-    - `4`：配置 JSON 解码失败（`RespConfigDecodeFailed`）
-    - `5`：配置检查失败（`RespConfigCheckFailed`）
-    - `6`：后台通道写入失败（`RespSendToChanFailed`）
-    - 其他值：预留错误（如无效请求、内部错误等）
-- `module_type` (`string`)：模块名称（如 `openssl`、`gotls`、`gnutls` 等），用于标识本次更新对应的模块
-- `msg` (`string`)：`code` 对应的简短字符串，便于日志和调试
-- `data`：当前接口未使用，一般为 `null`
-
-HTTP 状态码与 `code` 的关系（调用侧可以按以下逻辑判断）：
-
-- HTTP 200 且 `code == 0`：更新成功，后台已开始按新配置重启模块；
-- HTTP 400：请求格式或配置内容不合法（`code` 通常是 4 或 5）；
-- HTTP 503：eCapture 当前忙（内部配置更新通道满），可稍后重试。
-
----
-
-## 4. 常用模块调用示例
-
-下面示例都假设 eCapture 运行在本机，使用默认监听地址 `127.0.0.1:28256`。
-
-> 注意：示例 JSON 的字段仅用于展示调用方式，不代表完整或最终字段列表，请与实际结构体对齐。
-
-### 4.1 OpenSSL / TLS 模块（`/tls` / `/openssl` / `/boringssl`）
-
-适用于基于 OpenSSL / BoringSSL / 通用 TLS 的应用。三个路径效果相同，可任选其一。
-
-#### 4.1.1 使用 curl 发送配置
-
-```bash
-curl -v \
-  -H "Content-Type: application/json" \
-  -X POST \
-  --data '{
-    "pid": 0,
-    "uid": 0,
-    "debug": false,
-    "hex": false,
-    "btf": 0,
-    "per_cpu_map_size": 1024,
-    "truncate_size": 0,
-    "filters": {
-      "target_process": ["nginx", "curl"],
-      "ignore_process": ["ecapture"]
-    }
-  }' \
-  http://127.0.0.1:28256/tls
-```
-
-可能的成功响应：
-
-```json
-{
-  "code": 0,
-  "module_type": "openssl",
-  "msg": "RespOK",
-  "data": null
-}
-```
-
-#### 4.1.2 使用 Go 代码发送配置
-
-```go
-package main
-
-import (
-    "bytes"
-    "encoding/json"
-    "log"
-    "net/http"
-)
-
-type TlsConfig struct {
-    Pid           uint64 `json:"pid"`
-    Uid           uint64 `json:"uid"`
-    Debug         bool   `json:"debug"`
-    Hex           bool   `json:"hex"`
-    Btf           uint8  `json:"btf"`
-    PerCpuMapSize int    `json:"per_cpu_map_size"`
-    TruncateSize  uint64 `json:"truncate_size"`
-    // 这里可以继续补充你真正使用的字段
-}
-
-type Resp struct {
-    Code       uint8       `json:"code"`
-    ModuleType string      `json:"module_type"`
-    Msg        string      `json:"msg"`
-    Data       interface{} `json:"data"`
-}
-
-func main() {
-    cfg := TlsConfig{
-        Pid:           0,
-        Uid:           0,
-        Debug:         false,
-        Hex:           false,
-        Btf:           0,
-        PerCpuMapSize: 1024,
-        TruncateSize:  0,
-    }
-
-    body, _ := json.Marshal(cfg)
-    resp, err := http.Post(
-        "http://127.0.0.1:28256/tls",
-        "application/json",
-        bytes.NewReader(body),
-    )
-    if err != nil {
-        log.Fatalf("request failed: %v", err)
-    }
-    defer resp.Body.Close()
-
-    var r Resp
-    if err := json.NewDecoder(resp.Body).Decode(&r); err != nil {
-        log.Fatalf("decode resp failed: %v", err)
-    }
-
-    log.Printf("status=%d code=%d module=%s msg=%s",
-        resp.StatusCode, r.Code, r.ModuleType, r.Msg)
-}
-```
-
----
-
-### 4.2 GoTLS 模块（`/gotls`）
-
-适用于 Go 程序使用的 TLS 实现。
-
-```bash
-curl -v \
-  -H "Content-Type: application/json" \
-  -X POST \
-  --data '{
-    "pid": 0,
-    "uid": 0,
-    "debug": true,
-    "per_cpu_map_size": 2048
-  }' \
-  http://127.0.0.1:28256/gotls
-```
-
----
-
-### 4.3 GnuTLS 模块（`/gnutls`）
-
-适用于使用 GnuTLS 的应用程序。
-
-```bash
-curl -v \
-  -H "Content-Type: application/json" \
-  -X POST \
-  --data '{
-    "pid": 0,
-    "uid": 0,
-    "debug": false
-  }' \
-  http://127.0.0.1:28256/gnutls
-```
-
----
-
-### 4.4 NSS / NSPR 模块（`/nss` / `/nspr`）
-
-适用于基于 NSS / NSPR 的 TLS 实现（例如部分浏览器、系统组件）。
-
-```bash
-curl -v \
-  -H "Content-Type: application/json" \
-  -X POST \
-  --data '{
-    "pid": 0,
-    "uid": 0,
-    "debug": false
-  }' \
-  http://127.0.0.1:28256/nss
-```
-
-`/nspr` 用法完全相同，只是路径不同：
-
-```bash
-curl -v \
-  -H "Content-Type: application/json" \
-  -X POST \
-  --data '{ ... }' \
-  http://127.0.0.1:28256/nspr
-```
-
----
-
-### 4.5 Bash 命令捕获模块（仅 Linux：`/bash`）
-
-> Android GKI 平台不支持此接口，如你的程序需要兼容多平台，请在调用前判断。
-
-```bash
-curl -v \
-  -H "Content-Type: application/json" \
-  -X POST \
-  --data '{
-    "pid": 0,
-    "uid": 0,
-    "debug": true
-  }' \
-  http://127.0.0.1:28256/bash
-```
-
----
-
-### 4.6 MySQLd 模块（仅 Linux：`/mysqld`）
-
-```bash
-curl -v \
-  -H "Content-Type: application/json" \
-  -X POST \
-  --data '{
-    "pid": 0,
-    "uid": 0,
-    "debug": false
-  }' \
-  http://127.0.0.1:28256/mysqld
-```
-
----
-
-### 4.7 PostgreSQL 模块（仅 Linux：`/postgress`）
-
-> 注意路径拼写为 `/postgress`（双 s）。
-
-```bash
-curl -v \
-  -H "Content-Type: application/json" \
-  -X POST \
-  --data '{
-    "pid": 0,
-    "uid": 0,
-    "debug": false
-  }' \
-  http://127.0.0.1:28256/postgress
-```
-
----
-
-## 5. 错误处理与重试策略
-
-### 5.1 常见错误码
-
-调用方可以结合 HTTP 状态码与 `code` 字段做判断：
-
-| HTTP 状态 | `code` | 含义说明                                   | 调用方建议          |
-|-----------|--------|--------------------------------------------|----------------|
-| 200       | 0      | 成功，配置已被后台接受并进入重启流程       | 正常处理           |
-| 200       | 1      | 请求无效                              | 请求包构建异常，修正     |
-| 200       | 2      | 服务器内部错误                         | 间隔一段时间后重试              |
-| 200       | 4      | JSON 解析失败（语法错误或字段类型错误）    | 修正请求体后重试       |
-| 200       | 5      | 配置校验失败（必填字段缺失、值非法等）     | 根据错误日志修正配置后再发送 |
-| 200       | 6      | 后台通道已满，暂时无法接受新的配置         | 间隔一段时间后重试      |
-| 其他      | 1 / 2  | 无效请求 / 内部错误（当前接口不常用）      | 视情况记录日志并报警     |
-
-更多相应码见 `cli/http/resp.go` 中的定义。
-
-### 5.2 建议的调用模式
-
-- 配置更新一般是管理行为，不建议高频调用；
-- 对于非立即生效要求的场景，出现 `503` 时可指数退避重试；
-- 在上游保留一份“上一次成功下发的配置”，发生异常时可以快速回滚。
-
----
-
-## 6. 平台兼容性提醒（Linux vs Android）
-
-- 如果你的管理程序只面向 Linux，可直接使用文中全部路径；
-- 如果需要同时兼容 Linux 和 Android GKI，建议：
-    1. 通过命令行参数、环境变量或探测接口确认当前运行平台；
-    2. 对 `bash` / `mysqld` / `postgress` 等 **仅 Linux 支持** 的路径做条件调用；
-    3. TLS / GoTLS / GnuTLS / NSS 相关路径两端一致，可通用。
-
----
-
-## 7. 版本与字段对齐建议
-
-- 不同版本的 eCapture，`user/config/*.go` 中的字段可能会有微调；
-- 推荐做法：
-    - 在你的项目中定义与 eCapture 相同的配置结构（同名字段 / 同类型）；
-    - 或直接使用 JSON 动态对象，只填你实际需要控制的字段，其余使用默认值；
-    - 如需对接多版本，可通过 eCapture 的版本信息自行做兼容处理。
-
----
-
-## 8. 变更历史
-
-| 版本  | 日期       | 说明                               |
-|-------|------------|------------------------------------|
-| 0.1.0 | 2025-12-07 | 初版：远程配置修改 HTTP API 说明   |
+| HTTP 状态 | `code` | 含义 |
+| --- | --- | --- |
+| 200 | 0（`RespOK`） | 新探针实例已成功启动 |
+| 400 | 4（`RespConfigDecodeFailed`） | JSON 为空/格式错误、类型不匹配或平台配置工厂不可用 |
+| 400 | 5（`RespConfigCheckFailed`） | 运行时校验或实例切换失败，详情见 `msg` |
+| 503 | 6（`RespSendToChanFailed`） | 更新队列无法接受请求，可退避后重试 |
+
+未知路径和错误 HTTP 方法使用路由器的 404/405 响应，不一定包含上述 JSON。
+意外的处理器错误可能返回 500。
+`module_type` 是解码后的配置类型（`openssl`、`gotls`、`gnutls`、`nspr`、
+`bash`、`mysql`、`postgres`），不代表跨探针切换成功。
+
+校验失败时当前实例继续运行。校验通过后，先停止旧实例再启动新实例，期间可能存在捕获空档。
+新实例启动失败时，运行时会尝试用旧配置重新启动；恢复或关闭失败可能终止捕获，
+不能将 HTTP 400 一概解释为旧探针仍然健康运行。
+
+成功响应在启动完成后发送，不是在排队后立即发送。
+客户端超时或断开也不代表已入队的更新被取消。
+调用方应保存完整的目标配置和最后可用配置，在结果不明确时检查运行日志，并避免密集并发更新。

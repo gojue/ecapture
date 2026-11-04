@@ -1,13 +1,11 @@
 # How to contribute
 
-eCapture is AGPL-3.0 licensed and accepts contributions via GitHub pull requests. This document outlines some of the conventions on commit message formatting, contact points for developers, and other resources to help get contributions into eCapture.
-
-[//]: # (# Email and chat)
+eCapture is licensed under [Apache-2.0](LICENSE) and accepts contributions via GitHub pull requests. This guide covers the contribution workflow and commit message format.
 
 ## Getting started
 
 - Fork the repository on GitHub
-- Read the [README.md](./README.md) for build instructions
+- Read the [README.md](./README.md) for usage and the [build and verification guide](docs/agent/build-test.md) for Linux build and test requirements.
 
 ## Reporting bugs and creating issues
 
@@ -17,13 +15,11 @@ Reporting bugs is one of the best ways to contribute. However, a good bug report
 
 This is a rough outline of what a contributor's workflow looks like:
 
-- Create a topic branch from where to base the contribution. This is usually main.
+- Create a topic branch from `master`.
 - Make commits of logical units.
 - Make sure commit messages are in the proper format (see below).
 - Push changes in a topic branch to a personal fork of the repository.
 - Submit a pull request to gojue/ecapture.
-
-[//]: # (- The PR must receive a LGTM from two maintainers found in the MAINTAINERS file.)
 
 Thanks for contributing!
 
@@ -66,15 +62,15 @@ the message to be easier to read on GitHub as well as in various git tools.
 If multiple files in a package are changed in a pull request for example:
 
 ```
-user/config.go
-user/const.go
+internal/config/base_config.go
+internal/config/common.go
 ```
 
 At the end of the review process if multiple commits exist for a single package they
 should be squashed/rebased into a single commit before being merged.
 
 ```
-user: <what changed>
+config: <what changed>
 [..]
 ```
 

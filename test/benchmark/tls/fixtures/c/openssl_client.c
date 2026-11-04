@@ -1,5 +1,6 @@
 #include <arpa/inet.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <netinet/in.h>
 #include <openssl/ssl.h>
 #include <signal.h>
@@ -12,6 +13,16 @@
 #include <sys/time.h>
 #include <time.h>
 #include <unistd.h>
+
+static FILE *reference_keylog;
+static bool reference_keylog_failed;
+
+static void record_reference_keylog(const SSL *ssl, const char *line) {
+    (void)ssl;
+    if (fprintf(reference_keylog, "%s\n", line) < 0) {
+        reference_keylog_failed = true;
+    }
+}
 
 static int fail(const char *message) {
     fprintf(stderr, "%s\n", message);
@@ -27,8 +38,8 @@ static int64_t monotonic_microseconds(void) {
 }
 
 int main(int argc, char **argv) {
-    if (argc != 6) {
-        fprintf(stderr, "usage: %s HOST PORT TOKEN PAYLOAD_BYTES tls12|tls13\n", argv[0]);
+    if (argc != 6 && argc != 7) {
+        fprintf(stderr, "usage: %s HOST PORT TOKEN PAYLOAD_BYTES tls12|tls13 [WRITE_BYTES]\n", argv[0]);
         return 2;
     }
 
@@ -37,6 +48,13 @@ int main(int argc, char **argv) {
     const char *token = argv[3];
     const long payload_bytes = strtol(argv[4], NULL, 10);
     const char *tls_version = argv[5];
+    char *write_end = NULL;
+    errno = 0;
+    const long write_bytes = argc == 7 ? strtol(argv[6], &write_end, 10) : 0;
+    if (argc == 7 &&
+        (errno != 0 || write_end == argv[6] || *write_end != '\0' || write_bytes < 0 || write_bytes > INT32_MAX)) {
+        return fail("write size must be between 0 and INT32_MAX");
+    }
     if (port <= 0 || port > 65535 || payload_bytes <= 0) {
         return fail("invalid port or payload size");
     }
@@ -55,12 +73,30 @@ int main(int argc, char **argv) {
     char response[65536];
     size_t response_size = 0;
 
+    const char *keylog_path = getenv("BENCH_REFERENCE_KEYLOG");
+    if (keylog_path != NULL && keylog_path[0] != '\0') {
+        const int keylog_fd = open(keylog_path, O_WRONLY | O_CREAT | O_EXCL, 0600);
+        if (keylog_fd < 0) {
+            fail("reference keylog creation failed");
+            goto cleanup;
+        }
+        reference_keylog = fdopen(keylog_fd, "w");
+        if (reference_keylog == NULL) {
+            close(keylog_fd);
+            fail("reference keylog stream failed");
+            goto cleanup;
+        }
+    }
+
     ctx = SSL_CTX_new(TLS_client_method());
     if (ctx == NULL) {
         fail("SSL_CTX_new failed");
         goto cleanup;
     }
     SSL_CTX_set_verify(ctx, SSL_VERIFY_NONE, NULL);
+    if (reference_keylog != NULL) {
+        SSL_CTX_set_keylog_callback(ctx, record_reference_keylog);
+    }
     if (strcmp(tls_version, "tls12") == 0) {
         SSL_CTX_set_min_proto_version(ctx, TLS1_2_VERSION);
         SSL_CTX_set_max_proto_version(ctx, TLS1_2_VERSION);
@@ -132,7 +168,8 @@ int main(int argc, char **argv) {
     size_t written = 0;
     while (written < request_len) {
         const size_t remaining = request_len - written;
-        const int chunk = remaining > INT32_MAX ? INT32_MAX : (int)remaining;
+        const int limit = write_bytes == 0 ? INT32_MAX : (int)write_bytes;
+        const int chunk = remaining > (size_t)limit ? limit : (int)remaining;
         const int n = SSL_write(ssl, request + written, chunk);
         if (n <= 0) {
             fail("SSL_write failed");
@@ -171,6 +208,18 @@ int main(int argc, char **argv) {
     }
     free(response_token);
 
+    if (reference_keylog != NULL) {
+        SSL_CTX_set_keylog_callback(ctx, NULL);
+        if (fclose(reference_keylog) != 0) {
+            reference_keylog_failed = true;
+        }
+        reference_keylog = NULL;
+        if (reference_keylog_failed) {
+            fail("reference keylog write failed");
+            goto cleanup;
+        }
+    }
+
     const int64_t finished_us = monotonic_microseconds();
     if (finished_us < started_us) {
         fail("invalid monotonic duration");
@@ -189,5 +238,9 @@ cleanup:
         close(fd);
     }
     SSL_CTX_free(ctx);
+    if (reference_keylog != NULL) {
+        (void)fclose(reference_keylog);
+        reference_keylog = NULL;
+    }
     return result;
 }

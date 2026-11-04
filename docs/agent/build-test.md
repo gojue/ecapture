@@ -376,21 +376,38 @@ sudo env PATH="$PATH" make e2e-gotls
 sudo env PATH="$PATH" make e2e-gnutls
 ```
 
-`make e2e`, `make e2e-basic`, and `make e2e-advanced` are compatibility
-aliases for the same `e2e-linux` matrix; their names do not indicate different
-coverage. The default matrix is `tls gotls gnutls` in text, keylog, and pcapng
-modes. Each module's text matrix also verifies same-probe HTTP reload output
-inheritance, explicit destination replacement, and rejection without losing
-the active output.
+`make e2e`, `make e2e-basic`, and `make e2e-ecaptureq` are compatibility
+aliases for `e2e-linux`; typed eCaptureQ assertions run inside the TLS suites.
+`make e2e-advanced` runs the same module/mode selection with `E2E_STRESS=1`,
+adding the OpenSSL pcapng burst regression. The default matrix is
+`tls gotls gnutls` in text, keylog, and pcapng modes. Each module's text matrix
+also verifies same-probe HTTP reload output inheritance, explicit destination
+replacement, and rejection without losing the active output.
 
 Public text event destinations for Bash, Zsh, and MySQL have a separate strict
-suite. It requires interactive Bash/Zsh and a C++ compiler; the MySQL probe
-uses a deterministic local `dispatch_command` fixture rather than a host
-database version:
+suite. Select modules with `E2E_NON_TLS_MODULES` (default `bash zsh mysqld`).
+Shell cases require the selected shell and `script`; MySQL requires a C++
+compiler and captures deterministic local `dispatch_command` inputs without
+executing them against a database:
 
 ```sh
 sudo env PATH="$PATH" bash test/e2e/linux/common_config_test.sh
 ```
+
+`make e2e-bash`, `e2e-zsh`, and `e2e-mysql` select one module. The Bash/MySQL
+`-advanced` aliases enable `E2E_NON_TLS_ADVANCED=1` for command/query shapes,
+truncation, and MySQL concurrency; this option defaults to `0` and is
+independent of TLS `E2E_STRESS`. The separate `E2E_BASH_ERRNO=1` opt-in
+strictly reproduces the known Bash matching-return-value bug. Do not describe
+it as passing coverage or relax its assertions.
+
+`make e2e-postgres` uses an existing local database and a non-interactive
+Unix-socket connection (`PGHOST` unset or one absolute socket directory).
+It issues only read-only SELECTs, discovers the actual session backend PID,
+and checks captured SQL and output isolation. It does not provision a server
+or modify database state. `make e2e-edge-cases` checks invalid-input rejection
+and graceful SIGINT/SIGTERM shutdown. Both reuse the common-config lifecycle
+helpers. See [non-TLS prerequisites and options](../../test/e2e/README.md#non-tls-and-cli-checks).
 
 GnuTLS is a strict gating suite alongside OpenSSL and GoTLS. Its versioned
 master-secret offsets mean that a passing build against one distribution does
@@ -419,9 +436,8 @@ its assertions.
   successful artifacts too.
 
 Shared assertions are in `test/e2e/lib/testlib.sh`; Linux-specific setup is in
-`test/e2e/linux/common.sh`. Older Bash/database and permissive eCaptureQ
-scripts are outside the default maintained TLS matrix; strict typed eCaptureQ
-coverage is part of the module suites.
+`test/e2e/linux/common.sh`. Non-TLS, PostgreSQL, and CLI edge checks run
+separately from the default TLS matrix.
 
 ## Android E2E
 
