@@ -153,16 +153,24 @@ jobs:
           make -f builder/Makefile.release publish SNAPSHOT_VERSION="$RELEASE_VERSION"
 
       - name: Prepare Docker binaries from release packages
+        id: docker_binaries
         run: |
           set -euo pipefail
-          for arch in amd64 arm64; do
+          arches=(amd64 arm64)
+          if [[ -f "bin/ecapture-$RELEASE_VERSION-linux-loong64.tar.gz" ]]; then
+            arches+=(loong64)
+          fi
+          platforms=()
+          for arch in "${arches[@]}"; do
             package="ecapture-$RELEASE_VERSION-linux-$arch"
             destination="$RUNNER_TEMP/ecapture-docker/$arch"
             mkdir -p "$destination"
             tar -xzf "bin/$package.tar.gz" -C "$destination" \
               --strip-components=1 "$package/ecapture"
             test -x "$destination/ecapture"
+            platforms+=("linux/$arch")
           done
+          (IFS=,; echo "platforms=${platforms[*]}") >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -191,6 +199,6 @@ jobs:
         with:
           context: ${{ runner.temp }}/ecapture-docker
           file: ./builder/Dockerfile
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ steps.docker_binaries.outputs.platforms }}
           push: true
           tags: ${{ steps.docker_tags.outputs.TAGS }}

@@ -244,6 +244,8 @@ verification matrix live in `docs/agent/build-test.md`.
 - Linux release builds run in parallel architecture-matrix jobs on separate
   Ubuntu 24.04 x86_64 runners, then upload validated packages for one publish
   job to generate checksums, publish the release, and package Docker images.
+  Docker uses the community Alpine 3.24 image; its platform list includes
+  amd64/arm64 and adds loong64 only when its validated Linux package exists.
   Loong64 joins the same release entry point and PR architecture matrix; only
   amd64/arm64 produce Android artifacts. Loong64 is cross-built with
   `TARGET_ARCH=loong64` and the repository's LLVM 22.1.8 wrappers. Do not

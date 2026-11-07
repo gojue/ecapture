@@ -145,6 +145,9 @@ shared path. Release archives use `linux-loong64`; Debian packages use
 architecture `loong64`. The current RPM spec remains a native rpmbuild flow and
 is not part of the release workflow. The common `release` target builds
 Linux tar/deb artifacts for all architectures and Android only for amd64/arm64.
+The Docker publish step also includes `linux/loong64` when its release package
+exists, using the same binary and the community Alpine 3.24 multi-platform base.
+A failed optional Loong64 build leaves Docker publication at amd64/arm64.
 
 ## Native Debian build
 

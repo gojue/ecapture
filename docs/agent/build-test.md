@@ -96,13 +96,18 @@ each Linux/Android `.tar.gz` is uploaded separately without an outer ZIP,
 preserving executable permissions inside the tar archive.
 
 Docker images are packaged after publishing in the publish job, which waits
-for the build matrix to finish. It extracts the amd64/arm64 Linux release
-binaries into a small build context with `amd64/ecapture` and `arm64/ecapture`.
+for the build matrix to finish. It extracts the required amd64/arm64 Linux
+release binaries and, when its package exists, Loong64 into a small build
+context with `<architecture>/ecapture`. The extracted architectures determine
+the Docker platform list; an absent Loong64 package is skipped, but a present
+invalid package fails preparation.
 `builder/Dockerfile` uses BuildKit's `TARGETARCH` to copy the matching binary
-into Alpine; it does not install a toolchain, compile, or require QEMU.
-The image binary and version are identical
-to the Linux release package, without a separate `_docker` version suffix.
-Docker targets remain `linux/amd64` and `linux/arm64`.
+into the community `ghcr.io/loong64/alpine:3.24` multi-platform image. The tag
+follows updates within Alpine 3.24. Image packaging does not install a
+toolchain, compile, or require QEMU.
+The image binary and version are identical to the Linux release package,
+without a separate `_docker` version suffix. Docker targets are `linux/amd64`,
+`linux/arm64`, and optionally `linux/loong64`.
 
 To package existing Linux release binaries locally, prepare that context and
 run on Linux (use `--push` instead of `--load` for a multi-platform image):
