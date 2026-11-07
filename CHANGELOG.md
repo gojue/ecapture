@@ -1,3 +1,36 @@
+# v2.10.0 (2026-11-07)
+
+## Features
+
+* Expand `--text-source pcapng` for TLS, GoTLS, and GnuTLS with official `ecapture_decryptor` v1.4.0 (upgraded from v1.2.0), including HTTP/3 over QUIC v1/v2, TLS SHA-384 support, late QUIC secrets, and bounded connection waits and resource usage. The default text source remains `hook`. [#1080](https://github.com/gojue/ecapture/pull/1080), [#1082](https://github.com/gojue/ecapture/pull/1082)
+* Add `--text-raw` for authenticated TLS/QUIC STREAM bytes and QUIC DATAGRAM messages. Preserve complete structured metadata, empty messages, stream boundaries, and binary payloads in text and typed eCaptureQ output. [#1080](https://github.com/gojue/ecapture/pull/1080), [#1082](https://github.com/gojue/ecapture/pull/1082)
+* Add explicit `--text-protocol` selection for DoT, DoH over HTTP/1.1/2/3, DoQ over QUIC v1/v2, MQTT 3.1.1, and fixed-length Redis RESP2/RESP3. [#1082](https://github.com/gojue/ecapture/pull/1082)
+* Add `--text-http-events` for incremental HTTP/1.x, HTTP/2, HTTP/3, SSE, and HTTP/2 gRPC output, with optional bounded gzip decoding through `--text-max-decoded-body`. Support WebSocket fragmentation, control frames, and negotiated permessage-deflate. [#1082](https://github.com/gojue/ecapture/pull/1082)
+* Add `--text-tls-upgrade` selectors for SMTP/IMAP/POP3 STARTTLS, LDAP, PostgreSQL/MySQL SSLRequest, and HTTP/HTTPS CONNECT. These selectors handle TLS negotiation; mail/database application bytes require raw output when no parser is available. HTTPS CONNECT supports one inner TLS layer. [#1082](https://github.com/gojue/ecapture/pull/1082)
+* Add `--text-udp-protocol dtls` for DTLS 1.2 ECDHE-RSA AES-128/256-GCM records, and fix OpenSSL DTLS master-secret handling to produce the required `CLIENT_RANDOM` keylogs. [#1082](https://github.com/gojue/ecapture/pull/1082)
+
+These decrypt options require text mode with the pcapng source and are also available through HTTP reload configuration. See the [option reference](README.md#live-decryption-for-text-output) for selection and output details.
+
+## What's Changed
+
+* gnutls: add measured upstream GnuTLS 3.8.10–3.8.13 layouts and require both TLS 1.2 and TLS 1.3 decryption in keylog E2E checks. [#1077](https://github.com/gojue/ecapture/pull/1077)
+* decrypt: report payload-free diagnostics for incomplete or unsupported traffic; keep normal secret-wait and key-update progress at debug level. Validate decrypt options before creating output files. [#1080](https://github.com/gojue/ecapture/pull/1080), [#1082](https://github.com/gojue/ecapture/pull/1082)
+* test: verify HTTP/3 over QUIC v1/v2 with concurrent connections and multiple streams. Add 26 live-capture cases for the new protocols, TLS 1.3 bidirectional KeyUpdate, and DTLS; check exact bytes and metadata, with SSE/gRPC output required before response completion. The integration passed 100/100 core cases on Linux ARM64 and 79/79 OpenSSL/GoTLS cases on native LoongArch. [#1080](https://github.com/gojue/ecapture/pull/1080), [#1082](https://github.com/gojue/ecapture/pull/1082)
+* test: use tshark/editcap 4.4+ for independent QUIC checks and preload only the capture's embedded secrets when validating late DSBs. Disable fixture VCS stamping so root can build in runner-owned checkouts. [#1080](https://github.com/gojue/ecapture/pull/1080)
+* build: unify amd64, arm64, and loong64 release/PR build entry points on Ubuntu 24.04; build amd64/arm64 Docker images from the same published Linux binaries. Support native Debian 13+ LoongArch builds and use LLVM/Clang/LLD 22.1.8 for LoongArch static PIE linking. [#1073](https://github.com/gojue/ecapture/pull/1073), [#1075](https://github.com/gojue/ecapture/pull/1075)
+* ci: add trusted native LoongArch OpenSSL/GoTLS E2E with a restricted runner entry point, streamed output, and task cleanup. [#1074](https://github.com/gojue/ecapture/pull/1074), [#1076](https://github.com/gojue/ecapture/pull/1076), [#1079](https://github.com/gojue/ecapture/pull/1079)
+* docs: consolidate documentation and legacy test coverage, and refresh project logos and embedded illustrations. [#1071](https://github.com/gojue/ecapture/pull/1071), [#1072](https://github.com/gojue/ecapture/pull/1072), [#1078](https://github.com/gojue/ecapture/pull/1078)
+
+## Known Limitations
+
+* Some zero-length-client-CID QUIC captures still fail connection routing in decryptor v1.4.0. The maintained DoQ/DATAGRAM live baseline uses verified eight-byte client CIDs.
+* Live ECH decryption remains unavailable because current probes do not collect `ECH_SECRET`/`ECH_CONFIG`. SDK support alone does not establish eCapture capture support.
+* DTLS and QUIC DATAGRAM support does not imply WebRTC, WebTransport, or MASQUE decoding. The live integration suite does not cover the SDK's complete advanced QUIC state matrix; see the [E2E scope](test/e2e/README.md).
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v2.9.1...v2.10.0
+
+<hr>
+
 # v2.9.1 (2026-10-31)
 
 ## What's Changed
