@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -39,17 +38,15 @@ import (
 
 // Register installs the low-latency packet handler and its borrowed DSB
 // keylog adapter on one probe dispatcher.
-func Register(dispatcher domain.EventDispatcher, ifName, filter string, logger *logger.Logger, eventAddr, pcapAddr string, rotation *writers.RotateConfig, eventSinks []domain.CapturedEventSink, options types.DecryptOptions) error {
-	options.OnDiagnostic = func(d types.Diagnostic) {
+func Register(dispatcher domain.EventDispatcher, ifName, filter string, logger *logger.Logger, eventAddr, pcapAddr string, rotation *writers.RotateConfig, eventSinks []domain.CapturedEventSink, raw bool) error {
+	options := types.DecryptOptions{RawChunks: raw, OnDiagnostic: func(d types.Diagnostic) {
 		entry := logger.Warn()
-		switch d.Code {
-		case "waiting_secret", "key_update", "key_update_requested", "hello_retry_request",
-			"early_data_accepted", "early_data_rejected":
+		if d.Code == "waiting_secret" {
 			entry = logger.Debug()
 		}
 		entry.Str("connection", d.ConnectionID).Str("transport", d.Transport).
 			Str("stage", d.Stage).Str("reason", d.Code).Msg("decrypt diagnostic")
-	}
+	}}
 	sink, err := NewSink(eventAddr, pcapAddr, rotation, eventSinks, options)
 	if err != nil {
 		return err
@@ -88,9 +85,6 @@ type Sink struct {
 }
 
 func NewSink(eventAddr, pcapAddr string, rotation *writers.RotateConfig, eventSinks []domain.CapturedEventSink, options types.DecryptOptions) (*Sink, error) {
-	if err := options.Validate(); err != nil {
-		return nil, fmt.Errorf("invalid decrypt options: %w", err)
-	}
 	factory := writers.NewWriterFactory()
 	plainSink, err := factory.CreateEventSink(writers.EventSinkOptions{
 		Address: eventAddr, Format: writers.EventFormatText, RotateConfig: rotation, Sensitive: true,
@@ -112,10 +106,7 @@ func NewSink(eventAddr, pcapAddr string, rotation *writers.RotateConfig, eventSi
 	sink := &Sink{pipeWriter: pipeWriter, plainSink: plainSink, pcapSink: pcapSink, done: make(chan error, 1)}
 	go func() {
 		err := decryptor.DecryptPcapngStreamWithOptions(context.Background(), pipeReader, func(packet *types.DecryptedPacket) error {
-			payload, err := formatMessage(packet)
-			if err != nil {
-				return err
-			}
+			payload := formatMessage(packet)
 			if n, err := plainSink.Write(payload); err != nil {
 				return err
 			} else if n != len(payload) {
@@ -134,9 +125,9 @@ func NewSink(eventAddr, pcapAddr string, rotation *writers.RotateConfig, eventSi
 					Direction: packet.Direction, Payload: append([]byte(nil), packet.Data...),
 					OriginalLength: uint32(len(packet.Data)), Sequence: sequence,
 				}
-				// Structured events can have metadata without any payload (headers,
-				// trailers, empty datagrams). Preserve it without a new wire ABI.
-				if structuredMessage(packet) {
+				// Raw events need their offsets/end marker as well as byte data.
+				// Carry the same lossless text representation without a new wire ABI.
+				if _, raw := packet.Metadata["kind"]; raw {
 					envelope.Payload = append([]byte(nil), payload...)
 					envelope.OriginalLength = uint32(len(payload))
 				}
@@ -194,43 +185,22 @@ func (s *Sink) Close() error {
 	return s.closeErr
 }
 
-func structuredMessage(packet *types.DecryptedPacket) bool {
-	_, kind := packet.Metadata["kind"]
-	_, depth := packet.Metadata["tls_depth"]
-	return kind || depth
-}
-
-func formatMessage(packet *types.DecryptedPacket) ([]byte, error) {
+func formatMessage(packet *types.DecryptedPacket) []byte {
 	var out bytes.Buffer
-	if structuredMessage(packet) {
-		metadata, err := json.Marshal(packet.Metadata)
-		if err != nil {
-			return nil, fmt.Errorf("encode decrypted event metadata: %w", err)
-		}
-		kind, ok := packet.Metadata["kind"]
-		if !ok {
-			kind = "message"
-		}
+	if kind, raw := packet.Metadata["kind"]; raw {
 		direction := "client_to_server"
 		if packet.Direction == "response" {
 			direction = "server_to_client"
 		}
-		fmt.Fprintf(&out, "[%s] %s %s %s:%d -> %s:%d connection=%q kind=%v",
+		fmt.Fprintf(&out, "[%s] %s %s %s:%d -> %s:%d connection=%q kind=%v offset=%v end=%v length=%d encoding=hex",
 			packet.Timestamp.Format("2006-01-02T15:04:05.000000000Z07:00"), packet.Protocol,
 			direction, packet.SrcIP, packet.SrcPort, packet.DstIP, packet.DstPort,
-			packet.ConnectionID(), kind)
-		if offset, ok := packet.Metadata["offset"]; ok {
-			fmt.Fprintf(&out, " offset=%v", offset)
-		}
-		if end, ok := packet.Metadata["end"]; ok {
-			fmt.Fprintf(&out, " end=%v", end)
-		}
-		fmt.Fprintf(&out, " length=%d encoding=hex", len(packet.Data))
+			packet.ConnectionID(), kind, packet.Metadata["offset"], packet.Metadata["end"], len(packet.Data))
 		if streamID, ok := packet.Metadata["stream_id"]; ok {
 			fmt.Fprintf(&out, " stream=%v", streamID)
 		}
-		fmt.Fprintf(&out, " metadata=%s\n%s\n\n", metadata, hex.EncodeToString(packet.Data))
-		return out.Bytes(), nil
+		fmt.Fprintf(&out, "\n%s\n\n", hex.EncodeToString(packet.Data))
+		return out.Bytes()
 	}
 	host, _ := packet.Metadata["host"].(string)
 	source := "Host"
@@ -258,5 +228,5 @@ func formatMessage(packet *types.DecryptedPacket) ([]byte, error) {
 		out.WriteByte('\n')
 	}
 	out.WriteByte('\n')
-	return out.Bytes(), nil
+	return out.Bytes()
 }

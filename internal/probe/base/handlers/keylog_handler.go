@@ -160,7 +160,7 @@ func (h *KeylogHandler) Handle(event domain.Event) error {
 		version := msEvent.GetVersion()
 
 		// TLS 1.2 and earlier use CLIENT_RANDOM format
-		if version <= 0x0303 || version == 0xfefd { // TLS <= 1.2 or DTLS 1.2
+		if version <= 0x0303 { // TLS 1.2 = 0x0303
 			return h.handleTLS12(msEvent)
 		}
 

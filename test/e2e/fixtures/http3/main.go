@@ -36,10 +36,6 @@ func main() {
 	readyFile := flag.String("ready-file", "", "server readiness file")
 	token := flag.String("token", "ECAPTURE_E2E_HTTP3", "body marker prefix")
 	quicVersion := flag.String("quic-version", "v1", "QUIC version: v1 or v2")
-	protocol := flag.String("protocol", "", "additional TLS/QUIC protocol fixture")
-	eventsFile := flag.String("events-file", "", "captured text to check in verify mode")
-	releaseFile := flag.String("release-file", "", "allow a streaming response to finish")
-	phase := flag.String("phase", "complete", "verification phase: live or complete")
 	flag.Parse()
 
 	var version quic.Version
@@ -53,13 +49,6 @@ func main() {
 	}
 
 	var err error
-	if *protocol != "" {
-		err = protocolFixture(*mode, *protocol, *address, *readyFile, *token, *eventsFile, *releaseFile, *phase, version)
-		if err != nil {
-			log.Fatal(err)
-		}
-		return
-	}
 	switch *mode {
 	case "server":
 		err = serve(*address, *readyFile, *token, version)

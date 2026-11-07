@@ -54,7 +54,6 @@ const (
 // Config extends BaseConfig with GoTLS-specific configuration.
 type Config struct {
 	*config.BaseConfig
-	config.DecryptConfig
 
 	// ElfPath is the path to the Go binary ELF file
 	ElfPath string `json:"elf_path"`
@@ -62,6 +61,7 @@ type Config struct {
 	// CaptureMode specifies the output mode: "text", "keylog", or "pcap"
 	CaptureMode string `json:"capture_mode"`
 	TextSource  string `json:"text_source"` // "hook" (default) or "pcapng"
+	TextRaw     bool   `json:"text_raw"`    // Emit decrypted byte chunks for the pcapng text source
 
 	// KeylogFile is the path to write TLS keylog output (for keylog mode)
 	KeylogFile string `json:"keylog_file"`
@@ -267,8 +267,8 @@ func (c *Config) validateCaptureMode() error {
 	if err != nil {
 		return err
 	}
-	if err := c.ValidateDecryptOptions(c.TextSource == handlers.TextSourcePcapng); err != nil {
-		return err
+	if c.TextRaw && c.TextSource != handlers.TextSourcePcapng {
+		return fmt.Errorf("text-raw requires text capture mode with text-source=pcapng")
 	}
 	switch mode {
 	case "", handlers.ModeText:
