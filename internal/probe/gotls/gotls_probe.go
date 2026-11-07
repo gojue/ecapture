@@ -456,6 +456,14 @@ func (p *Probe) setupManagerPcapNG(keySection, keyFunc string) error {
 		},
 	}
 
+	// Socket send context supplies process ownership; TC context cannot.
+	probes = append(probes,
+		&manager.Probe{Section: "kprobe/tcp_sendmsg", EbpfFuncName: "tcp_sendmsg", AttachToFuncName: "tcp_sendmsg"},
+		&manager.Probe{Section: "kprobe/udp_sendmsg", EbpfFuncName: "udp_sendmsg", AttachToFuncName: "udp_sendmsg"},
+		&manager.Probe{Section: "kprobe/udp_send_skb", EbpfFuncName: "trace_udp_send_skb", AttachToFuncName: "udp_send_skb"},
+		&manager.Probe{Section: "kprobe/udp_v6_send_skb", EbpfFuncName: "trace_udp_v6_send_skb", AttachToFuncName: "udp_v6_send_skb"},
+	)
+
 	maps = []*manager.Map{
 		{
 			Name: "mastersecret_go_events",

@@ -23,17 +23,18 @@ import (
 	"github.com/gojue/ecapture/v2/internal/errors"
 )
 
-const packetEventHeaderSize = 8 + 4 + TaskCommLen + 4 + 4
+const packetEventHeaderSize = 8 + 4 + TaskCommLen + 4 + 4 + 4
 
 // PacketEvent mirrors the variable-length skb_data_event_t sample emitted by
-// kern/tc.h: a fixed 36-byte header followed by the captured packet bytes.
+// kern/tc.h: a fixed 40-byte header followed by the captured packet bytes.
 type PacketEvent struct {
-	Timestamp      uint64
-	Pid            uint32
-	Comm           [TaskCommLen]byte
-	PacketLen      uint32
-	InterfaceIndex uint32
-	PacketData     []byte
+	Timestamp       uint64
+	Pid             uint32
+	Comm            [TaskCommLen]byte
+	PacketLen       uint32
+	InterfaceIndex  uint32
+	ProcessEndpoint uint32
+	PacketData      []byte
 }
 
 func (e *PacketEvent) DecodeFromBytes(data []byte) error {
@@ -43,7 +44,7 @@ func (e *PacketEvent) DecodeFromBytes(data []byte) error {
 	}
 
 	buf := bytes.NewReader(data)
-	fields := []any{&e.Timestamp, &e.Pid, &e.Comm, &e.PacketLen, &e.InterfaceIndex}
+	fields := []any{&e.Timestamp, &e.Pid, &e.Comm, &e.PacketLen, &e.InterfaceIndex, &e.ProcessEndpoint}
 	for _, field := range fields {
 		if err := binary.Read(buf, binary.LittleEndian, field); err != nil {
 			return errors.NewEventDecodeError("gnutls.PacketEvent", err)
@@ -126,3 +127,8 @@ func (e *PacketEvent) GetSrcPort() uint16 {
 func (e *PacketEvent) GetDstPort() uint16 {
 	return 0
 }
+
+// ProcessEndpoint identifies the local owner: 1 = packet source, 2 = destination.
+func (e *PacketEvent) GetProcessEndpoint() uint32 { return e.ProcessEndpoint }
+func (e *PacketEvent) GetPid() uint32             { return e.Pid }
+func (e *PacketEvent) GetComm() string            { return string(bytes.TrimRight(e.Comm[:], "\x00")) }

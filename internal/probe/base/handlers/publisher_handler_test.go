@@ -131,3 +131,28 @@ func TestPcapPublisherDoesNotPublishDSBSecretEvents(t *testing.T) {
 		t.Fatal("direct Handle should reject a DSB-only secret event")
 	}
 }
+
+// MySQL and other non-TLS events expose GetPID rather than GetPid.
+type widePIDEvent struct {
+	domain.Event
+	pid uint64
+}
+
+func (e *widePIDEvent) GetPID() uint64  { return e.pid }
+func (e *widePIDEvent) GetComm() string { return "mysqld" }
+
+func TestPublisherHandlerPreservesWidePID(t *testing.T) {
+	publisher := &recordingEventPublisher{}
+	handler, err := NewPublisherHandler(publisher, domain.CaptureFormatText, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	event := &widePIDEvent{Event: &mockTLSDataEvent{data: []byte("query")}, pid: 1<<32 + 42}
+	if err := handler.Handle(event); err != nil {
+		t.Fatal(err)
+	}
+	envelope := publisher.last(t)
+	if envelope.PID != event.pid || envelope.ProcessName != "mysqld" {
+		t.Fatalf("process metadata lost: PID=%d name=%q", envelope.PID, envelope.ProcessName)
+	}
+}

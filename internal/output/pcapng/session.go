@@ -16,11 +16,13 @@ package pcapng
 
 import (
 	"context"
+	"encoding/binary"
 	stderrors "errors"
 	"fmt"
 	"math"
 	"net"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -96,7 +98,7 @@ func newSession(sink writers.ByteSink, snaplen uint32, ifName, filter string, lo
 		return nil, err
 	}
 
-	// TODO : write Application "ecapture.lua" to decode PID/Comm info.
+	// ecapture.lua decodes the process trailer appended to packet bytes.
 	pcapOption := pcapgo.NgWriterOptions{
 		SectionInfo: pcapgo.NgSectionInfo{
 			Hardware:    "eCapture (旁观者) Hardware",
@@ -173,6 +175,27 @@ func newSession(sink writers.ByteSink, snaplen uint32, ifName, filter string, lo
 	}
 	go pw.serve(flushInterval, gracePeriod)
 	return pw, nil
+}
+
+// WritePacketWithProcess preserves the historical Ethernet trailer used by
+// ecapture.lua. The optional version/endpoint suffix disambiguates loopback
+// ownership without changing the IP packet, TLS bytes, or pcapng block format.
+func (pw *Session) WritePacketWithProcess(data []byte, timestamp time.Time, pid uint32, comm string, endpoint uint32) error {
+	if pid != 0 && endpoint >= 1 && endpoint <= 2 {
+		comm, _, _ = strings.Cut(comm, "\x00")
+		if len(comm) > 16 {
+			comm = comm[:16]
+		}
+		trailer := make([]byte, 15+len(comm))
+		binary.BigEndian.PutUint32(trailer, 0xCC0C4CFC)
+		binary.BigEndian.PutUint32(trailer[4:], pid)
+		trailer[8] = byte(len(comm))
+		copy(trailer[9:], comm)
+		trailer[9+len(comm)] = 1 // extension version
+		trailer[10+len(comm)] = byte(endpoint)
+		data = append(append([]byte(nil), data...), trailer...)
+	}
+	return pw.WritePacket(data, timestamp)
 }
 
 // WritePacket queues a packet for the pcapng stream.

@@ -258,6 +258,8 @@ func (p *Probe) setupManagerPcapNG() error {
 		{Section: "classifier", EbpfFuncName: base.TcFuncNameEgress, Ifname: p.config.Ifname, NetworkDirection: manager.Egress},
 		{Section: "kprobe/tcp_sendmsg", EbpfFuncName: "tcp_sendmsg", AttachToFuncName: "tcp_sendmsg"},
 		{Section: "kprobe/udp_sendmsg", EbpfFuncName: "udp_sendmsg", AttachToFuncName: "udp_sendmsg"},
+		{Section: "kprobe/udp_send_skb", EbpfFuncName: "trace_udp_send_skb", AttachToFuncName: "udp_send_skb"},
+		{Section: "kprobe/udp_v6_send_skb", EbpfFuncName: "trace_udp_v6_send_skb", AttachToFuncName: "udp_v6_send_skb"},
 	}, p.bpfManager.Probes...)
 	p.bpfManager.Maps = append(p.bpfManager.Maps,
 		&manager.Map{Name: "skb_events"},

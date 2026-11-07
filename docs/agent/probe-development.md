@@ -239,6 +239,14 @@ packet `PcapngHandler` with a `KeylogHandler`/`pcapng.KeylogAdapter` sharing a
 embedded TLS Decryption Secrets Block that decrypts without an external keylog
 preference.
 
+All three TLS packet managers must attach `tcp_sendmsg`, `udp_sendmsg`,
+`udp_send_skb` and `udp_v6_send_skb` for TC capture; verify actual attachments
+with `bpftool perf show` and inspect `network_map`. `skb_data_event_t` is a
+40-byte little-endian header: timestamp, PID, 16-byte Comm, packet length,
+interface index, endpoint (0 unknown, 1 source, 2 destination). All three Go
+decoders must match; exclude perf padding from packet bytes and rebuild both
+asset variants with ABI changes. File trailer format is in `output-pipeline.md`.
+
 ## Generated protocols and code
 
 - Edit `protobuf/proto/v1/ecaptureq.proto`, regenerate using the documented
