@@ -59,7 +59,8 @@ The PR build matrix runs this same initializer for every architecture.
 `bash test/build/architecture_config_test.sh` checks all three target mappings,
 selector precedence and unsupported combinations, so it runs for every target.
 
-All release architectures use the shared Ubuntu 24.04 x86_64 job. Loong64
+Release architectures build in parallel matrix jobs on separate Ubuntu 24.04
+x86_64 runners, each using `builder/init_env.sh` for its target. Loong64
 is a target selected through `TARGET_ARCH`, just like amd64/arm64. It requires the
 versioned LLVM 22.1.8 commands (`clang-22`, `clang++-22`, `llc-22`, `ld.lld-22`,
 and the `llvm-{ar,ranlib,nm,strip,objcopy,objdump,readelf}-22` tools),
@@ -82,19 +83,24 @@ the sysroot preflight therefore also requires glibc's `rcrt1.o`.
 The amd64/arm64 BPF compiler remains LLVM 14; Loong64 uses LLVM 22.1.8.
 The shared Go link recipe checks every binary for static PIE, no ELF
 interpreter, and no shared-library `DT_NEEDED` before packaging. The release
-job builds all architectures through `builder/Makefile.release release`,
+matrix builds all architectures through `builder/Makefile.release release`,
 omitting Android for Loong64. Loong64 dependency installation, build and audit
-are one optional step; failure removes its incomplete artifacts before the
-common publish/checksum step. AMD64/ARM64 failures remain fatal.
+are one optional step; failure skips its artifact upload. AMD64/ARM64 failures
+remain fatal, and `fail-fast: false` lets the other builds finish independently.
+Successful jobs upload tar/deb packages under separate `release-<arch>` artifact
+names. A single publish job downloads and merges them, checks the required
+amd64/arm64 packages, and generates the common checksum file. Only that job has
+`contents: write` and Docker Hub credentials; build jobs have `contents: read`.
 PR debug packages use `actions/upload-artifact@v7` with `archive: false`:
 each Linux/Android `.tar.gz` is uploaded separately without an outer ZIP,
 preserving executable permissions inside the tar archive.
 
-Docker images are packaged after publishing in the same release job. The job
-extracts the amd64/arm64 Linux release binaries into a small build context with
-`amd64/ecapture` and `arm64/ecapture`. `builder/Dockerfile` uses BuildKit's
-`TARGETARCH` to copy the matching binary into Alpine; it does not install a
-toolchain, compile, or require QEMU. The image binary and version are identical
+Docker images are packaged after publishing in the publish job, which waits
+for the build matrix to finish. It extracts the amd64/arm64 Linux release
+binaries into a small build context with `amd64/ecapture` and `arm64/ecapture`.
+`builder/Dockerfile` uses BuildKit's `TARGETARCH` to copy the matching binary
+into Alpine; it does not install a toolchain, compile, or require QEMU.
+The image binary and version are identical
 to the Linux release package, without a separate `_docker` version suffix.
 Docker targets remain `linux/amd64` and `linux/arm64`.
 

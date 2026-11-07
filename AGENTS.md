@@ -241,11 +241,14 @@ verification matrix live in `docs/agent/build-test.md`.
   `assets`, `assets_core`, and `assets_noncore` targets for one architecture
   write the same generated asset; do not request them together in one parallel
   make invocation.
-- Linux release builds share an Ubuntu 24.04 x86_64 job. Loong64 joins the
-  same release entry point and PR architecture matrix; only amd64/arm64
-  produce Android artifacts. Loong64 is cross-built with `TARGET_ARCH=loong64`
-  and the repository's LLVM 22.1.8 wrappers. Do not substitute `loong64` for the
-  `loongarch64-linux-gnu` C target or `loongarch` Kbuild architecture.
+- Linux release builds run in parallel architecture-matrix jobs on separate
+  Ubuntu 24.04 x86_64 runners, then upload validated packages for one publish
+  job to generate checksums, publish the release, and package Docker images.
+  Loong64 joins the same release entry point and PR architecture matrix; only
+  amd64/arm64 produce Android artifacts. Loong64 is cross-built with
+  `TARGET_ARCH=loong64` and the repository's LLVM 22.1.8 wrappers. Do not
+  substitute `loong64` for the `loongarch64-linux-gnu` C target or `loongarch`
+  Kbuild architecture.
 - Native Linux/loong64 production builds also support Debian 13+ with Clang/
   LLVM 22.1.8, versioned LLD 22 linking and native multiarch libraries.
   The Clang driver remains Go's external linker entry point.
