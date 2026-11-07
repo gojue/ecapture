@@ -17,7 +17,8 @@
 #define IPPROTO_ICMPV6 58
 #endif
 
-#define TC_PACKET_MIN_SIZE 40
+#define TC_PACKET_MIN_SIZE 48
+#define PROCESS_ARGS_MAX 256
 #define SOCKET_ALLOW 1
 #define READ_KERN(ptr)                                     \
     ({                                                     \
@@ -31,10 +32,12 @@ struct skb_data_event_t {
     uint64_t ts;
     u32 pid;
     char comm[TASK_COMM_LEN];
-//    u8 cmdline[PATH_MAX_LEN];
     u32 len;
     u32 ifindex;
     u32 process_endpoint;  // 1: packet source, 2: packet destination; 0: unknown
+    u32 args_len;
+    u32 args_truncated;
+    char args[PROCESS_ARGS_MAX];
 };
 
 struct net_id_t {
@@ -52,7 +55,9 @@ struct net_ctx_t {
     u32 uid;
     u64 cgroup_id;
     char comm[TASK_COMM_LEN];
-//    u8 cmdline[PATH_MAX_LEN];
+    u32 args_len;
+    u32 args_truncated;
+    char args[PROCESS_ARGS_MAX];
 };
 
 ////////////////////// ebpf maps //////////////////////
@@ -80,15 +85,21 @@ struct {
 
 ////////////////////// General helper functions //////////////////////
 
-static __always_inline void get_proc_cmdline(struct task_struct *task, char *cmdline, int size)
-{
+static __always_inline void get_proc_cmdline(struct net_ctx_t *net_ctx) {
+    if (filter_rejects(net_ctx->pid, net_ctx->uid)) return;
+    struct task_struct *task = (void *)bpf_get_current_task();
     struct mm_struct *mm = READ_KERN(task->mm);
-    long unsigned int args_start = READ_KERN(mm->arg_start);
-    long unsigned int args_end = READ_KERN(mm->arg_end);
-    int len = (args_end - args_start);
-    if (len >= size)
-        len = size - 1;
-    bpf_probe_read(cmdline, len & (size - 1), (const void *)args_start);
+    if (!mm) return;
+    unsigned long start = READ_KERN(mm->arg_start);
+    unsigned long end = READ_KERN(mm->arg_end);
+    if (!start || end <= start) return;
+    u32 len = end - start > PROCESS_ARGS_MAX ? PROCESS_ARGS_MAX : end - start;
+    // bpf_probe_read accepts user addresses on supported kernels before 5.5.
+    // Unlike *_str, it preserves embedded NULs and empty arguments.
+    if (bpf_probe_read(net_ctx->args, len, (const void *)start) != 0) return;
+    if (READ_KERN(mm->arg_start) != start || READ_KERN(mm->arg_end) != end) return;
+    net_ctx->args_len = len;
+    net_ctx->args_truncated = end - start > PROCESS_ARGS_MAX;
 }
 
 static __always_inline struct skb_data_event_t *make_skb_data_event() {
@@ -256,7 +267,9 @@ static __always_inline int capture_packets(struct __sk_buff *skb, bool is_ingres
 
 emit_packet:;
     // new packet event
-    struct skb_data_event_t event = {0};
+    struct skb_data_event_t *event = make_skb_data_event();
+    if (!event) return TC_ACT_OK;
+    __builtin_memset(event, 0, sizeof(*event));
 
     if (net_ctx != NULL) {
         // pid/uid filter (safe to call from TC context)
@@ -271,15 +284,21 @@ emit_packet:;
             return TC_ACT_OK;
         }
 
-        event.process_endpoint = process_endpoint;
-        event.pid = net_ctx->pid;
-        __builtin_memcpy(event.comm, net_ctx->comm, TASK_COMM_LEN);
-        debug_bpf_printk("capture packet process found, pid: %d, comm :%s\n", event.pid, event.comm);
+        event->process_endpoint = process_endpoint;
+        event->pid = net_ctx->pid;
+        __builtin_memcpy(event->comm, net_ctx->comm, TASK_COMM_LEN);
+        // Omit optional argv on large SKBs to leave room in the perf sample.
+        if (net_ctx->args_len <= PROCESS_ARGS_MAX && skb->len <= 65000) {
+            event->args_len = net_ctx->args_len;
+            event->args_truncated = net_ctx->args_truncated;
+            __builtin_memcpy(event->args, net_ctx->args, PROCESS_ARGS_MAX);
+        }
+        debug_bpf_printk("capture packet process found, pid: %d, comm :%s\n", event->pid, event->comm);
     }
 
-    event.ts = bpf_ktime_get_ns();
-    event.len = skb->len;
-    event.ifindex = skb->ifindex;
+    event->ts = bpf_ktime_get_ns();
+    event->len = skb->len;
+    event->ifindex = skb->ifindex;
 
     u64 flags = BPF_F_CURRENT_CPU;
     flags |= (u64)skb->len << 32;
@@ -292,8 +311,13 @@ emit_packet:;
     //     packet len (u32)     4 bytes
     //     ifindex (u32)        4 bytes
     //     process endpoint    4 bytes
-    size_t pkt_size = TC_PACKET_MIN_SIZE;
-    bpf_perf_event_output(skb, &skb_events, flags, &event, pkt_size);
+    //     argv byte length    4 bytes
+    //     argv truncated      4 bytes, then argv bytes (maximum 256)
+    u32 args_len = event->args_len;
+    if (args_len > PROCESS_ARGS_MAX) args_len = 0;
+    event->args_len = args_len;
+    size_t pkt_size = TC_PACKET_MIN_SIZE + args_len;
+    bpf_perf_event_output(skb, &skb_events, flags, event, pkt_size);
 
     //    debug_bpf_printk("new packet captured on egress/ingress (TC),
     //    length:%d\n", data_len);
@@ -361,6 +385,7 @@ static __always_inline int trace_sendmsg(struct pt_regs *ctx, u32 protocol) {
     net_ctx.uid = uid;
     net_ctx.cgroup_id = bpf_get_current_cgroup_id();
     bpf_get_current_comm(&net_ctx.comm, sizeof(net_ctx.comm));
+    if (protocol == IPPROTO_TCP) get_proc_cmdline(&net_ctx);
 
     debug_bpf_printk("trace_sendmsg pid: %d, comm: %s\n", net_ctx.pid, net_ctx.comm);
     bpf_map_update_elem(&network_map, &conn_id, &net_ctx, BPF_ANY);
@@ -384,6 +409,7 @@ static __always_inline int record_udp_flow(struct net_id_t *id) {
     value.uid = bpf_get_current_uid_gid();
     value.cgroup_id = bpf_get_current_cgroup_id();
     bpf_get_current_comm(value.comm, sizeof(value.comm));
+    get_proc_cmdline(&value);
     bpf_map_update_elem(&network_map, id, &value, BPF_ANY);
     return 0;
 }

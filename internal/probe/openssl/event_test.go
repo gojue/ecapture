@@ -363,41 +363,75 @@ func Test_commToString(t *testing.T) {
 }
 
 func TestPacketProcessABIAndClone(t *testing.T) {
-	sample := make([]byte, 40+64+7) // perf alignment padding is not packet data
+	args := []byte("tool\x00two words\x00\x00")
+	offset := 48 + len(args)
+	sample := make([]byte, offset+64+7) // perf padding is not argv or packet data
 	binary.LittleEndian.PutUint64(sample, 123)
 	binary.LittleEndian.PutUint32(sample[8:], 4242)
 	copy(sample[12:28], "pid-client")
 	binary.LittleEndian.PutUint32(sample[28:], 64)
 	binary.LittleEndian.PutUint32(sample[32:], 2)
 	binary.LittleEndian.PutUint32(sample[36:], 1)
-	sample[40] = 0x7f
+	binary.LittleEndian.PutUint32(sample[40:], uint32(len(args)))
+	copy(sample[48:], args)
+	sample[offset] = 0x7f
 	var event PacketEvent
 	if err := event.DecodeFromBytes(sample); err != nil {
 		t.Fatal(err)
 	}
 	clone := event.Clone().(*PacketEvent)
-	sample[40] = 0
+	sample[offset] = 0
 	event.PacketData[0] = 0
-	if clone.GetPid() != 4242 || clone.GetComm() != "pid-client" || clone.GetProcessEndpoint() != 1 || len(clone.PacketData) != 64 || clone.PacketData[0] != 0x7f {
-		t.Fatal("lost process ABI fields or aliased packet bytes")
+	event.ProcessArgs[0] = '!'
+	if clone.GetPid() != 4242 || clone.GetComm() != "pid-client" || clone.GetProcessEndpoint() != 1 || len(clone.PacketData) != 64 || clone.PacketData[0] != 0x7f || string(clone.GetProcessArgs()) != string(args) || clone.GetProcessArgsTruncated() {
+		t.Fatal("lost process fields or aliased bytes")
 	}
-	for _, size := range []int{0, 35, 39, 40, 103} {
+	for _, size := range []int{0, 39, 47, 48, offset + 63} {
 		if err := (&PacketEvent{}).DecodeFromBytes(sample[:size]); err == nil {
 			t.Fatalf("accepted short sample %d", size)
 		}
 	}
-	// Unknown ownership keeps the same prefix and must clear a reused decoder.
 	clear(sample[8:28])
 	binary.LittleEndian.PutUint32(sample[36:], 0)
-	sample[40] = 0x7f
+	sample[offset] = 0x7f
 	if err := event.DecodeFromBytes(sample); err != nil {
 		t.Fatal(err)
 	}
-	if event.GetPid() != 0 || event.GetComm() != "" || event.GetProcessEndpoint() != 0 || len(event.PacketData) != 64 || event.PacketData[0] != 0x7f {
-		t.Fatal("unknown process prefix retained stale metadata or shifted packet bytes")
+	if event.GetPid() != 0 || event.GetComm() != "" || event.GetProcessArgs() != nil || event.GetProcessArgsTruncated() || event.PacketData[0] != 0x7f {
+		t.Fatal("unknown process retained stale metadata")
 	}
 	binary.LittleEndian.PutUint32(sample[28:], ^uint32(0))
-	if err := (&PacketEvent{}).DecodeFromBytes(sample); err == nil {
-		t.Fatal("accepted oversized payload")
+	if err := event.DecodeFromBytes(sample); err == nil {
+		t.Fatal("accepted oversized packet")
+	}
+	for _, truncated := range []uint32{0, 1} {
+		sample = make([]byte, 48+256+1+7)
+		binary.LittleEndian.PutUint32(sample[8:], 4242)
+		binary.LittleEndian.PutUint32(sample[28:], 1)
+		binary.LittleEndian.PutUint32(sample[36:], 1)
+		binary.LittleEndian.PutUint32(sample[40:], 256)
+		binary.LittleEndian.PutUint32(sample[44:], truncated)
+		for i := 48; i < 304; i++ {
+			sample[i] = 'x'
+		}
+		if truncated == 0 {
+			sample[303] = 0
+		}
+		sample[304] = 0x7f
+		if err := event.DecodeFromBytes(sample); err != nil {
+			t.Fatal(err)
+		}
+		if len(event.ProcessArgs) != 256 || event.GetProcessArgsTruncated() != (truncated != 0) || event.PacketData[0] != 0x7f {
+			t.Fatal("argv limit shifted payload or lost truncation")
+		}
+		binary.LittleEndian.PutUint32(sample[40:], 257)
+		if err := event.DecodeFromBytes(sample); err == nil {
+			t.Fatal("accepted oversized argv")
+		}
+		binary.LittleEndian.PutUint32(sample[40:], 256)
+		binary.LittleEndian.PutUint32(sample[44:], 2)
+		if err := event.DecodeFromBytes(sample); err == nil {
+			t.Fatal("accepted unknown argv flag")
+		}
 	}
 }

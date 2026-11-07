@@ -17,10 +17,12 @@ package pcapng
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"testing"
 	"time"
 
@@ -31,6 +33,62 @@ import (
 	lger "github.com/gojue/ecapture/v2/internal/logger"
 	"github.com/gojue/ecapture/v2/internal/output/writers"
 )
+
+func TestSessionProcessArgsOptionsKeepPacketBytes(t *testing.T) {
+	for _, rawArgs := range [][]byte{[]byte("tool\x00two words\x00\x00参数\x00\xff\x00"), append(bytes.Repeat([]byte{'x'}, 255), 0), bytes.Repeat([]byte{'x'}, 256)} {
+		var output bytes.Buffer
+		writer, err := pcapgo.NewNgWriter(&output, layers.LinkTypeEthernet)
+		if err != nil {
+			t.Fatal(err)
+		}
+		s := &Session{encoder: writer, sink: writers.NewIOWriterAdapter(&output, "memory"), queueReady: make(chan struct{}, 1)}
+		packet, timestamp := make([]byte, 60), time.Unix(100, 12345)
+		args := bytes.Clone(rawArgs)
+		truncated := rawArgs[len(rawArgs)-1] != 0
+		if err := s.WritePacketWithProcess(packet, timestamp, 42, "tool", 1, args, truncated); err != nil {
+			t.Fatal(err)
+		}
+		args[0] = '!'
+		s.tcPackets, _ = s.takePendingData()
+		if _, err := s.savePcapng(); err != nil {
+			t.Fatal(err)
+		}
+		reader, err := pcapgo.NewNgReader(bytes.NewReader(output.Bytes()), pcapgo.DefaultNgReaderOptions)
+		if err != nil {
+			t.Fatal(err)
+		}
+		data, ci, err := reader.ReadPacketData()
+		if err != nil {
+			t.Fatal(err)
+		}
+		// The released reader ignores comment options, retaining all existing bytes.
+		if !bytes.Equal(data[:60], packet) || !bytes.Equal(data[60:], []byte{0xcc, 0x0c, 0x4c, 0xfc, 0, 0, 0, 42, 4, 't', 'o', 'o', 'l', 1, 1, 0, 0, 0, 0}) || ci.CaptureLength != len(data) || ci.Length != len(data) || !ci.Timestamp.Equal(timestamp) {
+			t.Fatal("argv changed packet bytes, lengths or timestamp")
+		}
+		var encoded strings.Builder
+		for blocks := output.Bytes(); len(blocks) > 0; {
+			n := int(binary.LittleEndian.Uint32(blocks[4:]))
+			if binary.LittleEndian.Uint32(blocks) == 6 {
+				options := blocks[28+(len(data)+3)&^3 : n-4]
+				for binary.LittleEndian.Uint16(options) != 0 {
+					l := int(binary.LittleEndian.Uint16(options[2:]))
+					var flag int
+					var payload string
+					if _, err := fmt.Sscanf(string(options[4:4+l]), "eCapture argv v1 %d %s", &flag, &payload); err != nil || (flag == 1) != truncated {
+						t.Fatal("invalid argv comment")
+					}
+					encoded.WriteString(payload)
+					options = options[4+(l+3)&^3:]
+				}
+			}
+			blocks = blocks[n:]
+		}
+		decoded, err := base64.StdEncoding.DecodeString(encoded.String())
+		if err != nil || !bytes.Equal(decoded, rawArgs) {
+			t.Fatal("argv truncated or aliased")
+		}
+	}
+}
 
 func TestSessionQueuesBurstWithoutDrop(t *testing.T) {
 	t.Parallel()

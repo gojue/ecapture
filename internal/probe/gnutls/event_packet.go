@@ -23,10 +23,10 @@ import (
 	"github.com/gojue/ecapture/v2/internal/errors"
 )
 
-const packetEventHeaderSize = 8 + 4 + TaskCommLen + 4 + 4 + 4
+const packetEventHeaderSize = 8 + 4 + TaskCommLen + 4 + 4 + 4 + 4 + 4
 
 // PacketEvent mirrors the variable-length skb_data_event_t sample emitted by
-// kern/tc.h: a fixed 40-byte header followed by the captured packet bytes.
+// kern/tc.h: a 48-byte header, up to 256 argv bytes, then the captured packet bytes.
 type PacketEvent struct {
 	Timestamp       uint64
 	Pid             uint32
@@ -34,20 +34,37 @@ type PacketEvent struct {
 	PacketLen       uint32
 	InterfaceIndex  uint32
 	ProcessEndpoint uint32
+	ArgsLen         uint32
+	ArgsTruncated   uint32
+	ProcessArgs     []byte
 	PacketData      []byte
 }
 
 func (e *PacketEvent) DecodeFromBytes(data []byte) error {
+	e.ProcessArgs = nil
 	if len(data) < packetEventHeaderSize {
 		return errors.New(errors.ErrCodeEventDecode,
 			fmt.Sprintf("packet event too short: got %d, need at least %d", len(data), packetEventHeaderSize))
 	}
 
 	buf := bytes.NewReader(data)
-	fields := []any{&e.Timestamp, &e.Pid, &e.Comm, &e.PacketLen, &e.InterfaceIndex, &e.ProcessEndpoint}
+	fields := []any{&e.Timestamp, &e.Pid, &e.Comm, &e.PacketLen, &e.InterfaceIndex, &e.ProcessEndpoint, &e.ArgsLen, &e.ArgsTruncated}
 	for _, field := range fields {
 		if err := binary.Read(buf, binary.LittleEndian, field); err != nil {
 			return errors.NewEventDecodeError("gnutls.PacketEvent", err)
+		}
+	}
+	if e.ArgsLen > 256 || e.ArgsTruncated > 1 || (e.ArgsTruncated == 1 && e.ArgsLen != 256) || uint64(e.ArgsLen)+uint64(e.PacketLen) > uint64(buf.Len()) {
+		return errors.New(errors.ErrCodeEventDecode, "invalid packet argv length or flags")
+	}
+	if e.ArgsLen > 0 {
+		e.ProcessArgs = make([]byte, e.ArgsLen)
+		if err := binary.Read(buf, binary.LittleEndian, e.ProcessArgs); err != nil {
+			return err
+		}
+		if e.Pid == 0 || e.ProcessEndpoint < 1 || e.ProcessEndpoint > 2 || (e.ArgsTruncated == 0 && e.ProcessArgs[len(e.ProcessArgs)-1] != 0) {
+			e.ProcessArgs = nil
+			e.ArgsTruncated = 0
 		}
 	}
 	if uint64(e.PacketLen) > uint64(buf.Len()) {
@@ -84,6 +101,7 @@ func (e *PacketEvent) StringHex() string {
 
 func (e *PacketEvent) Clone() domain.Event {
 	clone := *e
+	clone.ProcessArgs = append([]byte(nil), e.ProcessArgs...)
 	clone.PacketData = append([]byte(nil), e.PacketData...)
 	return &clone
 }
@@ -132,3 +150,7 @@ func (e *PacketEvent) GetDstPort() uint16 {
 func (e *PacketEvent) GetProcessEndpoint() uint32 { return e.ProcessEndpoint }
 func (e *PacketEvent) GetPid() uint32             { return e.Pid }
 func (e *PacketEvent) GetComm() string            { return string(bytes.TrimRight(e.Comm[:], "\x00")) }
+
+func (e *PacketEvent) GetProcessArgs() []byte { return e.ProcessArgs }
+
+func (e *PacketEvent) GetProcessArgsTruncated() bool { return e.ArgsTruncated != 0 }
