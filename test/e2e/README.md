@@ -15,6 +15,10 @@ entry points:
   tshark using its embedded DSB. They also check current HTTP event timestamps.
   OpenSSL also
   checks the sensitive reconstructed event on eCaptureQ.
+- OpenSSL verifies live HTTP across bidirectional TLS 1.3 KeyUpdate with
+  AES-128-GCM, AES-256-GCM and ChaCha20-Poly1305, plus DTLS 1.2 ECDHE-RSA
+  AES-128/256-GCM with exact binary records, direction, epoch and sequence.
+  These peers do not write keylogs; the pcapng DSB comes from eCapture.
 - Every Linux TLS module exercises text, keylog, and pcapng over stdout, file,
   local TCP, and binary WebSocket ByteSinks. Each representation is also
   observed by a strict typed eCaptureQ receiver.
@@ -46,6 +50,20 @@ entry points:
   misidentify loopback connections, lack QUIC v2, or omit responses from
   stream-follow output. Ubuntu 22.04/24.04 CI installs tshark from the
   [Wireshark stable PPA](https://launchpad.net/~wireshark-dev/+archive/ubuntu/stable).
+- GoTLS additionally verifies DoT, DoH over HTTP/1.1/2/3, DoQ v1/v2, MQTT
+  3.1.1, Redis RESP3 pipelines/push, SMTP STARTTLS and plain/HTTPS CONNECT with deterministic
+  loopback peers. Exact directional bytes and protocol metadata must arrive
+  before capture shutdown; all keys come from the GoTLS probe.
+  QUIC v1/v2 DATAGRAM tests retain empty and repeated binary messages without
+  inventing stream offsets. WSS covers negotiated permessage-deflate, text/binary
+  fragmentation and interleaved ping/pong/close. SSE over HTTP/1.1/2/3, optional gzip expansion,
+  and HTTP/2 gRPC empty/gzip messages must arrive while the response remains
+  open; the harness then releases the peer and verifies trailers/completion.
+  These are live integration checks, not the SDK's full cipher, ECH, dynamic
+  QPACK, migration, Retry, 0-RTT, or key-update state matrix.
+  DoQ/DATAGRAM peers use eight-byte client CIDs, verified on the wire.
+  v1.4.0 still misroutes some zero-client-CID loopback captures with
+  `ambiguous_connection_id`; this baseline does not establish zero-CID support.
 - A separate strict common-config suite verifies file `--eventaddr` and
   operational-log isolation for Bash, Zsh, and the MySQL probe using local
   deterministic fixtures.
@@ -136,7 +154,7 @@ Install the test dependencies on Ubuntu or Debian:
 ```bash
 sudo apt-get update
 sudo apt-get install --yes \
-  build-essential pkg-config libssl-dev libgnutls28-dev tshark
+  build-essential pkg-config libssl-dev libgnutls28-dev tshark python3
 ```
 
 Build eCapture on Linux, then run all three modules:

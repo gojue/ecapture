@@ -17,6 +17,7 @@ package gnutls
 import (
 	"testing"
 
+	"github.com/gojue/ecapture/v2/internal/config"
 	"github.com/gojue/ecapture/v2/internal/domain"
 	"github.com/gojue/ecapture/v2/internal/probe/base/handlers"
 )
@@ -303,5 +304,44 @@ func TestConfig_ValidateCaptureMode_Pcap(t *testing.T) {
 	missingPcapDestination.Ifname = "lo"
 	if err = missingPcapDestination.validateCaptureMode(); err == nil {
 		t.Error("pcap mode without eventaddr or pcapfile should fail")
+	}
+}
+
+func TestConfigDecryptOptions(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		options config.DecryptConfig
+		wantErr bool
+	}{
+		{"DNS", config.DecryptConfig{TextProtocol: "dot"}, false},
+		{"HTTP events with gzip", config.DecryptConfig{TextHTTPEvents: true, TextMaxDecodedBody: 1024}, false},
+		{"STARTTLS raw", config.DecryptConfig{TextTLSUpgrade: "smtp", TextRaw: true}, false},
+		{"DTLS", config.DecryptConfig{TextUDPProtocol: "dtls"}, false},
+		{"unknown parser", config.DecryptConfig{TextProtocol: "unknown"}, true},
+		{"raw HTTP events conflict", config.DecryptConfig{TextRaw: true, TextHTTPEvents: true}, true},
+		{"raw parser conflict", config.DecryptConfig{TextRaw: true, TextProtocol: "redis"}, true},
+		{"gzip requires events", config.DecryptConfig{TextMaxDecodedBody: 1024}, true},
+		{"negative gzip limit", config.DecryptConfig{TextHTTPEvents: true, TextMaxDecodedBody: -1}, true},
+		{"DTLS parser conflict", config.DecryptConfig{TextUDPProtocol: "dtls", TextProtocol: "doq"}, true},
+		{"QUIC upgrade conflict", config.DecryptConfig{TextProtocol: "doq", TextTLSUpgrade: "smtp"}, true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			cfg := NewConfig()
+			cfg.CaptureMode, cfg.TextSource, cfg.Ifname = "text", "pcapng", "lo"
+			cfg.DecryptConfig = test.options
+			for attempt := 0; attempt < 2; attempt++ {
+				err := cfg.validateCaptureMode()
+				if (err != nil) != test.wantErr {
+					t.Fatalf("validation %d error = %v, wantErr %v", attempt, err, test.wantErr)
+				}
+				if cfg.DecryptConfig != test.options {
+					t.Fatal("validation changed decryption options")
+				}
+			}
+			cfg.TextSource = "hook"
+			if err := cfg.validateCaptureMode(); err == nil {
+				t.Fatal("decryption options accepted without pcapng text source")
+			}
+		})
 	}
 }

@@ -167,18 +167,43 @@ sudo ecapture gotls -m text --text-source=pcapng --elfpath /path/to/go-client -i
 sudo ecapture gnutls -m text --text-source=pcapng --gnutls /path/to/libgnutls.so -i eth0 'tcp port 443'
 ```
 
-DSB 密钥块即使晚于握手和数据包写入，也会被 SDK 用于回放解密。基础 HTTP/3 over
-QUIC v1 已有 GoTLS 测试用例；实际支持取决于对应 TLS 后端能否提供所需密钥。
-添加 `--text-raw` 可输出经过认证的 TLS 明文字节或 QUIC STREAM 分块，跳过应用解析。
-每块使用无损 hex，包含方向、offset 和结束标记；分块不等同于应用消息。
-暂不包含 QUIC DATAGRAM 和自动 ALPN 分发。无明文/密钥内容的解密诊断单独写入运营日志。
-HTTP reload 可传 `text_raw`；与其他模块字段一样，省略时采用默认 `false`。
+DSB 密钥块即使晚于握手和数据包写入，也会被 SDK 用于回放解密。HTTP/3 over
+QUIC v1/v2 已有 GoTLS 测试用例；实际支持取决于对应 TLS 后端能否提供所需密钥。
+以下选项均要求 text 模式和 pcapng 数据源：
+
+| 参数 | 输出或选择范围 |
+| --- | --- |
+| `--text-raw` | 经认证的 TLS/QUIC STREAM 字节及 QUIC DATAGRAM 消息 |
+| `--text-http-events` | 增量 HTTP/1.x、HTTP/2、HTTP/3、SSE 和 HTTP/2 gRPC 事件 |
+| `--text-max-decoded-body N` | 每条消息的 gzip 解压字节上限，须启用 HTTP events；默认零保留原编码 |
+| `--text-protocol dot\|doh\|doq\|mqtt\|redis` | 显式选择应用解析；MQTT 3.1.1、定长 RESP2/RESP3 |
+| `--text-tls-upgrade smtp\|imap\|pop3\|ldap\|postgres\|mysql\|connect\|https-connect` | 一次显式 STARTTLS/SSLRequest/CONNECT 协商；HTTPS CONNECT 支持一层内层 TLS |
+| `--text-udp-protocol dtls` | DTLS 1.2 ECDHE-RSA AES-128/256-GCM 记录；UDP 默认仍为 QUIC |
+
+结构化事件使用无损 hex 和 `metadata` JSON，保留头部、trailers、消息/流 ID、
+early-data 状态和 TLS 层级，空载荷事件也会输出。流分块含 offset/结束标记；
+DATAGRAM 保留消息边界，不附加不存在的流 offset。应用协议需显式选择，不自动按 ALPN 分发。
+raw、HTTP events、显式应用解析三种模式互斥。HTTP reload 使用对应下划线 JSON 字段，
+省略时恢复模块字段的零值默认值。邮件/数据库升级只处理 TLS 协商，无对应应用解析器时
+使用 `--text-raw` 获取明文字节；gRPC 事件保留无 schema 的 Protobuf 字节。
+诊断单独写入运营日志，不含明文或密钥。
+ECH 需要当前探针尚未采集的 `ECH_SECRET`/`ECH_CONFIG`，仅升级类库不能实现实时 ECH 解密。
+DTLS/DATAGRAM 支持也不等于 WebRTC、WebTransport 或 MASQUE 应用解析。
+v1.4.0 对部分客户端零长度 CID 的 QUIC 回环抓包仍有连接路由失败；
+维护的 DoQ/DATAGRAM 基线使用 8 字节客户端 CID。
 
 若要独立验证明文确实来自 pcapng，在采集命令中加入 `--pcapfile /tmp/raw.pcapng`，
-并发送带唯一请求路径或响应标记的请求。停止 eCapture 后执行
-`tshark -n -r /tmp/raw.pcapng -o tls.keylog_file: -q -z follow,tls,ascii,0`，
-将独立解密出的请求和响应与事件文本对比。空的外部 keylog 设置确保 tshark
-使用 pcapng 内嵌的 DSB。可选文件与实时 SDK 输入接收的是同一份 pcapng 字节流。
+并发送带唯一请求路径或响应标记的请求。停止 eCapture 后，使用 Wireshark >= 4.4
+仅预加载该抓包自身的 DSB，以处理晚到密钥，再对比 TLS stream 0：
+
+```shell
+keys=$(mktemp)
+editcap --extract-secrets /tmp/raw.pcapng - >"$keys"
+tshark -n -r /tmp/raw.pcapng -o "tls.keylog_file:$keys" -q -z follow,tls,ascii,0
+rm -f -- "$keys"
+```
+
+可选文件与实时 SDK 输入接收的是同一份 pcapng 字节流。
 
 `--logaddr` 只承载 eCapture 自身的运行日志。控制台运行日志输出到 stderr，而
 事件 stdout 只包含捕获数据。eCaptureQ 是附加的 typed publisher，不会取代
