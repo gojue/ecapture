@@ -140,6 +140,15 @@ class CleanupTest(unittest.TestCase):
         e2e = self.base / 'privileged-e2e'
         (e2e / 'job-state').mkdir(parents=True)
         (e2e / 'job-state/cache').touch()
+        artifacts = e2e / 'job-state/artifacts/tls'
+        artifacts.mkdir(parents=True)
+        (artifacts / 'capture.pcapng').write_bytes(b'test capture')
+        (artifacts / 'keys.log').write_text('test keylog')
+        preserved = self.base / 'manual-evidence'
+        preserved.mkdir()
+        (preserved / 'keep').write_text('keep')
+        (artifacts / 'outside').symlink_to(preserved, target_is_directory=True)
+        artifacts.chmod(0o500)
         (e2e / 'owns-loopback-clsact').touch()
         tracked = self.spawn_process('ecapture-root-e2e')
         unrelated = self.spawn_process('unrelated-' + str(os.getpid()))
@@ -150,6 +159,7 @@ class CleanupTest(unittest.TestCase):
         self.assertEqual(tracked.wait(timeout=5), -9)
         self.assertIsNone(unrelated.poll())
         self.assertEqual(list((e2e / 'job-state').iterdir()), [])
+        self.assertEqual((preserved / 'keep').read_text(), 'keep')
         self.assertFalse((e2e / 'owns-loopback-clsact').exists())
         tc.assert_called_once()
 

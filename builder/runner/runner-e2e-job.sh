@@ -33,8 +33,9 @@ if any(q["kind"] in ("clsact", "ingress") for q in json.load(sys.stdin)):
     sys.exit("Loopback already has a TC ingress/clsact qdisc; refusing to replace it")
 '
 touch "$base/owns-loopback-clsact"
-mkdir -p "$job/home" "$job/tmp" "$job/cache" "$job/go"
-artifacts="$(mktemp -d /var/log/ecapture-e2e/run.XXXXXXXX)"
+# Keep raw captures inside the state cleared by every E2E cleanup path.
+artifacts="$job/artifacts"
+mkdir -p "$job/home" "$job/tmp" "$job/cache" "$job/go" "$artifacts"
 cd /var/lib/ecapture-runner/_work/ecapture/ecapture
 # Only trusted repository refs enter this dedicated runner. Execute the checked
 # out revision as hosted jobs do; do not forward tokens or caller settings.
