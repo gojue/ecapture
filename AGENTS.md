@@ -24,13 +24,16 @@ entry points, not separate sources of project truth.
 
 ## Product priorities
 
-- TLS capture is the project's core focus. Give the TLS, GoTLS, and GnuTLS
-  modules high priority, including support for OpenSSL, BoringSSL, Go TLS, and
-  GnuTLS. Protect their correctness, compatibility, and end-to-end behavior
-  when planning changes, reviews, and verification.
-- Bash, Zsh, MySQL, and other non-core modules have lower priority. Maintain
-  them, but prioritize core TLS functionality when work or coverage must be
-  allocated.
+- Core modules: TLS, GoTLS, and GnuTLS for HTTPS/TLS plaintext capture,
+  including OpenSSL, BoringSSL, Go TLS, and GnuTLS support.
+- Core text-mode development, integrations (including eCaptureQ/Web UI),
+  examples, and primary acceptance must use `--model text --text-source pcapng`
+  and the SDK's decoded output.
+- Gradually deprecate `--model text --text-source hook`; retain compatibility
+  during migration. Hook is still the CLI default today. TLS secret capture
+  hooks are outside this deprecation scope.
+- Non-core modules: Mysqld, Bash, Zsh, and other auxiliary probes. Maintain
+  them, but prioritize core TLS functionality and coverage.
 - In user-facing material such as a promotional article, devote roughly 80%
   of the attention to the core TLS modules and 20% to non-core modules. This
   is an emphasis guideline, not a fixed quota for code or tests.
