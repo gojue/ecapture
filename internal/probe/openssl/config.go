@@ -42,12 +42,12 @@ const (
 // Config extends BaseConfig with OpenSSL-specific configuration.
 type Config struct {
 	*config.BaseConfig
+	config.DecryptConfig
 	OpensslPath string `json:"opensslpath"` // Path to libssl.so
 
 	// Capture mode configuration
 	CaptureMode string `json:"capturemode"` // "text", "keylog", or "pcap"
 	TextSource  string `json:"text_source"` // "hook" (default) or "pcapng"
-	TextRaw     bool   `json:"text_raw"`    // Emit decrypted byte chunks for the pcapng text source
 	KeylogFile  string `json:"keylogfile"`  // Path to keylog file (for keylog mode)
 
 	// Pcap mode configuration
@@ -148,8 +148,8 @@ func (c *Config) validateCaptureMode() error {
 	if err != nil {
 		return err
 	}
-	if c.TextRaw && c.TextSource != handlers.TextSourcePcapng {
-		return fmt.Errorf("text-raw requires text capture mode with text-source=pcapng")
+	if err := c.ValidateDecryptOptions(c.TextSource == handlers.TextSourcePcapng); err != nil {
+		return err
 	}
 
 	switch mode {

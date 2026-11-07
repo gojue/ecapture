@@ -17,9 +17,11 @@ package decrypt
 import (
 	"bytes"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"io"
 	"net"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -59,7 +61,11 @@ func TestFormatMessageRaw(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			packet := formatTestPacket(test.protocol, test.direction, test.data)
 			packet.Metadata = test.metadata
-			lines := strings.Split(string(formatMessage(packet)), "\n")
+			output, err := formatMessage(packet)
+			if err != nil {
+				t.Fatal(err)
+			}
+			lines := strings.Split(string(output), "\n")
 			if len(lines) != 4 || lines[2] != "" || lines[3] != "" {
 				t.Fatalf("raw output framing = %q", lines)
 			}
@@ -117,10 +123,69 @@ func TestFormatMessageHTTP(t *testing.T) {
 				want += "\n"
 			}
 			want += "\n"
-			if got := string(formatMessage(packet)); got != want {
+			output, err := formatMessage(packet)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := string(output); got != want {
 				t.Fatalf("HTTP output = %q, want %q", got, want)
 			}
 		})
+	}
+}
+
+func TestFormatMessageStructuredMetadata(t *testing.T) {
+	for _, test := range []struct {
+		name     string
+		metadata map[string]any
+	}{
+		{"headers", map[string]any{"kind": "headers", "headers": map[string][]string{"content-type": {"text/event-stream"}}, "request_id": uint64(1)}},
+		{"trailers", map[string]any{"kind": "trailers", "trailers": map[string][]string{"grpc-status": {"0"}}}},
+		{"empty_datagram", map[string]any{"kind": "datagram", "encryption_level": "0rtt", "early_data": "rejected"}},
+		{"dtls_record", map[string]any{"kind": "datagram", "epoch": uint16(1), "sequence": uint64(281474976710655)}},
+		{"inner_tls", map[string]any{"tls_depth": 1, "parent_tls_depth": 0, "upgrade_protocol": "https-connect"}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			packet := formatTestPacket("quic", "response", nil)
+			packet.Metadata = test.metadata
+			output, err := formatMessage(packet)
+			if err != nil {
+				t.Fatal(err)
+			}
+			header, payload, _ := strings.Cut(string(output), "\n")
+			if payload != "\n\n" || !strings.Contains(header, "length=0 encoding=hex") {
+				t.Fatalf("empty event was lost: %q", output)
+			}
+			if strings.Contains(header, " offset=") || strings.Contains(header, " end=") || strings.Contains(header, " stream=") {
+				t.Fatalf("invented stream metadata: %s", header)
+			}
+			_, metadata, ok := strings.Cut(header, " metadata=")
+			if !ok || !json.Valid([]byte(metadata)) {
+				t.Fatalf("missing JSON metadata: %s", header)
+			}
+			want, err := json.Marshal(test.metadata)
+			if err != nil || metadata != string(want) {
+				t.Fatalf("metadata changed: got %s, want %s, err %v", metadata, want, err)
+			}
+		})
+	}
+}
+
+func TestSinkInvalidOptionsLeaveFilesUntouched(t *testing.T) {
+	events, pcap := filepath.Join(t.TempDir(), "events.log"), filepath.Join(t.TempDir(), "capture.pcapng")
+	for _, path := range []string{events, pcap} {
+		if err := os.WriteFile(path, []byte("existing"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if sink, err := NewSink(events, pcap, nil, nil, types.DecryptOptions{RawChunks: true, HTTPEvents: true}); err == nil || sink != nil {
+		t.Fatalf("invalid options accepted: %v, %v", sink, err)
+	}
+	for _, path := range []string{events, pcap} {
+		data, err := os.ReadFile(path)
+		if err != nil || string(data) != "existing" {
+			t.Fatalf("invalid options modified destination: %q, %v", data, err)
+		}
 	}
 }
 

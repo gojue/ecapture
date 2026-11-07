@@ -131,6 +131,8 @@ func (e *MasterSecretEvent) String() string {
 		versionStr = "TLS 1.2"
 	case 0x0304:
 		versionStr = "TLS 1.3"
+	case 0xfefd:
+		versionStr = "DTLS 1.2"
 	default:
 		versionStr = fmt.Sprintf("0x%04x", e.Version)
 	}
@@ -169,8 +171,8 @@ func (e *MasterSecretEvent) UUID() string {
 
 // Validate checks if the event data is valid.
 func (e *MasterSecretEvent) Validate() error {
-	// Check version is valid (TLS 1.0 to 1.3)
-	if e.Version < 0x0301 || e.Version > 0x0304 {
+	// DTLS 1.2 uses the same CLIENT_RANDOM/master-secret event as TLS 1.2.
+	if (e.Version < 0x0301 || e.Version > 0x0304) && e.Version != 0xfefd {
 		return errors.New(errors.ErrCodeEventValidation,
 			fmt.Sprintf("invalid TLS version: 0x%04x", e.Version))
 	}

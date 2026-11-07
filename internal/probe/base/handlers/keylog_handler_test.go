@@ -25,6 +25,21 @@ import (
 	"github.com/gojue/ecapture/v2/pkg/util/hkdf"
 )
 
+func TestKeylogHandlerDTLS12(t *testing.T) {
+	writer := newMockKeylogWriter()
+	handler := NewKeylogHandler(writer)
+	event := &mockMasterSecretEvent{
+		version: 0xfefd, clientRandom: bytes.Repeat([]byte{1}, 32), masterKey: bytes.Repeat([]byte{2}, 48),
+	}
+	if err := handler.Handle(event); err != nil {
+		t.Fatal(err)
+	}
+	want := fmt.Sprintf("CLIENT_RANDOM %x %x", event.clientRandom, event.masterKey)
+	if writer.String() != want {
+		t.Fatal("DTLS 1.2 did not emit a CLIENT_RANDOM master secret")
+	}
+}
+
 // mockKeylogWriter wraps bytes.Buffer to implement OutputWriter for testing
 type mockKeylogWriter struct {
 	*bytes.Buffer
