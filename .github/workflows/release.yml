@@ -11,14 +11,20 @@ concurrency:
 permissions:
   contents: read
 
-jobs:
+env:
+  RELEASE_VERSION: ${{ github.ref_name }}
 
-  build-and-publish:
+jobs:
+  build-artifacts:
     runs-on: ubuntu-24.04
-    name: Build and publish release artifacts and Docker images
+    name: Build release artifacts (${{ matrix.arch }})
     timeout-minutes: 120
-    permissions:
-      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [amd64, arm64, loong64]
+    env:
+      TARGET_ARCH: ${{ matrix.arch }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -29,133 +35,124 @@ jobs:
         with:
           go-version: '1.26.0'
 
+      - name: Initialize environment and build release artifacts
+        id: build
+        continue-on-error: ${{ matrix.arch == 'loong64' }}
+        timeout-minutes: ${{ matrix.arch == 'loong64' && 60 || 110 }}
+        env:
+          LOONG64_TOOLCHAIN_TRACE: '1'
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash builder/init_env.sh
+          kernel_source=$(find "$PWD/.build/kernel-$TARGET_ARCH" -mindepth 1 -maxdepth 1 -type d -name 'linux-source*' | sort -V | tail -n 1)
+          test -f "$kernel_source/Makefile"
+          export KERN_HEADERS="$kernel_source"
+          if [[ "$TARGET_ARCH" == loong64 ]]; then
+            test -f "$kernel_source/vmlinux"
+            export LOONG64_VMLINUX="$kernel_source/vmlinux"
+          fi
+          make clean
+          make env
+          make -f builder/Makefile.release release SNAPSHOT_VERSION="$RELEASE_VERSION" \
+            2>&1 | tee "$RUNNER_TEMP/ecapture-build.log"
+          if [[ "$TARGET_ARCH" == loong64 ]]; then
+            builder/verify-loong64-artifact.sh \
+              .build/linux-loong64/bin/ecapture .build/linux-loong64/libpcap/libpcap.a \
+              .build/linux-loong64/libpcap/config.log "$RUNNER_TEMP/ecapture-build.log"
+          else
+            test -s "bin/ecapture-$RELEASE_VERSION-android-$TARGET_ARCH.tar.gz"
+          fi
+          test -s "bin/ecapture-$RELEASE_VERSION-linux-$TARGET_ARCH.tar.gz"
+          test -s "bin/ecapture_${RELEASE_VERSION}_linux_$TARGET_ARCH.deb"
+
+      - name: Report optional Loong64 build failure
+        if: matrix.arch == 'loong64' && steps.build.outcome == 'failure'
+        run: echo "::warning::Loong64 build failed; publishing validated amd64/arm64 artifacts only"
+
+      - name: Upload validated release artifacts
+        if: steps.build.outcome == 'success'
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-${{ matrix.arch }}
+          path: |
+            bin/ecapture-${{ env.RELEASE_VERSION }}-*-${{ matrix.arch }}.tar.gz
+            bin/ecapture_${{ env.RELEASE_VERSION }}_linux_${{ matrix.arch }}.deb
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+  publish:
+    needs: build-artifacts
+    runs-on: ubuntu-24.04
+    name: Publish release artifacts and Docker images
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Download validated release artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: release-*
+          path: bin
+          merge-multiple: true
+
+      - name: Check required release packages
+        run: |
+          for arch in amd64 arm64; do
+            test -s "bin/ecapture-$RELEASE_VERSION-linux-$arch.tar.gz"
+            test -s "bin/ecapture-$RELEASE_VERSION-android-$arch.tar.gz"
+            test -s "bin/ecapture_${RELEASE_VERSION}_linux_$arch.deb"
+          done
+
       - name: Check Release Type
         id: release_type
         run: |
-          TAG_NAME=${{ github.ref_name }}
+          TAG_NAME="$RELEASE_VERSION"
           if [[ "$TAG_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "IS_PRERELEASE=false" >> $GITHUB_OUTPUT
-            echo "RELEASE_TYPE=stable" >> $GITHUB_OUTPUT
+            echo "IS_PRERELEASE=false" >> "$GITHUB_OUTPUT"
             echo "📦 Stable release detected: $TAG_NAME"
           elif [[ "$TAG_NAME" =~ (alpha|beta|rc) ]]; then
-            echo "IS_PRERELEASE=true" >> $GITHUB_OUTPUT
-            echo "RELEASE_TYPE=prerelease" >> $GITHUB_OUTPUT
+            echo "IS_PRERELEASE=true" >> "$GITHUB_OUTPUT"
             echo "🚧 Pre-release detected: $TAG_NAME"
           else
-            echo "IS_PRERELEASE=false" >> $GITHUB_OUTPUT
-            echo "RELEASE_TYPE=stable" >> $GITHUB_OUTPUT
+            echo "IS_PRERELEASE=false" >> "$GITHUB_OUTPUT"
             echo "📦 Release: $TAG_NAME"
           fi
         shell: bash
-      - name: Install Compilers
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes \
-            build-essential \
-            pkgconf \
-            libelf-dev \
-            llvm-14 \
-            clang-14 \
-            bc bison dwarves flex libssl-dev \
-            linux-tools-common \
-            linux-tools-generic \
-            gcc \
-            gcc-aarch64-linux-gnu \
-            linux-source
-          for tool in "clang" "llc" "llvm-strip"
-          do
-            sudo rm -f /usr/bin/$tool
-            sudo ln -s /usr/bin/$tool-14 /usr/bin/$tool
-          done
-          bpftool_bin=$(find /usr/lib -maxdepth 2 -type f -path '/usr/lib/linux-tools-*/bpftool' | sort -V | tail -n 1)
-          test -x "$bpftool_bin"
-          sudo ln -sf "$bpftool_bin" /usr/local/bin/bpftool
-          cd /usr/src
-          source_file=$(find . -maxdepth 1 -name "*linux-source*.tar.bz2")
-          source_dir=$(echo "$source_file" | sed 's/\.tar\.bz2//g')  
-          sudo tar -xf $source_file
-          cd $source_dir
-          test -f .config || sudo make oldconfig
-          sudo make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- prepare V=0
-          ls -al /usr/src/$source_dir
-        shell: bash
-      - name: authenticate
-        run: |
-          gh auth login --with-token <<<'${{ secrets.GITHUB_TOKEN }}'
+
       - name: Get Previous Tag
         id: previoustag
         run: |
           PREVIOUS=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
-          echo "PREVIOUS_TAG=$PREVIOUS" >> $GITHUB_OUTPUT
+          echo "PREVIOUS_TAG=$PREVIOUS" >> "$GITHUB_OUTPUT"
       - name: Generate Release Notes
-        id: release_notes
+        env:
+          GH_REPO: ${{ github.repository }}
+          PREVIOUS_TAG: ${{ steps.previoustag.outputs.PREVIOUS_TAG }}
         run: |
           gh api \
             --method POST \
             -H "Accept: application/vnd.github+json" \
-            /repos/${{ github.repository }}/releases/generate-notes \
-            -f tag_name=${{ github.ref_name }} \
-            -f previous_tag_name=${{ steps.previoustag.outputs.PREVIOUS_TAG }} \
+            "/repos/$GH_REPO/releases/generate-notes" \
+            -f tag_name="$RELEASE_VERSION" \
+            -f previous_tag_name="$PREVIOUS_TAG" \
             > release_notes.json
-          echo "NOTES<<EOF" >> $GITHUB_OUTPUT
-          jq -r .body release_notes.json >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-      - name: Write File
-        uses: DamianReeves/write-file-action@v1.2
-        with:
-          path: ./bin/release_notes.txt
-          contents: |
-            ${{ steps.release_notes.outputs.NOTES }}
-          write-mode: append
-      - name: Release amd64
-        run: |
-          make clean
-          make env
-          make -f builder/Makefile.release release SNAPSHOT_VERSION=${{ github.ref_name }}
-      - name: Release arm64 (CROSS COMPILATION)
-        run: |
-          make clean
-          make env
-          TARGET_ARCH=arm64 make -f builder/Makefile.release release SNAPSHOT_VERSION=${{ github.ref_name }}
-      - name: Release loong64 (CROSS COMPILATION)
-        id: loong64
-        continue-on-error: true
-        timeout-minutes: 60
-        env:
-          RELEASE_VERSION: ${{ github.ref_name }}
-          LOONG64_TOOLCHAIN_TRACE: '1'
-        run: |
-          set -euo pipefail
-          TARGET_ARCH=loong64 bash builder/init_env.sh
-          source_dir=$(find "$PWD/.build/kernel-loong64" -mindepth 1 -maxdepth 1 -type d -name 'linux-source*' | sort -V | tail -n 1)
-          test -f "$source_dir/vmlinux"
-          export TARGET_ARCH=loong64 KERN_HEADERS="$source_dir" LOONG64_VMLINUX="$source_dir/vmlinux"
-          make clean
-          make env
-          make -f builder/Makefile.release release SNAPSHOT_VERSION="$RELEASE_VERSION" \
-            2>&1 | tee "$RUNNER_TEMP/loong64-build.log"
-          builder/verify-loong64-artifact.sh \
-            .build/linux-loong64/bin/ecapture .build/linux-loong64/libpcap/libpcap.a \
-            .build/linux-loong64/libpcap/config.log "$RUNNER_TEMP/loong64-build.log"
-
-      - name: Exclude incomplete Loong64 artifacts
-        if: steps.loong64.outcome == 'failure'
-        env:
-          RELEASE_VERSION: ${{ github.ref_name }}
-        run: |
-          rm -f "bin/ecapture-$RELEASE_VERSION-linux-loong64.tar.gz" \
-            "bin/ecapture_${RELEASE_VERSION}_linux_loong64.deb"
-          echo "::warning::Loong64 build failed; publishing validated amd64/arm64 artifacts only"
+          jq -r .body release_notes.json > bin/release_notes.txt
 
       - name: Publish
         env:
           IS_PRERELEASE: ${{ steps.release_type.outputs.IS_PRERELEASE }}
         run: |
-          make -f builder/Makefile.release publish SNAPSHOT_VERSION=${{ github.ref_name }}
+          make -f builder/Makefile.release publish SNAPSHOT_VERSION="$RELEASE_VERSION"
 
       - name: Prepare Docker binaries from release packages
-        env:
-          RELEASE_VERSION: ${{ github.ref_name }}
         run: |
           set -euo pipefail
           for arch in amd64 arm64; do
@@ -176,18 +173,19 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       - name: Prepare Docker Tags
         id: docker_tags
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          IS_PRERELEASE: ${{ steps.release_type.outputs.IS_PRERELEASE }}
         run: |
-          TAGS="${{ secrets.DOCKERHUB_USERNAME }}/ecapture:${{ github.ref_name }}"
-          if [[ "${{ steps.release_type.outputs.IS_PRERELEASE }}" == "false" ]]; then
+          TAGS="$DOCKERHUB_USERNAME/ecapture:$RELEASE_VERSION"
+          if [[ "$IS_PRERELEASE" == "false" ]]; then
             TAGS="${TAGS}
-          ${{ secrets.DOCKERHUB_USERNAME }}/ecapture:latest"
+          $DOCKERHUB_USERNAME/ecapture:latest"
             echo "📦 Adding 'latest' tag for stable release"
           else
             echo "🚧 Skipping 'latest' tag for pre-release"
           fi
-          echo "TAGS<<EOF" >> $GITHUB_OUTPUT
-          echo "$TAGS" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          printf 'TAGS<<EOF\n%s\nEOF\n' "$TAGS" >> "$GITHUB_OUTPUT"
       - name: Build and push
         uses: docker/build-push-action@v7
         with:

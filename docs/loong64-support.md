@@ -2,7 +2,7 @@
 
 eCapture supports Linux/LoongArch64 with Go's `GOARCH=loong64` on kernel 6.6
 or newer. Android/loong64 is not supported. The existing Linux/Android amd64
-and arm64 paths share the Ubuntu 24.04 release runner and retain their GCC
+and arm64 paths use separate Ubuntu 24.04 release runners and retain their GCC
 compiler selection, LLVM 14 BPF compiler, and documented kernel minimums.
 Runner upgrades still require target-kernel runtime verification; successful
 static linking alone is not proof of compatibility with an older kernel.
@@ -143,7 +143,7 @@ libpcap, core/non-core bytecode, and Go intermediates are isolated below
 copies the selected `.build/linux-loong64/bin/ecapture` instead of trusting the
 shared path. Release archives use `linux-loong64`; Debian packages use
 architecture `loong64`. The current RPM spec remains a native rpmbuild flow and
-is not part of the shared release job. The common `release` target builds
+is not part of the release workflow. The common `release` target builds
 Linux tar/deb artifacts for all architectures and Android only for amd64/arm64.
 
 ## Native Debian build
@@ -293,7 +293,7 @@ source, not on assumed upstream support:
 | `golang.org/x/arch` v0.31.0 | Supplies the Loong64 decoder used to find GoTLS return instructions. Go's ABI documentation defines integer arguments in R4-R19; eCapture reads the first eight through LoongArch PT_REGS R4-R11. |
 | bpftool/BTF | Cross-builds use verified LoongArch Linux 6.6+ ELF BTF; native CO-RE may use the running LoongArch kernel BTF without headers. Host x86 BTF is rejected. |
 | PT_REGS/ELF | The repository's libbpf-style tracing header defines LoongArch `user_pt_regs`, arguments, return value, SP, FP, and IP. Runtime ELF checks accept `EM_LOONGARCH`; LoongArch is little-endian in the audited Go/x/sys and cilium/ebpf sources. |
-| Packaging/CI/E2E | Tar/deb names use `loong64`. The shared Ubuntu 24.04 release job builds amd64, arm64 and loong64 through the same entry point and publishes successful artifacts with one checksum file. Loong64 installation/build/audit failures remove incomplete artifacts and do not block amd64/arm64 publication. The shared PR matrix adds ELF/toolchain checks and QEMU smoke tests; trusted refs also run native CO-RE OpenSSL/GoTLS E2E on the dedicated runner. |
+| Packaging/CI/E2E | Tar/deb names use `loong64`. Parallel Ubuntu 24.04 release matrix jobs build amd64, arm64 and loong64 through the same entry point; one publish job collects successful artifacts and generates a common checksum file. Loong64 installation/build/audit failures skip its artifact upload and do not block amd64/arm64 publication. The shared PR matrix adds ELF/toolchain checks and QEMU smoke tests; trusted refs also run native CO-RE OpenSSL/GoTLS E2E on the dedicated runner. |
 
 The native E2E gate exercises CO-RE TLS capture on its running kernel. It does
 not establish non-CO-RE capture compatibility, other kernel versions, or
