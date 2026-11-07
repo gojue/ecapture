@@ -168,20 +168,47 @@ sudo ecapture gnutls -m text --text-source=pcapng --gnutls /path/to/libgnutls.so
 ```
 
 The decryptor waits for TLS secrets that may appear in a DSB after the
-corresponding packets. Basic HTTP/3 over QUIC v1 has a GoTLS test fixture;
+corresponding packets. HTTP/3 over QUIC v1/v2 has GoTLS test fixtures;
 support depends on the TLS backend supplying the required secrets.
-Add `--text-raw` to emit authenticated TLS bytes or QUIC STREAM chunks instead
-of parsed messages. Each chunk is lossless hex with direction, offset and an
-end marker; chunks are not application messages. QUIC DATAGRAM and automatic
-ALPN routing are not included. Operational logs report payload-free decryption
-diagnostics separately from captured data. HTTP reload accepts `text_raw`;
-omitting it uses the default `false`, as with other module-specific settings.
+The following options require text mode with the pcapng source:
+
+| Option | Output / selection |
+| --- | --- |
+| `--text-raw` | Authenticated TLS/QUIC STREAM bytes and QUIC DATAGRAM messages |
+| `--text-http-events` | Incremental HTTP/1.x, HTTP/2, HTTP/3, SSE and HTTP/2 gRPC events |
+| `--text-max-decoded-body N` | Per-message gzip expansion limit in bytes; requires HTTP events; zero keeps content encoding |
+| `--text-protocol dot\|doh\|doq\|mqtt\|redis` | Explicit application parser; MQTT 3.1.1 and fixed-length RESP2/RESP3 |
+| `--text-tls-upgrade smtp\|imap\|pop3\|ldap\|postgres\|mysql\|connect\|https-connect` | One explicit STARTTLS/SSLRequest/CONNECT negotiation; HTTPS CONNECT includes one inner TLS layer |
+| `--text-udp-protocol dtls` | DTLS 1.2 ECDHE-RSA AES-128/256-GCM records; the default UDP protocol is QUIC |
+
+Structured events use lossless hex plus `metadata` JSON, preserving headers,
+trailers, message/stream IDs, early-data status and TLS depth, including events
+with no payload. Stream chunks carry offsets/end markers; datagrams retain
+message boundaries without invented stream offsets. Application selection is
+explicit, not automatic ALPN routing. Raw, HTTP-event and explicit application
+modes are mutually exclusive. HTTP reload uses the corresponding underscore
+JSON keys; omitted module options reset to their zero defaults.
+Mail/database upgrades negotiate TLS; use `--text-raw` for application bytes
+without a supported parser. gRPC events preserve schema-free Protobuf bytes.
+Operational logs contain payload-free diagnostics. ECH still requires
+`ECH_SECRET`/`ECH_CONFIG` material that current probes do not capture; upgrading
+the decryptor alone does not enable live ECH. DTLS/DATAGRAM do not imply
+WebRTC, WebTransport or MASQUE decoding.
+With v1.4.0, some zero-length-client-CID QUIC loopback captures still fail
+connection routing; the maintained DoQ/DATAGRAM baseline uses 8-byte client CIDs.
 
 To verify the source independently, add `--pcapfile /tmp/raw.pcapng` to the
 capture command and send a request with a unique path or response token. After
-stopping eCapture, run `tshark -n -r /tmp/raw.pcapng -o tls.keylog_file: -q -z
-follow,tls,ascii,0` and compare the request and response with the text output.
-The empty keylog setting makes tshark use the DSB embedded in that pcapng.
+stopping eCapture, preload only its embedded secrets with Wireshark >= 4.4
+to handle DSBs arriving after their packets, then compare TLS stream 0:
+
+```shell
+keys=$(mktemp)
+editcap --extract-secrets /tmp/raw.pcapng - >"$keys"
+tshark -n -r /tmp/raw.pcapng -o "tls.keylog_file:$keys" -q -z follow,tls,ascii,0
+rm -f -- "$keys"
+```
+
 The optional file receives the same pcapng bytes as the live SDK stream.
 
 `--logaddr` carries eCapture runtime logs only. Console runtime logs use

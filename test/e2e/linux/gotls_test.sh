@@ -462,6 +462,116 @@ case_text_pcapng_http3() {
     assert_http3_pcapng "$pcap_file" "$expected_version"
 }
 
+case_text_pcapng_protocol() (
+    local protocol="$1" version="${2:-v1}" transport=tcp streaming=0
+    local prefix="$WORK_DIR/protocol-${protocol}-${version}"
+    local capture_log="${prefix}.ecapture.log" operational_log="${prefix}.operational.log"
+    local event_file="${prefix}.events.log" pcap_file="${prefix}.pcapng"
+    local ready_file="${prefix}.addr" release_file="${prefix}.release"
+    local server_pid="" client_pid="" fixture_pid="" address="" attempt verified=0 token_hex
+    local options=()
+    trap '
+        stop_capture || true
+        for fixture_pid in "$client_pid" "$server_pid"; do
+            if [[ -n "$fixture_pid" ]]; then
+                kill -TERM "$fixture_pid" 2>/dev/null || true
+                wait "$fixture_pid" 2>/dev/null || true
+            fi
+        done
+    ' EXIT
+    case "$protocol" in
+        dot|mqtt|redis|doq) options+=(--text-protocol "$protocol") ;;
+        doh*) options+=(--text-protocol doh) ;;
+        smtp|connect|https-connect) options+=(--text-tls-upgrade "$protocol" --text-raw) ;;
+        websocket) ;;
+        datagram) options+=(--text-raw) ;;
+        sse*|grpc) options+=(--text-http-events); streaming=1 ;;
+        *) log_error "Unknown protocol fixture $protocol"; return 1 ;;
+    esac
+    [[ "$protocol" != sse-gzip ]] || options+=(--text-max-decoded-body 1048576)
+    case "$protocol" in doh3|sse3|doq|datagram) transport=udp ;; esac
+    QUIC_GO_DISABLE_GSO=true "$HTTP3_FIXTURE" --mode server --protocol "$protocol" \
+        --ready-file "$ready_file" --release-file "$release_file" --token "$E2E_TOKEN" \
+        --quic-version "$version" >"${prefix}.server.log" 2>&1 &
+    server_pid=$!
+    for attempt in $(seq 1 50); do
+        if [[ -s "$ready_file" ]]; then
+            address="$(cat "$ready_file")"
+            break
+        fi
+        kill -0 "$server_pid" 2>/dev/null || break
+        sleep 0.1
+    done
+    if [[ -z "$address" ]]; then
+        log_error "$protocol fixture did not become ready"
+        return 1
+    fi
+    start_capture "$capture_log" gotls --elfpath "$HTTP3_FIXTURE" --model text --text-source pcapng \
+        --eventaddr "$event_file" --logaddr "$operational_log" --ifname lo --pcapfile "$pcap_file" \
+        "${options[@]}" "$transport port ${address##*:}" || return 1
+    QUIC_GO_DISABLE_GSO=true timeout 30 "$HTTP3_FIXTURE" --mode client --protocol "$protocol" \
+        --address "$address" --token "$E2E_TOKEN" --quic-version "$version" >"${prefix}.client.log" 2>&1 &
+    client_pid=$!
+    if ((streaming)); then
+        for attempt in $(seq 1 60); do
+            if "$HTTP3_FIXTURE" --mode verify --protocol "$protocol" --events-file "$event_file" \
+                --token "$E2E_TOKEN" --phase live >"${prefix}.verify.log" 2>&1; then
+                verified=1
+                break
+            fi
+            sleep 0.1
+        done
+        if ((verified == 0)) || ! kill -0 "$client_pid" 2>/dev/null || ! kill -0 "$CAPTURE_PID" 2>/dev/null; then
+            log_error "$protocol semantic events did not arrive while the response remained open"
+            cat "${prefix}.verify.log" >&2
+            return 1
+        fi
+        touch "$release_file"
+    fi
+    if ! wait "$client_pid"; then
+        client_pid=""
+        log_error "$protocol fixture client failed"
+        cat "${prefix}.client.log" >&2
+        return 1
+    fi
+    client_pid=""
+    verified=0
+    for attempt in $(seq 1 60); do
+        if "$HTTP3_FIXTURE" --mode verify --protocol "$protocol" --events-file "$event_file" \
+            --token "$E2E_TOKEN" >"${prefix}.verify.log" 2>&1; then
+            verified=1
+            break
+        fi
+        sleep 0.1
+    done
+    if ((verified == 0)) || ! kill -0 "$CAPTURE_PID" 2>/dev/null; then
+        log_error "$protocol exact bytes/metadata did not arrive before capture shutdown"
+        cat "${prefix}.verify.log" >&2
+        return 1
+    fi
+    stop_capture
+    assert_no_capture_errors "$capture_log" || return 1
+    assert_file_not_contains "$operational_log" "$E2E_TOKEN" "plaintext in operational log" || return 1
+    token_hex="$(printf '%s' "$E2E_TOKEN" | od -An -tx1 | tr -d ' \n')"
+    assert_file_not_contains "$operational_log" "$token_hex" "hex plaintext in operational log" || return 1
+    assert_file_not_contains "$operational_log" "TRAFFIC_SECRET" "TLS secret in operational log" || return 1
+    assert_pcapng "$pcap_file" || return 1
+    if [[ "$transport" == udp ]]; then
+        local expected_version=0x00000001
+        [[ "$version" != v2 ]] || expected_version=0x6b3343cf
+        tshark -n -r "$pcap_file" -o tls.keylog_file: -Y quic.version -T fields -e quic.version \
+            -E occurrence=f >"${prefix}.versions" 2>"${prefix}.tshark.log" || return 1
+        awk -v version="$expected_version" 'NF { seen=1; if ($0 != version) bad=1 } END { exit !seen || bad }' \
+            "${prefix}.versions" || { log_error "$protocol wire QUIC version mismatch"; return 1; }
+        if [[ "$protocol" == doq || "$protocol" == datagram ]]; then
+            tshark -n -r "$pcap_file" -o tls.keylog_file: -Y "udp.dstport == ${address##*:} && quic.scid" \
+                -T fields -e quic.scid -E occurrence=f >"${prefix}.client-cids" 2>>"${prefix}.tshark.log" || return 1
+            awk 'NF { gsub(/:/, ""); seen=1; if (length != 16) bad=1 } END { exit !seen || bad }' \
+                "${prefix}.client-cids" || { log_error "$protocol requires eight-byte client CIDs on the wire"; return 1; }
+        fi
+    fi
+)
+
 assert_tls_raw_events() {
     local file="$1" client_hex="$2" server_hex="$3" require_end="${4:-0}"
     [[ -s "$file" ]] || return 1
@@ -1079,6 +1189,15 @@ main() {
         local raw_destination
         for raw_destination in file stdout tcp ws ecaptureq messages; do
             run_case "linux/gotls/text-pcapng-raw-${raw_destination}" case_text_pcapng_raw "$raw_destination"
+        done
+        local protocol
+        for protocol in dot mqtt redis smtp connect https-connect websocket doh1 doh2 sse1 sse2 sse-gzip grpc; do
+            run_case "linux/gotls/text-pcapng-${protocol}" case_text_pcapng_protocol "$protocol"
+        done
+        for quic_version in v1 v2; do
+            for protocol in doh3 doq datagram sse3; do
+                run_case "linux/gotls/text-pcapng-${protocol}-${quic_version}" case_text_pcapng_protocol "$protocol" "$quic_version"
+            done
         done
     fi
 

@@ -112,7 +112,7 @@ and successful builds alone do not establish old-kernel capture compatibility.
 Validate on the target kernels, especially the non-CO-RE path, before claiming
 that a new artifact passes the minimum-kernel runtime contract.
 
-Linux E2E additionally needs `go`, `timeout`, `cc`, OpenSSL development
+Linux E2E additionally needs `go`, `timeout`, `cc`, `python3`, OpenSSL development
 headers, and Wireshark >= 4.4 (`tshark` and `editcap`) for pcapng validation.
 The full GnuTLS contract also needs
 pkg-config and GnuTLS development headers.

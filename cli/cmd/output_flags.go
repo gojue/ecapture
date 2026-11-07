@@ -20,8 +20,19 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/gojue/ecapture/v2/internal/config"
 	"github.com/gojue/ecapture/v2/internal/probe/base/handlers"
 )
+
+func bindDecryptFlags(command *cobra.Command, cfg *config.DecryptConfig) {
+	flags := command.PersistentFlags()
+	flags.BoolVar(&cfg.TextRaw, "text-raw", false, "emit authenticated TLS/QUIC bytes and datagrams instead of parsed messages (pcapng text source)")
+	flags.StringVar(&cfg.TextProtocol, "text-protocol", "", "application parser: dot, doh, doq, mqtt or redis; empty detects HTTP/WebSocket (pcapng text source)")
+	flags.BoolVar(&cfg.TextHTTPEvents, "text-http-events", false, "emit incremental HTTP, SSE and HTTP/2 gRPC events (pcapng text source)")
+	flags.Int64Var(&cfg.TextMaxDecodedBody, "text-max-decoded-body", 0, "maximum decoded gzip bytes per HTTP message; requires text-http-events, zero keeps encoded bytes")
+	flags.StringVar(&cfg.TextTLSUpgrade, "text-tls-upgrade", "", "TLS negotiation: smtp, imap, pop3, ldap, postgres, mysql, connect or https-connect (pcapng text source)")
+	flags.StringVar(&cfg.TextUDPProtocol, "text-udp-protocol", "", "UDP decryptor: quic (default) or dtls (pcapng text source)")
+}
 
 func normalizeTLSOutputFlags(command *cobra.Command, mode, textSource string, keylogFile, pcapFile *string) error {
 	mode = strings.ToLower(mode)
