@@ -237,15 +237,20 @@ sets `no_new_privs`, serializes runs with a lock and enforces a 25-minute timeou
 It runs OpenSSL/GoTLS text, keylog, pcapng and stress cases. Debian GnuTLS and
 non-CO-RE capture remain separate. EXIT/signal traps, the workflow's `always()`
 step and the runner start/end hooks reuse the existing pidfd cleanup to reap
-root E2E children, clear private caches and remove only test-owned loopback TC.
-Pre-existing ingress/clsact state is rejected. Raw captures remain root-private
-under `/var/log/ecapture-e2e/run.*/`; the administrator manages their retention.
+root E2E children, clear private caches and artifacts, and remove only test-owned
+loopback TC. Pre-existing ingress/clsact state is rejected. Raw captures stay
+root-private under `/var/lib/ecapture-e2e/job-state/artifacts/` during a run and
+are deleted on success, failure or cancellation. Runner startup and the next
+job's start hook recover leftovers after an interrupted cleanup. The workflow
+uploads the harness test log with seven-day retention; raw keylogs and captures
+are not uploaded. Reproduce failures manually when raw evidence must be retained.
+Older `/var/log/ecapture-e2e/run.*/` directories are outside this cleanup scope;
+review and remove obsolete CI artifacts once when upgrading the wrapper.
 
 Install from the repository root while the runner is idle:
 
 ```sh
 sudo install -d -o root -g root -m 0700 /var/lib/ecapture-e2e
-sudo install -d -o root -g ecapture-runner -m 0750 /var/log/ecapture-e2e
 sudo install -d -o root -g root -m 0755 /etc/ecapture-runner /usr/local/libexec
 sudo install -o root -g root -m 0750 builder/runner/runner-e2e-job.sh /usr/local/libexec/ecapture-e2e-job
 sudo visudo -cf builder/runner/runner-e2e.sudoers

@@ -304,9 +304,12 @@ test log is also uploaded, including on failure; no E2E systemd unit is used.
 | `ADB_SERIAL` | unset | Select a device when more than one is attached |
 | `ANDROID_BORINGSSL_CLIENT` | generated jar in `android/` | Override the Android workload jar |
 
-Failed-suite artifacts are always preserved. Hosted CI uploads captures with
-`E2E_KEEP_ARTIFACTS=1`; the dedicated runner keeps raw evidence private and
-uploads the harness test log. Raw keylogs and packet captures remain private.
+The harness preserves failed-suite artifacts. Hosted CI uploads captures with
+`E2E_KEEP_ARTIFACTS=1`. On the dedicated LoongArch runner, raw evidence stays
+private inside the job state and is deleted by the wrapper and runner cleanup
+on success, failure or cancellation. Only the harness test log is uploaded,
+with seven-day retention. Use a manual run outside the runner job state when
+failure diagnosis requires retained keylogs or packet captures.
 
 Every successful mode prints a `[PLAINTEXT]` line containing at most 50
 characters of plaintext from the verified capture. Text mode reads the

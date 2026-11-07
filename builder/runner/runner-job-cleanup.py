@@ -141,7 +141,7 @@ def previous_token():
 
 
 def cleanup_e2e():
-    """The only root cleanup entry point: fixed E2E processes, TC and caches."""
+    """The only root cleanup entry point: E2E processes, TC, caches and artifacts."""
     if os.geteuid() != 0:
         raise RuntimeError('E2E cleanup requires root')
     E2E.mkdir(mode=0o700, exist_ok=True)
@@ -159,7 +159,7 @@ def cleanup_e2e():
                 raise RuntimeError('Failed to remove test-owned loopback TC qdisc')
             owned.unlink()
         empty_directory(E2E / 'job-state')
-    print('Privileged E2E processes, caches and owned TC state cleaned.')
+    print('Privileged E2E processes, caches, artifacts and owned TC state cleaned.')
 
 
 def main(phase):

@@ -349,7 +349,7 @@ hosted checks. Unit tests remain in the shared GO/C/C++ CI workflow. The native 
 builds the event SHA with LLVM 22.1.8 and running-kernel BTF, then invokes the
 maintained harness in a foreground sudo Shell step with live output and an
 uploaded test log. Root-owned hooks restrict admission and clean privileged
-processes, caches and owned TC state. Debian GnuTLS and
+processes, caches, raw artifacts and owned TC state. Debian GnuTLS and
 non-CO-RE capture remain separate. See
 [deployment and trust boundaries](../loong64-support.md#dedicated-runner).
 
@@ -441,8 +441,10 @@ its assertions.
 - Fatal logs, decoder/preprocessor/dispatch failures, lost samples, buffer overflow, and
   load/attach/start failures are hard failures.
 - Successful plaintext previews are limited to 50 characters.
-- Failed artifacts are always preserved. Set `E2E_KEEP_ARTIFACTS=1` to keep
-  successful artifacts too.
+- The harness preserves failed artifacts. Set `E2E_KEEP_ARTIFACTS=1` to keep
+  successful artifacts too. The dedicated LoongArch runner clears all raw
+  artifacts with its job state, even after failure or cancellation; its uploaded
+  test log remains available for seven days. Use a manual run to retain captures.
 
 Shared assertions are in `test/e2e/lib/testlib.sh`; Linux-specific setup is in
 `test/e2e/linux/common.sh`. Non-TLS, PostgreSQL, and CLI edge checks run

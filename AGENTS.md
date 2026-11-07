@@ -261,7 +261,9 @@ verification matrix live in `docs/agent/build-test.md`.
   SHA with LLVM 22.1.8 and runs OpenSSL/GoTLS directly from that checkout through
   a fixed sudo Shell entry point. Harness output streams live to Actions.
   Fork PRs retain hosted checks. Root-owned hooks enforce trusted refs and
-  clean job processes, caches and owned TC state; there is no separate E2E unit.
+  clean job processes, caches, raw E2E artifacts and owned TC state on success,
+  failure or cancellation. The uploaded test log is retained for seven days;
+  there is no separate E2E unit.
 
 ## Focused references
 
