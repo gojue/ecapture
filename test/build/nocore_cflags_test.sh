@@ -23,6 +23,10 @@ cat >"$test_dir/anonymous_fields.c" <<'C'
 #include <asm/ftrace.h>
 #endif
 
+_Static_assert(sizeof(struct ipv6hdr) == 40, "IPv6 wire header must be 40 bytes");
+_Static_assert(__builtin_offsetof(struct ipv6hdr, nexthdr) == 6, "IPv6 next header offset");
+_Static_assert(__builtin_offsetof(struct ipv6hdr, saddr) == 8, "IPv6 source address offset");
+
 struct test_filename_head {
     const char *name;
     const char *uptr;

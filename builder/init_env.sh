@@ -244,7 +244,7 @@ fi
 echo "The build environment for $target_arch is ready. Run:"
 printf 'cd %q\n' "$repo_dir"
 printf "export PATH=%q:/usr/local/bin:/usr/sbin:\$PATH\n" "$(dirname "$(command -v go)")"
-printf 'export GOPROXY=%q\n' "${GOPROXY:-https://goproxy.cn}"
+printf 'export GOPROXY=%q\n' "${GOPROXY:-https://proxy.golang.org,direct}"
 printf 'export TARGET_ARCH=%q KERN_HEADERS=%q\n' "$target_arch" "$kernel_source"
 if [[ "$target_arch" == loong64 ]]; then
   printf 'export LOONG64_VMLINUX=%q\n' "$loong64_vmlinux"

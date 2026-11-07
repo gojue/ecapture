@@ -28,8 +28,12 @@ build_openssl_client() {
 run_openssl_request() {
     local tls_version="$1"
     local output_file="$2"
-    timeout 15 "$OPENSSL_CLIENT" 127.0.0.1 "$TLS_SERVER_PORT" /e2e "$E2E_TOKEN" "$tls_version" \
-        >"$output_file" 2>&1
+    if [[ -n "${3:-}" ]]; then
+        timeout 15 bash -c 'printf "%s\n" "$$" >"$1"; shift; exec "$@"' _ "$3" \
+            "$OPENSSL_CLIENT" 127.0.0.1 "$TLS_SERVER_PORT" /e2e "$E2E_TOKEN" "$tls_version" >"$output_file" 2>&1
+    else
+        timeout 15 "$OPENSSL_CLIENT" 127.0.0.1 "$TLS_SERVER_PORT" /e2e "$E2E_TOKEN" "$tls_version" >"$output_file" 2>&1
+    fi
     assert_file_contains "$output_file" "$E2E_TOKEN" "OpenSSL fixture response"
 }
 
@@ -182,7 +186,7 @@ case_text_pcapng() {
     local port=$((30000 + RANDOM % 20000))
     local endpoint="ws://127.0.0.1:${port}/"
     "$WORK_DIR/helpers/ecaptureq_assert" --server "$endpoint" --format text --sensitive \
-        --token "$E2E_TOKEN" >"$typed_log" 2>&1 &
+        --token "$E2E_TOKEN" --pid-file "$WORK_DIR/decrypt.client.pid" >"$typed_log" 2>&1 &
     local typed_pid=$!
     start_capture "$capture_log" tls --libssl "$OPENSSL_LIB" --model text --text-source pcapng \
         --logaddr "$operational_log" --eventaddr "$event_file" --ifname lo \
@@ -191,7 +195,7 @@ case_text_pcapng() {
         wait "$typed_pid" 2>/dev/null || true
         return 1
     }
-    if ! run_openssl_request tls13 "$WORK_DIR/decrypt.client.log"; then
+    if ! run_openssl_request tls13 "$WORK_DIR/decrypt.client.log" "$WORK_DIR/decrypt.client.pid"; then
         stop_capture
         kill -TERM "$typed_pid" 2>/dev/null || true
         wait "$typed_pid" 2>/dev/null || true

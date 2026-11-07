@@ -31,18 +31,19 @@ const (
 // PacketEvent represents a network packet captured by TC probes.
 // This implements the PacketEvent interface from handlers package.
 type PacketEvent struct {
-	Timestamp      uint64
-	Pid            uint32
-	Comm           [TaskCommLen]byte
-	Cmdline        [CmdlineLen]byte
-	PacketLen      uint32
-	InterfaceIndex uint32
-	PacketData     []byte
+	Timestamp       uint64
+	Pid             uint32
+	Comm            [TaskCommLen]byte
+	Cmdline         [CmdlineLen]byte
+	PacketLen       uint32
+	InterfaceIndex  uint32
+	ProcessEndpoint uint32
+	PacketData      []byte
 }
 
 // DecodeFromBytes decodes a packet event from raw bytes.
 func (e *PacketEvent) DecodeFromBytes(data []byte) error {
-	if len(data) < 36 {
+	if len(data) < 40 {
 		return errors.New(errors.ErrCodeEventDecode, "packet event data too short")
 	}
 	var err error
@@ -66,6 +67,12 @@ func (e *PacketEvent) DecodeFromBytes(data []byte) error {
 	}
 	if err = binary.Read(buf, binary.LittleEndian, &e.InterfaceIndex); err != nil {
 		return err
+	}
+	if err = binary.Read(buf, binary.LittleEndian, &e.ProcessEndpoint); err != nil {
+		return err
+	}
+	if uint64(e.PacketLen) > uint64(buf.Len()) {
+		return errors.New(errors.ErrCodeEventDecode, "packet payload truncated")
 	}
 	tmpData := make([]byte, e.PacketLen)
 	if err = binary.Read(buf, binary.LittleEndian, &tmpData); err != nil {
@@ -96,16 +103,9 @@ func (e *PacketEvent) StringHex() string {
 
 // Clone creates a copy of the event.
 func (e *PacketEvent) Clone() domain.Event {
-	clone := &PacketEvent{
-		Timestamp:      e.Timestamp,
-		PacketLen:      e.PacketLen,
-		InterfaceIndex: e.InterfaceIndex,
-	}
-	if e.PacketData != nil {
-		clone.PacketData = make([]byte, len(e.PacketData))
-		copy(clone.PacketData, e.PacketData)
-	}
-	return clone
+	clone := *e
+	clone.PacketData = append([]byte(nil), e.PacketData...)
+	return &clone
 }
 
 // Type returns the event type.
@@ -164,3 +164,8 @@ func (e *PacketEvent) Decode(data []byte) (domain.Event, error) {
 	}
 	return event, nil
 }
+
+// ProcessEndpoint identifies the local owner: 1 = packet source, 2 = destination.
+func (e *PacketEvent) GetProcessEndpoint() uint32 { return e.ProcessEndpoint }
+func (e *PacketEvent) GetPid() uint32             { return e.Pid }
+func (e *PacketEvent) GetComm() string            { return string(bytes.TrimRight(e.Comm[:], "\x00")) }

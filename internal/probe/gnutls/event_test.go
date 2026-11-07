@@ -109,7 +109,7 @@ func TestPacketEventDecode(t *testing.T) {
 	var comm [TaskCommLen]byte
 	copy(comm[:], "gnutls-client")
 	sample := encodeFields(t,
-		uint64(100), uint32(10), comm, uint32(len(payload)), uint32(2), payload,
+		uint64(100), uint32(10), comm, uint32(len(payload)), uint32(2), uint32(1), payload,
 	)
 
 	event, err := (&packetEventDecoder{}).Decode(nil, sample)
@@ -125,7 +125,7 @@ func TestPacketEventDecode(t *testing.T) {
 func TestPacketEventRejectsTruncatedPayload(t *testing.T) {
 	var comm [TaskCommLen]byte
 	sample := encodeFields(t,
-		uint64(100), uint32(10), comm, uint32(100), uint32(2), []byte{1, 2},
+		uint64(100), uint32(10), comm, uint32(100), uint32(2), uint32(1), []byte{1, 2},
 	)
 	if err := (&PacketEvent{}).DecodeFromBytes(sample); err == nil {
 		t.Fatal("truncated packet decoded without error")
@@ -146,5 +146,45 @@ func encodeFields(t *testing.T, fields ...any) []byte {
 func fillBytes(data []byte, value byte) {
 	for i := range data {
 		data[i] = value
+	}
+}
+
+func TestPacketProcessABIAndClone(t *testing.T) {
+	sample := make([]byte, 40+64+7) // perf alignment padding is not packet data
+	binary.LittleEndian.PutUint64(sample, 123)
+	binary.LittleEndian.PutUint32(sample[8:], 4242)
+	copy(sample[12:28], "pid-client")
+	binary.LittleEndian.PutUint32(sample[28:], 64)
+	binary.LittleEndian.PutUint32(sample[32:], 2)
+	binary.LittleEndian.PutUint32(sample[36:], 1)
+	sample[40] = 0x7f
+	var event PacketEvent
+	if err := event.DecodeFromBytes(sample); err != nil {
+		t.Fatal(err)
+	}
+	clone := event.Clone().(*PacketEvent)
+	sample[40] = 0
+	event.PacketData[0] = 0
+	if clone.GetPid() != 4242 || clone.GetComm() != "pid-client" || clone.GetProcessEndpoint() != 1 || len(clone.PacketData) != 64 || clone.PacketData[0] != 0x7f {
+		t.Fatal("lost process ABI fields or aliased packet bytes")
+	}
+	for _, size := range []int{0, 35, 39, 40, 103} {
+		if err := (&PacketEvent{}).DecodeFromBytes(sample[:size]); err == nil {
+			t.Fatalf("accepted short sample %d", size)
+		}
+	}
+	// Unknown ownership keeps the same prefix and must clear a reused decoder.
+	clear(sample[8:28])
+	binary.LittleEndian.PutUint32(sample[36:], 0)
+	sample[40] = 0x7f
+	if err := event.DecodeFromBytes(sample); err != nil {
+		t.Fatal(err)
+	}
+	if event.GetPid() != 0 || event.GetComm() != "" || event.GetProcessEndpoint() != 0 || len(event.PacketData) != 64 || event.PacketData[0] != 0x7f {
+		t.Fatal("unknown process prefix retained stale metadata or shifted packet bytes")
+	}
+	binary.LittleEndian.PutUint32(sample[28:], ^uint32(0))
+	if err := (&PacketEvent{}).DecodeFromBytes(sample); err == nil {
+		t.Fatal("accepted oversized payload")
 	}
 }

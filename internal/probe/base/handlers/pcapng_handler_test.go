@@ -16,6 +16,7 @@ package handlers
 
 import (
 	"bytes"
+	"encoding/binary"
 	"os"
 	"testing"
 	"time"
@@ -50,6 +51,9 @@ func (m *mockPcapngSink) Flush() error {
 
 // mockPacketEvent is a mock implementation of PacketEvent for testing.
 type mockPacketEvent struct {
+	pid            uint32
+	comm           string
+	endpoint       uint32
 	timestamp      uint64
 	packetData     []byte
 	packetLen      uint32
@@ -213,5 +217,54 @@ func TestPcapngHandler_Handle_InvalidEventType(t *testing.T) {
 	err = handler.Handle(event)
 	if err == nil {
 		t.Error("Handle should reject unsupported non-packet events")
+	}
+}
+
+func (m *mockPacketEvent) GetPid() uint32             { return m.pid }
+func (m *mockPacketEvent) GetComm() string            { return m.comm }
+func (m *mockPacketEvent) GetProcessEndpoint() uint32 { return m.endpoint }
+
+func TestPcapngProcessTrailerFileAndStream(t *testing.T) {
+	for _, lowLatency := range []bool{false, true} {
+		sink := newMockPcapngSink()
+		handler, err := newPcapngHandler(sink, "lo", "", newTestLogger(), lowLatency)
+		if err != nil {
+			t.Fatal(err)
+		}
+		raw := make([]byte, 74)
+		raw[12], raw[13], raw[14] = 8, 0, 0x45
+		binary.BigEndian.PutUint16(raw[16:], 60)
+		want := bytes.Clone(raw)
+		var mono unix.Timespec
+		if err := unix.ClockGettime(unix.CLOCK_MONOTONIC, &mono); err != nil {
+			t.Fatal(err)
+		}
+		for _, pid := range []uint32{4242, 0} {
+			if err := handler.Handle(&mockPacketEvent{timestamp: uint64(mono.Nano()), packetData: raw, packetLen: uint32(len(raw)), pid: pid, comm: "client\x00junk", endpoint: 1}); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := handler.Close(); err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(raw, want) {
+			t.Fatal("mutated captured bytes")
+		}
+		reader, err := pcapgo.NewNgReader(bytes.NewReader(sink.Bytes()), pcapgo.DefaultNgReaderOptions)
+		if err != nil {
+			t.Fatal(err)
+		}
+		packet, ci, err := reader.ReadPacketData()
+		if err != nil {
+			t.Fatal(err)
+		}
+		expected := append(bytes.Clone(want), []byte{0xcc, 0x0c, 0x4c, 0xfc, 0, 0, 0x10, 0x92, 6, 'c', 'l', 'i', 'e', 'n', 't', 1, 1, 0, 0, 0, 0}...)
+		if !bytes.Equal(packet, expected) || ci.CaptureLength != len(expected) || ci.Length != len(expected) {
+			t.Fatal("pcapng lost process trailer or changed network bytes")
+		}
+		packet, _, err = reader.ReadPacketData()
+		if err != nil || !bytes.Equal(packet, want) {
+			t.Fatal("unknown attribution changed original packet")
+		}
 	}
 }

@@ -126,23 +126,7 @@ func NewSink(eventAddr, pcapAddr string, rotation *writers.RotateConfig, eventSi
 			}
 			sequence := sink.sequence.Add(1)
 			for _, publisher := range eventSinks {
-				envelope := domain.CapturedEventEnvelope{
-					Timestamp: packet.Timestamp, UUID: packet.ConnectionID(), EventType: domain.EventTypeOutput,
-					Format: domain.CaptureFormatText, Sensitivity: domain.SensitivitySensitive,
-					SourceIP: packet.SrcIP, SourcePort: packet.SrcPort,
-					DestinationIP: packet.DstIP, DestinationPort: packet.DstPort,
-					Direction: packet.Direction, Payload: append([]byte(nil), packet.Data...),
-					OriginalLength: uint32(len(packet.Data)), Sequence: sequence,
-				}
-				// Structured events can have metadata without any payload (headers,
-				// trailers, empty datagrams). Preserve it without a new wire ABI.
-				if structuredMessage(packet) {
-					envelope.Payload = append([]byte(nil), payload...)
-					envelope.OriginalLength = uint32(len(payload))
-				}
-				if id, ok := packet.Metadata["stream_id"]; ok {
-					envelope.StreamID = fmt.Sprint(id)
-				}
+				envelope := messageEnvelope(packet, payload, sequence)
 				if err := publisher.PublishEvent(context.Background(), envelope); err != nil {
 					return err
 				}
@@ -153,6 +137,30 @@ func NewSink(eventAddr, pcapAddr string, rotation *writers.RotateConfig, eventSi
 		sink.done <- err
 	}()
 	return sink, nil
+}
+
+func messageEnvelope(packet *types.DecryptedPacket, formatted []byte, sequence uint64) domain.CapturedEventEnvelope {
+	envelope := domain.CapturedEventEnvelope{
+		Timestamp: packet.Timestamp, UUID: packet.ConnectionID(), EventType: domain.EventTypeOutput,
+		Format: domain.CaptureFormatText, Sensitivity: domain.SensitivitySensitive,
+		SourceIP: packet.SrcIP, SourcePort: packet.SrcPort,
+		DestinationIP: packet.DstIP, DestinationPort: packet.DstPort,
+		ProcessName: packet.PName, Direction: packet.Direction,
+		Payload: append([]byte(nil), packet.Data...), OriginalLength: uint32(len(packet.Data)), Sequence: sequence,
+	}
+	if packet.PID > 0 {
+		envelope.PID = uint64(packet.PID)
+	}
+	// Structured events can carry metadata without payload. Preserve both using
+	// the existing text representation and existing protobuf process fields.
+	if structuredMessage(packet) {
+		envelope.Payload = append([]byte(nil), formatted...)
+		envelope.OriginalLength = uint32(len(formatted))
+	}
+	if id, ok := packet.Metadata["stream_id"]; ok {
+		envelope.StreamID = fmt.Sprint(id)
+	}
+	return envelope
 }
 
 func (s *Sink) Name() string { return "decrypt-pcapng-stream" }

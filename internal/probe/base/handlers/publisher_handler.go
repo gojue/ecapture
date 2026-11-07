@@ -107,6 +107,8 @@ func (h *PublisherHandler) envelope(event domain.Event, sequence uint64) domain.
 	}
 	if value, ok := event.(interface{ GetPid() uint32 }); ok {
 		envelope.PID = uint64(value.GetPid())
+	} else if value, ok := event.(interface{ GetPID() uint64 }); ok {
+		envelope.PID = value.GetPID()
 	}
 	if value, ok := event.(interface{ GetComm() string }); ok {
 		envelope.ProcessName = value.GetComm()

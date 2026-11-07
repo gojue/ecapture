@@ -28,7 +28,50 @@ import (
 	"time"
 
 	"github.com/gojue/ecapture_decryptor/types"
+
+	"github.com/gojue/ecapture/v2/internal/domain"
 )
+
+func TestMessageEnvelopePreservesProcessAndRepresentation(t *testing.T) {
+	for _, structured := range []bool{false, true} {
+		packet := formatTestPacket("http/3", "response", []byte{0, 0xff, 'A'})
+		packet.Metadata["stream_id"] = uint64(0)
+		if structured {
+			packet.Metadata["kind"] = "datagram"
+		}
+		formatted, err := formatMessage(packet)
+		if err != nil {
+			t.Fatal(err)
+		}
+		envelope := messageEnvelope(packet, formatted, 7)
+		if envelope.PID != 17 || envelope.ProcessName != "client" || envelope.StreamID != "0" {
+			t.Fatalf("lost process or zero stream metadata: PID=%d name=%q stream=%q", envelope.PID, envelope.ProcessName, envelope.StreamID)
+		}
+		if envelope.UUID != packet.ConnectionID() || envelope.Direction != "response" || envelope.Sequence != 7 ||
+			envelope.Format != domain.CaptureFormatText || envelope.Sensitivity != domain.SensitivitySensitive {
+			t.Fatal("captured metadata changed")
+		}
+		want := packet.Data
+		if structured {
+			want = formatted
+		}
+		if !bytes.Equal(envelope.Payload, want) || envelope.OriginalLength != uint32(len(want)) {
+			t.Fatal("captured representation changed")
+		}
+		original := append([]byte(nil), envelope.Payload...)
+		packet.Data[0] = 1
+		formatted[0] = '!'
+		if !bytes.Equal(envelope.Payload, original) {
+			t.Fatal("published payload aliases SDK memory")
+		}
+	}
+	packet := formatTestPacket("http/1.1", "request", nil)
+	packet.PID = -1
+	packet.PName = ""
+	if envelope := messageEnvelope(packet, nil, 1); envelope.PID != 0 || envelope.ProcessName != "" {
+		t.Fatal("unknown process must remain unknown")
+	}
+}
 
 func TestFormatMessageRaw(t *testing.T) {
 	for _, test := range []struct {

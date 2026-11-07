@@ -76,7 +76,7 @@ struct ipv6hdr {
     // __u8 version: 4;
     // __u8 flow_lbl[3];
     // __be16 payload_len;
-    __u8 filler[7];
+    __u8 filler[6];
     __u8 nexthdr;
     __u8 hop_limit;
     // struct in6_addr saddr;

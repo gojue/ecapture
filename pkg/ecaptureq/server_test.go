@@ -89,6 +89,9 @@ func TestTypedPublishersKeepProcessLogsAndEventsSeparate(t *testing.T) {
 		t.Fatalf("event log type = %v", eventEntry.GetLogType())
 	}
 	event := eventEntry.GetEventPayload()
+	if event.GetPid() != 42 || event.GetPname() != "curl" {
+		t.Fatal("typed EVENT lost process attribution")
+	}
 	if event == nil || event.GetCaptureFormat() != pb.CaptureFormat_CAPTURE_FORMAT_KEYLOG ||
 		event.GetSensitivity() != pb.Sensitivity_SENSITIVITY_SENSITIVE || string(event.GetPayload()) != secret {
 		t.Fatalf("event payload = %#v", event)

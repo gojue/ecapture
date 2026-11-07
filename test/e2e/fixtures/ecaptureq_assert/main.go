@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -22,6 +23,7 @@ var (
 	format    = flag.String("format", "text", "required capture format")
 	sensitive = flag.Bool("sensitive", false, "require sensitive text metadata")
 	token     = flag.String("token", "", "required text payload token")
+	pidFile   = flag.String("pid-file", "", "file containing the expected captured request PID")
 	wait      = flag.Duration("timeout", 20*time.Second, "overall timeout")
 )
 
@@ -48,6 +50,7 @@ func main() {
 		fatalf("%v", err)
 	}
 	var processLog, event bool
+	process := *pidFile == ""
 	for time.Now().Before(deadline) {
 		var data []byte
 		if err := websocket.Message.Receive(conn, &data); err != nil {
@@ -74,11 +77,22 @@ func main() {
 			if err := validateEvent(captured, wantFormat, *sensitive); err != nil {
 				fatalf("invalid EVENT metadata: %v", err)
 			}
+			if !process && captured.GetDirection() == "request" {
+				data, err := os.ReadFile(*pidFile)
+				if err != nil {
+					fatalf("read expected PID: %v", err)
+				}
+				expected, err := strconv.ParseInt(strings.TrimSpace(string(data)), 10, 64)
+				if err != nil || expected <= 0 || captured.GetPid() != expected || captured.GetPname() == "" || captured.GetPname() == "decryptor" {
+					fatalf("request process attribution mismatch: PID=%d name=%q", captured.GetPid(), captured.GetPname())
+				}
+				process = true
+			}
 			if *token == "" || strings.Contains(string(captured.GetPayload()), *token) {
 				event = true
 			}
 		}
-		if processLog && event {
+		if processLog && event && process {
 			fmt.Printf("PROCESS_LOG=1 EVENT=1 FORMAT=%s METADATA=1\n", wantFormat.String())
 			return
 		}

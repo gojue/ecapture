@@ -91,6 +91,22 @@ the primary destination; a pcapng copy and standalone keylog are optional.
 The SDK callback publishes the reconstructed message to eCaptureQ directly;
 the raw packet publisher is not registered for this text source.
 
+TC reports send-context PID/Comm in the event header without modifying wire
+packets. `PacketEvent` passes these fields and endpoint provenance to
+`Session.WritePacketWithProcess`, which appends an Ethernet trailer in both
+file and low-latency sessions: big-endian magic `0xCC0C4CFC`, uint32 PID,
+uint8 Comm length, up to 16 Comm bytes, version `1`, endpoint `1` (source) or
+`2` (destination), and four zero FCS placeholder bytes. The legacy prefix stays
+compatible with `utils/ecapture.lua`; this is packet data, not an EPB option.
+
+The matching SDK reads legacy and extended trailers. Ownership is independent
+of connection keys: one known local endpoint owns both directions; two local
+endpoints use their respective senders. Missing/conflicting ownership stays
+unknown, and late observations only affect subsequent callbacks. TC attribution
+does not resolve VLAN/IPv6 extension headers, namespace collisions, shared
+sockets or missed TCP SYN reuse. Keep the SDK dependency pinned to a version
+that reads this trailer, and retain the gopacket replacement.
+
 `config.DecryptConfig` holds the shared serializable parsing options for TLS,
 GoTLS and GnuTLS. `--text-protocol` selects DoT/DoH/DoQ/MQTT/Redis;
 `--text-http-events` selects incremental HTTP/SSE/H2 gRPC and permits the
@@ -166,6 +182,14 @@ network tuple and direction, payload/original length, and optional stream
 identity/sequence. Publishers consume the original domain event and metadata;
 they do not reverse-parse text, keylog, or pcapng bytes. Pcapng DSB-only secret
 events are not published as table rows.
+
+Reconstructed events forward the SDK's PID/process fields when available,
+using the existing envelope and protobuf fields. Unknown attribution is PID
+zero; older SDKs may also supply the placeholder name `decryptor`, which must
+not be presented as a captured process. Ordinary publishers accept both
+`GetPid() uint32` and
+`GetPID() uint64` event accessors, including MySQL query events. UUID remains
+module-defined and must not be parsed as a universal process identity.
 
 Connected clients receive live records immediately. A new client first gets
 at most the latest 128 operational records, followed by live traffic through a
