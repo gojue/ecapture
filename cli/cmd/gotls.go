@@ -49,7 +49,7 @@ func init() {
 	gotlsCmd.PersistentFlags().StringVarP(&gotlsConfig.PcapFile, "pcapfile", "w", "ecapture_gotls.pcapng", "write the  raw packets to file as pcapng format.")
 	gotlsCmd.PersistentFlags().StringVarP(&gotlsConfig.CaptureMode, "model", "m", "text", "capture mode: text, pcap/pcapng, key/keylog")
 	gotlsCmd.PersistentFlags().StringVar(&gotlsConfig.TextSource, "text-source", "hook", "text capture source: hook or pcapng (live TLS decryption)")
-	bindDecryptFlags(gotlsCmd, &gotlsConfig.DecryptConfig)
+	gotlsCmd.PersistentFlags().BoolVar(&gotlsConfig.TextRaw, "text-raw", false, "emit decrypted TLS/QUIC byte chunks instead of parsed messages")
 	gotlsCmd.PersistentFlags().StringVarP(&gotlsConfig.KeylogFile, "keylogfile", "k", "ecapture_gotls_key.log", "The file stores SSL/TLS keys, and eCapture captures these keys during encrypted traffic communication and saves them to the file.")
 	gotlsCmd.PersistentFlags().StringVarP(&gotlsConfig.Ifname, "ifname", "i", "", "(TC Classifier) Interface name on which the probe will be attached.")
 	gotlsCmd.PersistentFlags().StringVar(&globalConf.CGroupPath, "cgroup_path", "", "cgroup v2 path for container/process filtering. Empty disables cgroup filtering.")

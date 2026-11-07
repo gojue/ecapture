@@ -277,7 +277,7 @@ func (p *Probe) setupManagerPcapNG() error {
 		if runtime := p.config.GetRuntimeOutput(); runtime != nil {
 			eventSinks = runtime.EventSinks
 		}
-		return decrypt.Register(p.Dispatcher(), p.config.Ifname, p.config.PcapFilter, p.Logger(), p.config.GetEventCollectorAddr(), p.config.PcapFile, writers.NewRotateConfig(p.config.GetEventRotation()), eventSinks, p.config.DecryptOptions())
+		return decrypt.Register(p.Dispatcher(), p.config.Ifname, p.config.PcapFilter, p.Logger(), p.config.GetEventCollectorAddr(), p.config.PcapFile, writers.NewRotateConfig(p.config.GetEventRotation()), eventSinks, p.config.TextRaw)
 	}
 
 	pcapSink, err := writers.NewWriterFactory().CreateEventSink(writers.EventSinkOptions{

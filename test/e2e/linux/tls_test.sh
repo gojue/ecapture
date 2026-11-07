@@ -9,19 +9,12 @@ source "$SCRIPT_DIR/common.sh"
 
 OPENSSL_CLIENT=""
 OPENSSL_LIB=""
-DTLS_PEERS=""
 
 build_openssl_client() {
     OPENSSL_CLIENT="$WORK_DIR/helpers/openssl_client"
     cc -O2 -Wall -Wextra -Werror \
         -o "$OPENSSL_CLIENT" "$E2E_DIR/fixtures/c/openssl_client.c" -lssl -lcrypto
     OPENSSL_LIB="$(resolve_linked_library "$OPENSSL_CLIENT" 'libssl[.]so')"
-    if mode_enabled text; then
-        require_command python3 || return 1
-        DTLS_PEERS="$WORK_DIR/helpers/dtls_peers"
-        cc -O2 -Wall -Wextra -Werror -pthread \
-            -o "$DTLS_PEERS" "$E2E_DIR/fixtures/c/dtls_peers.c" -lssl -lcrypto
-    fi
     log_info "OpenSSL fixture library: $OPENSSL_LIB"
 }
 
@@ -229,90 +222,6 @@ case_text_pcapng() {
     assert_pcapng "$pcap_file" || return 1
     assert_http_event_timestamps_current "$event_file" "linux/tls/text-pcapng" || return 1
     assert_pcapng_plaintext_preview "$pcap_file" "$E2E_TOKEN" "linux/tls/text-pcapng" || return 1
-}
-
-case_text_key_update() {
-    local suite="$1"
-    local prefix="$WORK_DIR/key-update-${suite}"
-    start_capture "$prefix.capture.log" tls --libssl "$OPENSSL_LIB" --model text --text-source pcapng \
-        --eventaddr "$prefix.events.log" --logaddr "$prefix.operational.log" --ifname lo \
-        --pcapfile "$prefix.pcapng" "tcp port $TLS_SERVER_PORT" || return 1
-    if ! run_openssl_request "tls13-keyupdate-$suite" "$prefix.client.log" ||
-        ! wait_for_file_contains "$prefix.events.log" "$E2E_TOKEN" "live HTTP response after TLS KeyUpdate"; then
-        stop_capture
-        return 1
-    fi
-    stop_capture
-    assert_file_contains "$prefix.client.log" "KEY_UPDATE sent=1 received=1" "bidirectional TLS KeyUpdate" || return 1
-    assert_no_capture_errors "$prefix.capture.log" || return 1
-    # Key updates report normal progress; all other diagnostics remain failures.
-    if grep 'decrypt diagnostic' "$prefix.operational.log" |
-        grep -Ev '"reason":"(key_update|key_update_requested)"'; then
-        log_error "Unexpected TLS KeyUpdate decryption diagnostic"
-        return 1
-    fi
-    assert_output_isolation "$prefix.operational.log" "$prefix.events.log" "$E2E_TOKEN" || return 1
-    assert_pcapng "$prefix.pcapng" || return 1
-    assert_pcapng_plaintext_preview "$prefix.pcapng" "$E2E_TOKEN" "linux/tls/key-update-$suite"
-}
-
-case_text_dtls() {
-    local suite="$1"
-    local prefix="$WORK_DIR/dtls-${suite}"
-    local cert="$WORK_DIR/dtls.crt" key="$WORK_DIR/dtls.key"
-    require_command openssl || return 1
-    if [[ ! -f "$cert" ]]; then
-        openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj /CN=localhost \
-            -keyout "$key" -out "$cert" >"$WORK_DIR/dtls-cert.log" 2>&1 || return 1
-    fi
-    start_capture "$prefix.capture.log" tls --libssl "$OPENSSL_LIB" --model text --text-source pcapng \
-        --text-udp-protocol dtls --eventaddr "$prefix.events.log" --logaddr "$prefix.operational.log" \
-        --ifname lo --pcapfile "$prefix.pcapng" 'udp and host 127.0.0.1' || return 1
-    local last_hex
-    last_hex="$(printf '\000\377%s_SERVER_3\n' "$E2E_TOKEN" | od -An -v -tx1 | tr -d ' \n')"
-    if ! timeout 20 "$DTLS_PEERS" "$cert" "$key" "$E2E_TOKEN" "$suite" >"$prefix.client.log" 2>&1 ||
-        ! wait_for_file_contains "$prefix.events.log" "$last_hex" "live DTLS binary response"; then
-        stop_capture
-        return 1
-    fi
-    # This assertion runs before stop_capture: EOF cannot release delayed output.
-    local status=0
-    python3 - "$prefix.events.log" "$E2E_TOKEN" <<'PY_DTLS' || status=$?
-import json
-import re
-import sys
-from collections import Counter
-from pathlib import Path
-
-lines = Path(sys.argv[1]).read_text().splitlines()
-messages, identities, connections = [], set(), set()
-for index, header in enumerate(lines):
-    if not re.search(r"\] dtls (client_to_server|server_to_client) ", header):
-        continue
-    metadata = json.loads(header.split(" metadata=", 1)[1])
-    assert metadata["kind"] == "datagram" and metadata["epoch"] == 1, metadata
-    assert not {"offset", "end", "stream_id"}.intersection(metadata), metadata
-    direction = "CLIENT" if " dtls client_to_server " in header else "SERVER"
-    payload = bytes.fromhex(lines[index + 1])
-    assert len(payload) == int(re.search(r" length=(\d+) ", header)[1]), header
-    identity = (direction, metadata["epoch"], metadata["sequence"])
-    assert identity not in identities, identity
-    identities.add(identity)
-    connections.add(re.search(r' connection="([^"]+)"', header)[1])
-    messages.append((direction, payload))
-expected = [(direction, b"\x00\xff" + f"{sys.argv[2]}_{direction}_{i}\n".encode())
-            for direction in ("CLIENT", "SERVER") for i in range(4)]
-assert Counter(messages) == Counter(expected), "missing, duplicated or incorrect DTLS data"
-assert len(connections) == 1, "DTLS tuple split into multiple connections"
-print("LIVE_DTLS_MESSAGES=8 DIRECTIONS=2 EPOCH=1 EXACT_BYTES=1")
-PY_DTLS
-    stop_capture
-    ((status == 0)) || return "$status"
-    assert_no_capture_errors "$prefix.capture.log" || return 1
-    assert_file_not_contains "$prefix.operational.log" "decrypt diagnostic" "DTLS decryption failure" || return 1
-    assert_output_isolation "$prefix.operational.log" "$prefix.events.log" "$E2E_TOKEN" || return 1
-    assert_file_contains "$prefix.client.log" "sent=4 received=4" "DTLS peer exchange" || return 1
-    assert_pcapng "$prefix.pcapng"
 }
 
 case_text_stream() {
@@ -780,15 +689,6 @@ main() {
     mode_enabled pcapng && run_case "linux/tls/pcapng-stdout" case_pcapng_stdout
     mode_enabled pcapng && run_case "linux/tls/ecaptureq-receiver-pcapng" case_ecaptureq_pcapng
     mode_enabled text && run_case "linux/tls/text-pcapng-http" case_text_pcapng
-    if mode_enabled text; then
-        local suite
-        for suite in aes128 aes256 chacha; do
-            run_case "linux/tls/text-key-update-$suite" case_text_key_update "$suite"
-        done
-        for suite in aes128 aes256; do
-            run_case "linux/tls/text-dtls-$suite" case_text_dtls "$suite"
-        done
-    fi
     if mode_enabled pcapng && [[ "${E2E_STRESS:-0}" == "1" ]]; then
         run_case "linux/tls/pcapng-burst-no-drop" case_pcapng_burst
     fi

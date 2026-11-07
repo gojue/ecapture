@@ -24,45 +24,12 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/gojue/ecapture_decryptor/types"
-
 	"github.com/gojue/ecapture/v2/internal/config"
 	"github.com/gojue/ecapture/v2/internal/domain"
 	outputpipeline "github.com/gojue/ecapture/v2/internal/output"
 	"github.com/gojue/ecapture/v2/internal/probe/base"
 	"github.com/gojue/ecapture/v2/internal/probe/base/handlers"
 )
-
-func TestDecryptFlagsReachSDKOptions(t *testing.T) {
-	for _, test := range []struct {
-		name string
-		args []string
-		want types.DecryptOptions
-	}{
-		{"DNS", []string{"--text-protocol=dot"}, types.DecryptOptions{ApplicationProtocol: "dot"}},
-		{"HTTP events", []string{"--text-http-events", "--text-max-decoded-body=4096"}, types.DecryptOptions{HTTPEvents: true, MaxDecodedBodyBytes: 4096}},
-		{"STARTTLS raw", []string{"--text-tls-upgrade=smtp", "--text-raw"}, types.DecryptOptions{TLSUpgrade: "smtp", RawChunks: true}},
-		{"DTLS", []string{"--text-udp-protocol=dtls"}, types.DecryptOptions{UDPProtocol: "dtls"}},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			command := &cobra.Command{Use: "capture"}
-			var cfg config.DecryptConfig
-			bindDecryptFlags(command, &cfg)
-			if err := command.ParseFlags(test.args); err != nil {
-				t.Fatal(err)
-			}
-			if err := cfg.ValidateDecryptOptions(true); err != nil {
-				t.Fatal(err)
-			}
-			got := cfg.DecryptOptions()
-			if got.RawChunks != test.want.RawChunks || got.ApplicationProtocol != test.want.ApplicationProtocol ||
-				got.HTTPEvents != test.want.HTTPEvents || got.MaxDecodedBodyBytes != test.want.MaxDecodedBodyBytes ||
-				got.TLSUpgrade != test.want.TLSUpgrade || got.UDPProtocol != test.want.UDPProtocol {
-				t.Fatalf("SDK options = %#v, want %#v", got, test.want)
-			}
-		})
-	}
-}
 
 type pipelineEvent struct{ payload []byte }
 

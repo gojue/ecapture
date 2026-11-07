@@ -125,15 +125,11 @@ func TestTLSHTTPConfigFactoriesPreserveTextOptions(t *testing.T) {
 			}
 			for _, option := range []struct {
 				name, body string
-				want       config.DecryptConfig
+				wantRaw    bool
 			}{
-				{"enabled", `{"text_source":"pcapng","text_raw":true}`, config.DecryptConfig{TextRaw: true}},
-				{"explicit false", `{"text_source":"pcapng","text_raw":false}`, config.DecryptConfig{}},
-				{"omitted uses module default", `{"text_source":"pcapng"}`, config.DecryptConfig{}},
-				{"application parser", `{"text_source":"pcapng","text_protocol":"redis"}`, config.DecryptConfig{TextProtocol: "redis"}},
-				{"incremental gzip", `{"text_source":"pcapng","text_http_events":true,"text_max_decoded_body":4096}`, config.DecryptConfig{TextHTTPEvents: true, TextMaxDecodedBody: 4096}},
-				{"STARTTLS raw", `{"text_source":"pcapng","text_tls_upgrade":"smtp","text_raw":true}`, config.DecryptConfig{TextTLSUpgrade: "smtp", TextRaw: true}},
-				{"DTLS", `{"text_source":"pcapng","text_udp_protocol":"dtls"}`, config.DecryptConfig{TextUDPProtocol: "dtls"}},
+				{"enabled", `{"text_source":"pcapng","text_raw":true}`, true},
+				{"explicit false", `{"text_source":"pcapng","text_raw":false}`, false},
+				{"omitted uses module default", `{"text_source":"pcapng"}`, false},
 			} {
 				t.Run(option.name, func(t *testing.T) {
 					update, err := test.factory(factoryRequest(option.body))
@@ -152,12 +148,14 @@ func TestTLSHTTPConfigFactoriesPreserveTextOptions(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					var decoded config.DecryptConfig
+					var decoded struct {
+						TextRaw bool `json:"text_raw"`
+					}
 					if err := json.Unmarshal(encoded, &decoded); err != nil {
 						t.Fatal(err)
 					}
-					if decoded != option.want {
-						t.Fatalf("decryption options = %#v, want %#v", decoded, option.want)
+					if decoded.TextRaw != option.wantRaw {
+						t.Fatalf("text_raw = %v, want %v", decoded.TextRaw, option.wantRaw)
 					}
 				})
 			}

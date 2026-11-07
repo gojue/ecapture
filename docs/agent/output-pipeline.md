@@ -78,43 +78,27 @@ are preserved.
 | Mode / text source | Representation | Valid primary ByteSink | eCaptureQ event |
 | --- | --- | --- | --- |
 | text (hook) | UTF-8 event text | empty/stdout, file, TCP, binary WebSocket | structured ordinary event |
-| text (pcapng source) | Application messages, streaming events or raw TLS/QUIC/DTLS data | empty/stdout, file, TCP, binary WebSocket | sensitive reconstructed event with text format |
+| text (pcapng source) | HTTP messages or explicit raw TLS/QUIC chunks | empty/stdout, file, TCP, binary WebSocket | sensitive reconstructed message/chunk with text format |
 | keylog | NSS Key Log lines | explicit stdout, file, TCP, binary WebSocket | structured sensitive event |
 | pcapng | ordered pcapng with DSB | explicit stdout, file, TCP, binary WebSocket | sensitive packet rows, never raw pcapng chunks |
 
 `-m text --text-source=pcapng` uses the same packet and keylog dispatcher records as pcapng, but
 passes their pcapng encoding through a pipe to `ecapture_decryptor`. The SDK
 reads DSB blocks incrementally, waits for late secrets, reassembles TCP and
-HTTP, then emits complete messages or the explicitly selected events. The pcapng session flushes
+HTTP, then emits one request/response at a time. The pcapng session flushes
 at a short interval without a fixed DSB grace period. The plaintext sink is
 the primary destination; a pcapng copy and standalone keylog are optional.
 The SDK callback publishes the reconstructed message to eCaptureQ directly;
 the raw packet publisher is not registered for this text source.
 
-`config.DecryptConfig` holds the shared serializable parsing options for TLS,
-GoTLS and GnuTLS. `--text-protocol` selects DoT/DoH/DoQ/MQTT/Redis;
-`--text-http-events` selects incremental HTTP/SSE/H2 gRPC and permits the
-optional `--text-max-decoded-body` gzip expansion bound. `--text-tls-upgrade`
-selects one explicit STARTTLS/CONNECT negotiation. `--text-udp-protocol=dtls`
-selects the SDK's limited DTLS 1.2 record decoder; UDP otherwise remains QUIC.
-All require text/pcapng source. SDK option validation runs before opening sinks.
-
-`--text-raw` selects authenticated TLS bytes, QUIC STREAM chunks and DATAGRAM
-messages without application parsing. Tagged events and nested TLS output
-preserve all SDK metadata as JSON and payload as lossless hex, including empty
-headers/trailers/datagrams. Only actual stream metadata adds offset/end/stream
-fields. Text sinks and typed EVENT payloads use the same representation; its
-header records the decoded byte length. Untagged complete HTTP messages keep
-their existing text representation.
-For structured events, typed `OriginalLength` is the length of that text representation. A TLS end
+`--text-raw` selects authenticated TLS bytes and QUIC STREAM chunks without
+application parsing. The SDK's existing packet metadata carries kind, offset,
+end and optional stream ID. Text sinks and typed EVENT payloads use the same
+lossless hex representation; its header records the decoded byte length.
+Typed `OriginalLength` is the length of that text representation. A TLS end
 marker denotes the end of captured input, not a complete application message;
-QUIC end denotes STREAM FIN. Early-data acceptance and `tls_depth` must not be
-dropped or treated as a single application stream. ECH still lacks probe-side
-ECH_SECRET/ECH_CONFIG capture; do not infer live support from SDK tests alone.
-DTLS master-secret events use version 0xFEFD and the TLS 1.2 CLIENT_RANDOM
-keylog representation. Application routing remains explicit. Normal key-update,
-HRR and early-data acceptance/rejection progress is logged at debug level;
-failure diagnostics remain warnings. Diagnostic observers receive
+QUIC end denotes STREAM FIN. Raw mode does not add DATAGRAM, ALPN dispatch or
+additional TLS/QUIC cryptographic capabilities. Diagnostic observers receive
 only connection/stage/reason fields and write to the operational logger.
 
 The maintained strict Linux E2E suites exercise operational logs and the
