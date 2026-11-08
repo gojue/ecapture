@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -65,22 +66,25 @@ func TestTypedPublishersKeepProcessLogsAndEventsSeparate(t *testing.T) {
 
 	const secret = "CLIENT_RANDOM secret-material"
 	if err := server.PublishEvent(context.Background(), domain.CapturedEventEnvelope{
-		Timestamp:       time.Unix(100, 0),
-		UUID:            "event-1",
-		EventType:       domain.EventTypeOutput,
-		Format:          domain.CaptureFormatKeylog,
-		Sensitivity:     domain.SensitivitySensitive,
-		PID:             42,
-		ProcessName:     "curl",
-		SourceIP:        "127.0.0.1",
-		SourcePort:      1234,
-		DestinationIP:   "127.0.0.2",
-		DestinationPort: 443,
-		Direction:       "write",
-		Payload:         []byte(secret),
-		OriginalLength:  uint32(len(secret)),
-		StreamID:        "stream-1",
-		Sequence:        9,
+		Timestamp:            time.Unix(100, 0),
+		UUID:                 "event-1",
+		EventType:            domain.EventTypeOutput,
+		Format:               domain.CaptureFormatKeylog,
+		Sensitivity:          domain.SensitivitySensitive,
+		PID:                  42,
+		ProcessName:          "curl",
+		ProcessArgs:          []byte("curl\x00" + strings.Repeat("\xff", 251)),
+		ProcessArgsTruncated: true,
+		TLS:                  map[string]string{"version": "TLS 1.3", "ja3": "client-fingerprint"},
+		SourceIP:             "127.0.0.1",
+		SourcePort:           1234,
+		DestinationIP:        "127.0.0.2",
+		DestinationPort:      443,
+		Direction:            "write",
+		Payload:              []byte(secret),
+		OriginalLength:       uint32(len(secret)),
+		StreamID:             "stream-1",
+		Sequence:             9,
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -89,8 +93,14 @@ func TestTypedPublishersKeepProcessLogsAndEventsSeparate(t *testing.T) {
 		t.Fatalf("event log type = %v", eventEntry.GetLogType())
 	}
 	event := eventEntry.GetEventPayload()
+	if event.GetTls()["version"] != "TLS 1.3" || event.GetTls()["ja3"] != "client-fingerprint" {
+		t.Fatal("typed EVENT lost TLS observations")
+	}
 	if event.GetPid() != 42 || event.GetPname() != "curl" {
 		t.Fatal("typed EVENT lost process attribution")
+	}
+	if string(event.GetProcessArgs()) != "curl\x00"+strings.Repeat("\xff", 251) || !event.GetProcessArgsTruncated() {
+		t.Fatal("typed EVENT lost raw argv or truncation flag")
 	}
 	if event == nil || event.GetCaptureFormat() != pb.CaptureFormat_CAPTURE_FORMAT_KEYLOG ||
 		event.GetSensitivity() != pb.Sensitivity_SENSITIVITY_SENSITIVE || string(event.GetPayload()) != secret {

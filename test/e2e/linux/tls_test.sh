@@ -186,7 +186,8 @@ case_text_pcapng() {
     local port=$((30000 + RANDOM % 20000))
     local endpoint="ws://127.0.0.1:${port}/"
     "$WORK_DIR/helpers/ecaptureq_assert" --server "$endpoint" --format text --sensitive \
-        --token "$E2E_TOKEN" --pid-file "$WORK_DIR/decrypt.client.pid" >"$typed_log" 2>&1 &
+        --token "$E2E_TOKEN" --args-token "$E2E_TOKEN" --pid-file "$WORK_DIR/decrypt.client.pid" \
+        --tls-metadata="${E2E_REQUIRE_TLS_METADATA:-false}" >"$typed_log" 2>&1 &
     local typed_pid=$!
     start_capture "$capture_log" tls --libssl "$OPENSSL_LIB" --model text --text-source pcapng \
         --logaddr "$operational_log" --eventaddr "$event_file" --ifname lo \

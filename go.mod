@@ -5,7 +5,7 @@ go 1.26.0
 require (
 	github.com/cilium/ebpf v0.22.0
 	github.com/gojue/ebpfmanager v0.6.0
-	github.com/gojue/ecapture_decryptor v1.4.1
+	github.com/gojue/ecapture_decryptor v1.4.3
 	github.com/google/gopacket v1.1.19
 	github.com/jschwinger233/elibpcap v1.1.0
 	github.com/rs/zerolog v1.35.1

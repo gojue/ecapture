@@ -47,6 +47,9 @@ Unknown future enum values should not be treated as captured events.
 | 15 | `original_length` | `uint32` | Original payload/packet length when available; otherwise a payload-length fallback |
 | 16 | `stream_id` | `string` | Optional producer-supplied stream identity |
 | 17 | `sequence` | `uint64` | Producer-local ordering metadata; not a global or persistent sequence |
+| 18 | `process_args` | `bytes` | Optional capture-time NUL-separated argv, at most 256 bytes; empty means unavailable |
+| 19 | `process_args_truncated` | `bool` | The argv snapshot ends at the capture limit and may end mid-argument |
+| 20 | `tls` | `map<string, string>` | Optional non-secret TLS handshake observations; missing values remain unknown |
 
 `type` currently follows `internal/domain.EventType`: `0=Output`,
 `1=ModuleData`, `2=Processor`. It is **not** an HTTP/1 or HTTP/2 request/response
@@ -63,7 +66,7 @@ not complete pcapng blocks or files; DSB-only secret events are not emitted as
 packet rows. The pcapng text source publishes reconstructed HTTP messages as
 `TEXT` + `SENSITIVE`. See [output behavior](../docs/event-forward-api.md).
 
-Fields 12–17 extend the existing v1 message. Older Protobuf readers ignore
+Fields 12–20 extend the existing v1 message. Older Protobuf readers ignore
 unknown fields. A decoder receiving an older sender must tolerate their
 zero/default values. UI-derived fields such as `is_binary` or `payload_utf8`
 are not part of this schema.
@@ -83,3 +86,18 @@ and disconnect slow clients; there is no durable delivery or resume protocol.
 For a complete receive/decode implementation, use the
 [Go client example](../examples/ecaptureq_client/README.md). Check `log_type`
 and the matching payload rather than trying to decode every message as `Event`.
+
+Process arguments are sensitive captured data, never operational logs. Complete
+argv snapshots end in NUL; truncated snapshots contain 256 bytes. Preserve raw
+bytes and the truncation flag; argv is not guaranteed to be valid UTF-8 or the
+original exec command because processes can rewrite it. Arguments do not affect
+connection identity or request/response association.
+
+`tls` (field 20) is an optional `map<string,string>` of non-secret handshake
+observations: `version`, `cipher_suite`, `cipher_suite_id`, `server_name`,
+`offered_alpn`, `alpn`, `key_exchange_group`, `signature_algorithm`, `ja3`,
+`ja3_raw`, `ja4`, and `client_hello` (`initial_wire` / `initial_outer`). Unknown
+fields are omitted. Client fingerprints use the first wire ClientHello;
+negotiated values come from observed server handshake messages, never HTTP.
+Older publishers omit the map and older consumers ignore it. No secrets,
+ClientRandom, or certificate-validation claim is included.
