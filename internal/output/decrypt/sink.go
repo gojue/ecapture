@@ -24,6 +24,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"sync"
 	"sync/atomic"
 
@@ -150,6 +151,13 @@ func messageEnvelope(packet *types.DecryptedPacket, formatted []byte, sequence u
 	}
 	if packet.PID > 0 {
 		envelope.PID = uint64(packet.PID)
+		if packet.ProcessArgs != nil {
+			envelope.ProcessArgs = append([]byte(nil), packet.ProcessArgs.Data...)
+			envelope.ProcessArgsTruncated = packet.ProcessArgs.Truncated
+		}
+	}
+	if tls, ok := packet.Metadata["tls"].(map[string]string); ok {
+		envelope.TLS = maps.Clone(tls)
 	}
 	// Structured events can carry metadata without payload. Preserve both using
 	// the existing text representation and existing protobuf process fields.

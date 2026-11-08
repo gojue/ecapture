@@ -35,7 +35,9 @@ import (
 func TestMessageEnvelopePreservesProcessAndRepresentation(t *testing.T) {
 	for _, structured := range []bool{false, true} {
 		packet := formatTestPacket("http/3", "response", []byte{0, 0xff, 'A'})
+		packet.ProcessArgs = &types.ProcessArgs{Data: append([]byte("demo\x00--label\x00"), bytes.Repeat([]byte("x"), 243)...), Truncated: true}
 		packet.Metadata["stream_id"] = uint64(0)
+		packet.Metadata["tls"] = map[string]string{"version": "TLS 1.3", "ja3": "client-fingerprint"}
 		if structured {
 			packet.Metadata["kind"] = "datagram"
 		}
@@ -47,6 +49,13 @@ func TestMessageEnvelopePreservesProcessAndRepresentation(t *testing.T) {
 		if envelope.PID != 17 || envelope.ProcessName != "client" || envelope.StreamID != "0" {
 			t.Fatalf("lost process or zero stream metadata: PID=%d name=%q stream=%q", envelope.PID, envelope.ProcessName, envelope.StreamID)
 		}
+		if !bytes.Equal(envelope.ProcessArgs, packet.ProcessArgs.Data) || !envelope.ProcessArgsTruncated {
+			t.Fatal("lost captured argv or truncation metadata")
+		}
+		packet.ProcessArgs.Data[0] = '!'
+		if envelope.ProcessArgs[0] != 'd' {
+			t.Fatal("captured argv aliases SDK memory")
+		}
 		if envelope.UUID != packet.ConnectionID() || envelope.Direction != "response" || envelope.Sequence != 7 ||
 			envelope.Format != domain.CaptureFormatText || envelope.Sensitivity != domain.SensitivitySensitive {
 			t.Fatal("captured metadata changed")
@@ -57,6 +66,13 @@ func TestMessageEnvelopePreservesProcessAndRepresentation(t *testing.T) {
 		}
 		if !bytes.Equal(envelope.Payload, want) || envelope.OriginalLength != uint32(len(want)) {
 			t.Fatal("captured representation changed")
+		}
+		if envelope.TLS["version"] != "TLS 1.3" {
+			t.Fatal("TLS metadata lost")
+		}
+		packet.Metadata["tls"].(map[string]string)["version"] = "changed"
+		if envelope.TLS["version"] != "TLS 1.3" {
+			t.Fatal("TLS metadata aliases SDK state")
 		}
 		original := append([]byte(nil), envelope.Payload...)
 		packet.Data[0] = 1

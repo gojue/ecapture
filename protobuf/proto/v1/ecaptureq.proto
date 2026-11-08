@@ -41,6 +41,12 @@ message Event {
   uint32 original_length = 15;
   string stream_id = 16;
   uint64 sequence = 17;
+  // Capture-time NUL-separated argv bytes; empty means unavailable.
+  // At most 256 bytes. Complete snapshots end in NUL; truncated ones may not.
+  bytes process_args = 18;
+  bool process_args_truncated = 19;
+  // Non-secret handshake observations from the decryptor; absent stays unknown.
+  map<string, string> tls = 20;
 }
 
 message Heartbeat {

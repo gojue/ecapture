@@ -188,8 +188,14 @@ type Event struct {
 	OriginalLength uint32                 `protobuf:"varint,15,opt,name=original_length,json=originalLength,proto3" json:"original_length,omitempty"`
 	StreamId       string                 `protobuf:"bytes,16,opt,name=stream_id,json=streamId,proto3" json:"stream_id,omitempty"`
 	Sequence       uint64                 `protobuf:"varint,17,opt,name=sequence,proto3" json:"sequence,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// Capture-time NUL-separated argv bytes; empty means unavailable.
+	// At most 256 bytes. Complete snapshots end in NUL; truncated ones may not.
+	ProcessArgs          []byte `protobuf:"bytes,18,opt,name=process_args,json=processArgs,proto3" json:"process_args,omitempty"`
+	ProcessArgsTruncated bool   `protobuf:"varint,19,opt,name=process_args_truncated,json=processArgsTruncated,proto3" json:"process_args_truncated,omitempty"`
+	// Non-secret handshake observations from the decryptor; absent stays unknown.
+	Tls           map[string]string `protobuf:"bytes,20,rep,name=tls,proto3" json:"tls,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Event) Reset() {
@@ -339,6 +345,27 @@ func (x *Event) GetSequence() uint64 {
 		return x.Sequence
 	}
 	return 0
+}
+
+func (x *Event) GetProcessArgs() []byte {
+	if x != nil {
+		return x.ProcessArgs
+	}
+	return nil
+}
+
+func (x *Event) GetProcessArgsTruncated() bool {
+	if x != nil {
+		return x.ProcessArgsTruncated
+	}
+	return false
+}
+
+func (x *Event) GetTls() map[string]string {
+	if x != nil {
+		return x.Tls
+	}
+	return nil
 }
 
 type Heartbeat struct {
@@ -511,7 +538,7 @@ var File_v1_ecaptureq_proto protoreflect.FileDescriptor
 
 const file_v1_ecaptureq_proto_rawDesc = "" +
 	"\n" +
-	"\x12v1/ecaptureq.proto\x12\x05event\"\xfe\x03\n" +
+	"\x12v1/ecaptureq.proto\x12\x05event\"\xb8\x05\n" +
 	"\x05Event\x12\x1c\n" +
 	"\ttimestamp\x18\x01 \x01(\x03R\ttimestamp\x12\x12\n" +
 	"\x04uuid\x18\x02 \x01(\tR\x04uuid\x12\x15\n" +
@@ -530,7 +557,13 @@ const file_v1_ecaptureq_proto_rawDesc = "" +
 	"\tdirection\x18\x0e \x01(\tR\tdirection\x12'\n" +
 	"\x0foriginal_length\x18\x0f \x01(\rR\x0eoriginalLength\x12\x1b\n" +
 	"\tstream_id\x18\x10 \x01(\tR\bstreamId\x12\x1a\n" +
-	"\bsequence\x18\x11 \x01(\x04R\bsequence\"Y\n" +
+	"\bsequence\x18\x11 \x01(\x04R\bsequence\x12!\n" +
+	"\fprocess_args\x18\x12 \x01(\fR\vprocessArgs\x124\n" +
+	"\x16process_args_truncated\x18\x13 \x01(\bR\x14processArgsTruncated\x12'\n" +
+	"\x03tls\x18\x14 \x03(\v2\x15.event.Event.TlsEntryR\x03tls\x1a6\n" +
+	"\bTlsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"Y\n" +
 	"\tHeartbeat\x12\x1c\n" +
 	"\ttimestamp\x18\x01 \x01(\x03R\ttimestamp\x12\x14\n" +
 	"\x05count\x18\x02 \x01(\x03R\x05count\x12\x18\n" +
@@ -567,7 +600,7 @@ func file_v1_ecaptureq_proto_rawDescGZIP() []byte {
 }
 
 var file_v1_ecaptureq_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_v1_ecaptureq_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_v1_ecaptureq_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_v1_ecaptureq_proto_goTypes = []any{
 	(LogType)(0),       // 0: event.LogType
 	(CaptureFormat)(0), // 1: event.CaptureFormat
@@ -575,18 +608,20 @@ var file_v1_ecaptureq_proto_goTypes = []any{
 	(*Event)(nil),      // 3: event.Event
 	(*Heartbeat)(nil),  // 4: event.Heartbeat
 	(*LogEntry)(nil),   // 5: event.LogEntry
+	nil,                // 6: event.Event.TlsEntry
 }
 var file_v1_ecaptureq_proto_depIdxs = []int32{
 	1, // 0: event.Event.capture_format:type_name -> event.CaptureFormat
 	2, // 1: event.Event.sensitivity:type_name -> event.Sensitivity
-	0, // 2: event.LogEntry.log_type:type_name -> event.LogType
-	3, // 3: event.LogEntry.event_payload:type_name -> event.Event
-	4, // 4: event.LogEntry.heartbeat_payload:type_name -> event.Heartbeat
-	5, // [5:5] is the sub-list for method output_type
-	5, // [5:5] is the sub-list for method input_type
-	5, // [5:5] is the sub-list for extension type_name
-	5, // [5:5] is the sub-list for extension extendee
-	0, // [0:5] is the sub-list for field type_name
+	6, // 2: event.Event.tls:type_name -> event.Event.TlsEntry
+	0, // 3: event.LogEntry.log_type:type_name -> event.LogType
+	3, // 4: event.LogEntry.event_payload:type_name -> event.Event
+	4, // 5: event.LogEntry.heartbeat_payload:type_name -> event.Heartbeat
+	6, // [6:6] is the sub-list for method output_type
+	6, // [6:6] is the sub-list for method input_type
+	6, // [6:6] is the sub-list for extension type_name
+	6, // [6:6] is the sub-list for extension extendee
+	0, // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_v1_ecaptureq_proto_init() }
@@ -605,7 +640,7 @@ func file_v1_ecaptureq_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_v1_ecaptureq_proto_rawDesc), len(file_v1_ecaptureq_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   3,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

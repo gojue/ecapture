@@ -4,6 +4,7 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"os"
@@ -19,12 +20,14 @@ import (
 )
 
 var (
-	server    = flag.String("server", "", "eCaptureQ WebSocket URL")
-	format    = flag.String("format", "text", "required capture format")
-	sensitive = flag.Bool("sensitive", false, "require sensitive text metadata")
-	token     = flag.String("token", "", "required text payload token")
-	pidFile   = flag.String("pid-file", "", "file containing the expected captured request PID")
-	wait      = flag.Duration("timeout", 20*time.Second, "overall timeout")
+	server      = flag.String("server", "", "eCaptureQ WebSocket URL")
+	format      = flag.String("format", "text", "required capture format")
+	sensitive   = flag.Bool("sensitive", false, "require sensitive text metadata")
+	token       = flag.String("token", "", "required text payload token")
+	argsToken   = flag.String("args-token", "", "required argv token for the expected request process")
+	tlsMetadata = flag.Bool("tls-metadata", false, "require decrypted TLS handshake observations")
+	pidFile     = flag.String("pid-file", "", "file containing the expected captured request PID")
+	wait        = flag.Duration("timeout", 20*time.Second, "overall timeout")
 )
 
 func main() {
@@ -86,9 +89,18 @@ func main() {
 				if err != nil || expected <= 0 || captured.GetPid() != expected || captured.GetPname() == "" || captured.GetPname() == "decryptor" {
 					fatalf("request process attribution mismatch: PID=%d name=%q", captured.GetPid(), captured.GetPname())
 				}
+				if *argsToken != "" && (!bytes.Contains(captured.GetProcessArgs(), []byte(*argsToken)) || captured.GetProcessArgsTruncated()) {
+					fatalf("request process arguments are missing or truncated")
+				}
 				process = true
 			}
 			if *token == "" || strings.Contains(string(captured.GetPayload()), *token) {
+				if *tlsMetadata {
+					info := captured.GetTls()
+					if info["version"] != "TLS 1.3" || info["cipher_suite"] == "" || len(info["ja3"]) != 32 || !strings.HasPrefix(info["ja4"], "t13") {
+						fatalf("TLS handshake metadata missing or invalid")
+					}
+				}
 				event = true
 			}
 		}

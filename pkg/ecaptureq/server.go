@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net"
 	"net/http"
 	"sync"
@@ -157,23 +158,26 @@ func (s *Server) PublishEvent(ctx context.Context, event domain.CapturedEventEnv
 	entry := &pb.LogEntry{
 		LogType: pb.LogType_LOG_TYPE_EVENT,
 		Payload: &pb.LogEntry_EventPayload{EventPayload: &pb.Event{
-			Timestamp:      event.Timestamp.Unix(),
-			Uuid:           event.UUID,
-			SrcIp:          event.SourceIP,
-			SrcPort:        event.SourcePort,
-			DstIp:          event.DestinationIP,
-			DstPort:        event.DestinationPort,
-			Pid:            int64(event.PID),
-			Pname:          event.ProcessName,
-			Type:           uint32(event.EventType),
-			Length:         uint32(len(event.Payload)),
-			Payload:        append([]byte(nil), event.Payload...),
-			CaptureFormat:  captureFormat(event.Format),
-			Sensitivity:    sensitivity(event.Sensitivity),
-			Direction:      event.Direction,
-			OriginalLength: event.OriginalLength,
-			StreamId:       event.StreamID,
-			Sequence:       event.Sequence,
+			Timestamp:            event.Timestamp.Unix(),
+			Uuid:                 event.UUID,
+			SrcIp:                event.SourceIP,
+			SrcPort:              event.SourcePort,
+			DstIp:                event.DestinationIP,
+			DstPort:              event.DestinationPort,
+			Pid:                  int64(event.PID),
+			Pname:                event.ProcessName,
+			ProcessArgs:          append([]byte(nil), event.ProcessArgs...),
+			ProcessArgsTruncated: event.ProcessArgsTruncated,
+			Tls:                  maps.Clone(event.TLS),
+			Type:                 uint32(event.EventType),
+			Length:               uint32(len(event.Payload)),
+			Payload:              append([]byte(nil), event.Payload...),
+			CaptureFormat:        captureFormat(event.Format),
+			Sensitivity:          sensitivity(event.Sensitivity),
+			Direction:            event.Direction,
+			OriginalLength:       event.OriginalLength,
+			StreamId:             event.StreamID,
+			Sequence:             event.Sequence,
 		}},
 	}
 	data, err := proto.Marshal(entry)

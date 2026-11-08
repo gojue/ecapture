@@ -46,6 +46,9 @@ Go 导入路径为 `pb "github.com/gojue/ecapture/v2/protobuf/gen/v1"`。
 | 15 | `original_length` | `uint32` | 可用时为原始负载/数据包长度，否则退回 payload 长度 |
 | 16 | `stream_id` | `string` | 可选的生产者流标识 |
 | 17 | `sequence` | `uint64` | 生产者局部顺序，不是全局或持久化序号 |
+| 18 | `process_args` | `bytes` | 采集时的 NUL 分隔 argv，最多 256 字节；空值表示未提供 |
+| 19 | `process_args_truncated` | `bool` | 参数达到采集上限而截断，末尾可能是不完整参数 |
+| 20 | `tls` | `map<string, string>` | 可选的非密钥 TLS 握手信息；缺失值表示未知 |
 
 `type` 当前对应 `internal/domain.EventType`：`0=Output`、`1=ModuleData`、
 `2=Processor`，**不是** HTTP/1、HTTP/2 请求/响应枚举。
@@ -60,7 +63,7 @@ keylog 事件携带密钥材料。pcapng 格式事件携带数据包负载，不
 pcapng 文本源重组出的 HTTP 消息使用 `TEXT` + `SENSITIVE`。
 详见[输出行为](../docs/event-forward-api-zh_Hans.md)。
 
-字段 12–17 是既有 v1 消息的扩展；旧 Protobuf 客户端会忽略未知字段。
+字段 12–20 是既有 v1 消息的扩展；旧 Protobuf 客户端会忽略未知字段。
 接收旧发布端数据时，应接受这些字段的零值/默认值。
 `is_binary`、`payload_utf8` 等 UI 派生字段不属于协议。
 
@@ -76,3 +79,14 @@ pcapng 文本源重组出的 HTTP 消息使用 `TEXT` + `SENSITIVE`。
 
 完整接收/解码实现见 [Go 客户端示例](../examples/ecaptureq_client/README.md)。
 按 `log_type` 和匹配的 payload 处理，不要将所有消息直接解码为 `Event`。
+
+进程参数属于敏感采集数据，不得写入运行日志。完整快照以 NUL 结尾，截断快照为
+256 字节。接收端应保留原始字节和截断标记，不能假设 argv 为 UTF-8，也不能保证
+它仍是最初 exec 的命令（进程可能改写 argv）。参数不参与连接标识或请求响应关联。
+
+`tls`（字段 20）是可选的 `map<string,string>` 握手快照，包含 `version`、
+`cipher_suite`、`cipher_suite_id`、`server_name`、`offered_alpn`、`alpn`、
+`key_exchange_group`、`signature_algorithm`、`ja3`、`ja3_raw`、`ja4`、
+`client_hello`（`initial_wire` / `initial_outer`）。未知字段省略。
+指纹取首次线上 ClientHello，协商结果来自实际服务端握手，不从 HTTP 推断。
+旧采集器省略该字段，旧客户端可忽略它；不携带密钥、ClientRandom，也不表示证书验证成功。

@@ -111,7 +111,9 @@ byte stream. Pcapng network/stdout artifacts pass the same block and DSB
 decryption checks as files. The strict eCaptureQ receiver requires both a
 non-empty `PROCESS_LOG` and a correctly classified `EVENT`, including format,
 sensitivity, timestamp, sequence, payload length, and original length;
-connectivity alone cannot pass.
+connectivity alone cannot pass. The OpenSSL text/pcapng case also requires
+the expected request PID and its deterministic argument token to survive the
+Decryptor and eCaptureQ pipeline; the token must not appear in operational logs.
 
 ## Layout
 
@@ -330,3 +332,7 @@ version-to-asset mapping synchronized with the offsets in
 new layout, and 3.8.11-3.8.13 share the 3.8.11 asset. Distribution patches may
 change private layouts without changing the library version; do not weaken
 assertions to accept startup logs or empty artifacts.
+
+Set `E2E_REQUIRE_TLS_METADATA=true` with the OpenSSL text suite to require JA3,
+JA4, TLS version and cipher suite on the pcapng-source typed EVENT. These
+handshake snapshots are provided by the pinned Decryptor v1.4.3 dependency.

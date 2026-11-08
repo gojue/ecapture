@@ -112,6 +112,13 @@ PID/Comm trailer is unchanged, so SDK v1.4.1 and older Lua readers retain their
 existing behavior; the updated Lua plugin displays quoted argv and truncation.
 Arguments are captured data and must not be copied into operational logs.
 
+Decryptor v1.4.2 and later read these EPB comments into optional `ProcessArgs` snapshots.
+The reconstructed publisher forwards raw argv and its truncation flag through
+additive eCaptureQ fields 18/19 without altering the HTTP payload or connection
+identity. Older readers ignore these fields; older senders leave them absent.
+Consumers must preserve the raw bytes and truncation flag; process arguments
+are captured snapshots, not guaranteed original exec commands.
+
 The matching SDK reads legacy and extended trailers. Ownership is independent
 of connection keys: one known local endpoint owns both directions; two local
 endpoints use their respective senders. Missing/conflicting ownership stays
@@ -119,6 +126,14 @@ unknown, and late observations only affect subsequent callbacks. TC attribution
 does not resolve VLAN/IPv6 extension headers, namespace collisions, shared
 sockets or missed TCP SYN reuse. Keep the SDK dependency pinned to a version
 that reads this trailer, and retain the gopacket replacement.
+
+When the SDK provides `Metadata["tls"]` as a string map, the text/pcapng
+publisher copies this non-secret handshake snapshot into eCaptureQ `Event.tls`
+(field 20). This does not change the primary text ByteSink representation or
+HTTP payload. Version/cipher/ALPN are observed selections, while JA3/JA4 and
+SNI come from the first wire ClientHello (Outer for ECH). Missing observations
+remain absent. SDK v1.4.3 provides this optional metadata and is the pinned
+dependency for handshake output.
 
 `config.DecryptConfig` holds the shared serializable parsing options for TLS,
 GoTLS and GnuTLS. `--text-protocol` selects DoT/DoH/DoQ/MQTT/Redis;

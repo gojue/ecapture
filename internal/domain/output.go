@@ -51,23 +51,26 @@ type OperationalLogRecord struct {
 // configuration and lets publishers consume the event without reverse-parsing
 // text, keylog, or pcapng bytes.
 type CapturedEventEnvelope struct {
-	Timestamp       time.Time
-	UUID            string
-	EventType       EventType
-	Format          CaptureFormat
-	Sensitivity     Sensitivity
-	PID             uint64
-	ProcessName     string
-	SourceIP        string
-	SourcePort      uint32
-	DestinationIP   string
-	DestinationPort uint32
-	Direction       string
-	Payload         []byte
-	OriginalLength  uint32
-	StreamID        string
-	Sequence        uint64
-	DomainEvent     Event
+	Timestamp            time.Time
+	UUID                 string
+	EventType            EventType
+	Format               CaptureFormat
+	Sensitivity          Sensitivity
+	PID                  uint64
+	ProcessName          string
+	ProcessArgs          []byte
+	ProcessArgsTruncated bool
+	TLS                  map[string]string
+	SourceIP             string
+	SourcePort           uint32
+	DestinationIP        string
+	DestinationPort      uint32
+	Direction            string
+	Payload              []byte
+	OriginalLength       uint32
+	StreamID             string
+	Sequence             uint64
+	DomainEvent          Event
 }
 
 // OperationalLogSink publishes typed eCapture runtime records. It is not a
