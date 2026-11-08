@@ -25,7 +25,6 @@ import (
 
 const (
 	TaskCommLen = 16
-	CmdlineLen  = 256
 )
 
 // PacketEvent represents a network packet captured by TC probes.
@@ -34,16 +33,19 @@ type PacketEvent struct {
 	Timestamp       uint64
 	Pid             uint32
 	Comm            [TaskCommLen]byte
-	Cmdline         [CmdlineLen]byte
 	PacketLen       uint32
 	InterfaceIndex  uint32
 	ProcessEndpoint uint32
+	ArgsLen         uint32
+	ArgsTruncated   uint32
+	ProcessArgs     []byte
 	PacketData      []byte
 }
 
 // DecodeFromBytes decodes a packet event from raw bytes.
 func (e *PacketEvent) DecodeFromBytes(data []byte) error {
-	if len(data) < 40 {
+	e.ProcessArgs = nil
+	if len(data) < 48 {
 		return errors.New(errors.ErrCodeEventDecode, "packet event data too short")
 	}
 	var err error
@@ -57,11 +59,6 @@ func (e *PacketEvent) DecodeFromBytes(data []byte) error {
 	if err = binary.Read(buf, binary.LittleEndian, &e.Comm); err != nil {
 		return err
 	}
-	//if err = binary.Read(buf, binary.LittleEndian, &te.Cmdline); err != nil {
-	//	return
-	//}
-	//TODO
-	e.Cmdline[0] = 91 //ascii 91
 	if err = binary.Read(buf, binary.LittleEndian, &e.PacketLen); err != nil {
 		return err
 	}
@@ -70,6 +67,25 @@ func (e *PacketEvent) DecodeFromBytes(data []byte) error {
 	}
 	if err = binary.Read(buf, binary.LittleEndian, &e.ProcessEndpoint); err != nil {
 		return err
+	}
+	if err = binary.Read(buf, binary.LittleEndian, &e.ArgsLen); err != nil {
+		return err
+	}
+	if err = binary.Read(buf, binary.LittleEndian, &e.ArgsTruncated); err != nil {
+		return err
+	}
+	if e.ArgsLen > 256 || e.ArgsTruncated > 1 || (e.ArgsTruncated == 1 && e.ArgsLen != 256) || uint64(e.ArgsLen)+uint64(e.PacketLen) > uint64(buf.Len()) {
+		return errors.New(errors.ErrCodeEventDecode, "invalid packet argv length or flags")
+	}
+	if e.ArgsLen > 0 {
+		e.ProcessArgs = make([]byte, e.ArgsLen)
+		if err := binary.Read(buf, binary.LittleEndian, e.ProcessArgs); err != nil {
+			return err
+		}
+		if e.Pid == 0 || e.ProcessEndpoint < 1 || e.ProcessEndpoint > 2 || (e.ArgsTruncated == 0 && e.ProcessArgs[len(e.ProcessArgs)-1] != 0) {
+			e.ProcessArgs = nil
+			e.ArgsTruncated = 0
+		}
 	}
 	if uint64(e.PacketLen) > uint64(buf.Len()) {
 		return errors.New(errors.ErrCodeEventDecode, "packet payload truncated")
@@ -104,6 +120,7 @@ func (e *PacketEvent) StringHex() string {
 // Clone creates a copy of the event.
 func (e *PacketEvent) Clone() domain.Event {
 	clone := *e
+	clone.ProcessArgs = append([]byte(nil), e.ProcessArgs...)
 	clone.PacketData = append([]byte(nil), e.PacketData...)
 	return &clone
 }
@@ -169,3 +186,7 @@ func (e *PacketEvent) Decode(data []byte) (domain.Event, error) {
 func (e *PacketEvent) GetProcessEndpoint() uint32 { return e.ProcessEndpoint }
 func (e *PacketEvent) GetPid() uint32             { return e.Pid }
 func (e *PacketEvent) GetComm() string            { return string(bytes.TrimRight(e.Comm[:], "\x00")) }
+
+func (e *PacketEvent) GetProcessArgs() []byte { return e.ProcessArgs }
+
+func (e *PacketEvent) GetProcessArgsTruncated() bool { return e.ArgsTruncated != 0 }

@@ -41,6 +41,8 @@ type PacketEvent interface {
 	GetPid() uint32
 	GetComm() string
 	GetProcessEndpoint() uint32
+	GetProcessArgs() []byte
+	GetProcessArgsTruncated() bool
 	// GetInterfaceIndex returns the network interface index
 	// Set to 0 by default because the monitored interface is the first one in pcapng header
 	// See: https://github.com/gojue/ecapture/issues/347
@@ -197,7 +199,7 @@ func (h *PcapngHandler) Handle(event domain.Event) error {
 	timestamp := time.Unix(0, int64(packetNs)+h.clockOffsetNs)
 
 	// Write packet to pcapng file
-	err := h.session.WritePacketWithProcess(packetData, timestamp, pktEvent.GetPid(), pktEvent.GetComm(), pktEvent.GetProcessEndpoint())
+	err := h.session.WritePacketWithProcess(packetData, timestamp, pktEvent.GetPid(), pktEvent.GetComm(), pktEvent.GetProcessEndpoint(), pktEvent.GetProcessArgs(), pktEvent.GetProcessArgsTruncated())
 	if err != nil {
 		return errors.Wrap(errors.ErrCodeEventDispatch, "failed to write packet to pcapng", err)
 	}

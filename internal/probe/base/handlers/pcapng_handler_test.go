@@ -54,6 +54,8 @@ type mockPacketEvent struct {
 	pid            uint32
 	comm           string
 	endpoint       uint32
+	args           []byte
+	truncated      bool
 	timestamp      uint64
 	packetData     []byte
 	packetLen      uint32
@@ -223,6 +225,7 @@ func TestPcapngHandler_Handle_InvalidEventType(t *testing.T) {
 func (m *mockPacketEvent) GetPid() uint32             { return m.pid }
 func (m *mockPacketEvent) GetComm() string            { return m.comm }
 func (m *mockPacketEvent) GetProcessEndpoint() uint32 { return m.endpoint }
+func (m *mockPacketEvent) GetProcessArgs() []byte     { return m.args }
 
 func TestPcapngProcessTrailerFileAndStream(t *testing.T) {
 	for _, lowLatency := range []bool{false, true} {
@@ -240,7 +243,7 @@ func TestPcapngProcessTrailerFileAndStream(t *testing.T) {
 			t.Fatal(err)
 		}
 		for _, pid := range []uint32{4242, 0} {
-			if err := handler.Handle(&mockPacketEvent{timestamp: uint64(mono.Nano()), packetData: raw, packetLen: uint32(len(raw)), pid: pid, comm: "client\x00junk", endpoint: 1}); err != nil {
+			if err := handler.Handle(&mockPacketEvent{timestamp: uint64(mono.Nano()), packetData: raw, packetLen: uint32(len(raw)), pid: pid, comm: "client\x00junk", endpoint: 1, args: []byte("client\x00two words\x00\x00")}); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -249,6 +252,9 @@ func TestPcapngProcessTrailerFileAndStream(t *testing.T) {
 		}
 		if !bytes.Equal(raw, want) {
 			t.Fatal("mutated captured bytes")
+		}
+		if bytes.Count(sink.Bytes(), []byte("eCapture argv v1 0 Y2xpZW50AHR3byB3b3JkcwAA")) != 1 {
+			t.Fatal("handler lost argv or attributed an unknown PID")
 		}
 		reader, err := pcapgo.NewNgReader(bytes.NewReader(sink.Bytes()), pcapgo.DefaultNgReaderOptions)
 		if err != nil {
@@ -268,3 +274,5 @@ func TestPcapngProcessTrailerFileAndStream(t *testing.T) {
 		}
 	}
 }
+
+func (m *mockPacketEvent) GetProcessArgsTruncated() bool { return m.truncated }

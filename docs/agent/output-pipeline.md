@@ -99,6 +99,19 @@ uint8 Comm length, up to 16 Comm bytes, version `1`, endpoint `1` (source) or
 `2` (destination), and four zero FCS placeholder bytes. The legacy prefix stays
 compatible with `utils/ecapture.lua`; this is packet data, not an EPB option.
 
+Send-context probes also read `current->mm->arg_start/arg_end` through an eBPF
+helper, preserving NUL-separated argv bytes up to 256 bytes. Longer argv is
+explicitly marked truncated; failed reads stay unknown. No procfs lookup is
+performed. Large SKBs omit optional argv to leave room in the perf sample.
+`network_map` carries the snapshot alongside PID/Comm. The perf ABI
+is a 48-byte header (the original 40-byte prefix plus uint32 argv length and
+uint32 truncation flag), then argv bytes and the unchanged packet bytes.
+Both file and low-latency sessions write argv in a standard EPB comment:
+`eCapture argv v1 <0|1> <base64>`, where the flag denotes truncation. The legacy
+PID/Comm trailer is unchanged, so SDK v1.4.1 and older Lua readers retain their
+existing behavior; the updated Lua plugin displays quoted argv and truncation.
+Arguments are captured data and must not be copied into operational logs.
+
 The matching SDK reads legacy and extended trailers. Ownership is independent
 of connection keys: one known local endpoint owns both directions; two local
 endpoints use their respective senders. Missing/conflicting ownership stays

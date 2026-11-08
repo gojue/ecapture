@@ -16,9 +16,11 @@ package pcapng
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/binary"
 	stderrors "errors"
 	"fmt"
+	"io"
 	"math"
 	"net"
 	"sort"
@@ -36,8 +38,10 @@ import (
 )
 
 type TcPacket struct {
-	ci   gopacket.CaptureInfo
-	data []byte
+	ci            gopacket.CaptureInfo
+	data          []byte
+	args          []byte
+	argsTruncated bool
 }
 
 const (
@@ -180,7 +184,7 @@ func newSession(sink writers.ByteSink, snaplen uint32, ifName, filter string, lo
 // WritePacketWithProcess preserves the historical Ethernet trailer used by
 // ecapture.lua. The optional version/endpoint suffix disambiguates loopback
 // ownership without changing the IP packet, TLS bytes, or pcapng block format.
-func (pw *Session) WritePacketWithProcess(data []byte, timestamp time.Time, pid uint32, comm string, endpoint uint32) error {
+func (pw *Session) WritePacketWithProcess(data []byte, timestamp time.Time, pid uint32, comm string, endpoint uint32, args []byte, truncated bool) error {
 	if pid != 0 && endpoint >= 1 && endpoint <= 2 {
 		comm, _, _ = strings.Cut(comm, "\x00")
 		if len(comm) > 16 {
@@ -194,12 +198,24 @@ func (pw *Session) WritePacketWithProcess(data []byte, timestamp time.Time, pid 
 		trailer[9+len(comm)] = 1 // extension version
 		trailer[10+len(comm)] = byte(endpoint)
 		data = append(append([]byte(nil), data...), trailer...)
+	} else {
+		args = nil
 	}
-	return pw.WritePacket(data, timestamp)
+	if len(args) == 0 || len(args) > 256 || (truncated && len(args) != 256) || (!truncated && args[len(args)-1] != 0) {
+		args = nil
+	}
+	if len(args) == 0 {
+		truncated = false
+	}
+	return pw.queuePacket(data, timestamp, args, truncated)
 }
 
 // WritePacket queues a packet for the pcapng stream.
 func (pw *Session) WritePacket(data []byte, timestamp time.Time) error {
+	return pw.queuePacket(data, timestamp, nil, false)
+}
+
+func (pw *Session) queuePacket(data []byte, timestamp time.Time, args []byte, truncated bool) error {
 	if err := pw.currentServeError(); err != nil {
 		return errors.Wrap(errors.ErrCodeEventDispatch, "pcapng stream failed", err)
 	}
@@ -219,7 +235,7 @@ func (pw *Session) WritePacket(data []byte, timestamp time.Time) error {
 		pw.queueMu.Unlock()
 		return errors.New(errors.ErrCodeEventDispatch, "pcapng session is closed")
 	}
-	pw.pendingPackets = append(pw.pendingPackets, &TcPacket{ci: captureInfo, data: append([]byte(nil), data...)})
+	pw.pendingPackets = append(pw.pendingPackets, &TcPacket{ci: captureInfo, data: append([]byte(nil), data...), args: append([]byte(nil), args...), argsTruncated: truncated})
 	pw.queueMu.Unlock()
 
 	// One notification is sufficient: the run loop drains the complete pending queue.
@@ -411,7 +427,7 @@ func (pw *Session) savePcapng() (i int, err error) {
 		return pw.tcPackets[i].ci.Timestamp.Before(pw.tcPackets[j].ci.Timestamp)
 	})
 	for _, packet := range pw.tcPackets {
-		err = pw.encoder.WritePacket(packet.ci, packet.data)
+		err = pw.writePacket(packet)
 		i++
 		if err != nil {
 			return
@@ -427,7 +443,42 @@ func (pw *Session) savePcapng() (i int, err error) {
 
 // writePacket writes a single packet through the pcapng encoder.
 func (pw *Session) writePacket(pc *TcPacket) error {
-	return pw.encoder.WritePacket(pc.ci, pc.data)
+	if len(pc.args) == 0 {
+		return pw.encoder.WritePacket(pc.ci, pc.data)
+	}
+	// The retained gopacket fork does not expose EPB options. Flush its headers,
+	// DSBs and packets before writing an EPB with standard comment options.
+	if err := pw.encoder.Flush(); err != nil {
+		return err
+	}
+	flag := 0
+	if pc.argsTruncated {
+		flag = 1
+	}
+	comment := fmt.Sprintf("eCapture argv v1 %d ", flag) + base64.StdEncoding.EncodeToString(pc.args)
+	block := make([]byte, 28)
+	block = append(block, pc.data...)
+	block = append(block, make([]byte, (-len(pc.data))&3)...)
+	block = binary.LittleEndian.AppendUint16(block, 1) // opt_comment
+	block = binary.LittleEndian.AppendUint16(block, uint16(len(comment)))
+	block = append(block, comment...)
+	block = append(block, make([]byte, (-len(comment))&3)...)
+	block = append(block, make([]byte, 8)...) // end-of-options and block length
+	order := binary.LittleEndian              // NgWriter always emits little-endian, ns timestamps.
+	order.PutUint32(block, 6)
+	order.PutUint32(block[4:], uint32(len(block)))
+	order.PutUint32(block[8:], uint32(pc.ci.InterfaceIndex))
+	ts := uint64(pc.ci.Timestamp.UnixNano())
+	order.PutUint32(block[12:], uint32(ts>>32))
+	order.PutUint32(block[16:], uint32(ts))
+	order.PutUint32(block[20:], uint32(pc.ci.CaptureLength))
+	order.PutUint32(block[24:], uint32(pc.ci.Length))
+	order.PutUint32(block[len(block)-4:], uint32(len(block)))
+	n, err := pw.sink.Write(block)
+	if err == nil && n != len(block) {
+		err = io.ErrShortWrite
+	}
+	return err
 }
 
 // WriteKeyLog writes TLS master secret as a Decryption Secrets Block (DSB).
