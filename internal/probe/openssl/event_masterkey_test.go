@@ -12,6 +12,8 @@ func TestMasterSecretDTLS12(t *testing.T) {
 	data := make([]byte, 4+Ssl3RandomSize+MasterSecretMaxLen)
 	binary.LittleEndian.PutUint32(data, 0xfefd)
 	data[4], data[4+Ssl3RandomSize] = 1, 2
+	zeroRandom := append([]byte(nil), data...)
+	clear(zeroRandom[4 : 4+Ssl3RandomSize])
 	for _, test := range []struct {
 		name  string
 		data  []byte
@@ -21,6 +23,7 @@ func TestMasterSecretDTLS12(t *testing.T) {
 		{"padded", append(append([]byte(nil), data...), make([]byte, 8)...), true},
 		{"short", data[:len(data)-1], false},
 		{"empty", nil, false},
+		{"zero client random", zeroRandom, false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			event, err := (&MasterSecretEvent{}).Decode(test.data)

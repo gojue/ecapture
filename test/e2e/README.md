@@ -19,6 +19,9 @@ entry points:
   AES-128-GCM, AES-256-GCM and ChaCha20-Poly1305, plus DTLS 1.2 ECDHE-RSA
   AES-128/256-GCM with exact binary records, direction, epoch and sequence.
   These peers do not write keylogs; the pcapng DSB comes from eCapture.
+  They also reset each completed DTLS connection with `SSL_clear()`, retaining
+  its session while clearing client random. Subsequent hooks must not emit
+  an uninitialized secret event; decoder errors remain fatal.
 - Every Linux TLS module exercises text, keylog, and pcapng over stdout, file,
   local TCP, and binary WebSocket ByteSinks. Each representation is also
   observed by a strict typed eCaptureQ receiver.
@@ -114,6 +117,12 @@ sensitivity, timestamp, sequence, payload length, and original length;
 connectivity alone cannot pass. The OpenSSL text/pcapng case also requires
 the expected request PID and its deterministic argument token to survive the
 Decryptor and eCaptureQ pipeline; the token must not appear in operational logs.
+The request launcher records its kernel TGID before `exec`, using a temporary
+raw syscall tracepoint restricted to a random thread name. This keeps the PID
+comparison exact inside containers whose local PID differs from the captured
+kernel TGID. The observer is closed before the client executes and needs no
+tracefs mount. Failed assertions print only diagnostic fields, never argv or
+captured payloads, before dedicated-runner cleanup removes private artifacts.
 
 ## Layout
 

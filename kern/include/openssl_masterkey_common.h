@@ -53,16 +53,22 @@ struct {
  * Common helpers
  ***********************************************************/
 
+// Hooks also run before ClientHello and after SSL_clear(), when a retained
+// session does not describe a new handshake yet. Do not emit those snapshots.
+static __always_inline bool has_client_random(const struct mastersecret_t *event) {
+    u8 nonzero = 0;
+#pragma unroll
+    for (int i = 0; i < SSL3_RANDOM_SIZE; i++) nonzero |= event->client_random[i];
+    return nonzero != 0;
+}
+
 // Allocate a mastersecret_t on the BPF "heap" to work around the 512-byte
 // stack limit.  Returns NULL on failure.
 static __always_inline struct mastersecret_t *make_event(void) {
     u32 key_gen = 0;
-    struct mastersecret_t *bpf_ctx =
-        bpf_map_lookup_elem(&bpf_context_gen, &key_gen);
-    if (!bpf_ctx)
-        return 0;
+    struct mastersecret_t *bpf_ctx = bpf_map_lookup_elem(&bpf_context_gen, &key_gen);
+    if (!bpf_ctx) return 0;
     u64 id = bpf_get_current_pid_tgid();
     bpf_map_update_elem(&bpf_context, &id, bpf_ctx, BPF_ANY);
     return bpf_map_lookup_elem(&bpf_context, &id);
 }
-
