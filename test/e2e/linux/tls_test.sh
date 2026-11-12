@@ -75,7 +75,7 @@ case_invalid_output_combinations() {
         return 1
     fi
     assert_file_contains "$output" "cannot both select" "legacy destination conflict" || return 1
-    if "$ECAPTURE_BINARY" tls --libssl "$OPENSSL_LIB" --model text \
+    if "$ECAPTURE_BINARY" tls --libssl "$OPENSSL_LIB" --model text --text-source hook \
         --eventaddr udp://127.0.0.1:9000 >"$output" 2>&1; then
         log_error "unsupported event scheme unexpectedly succeeded"
         return 1
@@ -94,7 +94,7 @@ case_text() {
     local operational_log="$WORK_DIR/text.operational.log"
     local event_file="$WORK_DIR/text.events.log"
     local client_log="$WORK_DIR/text.client.log"
-    start_capture "$capture_log" tls --libssl "$OPENSSL_LIB" --model text \
+    start_capture "$capture_log" tls --libssl "$OPENSSL_LIB" --model text --text-source hook \
         --logaddr "$operational_log" --eventaddr "$event_file" || return 1
     if ! run_openssl_request tls13 "$client_log"; then
         stop_capture
@@ -189,7 +189,7 @@ case_text_pcapng() {
         --token "$E2E_TOKEN" --args-token "$E2E_TOKEN" --pid-file "$WORK_DIR/decrypt.client.pid" \
         --tls-metadata="${E2E_REQUIRE_TLS_METADATA:-false}" >"$typed_log" 2>&1 &
     local typed_pid=$!
-    start_capture "$capture_log" tls --libssl "$OPENSSL_LIB" --model text --text-source pcapng \
+    start_capture "$capture_log" tls --libssl "$OPENSSL_LIB" --model text \
         --logaddr "$operational_log" --eventaddr "$event_file" --ifname lo \
         --pcapfile "$pcap_file" --ecaptureq "$endpoint" "tcp port $TLS_SERVER_PORT" || {
         kill -TERM "$typed_pid" 2>/dev/null || true
@@ -328,7 +328,7 @@ case_text_stream() {
     local operational_log="$WORK_DIR/text-${transport}.operational.log"
     local event_file="$WORK_DIR/text-${transport}.events.log"
     start_output_receiver "$transport" "$event_file" || return 1
-    start_capture "$capture_log" tls --libssl "$OPENSSL_LIB" --model text \
+    start_capture "$capture_log" tls --libssl "$OPENSSL_LIB" --model text --text-source hook \
         --logaddr "$operational_log" --eventaddr "$OUTPUT_RECEIVER_URI" || {
         stop_output_receiver || true
         return 1
@@ -352,7 +352,7 @@ case_text_stdout() {
     local operational_log="$WORK_DIR/text-stdout.operational.log"
     local event_file="$WORK_DIR/text.stdout.events.log"
     start_capture_split "$event_file" "$capture_log" tls --libssl "$OPENSSL_LIB" \
-        --model text --eventaddr stdout --logaddr "$operational_log" || return 1
+        --model text --text-source hook --eventaddr stdout --logaddr "$operational_log" || return 1
     if ! run_openssl_request tls13 "$WORK_DIR/text-stdout.client.log"; then
         stop_capture
         return 1
@@ -371,7 +371,7 @@ case_operational_stream() {
     local operational_log="$WORK_DIR/logaddr-${transport}.operational.log"
     local event_file="$WORK_DIR/logaddr-${transport}.events.log"
     start_output_receiver "$transport" "$operational_log" || return 1
-    start_capture "$capture_log" tls --libssl "$OPENSSL_LIB" --model text \
+    start_capture "$capture_log" tls --libssl "$OPENSSL_LIB" --model text --text-source hook \
         --logaddr "$OUTPUT_RECEIVER_URI" --eventaddr "$event_file" || {
         stop_output_receiver || true
         return 1
@@ -394,7 +394,7 @@ case_operational_stdout() {
     local operational_log="$WORK_DIR/logaddr.stdout.log"
     local event_file="$WORK_DIR/logaddr-stdout.events.log"
     start_capture_split "$operational_log" "$capture_log" tls --libssl "$OPENSSL_LIB" \
-        --model text --logaddr stdout --eventaddr "$event_file" || return 1
+        --model text --text-source hook --logaddr stdout --eventaddr "$event_file" || return 1
     if ! run_openssl_request tls13 "$WORK_DIR/logaddr-stdout.client.log"; then
         stop_capture
         return 1
@@ -526,7 +526,7 @@ case_ecaptureq_text() {
     "$WORK_DIR/helpers/ecaptureq_assert" --server "$endpoint" --format text \
         --token "$E2E_TOKEN" >"$client_log" 2>&1 &
     local client_pid=$!
-    start_capture "$capture_log" tls --libssl "$OPENSSL_LIB" --model text \
+    start_capture "$capture_log" tls --libssl "$OPENSSL_LIB" --model text --text-source hook \
         --logaddr "$operational_log" --eventaddr "$event_file" --ecaptureq "$endpoint" || {
         kill -TERM "$client_pid" 2>/dev/null || true
         wait "$client_pid" 2>/dev/null || true
@@ -650,7 +650,7 @@ case_text_reload_output() {
     local request_body="$WORK_DIR/reload-request.json"
     local response_body="$WORK_DIR/reload-response.json"
 
-    start_capture "$capture_log" tls --libssl "$OPENSSL_LIB" --model text \
+    start_capture "$capture_log" tls --libssl "$OPENSSL_LIB" --model text --text-source hook \
         --listen "127.0.0.1:$port" \
         --logaddr "$operational_log" --eventaddr "$original_events" \
         --eventroratesize 64 --eventroratetime 3600 || return 1
@@ -668,7 +668,7 @@ case_text_reload_output() {
         return 1
     }
 
-    printf '{"opensslpath":"%s","capturemode":"text"}\n' "$OPENSSL_LIB" >"$request_body"
+    printf '{"opensslpath":"%s","capturemode":"text","text_source":"hook"}\n' "$OPENSSL_LIB" >"$request_body"
     post_config_update "$endpoint" "$request_body" "$response_body" 1 || {
         stop_capture
         return 1
@@ -686,7 +686,7 @@ case_text_reload_output() {
         return 1
     }
 
-    printf '{"opensslpath":"%s","capturemode":"text","event_collector_addr":"%s"}\n' \
+    printf '{"opensslpath":"%s","capturemode":"text","text_source":"hook","event_collector_addr":"%s"}\n' \
         "$OPENSSL_LIB" "$updated_events" >"$request_body"
     post_config_update "$endpoint" "$request_body" "$response_body" 1 || {
         stop_capture
@@ -710,7 +710,7 @@ case_text_reload_output() {
         return 1
     }
 
-    printf '{"opensslpath":"%s","capturemode":"text","event_collector_addr":"udp://127.0.0.1:9"}\n' \
+    printf '{"opensslpath":"%s","capturemode":"text","text_source":"hook","event_collector_addr":"udp://127.0.0.1:9"}\n' \
         "$OPENSSL_LIB" >"$request_body"
     post_config_update "$endpoint" "$request_body" "$response_body" 0 || {
         stop_capture
@@ -786,7 +786,7 @@ main() {
     mode_enabled pcapng && run_case "linux/tls/pcapng-websocket" case_pcapng_stream ws
     mode_enabled pcapng && run_case "linux/tls/pcapng-stdout" case_pcapng_stdout
     mode_enabled pcapng && run_case "linux/tls/ecaptureq-receiver-pcapng" case_ecaptureq_pcapng
-    mode_enabled text && run_case "linux/tls/text-pcapng-http" case_text_pcapng
+    mode_enabled text && run_case "linux/tls/text-pcapng-http-default-source" case_text_pcapng
     if mode_enabled text; then
         local suite
         for suite in aes128 aes256 chacha; do

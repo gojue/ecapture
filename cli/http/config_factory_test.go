@@ -31,6 +31,7 @@ import (
 	"github.com/gojue/ecapture/v2/internal/domain"
 	"github.com/gojue/ecapture/v2/internal/probe/base/handlers"
 	bashProbe "github.com/gojue/ecapture/v2/internal/probe/bash"
+	opensslProbe "github.com/gojue/ecapture/v2/internal/probe/openssl"
 )
 
 type httpConfigFactory func(*http.Request) (*ConfigUpdate, error)
@@ -39,6 +40,31 @@ func factoryRequest(body string) *http.Request {
 	request := httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString(body))
 	request.Header.Set("Content-Type", "application/json")
 	return request
+}
+
+func TestOpenSSLHTTPTextSourceDefault(t *testing.T) {
+	for _, test := range []struct{ body, want string }{
+		{`{}`, "pcapng"},
+		{`{"capturemode":"text"}`, "pcapng"},
+		{`{"capturemode":"text","text_source":""}`, "pcapng"},
+		{`{"capturemode":"text","text_source":"hook"}`, "hook"},
+		{`{"capturemode":"keylog"}`, "hook"},
+		{`{"capturemode":"pcapng"}`, "hook"},
+	} {
+		t.Run(test.body, func(t *testing.T) {
+			update, err := createOpensslConfig(factoryRequest(test.body))
+			if err != nil {
+				t.Fatal(err)
+			}
+			cfg := update.Config.(*opensslProbe.Config)
+			if err := cfg.NormalizeTextSource(); err != nil {
+				t.Fatal(err)
+			}
+			if cfg.TextSource != test.want {
+				t.Fatalf("text source = %q, want %q", cfg.TextSource, test.want)
+			}
+		})
+	}
 }
 
 func TestEveryHTTPConfigFactoryAppliesCommonConfig(t *testing.T) {

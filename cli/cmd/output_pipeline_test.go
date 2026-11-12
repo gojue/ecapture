@@ -28,10 +28,59 @@ import (
 
 	"github.com/gojue/ecapture/v2/internal/config"
 	"github.com/gojue/ecapture/v2/internal/domain"
+	"github.com/gojue/ecapture/v2/internal/factory"
 	outputpipeline "github.com/gojue/ecapture/v2/internal/output"
 	"github.com/gojue/ecapture/v2/internal/probe/base"
 	"github.com/gojue/ecapture/v2/internal/probe/base/handlers"
+	opensslProbe "github.com/gojue/ecapture/v2/internal/probe/openssl"
 )
+
+func TestOpenSSLTextSourceFlags(t *testing.T) {
+	originalConfig, originalRunner := opensslConfig, runConfiguredProbeFunc
+	t.Cleanup(func() {
+		opensslConfig, runConfiguredProbeFunc = originalConfig, originalRunner
+	})
+	runConfiguredProbeFunc = func(factory.ProbeType, domain.Configuration) error { return nil }
+	defaultSource := opensslCmd.PersistentFlags().Lookup("text-source").DefValue
+	if defaultSource != handlers.TextSourcePcapng {
+		t.Fatalf("CLI default text source = %q, want pcapng", defaultSource)
+	}
+	for _, test := range []struct {
+		name, mode, wantSource, wantKeylog, wantPcap string
+		args                                         []string
+		wantErr                                      bool
+	}{
+		{name: "default text", mode: "text", wantSource: "pcapng"},
+		{name: "empty mode", wantSource: "pcapng"},
+		{name: "explicit empty source", mode: "text", args: []string{"--text-source="}, wantSource: "pcapng"},
+		{name: "explicit hook", mode: "text", args: []string{"--text-source=hook"}, wantSource: "hook", wantKeylog: "default.keys", wantPcap: "default.pcapng"},
+		{name: "optional artifacts", mode: "text", args: []string{"--keylogfile=capture.keys", "--pcapfile=capture.pcapng"}, wantSource: "pcapng", wantKeylog: "capture.keys", wantPcap: "capture.pcapng"},
+		{name: "keylog", mode: "keylog", wantSource: "hook", wantKeylog: "default.keys", wantPcap: "default.pcapng"},
+		{name: "pcapng", mode: "pcapng", wantSource: "hook", wantKeylog: "default.keys", wantPcap: "default.pcapng"},
+		{name: "reject explicit nontext source", mode: "keylog", args: []string{"--text-source=pcapng"}, wantErr: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			opensslConfig = opensslProbe.NewConfig()
+			opensslConfig.CaptureMode = test.mode
+			command := &cobra.Command{Use: "tls"}
+			command.Flags().StringVar(&opensslConfig.TextSource, "text-source", defaultSource, "")
+			command.Flags().StringVar(&opensslConfig.KeylogFile, "keylogfile", "default.keys", "")
+			command.Flags().StringVar(&opensslConfig.PcapFile, "pcapfile", "default.pcapng", "")
+			if err := command.ParseFlags(test.args); err != nil {
+				t.Fatal(err)
+			}
+			if err := openSSLCommandFunc(command, nil); (err != nil) != test.wantErr {
+				t.Fatalf("command error = %v, wantErr %v", err, test.wantErr)
+			}
+			if test.wantErr {
+				return
+			}
+			if opensslConfig.TextSource != test.wantSource || opensslConfig.KeylogFile != test.wantKeylog || opensslConfig.PcapFile != test.wantPcap {
+				t.Fatalf("source/artifacts = %q/%q/%q, want %q/%q/%q", opensslConfig.TextSource, opensslConfig.KeylogFile, opensslConfig.PcapFile, test.wantSource, test.wantKeylog, test.wantPcap)
+			}
+		})
+	}
+}
 
 func TestDecryptFlagsReachSDKOptions(t *testing.T) {
 	for _, test := range []struct {

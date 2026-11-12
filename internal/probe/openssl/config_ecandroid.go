@@ -29,7 +29,6 @@ const (
 	DefaultLibcPath = "/apex/com.android.runtime/lib64/bionic/libc.so"
 	BuildPropPath   = "/system/build.prop"
 	ReleasePrefix   = "ro.build.version.release="
-	DefaultIfname   = "wlan0"
 )
 
 // Android-specific version of detectOpenSSL
@@ -95,32 +94,6 @@ func detectAndroidVersion() (string, error) {
 	}
 
 	return "", fmt.Errorf("android version not found in build.prop")
-}
-
-// Android-specific default interface.
-// On real devices wlan0 is common, but in emulators networking may use eth0
-// or another interface. This function tries to find an interface that is up
-// and has at least one IP address.
-func (c *Config) setDefaultIfname() {
-	if c.Ifname != "" {
-		return
-	}
-
-	// Try the common Android default first.
-	if ifaceHasAddr(DefaultIfname) {
-		c.Ifname = DefaultIfname
-		return
-	}
-
-	// Fallback: iterate all interfaces looking for one that is up and has an
-	// address, skipping loopback.
-	if name := firstUpNonLoopbackInterface(); name != "" {
-		c.Ifname = name
-		return
-	}
-
-	// Last resort: keep the historical default so the error message is clear.
-	c.Ifname = DefaultIfname
 }
 
 // validateCgroupPath is a no-op on Android since cgroup filtering is not supported.

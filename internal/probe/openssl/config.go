@@ -47,7 +47,7 @@ type Config struct {
 
 	// Capture mode configuration
 	CaptureMode string `json:"capturemode"` // "text", "keylog", or "pcap"
-	TextSource  string `json:"text_source"` // "hook" (default) or "pcapng"
+	TextSource  string `json:"text_source"` // "hook" or "pcapng"; empty defaults to pcapng in text mode
 	KeylogFile  string `json:"keylogfile"`  // Path to keylog file (for keylog mode)
 
 	// Pcap mode configuration
@@ -64,15 +64,17 @@ type Config struct {
 	IsAndroid           bool     `json:"is_android"`            // Whether the target system is Android (for Android-specific handling)
 	AndroidVer          string   `json:"androidver"`            // Android version (for Android-specific handling)
 
-	boringSSLKeylogErr string // Detection error retained for fallback diagnostics
+	boringSSLKeylogErr    string // Detection error retained for fallback diagnostics
+	autoIfname            string // Process-local provenance; never accepted from configuration JSON
+	ifnameSelectionReason string
 }
 
-// NewConfig creates a new OpenSSL probe configuration.
+// NewConfig creates a new OpenSSL probe configuration. TextSource stays unset
+// until normalization so non-text modes do not inherit a text-only source.
 func NewConfig() *Config {
 	return &Config{
 		BaseConfig:  config.NewBaseConfig(),
 		CaptureMode: handlers.ModeText, // Default to text mode
-		TextSource:  handlers.TextSourceHook,
 	}
 }
 
@@ -99,9 +101,6 @@ func (c *Config) Validate() error {
 	if err := c.validateConfig(); err != nil {
 		return errors.NewConfigurationError("openssl config validation failed", err)
 	}
-
-	// Set default interface name if needed (Android-specific)
-	c.setDefaultIfname()
 
 	// Validate cgroup path (platform-specific, Linux only)
 	if err := c.validateCgroupPath(); err != nil {
@@ -143,9 +142,7 @@ func (c *Config) validateCaptureMode() error {
 	// Normalize capture mode
 	mode := strings.ToLower(c.CaptureMode)
 	c.CaptureMode = mode
-	var err error
-	c.TextSource, err = handlers.NormalizeTextSource(mode, c.TextSource)
-	if err != nil {
+	if err := c.NormalizeTextSource(); err != nil {
 		return err
 	}
 	if err := c.ValidateDecryptOptions(c.TextSource == handlers.TextSourcePcapng); err != nil {
@@ -174,8 +171,8 @@ func (c *Config) validateCaptureMode() error {
 		return writers.NewWriterFactory().ValidateEventSinkAddress(writers.EventSinkOptions{Address: addr, Format: writers.EventFormatKeylog, RotateConfig: writers.NewRotateConfig(c.GetEventRotation())})
 	case handlers.ModePcap, handlers.ModePcapng:
 		c.CaptureMode = handlers.ModePcapng
-		if c.Ifname == "" {
-			return fmt.Errorf("pcap mode requires Ifname (network interface) to be set")
+		if err := c.setDefaultIfname(); err != nil {
+			return err
 		}
 		addr, err := writers.NormalizeEventAddress(writers.EventFormatPcapng, c.EventCollectorAddr, c.KeylogFile, c.PcapFile)
 		if err != nil {
@@ -205,9 +202,25 @@ func (c *Config) validateCaptureMode() error {
 	}
 }
 
+// NormalizeTextSource resolves the mode-dependent default for CLI and HTTP configs.
+// It can run before output flag normalization and is safe to call repeatedly.
+func (c *Config) NormalizeTextSource() error {
+	mode := strings.ToLower(c.CaptureMode)
+	source := c.TextSource
+	if strings.TrimSpace(source) == "" && (mode == "" || mode == handlers.ModeText) {
+		source = handlers.TextSourcePcapng
+	}
+	normalized, err := handlers.NormalizeTextSource(mode, source)
+	if err != nil {
+		return err
+	}
+	c.TextSource = normalized
+	return nil
+}
+
 func (c *Config) validatePcapngTextSource() error {
-	if c.Ifname == "" {
-		return fmt.Errorf("pcapng text source requires Ifname (network interface) to be set")
+	if err := c.setDefaultIfname(); err != nil {
+		return err
 	}
 	addr, err := writers.NormalizeEventAddress(writers.EventFormatText, c.EventCollectorAddr, c.KeylogFile, c.PcapFile)
 	if err != nil {

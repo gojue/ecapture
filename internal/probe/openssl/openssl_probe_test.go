@@ -18,8 +18,51 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"strings"
 	"testing"
+
+	"github.com/rs/zerolog"
+
+	"github.com/gojue/ecapture/v2/internal/logger"
 )
+
+func TestCaptureInterfaceStartupLog(t *testing.T) {
+	for _, test := range []struct {
+		name, mode, source, ifname, autoIfname, want string
+	}{
+		{"automatic text", "text", "pcapng", "eth0", "eth0", "warn"},
+		{"automatic pcapng", "pcapng", "hook", "eth0", "eth0", "warn"},
+		{"explicit override", "text", "pcapng", "lo", "eth0", "info"},
+		{"explicit interface", "text", "pcapng", "lo", "", "info"},
+		{"hook needs no interface", "text", "hook", "", "", ""},
+		{"keylog needs no interface", "keylog", "hook", "", "", ""},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var output bytes.Buffer
+			zlog := zerolog.New(&output)
+			cfg := NewConfig()
+			cfg.CaptureMode, cfg.TextSource = test.mode, test.source
+			cfg.Ifname, cfg.autoIfname = test.ifname, test.autoIfname
+			cfg.ifnameSelectionReason = "IPv4 default route, metric 100"
+			logCaptureInterface(&logger.Logger{Logger: &zlog}, cfg)
+			got := output.String()
+			if test.want == "" {
+				if got != "" {
+					t.Fatalf("unexpected interface log: %s", got)
+				}
+				return
+			}
+			for _, want := range []string{`"level":"` + test.want + `"`, `"ifname":"` + test.ifname + `"`, "-i <interface>", "--ifname <interface>"} {
+				if !strings.Contains(got, want) {
+					t.Fatalf("startup log missing %q: %s", want, got)
+				}
+			}
+			if test.want == "warn" && (!strings.Contains(got, "Automatically selected capture interface") || !strings.Contains(got, cfg.ifnameSelectionReason)) {
+				t.Fatalf("automatic selection warning lacks selection or reason: %s", got)
+			}
+		})
+	}
+}
 
 func TestNewProbe(t *testing.T) {
 	probe, err := NewProbe()

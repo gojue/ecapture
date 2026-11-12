@@ -137,7 +137,7 @@ case_text() {
     prepare_android_https_request tls13 || return 1
     if ! start_android_capture "$device_log" "$DEVICE_ECAPTURE" tls \
         --libssl "$BORINGSSL_LIB" --ssl_version "$BORINGSSL_VERSION" \
-        --model text --pid "$ANDROID_CLIENT_PID"; then
+        --model text --text-source hook --pid "$ANDROID_CLIENT_PID"; then
         stop_android_client
         return 1
     fi

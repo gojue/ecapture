@@ -27,7 +27,9 @@ expect_rejected() {
 case_shutdown() {
     local signal="$1"
     prepare_common_case "signal-${signal,,}" || return 1
-    start_common_capture tls tls --libssl "$OPENSSL_LIB" -m text || return 1
+    # This case generates no packets. Use hook for signal-only checks because
+    # pcapng sessions require a nonempty capture for successful close.
+    start_common_capture tls tls --libssl "$OPENSSL_LIB" -m text --text-source hook || return 1
     stop_common_capture "$signal" || return 1
     assert_no_capture_errors "$CAPTURE_LOG" || return 1
     assert_no_capture_errors "$OPERATIONAL_LOG" || return 1
@@ -59,7 +61,7 @@ main() {
     run_case "cli/empty-pcapng-destination" expect_rejected empty-pcapng 'pcapng output requires an explicit destination' \
         tls --libssl "$OPENSSL_LIB" -m pcapng --ifname lo --pcapfile= --keylogfile=
     run_case "cli/unwritable-event-file" expect_rejected unwritable-file 'failed to open file' \
-        tls --libssl "$OPENSSL_LIB" --eventaddr "/proc/ecapture-e2e-$BASHPID"
+        tls --libssl "$OPENSSL_LIB" --text-source hook --eventaddr "/proc/ecapture-e2e-$BASHPID"
     run_case "cli/invalid-pcap-filter" expect_rejected invalid-filter 'failed to inject pcap filter' \
         tls --libssl "$OPENSSL_LIB" -m pcapng --ifname lo --eventaddr "$WORK_DIR/invalid-filter.pcapng" \
         'this is not a valid capture filter!!!'

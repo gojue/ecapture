@@ -103,10 +103,10 @@ See [Docker Hub](https://hub.docker.com/r/gojue/ecapture) for more information.
 sudo ecapture tls
 ```
 
-eCapture automatically detects the system's OpenSSL library and starts capturing plaintext traffic. Generate an HTTPS request with an OpenSSL-linked client to see its captured reads and writes. This synthetic HTTP/1.1 example illustrates the text format:
+eCapture automatically detects the system's OpenSSL library and selects a capture interface: it prefers an up Ethernet interface on the lowest-metric IPv4/IPv6 default route, then falls back to interface traffic counters or an up interface. A startup warning names the selected interface and explains how to override it with `-i eth0` or `--ifname eth0`. Only that interface is captured; use `-i lo` for loopback traffic. Generate an HTTPS request with an OpenSSL-linked client to see the reconstructed request and response. This synthetic HTTP/1.1 example illustrates the text format:
 
 ```text
-[2026-01-01 12:00:00.000] PID:1234 TID:1234 Comm:curl FD:5 WRITE (37 bytes):
+[2026-01-01T12:00:00.000000000Z] http/1.1 request 192.0.2.1:43210 -> 192.0.2.2:443 host="example.com" domain_source="Host" connection="17-4-client/192.0.2.1:43210--192.0.2.2:443/tcp#2"
 GET / HTTP/1.1
 Host: example.com
 
@@ -139,7 +139,7 @@ The OpenSSL module supports three output modes:
 
 - `pcap`/`pcapng` mode stores encrypted network packets and TLS secrets in `pcap-NG` format.
 - `keylog`/`key` mode saves TLS handshake keys to a file.
-- `text` mode captures plaintext through function hooks by default, or reconstructs complete HTTP/1.1 and HTTP/2 messages from live pcapng and DSB data with `--text-source=pcapng`.
+- `text` mode defaults to `--text-source=pcapng`, reconstructing complete HTTP/1.1 and HTTP/2 messages from live pcapng and DSB data. The capture interface is selected automatically; use `-i eth0` to override it. Use `--text-source=hook` to capture plaintext through function hooks instead (no interface required).
 
 For OpenSSL, GoTLS, and GnuTLS, `--eventaddr` is the uniform primary event
 destination. It accepts `stdout`, a plain path or `file://` URI,
@@ -151,6 +151,8 @@ corresponding alias is an error. In pcapng mode, `--keylogfile` is a separate
 optional keylog artifact.
 
 #### Live decryption for text output
+
+`tls` defaults to the `pcapng` text source; `gotls` and `gnutls` still default to `hook`.
 
 Use `-m text --text-source=pcapng` with `tls`, `gotls`, or `gnutls` to reconstruct complete
 HTTP/1.1 and HTTP/2 messages from the captured network stream. Each message
@@ -251,7 +253,7 @@ tshark -o tls.keylog_file:openssl_keylog.log -Y http -T fields -e http.file_data
 sudo ecapture tls -m text
 ```
 
-This outputs plaintext bytes captured from the hooked TLS reads and writes.
+This reconstructs HTTP messages using the default `pcapng` text source. To capture plaintext bytes from TLS function hooks, use `sudo ecapture tls -m text --text-source hook` (no interface required).
 
 ### GoTLS module
 

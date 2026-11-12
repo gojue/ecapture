@@ -100,29 +100,6 @@ func (c *Config) detectOS() error {
 	return nil
 }
 
-// Linux-specific default interface (no-op)
-func (c *Config) setDefaultIfname() {
-	// Linux doesn't need a default interface
-	if c.Ifname != "" {
-		return
-	}
-
-	// Try the historical default first.
-	if ifaceHasAddr("wlan0") {
-		c.Ifname = "wlan0"
-		return
-	}
-
-	// Fallback: iterate all interfaces looking for one that is up and has an
-	// address, skipping loopback.
-	if name := firstUpNonLoopbackInterface(); name != "" {
-		c.Ifname = name
-		return
-	}
-
-	c.Ifname = "wlan0"
-}
-
 // validateCgroupPath validates and resolves the cgroup path on Linux.
 // It checks that the configured cgroup path resides on a cgroup v2 filesystem.
 func (c *Config) validateCgroupPath() error {

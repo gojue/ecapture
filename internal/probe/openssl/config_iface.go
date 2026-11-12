@@ -14,46 +14,113 @@
 
 package openssl
 
-import "net"
+import (
+	"fmt"
+	"net"
 
-// ifaceHasAddr returns true when the named interface exists, is up, and has at
-// least one address.
-func ifaceHasAddr(name string) bool {
-	iface, err := net.InterfaceByName(name)
+	"github.com/vishvananda/netlink"
+	"golang.org/x/sys/unix"
+)
+
+// setDefaultIfname preserves explicit choices and resolves an interface only for
+// packet capture. Validation can run repeatedly without changing the selection.
+func (c *Config) setDefaultIfname() error {
+	if c.Ifname != "" {
+		return nil
+	}
+	links, err := netlink.LinkList()
 	if err != nil {
-		return false
+		return fmt.Errorf("cannot list capture interfaces; specify -i <interface>: %w", err)
 	}
-	if iface.Flags&net.FlagUp == 0 {
-		return false
+	routes, routeErr := netlink.RouteList(nil, netlink.FAMILY_ALL)
+	if routeErr != nil {
+		// An interrupted dump must not be mistaken for a complete route table.
+		routes = nil
 	}
-	addrs, err := iface.Addrs()
-	if err != nil {
-		return false
+	name, reason := selectCaptureInterface(links, routes)
+	if name == "" {
+		return fmt.Errorf("no usable capture interface found; specify -i <interface> or use --text-source hook in text mode")
 	}
-	return len(addrs) > 0
+	if routeErr != nil {
+		reason += " (default-route lookup unavailable)"
+	}
+	c.Ifname, c.autoIfname, c.ifnameSelectionReason = name, name, reason
+	return nil
 }
 
-// firstUpNonLoopbackInterface walks all network interfaces and returns the
-// name of the first non-loopback interface that is up and has an address.
-// Note: this is not necessarily the default-route interface; it may return
-// virtual bridges (e.g. docker0) before the real egress interface.
-func firstUpNonLoopbackInterface() string {
-	ifaces, err := net.Interfaces()
-	if err != nil {
-		return ""
+// selectCaptureInterface prefers a main-table default route with the lowest
+// metric, then historical traffic counters, then an up interface. Equal choices
+// use the lowest interface index, independent of netlink dump order. Automatic
+// selection is limited to Ethernet interfaces because the TC parser expects an
+// Ethernet header; explicit choices are still validated by the existing path.
+func selectCaptureInterface(links []netlink.Link, routes []netlink.Route) (string, string) {
+	candidates := make(map[int]*netlink.LinkAttrs)
+	for _, link := range links {
+		attrs := link.Attrs()
+		if attrs.Flags&net.FlagUp == 0 || attrs.Flags&net.FlagLoopback != 0 ||
+			attrs.OperState == netlink.OperDown || attrs.OperState == netlink.OperLowerLayerDown ||
+			attrs.EncapType != "ether" {
+			continue
+		}
+		candidates[attrs.Index] = attrs
 	}
-	for _, iface := range ifaces {
-		if iface.Flags&net.FlagLoopback != 0 {
+	var best *netlink.LinkAttrs
+	var bestMetric int
+	var reason string
+	for _, route := range routes {
+		if route.Table != unix.RT_TABLE_MAIN || route.Type != unix.RTN_UNICAST ||
+			(route.Family != netlink.FAMILY_V4 && route.Family != netlink.FAMILY_V6) ||
+			route.Flags&(unix.RTNH_F_DEAD|unix.RTNH_F_LINKDOWN) != 0 {
 			continue
 		}
-		if iface.Flags&net.FlagUp == 0 {
-			continue
+		if route.Dst != nil {
+			ones, bits := route.Dst.Mask.Size()
+			if bits == 0 || ones != 0 || !route.Dst.IP.IsUnspecified() {
+				continue
+			}
 		}
-		addrs, err := iface.Addrs()
-		if err != nil || len(addrs) == 0 {
-			continue
+		consider := func(index int) {
+			attrs := candidates[index]
+			if attrs == nil {
+				return
+			}
+			if best == nil || route.Priority < bestMetric || (route.Priority == bestMetric && attrs.Index < best.Index) {
+				best, bestMetric = attrs, route.Priority
+				family := "IPv4"
+				if route.Family == netlink.FAMILY_V6 {
+					family = "IPv6"
+				}
+				reason = fmt.Sprintf("%s default route, metric %d", family, route.Priority)
+			}
 		}
-		return iface.Name
+		if len(route.MultiPath) == 0 {
+			consider(route.LinkIndex)
+		} else {
+			for _, hop := range route.MultiPath {
+				if hop != nil && hop.Flags&(unix.RTNH_F_DEAD|unix.RTNH_F_LINKDOWN) == 0 {
+					consider(hop.LinkIndex)
+				}
+			}
+		}
 	}
-	return ""
+	if best != nil {
+		return best.Name, reason
+	}
+	var mostTraffic uint64
+	for _, attrs := range candidates {
+		var traffic uint64
+		if attrs.Statistics != nil {
+			traffic = attrs.Statistics.RxBytes + attrs.Statistics.TxBytes
+		}
+		if best == nil || traffic > mostTraffic || (traffic == mostTraffic && attrs.Index < best.Index) {
+			best, mostTraffic = attrs, traffic
+		}
+	}
+	if best == nil {
+		return "", ""
+	}
+	if mostTraffic > 0 {
+		return best.Name, "interface traffic counters (no usable default route)"
+	}
+	return best.Name, "up interface (no usable default route or recorded traffic)"
 }
