@@ -86,7 +86,16 @@ static void *serve_endpoint(void *arg) {
     }
     int shutdown = SSL_shutdown(ssl);
     require(shutdown >= 0 && (shutdown == 1 || SSL_shutdown(ssl) == 1), "shutdown");
-    printf("DTLS1.2 cipher=%s server=%d sent=4 received=4\n", endpoint->cipher, endpoint->server);
+    // A reusable SSL may retain its session while SSL_clear resets client_random.
+    // These ordinary hook calls must not publish an uninitialized secret event.
+    require(SSL_clear(ssl) == 1, "clear completed connection");
+    unsigned char random[SSL3_RANDOM_SIZE], zero[SSL3_RANDOM_SIZE] = {0};
+    require(SSL_get_session(ssl) != NULL && SSL_get_client_random(ssl, random, sizeof(random)) == sizeof(random) &&
+                memcmp(random, zero, sizeof(random)) == 0,
+        "retained session with reset client random");
+    require(SSL_in_before(ssl) == 1, "reset handshake state");
+    (void)SSL_get_wbio(ssl);
+    printf("DTLS1.2 cipher=%s server=%d sent=4 received=4 reset=1\n", endpoint->cipher, endpoint->server);
     SSL_free(ssl);
     require(close(endpoint->fd) == 0, "close");
     SSL_CTX_free(endpoint->context);

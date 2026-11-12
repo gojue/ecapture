@@ -177,6 +177,11 @@ close. Treat that as an existing cleanup defect, not a pattern to copy.
 
 ## Add OpenSSL or BoringSSL version support
 
+OpenSSL secret hooks can run before ClientHello or after `SSL_clear()`, even
+when a session remains attached. The shared master-key probes reject snapshots
+with an uninitialized client random before emission. Keep the Go decoder's
+zero-random rejection and the DTLS reset E2E regression strict.
+
 OpenSSL patch releases do not each have a unique C file. The authoritative
 mapping is `sslVersionBpfMap` in `internal/probe/openssl/libs.go`, which maps
 version ranges to representative ABI/offset-specific objects.

@@ -29,7 +29,7 @@ run_openssl_request() {
     local tls_version="$1"
     local output_file="$2"
     if [[ -n "${3:-}" ]]; then
-        timeout 15 bash -c 'printf "%s\n" "$$" >"$1"; shift; exec "$@"' _ "$3" \
+        timeout 15 "$WORK_DIR/helpers/ecaptureq_assert" --exec --pid-file "$3" -- \
             "$OPENSSL_CLIENT" 127.0.0.1 "$TLS_SERVER_PORT" /e2e "$E2E_TOKEN" "$tls_version" >"$output_file" 2>&1
     else
         timeout 15 "$OPENSSL_CLIENT" 127.0.0.1 "$TLS_SERVER_PORT" /e2e "$E2E_TOKEN" "$tls_version" >"$output_file" 2>&1
@@ -220,6 +220,8 @@ case_text_pcapng() {
     stop_capture
     if ((typed_status != 0)); then
         log_error "Strict decrypted eCaptureQ client failed"
+        # Only fixture diagnostics are public; never dump captured events/argv.
+        grep '^ECAPTUREQ_ASSERTION: ' "$typed_log" | tail -n 10 >&2 || true
         return 1
     fi
     assert_file_contains "$typed_log" \
@@ -316,7 +318,7 @@ PY_DTLS
     assert_no_capture_errors "$prefix.capture.log" || return 1
     assert_file_not_contains "$prefix.operational.log" "decrypt diagnostic" "DTLS decryption failure" || return 1
     assert_output_isolation "$prefix.operational.log" "$prefix.events.log" "$E2E_TOKEN" || return 1
-    assert_file_contains "$prefix.client.log" "sent=4 received=4" "DTLS peer exchange" || return 1
+    assert_file_contains "$prefix.client.log" "sent=4 received=4 reset=1" "DTLS peer exchange and SSL reset" || return 1
     assert_pcapng "$prefix.pcapng"
 }
 

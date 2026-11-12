@@ -80,6 +80,8 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
         return 0;
     }
 
+    if (!has_client_random(mastersecret)) return 0;
+
     // Get ssl_session_st pointer
     u64 *ssl_session_st_ptr;
     u64 ssl_session_st_addr;
@@ -148,7 +150,8 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
     //////////////////// TLS 1.3 master secret ////////////////////////
 
     void *es_ptr_tls13 = (void *)(ssl_st_ptr + SSL_CONNECTION_ST_EARLY_SECRET);
-    ret = openssl_probe_read_user(&mastersecret->early_secret, sizeof(mastersecret->early_secret), (void *)es_ptr_tls13);
+    ret =
+        openssl_probe_read_user(&mastersecret->early_secret, sizeof(mastersecret->early_secret), (void *)es_ptr_tls13);
     if (ret) {
         debug_bpf_printk("bpf_probe_read SSL_ST_EARLY_SECRET failed, ret :%d\n", ret);
         // If the read fails, it may be because TLS 1.3 early data is not enabled, so this error can be ignored
@@ -171,16 +174,16 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
     }
 
     void *cats_ptr_tls13 = (void *)(ssl_st_ptr + SSL_CONNECTION_ST_CLIENT_APP_TRAFFIC_SECRET);
-    ret = openssl_probe_read_user(&mastersecret->client_app_traffic_secret, sizeof(mastersecret->client_app_traffic_secret),
-        (void *)cats_ptr_tls13);
+    ret = openssl_probe_read_user(&mastersecret->client_app_traffic_secret,
+        sizeof(mastersecret->client_app_traffic_secret), (void *)cats_ptr_tls13);
     if (ret) {
         debug_bpf_printk("bpf_probe_read SSL_CONNECTION_ST_CLIENT_APP_TRAFFIC_SECRET failed, ret :%d\n", ret);
         return 0;
     }
 
     void *sats_ptr_tls13 = (void *)(ssl_st_ptr + SSL_CONNECTION_ST_SERVER_APP_TRAFFIC_SECRET);
-    ret = openssl_probe_read_user(&mastersecret->server_app_traffic_secret, sizeof(mastersecret->server_app_traffic_secret),
-        (void *)sats_ptr_tls13);
+    ret = openssl_probe_read_user(&mastersecret->server_app_traffic_secret,
+        sizeof(mastersecret->server_app_traffic_secret), (void *)sats_ptr_tls13);
     if (ret) {
         debug_bpf_printk("bpf_probe_read SSL_CONNECTION_ST_SERVER_APP_TRAFFIC_SECRET failed, ret :%d\n", ret);
         return 0;
