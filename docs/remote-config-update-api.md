@@ -100,12 +100,12 @@ Frequently used module fields:
 MySQL/PostgreSQL module fields currently use Go's exported field names because
 they have no explicit JSON tags. TLS modes accept `text`, `keylog`, and
 `pcap`/`pcapng`; `text_source` selects `hook` or `pcapng` in text mode.
-For OpenSSL/BoringSSL, omitted or empty `text_source` defaults to `pcapng`;
+For OpenSSL/BoringSSL, GoTLS, and GnuTLS, omitted or empty `text_source`
+in text mode defaults to `pcapng`;
 omitted or empty `ifname` selects a usable default-route Ethernet interface,
 then falls back to interface traffic counters or an up interface. The startup
 warning names the choice; set `ifname` explicitly to override it. Select `hook`
 for function-hook capture without a capture interface.
-GoTLS and GnuTLS still default to `hook`.
 Packet capture and the pcapng text source require an interface. See
 [event output semantics](event-forward-api.md) for mode/destination behavior.
 

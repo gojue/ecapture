@@ -37,7 +37,6 @@ import (
 	"github.com/gojue/ecapture/v2/assets"
 	"github.com/gojue/ecapture/v2/internal/domain"
 	"github.com/gojue/ecapture/v2/internal/errors"
-	"github.com/gojue/ecapture/v2/internal/logger"
 	"github.com/gojue/ecapture/v2/internal/probe/base"
 	"github.com/gojue/ecapture/v2/internal/probe/base/handlers"
 	"github.com/gojue/ecapture/v2/pkg/util/kernel"
@@ -91,7 +90,9 @@ func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration) error 
 	}
 
 	// Log initialization
-	logCaptureInterface(p.Logger(), opensslConfig)
+	if handlers.IsPcapngText(opensslConfig.CaptureMode, opensslConfig.TextSource) || handlers.IsModePcapng(opensslConfig.CaptureMode) {
+		opensslConfig.LogCaptureInterface(p.Logger())
+	}
 	p.Logger().Info().
 		Str("openssl_path", opensslConfig.OpensslPath).
 		Str("ssl_version", opensslConfig.SslVersion).
@@ -101,19 +102,6 @@ func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration) error 
 		Msg("OpenSSL probe initialized")
 
 	return nil
-}
-
-func logCaptureInterface(log *logger.Logger, cfg *Config) {
-	if !handlers.IsPcapngText(cfg.CaptureMode, cfg.TextSource) && !handlers.IsModePcapng(cfg.CaptureMode) {
-		return
-	}
-	if cfg.autoIfname != "" && cfg.autoIfname == cfg.Ifname {
-		log.Warn().Str("ifname", cfg.Ifname).Str("selection", cfg.ifnameSelectionReason).
-			Msgf("Automatically selected capture interface %q; only traffic on this interface is captured. Use '-i <interface>' or '--ifname <interface>' to change it.", cfg.Ifname)
-		return
-	}
-	log.Info().Str("ifname", cfg.Ifname).
-		Msg("Using specified capture interface; use '-i <interface>' or '--ifname <interface>' to change it")
 }
 
 // Start begins the OpenSSL probe operation.

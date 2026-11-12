@@ -154,7 +154,8 @@ OpenSSL 模块支持三种输出模式：
 
 #### text 模式下实时解密
 
-`tls` 的 text 数据源默认为 `pcapng`；`gotls` 和 `gnutls` 仍默认为 `hook`。
+`tls`、`gotls` 和 `gnutls` 的 text 数据源均默认为 `pcapng`，省略 `-i` 时自动选择抓包网卡。
+三个模块均可通过 `--text-source hook` 使用函数 hook；GoTLS 仍需 `--elfpath` 指定目标程序。
 
 `tls`、`gotls`、`gnutls` 均可使用 `-m text --text-source=pcapng`。输出按完整 HTTP/1.1 或
 HTTP/2 请求/响应划分，包含方向、时间、源和目标 IP/端口、连接标识及 HTTP/2
@@ -258,7 +259,7 @@ sudo ecapture tls -m text
 步骤 1：
 
 ```shell
-sudo ecapture gotls --elfpath=/path/to/go-client --hex
+sudo ecapture gotls --elfpath=/path/to/go-client
 ```
 
 步骤 2：

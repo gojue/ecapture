@@ -92,10 +92,14 @@ func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration) error 
 	p.config = gotlsConfig
 
 	perfReorder, perfReorderLagNs := gotlsConfig.GetPerfReorder()
+	if handlers.IsPcapngText(gotlsConfig.CaptureMode, gotlsConfig.TextSource) || handlers.IsModePcapng(gotlsConfig.CaptureMode) {
+		gotlsConfig.LogCaptureInterface(p.Logger())
+	}
 	p.Logger().Info().
 		Str("go_version", gotlsConfig.GoVersion).
 		Bool("is_register_abi", gotlsConfig.IsRegisterABI).
 		Str("capture_mode", gotlsConfig.CaptureMode).
+		Str("text_source", gotlsConfig.TextSource).
 		Str("elf_path", gotlsConfig.ElfPath).
 		Bool("perf_reorder", perfReorder).
 		Uint64("perf_reorder_lag_ns", perfReorderLagNs).

@@ -12,15 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package openssl
+package config
 
 import (
+	"bytes"
+	"encoding/json"
 	"net"
 	"strings"
 	"testing"
 
+	"github.com/rs/zerolog"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
+
+	"github.com/gojue/ecapture/v2/internal/logger"
 )
 
 func TestSelectCaptureInterface(t *testing.T) {
@@ -87,10 +92,10 @@ func TestSelectCaptureInterface(t *testing.T) {
 
 func TestDefaultInterfacePreservesExplicitChoice(t *testing.T) {
 	for _, name := range []string{"lo", "eth-custom", "nonexistent-interface"} {
-		cfg := NewConfig()
+		cfg := &CaptureInterfaceConfig{}
 		cfg.Ifname = name
 		for attempt := 0; attempt < 2; attempt++ {
-			if err := cfg.setDefaultIfname(); err != nil {
+			if err := cfg.SetDefaultIfname(); err != nil {
 				t.Fatal(err)
 			}
 			if cfg.Ifname != name || cfg.autoIfname != "" {
@@ -101,22 +106,54 @@ func TestDefaultInterfacePreservesExplicitChoice(t *testing.T) {
 }
 
 func TestDefaultInterfaceIsStable(t *testing.T) {
-	cfg := NewConfig()
-	if err := cfg.setDefaultIfname(); err != nil {
+	cfg := &CaptureInterfaceConfig{}
+	if err := cfg.SetDefaultIfname(); err != nil {
 		t.Skipf("host has no usable capture interface: %v", err)
 	}
 	name, reason := cfg.Ifname, cfg.ifnameSelectionReason
 	if name == "" || cfg.autoIfname != name || reason == "" {
 		t.Fatalf("missing selection or provenance: %q / %q / %q", name, cfg.autoIfname, reason)
 	}
-	if err := cfg.setDefaultIfname(); err != nil {
+	if err := cfg.SetDefaultIfname(); err != nil {
 		t.Fatal(err)
 	}
 	if cfg.Ifname != name || cfg.ifnameSelectionReason != reason {
 		t.Fatal("repeated validation changed automatic interface selection")
 	}
-	encoded := string(cfg.Bytes())
+	data, err := json.Marshal(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded := string(data)
 	if strings.Contains(encoded, reason) || strings.Contains(encoded, "autoIfname") {
 		t.Fatal("automatic selection provenance leaked into serialized config")
+	}
+}
+
+func TestCaptureInterfaceStartupLog(t *testing.T) {
+	for _, test := range []struct {
+		name, ifname, autoIfname, want string
+	}{
+		{"automatic interface", "eth0", "eth0", "warn"},
+		{"explicit override", "lo", "eth0", "info"},
+		{"explicit interface", "lo", "", "info"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var output bytes.Buffer
+			zlog := zerolog.New(&output)
+			cfg := &CaptureInterfaceConfig{}
+			cfg.Ifname, cfg.autoIfname = test.ifname, test.autoIfname
+			cfg.ifnameSelectionReason = "IPv4 default route, metric 100"
+			cfg.LogCaptureInterface(&logger.Logger{Logger: &zlog})
+			got := output.String()
+			for _, want := range []string{`"level":"` + test.want + `"`, `"ifname":"` + test.ifname + `"`, "-i <interface>", "--ifname <interface>"} {
+				if !strings.Contains(got, want) {
+					t.Fatalf("startup log missing %q: %s", want, got)
+				}
+			}
+			if test.want == "warn" && (!strings.Contains(got, "Automatically selected capture interface") || !strings.Contains(got, cfg.ifnameSelectionReason)) {
+				t.Fatalf("automatic selection warning lacks selection or reason: %s", got)
+			}
+		})
 	}
 }

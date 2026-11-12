@@ -89,10 +89,10 @@ sudo ./bin/ecapture tls --listen=127.0.0.1:28256 \
 
 MySQL/PostgreSQL 的模块字段目前没有显式 JSON tag，因此使用 Go 导出字段名。
 TLS 模式接受 `text`、`keylog`、`pcap`/`pcapng`；text 模式下的 `text_source` 可选 `hook` 或 `pcapng`。
-OpenSSL/BoringSSL 在该字段省略或为空时默认使用 `pcapng`。`ifname` 省略或为空时，
+OpenSSL/BoringSSL、GoTLS 和 GnuTLS 的 text 模式在该字段省略或为空时均默认使用 `pcapng`。`ifname` 省略或为空时，
 优先选择默认路由对应的可用以太网网卡，再参考流量计数或选择已启用的网卡。
 启动警告会显示所选网卡；显式设置 `ifname` 可覆盖自动选择。
-使用函数 hook 抓取时应显式设置 `"text_source":"hook"`。GoTLS 和 GnuTLS 仍默认使用 `hook`。
+使用函数 hook 抓取时应显式设置 `"text_source":"hook"`。
 数据包捕获及 pcapng 文本源需要网卡。模式与目的地的关系见[事件输出说明](event-forward-api-zh_Hans.md)。
 
 ## 调用示例

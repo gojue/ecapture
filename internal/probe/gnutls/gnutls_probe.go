@@ -70,10 +70,14 @@ func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration) error 
 			fmt.Sprintf("unsupported GnuTLS version: %s", p.config.GnuVersion))
 	}
 
+	if handlers.IsPcapngText(gnutlsConfig.CaptureMode, gnutlsConfig.TextSource) || handlers.IsModePcapng(gnutlsConfig.CaptureMode) {
+		gnutlsConfig.LogCaptureInterface(p.Logger())
+	}
 	p.Logger().Info().
 		Str("gnutls_path", gnutlsConfig.GnutlsPath).
 		Str("gnutls_version", gnutlsConfig.GnuVersion).
 		Str("capture_mode", gnutlsConfig.CaptureMode).
+		Str("text_source", gnutlsConfig.TextSource).
 		Msg("GnuTLS probe initialized")
 	return nil
 }
@@ -248,7 +252,7 @@ func (p *Probe) setupManagerPcapNG() error {
 	if p.config.Ifname == "" {
 		return errors.NewConfigurationError("ifname is required for pcap mode", nil)
 	}
-	if p.config.GetEventCollectorAddr() == "" {
+	if !handlers.IsPcapngText(p.config.CaptureMode, p.config.TextSource) && p.config.GetEventCollectorAddr() == "" {
 		return errors.NewConfigurationError("pcapng mode requires an event destination", nil)
 	}
 

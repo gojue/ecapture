@@ -98,7 +98,9 @@ sudo ecapture gnutls --gnutls /path/to/libgnutls.so -m text
 ```
 
 Run the matching application while capture is active. For keylog/pcapng,
-select the mode and destination as above; packet capture also needs `-i`.
+select the mode and destination as above. Text defaults to the `pcapng` source;
+packet capture selects an interface automatically. Use `-i <interface>` to
+override it, or `--text-source hook` for function-hook plaintext capture.
 GnuTLS support depends on the library's patch-specific asset mapping.
 
 ## Other Modules

@@ -65,15 +65,7 @@ func init() {
 
 // openSSLCommandFunc executes the "tls" command using the new probe architecture.
 func openSSLCommandFunc(command *cobra.Command, args []string) error {
-	// Apply the default only in text mode; keylog/pcapng must remain usable
-	// without an explicit --text-source override.
-	if !command.Flags().Changed("text-source") {
-		opensslConfig.TextSource = ""
-	}
-	if err := opensslConfig.NormalizeTextSource(); err != nil {
-		return err
-	}
-	if err := normalizeTLSOutputFlags(command, opensslConfig.CaptureMode, opensslConfig.TextSource, &opensslConfig.KeylogFile, &opensslConfig.PcapFile); err != nil {
+	if err := normalizeTLSOutputFlags(command, opensslConfig.CaptureMode, &opensslConfig.TextSource, &opensslConfig.KeylogFile, &opensslConfig.PcapFile); err != nil {
 		return err
 	}
 	if opensslConfig.PcapFilter == "" && len(args) != 0 {

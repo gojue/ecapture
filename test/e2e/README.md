@@ -13,9 +13,9 @@ entry points:
 - The Linux `decrypt` cases assert plaintext arrives before probe shutdown,
   verify TLS 1.2 and 1.3, and independently decrypt the optional pcapng with
   tshark using its embedded DSB. They also check current HTTP event timestamps.
-  OpenSSL also
-  checks the sensitive reconstructed event on eCaptureQ. Its live HTTP case
-  omits `--text-source` to verify the default `pcapng` source; hook-specific
+  OpenSSL also checks the sensitive reconstructed event on eCaptureQ. All three
+  modules' live HTTP cases omit `--text-source` to verify the default `pcapng`
+  source. GnuTLS also omits `--eventaddr` to verify default stdout. Hook-specific
   Linux and Android cases explicitly select `--text-source hook`. The CLI edge
   signal-only cases also retain hook capture: they generate no packets, while
   a pcapng session correctly rejects an empty capture when closing.

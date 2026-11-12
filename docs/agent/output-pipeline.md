@@ -75,9 +75,9 @@ are preserved.
 
 ## Mode, text source, and destination matrix
 
-`tls` defaults to the `pcapng` source in text mode. When `--ifname`/`-i` is
-omitted for packet capture, OpenSSL selects an up, non-loopback Ethernet
-interface from the main-table IPv4/IPv6 default route with the lowest metric.
+`tls`, `gotls`, and `gnutls` default to the `pcapng` source in text mode. When
+`--ifname`/`-i` is omitted for packet capture, the shared
+`config.CaptureInterfaceConfig` selects an up, non-loopback Ethernet interface from the main-table IPv4/IPv6 default route with the lowest metric.
 Without a usable default route it prefers the largest historical RX+TX byte
 counter, then an up interface; ties use the lowest interface index. This is
 a startup heuristic, not traffic sampling or policy-routing resolution. A
@@ -85,9 +85,8 @@ WARN startup log identifies the interface and reason and tells users how to
 override it with `-i`/`--ifname`. Explicit choices (including `lo`) are retained,
 and repeated validation keeps the selected interface. No usable candidate
 produces an actionable configuration error. Explicit `--text-source=hook` retains
-function-hook capture without an interface. GoTLS and GnuTLS still default to
-`hook`. OpenSSL HTTP configs use the same mode-dependent default when
-`text_source` is omitted or empty; keylog/pcapng modes do not inherit it.
+function-hook capture without an interface. All three HTTP configs use the same
+mode-dependent default when `text_source` is omitted or empty; keylog/pcapng modes do not inherit it.
 
 | Mode / text source | Representation | Valid primary ByteSink | eCaptureQ event |
 | --- | --- | --- | --- |

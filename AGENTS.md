@@ -30,9 +30,9 @@ entry points, not separate sources of project truth.
   examples, and primary acceptance must use `--model text --text-source pcapng`
   and the SDK's decoded output.
 - Gradually deprecate `--model text --text-source hook`; retain compatibility
-  during migration. The `tls` text source defaults to `pcapng`; `gotls` and
-  `gnutls` still default to `hook`. TLS secret capture hooks are outside this
-  deprecation scope. For `tls` packet capture without `-i`, select a usable
+  during migration. The `tls`, `gotls`, and `gnutls` text sources default to
+  `pcapng`; users can explicitly select `hook`. TLS secret capture hooks are
+  outside this deprecation scope. For TLS-module packet capture without `-i`, select a usable
   default-route Ethernet interface, then fall back to traffic counters or an
   up interface. Log the automatic choice and the `-i` override at startup.
 - Non-core modules: Mysqld, Bash, Zsh, and other auxiliary probes. Maintain

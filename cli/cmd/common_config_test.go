@@ -22,11 +22,14 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/spf13/cobra"
+
 	confighttp "github.com/gojue/ecapture/v2/cli/http"
 	"github.com/gojue/ecapture/v2/internal/config"
 	"github.com/gojue/ecapture/v2/internal/domain"
 	"github.com/gojue/ecapture/v2/internal/factory"
 	outputpipeline "github.com/gojue/ecapture/v2/internal/output"
+	"github.com/gojue/ecapture/v2/internal/probe/base/handlers"
 	bashProbe "github.com/gojue/ecapture/v2/internal/probe/bash"
 	gnutlsProbe "github.com/gojue/ecapture/v2/internal/probe/gnutls"
 	gotlsProbe "github.com/gojue/ecapture/v2/internal/probe/gotls"
@@ -273,5 +276,75 @@ func TestPrepareReloadConfigRejectsInvalidDestinationWithoutMutatingCurrent(t *t
 	}
 	if current.EventCollectorAddr != "/tmp/still-active.log" {
 		t.Fatalf("active config mutated after rejected update: %q", current.EventCollectorAddr)
+	}
+}
+
+func TestTLSModuleTextSourceFlags(t *testing.T) {
+	oldOpenSSL, oldGoTLS, oldGnuTLS, oldRunner := opensslConfig, gotlsConfig, gnutlsConfig, runConfiguredProbeFunc
+	t.Cleanup(func() {
+		opensslConfig, gotlsConfig, gnutlsConfig, runConfiguredProbeFunc = oldOpenSSL, oldGoTLS, oldGnuTLS, oldRunner
+	})
+	runConfiguredProbeFunc = func(factory.ProbeType, domain.Configuration) error { return nil }
+	for _, module := range []struct {
+		name    string
+		command *cobra.Command
+		setup   func(string) (*string, *string, *string, func(*cobra.Command, []string) error)
+	}{
+		{"tls", opensslCmd, func(mode string) (*string, *string, *string, func(*cobra.Command, []string) error) {
+			opensslConfig = opensslProbe.NewConfig()
+			opensslConfig.CaptureMode = mode
+			return &opensslConfig.TextSource, &opensslConfig.KeylogFile, &opensslConfig.PcapFile, openSSLCommandFunc
+		}},
+		{"gotls", gotlsCmd, func(mode string) (*string, *string, *string, func(*cobra.Command, []string) error) {
+			gotlsConfig = gotlsProbe.NewConfig()
+			gotlsConfig.CaptureMode = mode
+			return &gotlsConfig.TextSource, &gotlsConfig.KeylogFile, &gotlsConfig.PcapFile, goTLSCommandFunc
+		}},
+		{"gnutls", gnutlsCmd, func(mode string) (*string, *string, *string, func(*cobra.Command, []string) error) {
+			gnutlsConfig = gnutlsProbe.NewConfig()
+			gnutlsConfig.CaptureMode = mode
+			return &gnutlsConfig.TextSource, &gnutlsConfig.KeylogFile, &gnutlsConfig.PcapFile, gnuTlsCommandFunc
+		}},
+	} {
+		t.Run(module.name, func(t *testing.T) {
+			defaultSource := module.command.PersistentFlags().Lookup("text-source").DefValue
+			if defaultSource != handlers.TextSourcePcapng {
+				t.Fatalf("default source = %q", defaultSource)
+			}
+			for _, test := range []struct {
+				name, mode, wantSource, wantKeylog, wantPcap string
+				args                                         []string
+				wantErr                                      bool
+			}{
+				{name: "default text", mode: "text", wantSource: "pcapng"},
+				{name: "empty mode", wantSource: "pcapng"},
+				{name: "explicit empty source", mode: "text", args: []string{"--text-source="}, wantSource: "pcapng"},
+				{name: "explicit hook", mode: "text", args: []string{"--text-source=hook"}, wantSource: "hook", wantKeylog: "default.keys", wantPcap: "default.pcapng"},
+				{name: "optional artifacts", mode: "text", args: []string{"--keylogfile=capture.keys", "--pcapfile=capture.pcapng"}, wantSource: "pcapng", wantKeylog: "capture.keys", wantPcap: "capture.pcapng"},
+				{name: "keylog", mode: "keylog", wantSource: "hook", wantKeylog: "default.keys", wantPcap: "default.pcapng"},
+				{name: "pcapng", mode: "pcapng", wantSource: "hook", wantKeylog: "default.keys", wantPcap: "default.pcapng"},
+				{name: "reject explicit nontext source", mode: "keylog", args: []string{"--text-source=pcapng"}, wantErr: true},
+			} {
+				t.Run(test.name, func(t *testing.T) {
+					source, keylog, pcap, run := module.setup(test.mode)
+					command := &cobra.Command{Use: module.name}
+					command.Flags().StringVar(source, "text-source", defaultSource, "")
+					command.Flags().StringVar(keylog, "keylogfile", "default.keys", "")
+					command.Flags().StringVar(pcap, "pcapfile", "default.pcapng", "")
+					if err := command.ParseFlags(test.args); err != nil {
+						t.Fatal(err)
+					}
+					if err := run(command, nil); (err != nil) != test.wantErr {
+						t.Fatalf("command error = %v, wantErr %v", err, test.wantErr)
+					}
+					if test.wantErr {
+						return
+					}
+					if *source != test.wantSource || *keylog != test.wantKeylog || *pcap != test.wantPcap {
+						t.Fatalf("source/artifacts = %q/%q/%q, want %q/%q/%q", *source, *keylog, *pcap, test.wantSource, test.wantKeylog, test.wantPcap)
+					}
+				})
+			}
+		})
 	}
 }

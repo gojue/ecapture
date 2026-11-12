@@ -152,7 +152,9 @@ optional keylog artifact.
 
 #### Live decryption for text output
 
-`tls` defaults to the `pcapng` text source; `gotls` and `gnutls` still default to `hook`.
+`tls`, `gotls`, and `gnutls` default to the `pcapng` text source and automatically
+select a capture interface when `-i` is omitted. All three accept `--text-source hook`
+for function-hook capture. GoTLS still requires `--elfpath` to identify the target binary.
 
 Use `-m text --text-source=pcapng` with `tls`, `gotls`, or `gnutls` to reconstruct complete
 HTTP/1.1 and HTTP/2 messages from the captured network stream. Each message
@@ -266,7 +268,7 @@ Capture TLS plaintext data.
 Step 1:
 
 ```shell
-sudo ecapture gotls --elfpath=/path/to/go-client --hex
+sudo ecapture gotls --elfpath=/path/to/go-client
 ```
 
 Step 2:

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package openssl
+package config
 
 import (
 	"fmt"
@@ -20,11 +20,21 @@ import (
 
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
+
+	"github.com/gojue/ecapture/v2/internal/logger"
 )
 
-// setDefaultIfname preserves explicit choices and resolves an interface only for
+// CaptureInterfaceConfig is shared by TLS probes using packet capture.
+// Selection provenance stays process-local and is excluded from JSON.
+type CaptureInterfaceConfig struct {
+	Ifname                string `json:"ifname"`
+	autoIfname            string
+	ifnameSelectionReason string
+}
+
+// SetDefaultIfname preserves explicit choices and resolves an interface only for
 // packet capture. Validation can run repeatedly without changing the selection.
-func (c *Config) setDefaultIfname() error {
+func (c *CaptureInterfaceConfig) SetDefaultIfname() error {
 	if c.Ifname != "" {
 		return nil
 	}
@@ -123,4 +133,15 @@ func selectCaptureInterface(links []netlink.Link, routes []netlink.Route) (strin
 		return best.Name, "interface traffic counters (no usable default route)"
 	}
 	return best.Name, "up interface (no usable default route or recorded traffic)"
+}
+
+// LogCaptureInterface reports the selected packet capture interface at startup.
+func (cfg *CaptureInterfaceConfig) LogCaptureInterface(log *logger.Logger) {
+	if cfg.autoIfname != "" && cfg.autoIfname == cfg.Ifname {
+		log.Warn().Str("ifname", cfg.Ifname).Str("selection", cfg.ifnameSelectionReason).
+			Msgf("Automatically selected capture interface %q; only traffic on this interface is captured. Use '-i <interface>' or '--ifname <interface>' to change it.", cfg.Ifname)
+		return
+	}
+	log.Info().Str("ifname", cfg.Ifname).
+		Msg("Using specified capture interface; use '-i <interface>' or '--ifname <interface>' to change it")
 }
