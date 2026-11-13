@@ -90,11 +90,15 @@ func (p *Probe) Initialize(ctx context.Context, cfg domain.Configuration) error 
 	}
 
 	// Log initialization
+	if handlers.IsPcapngText(opensslConfig.CaptureMode, opensslConfig.TextSource) || handlers.IsModePcapng(opensslConfig.CaptureMode) {
+		opensslConfig.LogCaptureInterface(p.Logger())
+	}
 	p.Logger().Info().
 		Str("openssl_path", opensslConfig.OpensslPath).
 		Str("ssl_version", opensslConfig.SslVersion).
 		Bool("is_boringssl", opensslConfig.IsBoringSSL).
 		Str("capture_mode", opensslConfig.CaptureMode).
+		Str("text_source", opensslConfig.TextSource).
 		Msg("OpenSSL probe initialized")
 
 	return nil

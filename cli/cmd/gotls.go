@@ -20,6 +20,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/gojue/ecapture/v2/internal/factory"
+	"github.com/gojue/ecapture/v2/internal/probe/base/handlers"
 	gotlsProbe "github.com/gojue/ecapture/v2/internal/probe/gotls"
 )
 
@@ -32,7 +33,7 @@ var gotlsCmd = &cobra.Command{
 	Short:   "Capturing plaintext communication from Golang programs encrypted with TLS/HTTPS.",
 	Long: `Utilize eBPF uprobe/TC to capture both process event and network data, with added support for pcap-NG format.
 ecapture gotls
-ecapture gotls --elfpath=/home/cfc4n/go_https_client --hex --pid=3423
+ecapture gotls --elfpath=/home/cfc4n/go_https_client --text-source hook --hex --pid=3423
 ecapture gotls -m keylog -k /tmp/ecap_gotls_key.log --elfpath=/home/cfc4n/go_https_client -l save.log --pid=3423
 ecapture gotls -m pcap --pcapfile=save_android.pcapng -i wlan0 --elfpath=/home/cfc4n/go_https_client tcp port 443
 `,
@@ -48,17 +49,17 @@ func init() {
 	gotlsCmd.PersistentFlags().UintVar(&globalConf.PerfReorderLagMs, "perf-reorder-lag-ms", 10, "reorder batching window in milliseconds (only with --perf-reorder; default 10)")
 	gotlsCmd.PersistentFlags().StringVarP(&gotlsConfig.PcapFile, "pcapfile", "w", "ecapture_gotls.pcapng", "write the  raw packets to file as pcapng format.")
 	gotlsCmd.PersistentFlags().StringVarP(&gotlsConfig.CaptureMode, "model", "m", "text", "capture mode: text, pcap/pcapng, key/keylog")
-	gotlsCmd.PersistentFlags().StringVar(&gotlsConfig.TextSource, "text-source", "hook", "text capture source: hook or pcapng (live TLS decryption)")
+	gotlsCmd.PersistentFlags().StringVar(&gotlsConfig.TextSource, "text-source", handlers.TextSourcePcapng, "text capture source: pcapng (live TLS decryption) or hook")
 	bindDecryptFlags(gotlsCmd, &gotlsConfig.DecryptConfig)
 	gotlsCmd.PersistentFlags().StringVarP(&gotlsConfig.KeylogFile, "keylogfile", "k", "ecapture_gotls_key.log", "The file stores SSL/TLS keys, and eCapture captures these keys during encrypted traffic communication and saves them to the file.")
-	gotlsCmd.PersistentFlags().StringVarP(&gotlsConfig.Ifname, "ifname", "i", "", "(TC Classifier) Interface name on which the probe will be attached.")
+	gotlsCmd.PersistentFlags().StringVarP(&gotlsConfig.Ifname, "ifname", "i", "", "capture interface; automatically selected from default routes, then traffic counters, when omitted")
 	gotlsCmd.PersistentFlags().StringVar(&globalConf.CGroupPath, "cgroup_path", "", "cgroup v2 path for container/process filtering. Empty disables cgroup filtering.")
 	rootCmd.AddCommand(gotlsCmd)
 }
 
 // goTLSCommandFunc executes the "gotls" command using the new probe architecture.
 func goTLSCommandFunc(command *cobra.Command, args []string) error {
-	if err := normalizeTLSOutputFlags(command, gotlsConfig.CaptureMode, gotlsConfig.TextSource, &gotlsConfig.KeylogFile, &gotlsConfig.PcapFile); err != nil {
+	if err := normalizeTLSOutputFlags(command, gotlsConfig.CaptureMode, &gotlsConfig.TextSource, &gotlsConfig.KeylogFile, &gotlsConfig.PcapFile); err != nil {
 		return err
 	}
 	if gotlsConfig.PcapFilter == "" && len(args) != 0 {

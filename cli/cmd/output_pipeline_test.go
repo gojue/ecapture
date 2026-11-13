@@ -206,7 +206,8 @@ func TestNormalizeTLSOutputFlagsConflicts(t *testing.T) {
 			if err := command.Flags().Set(test.legacyFlag, test.legacyValue); err != nil {
 				t.Fatal(err)
 			}
-			err := normalizeTLSOutputFlags(command, test.mode, "hook", &keylogFile, &pcapFile)
+			source := handlers.TextSourceHook
+			err := normalizeTLSOutputFlags(command, test.mode, &source, &keylogFile, &pcapFile)
 			if (err != nil) != test.wantErr {
 				t.Fatalf("normalizeTLSOutputFlags() error = %v, wantErr %v", err, test.wantErr)
 			}
@@ -226,7 +227,8 @@ func TestNormalizeTLSPcapngTextOutputFlags(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		if err := normalizeTLSOutputFlags(command, handlers.ModeText, handlers.TextSourcePcapng, &keylogFile, &pcapFile); err != nil {
+		source := handlers.TextSourcePcapng
+		if err := normalizeTLSOutputFlags(command, handlers.ModeText, &source, &keylogFile, &pcapFile); err != nil {
 			t.Fatal(err)
 		}
 		if keylogFile != "" {

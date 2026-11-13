@@ -23,6 +23,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/gojue/ecapture/v2/internal/factory"
+	"github.com/gojue/ecapture/v2/internal/probe/base/handlers"
 	gnutlsProbe "github.com/gojue/ecapture/v2/internal/probe/gnutls"
 )
 
@@ -36,7 +37,7 @@ var gnutlsCmd = &cobra.Command{
 	Short:   "capture gnutls text content without CA cert for gnutls libraries.",
 	Long: `use eBPF uprobe/TC to capture process event data.
 ecapture gnutls
-ecapture gnutls --hex --pid=3423
+ecapture gnutls --text-source hook --hex --pid=3423
 ecapture gnutls -l save.log --pid=3423
 ecapture gnutls --gnutls=/lib/x86_64-linux-gnu/libgnutls.so
 ecapture gnutls -m keylog -k ecapture_gnutls_key.log --ssl_version=3.7.9
@@ -51,11 +52,11 @@ ecapture gnutls --gnutls=/data/data/com.termux/files/usr/lib/libgnutls.so
 func init() {
 	gnutlsCmd.PersistentFlags().StringVar(&gnutlsConfig.GnutlsPath, "gnutls", "", "libgnutls.so file path, will automatically find it from curl default.")
 	gnutlsCmd.PersistentFlags().StringVarP(&gnutlsConfig.CaptureMode, "model", "m", "text", "capture mode: text, pcap/pcapng, key/keylog")
-	gnutlsCmd.PersistentFlags().StringVar(&gnutlsConfig.TextSource, "text-source", "hook", "text capture source: hook or pcapng (live TLS decryption)")
+	gnutlsCmd.PersistentFlags().StringVar(&gnutlsConfig.TextSource, "text-source", handlers.TextSourcePcapng, "text capture source: pcapng (live TLS decryption) or hook")
 	bindDecryptFlags(gnutlsCmd, &gnutlsConfig.DecryptConfig)
 	gnutlsCmd.PersistentFlags().StringVarP(&gnutlsConfig.KeylogFile, "keylogfile", "k", "ecapture_gnutls_key.log", "The file stores SSL/TLS keys, and eCapture captures these keys during encrypted traffic communication and saves them to the file.")
 	gnutlsCmd.PersistentFlags().StringVarP(&gnutlsConfig.PcapFile, "pcapfile", "w", "save.pcapng", "write the raw packets to file as pcapng format.")
-	gnutlsCmd.PersistentFlags().StringVarP(&gnutlsConfig.Ifname, "ifname", "i", "", "(TC Classifier) Interface name on which the probe will be attached.")
+	gnutlsCmd.PersistentFlags().StringVarP(&gnutlsConfig.Ifname, "ifname", "i", "", "capture interface; automatically selected from default routes, then traffic counters, when omitted")
 	gnutlsCmd.PersistentFlags().StringVar(&gnutlsConfig.GnuVersion, "ssl_version", "", "GnuTLS version, e.g: --ssl_version=\"3.7.9\"")
 	gnutlsCmd.PersistentFlags().StringVar(&globalConf.CGroupPath, "cgroup_path", "", "cgroup v2 path for container/process filtering. Empty disables cgroup filtering.")
 	rootCmd.AddCommand(gnutlsCmd)
@@ -63,7 +64,7 @@ func init() {
 
 // gnuTlsCommandFunc executes the "gnutls" command using the new probe architecture.
 func gnuTlsCommandFunc(command *cobra.Command, args []string) error {
-	if err := normalizeTLSOutputFlags(command, gnutlsConfig.CaptureMode, gnutlsConfig.TextSource, &gnutlsConfig.KeylogFile, &gnutlsConfig.PcapFile); err != nil {
+	if err := normalizeTLSOutputFlags(command, gnutlsConfig.CaptureMode, &gnutlsConfig.TextSource, &gnutlsConfig.KeylogFile, &gnutlsConfig.PcapFile); err != nil {
 		return err
 	}
 	if gnutlsConfig.PcapFilter == "" && len(args) != 0 {

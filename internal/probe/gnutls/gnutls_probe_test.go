@@ -16,6 +16,7 @@ package gnutls
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/gojue/ecapture/v2/internal/probe/base/handlers"
@@ -66,6 +67,44 @@ func TestProbe_SetupManagerText(t *testing.T) {
 	}
 	if _, ok := probe.mapNameToDecoder["gnutls_events"]; !ok {
 		t.Fatal("gnutls_events decoder was not registered")
+	}
+}
+
+func TestProbe_PcapngTextDefaultStdout(t *testing.T) {
+	probe, err := NewProbe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := NewConfig()
+	cfg.GnutlsPath = "/unused/libgnutls.so.30"
+	cfg.Ifname = "lo"
+	if err := cfg.validateCaptureMode(); err != nil {
+		t.Fatal(err)
+	}
+	// Initialize the output infrastructure without requiring an installed library
+	// or loading eBPF programs. An empty text destination means stdout.
+	if err := probe.BaseProbe.Initialize(context.Background(), cfg.BaseConfig); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := probe.BaseProbe.Close(); err != nil && !strings.Contains(err.Error(), "nothing captured") {
+			t.Errorf("close output infrastructure: %v", err)
+		}
+	})
+	probe.config = cfg
+	if err := probe.setupManager(); err != nil {
+		t.Fatalf("default pcapng text output must accept stdout: %v", err)
+	}
+	if cfg.GetEventCollectorAddr() != "" || cfg.PcapFile != "" || cfg.KeylogFile != "" {
+		t.Fatal("default text output must not require artifact files")
+	}
+	if _, ok := probe.mapNameToDecoder["skb_events"]; !ok {
+		t.Fatal("default text output did not configure packet capture")
+	}
+
+	cfg.CaptureMode = handlers.ModePcapng
+	if err := probe.setupManagerPcapNG(); err == nil || !strings.Contains(err.Error(), "requires an event destination") {
+		t.Fatalf("pcapng output must still require a destination: %v", err)
 	}
 }
 

@@ -19,9 +19,13 @@ const (
 // NormalizeTextSource validates how TLS text is captured. Other output modes
 // do not accept the pcapng text source.
 func NormalizeTextSource(mode, source string) (string, error) {
+	mode = strings.ToLower(mode)
 	source = strings.ToLower(strings.TrimSpace(source))
 	if source == "" {
 		source = TextSourceHook
+		if mode == "" || mode == ModeText {
+			source = TextSourcePcapng
+		}
 	}
 	if source != TextSourceHook && source != TextSourcePcapng {
 		return "", fmt.Errorf("unsupported text source %q (supported: hook, pcapng)", source)

@@ -40,7 +40,7 @@ func TestConfigTextRaw(t *testing.T) {
 		{"normalized raw pcapng", "TEXT", " PCAPNG ", true, false},
 		{"default text mode", "", "pcapng", true, false},
 		{"reject hook", "text", "hook", true, true},
-		{"reject default hook", "text", "", true, true},
+		{"raw default pcapng", "text", "", true, false},
 		{"reject keylog", "keylog", "hook", true, true},
 		{"reject pcapng", "pcapng", "hook", true, true},
 		{"reject nontext source", "keylog", "pcapng", true, true},
@@ -238,6 +238,7 @@ func TestConfig_ValidateCaptureMode_Text(t *testing.T) {
 	cfg.GnutlsPath = "/usr/lib/libgnutls.so.30"
 	cfg.GnuVersion = "3.7.10"
 	cfg.CaptureMode = handlers.ModeText
+	cfg.Ifname = "lo"
 
 	err := cfg.validateCaptureMode()
 	if err != nil {
@@ -285,11 +286,11 @@ func TestConfig_ValidateCaptureMode_Pcap(t *testing.T) {
 		t.Logf("Pcap mode validation failed (expected on some systems): %v", err)
 	}
 
-	// Test without interface
-	cfg.Ifname = ""
+	// Explicit invalid interfaces must not be silently replaced.
+	cfg.Ifname = "nonexistent-interface-12345"
 	err = cfg.validateCaptureMode()
 	if err == nil {
-		t.Error("validateCaptureMode() should fail for pcap mode without interface")
+		t.Error("validateCaptureMode() should fail for an explicit nonexistent interface")
 	}
 
 	// Repeated validation retains the normalized primary destination.
@@ -341,6 +342,40 @@ func TestConfigDecryptOptions(t *testing.T) {
 			cfg.TextSource = "hook"
 			if err := cfg.validateCaptureMode(); err == nil {
 				t.Fatal("decryption options accepted without pcapng text source")
+			}
+		})
+	}
+}
+
+func TestConfigDefaultTextSource(t *testing.T) {
+	for _, test := range []struct {
+		name, mode, source, ifname, want string
+		wantErr                          bool
+	}{
+		{"default text", "text", "", "lo", "pcapng", false},
+		{"empty mode", "", "", "lo", "pcapng", false},
+		{"normalized default", "TEXT", "  ", "lo", "pcapng", false},
+		{"explicit missing interface", "text", "", "nonexistent-interface-12345", "pcapng", true},
+		{"explicit hook without interface", "text", "hook", "", "hook", false},
+		{"normalized hook", "text", " HOOK ", "", "hook", false},
+		{"keylog default", "keylog", "", "", "hook", false},
+		{"key alias default", "key", "", "", "hook", false},
+		{"pcapng default", "pcapng", "", "lo", "hook", false},
+		{"pcap alias default", "pcap", "", "lo", "hook", false},
+		{"explicit pcapng requires text", "keylog", "pcapng", "", "pcapng", true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			cfg := NewConfig()
+			cfg.CaptureMode, cfg.TextSource, cfg.Ifname = test.mode, test.source, test.ifname
+			cfg.EventCollectorAddr = "stdout"
+			for attempt := 0; attempt < 2; attempt++ {
+				err := cfg.validateCaptureMode()
+				if (err != nil) != test.wantErr {
+					t.Fatalf("validation %d error = %v, wantErr %v", attempt, err, test.wantErr)
+				}
+				if cfg.TextSource != test.want {
+					t.Fatalf("text source = %q, want %q", cfg.TextSource, test.want)
+				}
 			}
 		})
 	}

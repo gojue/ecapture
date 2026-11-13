@@ -108,10 +108,10 @@ docker run --rm --privileged=true --net=host -v ${HOST_PATH}:${CONTAINER_PATH} g
 sudo ecapture tls
 ```
 
-eCapture 会自动检测系统中的 OpenSSL 库并开始抓取明文数据。使用链接 OpenSSL 的客户端发起 HTTPS 请求，即可看到捕获的读写内容。下面是用于说明文本格式的合成 HTTP/1.1 示例：
+eCapture 会自动检测系统中的 OpenSSL 库并选择抓包网卡：优先选择 IPv4/IPv6 默认路由中 metric 最低的可用以太网网卡；没有可用默认路由时，参考网卡收发流量计数，再回退到已启用的网卡。启动时会通过 WARN 日志显示选中的网卡，并提示可通过 `-i eth0` 或 `--ifname eth0` 手动更改。只捕获选中网卡的流量；回环流量请指定 `-i lo`。使用链接 OpenSSL 的客户端发起 HTTPS 请求，即可看到重组后的请求和响应。下面是用于说明文本格式的合成 HTTP/1.1 示例：
 
 ```text
-[2026-01-01 12:00:00.000] PID:1234 TID:1234 Comm:curl FD:5 WRITE (37 bytes):
+[2026-01-01T12:00:00.000000000Z] http/1.1 request 192.0.2.1:43210 -> 192.0.2.2:443 host="example.com" domain_source="Host" connection="17-4-client/192.0.2.1:43210--192.0.2.2:443/tcp#2"
 GET / HTTP/1.1
 Host: example.com
 
@@ -144,7 +144,7 @@ OpenSSL 模块支持三种输出模式：
 
 - `pcap` / `pcapng`：将加密网络包和 TLS 密钥保存为 `pcap-NG` 格式。
 - `keylog` / `key`：将 TLS 握手密钥保存到文件中。
-- `text`：默认通过函数 hook 抓取明文；指定 `--text-source=pcapng` 时实时解密 pcapng 与 DSB，输出完整 HTTP/1.1 与 HTTP/2 请求和响应。
+- `text`：默认使用 `pcapng` 数据源，实时解密 pcapng 与 DSB，输出完整 HTTP/1.1 与 HTTP/2 请求和响应，自动选择抓包网卡，也可通过 `-i eth0` 手动指定。手动指定 `--text-source=hook` 可通过函数 hook 抓取明文，无需指定网卡。
 
 对 OpenSSL、GoTLS 和 GnuTLS，`--eventaddr` 是统一的主事件目的端，支持
 `stdout`、普通路径或 `file://` URI、`tcp://host:port` 以及使用有序二进制帧的
@@ -153,6 +153,9 @@ OpenSSL 模块支持三种输出模式：
 不能与对应的主别名同时使用。pcapng 模式下的 `--keylogfile` 仍是独立的可选密钥文件。
 
 #### text 模式下实时解密
+
+`tls`、`gotls` 和 `gnutls` 的 text 数据源均默认为 `pcapng`，省略 `-i` 时自动选择抓包网卡。
+三个模块均可通过 `--text-source hook` 使用函数 hook；GoTLS 仍需 `--elfpath` 指定目标程序。
 
 `tls`、`gotls`、`gnutls` 均可使用 `-m text --text-source=pcapng`。输出按完整 HTTP/1.1 或
 HTTP/2 请求/响应划分，包含方向、时间、源和目标 IP/端口、连接标识及 HTTP/2
@@ -245,7 +248,7 @@ tshark -o tls.keylog_file:openssl_keylog.log -Y http -T fields -e http.file_data
 sudo ecapture tls -m text
 ```
 
-该命令会输出从 TLS 读写函数中捕获的明文字节。
+该命令使用默认的 `pcapng` 数据源重组 HTTP 消息。如需捕获 TLS 读写函数中的明文字节，可使用 `sudo ecapture tls -m text --text-source hook`，无需指定网卡。
 
 ### GoTLS 模块
 
@@ -256,7 +259,7 @@ sudo ecapture tls -m text
 步骤 1：
 
 ```shell
-sudo ecapture gotls --elfpath=/path/to/go-client --hex
+sudo ecapture gotls --elfpath=/path/to/go-client
 ```
 
 步骤 2：

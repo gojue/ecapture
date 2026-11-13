@@ -55,22 +55,20 @@ const (
 type Config struct {
 	*config.BaseConfig
 	config.DecryptConfig
+	config.CaptureInterfaceConfig
 
 	// ElfPath is the path to the Go binary ELF file
 	ElfPath string `json:"elf_path"`
 
 	// CaptureMode specifies the output mode: "text", "keylog", or "pcap"
 	CaptureMode string `json:"capture_mode"`
-	TextSource  string `json:"text_source"` // "hook" (default) or "pcapng"
+	TextSource  string `json:"text_source"` // "hook" or "pcapng"; empty defaults to pcapng in text mode
 
 	// KeylogFile is the path to write TLS keylog output (for keylog mode)
 	KeylogFile string `json:"keylog_file"`
 
 	// PcapFile is the path to write pcap output (for pcap mode)
 	PcapFile string `json:"pcap_file"`
-
-	// Ifname is the network interface name for packet capture (for pcap mode)
-	Ifname string `json:"ifname"`
 
 	// PcapFilter is an optional BPF filter expression (for pcap mode)
 	PcapFilter string `json:"pcap_filter"`
@@ -107,7 +105,6 @@ func NewConfig() *Config {
 	return &Config{
 		BaseConfig:    config.NewBaseConfig(),
 		CaptureMode:   handlers.ModeText,
-		TextSource:    handlers.TextSourceHook,
 		GoVersion:     "",
 		IsRegisterABI: false,
 	}
@@ -262,11 +259,11 @@ func (c *Config) parserGoElf() error {
 // validateCaptureMode validates the capture mode and related configurations
 func (c *Config) validateCaptureMode() error {
 	mode := strings.ToLower(c.CaptureMode)
-	var err error
-	c.TextSource, err = handlers.NormalizeTextSource(mode, c.TextSource)
+	source, err := handlers.NormalizeTextSource(mode, c.TextSource)
 	if err != nil {
 		return err
 	}
+	c.TextSource = source
 	if err := c.ValidateDecryptOptions(c.TextSource == handlers.TextSourcePcapng); err != nil {
 		return err
 	}
@@ -295,13 +292,8 @@ func (c *Config) validateCaptureMode() error {
 	case handlers.ModePcap, handlers.ModePcapng:
 		c.CaptureMode = handlers.ModePcapng
 
-		// Auto-detect an active network interface when none is specified.
-		// On Android emulators wlan0 may exist but have no addresses;
-		// networking may go through eth0 or another interface instead.
-		c.setDefaultIfname()
-
-		if c.Ifname == "" {
-			return fmt.Errorf("pcap mode requires Ifname to be set")
+		if err := c.SetDefaultIfname(); err != nil {
+			return err
 		}
 
 		addr, err := writers.NormalizeEventAddress(writers.EventFormatPcapng, c.EventCollectorAddr, c.KeylogFile, c.PcapFile)
@@ -334,9 +326,8 @@ func (c *Config) validateCaptureMode() error {
 }
 
 func (c *Config) validatePcapngTextSource() error {
-	c.setDefaultIfname()
-	if c.Ifname == "" {
-		return fmt.Errorf("pcapng text source requires Ifname to be set")
+	if err := c.SetDefaultIfname(); err != nil {
+		return err
 	}
 	addr, err := writers.NormalizeEventAddress(writers.EventFormatText, c.EventCollectorAddr, c.KeylogFile, c.PcapFile)
 	if err != nil {

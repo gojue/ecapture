@@ -23,6 +23,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/rs/zerolog"
@@ -39,6 +40,42 @@ func factoryRequest(body string) *http.Request {
 	request := httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString(body))
 	request.Header.Set("Content-Type", "application/json")
 	return request
+}
+
+func TestTLSHTTPTextSourceDefaults(t *testing.T) {
+	for _, module := range []struct {
+		name, modeField string
+		factory         httpConfigFactory
+	}{
+		{"tls", "capturemode", createOpensslConfig},
+		{"gotls", "capture_mode", createGotlsConfig},
+		{"gnutls", "capturemode", createGnutlsConfig},
+	} {
+		t.Run(module.name, func(t *testing.T) {
+			for _, test := range []struct{ body, want string }{
+				{`{}`, "pcapng"},
+				{`{"capturemode":"text"}`, "pcapng"},
+				{`{"capturemode":"text","text_source":""}`, "pcapng"},
+				{`{"capturemode":"text","text_source":"hook"}`, "hook"},
+				{`{"capturemode":"keylog"}`, "hook"},
+				{`{"capturemode":"pcapng"}`, "hook"},
+			} {
+				t.Run(test.body, func(t *testing.T) {
+					update, err := module.factory(factoryRequest(strings.ReplaceAll(test.body, "capturemode", module.modeField)))
+					if err != nil {
+						t.Fatal(err)
+					}
+					source, err := handlers.NormalizeTextSource(update.Config.(domain.CaptureModeConfiguration).GetCaptureMode(), update.Config.(domain.TextSourceConfiguration).GetTextSource())
+					if err != nil {
+						t.Fatal(err)
+					}
+					if source != test.want {
+						t.Fatalf("text source = %q, want %q", source, test.want)
+					}
+				})
+			}
+		})
+	}
 }
 
 func TestEveryHTTPConfigFactoryAppliesCommonConfig(t *testing.T) {

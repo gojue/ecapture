@@ -7,7 +7,11 @@ func TestNormalizeTextSource(t *testing.T) {
 		mode, source, want string
 		wantErr            bool
 	}{
-		{ModeText, "", TextSourceHook, false},
+		{ModeText, "", TextSourcePcapng, false},
+		{"", "", TextSourcePcapng, false},
+		{"TEXT", "  ", TextSourcePcapng, false},
+		{ModeKeylog, "", TextSourceHook, false},
+		{ModePcapng, "", TextSourceHook, false},
 		{ModeText, "HOOK", TextSourceHook, false},
 		{ModeText, "Pcapng", TextSourcePcapng, false},
 		{ModePcapng, TextSourceHook, TextSourceHook, false},

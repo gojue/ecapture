@@ -12,7 +12,7 @@ eCaptureQ can publish typed events alongside these byte outputs.
 ## TLS Module — Text Mode
 
 ```bash
-sudo ecapture tls -m text --eventaddr stdout
+sudo ecapture tls -m text --text-source hook --eventaddr stdout
 ```
 
 Generate a request using an OpenSSL-linked application. A synthetic HTTP/1.1
@@ -30,7 +30,7 @@ byte count. Available connection metadata adds a `Tuple:` field. Hook text
 shows captured reads/writes, which may be fragments of application messages.
 
 For complete HTTP/1.1 or HTTP/2 messages reconstructed from network packets
-and TLS secrets, choose the pcapng text source:
+and TLS secrets, use the default pcapng text source (shown explicitly below):
 
 ```bash
 sudo ecapture tls -m text --text-source=pcapng -i eth0 \
@@ -98,7 +98,9 @@ sudo ecapture gnutls --gnutls /path/to/libgnutls.so -m text
 ```
 
 Run the matching application while capture is active. For keylog/pcapng,
-select the mode and destination as above; packet capture also needs `-i`.
+select the mode and destination as above. Text defaults to the `pcapng` source;
+packet capture selects an interface automatically. Use `-i <interface>` to
+override it, or `--text-source hook` for function-hook plaintext capture.
 GnuTLS support depends on the library's patch-specific asset mapping.
 
 ## Other Modules
