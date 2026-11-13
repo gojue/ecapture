@@ -14,7 +14,11 @@
 
 package ws
 
-import "golang.org/x/net/websocket"
+import (
+	"time"
+
+	"golang.org/x/net/websocket"
+)
 
 func NewClient() *Client {
 	return &Client{}
@@ -51,4 +55,11 @@ func (w *Client) Close() error {
 		return nil
 	}
 	return w.conn.Close()
+}
+
+// Abort interrupts a blocked send before Close takes the WebSocket write lock.
+func (w *Client) Abort() {
+	if w.conn != nil {
+		_ = w.conn.SetDeadline(time.Now())
+	}
 }

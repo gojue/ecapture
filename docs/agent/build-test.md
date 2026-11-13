@@ -311,6 +311,20 @@ Targeted test example:
 go test ./internal/probe/openssl
 ```
 
+For decryption termination changes, the focused gate is:
+
+```sh
+go test -race ./internal/output/decrypt ./internal/output/pcapng \
+  ./internal/output/writers ./internal/events ./internal/probe/base/... ./cli/cmd
+```
+
+`TestSinkBackgroundTermination` injects streaming task outcomes; it is not a
+live capture test. `TestPipelineFailureCLIExit` runs the real pinned SDK on
+malformed input in a subprocess with a BPF-free probe and checks exit status 1
+and single-error logging. `TestSinkRealSDKMixedConnections` uses real Go TLS
+ciphertext and synthetic packet framing to check missing keys/handshakes do not
+stop healthy connections. These do not replace strict kernel capture E2E.
+
 The default/stub-tag CI unit gate is:
 
 ```sh

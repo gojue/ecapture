@@ -144,6 +144,12 @@ Typical concrete lifecycle:
 7. During shutdown, `runProbe` cancels its context, calls `Stop`, then calls
    the concrete `Close` implementation.
 
+`BaseProbe.Fail` latches a terminal output error and cancels its child context.
+The CLI observes `RuntimeDone` even without events and owns Stop/Close; worker
+goroutines never close the dispatcher themselves. `RuntimeError` is independent
+of ordinary parent cancellation, so a shutdown race cannot erase a failure.
+Base close is idempotent and joins tracked readers before closing handlers.
+
 `BaseProbe.Stop()` currently changes only `isRunning`; it does not close a
 reader. Concrete `Close` implementations normally stop the eBPF manager and
 module-specific resources before calling `BaseProbe.Close()`. Base close then

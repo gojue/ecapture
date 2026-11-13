@@ -27,11 +27,14 @@ import (
 	"maps"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	decryptor "github.com/gojue/ecapture_decryptor"
+	sdkcrypto "github.com/gojue/ecapture_decryptor/crypto"
 	"github.com/gojue/ecapture_decryptor/types"
 
 	"github.com/gojue/ecapture/v2/internal/domain"
+	captureerrors "github.com/gojue/ecapture/v2/internal/errors"
 	"github.com/gojue/ecapture/v2/internal/logger"
 	"github.com/gojue/ecapture/v2/internal/output/pcapng"
 	"github.com/gojue/ecapture/v2/internal/output/writers"
@@ -40,21 +43,13 @@ import (
 
 // Register installs the low-latency packet handler and its borrowed DSB
 // keylog adapter on one probe dispatcher.
-func Register(dispatcher domain.EventDispatcher, ifName, filter string, logger *logger.Logger, eventAddr, pcapAddr string, rotation *writers.RotateConfig, eventSinks []domain.CapturedEventSink, options types.DecryptOptions) error {
-	options.OnDiagnostic = func(d types.Diagnostic) {
-		entry := logger.Warn()
-		switch d.Code {
-		case "waiting_secret", "key_update", "key_update_requested", "hello_retry_request",
-			"early_data_accepted", "early_data_rejected":
-			entry = logger.Debug()
-		}
-		entry.Str("connection", d.ConnectionID).Str("transport", d.Transport).
-			Str("stage", d.Stage).Str("reason", d.Code).Msg("decrypt diagnostic")
-	}
-	sink, err := NewSink(eventAddr, pcapAddr, rotation, eventSinks, options)
+func Register(ctx context.Context, fail func(error), dispatcher domain.EventDispatcher, ifName, filter string, logger *logger.Logger, eventAddr, pcapAddr string, rotation *writers.RotateConfig, eventSinks []domain.CapturedEventSink, options types.DecryptOptions) error {
+	options.OnDiagnostic = diagnosticLogger(logger)
+	sink, err := newSink(ctx, fail, eventAddr, pcapAddr, rotation, eventSinks, options, decryptor.DecryptPcapngStreamWithOptions)
 	if err != nil {
 		return err
 	}
+
 	packetHandler, err := handlers.NewLowLatencyPcapngHandler(sink, ifName, filter, logger)
 	if err != nil {
 		_ = sink.Close()
@@ -78,17 +73,32 @@ func Register(dispatcher domain.EventDispatcher, ifName, filter string, logger *
 // plaintext sink, so message output preserves SDK delivery order.
 type Sink struct {
 	pipeWriter *io.PipeWriter
+	pipeReader *io.PipeReader
 	plainSink  writers.ByteSink
 	pcapSink   writers.ByteSink
-	done       chan error
-	mu         sync.Mutex
+	done       chan struct{}
+	mu         sync.Mutex // lifecycle only; never held across I/O
+	writeMu    sync.Mutex
 	closed     bool
+	finished   bool
+	failure    error
+	onFailure  func(error)
+	cancel     context.CancelFunc
+	stopWatch  func() bool
 	closeOnce  sync.Once
 	closeErr   error
 	sequence   atomic.Uint64
 }
 
+const shutdownTimeout = 5 * time.Second
+
+type streamDecrypt func(context.Context, io.ReadCloser, func(*types.DecryptedPacket) error, types.DecryptOptions) error
+
 func NewSink(eventAddr, pcapAddr string, rotation *writers.RotateConfig, eventSinks []domain.CapturedEventSink, options types.DecryptOptions) (*Sink, error) {
+	return newSink(context.Background(), nil, eventAddr, pcapAddr, rotation, eventSinks, options, decryptor.DecryptPcapngStreamWithOptions)
+}
+
+func newSink(parent context.Context, fail func(error), eventAddr, pcapAddr string, rotation *writers.RotateConfig, eventSinks []domain.CapturedEventSink, options types.DecryptOptions, run streamDecrypt) (*Sink, error) {
 	if err := options.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid decrypt options: %w", err)
 	}
@@ -110,9 +120,28 @@ func NewSink(eventAddr, pcapAddr string, rotation *writers.RotateConfig, eventSi
 		}
 	}
 	pipeReader, pipeWriter := io.Pipe()
-	sink := &Sink{pipeWriter: pipeWriter, plainSink: plainSink, pcapSink: pcapSink, done: make(chan error, 1)}
+	ctx, cancel := context.WithCancel(context.Background())
+	sink := &Sink{pipeWriter: pipeWriter, pipeReader: pipeReader, plainSink: plainSink, pcapSink: pcapSink, done: make(chan struct{}), cancel: cancel, onFailure: fail}
+	// Cancellation allows final queued output to drain, then interrupts blocked I/O.
+	sink.stopWatch = context.AfterFunc(parent, func() {
+		timer := time.NewTimer(shutdownTimeout)
+		defer timer.Stop()
+		select {
+		case <-sink.done:
+		case <-timer.C:
+			sink.Fail(context.DeadlineExceeded)
+		}
+	})
 	go func() {
-		err := decryptor.DecryptPcapngStreamWithOptions(context.Background(), pipeReader, func(packet *types.DecryptedPacket) error {
+		err := run(ctx, pipeReader, func(packet *types.DecryptedPacket) (emitErr error) {
+			defer func() {
+				if emitErr != nil {
+					sink.Fail(emitErr)
+				}
+			}()
+			if err := sink.Err(); err != nil {
+				return err
+			}
 			payload, err := formatMessage(packet)
 			if err != nil {
 				return err
@@ -128,14 +157,26 @@ func NewSink(eventAddr, pcapAddr string, rotation *writers.RotateConfig, eventSi
 			sequence := sink.sequence.Add(1)
 			for _, publisher := range eventSinks {
 				envelope := messageEnvelope(packet, payload, sequence)
-				if err := publisher.PublishEvent(context.Background(), envelope); err != nil {
+				if err := publisher.PublishEvent(ctx, envelope); err != nil {
 					return err
 				}
 			}
 			return nil
 		}, options)
-		_ = pipeReader.CloseWithError(err)
-		sink.done <- err
+		sink.mu.Lock()
+		closing := sink.closed
+		sink.mu.Unlock()
+		// Only a locally initiated EOF is normal. A returned API is no longer
+		// a usable pipeline, whatever connection errors its result contains.
+		// An aggregate containing EOF can also contain a real failure.
+		if !closing || (err != nil && err != io.EOF) { //nolint:errorlint // Only the exact expected EOF is normal.
+			if err == nil {
+				err = io.ErrUnexpectedEOF
+			}
+			sink.Fail(err)
+		}
+		_ = pipeReader.CloseWithError(sink.Err())
+		close(sink.done)
 	}()
 	return sink, nil
 }
@@ -173,41 +214,177 @@ func messageEnvelope(packet *types.DecryptedPacket, formatted []byte, sequence u
 
 func (s *Sink) Name() string { return "decrypt-pcapng-stream" }
 
-func (s *Sink) Write(p []byte) (int, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.closed {
-		return 0, io.ErrClosedPipe
+// Fail latches one terminal cause and interrupts both ends without acquiring
+// writeMu. It is also called by the pcapng session on encoder/flush failures.
+func (s *Sink) Fail(err error) {
+	if err == nil {
+		return
 	}
-	if s.pcapSink != nil {
-		if _, err := s.pcapSink.Write(p); err != nil {
-			return 0, err
+	s.mu.Lock()
+	if s.failure != nil || s.finished {
+		s.mu.Unlock()
+		return
+	}
+	reason := "stream or output failed"
+	// These are safe diagnostic labels only. Terminal state is established by
+	// the caller, never inferred from a member of the SDK's aggregate error.
+	switch {
+	case errors.Is(err, sdkcrypto.ErrKeyLogResourceLimit):
+		reason = "keylog import resource limit exceeded"
+	case errors.Is(err, context.DeadlineExceeded):
+		reason = "shutdown deadline exceeded"
+	case errors.Is(err, io.ErrUnexpectedEOF), errors.Is(err, io.EOF):
+		reason = "unexpected end of stream"
+	}
+	terminal := &captureerrors.PipelineError{Stage: "pcapng decryption", Reason: reason, Cause: err}
+	s.failure = terminal
+	s.mu.Unlock()
+	s.cancel()
+	_ = s.pipeReader.CloseWithError(terminal)
+	_ = s.pipeWriter.CloseWithError(terminal)
+	// Network sinks expose an interrupt that does not wait for a writer lock.
+	for _, sink := range []writers.ByteSink{s.plainSink, s.pcapSink} {
+		if abort, ok := sink.(interface{ Abort() }); ok {
+			abort.Abort()
 		}
 	}
-	return s.pipeWriter.Write(p)
+	if s.onFailure != nil {
+		s.onFailure(terminal)
+	}
+}
+
+func (s *Sink) Err() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.failure
+}
+
+func (s *Sink) Write(p []byte) (int, error) {
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+	s.mu.Lock()
+	closed, failure := s.closed, s.failure
+	s.mu.Unlock()
+	if closed {
+		return 0, io.ErrClosedPipe
+	}
+	if failure != nil {
+		return 0, failure
+	}
+	if s.pcapSink != nil {
+		n, err := s.pcapSink.Write(p)
+		if err == nil && n != len(p) {
+			err = io.ErrShortWrite
+		}
+		if err != nil {
+			s.Fail(err)
+			return 0, s.Err()
+		}
+	}
+	n, err := s.pipeWriter.Write(p)
+	if err != nil {
+		s.mu.Lock()
+		closed = s.closed
+		s.mu.Unlock()
+		if closed {
+			return n, io.ErrClosedPipe
+		}
+		// The SDK may close its reader before returning the root error. Wait
+		// for that result instead of replacing it with io.ErrClosedPipe.
+		timer := time.NewTimer(shutdownTimeout)
+		defer timer.Stop()
+		select {
+		case <-s.done:
+		case <-timer.C:
+			s.Fail(context.DeadlineExceeded)
+		}
+		if failure := s.Err(); failure != nil {
+			return n, failure
+		}
+		return n, err
+	}
+	return n, nil
 }
 
 func (s *Sink) Flush() error {
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+	if err := s.Err(); err != nil {
+		return err
+	}
 	if s.pcapSink != nil {
-		return s.pcapSink.Flush()
+		if err := s.pcapSink.Flush(); err != nil {
+			s.Fail(err)
+			return s.Err()
+		}
 	}
 	return nil
 }
 
 func (s *Sink) Close() error {
 	s.closeOnce.Do(func() {
+		timer := time.AfterFunc(shutdownTimeout, func() { s.Fail(context.DeadlineExceeded) })
+		defer timer.Stop()
+		defer s.stopWatch()
+		defer s.cancel()
 		s.mu.Lock()
 		s.closed = true
-		pipeErr := s.pipeWriter.Close()
 		s.mu.Unlock()
-		decryptErr := <-s.done
+		// Do not wait behind a blocked pipe Write before closing its input.
+		_ = s.pipeWriter.Close()
+		<-s.done
+		s.writeMu.Lock()
+		defer s.writeMu.Unlock()
 		var pcapErr error
 		if s.pcapSink != nil {
 			pcapErr = errors.Join(s.pcapSink.Flush(), s.pcapSink.Close())
 		}
-		s.closeErr = errors.Join(pipeErr, decryptErr, s.plainSink.Flush(), s.plainSink.Close(), pcapErr)
+		outputErr := errors.Join(s.plainSink.Flush(), s.plainSink.Close(), pcapErr)
+		s.mu.Lock()
+		s.finished = true // late deadline callbacks must not turn success into failure
+		failure := s.failure
+		s.mu.Unlock()
+		s.closeErr = captureerrors.JoinCleanup(failure, outputErr)
 	})
 	return s.closeErr
+}
+
+// One bucket per pipeline, not per connection or attacker-controlled reason.
+// Never log SDK diagnostic text, connection identifiers, keys or payloads.
+func diagnosticLogger(log *logger.Logger) func(types.Diagnostic) {
+	var mu sync.Mutex
+	var next time.Time
+	var suppressed uint64
+	return func(d types.Diagnostic) {
+		mu.Lock()
+		defer mu.Unlock()
+		now := time.Now()
+		if now.Before(next) {
+			if suppressed < ^uint64(0) {
+				suppressed++
+			}
+			return
+		}
+		entry := log.Warn()
+		switch d.Code {
+		case "waiting_secret", "key_update", "key_update_requested", "hello_retry_request", "early_data_accepted", "early_data_rejected":
+			entry = log.Debug()
+		}
+		// Codes come from the SDK, but cap and whitelist characters at this boundary.
+		code := d.Code
+		if len(code) > 64 {
+			code = "other"
+		}
+		for _, c := range code {
+			if c != '_' && (c < 'a' || c > 'z') {
+				code = "other"
+				break
+			}
+		}
+		entry.Str("reason", code).Uint64("suppressed", suppressed).Msg("decrypt diagnostic")
+		suppressed = 0
+		next = now.Add(5 * time.Second)
+	}
 }
 
 func structuredMessage(packet *types.DecryptedPacket) bool {

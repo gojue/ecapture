@@ -60,7 +60,8 @@ func TestTextSourceOutputRouting(t *testing.T) {
 func TestBaseProbeInitialize(t *testing.T) {
 	probe := NewBaseProbe("test-probe")
 	cfg := config.NewBaseConfig()
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	err := probe.Initialize(ctx, cfg)
 	if err != nil {
@@ -73,8 +74,10 @@ func TestBaseProbeInitialize(t *testing.T) {
 	if probe.Dispatcher() == nil {
 		t.Error("dispatcher not initialized")
 	}
-	if probe.Context() != ctx {
-		t.Error("context not set correctly")
+	cancel()
+	<-probe.RuntimeDone()
+	if probe.Context().Err() != context.Canceled || probe.RuntimeError() != nil {
+		t.Error("parent cancellation must remain normal")
 	}
 }
 

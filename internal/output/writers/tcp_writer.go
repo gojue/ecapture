@@ -21,6 +21,7 @@ import (
 	"io"
 	"net"
 	"sync"
+	"time"
 )
 
 // TcpWriter writes output to a TCP socket.
@@ -117,3 +118,6 @@ func (w *TcpWriter) Flush() error {
 
 	return nil
 }
+
+// Abort interrupts pending I/O without waiting for the serialization mutex.
+func (w *TcpWriter) Abort() { _ = w.conn.SetDeadline(time.Now()) }

@@ -94,3 +94,6 @@ func (w *WebSocketWriter) Flush() error {
 	}
 	return nil
 }
+
+// Abort interrupts a blocked send without waiting for the writer mutex.
+func (w *WebSocketWriter) Abort() { w.client.Abort() }

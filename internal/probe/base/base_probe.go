@@ -49,6 +49,11 @@ type BaseProbe struct {
 	name         string
 	logger       *logger.Logger
 	ctx          context.Context
+	cancel       context.CancelCauseFunc
+	failureMu    sync.Mutex
+	failure      error
+	closeOnce    sync.Once
+	closeErr     error
 	config       domain.Configuration
 	dispatcher   domain.EventDispatcher
 	selector     *bytecode.Selector
@@ -77,7 +82,7 @@ func (p *BaseProbe) Initialize(ctx context.Context, cfg domain.Configuration) er
 		return errors.NewConfigurationError("invalid configuration", err)
 	}
 
-	p.ctx = ctx
+	p.ctx, p.cancel = context.WithCancelCause(ctx)
 	p.config = cfg
 
 	// CLI and probes borrow one process-lifetime operational logger graph.
@@ -126,6 +131,7 @@ func (p *BaseProbe) Initialize(ctx context.Context, cfg domain.Configuration) er
 		Msg("Probe initialized")
 
 	dispatcher := events.NewDispatcher(p.Logger())
+	dispatcher.SetFailureSource(p.RuntimeError)
 	format := captureFormat(cfg)
 	if usesTextOutput(cfg) {
 		textWriter, err := writers.NewWriterFactory().CreateEventSink(writers.EventSinkOptions{
@@ -220,8 +226,36 @@ func (p *BaseProbe) SelectBytecode(baseName string) (string, error) {
 	return p.selector.Select(baseName)
 }
 
-// Close releases all resources.
+// Fail stops reader dispatch and wakes the CLI even without another event.
+// It never closes resources from a worker: the CLI remains the cleanup owner.
+func (p *BaseProbe) Fail(err error) {
+	if err == nil {
+		return
+	}
+	p.failureMu.Lock()
+	defer p.failureMu.Unlock()
+	if p.failure == nil {
+		p.failure = err
+		p.cancel(err)
+	}
+}
+func (p *BaseProbe) RuntimeError() error {
+	p.failureMu.Lock()
+	defer p.failureMu.Unlock()
+	return p.failure
+}
+func (p *BaseProbe) RuntimeDone() <-chan struct{} { return p.ctx.Done() }
+
+// Close releases all resources once, after unblocking and joining readers.
 func (p *BaseProbe) Close() error {
+	p.closeOnce.Do(func() { p.closeErr = p.close() })
+	return p.closeErr
+}
+
+func (p *BaseProbe) close() error {
+	if p.cancel != nil {
+		p.cancel(context.Canceled)
+	}
 	p.isRunning.Store(false)
 	var closeErrors []error
 
@@ -248,7 +282,7 @@ func (p *BaseProbe) Close() error {
 		err := p.dispatcher.Close()
 		if err != nil {
 			closeErrors = append(closeErrors, err)
-			if p.logger != nil {
+			if p.logger != nil && !errors.IsPipelineError(err) {
 				p.logger.Warn().Err(err).Msg("Failed to close dispatcher")
 			}
 		}
@@ -427,7 +461,7 @@ func (p *BaseProbe) perfEventLoop(rd *perf.Reader, em *ebpf.Map, decoder domain.
 		if mn, ok := domain.AsMonoNsEvent(event); ok {
 			p.logPerfDispatchDebug("no reorder", mn)
 		}
-		if err := p.dispatcher.Dispatch(event); err != nil {
+		if err := p.dispatcher.Dispatch(event); err != nil && !errors.IsPipelineError(err) {
 			p.logger.Warn().Err(err).Msg("Failed to dispatch event")
 		}
 	}
@@ -457,7 +491,7 @@ func (p *BaseProbe) perfEventLoopOrdered(rd *perf.Reader, em *ebpf.Map, decoder 
 			if mn, ok := domain.AsMonoNsEvent(ev); ok {
 				p.logPerfDispatchDebug("after reorder", mn)
 			}
-			if err := p.dispatcher.Dispatch(ev); err != nil {
+			if err := p.dispatcher.Dispatch(ev); err != nil && !errors.IsPipelineError(err) {
 				p.logger.Warn().Err(err).Msg("Failed to dispatch reordered event")
 			}
 		}
@@ -502,7 +536,7 @@ func (p *BaseProbe) perfEventLoopOrdered(rd *perf.Reader, em *ebpf.Map, decoder 
 
 		mn, ok := domain.AsMonoNsEvent(event)
 		if !ok {
-			if err := p.dispatcher.Dispatch(event); err != nil {
+			if err := p.dispatcher.Dispatch(event); err != nil && !errors.IsPipelineError(err) {
 				p.logger.Warn().Err(err).Msg("Failed to dispatch event")
 			}
 			continue
@@ -512,7 +546,7 @@ func (p *BaseProbe) perfEventLoopOrdered(rd *perf.Reader, em *ebpf.Map, decoder 
 			if out, ok2 := domain.AsMonoNsEvent(ev); ok2 {
 				p.logPerfDispatchDebug("after reorder", out)
 			}
-			if err := p.dispatcher.Dispatch(ev); err != nil {
+			if err := p.dispatcher.Dispatch(ev); err != nil && !errors.IsPipelineError(err) {
 				p.logger.Warn().Err(err).Msg("Failed to dispatch reordered event")
 			}
 		}
@@ -571,7 +605,7 @@ func (p *BaseProbe) ringbufEventLoop(rd *ringbuf.Reader, em *ebpf.Map, decoder d
 			continue
 		}
 
-		if err := p.dispatcher.Dispatch(event); err != nil {
+		if err := p.dispatcher.Dispatch(event); err != nil && !errors.IsPipelineError(err) {
 			p.logger.Warn().Err(err).Msg("Failed to dispatch event")
 		}
 	}

@@ -104,6 +104,56 @@ the primary destination; a pcapng copy and standalone keylog are optional.
 The SDK callback publishes the reconstructed message to eCaptureQ directly;
 the raw packet publisher is not registered for this text source.
 
+### Decryption termination and diagnostics
+
+The streaming API returning while capture is active is a terminal pipeline event,
+including an unexpected nil/EOF return. A returned API cannot consume further
+input, even when its error contains old connection failures. `decrypt.Sink`
+latches the first cause as `internal/errors.PipelineError`, interrupts both pipe
+ends and network output, and calls `BaseProbe.Fail`. The probe's cancellable
+context wakes `runProbe` without another packet or keylog event. Dispatch checks
+that terminal state before delivery; readers and dispatcher do not log it again.
+The CLI logs one safe operational error, cancels the generation, stops the probe,
+closes/joins readers and handlers, and exits nonzero. There is no automatic
+restart. The full cause remains available through `errors.Is` / `errors.As`;
+arbitrary SDK error strings (which can contain captured data) are not logged.
+The typed keylog resource-limit sentinel has a specific safe reason.
+
+A pcapng encoder/write/flush failure stops the serving loop at its first error,
+rejects new producers, and drops queued data instead of retrying a broken stream.
+Packet, DSB and timer failures use the same terminal path for decrypted output.
+The session stores one error, rather than repeatedly joining the SDK's historical
+connection error list. Cleanup errors are retained in bounded owner-level joins.
+
+Connection diagnostics delivered through `OnDiagnostic` do not signal pipeline
+failure. The SDK remains responsible for bounded late-key waiting, record-state
+recovery, and isolating an unrecoverable connection or direction. eCapture never
+skips an arbitrary TLS record and resumes damaged cipher state. Diagnostics use
+one fixed bucket per pipeline (at most one record per five seconds, with a
+suppressed count on the next record); there is no per-connection counter map.
+Only bounded SDK reason codes are logged, without keys, payloads or connection
+identifiers. Ordinary progress diagnostics retain their debug severity.
+
+Normal shutdown drains accepted pcapng data before closing the pipe input; only
+an EOF initiated by that close is expected. Cancellation starts a five-second
+drain deadline. Expiry cancels the SDK and interrupts pipe and network I/O
+without taking the write mutex. A stalled drain is an error, not successful
+cleanup. This relies on the SDK joining its workers after input/context
+cancellation and typed publishers honoring context. It cannot bound an OS-level
+uninterruptible regular-file write/fsync or an arbitrary non-cancellable writer.
+
+Pinned SDK v1.4.3 contract caveat: `api.go:processPcapngStreamMode` joins
+`connectionError()` into its result during teardown, and
+`pcapng_stream.go:DecryptPcapngStreamWithOptions` joins engine, callback and
+context errors without an overall typed outcome. Thus a locally initiated EOF
+with historical connection failures can still produce nonzero exit. Do not infer
+success from `errors.Is` matching one member of that aggregate. A future SDK
+contract must separately identify successful requested completion with bounded
+connection diagnostics and fatal input/DSB/callback/worker termination; it must
+keep healthy connections processing while connection-local failures are isolated.
+No dependency, key-cache capacity, resource limit or SDK recovery policy is
+changed here.
+
 TC reports send-context PID/Comm in the event header without modifying wire
 packets. `PacketEvent` passes these fields and endpoint provenance to
 `Session.WritePacketWithProcess`, which appends an Ethernet trailer in both
@@ -171,8 +221,8 @@ ECH_SECRET/ECH_CONFIG capture; do not infer live support from SDK tests alone.
 DTLS master-secret events use version 0xFEFD and the TLS 1.2 CLIENT_RANDOM
 keylog representation. Application routing remains explicit. Normal key-update,
 HRR and early-data acceptance/rejection progress is logged at debug level;
-failure diagnostics remain warnings. Diagnostic observers receive
-only connection/stage/reason fields and write to the operational logger.
+failure diagnostics remain warnings, subject to the bounded diagnostic bucket
+described above. Observers write safe reason codes to the operational logger.
 
 The maintained strict Linux E2E suites exercise operational logs and the
 text, keylog, and pcapng representations against all four ByteSink types for

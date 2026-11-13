@@ -17,10 +17,14 @@ package cmd
 import (
 	"bytes"
 	"context"
+	"errors"
+	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -28,7 +32,10 @@ import (
 
 	"github.com/gojue/ecapture/v2/internal/config"
 	"github.com/gojue/ecapture/v2/internal/domain"
+	"github.com/gojue/ecapture/v2/internal/factory"
 	outputpipeline "github.com/gojue/ecapture/v2/internal/output"
+	"github.com/gojue/ecapture/v2/internal/output/decrypt"
+	"github.com/gojue/ecapture/v2/internal/output/writers"
 	"github.com/gojue/ecapture/v2/internal/probe/base"
 	"github.com/gojue/ecapture/v2/internal/probe/base/handlers"
 )
@@ -241,5 +248,76 @@ func TestNormalizeTLSPcapngTextOutputFlags(t *testing.T) {
 		if pcapFile != wantPcap {
 			t.Fatalf("pcap artifact = %q, want %q", pcapFile, wantPcap)
 		}
+	}
+}
+
+// This probe uses real pcapng/decrypt handlers and the pinned SDK, but no BPF.
+// Corrupt input causes a background SDK return with no dispatched event after it.
+type failedPipelineProbe struct {
+	*base.BaseProbe
+	sink writers.ByteSink
+}
+type recordingDispatcher struct {
+	domain.EventDispatcher
+	sink *writers.ByteSink
+}
+
+func (d recordingDispatcher) Register(h domain.EventHandler) error {
+	if h.Name() == handlers.ModePcapng {
+		*d.sink = h.Writer()
+	}
+	return d.EventDispatcher.Register(h)
+}
+func (p *failedPipelineProbe) Start(ctx context.Context) error {
+	if err := p.BaseProbe.Start(ctx); err != nil {
+		return err
+	}
+	d := recordingDispatcher{EventDispatcher: p.Dispatcher(), sink: &p.sink}
+	if err := decrypt.Register(p.Context(), p.Fail, d, "lo", "", p.Logger(), p.Config().GetEventCollectorAddr(), "", nil, nil, types.DecryptOptions{}); err != nil {
+		return err
+	}
+	reader, writer := io.Pipe()
+	p.TrackReader(reader)
+	p.GoReaderLoop(func() { _, _ = io.Copy(io.Discard, reader); _ = writer.Close() })
+	go func() { _, _ = p.sink.Write(bytes.Repeat([]byte{0xff}, 64)) }()
+	return nil
+}
+
+func TestPipelineFailureCLIExit(t *testing.T) {
+	if os.Getenv("ECAPTURE_PIPELINE_EXIT_TEST") == "1" {
+		const probeType factory.ProbeType = "pipeline-exit-test"
+		if err := factory.RegisterProbe(probeType, func() (domain.Probe, error) {
+			return &failedPipelineProbe{BaseProbe: base.NewBaseProbe("pipeline-test")}, nil
+		}); err != nil {
+			t.Fatal(err)
+		}
+		globalConf = CLIConfig{LoggerAddr: os.Getenv("ECAPTURE_TEST_LOG")}
+		cfg := config.NewBaseConfig()
+		cfg.SetEventCollectorAddr(os.Getenv("ECAPTURE_TEST_OUTPUT"))
+		rootCmd.PersistentPreRunE = nil
+		rootCmd.AddCommand(&cobra.Command{Use: "pipeline-exit-test", RunE: func(*cobra.Command, []string) error { return runProbe(probeType, cfg) }})
+		rootCmd.SetArgs([]string{"pipeline-exit-test"})
+		Execute()
+		t.Fatal("Execute returned without a nonzero exit")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	logPath := filepath.Join(t.TempDir(), "runtime.log")
+	cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestPipelineFailureCLIExit$")
+	cmd.Env = append(os.Environ(), "ECAPTURE_PIPELINE_EXIT_TEST=1", "ECAPTURE_TEST_LOG="+logPath, "ECAPTURE_TEST_OUTPUT="+filepath.Join(t.TempDir(), "plain"))
+	out, err := cmd.CombinedOutput()
+	var exit *exec.ExitError
+	if !errors.As(err, &exit) || exit.ExitCode() != 1 || ctx.Err() != nil {
+		t.Fatalf("exit = %v, output=%s", err, out)
+	}
+	logs, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Count(logs, []byte("Capture stopped after output pipeline failure")) != 1 || bytes.Contains(logs, []byte("Failed to dispatch")) || !bytes.Contains(logs, []byte("Probe closed")) {
+		t.Fatalf("unexpected lifecycle logs: %s", logs)
+	}
+	if bytes.Count(out, []byte("capture pipeline terminated")) != 1 {
+		t.Fatalf("terminal error repeated on console: %s", out)
 	}
 }
