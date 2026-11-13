@@ -46,7 +46,20 @@
 #endif
 
 #include <uapi/linux/ptrace.h>
+
+/*
+ * Linux 7.x x86 per-CPU helpers can repeat the same GS address-space
+ * qualifier with older Clang. Preserve the kernel types and scope this
+ * diagnostic exception to the kernel header, not our probe code.
+ */
+#if defined(__clang__) && defined(__TARGET_ARCH_x86)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wduplicate-decl-specifier"
+#endif
 #include <linux/bpf.h>
+#if defined(__clang__) && defined(__TARGET_ARCH_x86)
+#pragma clang diagnostic pop
+#endif
 #include <linux/socket.h>
 #include <net/sock.h>
 #include <bpf/bpf_core_read.h>

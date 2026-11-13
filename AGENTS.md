@@ -245,6 +245,9 @@ verification matrix live in `docs/agent/build-test.md`.
   LoongArch CO-RE needs the same support for generated runtime BTF headers.
   x86 non-CO-RE headers also require `CC_USING_FENTRY` when function tracing
   is configured; do not enable native `-pg`/`-mfentry` instrumentation for BPF.
+  Linux 7.x x86 per-CPU headers trigger duplicate address-space diagnostics
+  with older Clang. Keep the diagnostic exception scoped to the kernel
+  `linux/bpf.h` include in `kern/ecapture.h`; probe-code warnings stay enabled.
 - `make build` is not Go-only. Switching architecture, Android, or asset modes
   still requires a clean serial validation even though libpcap, bytecode, Go
   intermediates, and generated asset names are architecture-isolated. The

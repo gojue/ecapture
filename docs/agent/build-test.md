@@ -151,9 +151,18 @@ device/emulator must be rooted/userdebug API 33+ with SELinux not Enforcing.
 - x86 headers with `CONFIG_FUNCTION_TRACER=y` also require Kbuild's
   `CC_USING_FENTRY` declaration macro. Non-CO-RE builds define it for x86
   header compatibility without enabling `-pg` or `-mfentry` instrumentation.
+- Linux 7.x x86 per-CPU helpers repeat identical GS address-space qualifiers
+  under older Clang. `kern/ecapture.h` scopes a Clang diagnostic push/pop for
+  `-Wduplicate-decl-specifier` to the external `linux/bpf.h` include tree.
+  This preserves kernel types and generated instructions; it does not disable
+  the diagnostic for probe code or other includes.
 - `bash test/build/nocore_cflags_test.sh` compiles the real probe headers,
   explicitly includes x86 `asm/ftrace.h`, and checks anonymous-field layout
   and access through the production Clang-to-BPF flags and include paths.
+  Duplicate declaration specifiers are errors in this regression; a negative
+  fixture verifies that duplicate qualifiers in probe code are still rejected.
+  The hosted Linux E2E jobs run it against their actual kernel headers before
+  building, including the Ubuntu 24.04 Azure kernel.
   It requires prepared target headers and accepts `KERN_HEADERS` and
   `TARGET_ARCH` in the environment, just like a normal non-CO-RE build.
 
