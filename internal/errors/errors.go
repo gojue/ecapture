@@ -15,6 +15,7 @@
 package errors
 
 import (
+	stderrors "errors"
 	"fmt"
 )
 
@@ -162,4 +163,35 @@ func NewEBPFAttachError(probe string, cause error) *Error {
 // NewResourceNotFoundError creates a resource not found error.
 func NewResourceNotFoundError(resource string) *Error {
 	return New(ErrCodeResourceNotFound, fmt.Sprintf("resource not found: %s", resource))
+}
+
+// PipelineError marks an output that can no longer consume events. Cause remains
+// inspectable, but arbitrary SDK errors may contain captured data and must not
+// be rendered into operational logs.
+type PipelineError struct {
+	Stage  string
+	Reason string
+	Cause  error
+}
+
+func (e *PipelineError) Error() string {
+	return "capture pipeline terminated: " + e.Stage + ": " + e.Reason
+}
+func (e *PipelineError) Unwrap() error { return e.Cause }
+func IsPipelineError(err error) bool {
+	var terminal *PipelineError
+	return stderrors.As(err, &terminal)
+}
+
+// JoinCleanup preserves cleanup causes without rendering an SDK error history
+// multiple times through each owner of the same failed output.
+func JoinCleanup(primary, cleanup error) error {
+	if cleanup == nil {
+		return primary
+	}
+	var terminal *PipelineError
+	if stderrors.As(primary, &terminal) {
+		return &PipelineError{Stage: terminal.Stage, Reason: terminal.Reason, Cause: stderrors.Join(primary, cleanup)}
+	}
+	return stderrors.Join(primary, cleanup)
 }

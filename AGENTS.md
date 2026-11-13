@@ -125,6 +125,10 @@ package ownership.
 - Concrete probes must follow BaseProbe lifecycle ordering. Track every reader;
   custom reader loops must use `TrackReader` and `GoReaderLoop` equivalents so
   shutdown can unblock and join them before closing handlers.
+- A terminated pcapng decryption task must call `BaseProbe.Fail`, stop delivery,
+  and propagate a nonzero CLI result even without further events. Connection
+  diagnostics alone do not terminate capture. See `docs/agent/output-pipeline.md`
+  for shutdown, log ownership and the SDK v1.4.3 completion-contract limitation.
 - Dispatcher fan-out is synchronous and unordered. Multiple readers may call
   one handler concurrently; handlers/writers must be concurrency-safe and
   tolerate idempotent close. Perf reorder is per map/reader, not global.

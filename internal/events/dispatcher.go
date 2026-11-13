@@ -26,10 +26,11 @@ import (
 
 // Dispatcher implements the Observer pattern for event distribution.
 type Dispatcher struct {
-	handlers map[string]domain.EventHandler
-	mu       sync.RWMutex
-	logger   *logger.Logger
-	closed   bool
+	handlers      map[string]domain.EventHandler
+	mu            sync.RWMutex
+	logger        *logger.Logger
+	closed        bool
+	failureSource func() error
 }
 
 // NewDispatcher creates a new event dispatcher.
@@ -39,6 +40,15 @@ func NewDispatcher(log *logger.Logger) *Dispatcher {
 		logger:   log,
 		closed:   false,
 	}
+}
+
+// SetFailureSource installs the probe's terminal state before readers start.
+func (d *Dispatcher) SetFailureSource(source func() error) { d.failureSource = source }
+func (d *Dispatcher) failure() error {
+	if d.failureSource != nil {
+		return d.failureSource()
+	}
+	return nil
 }
 
 // Register adds an event handler to the dispatcher.
@@ -95,6 +105,9 @@ func (d *Dispatcher) Unregister(handlerName string) error {
 
 // Dispatch sends an event to all registered handlers.
 func (d *Dispatcher) Dispatch(event domain.Event) error {
+	if err := d.failure(); err != nil {
+		return err
+	}
 	if event == nil {
 		return errors.New(errors.ErrCodeEventDispatch, "event cannot be nil")
 	}
@@ -114,11 +127,17 @@ func (d *Dispatcher) Dispatch(event domain.Event) error {
 	var handleErrors []error
 	var supported int
 	for name, handler := range d.handlers {
+		if err := d.failure(); err != nil {
+			return err
+		}
 		if !handler.Supports(event) {
 			continue
 		}
 		supported++
 		if err := handler.Handle(event); err != nil {
+			if errors.IsPipelineError(err) {
+				return err
+			}
 			d.logger.Debug().
 				Err(err).
 				Str("handler", name).
@@ -163,10 +182,12 @@ func (d *Dispatcher) Close() error {
 		if closer, ok := handler.(interface{ Close() error }); ok {
 			d.logger.Debug().Str("handler", name).Msg("Closing handler")
 			if err := closer.Close(); err != nil {
-				d.logger.Debug().
-					Err(err).
-					Str("handler", name).
-					Msg("Failed to close handler")
+				if !errors.IsPipelineError(err) {
+					d.logger.Debug().
+						Err(err).
+						Str("handler", name).
+						Msg("Failed to close handler")
+				}
 				closeErrors = append(closeErrors, err)
 			} else {
 				d.logger.Info().Str("handler", name).Msg("Handler closed successfully")

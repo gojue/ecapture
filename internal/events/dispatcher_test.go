@@ -15,10 +15,13 @@
 package events
 
 import (
+	"bytes"
 	"errors"
+	"sync"
 	"testing"
 
 	"github.com/gojue/ecapture/v2/internal/domain"
+	captureerrors "github.com/gojue/ecapture/v2/internal/errors"
 	"github.com/gojue/ecapture/v2/internal/logger"
 	"github.com/gojue/ecapture/v2/internal/output/writers"
 )
@@ -297,5 +300,26 @@ func TestDispatcherCloseHandlersWithError(t *testing.T) {
 		t.Error("Close() should return error when handler Close() fails")
 	} else if err.Error() != "close failed" {
 		t.Errorf("expected error 'close failed', got '%v'", err)
+	}
+}
+
+func TestTerminalDispatchIsSilentAndStopsDelivery(t *testing.T) {
+	var logs bytes.Buffer
+	terminal := &captureerrors.PipelineError{Stage: "test", Reason: "terminated", Cause: errors.New("PRIVATE")}
+	d := NewDispatcher(logger.New(&logs, true))
+	d.SetFailureSource(func() error { return terminal })
+	var wg sync.WaitGroup
+	for range 64 {
+		wg.Go(func() {
+			for range 100 {
+				if err := d.Dispatch(&mockEvent{valid: true}); !errors.Is(err, terminal) {
+					t.Error("lost terminal cause")
+				}
+			}
+		})
+	}
+	wg.Wait()
+	if logs.Len() != 0 {
+		t.Fatal("terminal dispatch produced per-event logs")
 	}
 }

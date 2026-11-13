@@ -26,20 +26,20 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/gojue/ecapture/v2/internal/config"
-	internalLogger "github.com/gojue/ecapture/v2/internal/logger"
-	outputpipeline "github.com/gojue/ecapture/v2/internal/output"
-	"github.com/gojue/ecapture/v2/internal/output/writers"
-	"github.com/gojue/ecapture/v2/internal/probe/base/handlers"
-	"github.com/gojue/ecapture/v2/pkg/ecaptureq"
-
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 
 	"github.com/gojue/ecapture/v2/cli/cobrautl"
 	"github.com/gojue/ecapture/v2/cli/http"
+	"github.com/gojue/ecapture/v2/internal/config"
 	"github.com/gojue/ecapture/v2/internal/domain"
+	captureerrors "github.com/gojue/ecapture/v2/internal/errors"
 	"github.com/gojue/ecapture/v2/internal/factory"
+	internalLogger "github.com/gojue/ecapture/v2/internal/logger"
+	outputpipeline "github.com/gojue/ecapture/v2/internal/output"
+	"github.com/gojue/ecapture/v2/internal/output/writers"
+	"github.com/gojue/ecapture/v2/internal/probe/base/handlers"
+	"github.com/gojue/ecapture/v2/pkg/ecaptureq"
 )
 
 const (
@@ -125,8 +125,12 @@ func Execute() {
 	rootCmd.Version = GitVersion
 	rootCmd.SetVersionTemplate(`{{with .Name}}{{printf "%s " .}}{{end}}{{printf "version:\t%s" .Version}}
 `)
+	rootCmd.SilenceErrors = true
 	err := rootCmd.Execute()
 	if err != nil {
+		if !captureerrors.IsPipelineError(err) {
+			fmt.Fprintln(os.Stderr, "Error:", err)
+		}
 		os.Exit(1)
 	}
 }
@@ -302,6 +306,19 @@ func startProbeGeneration(
 	}, nil
 }
 
+func (g *probeGeneration) done() <-chan struct{} {
+	if p, ok := g.probe.(interface{ RuntimeDone() <-chan struct{} }); ok {
+		return p.RuntimeDone()
+	}
+	return nil
+}
+func (g *probeGeneration) failure() error {
+	if p, ok := g.probe.(interface{ RuntimeError() error }); ok {
+		return p.RuntimeError()
+	}
+	return nil
+}
+
 func (g *probeGeneration) close() error {
 	if g == nil {
 		return nil
@@ -313,6 +330,9 @@ func (g *probeGeneration) close() error {
 	}
 	if err := g.probe.Close(); err != nil {
 		shutdownErrors = append(shutdownErrors, fmt.Errorf("probe close failed: %w", err))
+	}
+	if fatal := g.failure(); fatal != nil {
+		return captureerrors.JoinCleanup(fatal, errors.Join(shutdownErrors...))
 	}
 	return errors.Join(shutdownErrors...)
 }
@@ -370,7 +390,16 @@ func runProbe(probeType factory.ProbeType, probeConfig domain.Configuration) (ru
 		}
 		return err
 	}
+	failureLogged := false
+	logFailure := func(err error) {
+		var terminal *captureerrors.PipelineError
+		if !failureLogged && errors.As(err, &terminal) {
+			failureLogged = true
+			operational.logger.Error().Err(terminal).Msg("Capture stopped after output pipeline failure")
+		}
+	}
 	defer func() {
+		logFailure(runErr)
 		runErr = errors.Join(runErr, operational.Close())
 		if eqServer != nil {
 			runErr = errors.Join(runErr, eqServer.Close())
@@ -452,6 +481,9 @@ func runProbe(probeType factory.ProbeType, probeConfig domain.Configuration) (ru
 	}
 	for {
 		select {
+		case <-active.done():
+			logFailure(active.failure())
+			return active.close()
 		case _, ok := <-stopper:
 			if !ok {
 				logger.Warn().Msg("reload stopper channel closed.")

@@ -15,8 +15,10 @@
 package writers
 
 import (
+	"bufio"
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/http/httptest"
@@ -24,6 +26,7 @@ import (
 	"path/filepath"
 	"sync"
 	"testing"
+	"time"
 
 	"golang.org/x/net/websocket"
 )
@@ -452,4 +455,39 @@ func startWebSocketReceiver(t *testing.T) (string, <-chan []byte, func()) {
 	}))
 	var once sync.Once
 	return "ws" + server.URL[4:] + "/", result, func() { once.Do(server.Close) }
+}
+
+func TestTCPAbortUnblocksWriteAndFlush(t *testing.T) {
+	for _, buffered := range []bool{false, true} {
+		t.Run(fmt.Sprint(buffered), func(t *testing.T) {
+			client, server := net.Pipe()
+			defer func() { _ = server.Close() }()
+			sink := &TcpWriter{conn: client, addr: "test"}
+			if buffered {
+				sink.buffered = bufio.NewWriterSize(client, 64)
+			}
+			done := make(chan error, 1)
+			go func() {
+				_, err := sink.Write([]byte("sensitive"))
+				if err == nil {
+					err = sink.Flush()
+				}
+				done <- err
+			}()
+			sink.Abort()
+			select {
+			case err := <-done:
+				if err == nil {
+					t.Fatal("blocked output succeeded")
+				}
+			case <-time.After(time.Second):
+				t.Fatal("Abort waited for writer mutex")
+			}
+			var wg sync.WaitGroup
+			for range 10 {
+				wg.Go(func() { _ = sink.Close() })
+			}
+			wg.Wait()
+		})
+	}
 }

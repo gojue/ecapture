@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -448,4 +450,72 @@ func parsePcapngBlockTypes(data []byte) ([]uint32, error) {
 		data = data[blockLength:]
 	}
 	return blockTypes, nil
+}
+
+type failingSessionSink struct {
+	fail      atomic.Bool
+	writes    atomic.Int64
+	root      error
+	flushOnly bool
+}
+
+func (s *failingSessionSink) Name() string { return "test" }
+func (s *failingSessionSink) Write(p []byte) (int, error) {
+	s.writes.Add(1)
+	if s.fail.Load() && !s.flushOnly {
+		return 0, s.root
+	}
+	return len(p), nil
+}
+func (s *failingSessionSink) Flush() error {
+	if s.fail.Load() && s.flushOnly {
+		return s.root
+	}
+	return nil
+}
+func (s *failingSessionSink) Close() error { return nil }
+func TestSessionStopsOnFirstFailure(t *testing.T) {
+	for _, kind := range []string{"packet", "keylog", "flush"} {
+		t.Run(kind, func(t *testing.T) {
+			root := errors.New("test output failure")
+			sink := &failingSessionSink{root: root, flushOnly: kind == "flush"}
+			var logs bytes.Buffer
+			s, err := NewLowLatencySession(sink, 65535, "lo", "", lger.New(&logs, true))
+			if err != nil {
+				t.Fatal(err)
+			}
+			sink.fail.Store(true)
+			if kind == "keylog" {
+				_ = s.WriteKeyLog([]byte("PRIVATE_KEYLOG\n"))
+			} else {
+				_ = s.WritePacket(make([]byte, 60), time.Now())
+			}
+			select {
+			case <-s.serveDone:
+			case <-time.After(time.Second):
+				t.Fatal("background failure did not stop session")
+			}
+			writes := sink.writes.Load()
+			var wg sync.WaitGroup
+			for range 32 {
+				wg.Go(func() {
+					for range 100 {
+						if !errors.Is(s.WritePacket(make([]byte, 60), time.Now()), root) || !errors.Is(s.WriteKeyLog([]byte("PRIVATE_KEYLOG\n")), root) {
+							t.Error("lost terminal cause")
+						}
+						_ = s.Flush()
+						_ = s.FlushKeylogs()
+					}
+					_ = s.Close()
+				})
+			}
+			wg.Wait()
+			if sink.writes.Load() != writes || !errors.Is(s.serveErr, root) || len(s.pendingPackets) != 0 || len(s.pendingKeylogs) != 0 || len(s.tcPackets) != 0 {
+				t.Fatal("failed stream retained or retried output")
+			}
+			if logs.Len() != 0 {
+				t.Fatal("session logged repeated or sensitive failures")
+			}
+		})
+	}
 }

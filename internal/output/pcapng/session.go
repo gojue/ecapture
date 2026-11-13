@@ -270,18 +270,12 @@ func (pw *Session) writeQueuedKeylogs(keylogs [][]byte) error {
 	if len(keylogs) == 0 {
 		return nil
 	}
-	var writeErrors []error
 	for _, keylogLine := range keylogs {
-		if e := pw.encoder.WriteDecryptionSecretsBlock(pcapgo.DSB_SECRETS_TYPE_TLS, keylogLine); e != nil {
-			pw.logger.Warn().Err(e).Msg("failed to write queued DSB to pcapng")
-			writeErrors = append(writeErrors, e)
+		if err := pw.encoder.WriteDecryptionSecretsBlock(pcapgo.DSB_SECRETS_TYPE_TLS, keylogLine); err != nil {
+			return err
 		}
 	}
-	if e := pw.flushStream(); e != nil {
-		pw.logger.Warn().Err(e).Msg("failed to flush after DSB write")
-		writeErrors = append(writeErrors, e)
-	}
-	return stderrors.Join(writeErrors...)
+	return pw.flushStream()
 }
 
 func (pw *Session) flushQueuedKeylogs() error {
@@ -293,9 +287,10 @@ func (pw *Session) flushQueuedKeylogs() error {
 // the same time, so the timer cannot rely on the notification being selected
 // first to preserve pcapng's sequential DSB-before-packet ordering.
 func (pw *Session) savePacketBatch() (int, error) {
-	keylogErr := pw.writeQueuedKeylogs(pw.takePendingKeylogs())
-	n, packetErr := pw.savePcapng()
-	return n, stderrors.Join(keylogErr, packetErr)
+	if err := pw.writeQueuedKeylogs(pw.takePendingKeylogs()); err != nil {
+		return 0, err
+	}
+	return pw.savePcapng()
 }
 
 // run processes queued packets and keylogs and writes them to the pcapng encoder.
@@ -331,7 +326,7 @@ func (pw *Session) serve(flushInterval, gracePeriod time.Duration) {
 			n, e := pw.savePacketBatch()
 			if e != nil {
 				pw.recordServeError(e)
-				pw.logger.Warn().Err(e).Int("count", i).Msg("save pcapng err, maybe some packets lost.")
+				return
 			} else {
 				pw.packetCount += n
 			}
@@ -344,6 +339,7 @@ func (pw *Session) serve(flushInterval, gracePeriod time.Duration) {
 			packets, keylogs := pw.takePendingData()
 			if err := pw.writeQueuedKeylogs(keylogs); err != nil {
 				pw.recordServeError(err)
+				return
 			}
 			if len(packets) == 0 {
 				continue
@@ -354,11 +350,21 @@ func (pw *Session) serve(flushInterval, gracePeriod time.Duration) {
 			pw.tcPackets = append(pw.tcPackets, packets...)
 			i += len(packets)
 		case result := <-pw.keylogFlush:
-			result <- pw.flushQueuedKeylogs()
+			err := pw.flushQueuedKeylogs()
+			pw.recordServeError(err)
+			result <- pw.currentServeError()
+			if err != nil {
+				return
+			}
 		case result := <-pw.streamFlush:
 			packets, keylogs := pw.takePendingData()
 			pw.tcPackets = append(pw.tcPackets, packets...)
 			flushErr := pw.writeQueuedKeylogs(keylogs)
+			if flushErr != nil {
+				pw.recordServeError(flushErr)
+				result <- pw.currentServeError()
+				return
+			}
 			if len(pw.tcPackets) > 0 {
 				n, err := pw.savePcapng()
 				if err == nil {
@@ -372,7 +378,10 @@ func (pw *Session) serve(flushInterval, gracePeriod time.Duration) {
 				flushErr = stderrors.Join(flushErr, pw.flushStream())
 			}
 			pw.recordServeError(flushErr)
-			result <- flushErr
+			result <- pw.currentServeError()
+			if flushErr != nil {
+				return
+			}
 		case <-pw.ctx.Done():
 			// Context canceled — drain all remaining queued data before exiting.
 			pw.recordServeError(pw.drainOnShutdown())
@@ -385,37 +394,23 @@ func (pw *Session) serve(flushInterval, gracePeriod time.Duration) {
 // them to the PCAPNG file. Called only from the run loop on context cancellation.
 // DSBs are written before packets to ensure Wireshark can decrypt the traffic.
 func (pw *Session) drainOnShutdown() error {
-	var drainErrors []error
-	// Move remaining queued data into the output batch. Write DSBs first so
-	// Wireshark sees every secret before the corresponding packet blocks.
+	if err := pw.currentServeError(); err != nil {
+		return err
+	}
 	packets, keylogs := pw.takePendingData()
 	pw.tcPackets = append(pw.tcPackets, packets...)
-	for _, keylog := range keylogs {
-		if e := pw.encoder.WriteDecryptionSecretsBlock(pcapgo.DSB_SECRETS_TYPE_TLS, keylog); e != nil {
-			pw.logger.Warn().Err(e).Msg("failed to write DSB on shutdown")
-			drainErrors = append(drainErrors, e)
-		}
+	if err := pw.writeQueuedKeylogs(keylogs); err != nil {
+		return err
 	}
-
-	// Now save all buffered packets (after DSBs)
 	if len(pw.tcPackets) > 0 {
-		n, e := pw.savePcapng()
-		if e != nil {
-			drainErrors = append(drainErrors, e)
-			pw.logger.Info().Err(e).Msg("save pcapng err on shutdown, maybe some packets lost.")
-		} else {
-			pw.logger.Info().Int("count", n).Msg("packets saved into pcapng file on shutdown.")
-			pw.packetCount += n
+		n, err := pw.savePcapng()
+		pw.tcPackets = nil
+		if err != nil {
+			return err
 		}
-		pw.tcPackets = pw.tcPackets[:0]
+		pw.packetCount += n
 	}
-
-	// Final flush after draining all data
-	if e := pw.flushStream(); e != nil {
-		pw.logger.Warn().Err(e).Msg("failed to flush on shutdown")
-		drainErrors = append(drainErrors, e)
-	}
-	return stderrors.Join(drainErrors...)
+	return pw.flushStream()
 }
 
 // savePcapng writes all buffered packets and flushes the encoded stream.
@@ -526,7 +521,6 @@ func (pw *Session) FlushKeylogs() error {
 	}
 	select {
 	case err := <-result:
-		pw.recordServeError(err)
 		return err
 	case <-serveDone:
 		return pw.currentServeError()
@@ -539,14 +533,14 @@ func (pw *Session) FlushKeylogs() error {
 func (pw *Session) Flush() error {
 	select {
 	case <-pw.serveDone:
-		return stderrors.Join(pw.currentServeError(), pw.flushStream())
+		return pw.currentServeError()
 	default:
 	}
 	result := make(chan error, 1)
 	select {
 	case pw.streamFlush <- result:
 	case <-pw.serveDone:
-		return stderrors.Join(pw.currentServeError(), pw.flushStream())
+		return pw.currentServeError()
 	}
 	select {
 	case err := <-result:
@@ -585,7 +579,11 @@ func (pw *Session) Close() error {
 
 	// Final flush to ensure all data reaches the underlying sink.
 	var closeErrors []error
-	closeErrors = append(closeErrors, pw.currentServeError(), pw.flushStream())
+	if err := pw.currentServeError(); err != nil {
+		pw.closeErr = err
+		return err
+	}
+	closeErrors = append(closeErrors, pw.flushStream())
 	if pw.packetCount == 0 {
 		closeErrors = append(closeErrors, errors.Wrap(errors.ErrCodeEventNotReady, "nothing captured, please check your network interface, see \"ecapture tls -h\" for more information.", nil))
 	}
@@ -594,19 +592,45 @@ func (pw *Session) Close() error {
 }
 
 func (pw *Session) flushStream() error {
-	return stderrors.Join(pw.encoder.Flush(), pw.sink.Flush())
+	if err := pw.currentServeError(); err != nil {
+		return err
+	}
+	if err := pw.encoder.Flush(); err != nil {
+		return err
+	}
+	return pw.sink.Flush()
 }
 
 func (pw *Session) recordServeError(err error) {
 	if err == nil {
 		return
 	}
+	if reporter, ok := pw.sink.(interface {
+		Fail(error)
+		Err() error
+	}); ok {
+		reporter.Fail(err)
+		err = reporter.Err()
+	}
 	pw.serveErrMu.Lock()
-	pw.serveErr = stderrors.Join(pw.serveErr, err)
+	if pw.serveErr == nil {
+		pw.serveErr = err
+	}
 	pw.serveErrMu.Unlock()
+	pw.queueMu.Lock()
+	pw.stopped = true
+	pw.pendingPackets = nil
+	pw.pendingKeylogs = nil
+	pw.queueMu.Unlock()
+	pw.tcPackets = nil
 }
 
 func (pw *Session) currentServeError() error {
+	if source, ok := pw.sink.(interface{ Err() error }); ok {
+		if err := source.Err(); err != nil {
+			return err
+		}
+	}
 	pw.serveErrMu.Lock()
 	defer pw.serveErrMu.Unlock()
 	return pw.serveErr

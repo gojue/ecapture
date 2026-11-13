@@ -507,7 +507,7 @@ func (p *Probe) setupManagerPcapNG(keySection, keyFunc string) error {
 		if runtime := p.config.GetRuntimeOutput(); runtime != nil {
 			eventSinks = runtime.EventSinks
 		}
-		if err := decrypt.Register(p.Dispatcher(), p.config.Ifname, p.config.PcapFilter, p.Logger(), pcapAddr, p.config.PcapFile, writers.NewRotateConfig(p.config.GetEventRotation()), eventSinks, p.config.DecryptOptions()); err != nil {
+		if err := decrypt.Register(p.Context(), p.Fail, p.Dispatcher(), p.config.Ifname, p.config.PcapFilter, p.Logger(), pcapAddr, p.config.PcapFile, writers.NewRotateConfig(p.config.GetEventRotation()), eventSinks, p.config.DecryptOptions()); err != nil {
 			return err
 		}
 		p.bpfManager = &manager.Manager{Probes: probes, Maps: maps}
