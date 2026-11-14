@@ -5,7 +5,7 @@ go 1.26.0
 require (
 	github.com/cilium/ebpf v0.22.0
 	github.com/gojue/ebpfmanager v0.6.0
-	github.com/gojue/ecapture_decryptor v1.4.3
+	github.com/gojue/ecapture_decryptor v1.4.4
 	github.com/google/gopacket v1.1.19
 	github.com/jschwinger233/elibpcap v1.1.0
 	github.com/rs/zerolog v1.35.1
@@ -18,7 +18,7 @@ require (
 	golang.org/x/arch v0.32.0
 	golang.org/x/crypto v0.58.0
 	golang.org/x/net v0.61.0
-	golang.org/x/sys v0.49.0
+	golang.org/x/sys v0.50.0
 	google.golang.org/protobuf v1.36.12
 )
 
@@ -38,8 +38,8 @@ require (
 	github.com/quic-go/qpack v0.6.0 // indirect
 	github.com/vishvananda/netns v0.0.5 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
-	golang.org/x/sync v0.24.0 // indirect
-	golang.org/x/text v0.43.0 // indirect
+	golang.org/x/sync v0.25.0 // indirect
+	golang.org/x/text v0.44.0 // indirect
 )
 
 replace github.com/google/gopacket v1.1.19 => github.com/cfc4n/gopacket v1.1.20

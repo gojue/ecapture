@@ -43,16 +43,28 @@ _Static_assert(__builtin_offsetof(struct test_filename, iname) == sizeof(struct 
 int read_filename(struct test_filename *filename) { return filename->name != 0 && filename->uptr != 0; }
 C
 
+# Check that the kernel-header exception does not hide duplicate qualifiers
+# in probe code after ecapture.h returns.
+cat >"$test_dir/duplicate_qualifier.c" <<'C'
+#include "ecapture.h"
+const const int duplicate_qualifier = 1;
+C
+
 # Use the production flags and the same Clang -> LLVM IR -> BPF pipeline.
 # preflight rejects unsupported hosts, targets, and kernels before compilation.
 cat >"$test_dir/rules.mk" <<'MAKE'
 .PHONY: check-nocore-cflags
 check-nocore-cflags: preflight
 	set -euo pipefail
-	$(CMD_CLANG) $(EXTRA_CFLAGS_NOCORE) $(KERN_INCLUDES_NOCORE) -c "$(NOCORE_CFLAGS_TEST_DIR)/anonymous_fields.c" -o "$(NOCORE_CFLAGS_TEST_DIR)/anonymous_fields.ll"
+	$(CMD_CLANG) $(EXTRA_CFLAGS_NOCORE) -Werror=duplicate-decl-specifier $(KERN_INCLUDES_NOCORE) -c "$(NOCORE_CFLAGS_TEST_DIR)/anonymous_fields.c" -o "$(NOCORE_CFLAGS_TEST_DIR)/anonymous_fields.ll"
 	$(CMD_LLC) -march=bpf -filetype=obj "$(NOCORE_CFLAGS_TEST_DIR)/anonymous_fields.ll" -o "$(NOCORE_CFLAGS_TEST_DIR)/anonymous_fields.o"
 	$(CMD_STRIP) -g "$(NOCORE_CFLAGS_TEST_DIR)/anonymous_fields.o"
 	$(CMD_READELF) -h "$(NOCORE_CFLAGS_TEST_DIR)/anonymous_fields.o" | grep -Eq 'Machine:.*BPF'
+	if $(CMD_CLANG) $(EXTRA_CFLAGS_NOCORE) -Werror=duplicate-decl-specifier $(KERN_INCLUDES_NOCORE) -fsyntax-only "$(NOCORE_CFLAGS_TEST_DIR)/duplicate_qualifier.c" 2>"$(NOCORE_CFLAGS_TEST_DIR)/duplicate_qualifier.log"; then
+		echo "duplicate qualifiers in probe code must still be diagnosed" >&2
+		exit 1
+	fi
+	grep -q "duplicate 'const' declaration specifier" "$(NOCORE_CFLAGS_TEST_DIR)/duplicate_qualifier.log"
 MAKE
 
 make --no-print-directory -s -f Makefile -f "$test_dir/rules.mk" \

@@ -151,6 +151,9 @@ jobs:
             fi
           fi
 
+      - name: Check non-CO-RE compiler compatibility
+        run: bash test/build/nocore_cflags_test.sh
+
       - name: Build eCapture
         run: |
           make clean
