@@ -1,3 +1,45 @@
+# v2.11.0 (2026-11-14)
+
+## Breaking Changes / Migration
+
+**The default text-mode data source for `tls` (OpenSSL/BoringSSL), `gotls`, and `gnutls` changes from `hook` to `pcapng`.** Commands that omit `--text-source` now feed captured packets and TLS secrets into the live decryption SDK and output reconstructed messages, rather than individual TLS function-hook reads and writes. The same default applies to HTTP configuration when `text_source` is omitted or empty. [#1091](https://github.com/gojue/ecapture/pull/1091)
+
+* Text output remains plaintext, with complete HTTP/1.1 and HTTP/2 messages by default. Output goes to `--eventaddr` (stdout by default); raw pcapng and standalone keylog files are saved only when `--pcapfile` or `--keylogfile` is explicitly set.
+* Packet capture now applies to the default text path. When `-i` is omitted, all three modules automatically select a usable Ethernet interface, preferring the lowest-metric IPv4/IPv6 default route, then traffic counters or an up interface. Startup logs name the selected interface and explain the `-i` / `--ifname` override. Only that interface is captured; specify `-i lo` for loopback traffic. [#1091](https://github.com/gojue/ecapture/pull/1091)
+* Update scripts that parse hook-specific output to consume SDK-decoded messages, or explicitly use `--text-source hook` to retain the previous behavior without packet capture. Hook-based plaintext capture remains available during its gradual deprecation; TLS secret capture hooks are not deprecated. [#1086](https://github.com/gojue/ecapture/pull/1086), [#1091](https://github.com/gojue/ecapture/pull/1091)
+
+Recommended commands with the source explicitly selected:
+
+```shell
+sudo ecapture tls --model text --text-source pcapng
+sudo ecapture gotls --model text --text-source pcapng --elfpath /path/to/go-client
+sudo ecapture gnutls --model text --text-source pcapng --gnutls /path/to/libgnutls.so
+```
+
+For legacy hook output, use `sudo ecapture tls --model text --text-source hook`; the same source option applies to `gotls` and `gnutls`. For raw decrypted bytes or additional protocol parsers, see the [text decryption options](README.md#live-decryption-for-text-output).
+
+## Features
+
+* Preserve captured PID, process name, and endpoint ownership through pcapng files and live decryption for the core TLS modules, including typed eCaptureQ output. Unknown attribution remains unknown. [#1087](https://github.com/gojue/ecapture/pull/1087)
+* Capture process argument snapshots of up to 256 bytes, with an explicit truncation flag, and store them in pcapng packet comments. Extend the Wireshark Lua plugin to display arguments alongside PID and process name. [#1088](https://github.com/gojue/ecapture/pull/1088)
+* Extend the eCaptureQ Protobuf event with optional process arguments, truncation status, and non-secret TLS handshake metadata, including observed version, cipher, ALPN, SNI, and JA3/JA4 fingerprints when available. Existing field numbers and payloads remain compatible. [#1089](https://github.com/gojue/ecapture/pull/1089)
+
+## Fixes
+
+* Stop capture, clean up resources, and exit nonzero when the live decryption pipeline terminates unexpectedly, even if no further packets arrive. Interrupt blocked pipe/network output and stop retrying failed pcapng writes. Log terminal failures once and rate-limit connection diagnostics; connection diagnostics alone do not stop healthy traffic. [#1092](https://github.com/gojue/ecapture/pull/1092)
+* Reject premature OpenSSL secret snapshots before the client random is initialized, including reused sessions after `SSL_clear`. Correct container E2E PID assertions to use kernel TGIDs and exercise DTLS connection reset. [#1090](https://github.com/gojue/ecapture/pull/1090)
+* Fix x86 non-CO-RE builds with Linux 7.x headers and older Clang by limiting duplicate address-space diagnostic suppression to the kernel header include tree. Keep probe-code diagnostics enabled and extend the header regression checks. [70dc9a6](https://github.com/gojue/ecapture/commit/70dc9a6dead572634c6d08d7e6d60e7b06e87676)
+
+## Dependencies and CI
+
+* Upgrade `ecapture_decryptor` from v1.4.0 to v1.4.4, `golang.org/x/sys` to v0.50.0, `golang.org/x/sync` to v0.25.0, and `golang.org/x/text` to v0.44.0.
+* Build amd64, arm64, and loong64 release packages in parallel architecture jobs, then collect validated artifacts in a single publishing job for checksums, releases, and Docker packaging. [#1083](https://github.com/gojue/ecapture/pull/1083)
+* Clean dedicated LoongArch E2E captures and keylogs after success, failure, or cancellation; retain the uploaded test log for seven days. [#1085](https://github.com/gojue/ecapture/pull/1085)
+
+**Full Changelog**: https://github.com/gojue/ecapture/compare/v2.10.0...v2.11.0
+
+<hr>
+
 # v2.10.0 (2026-11-07)
 
 ## Features
