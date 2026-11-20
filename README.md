@@ -141,14 +141,21 @@ The OpenSSL module supports three output modes:
 - `keylog`/`key` mode saves TLS handshake keys to a file.
 - `text` mode defaults to `--text-source=pcapng`, reconstructing complete HTTP/1.1 and HTTP/2 messages from live pcapng and DSB data. The capture interface is selected automatically; use `-i eth0` to override it. Use `--text-source=hook` to capture plaintext through function hooks instead (no interface required).
 
-For OpenSSL, GoTLS, and GnuTLS, `--eventaddr` is the uniform primary event
-destination. It accepts `stdout`, a plain path or `file://` URI,
-`tcp://host:port`, and `ws://`/`wss://` (ordered binary frames). The mode
-selects text, NSS Key Log, or pcapng representation; the address selects only
-the transport. `--keylogfile` and `--pcapfile` remain compatible primary-file
-aliases in their respective modes. Setting `--eventaddr` together with the
-corresponding alias is an error. In pcapng mode, `--keylogfile` is a separate
-optional keylog artifact.
+For OpenSSL, GoTLS, and GnuTLS, repeat `--output` to choose multiple destinations.
+The default is `stdout`; explicit destinations replace that default. `stdout`
+and `stderr` render readable records with `log_type`/`module` labels. Files and
+`tcp://host:port` use Protobuf v2 JSON Lines. In text mode they carry both
+operational logs and captured events; in keylog/pcapng mode an output **file
+contains only operational logs**, while TCP carries both record types.
+Use `--keylogfile`/`--pcapfile` for native artifacts, with explicit filenames
+required in the corresponding mode and no default native files.
+
+`--stream-listen ws://127.0.0.1:28257/` starts a separate Protobuf v2 subscription
+listener requiring the `ecapture.v2` subprotocol. `--config-listen 127.0.0.1:28256`
+starts the HTTP configuration service. Both listeners are disabled by default.
+The old `--listen`, `--eventaddr`, `--logaddr`, `--ecaptureq` and event rotation
+flags are removed without compatibility aliases. See the
+[output API](docs/event-forward-api.md) for the complete mode matrix and receiver migration.
 
 #### Live decryption for text output
 
@@ -161,12 +168,12 @@ HTTP/1.1 and HTTP/2 messages from the captured network stream. Each message
 includes direction, timestamp, IP/port tuple, connection identity, and an
 HTTP/2 stream ID when applicable. `host` comes from the HTTP `Host` header or
 HTTP/2 `:authority`; `domain_source="server_ip"` marks a fallback to the
-server IP. Output goes to `--eventaddr` (stdout by default). Raw pcapng and a
+server IP. Output goes to `--output` (stdout by default). Raw pcapng and a
 standalone keylog are disabled by default; specify `--pcapfile` or
 `--keylogfile` to save either artifact.
 
 ```shell
-sudo ecapture tls -m text --text-source=pcapng -i eth0 --eventaddr /tmp/http.events 'tcp port 443'
+sudo ecapture tls -m text --text-source=pcapng -i eth0 --output stdout --output /tmp/http.jsonl 'tcp port 443'
 sudo ecapture gotls -m text --text-source=pcapng --elfpath /path/to/go-client -i eth0 --pcapfile /tmp/raw.pcapng 'tcp port 443'
 sudo ecapture gnutls -m text --text-source=pcapng --gnutls /path/to/libgnutls.so -i eth0 'tcp port 443'
 ```
@@ -215,15 +222,18 @@ rm -f -- "$keys"
 
 The optional file receives the same pcapng bytes as the live SDK stream.
 
-`--logaddr` carries eCapture runtime logs only. Console runtime logs use
-stderr, while captured stdout contains only event bytes. eCaptureQ is additive:
-enabling it does not replace `--eventaddr` or `--logaddr`.
+Terminal records and JSON files distinguish operational logs from captured events.
+JSON and Protobuf share the v2 schema; receivers must preserve TEXT metadata and
+save native KEYLOG/PCAPNG bytes by format. Subscriptions receive future events;
+a late pcapng connection starts an independent fragment without historical
+packets or keys. See the [v2 protocol](protobuf/PROTOCOLS.md) and
+[receiver example](examples/ecaptureq_client/README.md).
 
 #### Pcap mode
 
 Supports TLS-encrypted HTTP `1.0/1.1/2.0` over TCP and HTTP/3 (QUIC) over UDP.
 
-You can specify `-m pcap` or `-m pcapng` together with `--pcapfile` and `-i`. The current compatible default value of `--pcapfile` is `save.pcapng`.
+You can specify `-m pcap` or `-m pcapng` together with `--pcapfile` and `-i`. `--pcapfile` must name an explicit local artifact file; there is no default filename.
 
 ```shell
 sudo ecapture tls -m pcap -i eth0 --pcapfile=ecapture.pcapng tcp port 443
@@ -235,7 +245,7 @@ This command saves captured network packets and TLS secrets in a pcapng file. Wi
 
 #### Keylog mode
 
-You can specify `-m keylog` or `-m key` together with the `--keylogfile` option. The current compatible default output file is `ecapture_openssl_key.log`.
+You can specify `-m keylog` or `-m key` together with the `--keylogfile` option. `--keylogfile` must name an explicit local artifact file; there is no default filename.
 
 The captured OpenSSL TLS master secret is saved to `--keylogfile`. You can also enable `tcpdump` capture and then open the file in Wireshark, setting the master secret path to view plaintext packets.
 
@@ -294,12 +304,17 @@ Modules such as `bash`, `mysqld`, and `postgres` can also be used. You can view 
 
 ## eCaptureQ GUI application
 
-[eCaptureQ](https://github.com/gojue/ecaptureq) is a cross-platform graphical client for eCapture that visualizes eBPF-based TLS capture capabilities. Built with Rust + Tauri + React, it provides a responsive, real-time interface for analyzing encrypted traffic without needing a CA certificate. It simplifies complex eBPF capture workflows and makes them easier to use.
+[eCaptureQ](https://github.com/gojue/ecaptureq) is a cross-platform graphical client for eCapture that visualizes eBPF-based TLS capture capabilities. It provides an interface for analyzing encrypted traffic without needing a CA certificate.
 
 It supports two modes:
 
 * Integrated mode: unified Linux/Android execution
 * Remote mode: Windows/macOS/Linux clients connect to a remote eCapture service
+
+This eCapture version requires a client with Protobuf v2 support and the
+`ecapture.v2` WebSocket subprotocol. Check the selected client release against
+the [receiver contract](docs/event-forward-api.md#receiving-v2); older v1
+clients cannot connect without an update.
 
 ### Event forwarding
 

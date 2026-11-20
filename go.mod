@@ -7,6 +7,7 @@ require (
 	github.com/gojue/ebpfmanager v0.6.0
 	github.com/gojue/ecapture_decryptor v1.4.4
 	github.com/google/gopacket v1.1.19
+	github.com/gorilla/websocket v1.5.3
 	github.com/jschwinger233/elibpcap v1.1.0
 	github.com/rs/zerolog v1.35.1
 	github.com/shuLhan/go-bindata v4.0.0+incompatible

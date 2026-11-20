@@ -19,31 +19,45 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"maps"
 	"net"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
-
-	"github.com/gojue/ecapture/v2/internal/domain"
-	pb "github.com/gojue/ecapture/v2/protobuf/gen/v1"
 
 	"golang.org/x/net/websocket"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/gojue/ecapture/v2/internal/domain"
+	captureerrors "github.com/gojue/ecapture/v2/internal/errors"
+	"github.com/gojue/ecapture/v2/internal/logger"
+	"github.com/gojue/ecapture/v2/internal/output"
+	"github.com/gojue/ecapture/v2/internal/output/pcapng"
+	protocol "github.com/gojue/ecapture/v2/protobuf/v2"
 )
 
-const LogBuffLen = 128
+const (
+	LogBuffLen = 128
+	maxClients = 32
+)
 
 type Server struct {
 	addr      string
-	logger    io.Writer
+	path      string
 	ctx       context.Context
 	cancel    context.CancelFunc
 	hub       *Hub
 	httpMu    sync.Mutex
 	http      *http.Server
 	listener  net.Listener
-	clientsMu sync.Mutex
+	nativeMu  sync.Mutex
+	active    bool
+	format    domain.CaptureFormat
+	module    atomic.Value
+	ifName    string
+	filter    string
+	logger    *logger.Logger
+	clients   map[*Client]struct{}
 	closing   bool
 	closeOnce sync.Once
 	closeErr  error
@@ -51,59 +65,186 @@ type Server struct {
 }
 
 func NewServer(addr string, logWriter io.Writer) *Server {
-	ctx, cancel := context.WithCancel(context.Background())
-	server := &Server{addr: addr, logger: logWriter, ctx: ctx, cancel: cancel}
-	server.hub = newHub(ctx)
-	return server
+	return NewServerWithPath(addr, "/", logWriter)
 }
 
-// Start serves the protobuf WebSocket endpoint until Close is called.
+// NewServerWithPath exposes only the configured path and Protobuf v2 protocol.
+func NewServerWithPath(addr, path string, logWriter io.Writer) *Server {
+	if path == "" {
+		path = "/"
+	}
+	if logWriter == nil {
+		logWriter = io.Discard
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	s := &Server{addr: addr, path: path, ctx: ctx, cancel: cancel, logger: logger.New(logWriter, false), clients: make(map[*Client]struct{})}
+	s.module.Store("")
+	s.hub = newHub(ctx)
+	return s
+}
+
+// BeginCapture starts one output generation. A subscriber's native file begins
+// at connection time, with its own headers and only future packets and keys.
+func (s *Server) BeginCapture(format domain.CaptureFormat, module, ifName, filter string, l *logger.Logger) error {
+	switch format {
+	case domain.CaptureFormatText, domain.CaptureFormatKeylog, domain.CaptureFormatPcapng:
+	default:
+		return fmt.Errorf("unsupported subscription capture format %q", format)
+	}
+	s.nativeMu.Lock()
+	defer s.nativeMu.Unlock()
+	if s.closing {
+		return fmt.Errorf("subscription server is closed")
+	}
+	if s.active {
+		return fmt.Errorf("subscription capture generation is already active")
+	}
+	s.format = format
+	s.module.Store(module)
+	s.ifName = ifName
+	s.filter = filter
+	if l != nil {
+		s.logger = l
+	}
+	s.active = true
+	return nil
+}
+
+// EndCapture closes native encoders before draining transport queues. The
+// listener remains available for a later generation; clients reconnect into a
+// new file instead of appending unrelated output to a previous artifact.
+func (s *Server) EndCapture() error {
+	s.nativeMu.Lock()
+	s.active = false
+	var closeErrors []error
+	for client := range s.clients {
+		if client.session != nil {
+			err := client.session.Close()
+			client.session = nil
+			if err != nil {
+				client.failed.Store(true)
+				if !emptyCaptureOnly(err) && !errors.Is(err, errClosedSubscriber) {
+					closeErrors = append(closeErrors, err)
+				}
+			}
+		}
+	}
+	clients := s.hub.drainClients()
+	s.nativeMu.Unlock()
+	timer := time.NewTimer(writeTimeout + time.Second)
+	defer timer.Stop()
+	for _, client := range clients {
+		if client.conn == nil {
+			continue
+		}
+		select {
+		case <-client.done:
+		case <-timer.C:
+			for _, pending := range clients {
+				pending.stop()
+			}
+			return errors.Join(append(closeErrors, fmt.Errorf("subscription shutdown timed out"))...)
+		}
+	}
+	return errors.Join(closeErrors...)
+}
+
+// AbortCapture marks an interrupted generation before draining it. Receivers
+// must keep such native artifacts partial even if their final block is valid.
+func (s *Server) AbortCapture() error {
+	s.nativeMu.Lock()
+	for client := range s.clients {
+		client.failed.Store(true)
+	}
+	s.nativeMu.Unlock()
+	return s.EndCapture()
+}
+
+// An empty late subscription is not a capture failure, but its receiver must
+// not be told that it received a successful capture file.
+func emptyCaptureOnly(err error) bool {
+	if joined, ok := err.(interface{ Unwrap() []error }); ok {
+		for _, child := range joined.Unwrap() {
+			if !emptyCaptureOnly(child) {
+				return false
+			}
+		}
+		return true
+	}
+	value, ok := err.(*captureerrors.Error)
+	return ok && value.Code == captureerrors.ErrCodeEventNotReady && value.Cause == nil
+}
+
 func (s *Server) Start() error {
-	httpServer, listener, err := s.prepare()
+	server, listener, err := s.prepare()
 	if err != nil {
 		return err
 	}
-	return s.serve(httpServer, listener)
+	return s.serve(server, listener)
 }
 
-// StartAsync binds the listen address before returning so callers can report
-// address errors synchronously and monitor later serving failures.
 func (s *Server) StartAsync() (<-chan error, error) {
-	httpServer, listener, err := s.prepare()
+	server, listener, err := s.prepare()
 	if err != nil {
 		return nil, err
 	}
 	result := make(chan error, 1)
-	go func() {
-		defer close(result)
-		result <- s.serve(httpServer, listener)
-	}()
+	go func() { defer close(result); result <- s.serve(server, listener) }()
 	return result, nil
 }
 
 func (s *Server) prepare() (*http.Server, net.Listener, error) {
-	mux := http.NewServeMux()
-	mux.Handle("/", websocket.Handler(s.handleWebSocket))
-	httpServer := &http.Server{Addr: s.addr, Handler: mux}
+	wsHandler := websocket.Server{
+		Handshake: func(config *websocket.Config, r *http.Request) error {
+			origin, err := websocket.Origin(config, r)
+			if err != nil || origin == nil {
+				return fmt.Errorf("valid WebSocket Origin is required")
+			}
+			config.Origin = origin
+			for _, offered := range config.Protocol {
+				if offered == protocol.Subprotocol {
+					config.Protocol = []string{protocol.Subprotocol}
+					return nil
+				}
+			}
+			return fmt.Errorf("WebSocket subprotocol %s is required", protocol.Subprotocol)
+		},
+		Handler: websocket.Handler(s.handleWebSocket),
+	}
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != s.path {
+			http.NotFound(w, r)
+			return
+		}
+		s.nativeMu.Lock()
+		ready := s.active && !s.closing
+		s.nativeMu.Unlock()
+		if !ready {
+			http.Error(w, "capture generation is not active", http.StatusServiceUnavailable)
+			return
+		}
+		wsHandler.ServeHTTP(w, r)
+	})
+	server := &http.Server{Addr: s.addr, Handler: handler, ReadHeaderTimeout: 5 * time.Second}
 	s.httpMu.Lock()
 	defer s.httpMu.Unlock()
 	if s.http != nil {
-		return nil, nil, fmt.Errorf("ecaptureq server already started")
+		return nil, nil, fmt.Errorf("subscription server already started")
 	}
 	if s.ctx.Err() != nil {
-		return nil, nil, fmt.Errorf("ecaptureq server is closed")
+		return nil, nil, fmt.Errorf("subscription server is closed")
 	}
 	listener, err := net.Listen("tcp", s.addr)
 	if err != nil {
-		return nil, nil, fmt.Errorf("listen for ecaptureq on %s: %w", s.addr, err)
+		return nil, nil, fmt.Errorf("listen for stream subscription on %s: %w", s.addr, err)
 	}
-	s.http = httpServer
+	s.http = server
 	s.listener = listener
-	return httpServer, listener, nil
+	return server, listener, nil
 }
 
-func (s *Server) serve(httpServer *http.Server, listener net.Listener) error {
-	err := httpServer.Serve(listener)
+func (s *Server) serve(server *http.Server, listener net.Listener) error {
+	err := server.Serve(listener)
 	if errors.Is(err, http.ErrServerClosed) {
 		return nil
 	}
@@ -111,42 +252,48 @@ func (s *Server) serve(httpServer *http.Server, listener net.Listener) error {
 }
 
 func (s *Server) handleWebSocket(conn *websocket.Conn) {
-	s.clientsMu.Lock()
-	if s.closing {
-		s.clientsMu.Unlock()
+	s.nativeMu.Lock()
+	if s.closing || !s.active {
+		s.nativeMu.Unlock()
 		_ = conn.Close()
 		return
 	}
-	s.wg.Add(1)
-	s.clientsMu.Unlock()
-	defer s.wg.Done()
-	client := &Client{
-		hub:    s.hub,
-		conn:   conn,
-		send:   make(chan []byte, 256),
-		logger: s.logger,
-		done:   make(chan struct{}),
-	}
+	client := &Client{hub: s.hub, conn: conn, send: make(chan []byte, 256), module: s.module.Load().(string), done: make(chan struct{})}
 	if err := s.hub.registerClient(s.ctx, client); err != nil {
-		client.logf("ecaptureq client registration failed: %v", err)
-		_ = conn.Close()
+		s.nativeMu.Unlock()
+		client.stop()
 		return
 	}
+	if s.format == domain.CaptureFormatPcapng {
+		session, err := pcapng.NewSubscriptionSession(&clientPcapngSink{server: s, client: client}, 65535, s.ifName, s.filter, s.logger, 4<<20)
+		if err != nil {
+			s.nativeMu.Unlock()
+			client.stop()
+			return
+		}
+		client.session = session
+	}
+	s.clients[client] = struct{}{}
+	s.wg.Add(1)
+	client.pumps.Add(2)
+	s.nativeMu.Unlock()
+	defer s.wg.Done()
 	go client.writePump()
 	go client.readPump()
-	select {
-	case <-client.done:
-	case <-s.ctx.Done():
-		client.stop()
-		<-client.done
+	<-client.done
+	client.pumps.Wait()
+	s.nativeMu.Lock()
+	delete(s.clients, client)
+	if client.session != nil {
+		_ = client.session.Close()
+		client.session = nil
 	}
+	s.nativeMu.Unlock()
 }
 
 func (s *Server) PublishLog(ctx context.Context, record domain.OperationalLogRecord) error {
-	entry := &pb.LogEntry{
-		LogType: pb.LogType_LOG_TYPE_PROCESS_LOG,
-		Payload: &pb.LogEntry_RunLog{RunLog: record.Message},
-	}
+	entry := output.LogEntryForRecord(record)
+	entry.Module = s.module.Load().(string)
 	data, err := proto.Marshal(entry)
 	if err != nil {
 		return fmt.Errorf("marshal process log: %w", err)
@@ -155,30 +302,15 @@ func (s *Server) PublishLog(ctx context.Context, record domain.OperationalLogRec
 }
 
 func (s *Server) PublishEvent(ctx context.Context, event domain.CapturedEventEnvelope) error {
-	entry := &pb.LogEntry{
-		LogType: pb.LogType_LOG_TYPE_EVENT,
-		Payload: &pb.LogEntry_EventPayload{EventPayload: &pb.Event{
-			Timestamp:            event.Timestamp.Unix(),
-			Uuid:                 event.UUID,
-			SrcIp:                event.SourceIP,
-			SrcPort:              event.SourcePort,
-			DstIp:                event.DestinationIP,
-			DstPort:              event.DestinationPort,
-			Pid:                  int64(event.PID),
-			Pname:                event.ProcessName,
-			ProcessArgs:          append([]byte(nil), event.ProcessArgs...),
-			ProcessArgsTruncated: event.ProcessArgsTruncated,
-			Tls:                  maps.Clone(event.TLS),
-			Type:                 uint32(event.EventType),
-			Length:               uint32(len(event.Payload)),
-			Payload:              append([]byte(nil), event.Payload...),
-			CaptureFormat:        captureFormat(event.Format),
-			Sensitivity:          sensitivity(event.Sensitivity),
-			Direction:            event.Direction,
-			OriginalLength:       event.OriginalLength,
-			StreamId:             event.StreamID,
-			Sequence:             event.Sequence,
-		}},
+	// The process-wide pcapng byte stream began before a late subscriber. Its
+	// bytes cannot be appended to that subscriber's independently encoded file.
+	if event.Format == domain.CaptureFormatPcapng {
+		return nil
+	}
+	entry := output.LogEntryForEvent(event)
+	entry.Module = s.module.Load().(string)
+	if err := protocol.ValidateLogEntry(entry); err != nil {
+		return err
 	}
 	data, err := proto.Marshal(entry)
 	if err != nil {
@@ -187,42 +319,104 @@ func (s *Server) PublishEvent(ctx context.Context, event domain.CapturedEventEnv
 	return s.hub.publish(ctx, data, false)
 }
 
-func captureFormat(format domain.CaptureFormat) pb.CaptureFormat {
-	switch format {
-	case domain.CaptureFormatText:
-		return pb.CaptureFormat_CAPTURE_FORMAT_TEXT
-	case domain.CaptureFormatKeylog:
-		return pb.CaptureFormat_CAPTURE_FORMAT_KEYLOG
-	case domain.CaptureFormatPcapng:
-		return pb.CaptureFormat_CAPTURE_FORMAT_PCAPNG
-	default:
-		return pb.CaptureFormat_CAPTURE_FORMAT_UNSPECIFIED
+func (s *Server) PublishPacket(ctx context.Context, packet domain.CapturedPacket) error {
+	if err := ctx.Err(); err != nil {
+		return err
 	}
+	s.nativeMu.Lock()
+	defer s.nativeMu.Unlock()
+	if !s.active || s.format != domain.CaptureFormatPcapng {
+		return nil
+	}
+	var failures []error
+	for client := range s.clients {
+		select {
+		case <-client.done:
+			continue
+		default:
+		}
+		if client.session == nil || client.failed.Load() {
+			continue
+		}
+		err := client.session.WritePacketWithProcess(packet.Data, packet.Timestamp, packet.PID, packet.ProcessName, packet.ProcessEndpoint, packet.ProcessArgs, packet.ProcessArgsTruncated)
+		if err != nil && !errors.Is(err, errClosedSubscriber) {
+			client.failed.Store(true)
+			s.hub.unregisterClient(client)
+			failures = append(failures, err)
+		}
+	}
+	return errors.Join(failures...)
 }
 
-func sensitivity(value domain.Sensitivity) pb.Sensitivity {
-	if value == domain.SensitivitySensitive {
-		return pb.Sensitivity_SENSITIVITY_SENSITIVE
+func (s *Server) PublishKeylog(ctx context.Context, data []byte) error {
+	if err := ctx.Err(); err != nil {
+		return err
 	}
-	return pb.Sensitivity_SENSITIVITY_NORMAL
+	s.nativeMu.Lock()
+	defer s.nativeMu.Unlock()
+	if !s.active || s.format != domain.CaptureFormatPcapng {
+		return nil
+	}
+	var failures []error
+	for client := range s.clients {
+		select {
+		case <-client.done:
+			continue
+		default:
+		}
+		if client.session == nil || client.failed.Load() {
+			continue
+		}
+		err := client.session.WriteKeyLog(data)
+		if err != nil && !errors.Is(err, errClosedSubscriber) {
+			client.failed.Store(true)
+			s.hub.unregisterClient(client)
+			failures = append(failures, err)
+		}
+	}
+	return errors.Join(failures...)
 }
 
-func (s *Server) Name() string { return "ecaptureq" }
+type clientPcapngSink struct {
+	server *Server
+	client *Client
+}
 
+func (w *clientPcapngSink) Write(data []byte) (int, error) {
+	if len(data) == 0 {
+		return 0, nil
+	}
+	entry := output.LogEntryForEvent(domain.CapturedEventEnvelope{Format: domain.CaptureFormatPcapng, Payload: data})
+	entry.Module = w.client.module
+	encoded, err := proto.Marshal(entry)
+	if err == nil {
+		err = w.server.hub.target(w.server.ctx, w.client, encoded)
+	}
+	if err != nil {
+		return 0, err
+	}
+	return len(data), nil
+}
+func (w *clientPcapngSink) Name() string { return "subscriber-pcapng" }
+func (w *clientPcapngSink) Flush() error { return nil }
+func (w *clientPcapngSink) Close() error { return nil }
+
+func (s *Server) Name() string            { return "stream-listen" }
 func (s *Server) DroppedMessages() uint64 { return s.hub.droppedCount() }
 
 func (s *Server) Close() error {
 	s.closeOnce.Do(func() {
-		s.clientsMu.Lock()
+		s.nativeMu.Lock()
 		s.closing = true
-		s.clientsMu.Unlock()
+		s.nativeMu.Unlock()
+		s.closeErr = s.EndCapture()
 		s.cancel()
 		s.httpMu.Lock()
-		httpServer := s.http
+		server := s.http
 		s.httpMu.Unlock()
-		if httpServer != nil {
+		if server != nil {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			s.closeErr = httpServer.Shutdown(ctx)
+			s.closeErr = errors.Join(s.closeErr, server.Shutdown(ctx))
 			cancel()
 		}
 		s.hub.wait()
@@ -233,3 +427,4 @@ func (s *Server) Close() error {
 
 var _ domain.OperationalLogSink = (*Server)(nil)
 var _ domain.CapturedEventSink = (*Server)(nil)
+var _ domain.PcapngObserver = (*Server)(nil)

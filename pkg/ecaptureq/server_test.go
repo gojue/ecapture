@@ -15,99 +15,153 @@
 package ecaptureq
 
 import (
+	"bufio"
+	"bytes"
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
+	"net"
+	"net/http"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/google/gopacket/pcapgo"
 	"golang.org/x/net/websocket"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/gojue/ecapture/v2/internal/domain"
-	pb "github.com/gojue/ecapture/v2/protobuf/gen/v1"
+	pb "github.com/gojue/ecapture/v2/protobuf/gen/v2"
+	protocol "github.com/gojue/ecapture/v2/protobuf/v2"
 )
 
 func newQueueClient(server *Server, size int) *Client {
-	return &Client{
-		hub:  server.hub,
-		send: make(chan []byte, size),
-		done: make(chan struct{}),
-	}
+	return &Client{hub: server.hub, send: make(chan []byte, size), done: make(chan struct{})}
 }
 
 func decodeEntry(t *testing.T, data []byte) *pb.LogEntry {
 	t.Helper()
 	entry := &pb.LogEntry{}
 	if err := proto.Unmarshal(data, entry); err != nil {
-		t.Fatalf("proto.Unmarshal() error = %v", err)
+		t.Fatal(err)
+	}
+	if err := protocol.ValidateLogEntry(entry); err != nil {
+		t.Fatal(err)
 	}
 	return entry
 }
 
+func startServer(t *testing.T, format domain.CaptureFormat, path string) (*Server, string) {
+	t.Helper()
+	server := NewServerWithPath("127.0.0.1:0", path, io.Discard)
+	if err := server.BeginCapture(format, "tls", "lo", "", nil); err != nil {
+		t.Fatal(err)
+	}
+	serving, err := server.StartAsync()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := server.Close(); err != nil {
+			t.Error(err)
+		}
+		select {
+		case err := <-serving:
+			if err != nil {
+				t.Error(err)
+			}
+		case <-time.After(3 * time.Second):
+			t.Error("listener did not stop")
+		}
+	})
+	server.httpMu.Lock()
+	addr := server.listener.Addr().String()
+	server.httpMu.Unlock()
+	return server, addr
+}
+
+func dialSubscriber(t *testing.T, addr, path string) *websocket.Conn {
+	t.Helper()
+	conn, err := websocket.Dial("ws://"+addr+path, protocol.Subprotocol, "http://localhost/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = conn.Close() })
+	if err := conn.SetDeadline(time.Now().Add(10 * time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	entry := receiveEntry(t, conn)
+	if entry.GetLogType() != pb.LogType_LOG_TYPE_HEARTBEAT || entry.GetModule() != "tls" {
+		t.Fatalf("first entry = %v", entry)
+	}
+	return conn
+}
+
+func receiveEntry(t *testing.T, conn *websocket.Conn) *pb.LogEntry {
+	t.Helper()
+	var data []byte
+	if err := websocket.Message.Receive(conn, &data); err != nil {
+		t.Fatal(err)
+	}
+	return decodeEntry(t, data)
+}
+
 func TestTypedPublishersKeepProcessLogsAndEventsSeparate(t *testing.T) {
+	server := NewServer("127.0.0.1:0", io.Discard)
+	t.Cleanup(func() { _ = server.Close() })
+	if err := server.BeginCapture(domain.CaptureFormatText, "tls", "", "", nil); err != nil {
+		t.Fatal(err)
+	}
+	client := newQueueClient(server, 8)
+	if err := server.hub.registerClient(context.Background(), client); err != nil {
+		t.Fatal(err)
+	}
+	if err := server.PublishLog(context.Background(), domain.OperationalLogRecord{Message: "probe initialized"}); err != nil {
+		t.Fatal(err)
+	}
+	log := decodeEntry(t, <-client.send)
+	if log.GetLogType() != pb.LogType_LOG_TYPE_PROCESS_LOG || log.GetModule() != "tls" {
+		t.Fatal(log)
+	}
+	payload := []byte("captured application message")
+	if err := server.PublishEvent(context.Background(), domain.CapturedEventEnvelope{
+		Timestamp: time.Unix(100, 0), UUID: "event-1", Format: domain.CaptureFormatText,
+		Sensitivity: domain.SensitivitySensitive, PID: 42, ProcessName: "curl",
+		ProcessArgs: []byte("curl\x00" + strings.Repeat("\xff", 251)), ProcessArgsTruncated: true,
+		TLS: map[string]string{"version": "TLS 1.3", "ja3": "fingerprint"}, Payload: payload, OriginalLength: uint32(len(payload)),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	entry := decodeEntry(t, <-client.send)
+	event := entry.GetEventPayload().GetText()
+	if entry.GetModule() != "tls" || event.GetPid() != 42 || event.GetPname() != "curl" || event.GetTls()["ja3"] != "fingerprint" {
+		t.Fatal(entry)
+	}
+	if !event.GetProcessArgsTruncated() || len(event.GetProcessArgs()) != 256 || !bytes.Equal(event.GetPayload(), payload) {
+		t.Fatal(event)
+	}
+	if strings.Contains(log.GetRunLog(), string(payload)) {
+		t.Fatal("event leaked into process log")
+	}
+}
+
+func TestKeylogPublishesCanonicalBytes(t *testing.T) {
 	server := NewServer("127.0.0.1:0", io.Discard)
 	t.Cleanup(func() { _ = server.Close() })
 	client := newQueueClient(server, 8)
 	if err := server.hub.registerClient(context.Background(), client); err != nil {
 		t.Fatal(err)
 	}
-
-	if err := server.PublishLog(context.Background(), domain.OperationalLogRecord{Message: "probe initialized"}); err != nil {
+	data := []byte("CLIENT_RANDOM " + strings.Repeat("01", 32) + " " + strings.Repeat("02", 48) + "\n")
+	if err := server.PublishEvent(context.Background(), domain.CapturedEventEnvelope{Format: domain.CaptureFormatKeylog, Payload: data}); err != nil {
 		t.Fatal(err)
 	}
-	logEntry := decodeEntry(t, <-client.send)
-	if logEntry.GetLogType() != pb.LogType_LOG_TYPE_PROCESS_LOG || logEntry.GetRunLog() != "probe initialized" {
-		t.Fatalf("process log entry = %#v", logEntry)
-	}
-
-	const secret = "CLIENT_RANDOM secret-material"
-	if err := server.PublishEvent(context.Background(), domain.CapturedEventEnvelope{
-		Timestamp:            time.Unix(100, 0),
-		UUID:                 "event-1",
-		EventType:            domain.EventTypeOutput,
-		Format:               domain.CaptureFormatKeylog,
-		Sensitivity:          domain.SensitivitySensitive,
-		PID:                  42,
-		ProcessName:          "curl",
-		ProcessArgs:          []byte("curl\x00" + strings.Repeat("\xff", 251)),
-		ProcessArgsTruncated: true,
-		TLS:                  map[string]string{"version": "TLS 1.3", "ja3": "client-fingerprint"},
-		SourceIP:             "127.0.0.1",
-		SourcePort:           1234,
-		DestinationIP:        "127.0.0.2",
-		DestinationPort:      443,
-		Direction:            "write",
-		Payload:              []byte(secret),
-		OriginalLength:       uint32(len(secret)),
-		StreamID:             "stream-1",
-		Sequence:             9,
-	}); err != nil {
-		t.Fatal(err)
-	}
-	eventEntry := decodeEntry(t, <-client.send)
-	if eventEntry.GetLogType() != pb.LogType_LOG_TYPE_EVENT {
-		t.Fatalf("event log type = %v", eventEntry.GetLogType())
-	}
-	event := eventEntry.GetEventPayload()
-	if event.GetTls()["version"] != "TLS 1.3" || event.GetTls()["ja3"] != "client-fingerprint" {
-		t.Fatal("typed EVENT lost TLS observations")
-	}
-	if event.GetPid() != 42 || event.GetPname() != "curl" {
-		t.Fatal("typed EVENT lost process attribution")
-	}
-	if string(event.GetProcessArgs()) != "curl\x00"+strings.Repeat("\xff", 251) || !event.GetProcessArgsTruncated() {
-		t.Fatal("typed EVENT lost raw argv or truncation flag")
-	}
-	if event == nil || event.GetCaptureFormat() != pb.CaptureFormat_CAPTURE_FORMAT_KEYLOG ||
-		event.GetSensitivity() != pb.Sensitivity_SENSITIVITY_SENSITIVE || string(event.GetPayload()) != secret {
-		t.Fatalf("event payload = %#v", event)
-	}
-	if logEntry.GetRunLog() == secret {
-		t.Fatal("captured secret leaked into PROCESS_LOG")
+	entry := decodeEntry(t, <-client.send)
+	if !bytes.Equal(entry.GetEventPayload().GetKeylog().GetData(), data) {
+		t.Fatal("keylog bytes changed")
 	}
 }
 
@@ -122,24 +176,19 @@ func TestOperationalHistoryIsBoundedAndExcludesEvents(t *testing.T) {
 	if err := server.PublishEvent(context.Background(), domain.CapturedEventEnvelope{Format: domain.CaptureFormatText, Payload: []byte("captured")}); err != nil {
 		t.Fatal(err)
 	}
-
 	client := newQueueClient(server, LogBuffLen)
 	if err := server.hub.registerClient(context.Background(), client); err != nil {
 		t.Fatal(err)
 	}
 	for i := 0; i < LogBuffLen; i++ {
 		entry := decodeEntry(t, <-client.send)
-		if entry.GetLogType() != pb.LogType_LOG_TYPE_PROCESS_LOG {
-			t.Fatalf("history entry %d type = %v", i, entry.GetLogType())
-		}
-		want := fmt.Sprintf("log-%03d", i+12)
-		if entry.GetRunLog() != want {
-			t.Fatalf("history entry %d = %q, want %q", i, entry.GetRunLog(), want)
+		if entry.GetLogType() != pb.LogType_LOG_TYPE_PROCESS_LOG || entry.GetRunLog() != fmt.Sprintf("log-%03d", i+12) {
+			t.Fatal(entry)
 		}
 	}
 	select {
-	case extra := <-client.send:
-		t.Fatalf("history exceeded %d entries: %v", LogBuffLen, decodeEntry(t, extra))
+	case <-client.send:
+		t.Fatal("history exceeded limit")
 	default:
 	}
 }
@@ -155,55 +204,160 @@ func TestBackpressureIsObservable(t *testing.T) {
 		t.Fatal(err)
 	}
 	err := server.PublishLog(context.Background(), domain.OperationalLogRecord{Message: "second"})
-	if !errors.Is(err, ErrBackpressure) {
-		t.Fatalf("PublishLog() error = %v, want ErrBackpressure", err)
+	if !errors.Is(err, ErrBackpressure) || server.DroppedMessages() != 1 {
+		t.Fatalf("error=%v, dropped=%d", err, server.DroppedMessages())
 	}
-	if server.DroppedMessages() == 0 {
-		t.Fatal("backpressure did not increment loss counter")
+	if client.graceful.Load() {
+		t.Fatal("failed stream marked complete")
 	}
 }
 
-func TestLiveWebSocketGetsFirstProcessLog(t *testing.T) {
-	server := NewServer("127.0.0.1:0", io.Discard)
-	serveErrors, err := server.StartAsync()
-	if err != nil {
+func TestWebSocketRequiresV2AndExactPath(t *testing.T) {
+	server, addr := startServer(t, domain.CaptureFormatText, "/events")
+	for _, version := range []string{"", "ecapture.v1"} {
+		conn, err := websocket.Dial("ws://"+addr+"/events", version, "http://localhost/")
+		if err == nil {
+			_ = conn.Close()
+			t.Fatalf("accepted protocol %q", version)
+		}
+	}
+	for _, path := range []string{"/", "/events/", "/events/child"} {
+		response, err := http.Get("http://" + addr + path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_ = response.Body.Close()
+		if response.StatusCode != http.StatusNotFound {
+			t.Fatalf("%s status=%d", path, response.StatusCode)
+		}
+	}
+	conn := dialSubscriber(t, addr, "/events")
+	if err := server.PublishLog(context.Background(), domain.OperationalLogRecord{Message: "live"}); err != nil {
 		t.Fatal(err)
 	}
-	server.httpMu.Lock()
-	address := server.listener.Addr().String()
-	server.httpMu.Unlock()
-	conn, err := websocket.Dial("ws://"+address+"/", "", "http://localhost/")
-	if err != nil {
-		t.Fatal(err)
+	if entry := receiveEntry(t, conn); entry.GetRunLog() != "live" {
+		t.Fatal(entry)
 	}
-	defer func() { _ = conn.Close() }()
+}
 
-	// The immediate heartbeat proves registration and the single writer pump are live.
-	var data []byte
-	if err = websocket.Message.Receive(conn, &data); err != nil {
+func TestEndCaptureDrainsAndKeepsListener(t *testing.T) {
+	server, addr := startServer(t, domain.CaptureFormatKeylog, "/")
+	conn := dialSubscriber(t, addr, "/")
+	for i := 0; i < 20; i++ {
+		if err := server.PublishEvent(context.Background(), domain.CapturedEventEnvelope{Format: domain.CaptureFormatKeylog, Payload: []byte(fmt.Sprintf("record-%d\n", i))}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := server.EndCapture(); err != nil {
 		t.Fatal(err)
 	}
-	if got := decodeEntry(t, data).GetLogType(); got != pb.LogType_LOG_TYPE_HEARTBEAT {
-		t.Fatalf("first message type = %v", got)
+	for i := 0; i < 20; i++ {
+		entry := receiveEntry(t, conn)
+		if got := string(entry.GetEventPayload().GetKeylog().GetData()); got != fmt.Sprintf("record-%d\n", i) {
+			t.Fatalf("record %d=%q", i, got)
+		}
 	}
-	if err = server.PublishLog(context.Background(), domain.OperationalLogRecord{Message: "live"}); err != nil {
+	var tail []byte
+	if err := websocket.Message.Receive(conn, &tail); !errors.Is(err, io.EOF) {
+		t.Fatalf("closed stream error=%v", err)
+	}
+	if _, err := websocket.Dial("ws://"+addr+"/", protocol.Subprotocol, "http://localhost/"); err == nil {
+		t.Fatal("accepted connection between generations")
+	}
+	if err := server.BeginCapture(domain.CaptureFormatText, "tls", "", "", nil); err != nil {
 		t.Fatal(err)
 	}
-	if err = websocket.Message.Receive(conn, &data); err != nil {
+	next := dialSubscriber(t, addr, "/")
+	if err := server.PublishEvent(context.Background(), domain.CapturedEventEnvelope{Format: domain.CaptureFormatText, Payload: []byte("new generation")}); err != nil {
 		t.Fatal(err)
 	}
-	entry := decodeEntry(t, data)
-	if entry.GetLogType() != pb.LogType_LOG_TYPE_PROCESS_LOG || entry.GetRunLog() != "live" {
-		t.Fatalf("live entry = %#v", entry)
+	if got := string(receiveEntry(t, next).GetEventPayload().GetText().GetPayload()); got != "new generation" {
+		t.Fatal(got)
 	}
-	if err = server.Close(); err != nil {
+}
+
+func receivePcapng(t *testing.T, conn *websocket.Conn) []byte {
+	t.Helper()
+	var result []byte
+	for {
+		var data []byte
+		err := websocket.Message.Receive(conn, &data)
+		if errors.Is(err, io.EOF) {
+			return result
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		entry := decodeEntry(t, data)
+		if entry.GetLogType() == pb.LogType_LOG_TYPE_EVENT {
+			result = append(result, entry.GetEventPayload().GetPcapng().GetData()...)
+		}
+	}
+}
+
+func TestLatePcapngSubscribersHaveIndependentCompleteHeaders(t *testing.T) {
+	server, addr := startServer(t, domain.CaptureFormatPcapng, "/")
+	packet := func(value byte) domain.CapturedPacket {
+		return domain.CapturedPacket{Data: bytes.Repeat([]byte{value}, 64), Timestamp: time.Unix(100, 0), PID: 42, ProcessName: "client"}
+	}
+	if err := server.PublishPacket(context.Background(), packet(0x11)); err != nil {
 		t.Fatal(err)
 	}
-	if err = server.Close(); err != nil {
-		t.Fatalf("second Close() error = %v", err)
+	if err := server.PublishKeylog(context.Background(), []byte("HISTORICAL_KEY\n")); err != nil {
+		t.Fatal(err)
 	}
-	if err = <-serveErrors; err != nil {
-		t.Fatalf("serve error = %v", err)
+	first := dialSubscriber(t, addr, "/")
+	if err := server.PublishPacket(context.Background(), packet(0x22)); err != nil {
+		t.Fatal(err)
+	}
+	second := dialSubscriber(t, addr, "/")
+	if err := server.PublishPacket(context.Background(), packet(0x33)); err != nil {
+		t.Fatal(err)
+	}
+	keylog := []byte("CLIENT_RANDOM " + strings.Repeat("01", 32) + " " + strings.Repeat("02", 48) + "\n")
+	if err := server.PublishKeylog(context.Background(), keylog); err != nil {
+		t.Fatal(err)
+	}
+	// Process-wide encoded bytes must never leak into independently encoded subscribers.
+	if err := server.PublishEvent(context.Background(), domain.CapturedEventEnvelope{Format: domain.CaptureFormatPcapng, Payload: []byte("CORRUPT_GLOBAL_STREAM")}); err != nil {
+		t.Fatal(err)
+	}
+	if err := server.EndCapture(); err != nil {
+		t.Fatal(err)
+	}
+	for i, conn := range []*websocket.Conn{first, second} {
+		data := receivePcapng(t, conn)
+		if !bytes.HasPrefix(data, []byte{0x0a, 0x0d, 0x0d, 0x0a}) {
+			t.Fatal("missing SHB")
+		}
+		if !bytes.Contains(data, keylog) || bytes.Contains(data, []byte("HISTORICAL_KEY")) || bytes.Contains(data, []byte("CORRUPT_GLOBAL_STREAM")) {
+			t.Fatal("incorrect native stream content")
+		}
+		reader, err := pcapgo.NewNgReader(bytes.NewReader(data), pcapgo.DefaultNgReaderOptions)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var packets [][]byte
+		for {
+			value, _, err := reader.ReadPacketData()
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			packets = append(packets, value)
+		}
+		want := 2 - i
+		if len(packets) != want {
+			t.Fatalf("subscriber %d packets=%d want=%d", i, len(packets), want)
+		}
+		if !bytes.HasPrefix(packets[len(packets)-1], bytes.Repeat([]byte{0x33}, 64)) {
+			t.Fatal("missing future packet")
+		}
+		if i == 0 && !bytes.HasPrefix(packets[0], bytes.Repeat([]byte{0x22}, 64)) {
+			t.Fatal("first subscriber missed its earlier packet")
+		}
 	}
 }
 
@@ -213,9 +367,8 @@ func TestConcurrentPublishAndShutdown(t *testing.T) {
 	if err := server.hub.registerClient(context.Background(), client); err != nil {
 		t.Fatal(err)
 	}
-	const publishers = 16
 	var wg sync.WaitGroup
-	for i := 0; i < publishers; i++ {
+	for i := 0; i < 16; i++ {
 		wg.Add(1)
 		go func(index int) {
 			defer wg.Done()
@@ -225,13 +378,103 @@ func TestConcurrentPublishAndShutdown(t *testing.T) {
 		}(i)
 	}
 	wg.Wait()
-	var closeWG sync.WaitGroup
-	for i := 0; i < publishers; i++ {
-		closeWG.Add(1)
-		go func() {
-			defer closeWG.Done()
-			_ = server.Close()
-		}()
+	for i := 0; i < 16; i++ {
+		wg.Add(1)
+		go func() { defer wg.Done(); _ = server.Close() }()
 	}
-	closeWG.Wait()
+	wg.Wait()
+}
+
+// x/net/websocket reports every peer close as io.EOF and hides its status code.
+// Read the server wire frames directly so completion/partial semantics remain
+// covered without adding another WebSocket dependency to the root module.
+func TestCaptureCompletionCloseCodes(t *testing.T) {
+	for _, aborted := range []bool{false, true} {
+		t.Run(fmt.Sprintf("aborted=%v", aborted), func(t *testing.T) {
+			server, addr := startServer(t, domain.CaptureFormatKeylog, "/events")
+			conn, err := net.DialTimeout("tcp", addr, time.Second)
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { _ = conn.Close() })
+			if err := conn.SetDeadline(time.Now().Add(10 * time.Second)); err != nil {
+				t.Fatal(err)
+			}
+			_, err = fmt.Fprintf(conn, "GET /events HTTP/1.1\r\nHost: %s\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Protocol: %s\r\nOrigin: http://localhost\r\n\r\n", addr, protocol.Subprotocol)
+			if err != nil {
+				t.Fatal(err)
+			}
+			reader := bufio.NewReader(conn)
+			response, err := http.ReadResponse(reader, &http.Request{Method: http.MethodGet})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if response.StatusCode != http.StatusSwitchingProtocols || response.Header.Get("Sec-WebSocket-Protocol") != protocol.Subprotocol {
+				t.Fatalf("unexpected handshake %s", response.Status)
+			}
+			// Heartbeat establishes that registration is complete before publish.
+			opcode, data := readServerFrame(t, reader)
+			if opcode != websocket.BinaryFrame || decodeEntry(t, data).LogType != pb.LogType_LOG_TYPE_HEARTBEAT {
+				t.Fatal("missing initial heartbeat")
+			}
+			keylog := []byte("CLIENT_RANDOM " + strings.Repeat("01", 32) + " " + strings.Repeat("02", 48) + "\n")
+			if err := server.PublishEvent(context.Background(), domain.CapturedEventEnvelope{Format: domain.CaptureFormatKeylog, Payload: keylog}); err != nil {
+				t.Fatal(err)
+			}
+			if aborted {
+				err = server.AbortCapture()
+			} else {
+				err = server.EndCapture()
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			opcode, data = readServerFrame(t, reader)
+			if opcode != websocket.BinaryFrame || !bytes.Equal(decodeEntry(t, data).GetEventPayload().GetKeylog().GetData(), keylog) {
+				t.Fatal("queued event was not drained before close")
+			}
+			opcode, data = readServerFrame(t, reader)
+			want := uint16(1000)
+			if aborted {
+				want = 1011
+			}
+			if opcode != websocket.CloseFrame || len(data) < 2 || binary.BigEndian.Uint16(data) != want {
+				t.Fatalf("close opcode=%d payload=%x want=%d", opcode, data, want)
+			}
+		})
+	}
+}
+
+func readServerFrame(t *testing.T, reader io.Reader) (byte, []byte) {
+	t.Helper()
+	var header [2]byte
+	if _, err := io.ReadFull(reader, header[:]); err != nil {
+		t.Fatal(err)
+	}
+	if header[0]&0x80 == 0 || header[1]&0x80 != 0 {
+		t.Fatal("fragmented or masked server frame")
+	}
+	size := uint64(header[1] & 0x7f)
+	switch size {
+	case 126:
+		var value [2]byte
+		if _, err := io.ReadFull(reader, value[:]); err != nil {
+			t.Fatal(err)
+		}
+		size = uint64(binary.BigEndian.Uint16(value[:]))
+	case 127:
+		var value [8]byte
+		if _, err := io.ReadFull(reader, value[:]); err != nil {
+			t.Fatal(err)
+		}
+		size = binary.BigEndian.Uint64(value[:])
+	}
+	if size > 1<<20 {
+		t.Fatal("unexpected large test frame")
+	}
+	data := make([]byte, int(size))
+	if _, err := io.ReadFull(reader, data); err != nil {
+		t.Fatal(err)
+	}
+	return header[0] & 0xf, data
 }

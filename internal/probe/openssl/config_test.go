@@ -16,6 +16,7 @@ package openssl
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -250,9 +251,8 @@ func TestConfig_ValidateCaptureMode_Pcap(t *testing.T) {
 		t.Error("validateCaptureMode() should fail for an explicit nonexistent interface")
 	}
 
-	// Repeated validation retains the normalized primary destination.
+	// Repeated validation retains the explicit native artifact destination.
 	cfg.Ifname = "lo"
-	cfg.PcapFile = ""
 	if err = cfg.validateCaptureMode(); err != nil {
 		t.Errorf("repeated validation should retain normalized destination: %v", err)
 	}
@@ -261,7 +261,7 @@ func TestConfig_ValidateCaptureMode_Pcap(t *testing.T) {
 	missingDestination.CaptureMode = handlers.ModePcap
 	missingDestination.Ifname = "lo"
 	if err = missingDestination.validateCaptureMode(); err == nil {
-		t.Error("pcap mode without eventaddr or pcapfile should fail")
+		t.Error("pcap mode without pcapfile should fail")
 	}
 }
 
@@ -325,7 +325,8 @@ func TestConfigDefaultTextSource(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			cfg := NewConfig()
 			cfg.CaptureMode, cfg.TextSource, cfg.Ifname = test.mode, test.source, test.ifname
-			cfg.EventCollectorAddr = "stdout"
+			cfg.KeylogFile = filepath.Join(t.TempDir(), "capture.keys")
+			cfg.PcapFile = filepath.Join(t.TempDir(), "capture.pcapng")
 			for attempt := 0; attempt < 2; attempt++ {
 				err := cfg.validateCaptureMode()
 				if (err != nil) != test.wantErr {
@@ -419,5 +420,48 @@ func TestConfigDecryptOptions(t *testing.T) {
 				t.Fatal("decryption options accepted without pcapng text source")
 			}
 		})
+	}
+}
+
+func TestCaptureModeRequiresSeparateNativeFiles(t *testing.T) {
+	for _, test := range []struct {
+		name, mode, keylog, pcap string
+		wantError                bool
+	}{
+		{"missing keylog", "keylog", "", "", true},
+		{"missing pcapng", "pcapng", "", "", true},
+		{"keylog terminal", "keylog", "stdout", "", true},
+		{"pcapng remote", "pcapng", "", "tcp://127.0.0.1:9000", true},
+		{"text optional keylog terminal", "text", "stdout", "", true},
+		{"text optional pcapng remote", "text", "", "tcp://127.0.0.1:9000", true},
+		{"text no artifacts", "text", "", "", false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			cfg := NewConfig()
+			cfg.CaptureMode, cfg.KeylogFile, cfg.PcapFile, cfg.Ifname = test.mode, test.keylog, test.pcap, "lo"
+			for range 2 {
+				if err := cfg.validateCaptureMode(); (err != nil) != test.wantError {
+					t.Fatalf("validateCaptureMode error = %v, wantError %v", err, test.wantError)
+				}
+			}
+		})
+	}
+	for _, mode := range []string{"keylog", "pcapng"} {
+		cfg := NewConfig()
+		cfg.CaptureMode, cfg.Ifname = mode, "lo"
+		path := filepath.Join(t.TempDir(), "capture."+mode)
+		if mode == "keylog" {
+			cfg.KeylogFile = path
+		} else {
+			cfg.PcapFile = path
+		}
+		for range 2 {
+			if err := cfg.validateCaptureMode(); err != nil {
+				t.Fatal(err)
+			}
+			if cfg.GetEventCollectorAddr() != path {
+				t.Fatal("native output did not use its explicit file")
+			}
+		}
 	}
 }

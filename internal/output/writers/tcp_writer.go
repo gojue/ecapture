@@ -16,6 +16,7 @@ package writers
 
 import (
 	"bufio"
+	"context"
 	stderrors "errors"
 	"fmt"
 	"io"
@@ -36,11 +37,15 @@ type TcpWriter struct {
 
 // NewTcpWriter creates a new TCP writer by connecting to the specified address.
 func NewTcpWriter(addr string, bufferSize int) (*TcpWriter, error) {
+	return newTCPWriterWithContext(context.Background(), addr, bufferSize)
+}
+
+func newTCPWriterWithContext(ctx context.Context, addr string, bufferSize int) (*TcpWriter, error) {
 	if addr == "" {
 		return nil, fmt.Errorf("TCP address cannot be empty")
 	}
 
-	conn, err := net.Dial("tcp", addr)
+	conn, err := (&net.Dialer{}).DialContext(ctx, "tcp", addr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to TCP server %s: %w", addr, err)
 	}

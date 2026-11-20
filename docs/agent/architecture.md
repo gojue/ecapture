@@ -20,9 +20,9 @@ main.go
   -> EventDecoder.Decode()
   -> optional EventPreprocessor for module-private records
   -> events.Dispatcher.Dispatch()
-  -> text / keylog / pcapng handler or low-latency pcapng -> decrypt SDK -> text output
-  -> independently constructed ByteSink
-  -> optional typed eCaptureQ EVENT publisher
+  -> text publisher or low-latency pcapng -> decrypt SDK -> TEXT publisher
+  -> keylog / pcapng encoder -> local native ByteSink + native EVENT publisher
+  -> process-lifetime terminals / JSON outputs / optional v2 subscriptions
 ```
 
 `runProbe` also owns signal handling and runtime configuration reload. Probe
@@ -67,10 +67,11 @@ targets and excludes zsh, GnuTLS, NSPR, MySQL, and PostgreSQL.
 - `internal/probe/<name>/`: one module's config, events/decoders, manager
   setup, attachments, map registration, and lifecycle.
 - `internal/events/`: validated synchronous fan-out to registered handlers.
-- `internal/output/`: borrowed runtime output dependencies and the zerolog edge
-  adapter for typed operational publishers.
-- `internal/output/writers/`: active stdout/file/TCP/WebSocket ByteSinks plus
-  keylog encoding.
+- `internal/output/`: shared v2 records, terminal/JSON/native publishers,
+  borrowed runtime output dependencies and the zerolog operational-log adapter.
+- `internal/output/writers/`: native file and JSON transport ByteSinks,
+  including file/TCP writers and keylog encoding. The reusable WebSocket writer
+  is not a supported CLI output destination.
 - `internal/output/pcapng/`: the serialized pcapng representation session and
   its borrowed keylog adapter.
 - `internal/output/decrypt/`: in-process pcapng pipe to the independent
@@ -180,13 +181,15 @@ process-lifetime dependencies.
 
 ## Output semantics
 
-- `--logaddr`: operational logs only, fanned out with stderr.
-- `--eventaddr`: the primary text/keylog/pcapng ByteSink for TLS, GoTLS, and
-  GnuTLS; capture mode selects representation and the address selects transport.
-- `--ecaptureq`: additive typed `PROCESS_LOG` and `EVENT` publication.
-- `--keylogfile`: legacy primary alias in keylog mode and optional secondary
-  keylog artifact in pcapng mode.
-- `--pcapfile`: legacy primary pcapng-file alias.
+- `--output`: repeatable process-lifetime destinations, default `stdout`.
+  stdout/stderr label readable lines; files and outgoing TCP use v2 JSON Lines.
+- `--config-listen`: optional HTTP configuration update listener.
+- `--stream-listen`: optional binary Protobuf v2 WebSocket listener; clients
+  must negotiate `ecapture.v2` and capture never waits for a client.
+- `--keylogfile`/`--pcapfile`: required local native artifact for the respective
+  mode; optional artifacts in reconstructed text mode. Native modes send only
+  runtime logs to output files, while network outputs carry encoded native bytes.
+- The old listen/eventaddr/logaddr/ecaptureq flags are removed without aliases.
 
 A valid pcapng result contains packet blocks and an embedded TLS Decryption
 Secrets Block, not merely a non-empty file. CLI and BaseProbe lifecycle records
@@ -235,12 +238,12 @@ exact go-bindata key before a probe attempts to load it.
   HTTP success is sent only after the candidate generation starts; a failed
   start restores the previous same-probe configuration when possible.
 - Shared serializable probe fields use `internal/config.CommonConfig` across
-  Cobra commands and HTTP config factories. Omitted HTTP event destination and
-  rotation fields inherit from the active generation; explicit empty/zero
-  values remain explicit.
-- Event rotation reaches file-backed text/keylog sinks and is rejected for
-  pcapng and network sinks. Truncate size still has no current production
-  consumer.
+  Cobra commands and HTTP config factories. Core HTTP factories reject removed
+  destination/rotation fields, including explicit empty/zero values. Startup
+  output destinations are borrowed runtime dependencies and cannot be replaced
+  through HTTP.
+- Event rotation CLI options are removed. Truncate size still has no current
+  production consumer.
 - Bytecode selection is process-stable: `--btf=0` uses cached kernel BTF
   detection, `1` requires CO-RE, and `2` requires non-CO-RE. Explicit requests
   fail rather than switching when the current binary lacks that asset mode.

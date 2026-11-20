@@ -1,0 +1,88 @@
+syntax = "proto3";
+
+package ecapture.v2;
+
+option go_package = "github.com/gojue/ecapture/v2/protobuf/gen/v2;pb";
+
+enum LogType {
+  LOG_TYPE_HEARTBEAT = 0;
+  LOG_TYPE_PROCESS_LOG = 1;
+  LOG_TYPE_EVENT = 2;
+}
+
+enum CaptureFormat {
+  CAPTURE_FORMAT_UNSPECIFIED = 0;
+  CAPTURE_FORMAT_TEXT = 1;
+  CAPTURE_FORMAT_KEYLOG = 2;
+  CAPTURE_FORMAT_PCAPNG = 3;
+}
+
+enum Sensitivity {
+  SENSITIVITY_NORMAL = 0;
+  SENSITIVITY_SENSITIVE = 1;
+}
+
+message LogEntry {
+  LogType log_type = 1;
+  oneof payload {
+    Event event_payload = 2;
+    Heartbeat heartbeat_payload = 3;
+    string run_log = 4;
+  }
+  // Canonical capture module, such as tls, gotls, or gnutls.
+  // Process-wide messages may leave this empty.
+  string module = 5;
+}
+
+message Event {
+  CaptureFormat capture_format = 1;
+  oneof content {
+    TextEvent text = 2;
+    KeylogEvent keylog = 3;
+    PcapngEvent pcapng = 4;
+  }
+}
+
+message TextEvent {
+  int64 timestamp = 1;
+  string uuid = 2;
+  string src_ip = 3;
+  uint32 src_port = 4;
+  string dst_ip = 5;
+  uint32 dst_port = 6;
+  int64 pid = 7;
+  string pname = 8;
+  uint32 type = 9;
+  uint32 length = 10;
+  bytes payload = 11;
+  reserved 12;
+  reserved "capture_format";
+  Sensitivity sensitivity = 13;
+  string direction = 14;
+  uint32 original_length = 15;
+  // Application-stream identity and producer-local order, not artifact chunks.
+  string stream_id = 16;
+  uint64 sequence = 17;
+  // Capture-time NUL-separated argv bytes; not necessarily UTF-8.
+  bytes process_args = 18;
+  bool process_args_truncated = 19;
+  // Non-secret handshake observations from the decryptor.
+  map<string, string> tls = 20;
+}
+
+message KeylogEvent {
+  // Deduplicated, newline-normalized NSS Key Log bytes. Concatenate in order.
+  bytes data = 1;
+}
+
+message PcapngEvent {
+  // Encoded pcapng stream bytes, including SHB/IDB/EPB/DSB and options.
+  // A message is not necessarily a packet or a complete pcapng block.
+  bytes data = 1;
+}
+
+message Heartbeat {
+  int64 timestamp = 1;
+  int64 count = 2;
+  string message = 3;
+}

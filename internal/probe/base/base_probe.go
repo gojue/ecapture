@@ -133,7 +133,7 @@ func (p *BaseProbe) Initialize(ctx context.Context, cfg domain.Configuration) er
 	dispatcher := events.NewDispatcher(p.Logger())
 	dispatcher.SetFailureSource(p.RuntimeError)
 	format := captureFormat(cfg)
-	if usesTextOutput(cfg) {
+	if usesTextOutput(cfg) && (runtimeOutput == nil || !runtimeOutput.SuppressDefaultText) {
 		textWriter, err := writers.NewWriterFactory().CreateEventSink(writers.EventSinkOptions{
 			Address:      cfg.GetEventCollectorAddr(),
 			Format:       writers.EventFormatText,
@@ -149,7 +149,7 @@ func (p *BaseProbe) Initialize(ctx context.Context, cfg domain.Configuration) er
 		}
 		p.Logger().Info().Str("sink", textWriter.Name()).Msg("Text event sink created")
 	}
-	if runtimeOutput != nil && !usesPcapngTextSource(cfg) {
+	if runtimeOutput != nil && !usesPcapngTextSource(cfg) && format == domain.CaptureFormatText {
 		for _, sink := range runtimeOutput.EventSinks {
 			publisher, err := handlers.NewPublisherHandler(sink, format, p.config.GetHex())
 			if err != nil {

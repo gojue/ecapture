@@ -15,6 +15,7 @@
 package writers
 
 import (
+	"context"
 	stderrors "errors"
 	"fmt"
 	"io"
@@ -34,14 +35,20 @@ type WebSocketWriter struct {
 
 // NewWebSocketWriter creates a new WebSocket writer by connecting to the specified URL.
 func NewWebSocketWriter(url string) (*WebSocketWriter, error) {
+	return newWebSocketWriterWithContext(context.Background(), url)
+}
+
+func newWebSocketWriterWithContext(ctx context.Context, url string) (*WebSocketWriter, error) {
 	if url == "" {
 		return nil, fmt.Errorf("WebSocket URL cannot be empty")
 	}
 
 	client := ws.NewClient()
-	err := client.Dial(url, "", "http://localhost")
+	err := client.DialContext(ctx, url, "", "http://localhost")
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to WebSocket server %s: %w", url, err)
+		// websocket.DialError does not unwrap its cause. Keep context cancellation
+		// discoverable by callers while retaining the transport diagnostic.
+		return nil, fmt.Errorf("failed to connect to WebSocket server %s: %w", url, stderrors.Join(err, ctx.Err()))
 	}
 
 	return &WebSocketWriter{

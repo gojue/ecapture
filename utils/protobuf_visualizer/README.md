@@ -1,5 +1,13 @@
 # eCapture Protobuf Debugger
 
+The debugger requires the `ecapture.v2` WebSocket subprotocol and validates v2
+`LogEntry` messages. Start the collector with `--stream-listen`; the old
+`--ecaptureq` flag is not supported. TEXT events display their metadata and
+payload. KEYLOG and PCAPNG events display a byte-count summary because their
+payload is a native stream fragment, not a printable packet row. Use
+[the receiver example](../../examples/ecaptureq_client/README.md) to save native
+artifacts. Build and run this tool on Linux.
+
 A visualization and debugging tool for eCapture WebSocket messages.
 It supports parsing Protobuf messages of type **Event**, **Heartbeat**, and **Log**.
 

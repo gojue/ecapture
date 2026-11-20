@@ -125,12 +125,14 @@ as the shared deployment reference.
 
 Inspect the addresses configured on the running process:
 
-- `--listen` enables the HTTP runtime-configuration service; it is disabled
+- `--config-listen` enables the HTTP runtime-configuration service; it is disabled
   by default. `127.0.0.1:28256` is an example address, not an always-open port.
-- `--ecaptureq ws://host:port/` enables a WebSocket listener carrying Protobuf
-  messages. It is also disabled by default; examples often use port `28257`.
-- Network destinations in `--eventaddr` or `--logaddr` create outbound
-  TCP/WebSocket connections to the configured receiver.
+- `--stream-listen ws://host:port/` enables a binary Protobuf v2 WebSocket
+  listener requiring the `ecapture.v2` subprotocol. It is disabled by default;
+  examples often use port `28257`.
+- Each `--output tcp://host:port` destination creates an outbound TCP connection
+  carrying JSON Lines to the configured receiver. Outgoing WebSocket output
+  is not supported.
 
 ```bash
 # Inspect listeners and established connections, then correlate their owners

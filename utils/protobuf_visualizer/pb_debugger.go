@@ -23,9 +23,11 @@ import (
 	"time"
 
 	"golang.org/x/net/websocket"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 
-	pb "github.com/gojue/ecapture/v2/protobuf/gen/v1"
+	pb "github.com/gojue/ecapture/v2/protobuf/gen/v2"
+	protocol "github.com/gojue/ecapture/v2/protobuf/v2"
 )
 
 const (
@@ -77,10 +79,14 @@ type ProtobufVisualizer struct {
 
 // NewProtobufVisualizer creates a new visualizer instance
 func NewProtobufVisualizer(url string, showHex bool, maxPayload int, useColor bool, compact bool) (*ProtobufVisualizer, error) {
-	conn, err := websocket.Dial(url, "", "http://localhost/")
+	if maxPayload < 0 {
+		return nil, fmt.Errorf("max-payload must not be negative")
+	}
+	conn, err := websocket.Dial(url, protocol.Subprotocol, "http://localhost/")
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to WebSocket server: %w", err)
 	}
+	conn.MaxPayloadBytes = 16 << 20
 
 	return &ProtobufVisualizer{
 		conn:       conn,
@@ -117,10 +123,12 @@ func (pv *ProtobufVisualizer) Listen() error {
 		// Try to unmarshal as LogEntry
 		var logEntry pb.LogEntry
 		if err := proto.Unmarshal(msgData, &logEntry); err != nil {
-			log.Printf("Failed to unmarshal LogEntry: %v", err)
-			continue
+			return fmt.Errorf("decode v2 message: %w", err)
 		}
 
+		if err := protocol.ValidateLogEntry(&logEntry); err != nil {
+			return fmt.Errorf("invalid v2 message: %w", err)
+		}
 		pv.visualizeLogEntry(&logEntry)
 	}
 }
@@ -148,6 +156,9 @@ func (pv *ProtobufVisualizer) printHeader() {
 
 // visualizeLogEntry processes and displays a LogEntry message
 func (pv *ProtobufVisualizer) visualizeLogEntry(le *pb.LogEntry) {
+	if le.Module != "" {
+		fmt.Printf("module=%s ", le.Module)
+	}
 	switch le.GetLogType() {
 	case pb.LogType_LOG_TYPE_HEARTBEAT:
 		pv.heartbeatCount++
@@ -215,6 +226,20 @@ func (pv *ProtobufVisualizer) visualizeEvent(event *pb.Event) {
 	if event == nil {
 		return
 	}
+	switch event.CaptureFormat {
+	case pb.CaptureFormat_CAPTURE_FORMAT_TEXT:
+		pv.visualizeTextEvent(event.GetText())
+	case pb.CaptureFormat_CAPTURE_FORMAT_KEYLOG:
+		fmt.Printf("[EVENT KEYLOG] %d native NSS bytes; use the receiver example to save the stream\n", len(event.GetKeylog().Data))
+	case pb.CaptureFormat_CAPTURE_FORMAT_PCAPNG:
+		fmt.Printf("[EVENT PCAPNG] %d encoded stream bytes; message boundaries are not packet boundaries\n", len(event.GetPcapng().Data))
+	}
+}
+
+func (pv *ProtobufVisualizer) visualizeTextEvent(event *pb.TextEvent) {
+	if event == nil {
+		return
+	}
 
 	if pv.compact {
 		fmt.Printf("[%s] %s #%d PID:%d %s:%d → %s:%d [%d bytes]\n",
@@ -235,6 +260,11 @@ func (pv *ProtobufVisualizer) visualizeEvent(event *pb.Event) {
 
 	// Event metadata
 	fmt.Println(pv.color(ColorBoldCyan, "│ ▶ Metadata:"))
+	metadata := proto.Clone(event).(*pb.TextEvent)
+	metadata.Payload = nil
+	if encoded, err := (protojson.MarshalOptions{UseProtoNames: true}).Marshal(metadata); err == nil {
+		fmt.Printf("│   %s: %s\n", pv.color(ColorYellow, "Full metadata"), encoded)
+	}
 	fmt.Printf("│   %s: %s\n",
 		pv.color(ColorYellow, "Sequence"),
 		pv.color(ColorBlack, fmt.Sprintf("#%d", pv.eventCount)))
@@ -337,9 +367,11 @@ func (pv *ProtobufVisualizer) visualizePayload(payload []byte) {
 func (pv *ProtobufVisualizer) getEventTypeName(eventType uint32) string {
 	switch eventType {
 	case 0:
-		return "Send/Write"
+		return "Output"
 	case 1:
-		return "Receive/Read"
+		return "ModuleData"
+	case 2:
+		return "Processor"
 	default:
 		return "Unknown"
 	}

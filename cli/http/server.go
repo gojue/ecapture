@@ -15,9 +15,13 @@
 package http
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -33,6 +37,10 @@ type HttpServer struct {
 	handler   http.Handler
 	addr      string
 	logger    zerolog.Logger
+	server    *http.Server
+	cancel    context.CancelFunc
+	closeOnce sync.Once
+	closeErr  error
 }
 
 func NewHttpServer(addr string, confChan chan *ConfigUpdate, zerologger zerolog.Logger) *HttpServer {
@@ -67,8 +75,48 @@ func (hs *HttpServer) attachEndpoints() {
 	hs.handler = hs.logAndRecover(mux)
 }
 
-func (hs HttpServer) Run() error {
-	return http.ListenAndServe(hs.addr, hs.handler)
+func (hs *HttpServer) Run() error {
+	errors, err := hs.StartAsync()
+	if err != nil {
+		return err
+	}
+	return <-errors
+}
+
+// StartAsync binds before returning; configuration service failures must not
+// be discovered only after the probe has already attached.
+func (hs *HttpServer) StartAsync() (<-chan error, error) {
+	listener, err := net.Listen("tcp", hs.addr)
+	if err != nil {
+		return nil, err
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	hs.cancel = cancel
+	hs.server = &http.Server{Handler: hs.handler, ReadHeaderTimeout: 5 * time.Second, BaseContext: func(net.Listener) context.Context { return ctx }}
+	result := make(chan error, 1)
+	go func() {
+		defer close(result)
+		err := hs.server.Serve(listener)
+		if errors.Is(err, http.ErrServerClosed) {
+			err = nil
+		}
+		result <- err
+	}()
+	return result, nil
+}
+
+func (hs *HttpServer) Close() error {
+	hs.closeOnce.Do(func() {
+		if hs.cancel != nil {
+			hs.cancel()
+		}
+		if hs.server != nil {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			hs.closeErr = hs.server.Shutdown(ctx)
+		}
+	})
+	return hs.closeErr
 }
 
 func (hs *HttpServer) Tls(w http.ResponseWriter, r *http.Request) {

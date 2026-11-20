@@ -41,6 +41,7 @@ const (
 // the representation emitted by the logging edge; captured payloads and TLS
 // secrets must never be placed in this type.
 type OperationalLogRecord struct {
+	Module    string
 	Timestamp time.Time
 	Level     string
 	Message   string
@@ -51,6 +52,7 @@ type OperationalLogRecord struct {
 // configuration and lets publishers consume the event without reverse-parsing
 // text, keylog, or pcapng bytes.
 type CapturedEventEnvelope struct {
+	Module               string
 	Timestamp            time.Time
 	UUID                 string
 	EventType            EventType
@@ -87,4 +89,23 @@ type CapturedEventSink interface {
 	PublishEvent(context.Context, CapturedEventEnvelope) error
 	Name() string
 	Close() error
+}
+
+// CapturedPacket is a packet after conversion of the kernel monotonic clock to
+// Unix time. Observers must copy bytes retained beyond the synchronous call.
+type CapturedPacket struct {
+	Data                 []byte
+	Timestamp            time.Time
+	PID                  uint32
+	ProcessName          string
+	ProcessEndpoint      uint32
+	ProcessArgs          []byte
+	ProcessArgsTruncated bool
+}
+
+// PcapngObserver feeds independently encoded live subscriber captures. Native
+// output publishers separately consume the primary encoder's complete bytes.
+type PcapngObserver interface {
+	PublishPacket(context.Context, CapturedPacket) error
+	PublishKeylog(context.Context, []byte) error
 }

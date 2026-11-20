@@ -146,11 +146,16 @@ OpenSSL 模块支持三种输出模式：
 - `keylog` / `key`：将 TLS 握手密钥保存到文件中。
 - `text`：默认使用 `pcapng` 数据源，实时解密 pcapng 与 DSB，输出完整 HTTP/1.1 与 HTTP/2 请求和响应，自动选择抓包网卡，也可通过 `-i eth0` 手动指定。手动指定 `--text-source=hook` 可通过函数 hook 抓取明文，无需指定网卡。
 
-对 OpenSSL、GoTLS 和 GnuTLS，`--eventaddr` 是统一的主事件目的端，支持
-`stdout`、普通路径或 `file://` URI、`tcp://host:port` 以及使用有序二进制帧的
-`ws://`/`wss://`。模式决定 text、NSS Key Log 或 pcapng 输出形式，地址只决定传输方式。
-`--keylogfile` 和 `--pcapfile` 仍是相应模式的兼容文件别名；显式 `--eventaddr`
-不能与对应的主别名同时使用。pcapng 模式下的 `--keylogfile` 仍是独立的可选密钥文件。
+对 OpenSSL、GoTLS 和 GnuTLS，重复 `--output` 可配置多个目的端，默认 stdout，显式配置
+会替换默认值。stdout/stderr 输出带 `log_type`、`module` 字段的可读文本；本地文件和
+`tcp://host:port` 输出 Protobuf v2 JSON Lines。text 模式包含运行日志与捕获事件；
+keylog/pcapng 模式的 **output 文件仅包含运行日志**，TCP 仍包含两类记录。
+原生文件通过 `--keylogfile`/`--pcapfile` 指定，相应模式必须显式提供文件名，不再创建默认文件。
+
+`--stream-listen ws://127.0.0.1:28257/` 启动独立 Protobuf v2 订阅监听服务，客户端必须协商
+`ecapture.v2`。`--config-listen 127.0.0.1:28256` 启动 HTTP 配置更新服务；两个监听器默认关闭。
+旧 `--listen`、`--eventaddr`、`--logaddr`、`--ecaptureq` 和事件轮转参数直接移除，没有兼容别名。
+完整输出矩阵和接收端迁移见[输出 API](docs/event-forward-api-zh_Hans.md)。
 
 #### text 模式下实时解密
 
@@ -160,12 +165,12 @@ OpenSSL 模块支持三种输出模式：
 `tls`、`gotls`、`gnutls` 均可使用 `-m text --text-source=pcapng`。输出按完整 HTTP/1.1 或
 HTTP/2 请求/响应划分，包含方向、时间、源和目标 IP/端口、连接标识及 HTTP/2
 流标识。`host` 优先取 HTTP `Host`，其次取 HTTP/2 `:authority`；两者都没有时
-使用服务器 IP，并标注 `domain_source="server_ip"`。明文写入 `--eventaddr`，
+使用服务器 IP，并标注 `domain_source="server_ip"`。明文写入 `--output`，
 默认 stdout。默认不保存原始 pcapng 或独立密钥文件；需要时显式指定
 `--pcapfile` 或 `--keylogfile`。
 
 ```shell
-sudo ecapture tls -m text --text-source=pcapng -i eth0 --eventaddr /tmp/http.events 'tcp port 443'
+sudo ecapture tls -m text --text-source=pcapng -i eth0 --output stdout --output /tmp/http.jsonl 'tcp port 443'
 sudo ecapture gotls -m text --text-source=pcapng --elfpath /path/to/go-client -i eth0 --pcapfile /tmp/raw.pcapng 'tcp port 443'
 sudo ecapture gnutls -m text --text-source=pcapng --gnutls /path/to/libgnutls.so -i eth0 'tcp port 443'
 ```
@@ -208,15 +213,16 @@ rm -f -- "$keys"
 
 可选文件与实时 SDK 输入接收的是同一份 pcapng 字节流。
 
-`--logaddr` 只承载 eCapture 自身的运行日志。控制台运行日志输出到 stderr，而
-事件 stdout 只包含捕获数据。eCaptureQ 是附加的 typed publisher，不会取代
-`--eventaddr` 或 `--logaddr`。
+终端和 JSON 文件都能通过字段区分运行日志与事件。JSON 与 Protobuf 共用 v2 schema，
+接收端应保留 TEXT 元数据，并按格式保存 KEYLOG/PCAPNG 原生字节。订阅仅接收未来事件；
+pcapng 晚连接从独立片段开始，不回放历史包和密钥。详见 [v2 协议](protobuf/PROTOCOLS-zh_Hans.md)
+及[接收端示例](examples/ecaptureq_client/README.md)。
 
 #### Pcap 模式
 
 支持基于 TCP 的 HTTP `1.0/1.1/2.0` 以及基于 UDP 的 HTTP/3 (`QUIC`) 流量抓取。
 
-你可以通过 `-m pcap` 或 `-m pcapng` 参数指定抓包模式，并配合 `--pcapfile` 和 `-i` 参数使用。当前为了兼容保留的 `--pcapfile` 默认值为 `save.pcapng`。
+你可以通过 `-m pcap` 或 `-m pcapng` 参数指定抓包模式，并配合 `--pcapfile` 和 `-i` 参数使用。`--pcapfile` 必须显式指定本地原生文件，不再提供默认文件名。
 
 ```shell
 sudo ecapture tls -m pcap -i eth0 --pcapfile=ecapture.pcapng tcp port 443
@@ -228,7 +234,7 @@ sudo ecapture tls -m pcap -i eth0 --pcapfile=ecapture.pcapng tcp port 443
 
 #### Keylog 模式
 
-你可以通过 `-m keylog` 或 `-m key` 参数指定密钥导出模式，并配合 `--keylogfile` 参数使用，当前为了兼容保留的默认输出文件为 `ecapture_openssl_key.log`。
+你可以通过 `-m keylog` 或 `-m key` 参数指定密钥导出模式，并配合 `--keylogfile` 参数使用，`--keylogfile` 必须显式指定本地原生文件，不再提供默认文件名。
 
 捕获到的 OpenSSL TLS `Master Secret` 信息会保存到 `--keylogfile` 中。你也可以同时开启 `tcpdump` 抓包，然后使用 Wireshark 打开对应 pcap 文件，并设置 `Master Secret` 路径，即可解密并查看明文数据包。
 
@@ -294,12 +300,16 @@ eCapture 还支持其他模块，例如 `bash`、`mysqld`、`nss`、`postgres` �
 
 ## eCaptureQ 图形界面程序
 
-[eCaptureQ](https://github.com/gojue/ecaptureq) 是 eCapture 的跨平台图形界面客户端，用于可视化展示 eBPF TLS 抓包能力。它基于 Rust + Tauri + React 构建，提供实时响应式界面，无需 CA 证书即可轻松分析加密流量，降低了复杂 eBPF 抓包技术的使用门槛。
+[eCaptureQ](https://github.com/gojue/ecaptureq) 是 eCapture 的跨平台图形界面客户端，用于可视化展示 eBPF TLS 抓包能力。它提供无需 CA 证书即可分析加密流量的界面。
 
 它支持两种模式：
 
 * 集成模式：Linux/Android 一体化运行
 * 远程模式：Windows/macOS/Linux 客户端连接远程 eCapture 服务
+
+当前 eCapture 要求客户端支持 Protobuf v2，并协商 `ecapture.v2` WebSocket 子协议。
+请按[接收契约](docs/event-forward-api-zh_Hans.md)核对所用客户端版本；旧 v1 客户端
+需要更新后才能连接。
 
 ### 事件转发项目
 

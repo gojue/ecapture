@@ -7,27 +7,20 @@ Status: implemented target architecture.
 The output path has three layers and two semantic channels:
 
 ```text
-OperationalLogRecord -> operational logger ------------------+-> stderr
-                                                             +-> --logaddr ByteSink
-                                                             +-> eCaptureQ PROCESS_LOG
-
-domain.Event -> EventDispatcher -> TextHandler ----------------+-> event ByteSink
-                                -> KeylogHandler --------------+-> event ByteSink
-                                -> PcapngHandler/pcapng.Session +-> event ByteSink
-                                -> low-latency pcapng -> SDK -> text ByteSink
-                                -> typed publisher --------------> eCaptureQ EVENT
+OperationalLogRecord -----------------------------+-> output terminals/JSON
+                                                  +-> stream PROCESS_LOG
+core text: packets -> pcapng -> SDK -> TextEvent ---+-> output terminals/JSON
+                                                  +-> stream TEXT
+native: keylog/pcapng encoder -> native artifact ---+-> output terminal summary
+                                                  +-> network native EVENT
+pcapng packets/secrets -> subscriber encoder ------+-> stream PCAPNG
 ```
 
-The layers are:
-
-1. semantic sources: operational records and captured domain events;
-2. routing/representation: logger, dispatcher, handlers, and encoders;
-3. destinations: independently constructed `ByteSink` instances or typed
-   eCaptureQ publishers.
-
-Classification happens before representation and transport selection.
-Captured payloads and TLS secrets must never enter `--logaddr` or eCaptureQ
-`PROCESS_LOG`. Raw artifacts and typed eCaptureQ events are additive outputs.
+Classification happens before encoding: runtime logs are `PROCESS_LOG`,
+captured data is `EVENT`. Both use the same v2 envelope in JSON and Protobuf.
+Native artifacts remain separate files; file `--output` targets receive only
+runtime logs in keylog/pcapng mode. Text-source pcapng remains TEXT and does not
+publish its optional raw artifacts as native network events.
 
 ## Contracts and ownership
 
@@ -42,18 +35,17 @@ type ByteSink interface {
 }
 ```
 
-`OutputWriter` remains a compatibility alias. Supported sinks are stdout,
-file, ordered TCP, and ordered binary WebSocket frames. Callers reconstruct a
-WebSocket artifact by concatenating frame payloads in arrival order. A failed
-connection terminates the stream; there is no reconnect in the middle of a
-pcapng artifact.
+`OutputWriter` remains an internal compatibility alias. The CLI output set
+owns terminal/JSON publishers and the stream server. Handlers borrow them.
+`JSONPublisher` writes and flushes one v2 `LogEntry` per line, with ordered,
+bounded network I/O and latched errors; it never reconnects within a generation.
+`ConsolePublisher` serializes whole records and labels every physical line.
 
-`writers.WriterFactory` centralizes raw destination construction for the
-default text path and TLS keylog/pcapng paths. Text handlers preserve event
-`String()` / `StringHex()` output without operational-log fields.
-`KeylogWriter` normalizes each record to one trailing newline without
-modifying caller-owned bytes, reports short writes, and forwards flush/close
-errors. `KeylogHandler` owns keylog deduplication.
+`WriterFactory` constructs local native files and JSON destinations. Hook
+text retains `String()`/`StringHex()` output; SDK text retains formatted decoded
+content plus structured metadata. `KeylogWriter` normalizes each NSS record to
+one trailing newline; `KeylogHandler` deduplicates it. `NativeSink` publishes
+encoded NSS/pcapng bytes after the encoder, never raw packet rows or summaries.
 
 The dispatcher owns registered handlers. A handler owns its encoder/session
 and the primary ByteSink it was constructed with. `pcapng.KeylogAdapter` is a
@@ -68,10 +60,11 @@ Typed destinations implement `OperationalLogSink` or `CapturedEventSink`.
 eCaptureQ implements both contracts and is deliberately not an `io.Writer` or
 ByteSink. The zerolog adapter exists only at the operational-logger edge.
 Injected runtime dependencies are borrowed, excluded from configuration JSON,
-and reattached after reload. Serializable captured-event destination and
-rotation settings remain in the probe configuration: omitted HTTP reload
-fields inherit from the active generation, while explicit empty/zero values
-are preserved.
+and reattached after reload. Destinations cannot be changed through HTTP, and
+core factories reject old destination/rotation fields, including null/zero.
+Network outputs close after final drain at each generation boundary. Native
+local files append new NSS lines or independent pcapng sections on reload and
+rollback, preserving preceding capture data.
 
 ## Mode, text source, and destination matrix
 
@@ -88,12 +81,12 @@ produces an actionable configuration error. Explicit `--text-source=hook` retain
 function-hook capture without an interface. All three HTTP configs use the same
 mode-dependent default when `text_source` is omitted or empty; keylog/pcapng modes do not inherit it.
 
-| Mode / text source | Representation | Valid primary ByteSink | eCaptureQ event |
+| Mode / text source | Terminal | Output file | Network JSON / Protobuf v2 |
 | --- | --- | --- | --- |
-| text (hook) | UTF-8 event text | empty/stdout, file, TCP, binary WebSocket | structured ordinary event |
-| text (pcapng source) | Application messages, streaming events or raw TLS/QUIC/DTLS data | empty/stdout, file, TCP, binary WebSocket | sensitive reconstructed event with text format |
-| keylog | NSS Key Log lines | explicit stdout, file, TCP, binary WebSocket | structured sensitive event |
-| pcapng | ordered pcapng with DSB | explicit stdout, file, TCP, binary WebSocket | sensitive packet rows, never raw pcapng chunks |
+| text (hook) | labelled formatted text | logs + TEXT | logs + TEXT |
+| text (pcapng source) | labelled SDK-decoded text | logs + TEXT | logs + TEXT |
+| keylog | logs + labelled NSS records | logs only | logs + encoded NSS bytes |
+| pcapng | logs + encoded-byte summaries | logs only | logs + encoded pcapng bytes |
 
 `-m text --text-source=pcapng` uses the same packet and keylog dispatcher records as pcapng, but
 passes their pcapng encoding through a pipe to `ecapture_decryptor`. The SDK
@@ -142,8 +135,9 @@ cleanup. This relies on the SDK joining its workers after input/context
 cancellation and typed publishers honoring context. It cannot bound an OS-level
 uninterruptible regular-file write/fsync or an arbitrary non-cancellable writer.
 
-Pinned SDK v1.4.3 contract caveat: `api.go:processPcapngStreamMode` joins
-`connectionError()` into its result during teardown, and
+SDK completion-contract caveat (identified in v1.4.3):
+`api.go:processPcapngStreamMode` joins `connectionError()` into its result
+during teardown, and
 `pcapng_stream.go:DecryptPcapngStreamWithOptions` joins engine, callback and
 context errors without an overall typed outcome. Thus a locally initiated EOF
 with historical connection failures can still produce nonzero exit. Do not infer
@@ -177,8 +171,9 @@ Arguments are captured data and must not be copied into operational logs.
 
 Decryptor v1.4.2 and later read these EPB comments into optional `ProcessArgs` snapshots.
 The reconstructed publisher forwards raw argv and its truncation flag through
-additive eCaptureQ fields 18/19 without altering the HTTP payload or connection
-identity. Older readers ignore these fields; older senders leave them absent.
+v2 `TextEvent.process_args` and `process_args_truncated` (fields 18/19)
+without altering the formatted TEXT payload or connection identity. These fields
+are nested under `LogEntry.event_payload.text`; v1 decoders are not supported.
 Consumers must preserve the raw bytes and truncation flag; process arguments
 are captured snapshots, not guaranteed original exec commands.
 
@@ -191,12 +186,12 @@ sockets or missed TCP SYN reuse. Keep the SDK dependency pinned to a version
 that reads this trailer, and retain the gopacket replacement.
 
 When the SDK provides `Metadata["tls"]` as a string map, the text/pcapng
-publisher copies this non-secret handshake snapshot into eCaptureQ `Event.tls`
-(field 20). This does not change the primary text ByteSink representation or
-HTTP payload. Version/cipher/ALPN are observed selections, while JA3/JA4 and
-SNI come from the first wire ClientHello (Outer for ECH). Missing observations
-remain absent. SDK v1.4.3 provides this optional metadata and is the pinned
-dependency for handshake output.
+publisher copies this non-secret handshake snapshot into v2 `TextEvent.tls`
+(field 20), nested under `LogEntry.event_payload.text`. This does not change the
+formatted TEXT payload. Version/cipher/ALPN are observed selections, while
+JA3/JA4 and SNI come from the first wire ClientHello (Outer for ECH). Missing observations
+remain absent. SDK v1.4.3 introduced this optional metadata; the current
+dependency in `go.mod` is v1.4.4.
 
 `config.DecryptConfig` holds the shared serializable parsing options for TLS,
 GoTLS and GnuTLS. `--text-protocol` selects DoT/DoH/DoQ/MQTT/Redis;
@@ -210,8 +205,8 @@ All require text/pcapng source. SDK option validation runs before opening sinks.
 messages without application parsing. Tagged events and nested TLS output
 preserve all SDK metadata as JSON and payload as lossless hex, including empty
 headers/trailers/datagrams. Only actual stream metadata adds offset/end/stream
-fields. Text sinks and typed EVENT payloads use the same representation; its
-header records the decoded byte length. Untagged complete HTTP messages keep
+fields. Terminal events and v2 TEXT payloads use the same formatted
+representation; its header records the decoded byte length. Untagged complete HTTP messages keep
 their existing text representation.
 For structured events, typed `OriginalLength` is the length of that text representation. A TLS end
 marker denotes the end of captured input, not a complete application message;
@@ -224,70 +219,46 @@ HRR and early-data acceptance/rejection progress is logged at debug level;
 failure diagnostics remain warnings, subject to the bounded diagnostic bucket
 described above. Observers write safe reason codes to the operational logger.
 
-The maintained strict Linux E2E suites exercise operational logs and the
-text, keylog, and pcapng representations against all four ByteSink types for
-OpenSSL, GoTLS, and GnuTLS. The pcapng text source has a strict live-output file case
-with optional pcapng for each module. Typed eCaptureQ receivers cover text,
-keylog, pcapng, and the decrypted HTTP path in the OpenSSL suite.
-
-Plain paths and `file://` are files. Unknown or malformed URI schemes fail
-validation. Rotation is valid only for file-backed text/keylog streams and is
-rejected for pcapng or network sinks. New keylog, pcapng, and reconstructed
-plaintext files are created with sensitive permissions. Keylog and pcapng
-files are truncated at capture start.
-
-Operational console output uses stderr. Pcapng stdout therefore contains only
-binary pcapng. An explicit `--logaddr stdout` plus pcapng `--eventaddr stdout`
-is rejected before probe initialization.
+The maintained strict Linux E2E suites exercise TLS/OpenSSL, GoTLS and GnuTLS
+using stdout/stderr, JSON files, outgoing TCP and v2 subscriptions. Tests retain
+plaintext/metadata assertions, independent keylog and DSB decryption, native
+file isolation, and removal/reload validation.
 
 ## CLI normalization
 
-`--eventaddr` is the uniform primary event destination for OpenSSL, GoTLS, and
-GnuTLS. Mode selects representation; address selects transport.
+`--output` accepts repeated stdout/stderr, file paths/file://, and outgoing
+TCP destinations. Outgoing WS/WSS is unsupported. No explicit output
+means stdout; explicit values replace that default. Duplicate targets and
+file aliases shared with native artifacts are rejected before opening sinks.
+Terminal streams cannot be native artifact destinations.
 
-- text defaults to event stdout;
-- keylog requires a destination; `--keylogfile` is its legacy primary-file
-  alias;
-- pcapng requires a destination; `--pcapfile` is its legacy primary-file
-  alias;
-- in pcapng mode, `--keylogfile` is a separate optional keylog artifact;
-- text with `--text-source=pcapng` defaults to plaintext stdout; `--pcapfile` and `--keylogfile` are
-  optional artifacts and their Cobra defaults are cleared unless explicitly
-  set;
-- explicitly setting `--eventaddr` and the corresponding legacy primary flag
-  is an error.
+`--model keylog` requires `--keylogfile`; `--model pcapng` requires `--pcapfile`.
+Text-source pcapng may additionally save either artifact. Native files are
+created with 0600 permissions, truncated on first capture startup, and appended
+on reload/rollback. JSON files append with 0600 permissions. Existing file
+permissions are retained. Rotation CLI flags and old output/listener names
+are removed, with no compatibility routing.
 
-Default legacy filenames supplied by current Cobra flags remain compatible.
-Calling `Configuration.Validate()` repeatedly preserves the normalized result.
+## Streaming protocol
 
-## eCaptureQ protocol
+`--stream-listen ws://host:port/path` exposes only the selected WebSocket path.
+Clients must negotiate `ecapture.v2`. Each binary frame is a v2 `LogEntry`:
+`HEARTBEAT`, `PROCESS_LOG` or `EVENT`. Event contains a capture-format enum and
+matching oneof: TextEvent metadata/payload, KeylogEvent.data, or PcapngEvent.data.
+See `protobuf/proto/v2/ecaptureq.proto` and `protobuf/v2` for schema/validation.
 
-Every WebSocket message is one binary protobuf `LogEntry`:
+A receiver concatenates native bytes in arrival order within one connection.
+Message boundaries need not coincide with pcapng block/packet boundaries.
+Each late pcapng subscriber gets an independent encoder starting with SHB/IDB,
+then future packets and secrets. Historical traffic/secrets are not replayed;
+old TLS sessions may not decrypt, and subscriber files differ from local files.
+A new client gets at most 128 startup operational logs, never historical events.
 
-- `HEARTBEAT` is transport health;
-- `PROCESS_LOG` is an operational record for the status area;
-- `EVENT` is a captured event for the event table.
-
-`EVENT` includes format, sensitivity, timestamp, UUID, PID/process, available
-network tuple and direction, payload/original length, and optional stream
-identity/sequence. Publishers consume the original domain event and metadata;
-they do not reverse-parse text, keylog, or pcapng bytes. Pcapng DSB-only secret
-events are not published as table rows.
-
-Reconstructed events forward the SDK's PID/process fields when available,
-using the existing envelope and protobuf fields. Unknown attribution is PID
-zero; older SDKs may also supply the placeholder name `decryptor`, which must
-not be presented as a captured process. Ordinary publishers accept both
-`GetPid() uint32` and
-`GetPID() uint64` event accessors, including MySQL query events. UUID remains
-module-defined and must not be parsed as a universal process identity.
-
-Connected clients receive live records immediately. A new client first gets
-at most the latest 128 operational records, followed by live traffic through a
-serialized handoff. Captured events are not retained in startup history.
-Queue saturation returns an error and increments the observable dropped count.
-Server close cancels the hub, unblocks clients, joins owned goroutines, and is
-idempotent.
+Normal generation shutdown drains encoders/queues and closes WS with code 1000;
+failed capture uses 1011. TCP EOF does not prove completeness. Receiver examples
+preserve incomplete/abrupt files as partial and start a fresh artifact on a new
+connection. A slow subscriber is disconnected; queue/client counts and network
+waits are bounded. Server close joins its goroutines and is idempotent.
 
 ## Verification contract
 
@@ -296,10 +267,10 @@ Changes must preserve content and failure behavior, not merely create output:
 - Unit and race coverage checks short writes, flush/close errors, concurrent
   producers, repeated close, pcapng packet/DSB drain, and queue saturation.
 - Runtime dependencies stay out of configuration JSON and remain borrowed
-  across reload; repeated validation and legacy flag conflicts are tested.
-- Strict TLS E2E checks all supported ByteSinks, independent keylog/DSB
+  across reload; repeated validation and removed-flag rejection are tested.
+- Strict core TLS E2E checks all supported destinations, independent keylog/DSB
   decryption, operational/event isolation, typed eCaptureQ classification
-  alongside raw output, and final delivery during graceful shutdown.
+  alongside JSON/terminal output, and final delivery during graceful shutdown.
 
 Use [build and verification](build-test.md) for commands and platform gates,
 and the [E2E guide](../../test/e2e/README.md) for the maintained matrix. Retain

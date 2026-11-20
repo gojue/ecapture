@@ -1,3 +1,15 @@
+# Unreleased
+
+## Breaking changes
+
+* Replace the old output CLI with `--config-listen`, repeatable `--output`, and `--stream-listen`. Remove `--listen`, `--eventaddr`, `--logaddr`/`-l`, `--ecaptureq`, and event rotation flags without aliases. Explicit output destinations replace the default `stdout`; stdout/stderr render labeled text, and local files/TCP use JSON Lines. Startup scripts and receivers must migrate together.
+* Apply the new output contract to core TLS (OpenSSL/BoringSSL), GoTLS and GnuTLS in text, keylog and pcapng modes. Text files contain both operational logs and events; keylog/pcapng output files contain operational logs only. Native modes require explicit `--keylogfile` or `--pcapfile` paths, separate from JSON files. Text-mode native artifacts remain optional.
+* Publish Protobuf v2 only, with canonical module names, typed TEXT/KEYLOG/PCAPNG oneof content and actual encoded native bytes. WebSocket subscriptions require `ecapture.v2`; v1 decoders must upgrade. Preserve TEXT process/argv/network/TLS metadata and concatenate native bytes after decoding the record envelope.
+* Bound network output connections to one capture generation. Reload closes/drains old connections; receivers reconnect into new native files. Late pcapng subscribers receive fresh headers and future packets/secrets only. Interrupted captures stay partial; TCP EOF alone is not a success marker.
+* Reject old routing fields and new process-lifetime output settings in core HTTP reload requests, including explicit null values. Change endpoints by restarting with new CLI arguments.
+
+See the [output migration guide](docs/event-forward-api.md), [v2 protocol](protobuf/PROTOCOLS.md), and [receiver example](examples/ecaptureq_client/README.md).
+
 # v2.11.0 (2026-11-14)
 
 ## Breaking Changes / Migration

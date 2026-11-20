@@ -28,6 +28,7 @@ import (
 
 	pkgebpf "github.com/gojue/ecapture/v2/pkg/util/ebpf"
 
+	outputpipeline "github.com/gojue/ecapture/v2/internal/output"
 	"github.com/gojue/ecapture/v2/internal/output/decrypt"
 	"github.com/gojue/ecapture/v2/internal/output/pcapng"
 	"github.com/gojue/ecapture/v2/internal/output/writers"
@@ -213,6 +214,9 @@ func (p *Probe) Events() []*ebpf.Map {
 
 // Close releases all probe resources.
 func (p *Probe) Close() error {
+	if p.Logger() == nil {
+		return p.BaseProbe.Close()
+	}
 	p.Logger().Debug().Msg("Closing OpenSSL probe")
 
 	// Stop eBPF manager
@@ -469,6 +473,7 @@ func (p *Probe) setupManagerPcapNG() error {
 		keylogFileWriter, err := writers.NewWriterFactory().CreateEventSink(writers.EventSinkOptions{
 			Address: keylogFile,
 			Format:  writers.EventFormatKeylog,
+			Append:  p.config.GetRuntimeOutput() != nil && p.config.GetRuntimeOutput().AppendArtifacts,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to create standalone keylog sink: %w", err)
@@ -487,29 +492,44 @@ func (p *Probe) setupManagerPcapNG() error {
 	pcapAddr := p.config.GetEventCollectorAddr()
 	if handlers.IsPcapngText(p.config.CaptureMode, p.config.TextSource) {
 		var eventSinks []domain.CapturedEventSink
+		var suppressDefaultText bool
 		if runtime := p.config.GetRuntimeOutput(); runtime != nil {
 			eventSinks = runtime.EventSinks
+			suppressDefaultText = runtime.SuppressDefaultText
 		}
-		if err := decrypt.Register(p.Context(), p.Fail, p.Dispatcher(), p.config.Ifname, p.config.PcapFilter, p.Logger(), pcapAddr, p.config.PcapFile, writers.NewRotateConfig(p.config.GetEventRotation()), eventSinks, p.config.DecryptOptions()); err != nil {
+		if err := decrypt.Register(p.Context(), p.Fail, p.Dispatcher(), p.config.Ifname, p.config.PcapFilter, p.Logger(), pcapAddr, p.config.PcapFile, writers.NewRotateConfig(p.config.GetEventRotation()), eventSinks, suppressDefaultText, p.config.DecryptOptions(), p.config.GetRuntimeOutput() != nil && p.config.GetRuntimeOutput().AppendArtifacts); err != nil {
 			return err
 		}
 		p.bpfManager = &manager.Manager{Probes: probes, Maps: maps}
 		return nil
 	}
 	if pcapAddr == "" {
-		return fmt.Errorf("pcapng mode requires an event destination")
+		return fmt.Errorf("pcapng mode requires --pcapfile")
 	}
 
 	pcapSink, err := writers.NewWriterFactory().CreateEventSink(writers.EventSinkOptions{
 		Address:      pcapAddr,
 		Format:       writers.EventFormatPcapng,
+		Append:       p.config.GetRuntimeOutput() != nil && p.config.GetRuntimeOutput().AppendArtifacts,
 		RotateConfig: writers.NewRotateConfig(p.config.GetEventRotation()),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create pcapng sink: %w", err)
 	}
+	var eventSinks []domain.CapturedEventSink
+	var observers []domain.PcapngObserver
+	if runtime := p.config.GetRuntimeOutput(); runtime != nil {
+		eventSinks = runtime.EventSinks
+		observers = runtime.PcapngObservers
+	}
+	nativeSink, err := outputpipeline.NewNativeSink(pcapSink, domain.CaptureFormatPcapng, eventSinks, p.Fail)
+	if err != nil {
+		_ = pcapSink.Close()
+		return fmt.Errorf("create native pcapng publisher: %w", err)
+	}
+	pcapSink = nativeSink
 
-	pcapHandler, err := handlers.NewPcapngHandler(pcapSink, p.config.Ifname, p.config.PcapFilter, p.Logger())
+	pcapHandler, err := handlers.NewPcapngHandler(pcapSink, p.config.Ifname, p.config.PcapFilter, p.Logger(), observers...)
 	if err != nil {
 		_ = pcapSink.Close()
 		return fmt.Errorf("failed to create pcapng handler: %w", err)
@@ -523,7 +543,7 @@ func (p *Probe) setupManagerPcapNG() error {
 	// pcapSink will be closed through pcapHandler.Close() when the dispatcher closes.
 	// Do not add it to p.closer to avoid double-close.
 
-	keylogAdapter := pcapng.NewKeylogAdapter(pcapHandler.Session())
+	keylogAdapter := pcapng.NewKeylogAdapter(pcapHandler.Session(), observers...)
 	pcapKeylogHandler := handlers.NewKeylogHandler(keylogAdapter)
 	if err := p.BaseProbe.Dispatcher().Register(pcapKeylogHandler); err != nil {
 		_ = pcapHandler.Close()
@@ -546,7 +566,7 @@ func (p *Probe) setupManagerKeyLog() error {
 
 	keylogAddr := p.config.GetEventCollectorAddr()
 	if keylogAddr == "" {
-		return fmt.Errorf("keylog mode requires an event destination")
+		return fmt.Errorf("keylog mode requires --keylogfile")
 	}
 
 	opensslPath := p.config.OpensslPath
@@ -605,12 +625,23 @@ func (p *Probe) setupManagerKeyLog() error {
 	keylogFileWriter, err := writers.NewWriterFactory().CreateEventSink(writers.EventSinkOptions{
 		Address:      keylogAddr,
 		Format:       writers.EventFormatKeylog,
+		Append:       p.config.GetRuntimeOutput() != nil && p.config.GetRuntimeOutput().AppendArtifacts,
 		RotateConfig: writers.NewRotateConfig(p.config.GetEventRotation()),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create keylog writer: %w", err)
 	}
 
+	var eventSinks []domain.CapturedEventSink
+	if runtime := p.config.GetRuntimeOutput(); runtime != nil {
+		eventSinks = runtime.EventSinks
+	}
+	nativeSink, err := outputpipeline.NewNativeSink(keylogFileWriter, domain.CaptureFormatKeylog, eventSinks, p.Fail)
+	if err != nil {
+		_ = keylogFileWriter.Close()
+		return fmt.Errorf("create native keylog publisher: %w", err)
+	}
+	keylogFileWriter = nativeSink
 	keylogWriter := writers.NewKeylogWriter(keylogFileWriter)
 	keylogHandler := handlers.NewKeylogHandler(keylogWriter)
 	if err := p.BaseProbe.Dispatcher().Register(keylogHandler); err != nil {

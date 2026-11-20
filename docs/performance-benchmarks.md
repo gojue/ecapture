@@ -5,8 +5,10 @@ eCapture has two complementary benchmark layers:
 1. Go microbenchmarks measure the OpenSSL userspace decode and text-output
    pipeline without loading eBPF programs.
 2. The Linux TLS benchmark measures application overhead and captured-event
-   completeness through the real uprobe, perf-buffer, decoder, dispatcher,
-   and file-writer path, in text or keylog mode.
+   completeness. Text mode captures packets on loopback with TC and secrets
+   with uprobes, feeds pcapng into the decryption SDK, and writes decoded TEXT
+   events as Protobuf v2 JSON Lines. Keylog mode captures NSS secrets through
+   uprobes and writes them to a separate native file.
 
 Do not use the microbenchmarks to claim kernel-side overhead or zero event
 loss. Only the end-to-end benchmark exercises those paths.
@@ -36,7 +38,10 @@ The default text workload is modeled on [issue #990](https://github.com/gojue/ec
 short-lived TLS connections, HTTP/1.1 `Connection: close`, a 96 KiB upload, and
 a 10 ms launch interval. Each request and response carries a unique marker, so
 the harness measures data-event completeness directly instead of inferring it
-from request counts or log line totals.
+from request counts or log line totals. Text capture explicitly selects
+`--model text --text-source pcapng --ifname lo`; it measures the packet/SDK
+path, not the older function-hook plaintext path. Before counting markers,
+the harness validates every v2 JSON record and extracts only TEXT payloads.
 
 ### Requirements
 
@@ -65,7 +70,7 @@ The defaults run three paired baseline/capture trials with:
 | `BENCH_RUNS` | `3` | paired baseline/capture trials |
 | `BENCH_MAP_PAGES` | `8192` | perf-reader pages per CPU passed to `--mapsize` |
 | `BENCH_TLS_VERSION` | `tls13` | `tls12` or `tls13` |
-| `BENCH_MODE` | `text` | `text` marker capture or `keylog` secret capture |
+| `BENCH_MODE` | `text` | SDK-decoded `text` marker capture or native `keylog` secret capture |
 | `BENCH_WRITE_BYTES` | `0` | Maximum bytes per `SSL_write`; nonzero values require `keylog` mode, zero keeps the original whole-request write |
 | `BENCH_FAIL_ON_LOSS` | `0` | set to `1` for a zero-loss regression gate |
 | `BENCH_ARTIFACT_ROOT` | `/tmp/ecapture-benchmark` | private result parent directory |
@@ -144,9 +149,11 @@ Every benchmark invocation preserves a mode-0700 artifact directory and writes:
 - `comparison.tsv`: capture-versus-baseline throughput and p99 deltas plus the
   loss/resource columns;
 - per-request duration/error files;
-- eCapture operational logs and plaintext or keylog output for each capture
-  trial; keylog trials also retain client reference and normalized comparison
-  keylogs, created with mode 0600;
+- the original Protobuf v2 JSON Lines output and decoded runtime-log
+  projection for each capture trial; text trials also retain the extracted
+  TEXT payloads used for marker counts; keylog trials use an explicit
+  `--keylogfile`, require the JSON output to contain runtime logs only, and
+  retain client reference and normalized comparison keylogs with mode 0600;
 - server logs and the exact locally built fixtures;
 - `environment.txt`: commit, benchmark settings, OS/kernel/CPU/memory,
   toolchain versions, eCapture version, and the linked OpenSSL library.

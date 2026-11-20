@@ -43,9 +43,9 @@ import (
 
 // Register installs the low-latency packet handler and its borrowed DSB
 // keylog adapter on one probe dispatcher.
-func Register(ctx context.Context, fail func(error), dispatcher domain.EventDispatcher, ifName, filter string, logger *logger.Logger, eventAddr, pcapAddr string, rotation *writers.RotateConfig, eventSinks []domain.CapturedEventSink, options types.DecryptOptions) error {
+func Register(ctx context.Context, fail func(error), dispatcher domain.EventDispatcher, ifName, filter string, logger *logger.Logger, eventAddr, pcapAddr string, rotation *writers.RotateConfig, eventSinks []domain.CapturedEventSink, suppressDefaultText bool, options types.DecryptOptions, appendArtifacts ...bool) error {
 	options.OnDiagnostic = diagnosticLogger(logger)
-	sink, err := newSink(ctx, fail, eventAddr, pcapAddr, rotation, eventSinks, options, decryptor.DecryptPcapngStreamWithOptions)
+	sink, err := newSink(ctx, fail, eventAddr, pcapAddr, rotation, eventSinks, suppressDefaultText, options, decryptor.DecryptPcapngStreamWithOptions, appendArtifacts...)
 	if err != nil {
 		return err
 	}
@@ -76,6 +76,7 @@ type Sink struct {
 	pipeReader *io.PipeReader
 	plainSink  writers.ByteSink
 	pcapSink   writers.ByteSink
+	eventSinks []domain.CapturedEventSink // borrowed; interrupted on terminal failure
 	done       chan struct{}
 	mu         sync.Mutex // lifecycle only; never held across I/O
 	writeMu    sync.Mutex
@@ -95,33 +96,42 @@ const shutdownTimeout = 5 * time.Second
 type streamDecrypt func(context.Context, io.ReadCloser, func(*types.DecryptedPacket) error, types.DecryptOptions) error
 
 func NewSink(eventAddr, pcapAddr string, rotation *writers.RotateConfig, eventSinks []domain.CapturedEventSink, options types.DecryptOptions) (*Sink, error) {
-	return newSink(context.Background(), nil, eventAddr, pcapAddr, rotation, eventSinks, options, decryptor.DecryptPcapngStreamWithOptions)
+	return newSink(context.Background(), nil, eventAddr, pcapAddr, rotation, eventSinks, false, options, decryptor.DecryptPcapngStreamWithOptions)
 }
 
-func newSink(parent context.Context, fail func(error), eventAddr, pcapAddr string, rotation *writers.RotateConfig, eventSinks []domain.CapturedEventSink, options types.DecryptOptions, run streamDecrypt) (*Sink, error) {
+func newSink(parent context.Context, fail func(error), eventAddr, pcapAddr string, rotation *writers.RotateConfig, eventSinks []domain.CapturedEventSink, suppressDefaultText bool, options types.DecryptOptions, run streamDecrypt, appendArtifacts ...bool) (*Sink, error) {
 	if err := options.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid decrypt options: %w", err)
 	}
+	if suppressDefaultText && len(eventSinks) == 0 {
+		return nil, fmt.Errorf("decrypted text output requires at least one captured-event destination")
+	}
 	factory := writers.NewWriterFactory()
-	plainSink, err := factory.CreateEventSink(writers.EventSinkOptions{
-		Address: eventAddr, Format: writers.EventFormatText, RotateConfig: rotation, Sensitive: true,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("create decrypted event sink: %w", err)
+	var plainSink writers.ByteSink
+	var err error
+	if !suppressDefaultText {
+		plainSink, err = factory.CreateEventSink(writers.EventSinkOptions{
+			Address: eventAddr, Format: writers.EventFormatText, RotateConfig: rotation, Sensitive: true,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("create decrypted event sink: %w", err)
+		}
 	}
 	var pcapSink writers.ByteSink
 	if pcapAddr != "" {
 		pcapSink, err = factory.CreateEventSink(writers.EventSinkOptions{
-			Address: pcapAddr, Format: writers.EventFormatPcapng,
+			Address: pcapAddr, Format: writers.EventFormatPcapng, Append: len(appendArtifacts) > 0 && appendArtifacts[0],
 		})
 		if err != nil {
-			_ = plainSink.Close()
+			if plainSink != nil {
+				_ = plainSink.Close()
+			}
 			return nil, fmt.Errorf("create optional pcapng sink: %w", err)
 		}
 	}
 	pipeReader, pipeWriter := io.Pipe()
 	ctx, cancel := context.WithCancel(context.Background())
-	sink := &Sink{pipeWriter: pipeWriter, pipeReader: pipeReader, plainSink: plainSink, pcapSink: pcapSink, done: make(chan struct{}), cancel: cancel, onFailure: fail}
+	sink := &Sink{pipeWriter: pipeWriter, pipeReader: pipeReader, plainSink: plainSink, pcapSink: pcapSink, eventSinks: append([]domain.CapturedEventSink(nil), eventSinks...), done: make(chan struct{}), cancel: cancel, onFailure: fail}
 	// Cancellation allows final queued output to drain, then interrupts blocked I/O.
 	sink.stopWatch = context.AfterFunc(parent, func() {
 		timer := time.NewTimer(shutdownTimeout)
@@ -146,22 +156,24 @@ func newSink(parent context.Context, fail func(error), eventAddr, pcapAddr strin
 			if err != nil {
 				return err
 			}
-			if n, err := plainSink.Write(payload); err != nil {
-				return err
-			} else if n != len(payload) {
-				return io.ErrShortWrite
-			}
-			if err := plainSink.Flush(); err != nil {
-				return err
-			}
-			sequence := sink.sequence.Add(1)
-			for _, publisher := range eventSinks {
-				envelope := messageEnvelope(packet, payload, sequence)
-				if err := publisher.PublishEvent(ctx, envelope); err != nil {
-					return err
+			var outputErrors []error
+			if plainSink != nil {
+				if n, err := plainSink.Write(payload); err != nil {
+					outputErrors = append(outputErrors, err)
+				} else if n != len(payload) {
+					outputErrors = append(outputErrors, io.ErrShortWrite)
+				} else if err := plainSink.Flush(); err != nil {
+					outputErrors = append(outputErrors, err)
 				}
 			}
-			return nil
+			sequence := sink.sequence.Add(1)
+			for _, publisher := range sink.eventSinks {
+				envelope := messageEnvelope(packet, payload, sequence)
+				if err := publisher.PublishEvent(ctx, envelope); err != nil {
+					outputErrors = append(outputErrors, err)
+				}
+			}
+			return errors.Join(outputErrors...)
 		}, options)
 		sink.mu.Lock()
 		closing := sink.closed
@@ -188,7 +200,7 @@ func messageEnvelope(packet *types.DecryptedPacket, formatted []byte, sequence u
 		SourceIP: packet.SrcIP, SourcePort: packet.SrcPort,
 		DestinationIP: packet.DstIP, DestinationPort: packet.DstPort,
 		ProcessName: packet.PName, Direction: packet.Direction,
-		Payload: append([]byte(nil), packet.Data...), OriginalLength: uint32(len(packet.Data)), Sequence: sequence,
+		Payload: append([]byte(nil), formatted...), OriginalLength: uint32(len(packet.Data)), Sequence: sequence,
 	}
 	if packet.PID > 0 {
 		envelope.PID = uint64(packet.PID)
@@ -200,10 +212,9 @@ func messageEnvelope(packet *types.DecryptedPacket, formatted []byte, sequence u
 	if tls, ok := packet.Metadata["tls"].(map[string]string); ok {
 		envelope.TLS = maps.Clone(tls)
 	}
-	// Structured events can carry metadata without payload. Preserve both using
-	// the existing text representation and existing protobuf process fields.
+	// Every TEXT record carries the SDK's formatted output, including timestamps
+	// and application metadata. Structured events may have no raw payload.
 	if structuredMessage(packet) {
-		envelope.Payload = append([]byte(nil), formatted...)
 		envelope.OriginalLength = uint32(len(formatted))
 	}
 	if id, ok := packet.Metadata["stream_id"]; ok {
@@ -245,6 +256,11 @@ func (s *Sink) Fail(err error) {
 	// Network sinks expose an interrupt that does not wait for a writer lock.
 	for _, sink := range []writers.ByteSink{s.plainSink, s.pcapSink} {
 		if abort, ok := sink.(interface{ Abort() }); ok {
+			abort.Abort()
+		}
+	}
+	for _, publisher := range s.eventSinks {
+		if abort, ok := publisher.(interface{ Abort() }); ok {
 			abort.Abort()
 		}
 	}
@@ -339,7 +355,10 @@ func (s *Sink) Close() error {
 		if s.pcapSink != nil {
 			pcapErr = errors.Join(s.pcapSink.Flush(), s.pcapSink.Close())
 		}
-		outputErr := errors.Join(s.plainSink.Flush(), s.plainSink.Close(), pcapErr)
+		outputErr := pcapErr
+		if s.plainSink != nil {
+			outputErr = errors.Join(s.plainSink.Flush(), s.plainSink.Close(), outputErr)
+		}
 		s.mu.Lock()
 		s.finished = true // late deadline callbacks must not turn success into failure
 		failure := s.failure

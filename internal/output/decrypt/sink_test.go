@@ -74,11 +74,11 @@ func TestMessageEnvelopePreservesProcessAndRepresentation(t *testing.T) {
 			envelope.Format != domain.CaptureFormatText || envelope.Sensitivity != domain.SensitivitySensitive {
 			t.Fatal("captured metadata changed")
 		}
-		want := packet.Data
+		originalLength := len(packet.Data)
 		if structured {
-			want = formatted
+			originalLength = len(formatted)
 		}
-		if !bytes.Equal(envelope.Payload, want) || envelope.OriginalLength != uint32(len(want)) {
+		if !bytes.Equal(envelope.Payload, formatted) || envelope.OriginalLength != uint32(originalLength) {
 			t.Fatal("captured representation changed")
 		}
 		if envelope.TLS["version"] != "TLS 1.3" {
@@ -262,6 +262,267 @@ func TestSinkInvalidOptionsLeaveFilesUntouched(t *testing.T) {
 	}
 }
 
+type typedOnlyPublisher struct {
+	events  chan domain.CapturedEventEnvelope
+	err     error
+	entered chan struct{}
+	aborted chan struct{}
+	once    sync.Once
+	closed  atomic.Bool
+}
+
+func (p *typedOnlyPublisher) PublishEvent(_ context.Context, event domain.CapturedEventEnvelope) error {
+	if p.entered != nil {
+		close(p.entered)
+		<-p.aborted
+	}
+	if p.events != nil {
+		p.events <- event
+	}
+	return p.err
+}
+func (p *typedOnlyPublisher) Name() string { return "typed-only" }
+func (p *typedOnlyPublisher) Close() error {
+	p.closed.Store(true)
+	return nil
+}
+func (p *typedOnlyPublisher) Abort() {
+	if p.aborted != nil {
+		p.once.Do(func() { close(p.aborted) })
+	}
+}
+
+func TestSinkTypedOnlyPreservesMessagesAndPcapCopy(t *testing.T) {
+	for _, structured := range []bool{false, true} {
+		name := "http"
+		if structured {
+			name = "structured"
+		}
+		t.Run(name, func(t *testing.T) {
+			packet := formatTestPacket("http/1.1", "response", []byte("HTTP/1.1 200 OK\r\n\r\nsynthetic response"))
+			if structured {
+				packet.Metadata["kind"] = "datagram"
+			}
+			publisher := &typedOnlyPublisher{events: make(chan domain.CapturedEventEnvelope, 1)}
+			pcapPath := filepath.Join(t.TempDir(), "capture.pcapng")
+			sink, err := newSink(context.Background(), nil, "", pcapPath, nil, []domain.CapturedEventSink{publisher}, true, types.DecryptOptions{},
+				func(_ context.Context, input io.ReadCloser, emit func(*types.DecryptedPacket) error, _ types.DecryptOptions) error {
+					if _, err := io.Copy(io.Discard, input); err != nil {
+						return err
+					}
+					// Final reconstructed messages must still be delivered while closing.
+					return emit(packet)
+				})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if sink.plainSink != nil {
+				t.Fatal("typed-only output opened the default stdout sink")
+			}
+			input := []byte("synthetic pcapng input")
+			if _, err = sink.Write(input); err != nil {
+				t.Fatal(err)
+			}
+			if err = sink.Close(); err != nil {
+				t.Fatal(err)
+			}
+			if err = sink.Close(); err != nil {
+				t.Fatal(err)
+			}
+			if publisher.closed.Load() {
+				t.Fatal("decryption closed a borrowed typed publisher")
+			}
+			select {
+			case event := <-publisher.events:
+				want, err := formatMessage(packet)
+				if err != nil {
+					t.Fatal(err)
+				}
+				originalLength := len(packet.Data)
+				if structured {
+					originalLength = len(want)
+				}
+				if !bytes.Equal(event.Payload, want) || event.OriginalLength != uint32(originalLength) || event.Sequence != 1 || event.PID != 17 {
+					t.Fatal("typed-only output changed the captured message or metadata")
+				}
+			default:
+				t.Fatal("typed-only output lost the final reconstructed message")
+			}
+			copied, err := os.ReadFile(pcapPath)
+			if err != nil || !bytes.Equal(copied, input) {
+				t.Fatalf("optional pcapng copy changed: %v", err)
+			}
+		})
+	}
+}
+
+func TestSinkTypedOnlyRejectsMissingPublisherBeforeOpeningFiles(t *testing.T) {
+	pcapPath := filepath.Join(t.TempDir(), "capture.pcapng")
+	if err := os.WriteFile(pcapPath, []byte("existing"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	sink, err := newSink(context.Background(), nil, "", pcapPath, nil, nil, true, types.DecryptOptions{}, decryptor.DecryptPcapngStreamWithOptions)
+	if err == nil || sink != nil {
+		t.Fatal("typed-only output without a publisher was accepted")
+	}
+	data, err := os.ReadFile(pcapPath)
+	if err != nil || string(data) != "existing" {
+		t.Fatal("invalid typed-only output modified its optional artifact")
+	}
+}
+
+func TestSinkTypedOnlyPublisherFailureIsTerminal(t *testing.T) {
+	root := errors.New("publisher failed")
+	publisher := &typedOnlyPublisher{err: root}
+	failures := make(chan error, 1)
+	sink, err := newSink(context.Background(), func(err error) { failures <- err }, "", "", nil, []domain.CapturedEventSink{publisher}, true, types.DecryptOptions{},
+		func(_ context.Context, _ io.ReadCloser, emit func(*types.DecryptedPacket) error, _ types.DecryptOptions) error {
+			return emit(formatTestPacket("http/1.1", "response", []byte("synthetic response")))
+		})
+	if err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case failure := <-failures:
+		if !captureerrors.IsPipelineError(failure) || !errors.Is(failure, root) {
+			t.Fatal("typed-only publisher failure lost its terminal cause")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("typed-only publisher failure did not stop decryption")
+	}
+	if err = sink.Close(); !errors.Is(err, root) {
+		t.Fatalf("typed-only close lost its publisher error: %v", err)
+	}
+	if publisher.closed.Load() {
+		t.Fatal("failed decryption closed a borrowed publisher")
+	}
+}
+
+func TestSinkPublisherFailureDoesNotSkipOtherDestinations(t *testing.T) {
+	firstError, lastError := errors.New("first publisher failed"), errors.New("last publisher failed")
+	publishers := []*typedOnlyPublisher{
+		{events: make(chan domain.CapturedEventEnvelope, 1), err: firstError},
+		{events: make(chan domain.CapturedEventEnvelope, 1)},
+		{events: make(chan domain.CapturedEventEnvelope, 1), err: lastError},
+	}
+	packet := formatTestPacket("http/1.1", "response", []byte("synthetic response"))
+	failures := make(chan error, 1)
+	sink, err := newSink(context.Background(), func(err error) { failures <- err }, "", "", nil,
+		[]domain.CapturedEventSink{publishers[0], publishers[1], publishers[2]}, true, types.DecryptOptions{},
+		func(_ context.Context, _ io.ReadCloser, emit func(*types.DecryptedPacket) error, _ types.DecryptOptions) error {
+			return emit(packet)
+		})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = sink.Close() })
+	select {
+	case failure := <-failures:
+		if !errors.Is(failure, firstError) || !errors.Is(failure, lastError) {
+			t.Fatalf("fan-out lost one of its output errors: %v", failure)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("fan-out errors did not terminate the pipeline")
+	}
+	for i, publisher := range publishers {
+		select {
+		case event := <-publisher.events:
+			formatted, formatErr := formatMessage(packet)
+			if formatErr != nil {
+				t.Fatal(formatErr)
+			}
+			if !bytes.Equal(event.Payload, formatted) || event.Sequence != 1 || event.UUID != packet.ConnectionID() {
+				t.Fatalf("publisher %d received a different event", i)
+			}
+		default:
+			t.Fatalf("publisher %d was skipped after another output failed", i)
+		}
+	}
+	if err := sink.Close(); !errors.Is(err, firstError) || !errors.Is(err, lastError) {
+		t.Fatalf("close lost an aggregated output error: %v", err)
+	}
+}
+
+func TestSinkPlaintextFailureStillPublishesTypedEvent(t *testing.T) {
+	packet := formatTestPacket("http/1.1", "response", []byte("synthetic response"))
+	publisher := &typedOnlyPublisher{events: make(chan domain.CapturedEventEnvelope, 1)}
+	release := make(chan struct{})
+	failures := make(chan error, 1)
+	sink, err := newSink(context.Background(), func(err error) { failures <- err }, filepath.Join(t.TempDir(), "plaintext"), "", nil,
+		[]domain.CapturedEventSink{publisher}, false, types.DecryptOptions{},
+		func(ctx context.Context, _ io.ReadCloser, emit func(*types.DecryptedPacket) error, _ types.DecryptOptions) error {
+			select {
+			case <-release:
+				return emit(packet)
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = sink.Close() })
+	// Closing the real destination deterministically fails its next write.
+	if err := sink.plainSink.Close(); err != nil {
+		t.Fatal(err)
+	}
+	close(release)
+	select {
+	case failure := <-failures:
+		var terminal *captureerrors.PipelineError
+		if !errors.As(failure, &terminal) || !strings.Contains(terminal.Cause.Error(), "is closed") {
+			t.Fatal("fan-out did not preserve the plaintext write failure")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("plaintext failure did not terminate the pipeline")
+	}
+	select {
+	case event := <-publisher.events:
+		formatted, formatErr := formatMessage(packet)
+		if formatErr != nil {
+			t.Fatal(formatErr)
+		}
+		if !bytes.Equal(event.Payload, formatted) || event.Sequence != 1 {
+			t.Fatal("plaintext failure changed the typed event")
+		}
+	default:
+		t.Fatal("plaintext failure prevented delivery to the typed publisher")
+	}
+	if err := sink.Close(); err == nil {
+		t.Fatal("close swallowed the plaintext failure")
+	}
+}
+
+func TestSinkTypedOnlyFailureInterruptsBlockedPublisher(t *testing.T) {
+	publisher := &typedOnlyPublisher{entered: make(chan struct{}), aborted: make(chan struct{}), err: io.ErrClosedPipe}
+	sink, err := newSink(context.Background(), nil, "", "", nil, []domain.CapturedEventSink{publisher}, true, types.DecryptOptions{},
+		func(_ context.Context, _ io.ReadCloser, emit func(*types.DecryptedPacket) error, _ types.DecryptOptions) error {
+			return emit(formatTestPacket("http/1.1", "response", []byte("synthetic response")))
+		})
+	if err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-publisher.entered:
+	case <-time.After(time.Second):
+		t.Fatal("publisher did not receive a reconstructed event")
+	}
+	sink.Fail(context.DeadlineExceeded)
+	closed := make(chan error, 1)
+	go func() { closed <- sink.Close() }()
+	select {
+	case err = <-closed:
+		if !errors.Is(err, context.DeadlineExceeded) {
+			t.Fatalf("close lost the terminal deadline: %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("typed-only failure left decryption blocked in its publisher")
+	}
+	if publisher.closed.Load() {
+		t.Fatal("interrupting a borrowed publisher closed it")
+	}
+}
+
 func TestSinkInvalidPcapngUnblocksWriteAndClose(t *testing.T) {
 	for _, raw := range []bool{false, true} {
 		name := "parsed"
@@ -330,7 +591,7 @@ func TestSinkBackgroundTermination(t *testing.T) {
 		t.Run(fmt.Sprintf("%T", result), func(t *testing.T) {
 			release := make(chan struct{})
 			failures := make(chan error, 10)
-			s, err := newSink(context.Background(), func(err error) { failures <- err }, filepath.Join(t.TempDir(), "plain"), "", nil, nil, types.DecryptOptions{},
+			s, err := newSink(context.Background(), func(err error) { failures <- err }, filepath.Join(t.TempDir(), "plain"), "", nil, nil, false, types.DecryptOptions{},
 				func(context.Context, io.ReadCloser, func(*types.DecryptedPacket) error, types.DecryptOptions) error {
 					<-release
 					return result
@@ -386,7 +647,7 @@ func TestSinkBackgroundTermination(t *testing.T) {
 
 func TestSinkCloseUnblocksConcurrentWrite(t *testing.T) {
 	entered := make(chan struct{})
-	s, err := newSink(context.Background(), nil, filepath.Join(t.TempDir(), "plain"), "", nil, nil, types.DecryptOptions{},
+	s, err := newSink(context.Background(), nil, filepath.Join(t.TempDir(), "plain"), "", nil, nil, false, types.DecryptOptions{},
 		func(ctx context.Context, input io.ReadCloser, _ func(*types.DecryptedPacket) error, _ types.DecryptOptions) error {
 			close(entered)
 			// Delay consumption until Close has a chance to interrupt the writer.
@@ -416,7 +677,7 @@ func TestSinkCloseUnblocksConcurrentWrite(t *testing.T) {
 func TestSinkNormalEOFAndCancel(t *testing.T) {
 	for _, cancelFirst := range []bool{false, true} {
 		ctx, cancel := context.WithCancel(context.Background())
-		s, err := newSink(ctx, func(error) { t.Error("normal shutdown reported failure") }, filepath.Join(t.TempDir(), "plain"), "", nil, nil, types.DecryptOptions{},
+		s, err := newSink(ctx, func(error) { t.Error("normal shutdown reported failure") }, filepath.Join(t.TempDir(), "plain"), "", nil, nil, false, types.DecryptOptions{},
 			func(_ context.Context, input io.ReadCloser, _ func(*types.DecryptedPacket) error, _ types.DecryptOptions) error {
 				_, err := io.Copy(io.Discard, input)
 				return err
@@ -612,7 +873,7 @@ func TestSinkRealSDKKeylogResourceLimit(t *testing.T) {
 		t.Fatal(err)
 	}
 	failures := make(chan error, 1)
-	sink, err := newSink(context.Background(), func(err error) { failures <- err }, filepath.Join(t.TempDir(), "plain"), "", nil, nil, types.DecryptOptions{}, decryptor.DecryptPcapngStreamWithOptions)
+	sink, err := newSink(context.Background(), func(err error) { failures <- err }, filepath.Join(t.TempDir(), "plain"), "", nil, nil, false, types.DecryptOptions{}, decryptor.DecryptPcapngStreamWithOptions)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -634,7 +895,7 @@ func TestSinkRealSDKKeylogResourceLimit(t *testing.T) {
 func TestSinkFailureDuringConcurrentDeliveryAndClose(t *testing.T) {
 	root := errors.New("SDK failure during shutdown")
 	var failures atomic.Int64
-	s, err := newSink(context.Background(), func(error) { failures.Add(1) }, filepath.Join(t.TempDir(), "plain"), "", nil, nil, types.DecryptOptions{},
+	s, err := newSink(context.Background(), func(error) { failures.Add(1) }, filepath.Join(t.TempDir(), "plain"), "", nil, nil, false, types.DecryptOptions{},
 		func(_ context.Context, input io.ReadCloser, _ func(*types.DecryptedPacket) error, _ types.DecryptOptions) error {
 			_, _ = io.Copy(io.Discard, input)
 			return root

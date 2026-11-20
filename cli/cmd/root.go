@@ -16,10 +16,10 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"net/url"
 	"os"
 	"os/signal"
 	"strings"
@@ -62,19 +62,14 @@ const (
 	defaultTruncateSize uint64 = 0
 )
 
-// ListenPort1 or ListenPort2 are the default ports for the http server.
-const (
-	configUpdateAddr = ""
-)
-
 // CLIConfig keeps serializable per-generation probe settings separate from
 // process-lifetime output services owned by runProbe.
 type CLIConfig struct {
 	config.CommonConfig
 	PerCpuMapPages int
-	LoggerAddr     string
-	EcaptureQ      string
-	Listen         string
+	Outputs        []string
+	ConfigListen   string
+	StreamListen   string
 }
 
 var globalConf = CLIConfig{}
@@ -104,6 +99,19 @@ docker run --rm --privileged=true --net=host -v ${HOST_PATH}:${CONTAINER_PATH} g
 	// Run: func(cmd *cobra.Command, args []string) { },
 
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		if _, err := parseOutputEndpoints(globalConf.Outputs); err != nil {
+			return err
+		}
+		if globalConf.StreamListen != "" {
+			if _, err := parseStreamAddress(globalConf.StreamListen); err != nil {
+				return err
+			}
+		}
+		if globalConf.ConfigListen != "" {
+			if err := validateEndpointHost(globalConf.ConfigListen); err != nil {
+				return err
+			}
+		}
 		if err := detectEnv(); err != nil {
 			return err
 		}
@@ -148,13 +156,10 @@ func init() {
 	rootCmd.PersistentFlags().IntVar(&globalConf.PerCpuMapPages, "mapsize", 1024, "eBPF map size per CPU,for events buffer. default:1024 * PAGESIZE. (KB)")
 	rootCmd.PersistentFlags().Uint64VarP(&globalConf.Pid, "pid", "p", defaultPid, "if pid is 0 then we target all pids")
 	rootCmd.PersistentFlags().Uint64VarP(&globalConf.Uid, "uid", "u", defaultUid, "if uid is 0 then we target all users")
-	rootCmd.PersistentFlags().StringVarP(&globalConf.LoggerAddr, "logaddr", "l", "", "send logs to this server. -l /tmp/ecapture.log or -l ws://127.0.0.1:8090/ecapture or -l tcp://127.0.0.1:8080")
-	rootCmd.PersistentFlags().StringVar(&globalConf.EventCollectorAddr, "eventaddr", "", "captured-event destination: stdout, path, file://, tcp://, ws://, or wss:// (text defaults to stdout)")
-	rootCmd.PersistentFlags().StringVar(&globalConf.EcaptureQ, "ecaptureq", "", "listening server, waiting for clients to connect before sending events and logs; false: send directly to the remote server.")
-	rootCmd.PersistentFlags().StringVar(&globalConf.Listen, "listen", configUpdateAddr, "Listens on a port, receives HTTP requests, and is used to update the runtime configuration. default: disabled. e.g. --listen 127.0.0.1:28256")
+	rootCmd.PersistentFlags().StringArrayVar(&globalConf.Outputs, "output", nil, "output destination (repeatable): stdout/stderr=text; path/file:// or tcp://=JSON Lines; default: stdout")
+	rootCmd.PersistentFlags().StringVar(&globalConf.ConfigListen, "config-listen", "", "HTTP runtime configuration update listener (host:port); disabled by default")
+	rootCmd.PersistentFlags().StringVar(&globalConf.StreamListen, "stream-listen", "", "Protobuf v2 WebSocket subscription listener (ws://host:port/path); disabled by default; capture does not wait for clients")
 	rootCmd.PersistentFlags().Uint64VarP(&globalConf.TruncateSize, "tsize", "t", defaultTruncateSize, "the truncate size in text mode, default: 0 (B), no truncate")
-	rootCmd.PersistentFlags().Uint16Var(&globalConf.EventRotateSizeMB, "eventroratesize", 0, "the rorate size(MB) of the event collector file, 1M~65535M, only works for eventaddr server is file. --eventaddr=tls.log --eventroratesize=1 --eventroratetime=30")
-	rootCmd.PersistentFlags().Uint16Var(&globalConf.EventRotateSeconds, "eventroratetime", 0, "the rorate time(s) of the event collector file, 1s~65535s, only works for eventaddr server is file. --eventaddr=tls.log --eventroratesize=1 --eventroratetime=30")
 	rootCmd.SilenceUsage = true
 }
 
@@ -163,22 +168,11 @@ type operationalOutputs struct {
 	sinks  []writers.ByteSink
 }
 
-func newOperationalOutputs(addr string, debug bool, publisher domain.OperationalLogSink) (*operationalOutputs, error) {
-	console := zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.RFC3339}
-	destinations := []io.Writer{console}
-	result := &operationalOutputs{}
-	if addr != "" {
-		sink, err := writers.NewWriterFactory().CreateOperationalSink(addr, nil)
-		if err != nil {
-			return nil, fmt.Errorf("create operational log sink: %w", err)
-		}
-		result.sinks = append(result.sinks, sink)
-		destinations = append(destinations, sink)
-	}
-	if publisher != nil {
+func newOperationalOutputs(debug bool, publishers ...domain.OperationalLogSink) (*operationalOutputs, error) {
+	destinations := make([]io.Writer, 0, len(publishers))
+	for _, publisher := range publishers {
 		adapter, err := outputpipeline.NewOperationalLogWriter(publisher)
 		if err != nil {
-			_ = result.Close()
 			return nil, err
 		}
 		destinations = append(destinations, adapter)
@@ -187,13 +181,8 @@ func newOperationalOutputs(addr string, debug bool, publisher domain.Operational
 	if debug {
 		level = zerolog.DebugLevel
 	}
-	zlog := zerolog.New(zerolog.MultiLevelWriter(destinations...)).
-		Level(level).
-		With().
-		Timestamp().
-		Logger()
-	result.logger = internalLogger.NewFromZerolog(zlog)
-	return result, nil
+	zlog := zerolog.New(zerolog.MultiLevelWriter(destinations...)).Level(level).With().Timestamp().Logger()
+	return &operationalOutputs{logger: internalLogger.NewFromZerolog(zlog)}, nil
 }
 
 func (o *operationalOutputs) Close() error {
@@ -234,14 +223,6 @@ func runConfiguredProbe(probeType factory.ProbeType, probeConfig domain.Configur
 	if err := config.ApplyCommonConfig(probeConfig, common); err != nil {
 		return err
 	}
-	baseConfig, err := config.BaseConfigFor(probeConfig)
-	if err != nil {
-		return err
-	}
-	// The operational logger itself is a borrowed RuntimeDependency. Its
-	// address is retained only as immutable validation context (for example,
-	// pcapng stdout channel separation).
-	baseConfig.LoggerAddr = globalConf.LoggerAddr
 	return runConfiguredProbeFunc(probeType, probeConfig)
 }
 
@@ -263,9 +244,11 @@ func logTextSourceHint(logger *zerolog.Logger, probeConfig domain.Configuration)
 }
 
 type probeGeneration struct {
-	probe  domain.Probe
-	ctx    context.Context
-	cancel context.CancelFunc
+	probe         domain.Probe
+	ctx           context.Context
+	cancel        context.CancelFunc
+	finishOutputs func(bool) error
+	failed        bool
 }
 
 func startProbeGeneration(
@@ -291,7 +274,7 @@ func startProbeGeneration(
 	}
 	if err = probe.Initialize(probeCtx, probeConfig); err != nil {
 		cancelProbe()
-		return nil, fmt.Errorf("probe initialization failed: %w", err)
+		return nil, errors.Join(fmt.Errorf("probe initialization failed: %w", err), probe.Close())
 	}
 	logger.Info().Str("probeName", string(probeType)).Bool("isReload", isReload).Msg("probe initialization.")
 	if err = probe.Start(probeCtx); err != nil {
@@ -331,6 +314,9 @@ func (g *probeGeneration) close() error {
 	if err := g.probe.Close(); err != nil {
 		shutdownErrors = append(shutdownErrors, fmt.Errorf("probe close failed: %w", err))
 	}
+	if g.finishOutputs != nil {
+		shutdownErrors = append(shutdownErrors, g.finishOutputs(!g.failed && g.failure() == nil && len(shutdownErrors) == 0))
+	}
 	if fatal := g.failure(); fatal != nil {
 		return captureerrors.JoinCleanup(fatal, errors.Join(shutdownErrors...))
 	}
@@ -345,45 +331,61 @@ func prepareReloadConfig(
 	if update == nil || update.Config == nil {
 		return fmt.Errorf("reload configuration cannot be nil")
 	}
-	if err := config.MergeReloadOutput(current, update.Config, update.CommonPatch); err != nil {
-		return err
+	if update.CommonPatch.EventCollectorAddr != nil || update.CommonPatch.EventRotateSizeMB != nil || update.CommonPatch.EventRotateSeconds != nil {
+		return fmt.Errorf("output destinations are process-lifetime settings; removed event destination/rotation fields cannot be reloaded")
 	}
-	currentBase, err := config.BaseConfigFor(current)
-	if err != nil {
-		return err
+	if fmt.Sprintf("%T", current) != fmt.Sprintf("%T", update.Config) {
+		return fmt.Errorf("configuration updates must target the running probe type")
 	}
-	candidateBase, err := config.BaseConfigFor(update.Config)
-	if err != nil {
-		return err
-	}
-	// Operational logging is a process-lifetime dependency. Keep its address as
-	// immutable validation context even if a request body includes logger_addr.
-	candidateBase.LoggerAddr = currentBase.LoggerAddr
+	var err error
 	if err = attachRuntimeOutputs(update.Config, runtimeOutputs); err != nil {
 		return err
 	}
 	if err = update.Config.Validate(); err != nil {
 		return fmt.Errorf("config validation failed: %w", err)
 	}
-	return nil
+	endpoints, err := parseOutputEndpoints(globalConf.Outputs)
+	if err != nil {
+		return err
+	}
+	return validateOutputArtifacts(update.Config, endpoints)
 }
 
 // runProbe runs a probe using the new internal/probe architecture
 func runProbe(probeType factory.ProbeType, probeConfig domain.Configuration) (runErr error) {
+	endpoints, err := parseOutputEndpoints(globalConf.Outputs)
+	if err != nil {
+		return err
+	}
+	runtimeOutputs := &outputpipeline.RuntimeDependencies{SuppressDefaultText: true, Module: moduleName(probeType)}
+	if err = attachRuntimeOutputs(probeConfig, runtimeOutputs); err != nil {
+		return err
+	}
+	if err = probeConfig.Validate(); err != nil {
+		return err
+	}
+	if err = validateOutputArtifacts(probeConfig, endpoints); err != nil {
+		return err
+	}
+	outputs, err := newOutputSet(endpoints, runtimeOutputs.Module)
+	if err != nil {
+		return err
+	}
+	defer func() { runErr = errors.Join(runErr, outputs.Close()) }()
 	var eqServer *ecaptureq.Server
-	if globalConf.EcaptureQ != "" {
-		listenAddr, err := ecaptureQListenAddress(globalConf.EcaptureQ)
-		if err != nil {
-			return err
+	publishers := []domain.OperationalLogSink{outputs}
+	runtimeOutputs.EventSinks = []domain.CapturedEventSink{outputs}
+	if globalConf.StreamListen != "" {
+		address, parseErr := parseStreamAddress(globalConf.StreamListen)
+		if parseErr != nil {
+			return parseErr
 		}
-		eqServer = ecaptureq.NewServer(listenAddr, os.Stderr)
+		eqServer = ecaptureq.NewServerWithPath(address.Host, address.Path, os.Stderr)
+		publishers = append(publishers, eqServer)
+		runtimeOutputs.EventSinks = append(runtimeOutputs.EventSinks, eqServer)
+		runtimeOutputs.PcapngObservers = append(runtimeOutputs.PcapngObservers, eqServer)
 	}
-
-	var operationalPublisher domain.OperationalLogSink
-	if eqServer != nil {
-		operationalPublisher = eqServer
-	}
-	operational, err := newOperationalOutputs(globalConf.LoggerAddr, probeConfig.GetDebug(), operationalPublisher)
+	operational, err := newOperationalOutputs(probeConfig.GetDebug(), publishers...)
 	if err != nil {
 		if eqServer != nil {
 			_ = eqServer.Close()
@@ -414,10 +416,7 @@ func runProbe(probeType factory.ProbeType, probeConfig domain.Configuration) (ru
 			return err
 		}
 	}
-	runtimeOutputs := &outputpipeline.RuntimeDependencies{OperationalLogger: operational.logger}
-	if eqServer != nil {
-		runtimeOutputs.EventSinks = append(runtimeOutputs.EventSinks, eqServer)
-	}
+	runtimeOutputs.OperationalLogger = operational.logger
 	if err := attachRuntimeOutputs(probeConfig, runtimeOutputs); err != nil {
 		return err
 	}
@@ -429,29 +428,21 @@ func runProbe(probeType factory.ProbeType, probeConfig domain.Configuration) (ru
 	logger.Info().Str("Author", CliAuthor).Send()
 	logger.Info().Str("Description", CliDescription).Send()
 	logger.Info().Str("Version", GitVersion).Send()
-	logger.Info().Str("Listen", globalConf.Listen).Send()
-	logger.Info().Str("Listen for eCaptureQ", globalConf.EcaptureQ).Send()
-	logger.Info().Str("logger", globalConf.LoggerAddr).Msg("eCapture running logs")
-	logger.Info().Str("eventCollector", probeConfig.GetEventCollectorAddr()).Msg("the file handler that receives the captured event")
+	logger.Info().Strs("outputs", globalConf.Outputs).Str("config_listen", globalConf.ConfigListen).Str("stream_listen", globalConf.StreamListen).Msg("Output destinations configured (default stdout)")
 
 	logTextSourceHint(logger, probeConfig)
 
 	var reloadConfig = make(chan *http.ConfigUpdate, 10)
 	var httpErrors <-chan error
 
-	// listen http server
-	if globalConf.Listen != "" {
-		serverErrors := make(chan error, 1)
-		httpErrors = serverErrors
-		go func() {
-			logger.Info().Str("listen", globalConf.Listen).Send()
-			logger.Info().Msg("https server starting...You can upgrade the configuration file via the HTTP interface.")
-			var ec = http.NewHttpServer(globalConf.Listen, reloadConfig, *logger)
-			serverErrors <- ec.Run()
-			close(serverErrors)
-		}()
-	} else {
-		logger.Info().Msg("skip HTTP server listening")
+	if globalConf.ConfigListen != "" {
+		configServer := http.NewHttpServer(globalConf.ConfigListen, reloadConfig, *logger)
+		httpErrors, err = configServer.StartAsync()
+		if err != nil {
+			return err
+		}
+		defer func() { runErr = errors.Join(runErr, configServer.Close()) }()
+		logger.Info().Str("listen", globalConf.ConfigListen).Msg("HTTP configuration update service listening")
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -475,12 +466,69 @@ func runProbe(probeType factory.ProbeType, probeConfig domain.Configuration) (ru
 	signal.Notify(stopper, os.Interrupt, syscall.SIGTERM)
 	defer signal.Stop(stopper)
 
-	active, err := startProbeGeneration(ctx, probeType, probeConfig, runtimeOutputs, logger, false)
+	startGeneration := func(cfg domain.Configuration, reload bool) (*probeGeneration, error) {
+		if err := attachRuntimeOutputs(cfg, runtimeOutputs); err != nil {
+			return nil, err
+		}
+		if err := cfg.Validate(); err != nil {
+			return nil, err
+		}
+		if err := validateOutputArtifacts(cfg, endpoints); err != nil {
+			return nil, err
+		}
+		if err := outputs.BeginCapture(); err != nil {
+			return nil, err
+		}
+		if eqServer != nil {
+			format := domain.CaptureFormatText
+			if mode, ok := cfg.(domain.CaptureModeConfiguration); ok {
+				if handlers.IsModeKeylog(mode.GetCaptureMode()) {
+					format = domain.CaptureFormatKeylog
+				} else if !handlers.IsModeText(mode.GetCaptureMode()) {
+					format = domain.CaptureFormatPcapng
+				}
+			}
+			var fields map[string]any
+			if jsonErr := json.Unmarshal(cfg.Bytes(), &fields); jsonErr != nil {
+				return nil, errors.Join(jsonErr, outputs.EndCapture())
+			}
+			ifName, _ := fields["ifname"].(string)
+			filter, _ := fields["pcapfilter"].(string)
+			if filter == "" {
+				filter, _ = fields["pcap_filter"].(string)
+			}
+			if err := eqServer.BeginCapture(format, runtimeOutputs.Module, ifName, filter, operational.logger); err != nil {
+				return nil, errors.Join(err, outputs.EndCapture())
+			}
+		}
+		finish := func(success bool) error {
+			var streamErr error
+			if eqServer != nil {
+				if success {
+					streamErr = eqServer.EndCapture()
+				} else {
+					streamErr = eqServer.AbortCapture()
+				}
+			}
+			return errors.Join(streamErr, outputs.EndCapture())
+		}
+		generation, err := startProbeGeneration(ctx, probeType, cfg, runtimeOutputs, logger, reload)
+		if err != nil {
+			return nil, errors.Join(err, finish(false))
+		}
+		generation.finishOutputs = finish
+		return generation, nil
+	}
+	active, err := startGeneration(probeConfig, false)
 	if err != nil {
 		return err
 	}
+	runtimeOutputs.AppendArtifacts = true
 	for {
 		select {
+		case outputErr := <-outputs.failures:
+			active.failed = true
+			return errors.Join(outputErr, active.close())
 		case <-active.done():
 			logFailure(active.failure())
 			return active.close()
@@ -508,10 +556,10 @@ func runProbe(probeType factory.ProbeType, probeConfig domain.Configuration) (ru
 				return err
 			}
 
-			next, startErr := startProbeGeneration(ctx, probeType, update.Config, runtimeOutputs, logger, true)
+			next, startErr := startGeneration(update.Config, true)
 			if startErr != nil {
 				reloadErr := fmt.Errorf("reload generation failed: %w", startErr)
-				rollback, rollbackErr := startProbeGeneration(ctx, probeType, previousConfig, runtimeOutputs, logger, true)
+				rollback, rollbackErr := startGeneration(previousConfig, true)
 				if rollbackErr != nil {
 					fatalErr := errors.Join(reloadErr, fmt.Errorf("restore previous generation failed: %w", rollbackErr))
 					update.Complete(fatalErr)
@@ -534,6 +582,7 @@ func runProbe(probeType factory.ProbeType, probeConfig domain.Configuration) (ru
 			} else {
 				err = fmt.Errorf("ecaptureq server failed: %w", serverErr)
 			}
+			active.failed = true
 			return errors.Join(err, active.close())
 		case serverErr, ok := <-httpErrors:
 			if !ok || serverErr == nil {
@@ -541,21 +590,8 @@ func runProbe(probeType factory.ProbeType, probeConfig domain.Configuration) (ru
 			} else {
 				err = fmt.Errorf("configuration HTTP server failed: %w", serverErr)
 			}
+			active.failed = true
 			return errors.Join(err, active.close())
 		}
 	}
-}
-
-func ecaptureQListenAddress(value string) (string, error) {
-	parsedURL, err := url.Parse(value)
-	if err != nil {
-		return "", fmt.Errorf("invalid ecaptureq address: %w", err)
-	}
-	if parsedURL.Scheme != "ws" {
-		return "", fmt.Errorf("ecaptureq address must use ws://")
-	}
-	if parsedURL.Host == "" {
-		return "", fmt.Errorf("ecaptureq address requires a host and port")
-	}
-	return parsedURL.Host, nil
 }

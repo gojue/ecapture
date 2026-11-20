@@ -22,6 +22,7 @@ import (
 	"io"
 	"net"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sync"
@@ -75,6 +76,116 @@ func (s *recordingSink) Bytes() []byte {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return append([]byte(nil), s.data.Bytes()...)
+}
+
+func TestCaptureArtifactsRequireRegularFiles(t *testing.T) {
+	for _, address := range []string{"", "stdout", "stderr", "-", "tcp://127.0.0.1:9000", "ws://127.0.0.1:9000/", "/dev/null", t.TempDir()} {
+		if err := ValidateArtifactFile(address); err == nil {
+			t.Errorf("accepted invalid native destination %q", address)
+		}
+	}
+	path := filepath.Join(t.TempDir(), "capture.pcapng")
+	for _, address := range []string{path, "file://" + path} {
+		if err := ValidateArtifactFile(address); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(path, nil, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidateArtifactFile(path); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestJSONSinkAppendsSensitiveRecords(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "capture.jsonl")
+	for _, record := range []string{"first\n", "second\n"} {
+		sink, err := NewWriterFactory().CreateJSONSink(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := sink.Write([]byte(record)); err != nil {
+			t.Fatal(err)
+		}
+		if err := sink.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	data, err := os.ReadFile(path)
+	if err != nil || string(data) != "first\nsecond\n" {
+		t.Fatalf("JSON sink append: %q, %v", data, err)
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != 0600 {
+		t.Fatalf("JSON file permissions = %o", info.Mode().Perm())
+	}
+	if _, err := NewWriterFactory().CreateJSONSink("stdout"); err == nil {
+		t.Fatal("JSON sink accepted terminal output")
+	}
+}
+
+func TestNativeFileURIPreservesLiteralEscapes(t *testing.T) {
+	dir := t.TempDir()
+	protected := filepath.Join(dir, "capture.pcapng")
+	if err := os.WriteFile(protected, []byte("existing JSON output\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "capture%2Epcapng")
+	address := (&url.URL{Scheme: "file", Path: path}).String()
+	if err := ValidateArtifactFile(address); err != nil {
+		t.Fatal(err)
+	}
+	sink, err := NewWriterFactory().CreateEventSink(EventSinkOptions{Address: address, Format: EventFormatPcapng})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = sink.Close() })
+	if _, err := sink.Write([]byte("native bytes")); err != nil {
+		t.Fatal(err)
+	}
+	if err := sink.Close(); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil || string(data) != "native bytes" {
+		t.Fatalf("literal percent filename = %q, %v", data, err)
+	}
+	data, err = os.ReadFile(protected)
+	if err != nil || string(data) != "existing JSON output\n" {
+		t.Fatalf("file URI overwrote another destination: %q, %v", data, err)
+	}
+}
+
+func TestNativeKeylogAppendPreservesEarlierGeneration(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "capture.keys")
+	if err := os.WriteFile(path, []byte("old process data\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	for generation, record := range []string{"CLIENT_RANDOM first first\n", "CLIENT_RANDOM second second\n"} {
+		sink, err := NewWriterFactory().CreateEventSink(EventSinkOptions{
+			Address: path, Format: EventFormatKeylog, Append: generation != 0,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := sink.Write([]byte(record)); err != nil {
+			t.Fatal(err)
+		}
+		if err := sink.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "CLIENT_RANDOM first first\nCLIENT_RANDOM second second\n" {
+		t.Fatal("reload truncated existing keylog records or retained stale process data")
+	}
 }
 
 func TestKeylogWriterOwnsGenericSink(t *testing.T) {

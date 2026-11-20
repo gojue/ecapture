@@ -1,102 +1,115 @@
-# eCaptureQ Go client example
+# Protobuf v2 receiver example
 
-This client reads binary Protobuf messages from an eCapture `--ecaptureq`
-listener. It prints operational logs and captured events, including available
-process/network metadata, format, sensitivity, direction, and payload in
-text/hex plus base64. `-verbose` also displays heartbeats.
+This Linux example connects to `--stream-listen` using WebSocket subprotocol
+`ecapture.v2`. It validates every `LogEntry`, separates operational logs from
+captured events, displays text metadata, and saves native keylog/pcapng streams.
+It has no v1 fallback and does not reconnect automatically.
 
 ## Build and connect
 
-Use Linux and Go 1.26.0 or newer. This directory is a separate Go module;
-its `go.mod` replaces `github.com/gojue/ecapture/v2` with the repository root.
-Build from this directory, not with `go build ./examples/ecaptureq_client`
-from the root module:
+This directory is a separate Go module. Its local replacement points at the
+repository root. Build and test on Linux with Go 1.26.0 or newer:
 
 ```bash
 cd examples/ecaptureq_client
+go test -race ./...
 go build -o ecaptureq_client .
 ```
 
-In another terminal, from the repository root, start a built eCapture binary
-on a supported capture host with the required probe privileges:
+On the capture host, start a built eCapture binary with the required privileges:
 
 ```bash
-sudo ./bin/ecapture tls --ecaptureq=ws://127.0.0.1:28257/
+sudo ./bin/ecapture tls --model text --text-source pcapng \
+  --stream-listen ws://127.0.0.1:28257/
 ```
 
-Then, in the client directory:
+Then connect the receiver:
 
 ```bash
 ./ecaptureq_client -server ws://127.0.0.1:28257/ -verbose
 ```
 
-| Client flag | Default | Purpose |
+| Receiver option | Default | Meaning |
 | --- | --- | --- |
-| `-server` | `ws://127.0.0.1:28257/` | WebSocket URL to connect to |
-| `-verbose` | `false` | Show heartbeats |
+| `-server` | `ws://127.0.0.1:28257/` | Protobuf v2 subscription URL |
+| `-verbose` | `false` | Display transport heartbeat records |
+| `-keylogfile` | empty | New file for a KEYLOG subscription |
+| `-pcapfile` | empty | New file for a PCAPNG subscription |
 
-The client URL default does not enable a server listener: eCapture's
-`--ecaptureq` and HTTP `--listen` are disabled unless explicitly configured.
-The server accepts `ws://`; a trailing `/` is conventional, not mandatory in
-the CLI. `0.0.0.0` is a possible bind address; remote clients use a reachable
-server address. The built-in server has no application authentication or TLS.
+The endpoint is disabled in eCapture until `--stream-listen` is set. The receiver
+URL must be reachable from the receiver host; a server bind address such as
+`0.0.0.0` is not a client destination. The listener is separate from
+`--config-listen`, which accepts runtime configuration updates.
 
-## Manual smoke checks
+## Native capture streams
 
-These checks verify client behavior; use the [maintained E2E harness](../../test/e2e/README.md) for capture, decryption,
-and strict typed-message assertions.
+Start a pcapng collector with its own local artifact:
 
-1. **Connection and history:** connect after eCapture starts. Expect operational
-   logs (at most the latest 128), followed by live logs. Historical captured
-   events are not replayed.
-2. **Heartbeat:** with `-verbose`, expect an immediate heartbeat and then one
-   every 15 seconds. Counts start at zero for each client connection.
-3. **Captured data:** generate known TLS traffic from an application using the
-   OpenSSL/BoringSSL library selected by the running probe. Confirm the expected
-   content appears as an event. A connection or heartbeat alone is not evidence
-   that capture works. For GoTLS/GnuTLS, start the matching probe and workload.
-4. **Multiple clients:** connect two clients before generating new traffic.
-   Under normal load both should receive the live events. Events produced before
-   a client connects are not replayed; bounded queues can disconnect slow clients.
-5. **Disconnect:** stop eCapture and confirm `Connection closed` is reported.
-   The example does not reconnect automatically. Its main goroutine still waits
-   for a signal after the receiver exits, so press Ctrl+C to end the process.
-6. **Client shutdown:** Ctrl+C closes the client connection. Other connected
-   clients should continue receiving live messages.
+```bash
+sudo ./bin/ecapture tls --model pcapng --pcapfile ./local.pcapng \
+  --output ./runtime.jsonl --stream-listen ws://127.0.0.1:28257/
+```
 
-Raw event output can be checked alongside this client by starting eCapture
-with an additional `--eventaddr=/tmp/events.txt`. Typed pcapng events contain
-packet payloads, not a reconstructable pcapng file; use the raw destination
-when a file artifact is needed.
+Save the subscription on the receiver host:
 
-## Integrating the receive loop
+```bash
+./ecaptureq_client -server ws://127.0.0.1:28257/ -pcapfile ./received.pcapng
+```
 
-The complete implementation is in [main.go](main.go). It uses:
+For keylog mode use `--model keylog --keylogfile ./local.keys` on the collector
+and `-keylogfile ./received.keys` on the receiver. Native data requires the
+corresponding receiver file option; it is never silently printed or discarded.
+Existing final or partial files are not overwritten. New files use mode `0600`.
+
+The receiver first writes `NAME.partial`. A server close with code 1000 plus
+successful native-format checks publishes `NAME`; abnormal close, interrupted
+reception, malformed messages, or invalid native data leave `NAME.partial`.
+The example checks keylog record syntax and pcapng block framing/packet presence.
+These checks do not establish zero packet loss or successful TLS decryption.
+The separate `gorilla/websocket` dependency lets the example distinguish close
+1000 from an unexpected TCP EOF, which `x/net/websocket` does not expose.
+
+Each subscription is one capture output session. A late pcapng subscriber receives
+a fresh pcapng section and future packets/keys, not the collector's earlier local
+file. Connections established before subscription may lack earlier handshakes or
+keys. Keylog subscriptions also receive only future records. After a reload or
+mode switch, reconnect explicitly with a new receiver filename; never append the
+new connection to an earlier partial file.
+
+## Message dispatch
 
 ```go
 import (
-    pb "github.com/gojue/ecapture/v2/protobuf/gen/v1"
-    "golang.org/x/net/websocket"
-    "google.golang.org/protobuf/proto"
+    pb "github.com/gojue/ecapture/v2/protobuf/gen/v2"
+    protocol "github.com/gojue/ecapture/v2/protobuf/v2"
 )
 ```
 
-Read each WebSocket message into `[]byte`, unmarshal one `pb.LogEntry`, then
-dispatch by `LogType` and its matching payload. Keep `PROCESS_LOG` and captured
-`EVENT` data separate. Handle empty metadata and unknown enum values.
-See the [protocol reference](../../protobuf/PROTOCOLS.md) for field semantics.
+Decode one binary WebSocket message as `pb.LogEntry`, call
+`protocol.ValidateLogEntry`, then dispatch on `log_type`:
 
-## Troubleshooting
+- `PROCESS_LOG` goes to the status/log display.
+- `HEARTBEAT` is transport health, not captured data.
+- `EVENT` is dispatched by matching `capture_format` and `oneof content`.
 
-- **Connection refused / bad handshake:** confirm eCapture started successfully,
-  the `--ecaptureq` listener is enabled, and the client's host/port matches it.
-  The raw `--eventaddr` WebSocket sink is an outgoing connection, not this server.
-- **Connected but no events:** verify target library/ELF, PID/UID filters, probe
-  startup, and actual traffic. Heartbeats only prove connection health.
-- **Decode errors:** use the current schema and ensure the endpoint sends typed
-  eCaptureQ messages rather than raw event bytes.
-- **Connection closed:** inspect server/probe errors and client backpressure;
-  restart the example manually after correcting the cause.
+`TextEvent` retains payload, process/network/TLS metadata, raw argv, and application
+stream information. `KeylogEvent.data` contains standard NSS Key Log bytes.
+`PcapngEvent.data` contains encoded pcapng bytes including headers, packet blocks,
+TLS secrets blocks, and options. Concatenate native `data` in connection order:
+message boundaries can split keylog lines or pcapng blocks. Never write operational
+logs, heartbeats, Protobuf framing, or terminal prefixes into native files.
 
-For output modes and listener behavior, see the
-[event forwarding API](../../docs/event-forward-api.md).
+JSON TCP consumers use the same v2 schema through ProtoJSON; bytes are base64 in
+JSON and must be decoded once. TCP consumers must frame records by newlines and
+cannot treat a TCP read as one record. A raw TCP EOF alone does not prove that the
+producer completed a capture.
+
+The example exits when the connection ends, including failures. A text event's
+metadata-only or empty payload is valid. Unknown log types, unknown capture
+formats, inconsistent oneofs, and format switches within a connection are errors,
+not fallback text.
+
+See the [protocol reference](../../protobuf/PROTOCOLS.md) and
+[event forwarding API](../../docs/event-forward-api.md). Core capture verification
+uses the maintained Linux E2E harness; a successful connection or heartbeat does
+not prove that capture works.

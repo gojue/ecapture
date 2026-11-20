@@ -148,6 +148,9 @@ func (c *Config) validateCaptureMode() error {
 	if err := c.ValidateDecryptOptions(c.TextSource == handlers.TextSourcePcapng); err != nil {
 		return err
 	}
+	if err := writers.ValidateCaptureArtifacts(mode, c.KeylogFile, c.PcapFile); err != nil {
+		return err
+	}
 
 	switch mode {
 	case handlers.ModeText, "":
@@ -155,36 +158,18 @@ func (c *Config) validateCaptureMode() error {
 		if c.TextSource == handlers.TextSourcePcapng {
 			return c.validatePcapngTextSource()
 		}
-		addr, err := writers.NormalizeEventAddress(writers.EventFormatText, c.EventCollectorAddr, c.KeylogFile, c.PcapFile)
-		if err != nil {
-			return err
-		}
-		c.EventCollectorAddr = addr
-		return writers.NewWriterFactory().ValidateEventSinkAddress(writers.EventSinkOptions{Address: addr, Format: writers.EventFormatText, RotateConfig: writers.NewRotateConfig(c.GetEventRotation())})
+		c.EventCollectorAddr = ""
+		return nil
 	case handlers.ModeKeylog, handlers.ModeKey:
 		c.CaptureMode = handlers.ModeKeylog
-		addr, err := writers.NormalizeEventAddress(writers.EventFormatKeylog, c.EventCollectorAddr, c.KeylogFile, c.PcapFile)
-		if err != nil {
-			return err
-		}
-		c.EventCollectorAddr = addr
-		return writers.NewWriterFactory().ValidateEventSinkAddress(writers.EventSinkOptions{Address: addr, Format: writers.EventFormatKeylog, RotateConfig: writers.NewRotateConfig(c.GetEventRotation())})
+		c.EventCollectorAddr = c.KeylogFile
+		return nil
 	case handlers.ModePcap, handlers.ModePcapng:
 		c.CaptureMode = handlers.ModePcapng
 		if err := c.SetDefaultIfname(); err != nil {
 			return err
 		}
-		addr, err := writers.NormalizeEventAddress(writers.EventFormatPcapng, c.EventCollectorAddr, c.KeylogFile, c.PcapFile)
-		if err != nil {
-			return err
-		}
-		c.EventCollectorAddr = addr
-		if err := writers.NewWriterFactory().ValidateEventSinkAddress(writers.EventSinkOptions{Address: addr, Format: writers.EventFormatPcapng, RotateConfig: writers.NewRotateConfig(c.GetEventRotation())}); err != nil {
-			return err
-		}
-		if err := writers.ValidateChannelSeparation(writers.EventFormatPcapng, addr, c.LoggerAddr); err != nil {
-			return err
-		}
+		c.EventCollectorAddr = c.PcapFile
 
 		// Validate network interface exists
 		if err := c.validateNetworkInterface(); err != nil {
@@ -206,20 +191,7 @@ func (c *Config) validatePcapngTextSource() error {
 	if err := c.SetDefaultIfname(); err != nil {
 		return err
 	}
-	addr, err := writers.NormalizeEventAddress(writers.EventFormatText, c.EventCollectorAddr, c.KeylogFile, c.PcapFile)
-	if err != nil {
-		return err
-	}
-	c.EventCollectorAddr = addr
-	factory := writers.NewWriterFactory()
-	if err := factory.ValidateEventSinkAddress(writers.EventSinkOptions{Address: addr, Format: writers.EventFormatText, RotateConfig: writers.NewRotateConfig(c.GetEventRotation()), Sensitive: true}); err != nil {
-		return err
-	}
-	if c.PcapFile != "" {
-		if err := factory.ValidateEventSinkAddress(writers.EventSinkOptions{Address: c.PcapFile, Format: writers.EventFormatPcapng}); err != nil {
-			return err
-		}
-	}
+	c.EventCollectorAddr = ""
 	if err := c.validateNetworkInterface(); err != nil {
 		return err
 	}

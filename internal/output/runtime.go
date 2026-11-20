@@ -31,8 +31,12 @@ import (
 // not be serialized into probe configuration. The CLI owns these dependencies;
 // probes and handlers borrow them.
 type RuntimeDependencies struct {
-	OperationalLogger *logger.Logger
-	EventSinks        []domain.CapturedEventSink
+	OperationalLogger   *logger.Logger
+	EventSinks          []domain.CapturedEventSink
+	PcapngObservers     []domain.PcapngObserver
+	SuppressDefaultText bool
+	AppendArtifacts     bool // append a new capture section on reload/rollback
+	Module              string
 }
 
 // Clone returns a shallow dependency copy with an independent sink slice. The
@@ -41,8 +45,9 @@ func (d *RuntimeDependencies) Clone() *RuntimeDependencies {
 	if d == nil {
 		return nil
 	}
-	clone := &RuntimeDependencies{OperationalLogger: d.OperationalLogger}
+	clone := &RuntimeDependencies{OperationalLogger: d.OperationalLogger, SuppressDefaultText: d.SuppressDefaultText, Module: d.Module, AppendArtifacts: d.AppendArtifacts}
 	clone.EventSinks = append(clone.EventSinks, d.EventSinks...)
+	clone.PcapngObservers = append(clone.PcapngObservers, d.PcapngObservers...)
 	return clone
 }
 

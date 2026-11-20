@@ -36,23 +36,28 @@ run_gnutls_request() {
 case_invalid_output_combinations() {
     local output="$WORK_DIR/invalid-output.log"
     if "$ECAPTURE_BINARY" gnutls --gnutls "$GNUTLS_LIB" --model keylog \
-        --eventaddr "$WORK_DIR/a.keys" --keylogfile "$WORK_DIR/b.keys" >"$output" 2>&1; then
-        log_error "conflicting --eventaddr/--keylogfile unexpectedly succeeded"
+        --output "$WORK_DIR/records.jsonl" >"$output" 2>&1; then
+        log_error "keylog capture without --keylogfile unexpectedly succeeded"
         return 1
     fi
-    assert_file_contains "$output" "cannot both select" "legacy destination conflict" || return 1
+    assert_file_contains "$output" "requires --keylogfile" "missing native artifact rejection" || return 1
     if "$ECAPTURE_BINARY" gnutls --gnutls "$GNUTLS_LIB" --model text --text-source hook \
-        --eventaddr udp://127.0.0.1:9000 >"$output" 2>&1; then
-        log_error "unsupported event scheme unexpectedly succeeded"
+        --output udp://127.0.0.1:9000 >"$output" 2>&1; then
+        log_error "unsupported output scheme unexpectedly succeeded"
         return 1
     fi
-    assert_file_contains "$output" "unsupported sink URI scheme" "unsupported scheme rejection" || return 1
+    assert_file_contains "$output" "unsupported --output scheme" "unsupported scheme rejection" || return 1
     if "$ECAPTURE_BINARY" gnutls --gnutls "$GNUTLS_LIB" --model pcapng --ifname lo \
-        --eventaddr stdout --logaddr stdout --keylogfile= >"$output" 2>&1; then
-        log_error "pcapng and operational stdout collision unexpectedly succeeded"
+        --output stdout --pcapfile stdout >"$output" 2>&1; then
+        log_error "native pcapng artifact on stdout unexpectedly succeeded"
         return 1
     fi
-    assert_file_contains "$output" "cannot both use stdout" "stdout collision rejection"
+    assert_file_contains "$output" "terminal destination" "native terminal rejection" || return 1
+    if "$ECAPTURE_BINARY" gnutls --gnutls "$GNUTLS_LIB" --eventaddr "$WORK_DIR/old" >"$output" 2>&1; then
+        log_error "removed --eventaddr unexpectedly succeeded"
+        return 1
+    fi
+    assert_file_contains "$output" "unknown flag: --eventaddr" "removed CLI parameter rejection"
 }
 
 case_text() {
@@ -60,7 +65,7 @@ case_text() {
     local operational_log="$WORK_DIR/text.operational.log"
     local event_file="$WORK_DIR/text.events.log"
     start_capture "$capture_log" gnutls --gnutls "$GNUTLS_LIB" --model text --text-source hook \
-        --logaddr "$operational_log" --eventaddr "$event_file" || return 1
+        --output "$operational_log.logs.jsonl" --output "$event_file.events.jsonl" || return 1
     if ! run_gnutls_request tls13 "$WORK_DIR/text.client.log"; then
         stop_capture
         return 1
@@ -82,7 +87,7 @@ case_keylog() {
     local packet_log="$WORK_DIR/gnutls.keylog.tshark-capture.log"
     start_packet_capture lo "tcp port $TLS_SERVER_PORT" "$packet_file" "$packet_log" || return 1
     if ! start_capture "$capture_log" gnutls --gnutls "$GNUTLS_LIB" --model keylog \
-        --logaddr "$operational_log" --keylogfile "$keylog_file"; then
+        --output "$operational_log.logs.jsonl" --keylogfile "$keylog_file"; then
         stop_packet_capture
         return 1
     fi
@@ -119,7 +124,7 @@ case_pcapng() {
     local operational_log="$WORK_DIR/pcapng.operational.log"
     local pcap_file="$WORK_DIR/gnutls.pcapng"
     start_capture "$capture_log" gnutls --gnutls "$GNUTLS_LIB" --model pcapng \
-        --logaddr "$operational_log" --ifname lo --pcapfile "$pcap_file" \
+        --output "$operational_log.logs.jsonl" --ifname lo --pcapfile "$pcap_file" \
         --keylogfile= "tcp port $TLS_SERVER_PORT" || return 1
     if ! run_gnutls_request tls13 "$WORK_DIR/pcapng.client.log"; then
         stop_capture
@@ -140,14 +145,14 @@ case_text_pcapng() {
     local operational_log="$WORK_DIR/decrypt.operational.log"
     local event_file="$WORK_DIR/decrypt.events.log"
     local pcap_file="$WORK_DIR/decrypt.pcapng"
-    start_capture_split "$event_file" "$capture_log" gnutls --gnutls "$GNUTLS_LIB" --model text \
-        --logaddr "$operational_log" --ifname lo \
+    start_capture_split "$event_file.console" "$capture_log" gnutls --gnutls "$GNUTLS_LIB" --model text \
+        --output stdout --output "$operational_log.logs.jsonl" --ifname lo \
         --pcapfile "$pcap_file" "tcp port $TLS_SERVER_PORT" || return 1
     if ! run_gnutls_request tls13 "$WORK_DIR/decrypt.client.log"; then
         stop_capture
         return 1
     fi
-    if ! wait_for_file_contains "$event_file" "$E2E_TOKEN" "live decrypted HTTP response"; then
+    if ! wait_for_file_contains "$event_file.console" "$E2E_TOKEN" "live decrypted HTTP response"; then
         stop_capture
         return 1
     fi
@@ -175,7 +180,7 @@ case_text_stream() {
     local event_file="$WORK_DIR/text-${transport}.events.log"
     start_output_receiver "$transport" "$event_file" || return 1
     start_capture "$capture_log" gnutls --gnutls "$GNUTLS_LIB" --model text --text-source hook \
-        --logaddr "$operational_log" --eventaddr "$OUTPUT_RECEIVER_URI" || {
+        --output "$operational_log.logs.jsonl" --"$OUTPUT_RECEIVER_FLAG" "$OUTPUT_RECEIVER_URI" || {
         stop_output_receiver || true
         return 1
     }
@@ -194,11 +199,16 @@ case_text_stream() {
 }
 
 case_text_stdout() {
-    local capture_log="$WORK_DIR/text-stdout.ecapture.log"
-    local operational_log="$WORK_DIR/text-stdout.operational.log"
-    local event_file="$WORK_DIR/text.stdout.events.log"
-    start_capture_split "$event_file" "$capture_log" gnutls --gnutls "$GNUTLS_LIB" \
-        --model text --text-source hook --eventaddr stdout --logaddr "$operational_log" || return 1
+    local destination="${1:-stdout}"
+    local capture_log="$WORK_DIR/text-${destination}.ecapture.log"
+    local operational_log="$WORK_DIR/text-${destination}.operational.log"
+    local event_file="$WORK_DIR/text.${destination}.events.log"
+    local stdout_file="$event_file.console" stderr_file="$capture_log"
+    if [[ "$destination" == stderr ]]; then
+        stdout_file="$capture_log"; stderr_file="$event_file.console"
+    fi
+    start_capture_split "$stdout_file" "$stderr_file" gnutls --gnutls "$GNUTLS_LIB" \
+        --model text --text-source hook --output "$destination" --output "$operational_log.logs.jsonl" || return 1
     if ! run_gnutls_request tls13 "$WORK_DIR/text-stdout.client.log"; then
         stop_capture
         return 1
@@ -213,16 +223,16 @@ case_text_stdout() {
 
 case_operational_stream() {
     local transport="$1"
-    local capture_log="$WORK_DIR/logaddr-${transport}.ecapture.log"
-    local operational_log="$WORK_DIR/logaddr-${transport}.operational.log"
-    local event_file="$WORK_DIR/logaddr-${transport}.events.log"
-    start_output_receiver "$transport" "$operational_log" || return 1
+    local capture_log="$WORK_DIR/combined-${transport}.ecapture.log"
+    local event_file="$WORK_DIR/combined-${transport}.events.log"
+    local remote_file="$WORK_DIR/combined-${transport}.remote.events.log"
+    start_output_receiver "$transport" "$remote_file" || return 1
     start_capture "$capture_log" gnutls --gnutls "$GNUTLS_LIB" --model text --text-source hook \
-        --logaddr "$OUTPUT_RECEIVER_URI" --eventaddr "$event_file" || {
+        --"$OUTPUT_RECEIVER_FLAG" "$OUTPUT_RECEIVER_URI" --output "$event_file.events.jsonl" || {
         stop_output_receiver || true
         return 1
     }
-    if ! run_gnutls_request tls13 "$WORK_DIR/logaddr-${transport}.client.log"; then
+    if ! run_gnutls_request tls13 "$WORK_DIR/combined-${transport}.client.log"; then
         stop_capture
         stop_output_receiver || true
         return 1
@@ -231,17 +241,18 @@ case_operational_stream() {
     stop_capture
     stop_output_receiver || return 1
     assert_no_capture_errors "$capture_log" || return 1
-    assert_file_contains "$event_file" "$E2E_TOKEN" "captured text event" || return 1
-    assert_output_isolation "$operational_log" "$event_file" "$E2E_TOKEN"
+    assert_file_contains "$event_file" "$E2E_TOKEN" "file text event" || return 1
+    assert_file_contains "$remote_file" "$E2E_TOKEN" "network text event" || return 1
+    assert_output_isolation "$remote_file.runtime.log" "$remote_file" "$E2E_TOKEN"
 }
 
 case_operational_stdout() {
-    local capture_log="$WORK_DIR/logaddr-stdout.ecapture.log"
-    local operational_log="$WORK_DIR/logaddr.stdout.log"
-    local event_file="$WORK_DIR/logaddr-stdout.events.log"
-    start_capture_split "$operational_log" "$capture_log" gnutls --gnutls "$GNUTLS_LIB" \
-        --model text --text-source hook --logaddr stdout --eventaddr "$event_file" || return 1
-    if ! run_gnutls_request tls13 "$WORK_DIR/logaddr-stdout.client.log"; then
+    local capture_log="$WORK_DIR/combined-stdout.ecapture.log"
+    local terminal_file="$WORK_DIR/combined.stdout.console"
+    local event_file="$WORK_DIR/combined-stdout.events.log"
+    start_capture_split "$terminal_file" "$capture_log" gnutls --gnutls "$GNUTLS_LIB" \
+        --model text --text-source hook --output stdout --output "$event_file.events.jsonl" || return 1
+    if ! run_gnutls_request tls13 "$WORK_DIR/combined-stdout.client.log"; then
         stop_capture
         return 1
     fi
@@ -249,7 +260,9 @@ case_operational_stdout() {
     stop_capture
     assert_no_capture_errors "$capture_log" || return 1
     assert_file_contains "$event_file" "$E2E_TOKEN" "captured text event" || return 1
-    assert_output_isolation "$operational_log" "$event_file" "$E2E_TOKEN"
+    assert_file_contains "$terminal_file" "[log_type=log module=gnutls]" "terminal runtime log marker" || return 1
+    assert_file_contains "$terminal_file" "[log_type=event capture_format=text module=gnutls]" "terminal event marker" || return 1
+    assert_file_contains "$terminal_file" "$E2E_TOKEN" "terminal text event"
 }
 
 case_keylog_stream() {
@@ -259,13 +272,14 @@ case_keylog_stream() {
     local keylog_file="$WORK_DIR/gnutls.${transport}.keys.log"
     local packet_file="$WORK_DIR/gnutls.${transport}.pcapng"
     local packet_log="$WORK_DIR/gnutls.${transport}.tshark-capture.log"
-    start_output_receiver "$transport" "$keylog_file" || return 1
+    start_output_receiver "$transport" "$keylog_file" keylog || return 1
     start_packet_capture lo "tcp port $TLS_SERVER_PORT" "$packet_file" "$packet_log" || {
         stop_output_receiver || true
         return 1
     }
     if ! start_capture "$capture_log" gnutls --gnutls "$GNUTLS_LIB" --model keylog \
-        --logaddr "$operational_log" --eventaddr "$OUTPUT_RECEIVER_URI"; then
+        --output "$operational_log.logs.jsonl" --"$OUTPUT_RECEIVER_FLAG" "$OUTPUT_RECEIVER_URI" \
+        --keylogfile "$keylog_file.local"; then
         stop_packet_capture
         stop_output_receiver || true
         return 1
@@ -282,6 +296,8 @@ case_keylog_stream() {
     stop_output_receiver || return 1
     assert_no_capture_errors "$capture_log" || return 1
     assert_keylog "$keylog_file" || return 1
+    assert_keylog "$keylog_file.local" || return 1
+    cmp "$keylog_file" "$keylog_file.local" || return 1
     assert_file_not_contains "$operational_log" "TRAFFIC_SECRET" "TLS secret in operational log" || return 1
     assert_tls_plaintext_preview "$packet_file" "$keylog_file" "$E2E_TOKEN" \
         "linux/gnutls/keylog-${transport}"
@@ -294,8 +310,8 @@ case_keylog_stdout() {
     local packet_file="$WORK_DIR/gnutls.stdout-keylog.pcapng"
     local packet_log="$WORK_DIR/gnutls.stdout-keylog.tshark-capture.log"
     start_packet_capture lo "tcp port $TLS_SERVER_PORT" "$packet_file" "$packet_log" || return 1
-    if ! start_capture_split "$keylog_file" "$capture_log" gnutls --gnutls "$GNUTLS_LIB" \
-        --model keylog --eventaddr stdout --logaddr "$operational_log"; then
+    if ! start_capture_split "$keylog_file.terminal.console" "$capture_log" gnutls --gnutls "$GNUTLS_LIB" \
+        --model keylog --keylogfile "$keylog_file" --output stdout --output "$operational_log.logs.jsonl"; then
         stop_packet_capture
         return 1
     fi
@@ -312,6 +328,7 @@ case_keylog_stdout() {
     assert_file_not_contains "$operational_log" "TRAFFIC_SECRET" \
         "TLS secret in operational log" || return 1
     assert_keylog "$keylog_file" || return 1
+    assert_file_contains "$keylog_file.terminal.console" "[log_type=event capture_format=keylog module=gnutls]" "terminal keylog classification" || return 1
     assert_tls_plaintext_preview "$packet_file" "$keylog_file" "$E2E_TOKEN" \
         "linux/gnutls/keylog-stdout"
 }
@@ -321,10 +338,10 @@ case_pcapng_stream() {
     local capture_log="$WORK_DIR/pcapng-${transport}.ecapture.log"
     local operational_log="$WORK_DIR/pcapng-${transport}.operational.log"
     local pcap_file="$WORK_DIR/gnutls.${transport}.pcapng"
-    start_output_receiver "$transport" "$pcap_file" || return 1
+    start_output_receiver "$transport" "$pcap_file" pcapng || return 1
     start_capture "$capture_log" gnutls --gnutls "$GNUTLS_LIB" --model pcapng \
-        --logaddr "$operational_log" --eventaddr "$OUTPUT_RECEIVER_URI" \
-        --ifname lo --keylogfile= "tcp port $TLS_SERVER_PORT" || {
+        --output "$operational_log.logs.jsonl" --"$OUTPUT_RECEIVER_FLAG" "$OUTPUT_RECEIVER_URI" \
+        --pcapfile "$pcap_file.local" --ifname lo --keylogfile= "tcp port $TLS_SERVER_PORT" || {
         stop_output_receiver || true
         return 1
     }
@@ -339,6 +356,10 @@ case_pcapng_stream() {
     assert_no_capture_errors "$capture_log" || return 1
     assert_output_isolation "$operational_log" "$pcap_file" "$E2E_TOKEN" || return 1
     assert_pcapng "$pcap_file" || return 1
+    assert_pcapng "$pcap_file.local" || return 1
+    if [[ "$transport" == tcp ]]; then
+        cmp "$pcap_file" "$pcap_file.local" || return 1
+    fi
     assert_pcapng_plaintext_preview "$pcap_file" "$E2E_TOKEN" \
         "linux/gnutls/pcapng-${transport}"
 }
@@ -347,8 +368,8 @@ case_pcapng_stdout() {
     local capture_log="$WORK_DIR/pcapng-stdout.ecapture.log"
     local operational_log="$WORK_DIR/pcapng-stdout.operational.log"
     local pcap_file="$WORK_DIR/gnutls.stdout.pcapng"
-    start_capture_split "$pcap_file" "$capture_log" gnutls --gnutls "$GNUTLS_LIB" \
-        --model pcapng --eventaddr stdout --logaddr "$operational_log" \
+    start_capture_split "$pcap_file.terminal.console" "$capture_log" gnutls --gnutls "$GNUTLS_LIB" \
+        --model pcapng --pcapfile "$pcap_file" --output stdout --output "$operational_log.logs.jsonl" \
         --ifname lo --keylogfile= "tcp port $TLS_SERVER_PORT" || return 1
     if ! run_gnutls_request tls13 "$WORK_DIR/pcapng-stdout.client.log"; then
         stop_capture
@@ -359,6 +380,7 @@ case_pcapng_stdout() {
     assert_no_capture_errors "$capture_log" || return 1
     assert_output_isolation "$operational_log" "$pcap_file" "$E2E_TOKEN" || return 1
     assert_pcapng "$pcap_file" || return 1
+    assert_file_contains "$pcap_file.terminal.console" "[log_type=event capture_format=pcapng module=gnutls]" "terminal pcapng classification" || return 1
     assert_pcapng_plaintext_preview "$pcap_file" "$E2E_TOKEN" "linux/gnutls/pcapng-stdout"
 }
 
@@ -370,10 +392,16 @@ case_ecaptureq_text() {
     local port=$((30000 + RANDOM % 20000))
     local endpoint="ws://127.0.0.1:${port}/"
     "$WORK_DIR/helpers/ecaptureq_assert" --server "$endpoint" --format text \
-        --token "$E2E_TOKEN" >"$client_log" 2>&1 &
+        --token "$E2E_TOKEN" --module gnutls --ready-file "$client_log.ready" >"$client_log" 2>&1 &
     local client_pid=$!
     start_capture "$capture_log" gnutls --gnutls "$GNUTLS_LIB" --model text --text-source hook \
-        --logaddr "$operational_log" --eventaddr "$event_file" --ecaptureq "$endpoint" || {
+        --output "$operational_log.logs.jsonl" --output "$event_file.events.jsonl" --stream-listen "$endpoint" || {
+        kill -TERM "$client_pid" 2>/dev/null || true
+        wait "$client_pid" 2>/dev/null || true
+        return 1
+    }
+    wait_for_receiver_ready "$client_log.ready" "$client_pid" || {
+        stop_capture
         kill -TERM "$client_pid" 2>/dev/null || true
         wait "$client_pid" 2>/dev/null || true
         return 1
@@ -407,11 +435,17 @@ case_ecaptureq_keylog() {
     local client_log="$WORK_DIR/ecaptureq-keylog.client.log"
     local port=$((30000 + RANDOM % 20000))
     local endpoint="ws://127.0.0.1:${port}/"
-    "$WORK_DIR/helpers/ecaptureq_assert" --server "$endpoint" --format keylog \
-        >"$client_log" 2>&1 &
+    "$WORK_DIR/helpers/ecaptureq_assert" --server "$endpoint" --format keylog --module gnutls \
+        --ready-file "$client_log.ready" --capture-file "$keylog_file.ws" --drain >"$client_log" 2>&1 &
     local client_pid=$!
     start_capture "$capture_log" gnutls --gnutls "$GNUTLS_LIB" --model keylog \
-        --logaddr "$operational_log" --eventaddr "$keylog_file" --ecaptureq "$endpoint" || {
+        --output "$operational_log.logs.jsonl" --keylogfile "$keylog_file" --stream-listen "$endpoint" || {
+        kill -TERM "$client_pid" 2>/dev/null || true
+        wait "$client_pid" 2>/dev/null || true
+        return 1
+    }
+    wait_for_receiver_ready "$client_log.ready" "$client_pid" || {
+        stop_capture
         kill -TERM "$client_pid" 2>/dev/null || true
         wait "$client_pid" 2>/dev/null || true
         return 1
@@ -423,8 +457,9 @@ case_ecaptureq_keylog() {
         return 1
     fi
     local client_status=0
-    wait "$client_pid" || client_status=$?
+    sleep 2
     stop_capture
+    wait "$client_pid" || client_status=$?
     if ((client_status != 0)); then
         log_error "Strict eCaptureQ keylog receiver failed"
         cat "$client_log" >&2 || true
@@ -432,9 +467,11 @@ case_ecaptureq_keylog() {
     fi
     assert_no_capture_errors "$capture_log" || return 1
     assert_file_contains "$client_log" \
-        "PROCESS_LOG=1 EVENT=1 FORMAT=CAPTURE_FORMAT_KEYLOG METADATA=1" \
+        "PROCESS_LOG=1 EVENT=1 FORMAT=CAPTURE_FORMAT_KEYLOG NATIVE=1" \
         "typed eCaptureQ keylog receiver result" || return 1
     assert_keylog "$keylog_file" || return 1
+    assert_keylog "$keylog_file.ws" || return 1
+    cmp "$keylog_file" "$keylog_file.ws" || return 1
     assert_output_isolation "$operational_log" "$keylog_file" "$E2E_TOKEN" || return 1
     assert_file_not_contains "$operational_log" "TRAFFIC_SECRET" \
         "TLS secret in operational log"
@@ -447,12 +484,18 @@ case_ecaptureq_pcapng() {
     local client_log="$WORK_DIR/ecaptureq-pcapng.client.log"
     local port=$((30000 + RANDOM % 20000))
     local endpoint="ws://127.0.0.1:${port}/"
-    "$WORK_DIR/helpers/ecaptureq_assert" --server "$endpoint" --format pcapng \
-        >"$client_log" 2>&1 &
+    "$WORK_DIR/helpers/ecaptureq_assert" --server "$endpoint" --format pcapng --module gnutls \
+        --ready-file "$client_log.ready" --capture-file "$pcap_file.ws" --drain >"$client_log" 2>&1 &
     local client_pid=$!
     start_capture "$capture_log" gnutls --gnutls "$GNUTLS_LIB" --model pcapng \
-        --logaddr "$operational_log" --eventaddr "$pcap_file" --ecaptureq "$endpoint" \
+        --output "$operational_log.logs.jsonl" --pcapfile "$pcap_file" --stream-listen "$endpoint" \
         --ifname lo --keylogfile= "tcp port $TLS_SERVER_PORT" || {
+        kill -TERM "$client_pid" 2>/dev/null || true
+        wait "$client_pid" 2>/dev/null || true
+        return 1
+    }
+    wait_for_receiver_ready "$client_log.ready" "$client_pid" || {
+        stop_capture
         kill -TERM "$client_pid" 2>/dev/null || true
         wait "$client_pid" 2>/dev/null || true
         return 1
@@ -464,9 +507,9 @@ case_ecaptureq_pcapng() {
         return 1
     fi
     local client_status=0
-    wait "$client_pid" || client_status=$?
     sleep 2
     stop_capture
+    wait "$client_pid" || client_status=$?
     if ((client_status != 0)); then
         log_error "Strict eCaptureQ pcapng receiver failed"
         cat "$client_log" >&2 || true
@@ -474,10 +517,12 @@ case_ecaptureq_pcapng() {
     fi
     assert_no_capture_errors "$capture_log" || return 1
     assert_file_contains "$client_log" \
-        "PROCESS_LOG=1 EVENT=1 FORMAT=CAPTURE_FORMAT_PCAPNG METADATA=1" \
+        "PROCESS_LOG=1 EVENT=1 FORMAT=CAPTURE_FORMAT_PCAPNG NATIVE=1" \
         "typed eCaptureQ pcapng receiver result" || return 1
     assert_output_isolation "$operational_log" "$pcap_file" "$E2E_TOKEN" || return 1
     assert_pcapng "$pcap_file" || return 1
+    assert_pcapng "$pcap_file.ws" || return 1
+    assert_pcapng_plaintext_preview "$pcap_file.ws" "$E2E_TOKEN" "linux/gnutls/stream-pcapng" || return 1
     assert_pcapng_plaintext_preview \
         "$pcap_file" "$E2E_TOKEN" "linux/gnutls/ecaptureq-pcapng"
 }
@@ -485,103 +530,49 @@ case_ecaptureq_pcapng() {
 case_text_reload_output() {
     local capture_log="$WORK_DIR/reload.ecapture.log"
     local operational_log="$WORK_DIR/reload.operational.log"
-    local original_events="$WORK_DIR/reload-original.events.log"
-    local updated_events="$WORK_DIR/reload-updated.events.log"
+    local event_file="$WORK_DIR/reload.events.log"
+    local forbidden_file="$WORK_DIR/reload-forbidden.events.log"
     local port=$((30000 + RANDOM % 20000))
     local endpoint="http://127.0.0.1:$port/gnutls"
-    local before_token="$E2E_TOKEN"_RELOAD_BEFORE
-    local inherited_token="$E2E_TOKEN"_RELOAD_INHERITED
-    local updated_token="$E2E_TOKEN"_RELOAD_UPDATED
-    local rejected_token="$E2E_TOKEN"_RELOAD_REJECTED
+    local before_token="${E2E_TOKEN}_RELOAD_BEFORE"
+    local after_token="${E2E_TOKEN}_RELOAD_AFTER"
+    local rejected_token="${E2E_TOKEN}_RELOAD_REJECTED"
     local request_body="$WORK_DIR/reload-request.json"
     local response_body="$WORK_DIR/reload-response.json"
 
     start_capture "$capture_log" gnutls --gnutls "$GNUTLS_LIB" --model text --text-source hook \
-        --listen "127.0.0.1:$port" \
-        --logaddr "$operational_log" --eventaddr "$original_events" \
-        --eventroratesize 64 --eventroratetime 3600 || return 1
-
+        --config-listen "127.0.0.1:$port" \
+        --output "$operational_log.logs.jsonl" --output "$event_file.events.jsonl" || return 1
     timeout 15 "$GNUTLS_CLIENT" 127.0.0.1 "$TLS_SERVER_PORT" \
         "/e2e?marker=$before_token" "$E2E_TOKEN" tls13 \
-        >"$WORK_DIR/reload-before.client.log" 2>&1 || {
-        stop_capture
-        return 1
-    }
-    sleep 1
-    assert_file_contains "$original_events" "$before_token" \
-        "GnuTLS event before reload" || {
-        stop_capture
-        return 1
+        >"$WORK_DIR/reload-before.client.log" 2>&1 || { stop_capture; return 1; }
+    wait_for_file_contains "$event_file" "$before_token" "GnuTLS event before reload" || {
+        stop_capture; return 1;
     }
 
     printf '{"gnutlspath":"%s","capturemode":"text","text_source":"hook"}\n' "$GNUTLS_LIB" >"$request_body"
-    post_config_update "$endpoint" "$request_body" "$response_body" 1 || {
-        stop_capture
-        return 1
-    }
+    post_config_update "$endpoint" "$request_body" "$response_body" 1 || { stop_capture; return 1; }
     timeout 15 "$GNUTLS_CLIENT" 127.0.0.1 "$TLS_SERVER_PORT" \
-        "/e2e?marker=$inherited_token" "$E2E_TOKEN" tls13 \
-        >"$WORK_DIR/reload-inherited.client.log" 2>&1 || {
-        stop_capture
-        return 1
-    }
-    sleep 1
-    assert_file_contains "$original_events" "$inherited_token" \
-        "GnuTLS inherited event destination" || {
-        stop_capture
-        return 1
+        "/e2e?marker=$after_token" "$E2E_TOKEN" tls13 \
+        >"$WORK_DIR/reload-after.client.log" 2>&1 || { stop_capture; return 1; }
+    wait_for_file_contains "$event_file" "$after_token" "GnuTLS unchanged process output after reload" || {
+        stop_capture; return 1;
     }
 
     printf '{"gnutlspath":"%s","capturemode":"text","text_source":"hook","event_collector_addr":"%s"}\n' \
-        "$GNUTLS_LIB" "$updated_events" >"$request_body"
-    post_config_update "$endpoint" "$request_body" "$response_body" 1 || {
-        stop_capture
-        return 1
-    }
-    timeout 15 "$GNUTLS_CLIENT" 127.0.0.1 "$TLS_SERVER_PORT" \
-        "/e2e?marker=$updated_token" "$E2E_TOKEN" tls13 \
-        >"$WORK_DIR/reload-updated.client.log" 2>&1 || {
-        stop_capture
-        return 1
-    }
-    sleep 1
-    assert_file_contains "$updated_events" "$updated_token" \
-        "GnuTLS explicitly updated event destination" || {
-        stop_capture
-        return 1
-    }
-    assert_file_not_contains "$original_events" "$updated_token" \
-        "GnuTLS event written to retired destination" || {
-        stop_capture
-        return 1
-    }
-
-    printf '{"gnutlspath":"%s","capturemode":"text","text_source":"hook","event_collector_addr":"udp://127.0.0.1:9"}\n' \
-        "$GNUTLS_LIB" >"$request_body"
-    post_config_update "$endpoint" "$request_body" "$response_body" 0 || {
-        stop_capture
-        return 1
-    }
+        "$GNUTLS_LIB" "$forbidden_file" >"$request_body"
+    post_config_update "$endpoint" "$request_body" "$response_body" 0 || { stop_capture; return 1; }
     timeout 15 "$GNUTLS_CLIENT" 127.0.0.1 "$TLS_SERVER_PORT" \
         "/e2e?marker=$rejected_token" "$E2E_TOKEN" tls13 \
-        >"$WORK_DIR/reload-rejected.client.log" 2>&1 || {
-        stop_capture
-        return 1
+        >"$WORK_DIR/reload-rejected.client.log" 2>&1 || { stop_capture; return 1; }
+    wait_for_file_contains "$event_file" "$rejected_token" "GnuTLS output after rejected legacy-field update" || {
+        stop_capture; return 1;
     }
-    sleep 1
     stop_capture
-
-    assert_file_contains "$updated_events" "$rejected_token" \
-        "GnuTLS output after rejected reload" || return 1
-    assert_file_not_contains "$operational_log" "$before_token" \
-        "GnuTLS captured payload in operational log" || return 1
-    assert_file_not_contains "$operational_log" "$inherited_token" \
-        "GnuTLS inherited payload in operational log" || return 1
-    assert_file_not_contains "$operational_log" "$updated_token" \
-        "GnuTLS updated payload in operational log" || return 1
-    assert_file_not_contains "$operational_log" "$rejected_token" \
-        "GnuTLS post-rejection payload in operational log" || return 1
-    assert_output_isolation "$operational_log" "$original_events" "$before_token" || return 1
+    [[ ! -e "$forbidden_file" ]] || { log_error "Rejected output file was created"; return 1; }
+    assert_file_contains "$event_file" "$before_token" "retained pre-reload event" || return 1
+    assert_file_contains "$event_file" "$after_token" "retained post-reload event" || return 1
+    assert_output_isolation "$operational_log" "$event_file" "$E2E_TOKEN" || return 1
     assert_no_capture_errors "$capture_log"
 }
 
@@ -593,11 +584,12 @@ main() {
     mode_enabled text && run_case "linux/gnutls/text" case_text
     mode_enabled text && run_case "linux/gnutls/text-reload-output" case_text_reload_output
     mode_enabled text && run_case "linux/gnutls/text-stdout" case_text_stdout
+    mode_enabled text && run_case "linux/gnutls/text-stderr" case_text_stdout stderr
     mode_enabled text && run_case "linux/gnutls/text-tcp" case_text_stream tcp
     mode_enabled text && run_case "linux/gnutls/text-websocket" case_text_stream ws
-    mode_enabled text && run_case "linux/gnutls/logaddr-stdout" case_operational_stdout
-    mode_enabled text && run_case "linux/gnutls/logaddr-tcp" case_operational_stream tcp
-    mode_enabled text && run_case "linux/gnutls/logaddr-websocket" case_operational_stream ws
+    mode_enabled text && run_case "linux/gnutls/combined-output-stdout" case_operational_stdout
+    mode_enabled text && run_case "linux/gnutls/combined-output-tcp" case_operational_stream tcp
+    mode_enabled text && run_case "linux/gnutls/combined-output-websocket" case_operational_stream ws
     mode_enabled text && run_case "linux/gnutls/ecaptureq-receiver-text" case_ecaptureq_text
     mode_enabled keylog && run_case "linux/gnutls/keylog-tls12-tls13" case_keylog
     mode_enabled keylog && run_case "linux/gnutls/keylog-stdout" case_keylog_stdout

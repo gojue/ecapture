@@ -33,18 +33,17 @@ var opensslCmd = &cobra.Command{
 	Short:   "Used to capture TLS/SSL text content without the need for a CA certificate. (Supports OpenSSL 1.0.x/1.1.x/3.x or newer).",
 	Long: `Uses eBPF uprobe/TC to capture process event data and network data. Also supports the pcap-NG format.
 
-ecapture tls -m [text|keylog|pcap] [flags] [pcap filter expression (for pcap mode)]
-ecapture tls -m pcap -i wlan0 -w save.pcapng host 192.168.1.1 and tcp port 443
-ecapture tls -m text -i eth0 --eventaddr save.log --pid=3423
-ecapture tls --text-source hook --libssl=/lib/x86_64-linux-gnu/libssl.so.1.1
-ecapture tls -m keylog --pcapfile save_3_0_5.pcapng --ssl_version="openssl 3.0.5" --libssl=/lib/x86_64-linux-gnu/libssl.so.3
-ecapture tls -m pcap --pcapfile save_android.pcapng -i wlan0 --libssl=/apex/com.android.conscrypt/lib64/libssl.so --ssl_version="boringssl 1.1.1" tcp port 443
+ecapture tls -m [text|keylog|pcapng] [flags] [pcap filter expression]
+ecapture tls -m text --text-source pcapng -i eth0 --output stdout --output save.jsonl --pid=3423
+ecapture tls -m text --text-source pcapng --stream-listen ws://127.0.0.1:28257/events
+ecapture tls -m keylog --keylogfile save.keys --output runtime.jsonl --libssl=/lib/x86_64-linux-gnu/libssl.so.3
+ecapture tls -m pcapng --pcapfile save_android.pcapng -i wlan0 --libssl=/apex/com.android.conscrypt/lib64/libssl.so --ssl_version="boringssl 1.1.1" tcp port 443
 
 Docker usage:
 docker pull gojue/ecapture
-docker run --rm --privileged=true --net=host -v /etc:/etc -v /usr:/usr -v ${PWD}:/output gojue/ecapture tls -m pcap -i wlp3s0 --pcapfile=/output/ecapture.pcapng tcp port 443
+docker run --rm --privileged=true --net=host -v /etc:/etc -v /usr:/usr -v ${PWD}:/output gojue/ecapture tls -m pcapng -i wlp3s0 --pcapfile=/output/ecapture.pcapng tcp port 443
 `,
-	Example: "ecapture tls -m pcap -i wlan0 -w save.pcapng host 192.168.1.1 and tcp port 443",
+	Example: "ecapture tls -m text --text-source pcapng -i eth0 --output stdout --output capture.jsonl tcp port 443",
 	RunE:    openSSLCommandFunc,
 }
 
@@ -54,8 +53,8 @@ func init() {
 	opensslCmd.PersistentFlags().StringVarP(&opensslConfig.CaptureMode, "model", "m", "text", "capture mode: text, pcap/pcapng, key/keylog")
 	opensslCmd.PersistentFlags().StringVar(&opensslConfig.TextSource, "text-source", handlers.TextSourcePcapng, "text capture source: pcapng (live TLS decryption) or hook")
 	bindDecryptFlags(opensslCmd, &opensslConfig.DecryptConfig)
-	opensslCmd.PersistentFlags().StringVarP(&opensslConfig.KeylogFile, "keylogfile", "k", "ecapture_openssl_key.log", "The file stores SSL/TLS keys, and eCapture captures these keys during encrypted traffic communication and saves them to the file.")
-	opensslCmd.PersistentFlags().StringVarP(&opensslConfig.PcapFile, "pcapfile", "w", "save.pcapng", "write the raw packets to file as pcapng format.")
+	opensslCmd.PersistentFlags().StringVarP(&opensslConfig.KeylogFile, "keylogfile", "k", "", "local NSS keylog file; required in keylog mode, optional with text-source pcapng")
+	opensslCmd.PersistentFlags().StringVarP(&opensslConfig.PcapFile, "pcapfile", "w", "", "local pcapng file; required in pcapng mode, optional with text-source pcapng")
 	opensslCmd.PersistentFlags().StringVarP(&opensslConfig.Ifname, "ifname", "i", "", "capture interface; automatically selected from default routes, then traffic counters, when omitted")
 	opensslCmd.PersistentFlags().StringVar(&opensslConfig.SslVersion, "ssl_version", "", "openssl/boringssl version， e.g: --ssl_version=\"openssl 1.1.1g\" or  --ssl_version=\"boringssl 1.1.1\".")
 	opensslCmd.PersistentFlags().BoolVar(&globalConf.PerfReorder, "perf-reorder", false, "enable userland reorder of per-CPU perf events by bpf ktime before dispatch")

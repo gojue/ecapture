@@ -15,7 +15,6 @@
 package cmd
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -52,22 +51,6 @@ func normalizeTLSOutputFlags(command *cobra.Command, mode string, textSource, ke
 			*pcapFile = ""
 		}
 		return nil
-	}
-	eventFlag := command.Flag("eventaddr")
-	if eventFlag == nil || !eventFlag.Changed {
-		return nil
-	}
-	switch mode {
-	case handlers.ModeKey, handlers.ModeKeylog:
-		if flag := command.Flag("keylogfile"); flag != nil && flag.Changed {
-			return fmt.Errorf("--eventaddr and --keylogfile cannot both select the primary keylog destination")
-		}
-		*keylogFile = ""
-	case handlers.ModePcap, handlers.ModePcapng:
-		if flag := command.Flag("pcapfile"); flag != nil && flag.Changed {
-			return fmt.Errorf("--eventaddr and --pcapfile cannot both select the primary pcapng destination")
-		}
-		*pcapFile = ""
 	}
 	return nil
 }

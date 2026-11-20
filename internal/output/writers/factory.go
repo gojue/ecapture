@@ -15,9 +15,11 @@
 package writers
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -37,6 +39,7 @@ type EventSinkOptions struct {
 	Format       EventFormat
 	RotateConfig *RotateConfig
 	Sensitive    bool // restrict file permissions for reconstructed plaintext
+	Append       bool // preserve native artifacts across probe generations
 }
 
 type sinkAddress struct {
@@ -79,6 +82,65 @@ func ValidateChannelSeparation(format EventFormat, eventAddress, loggerAddress s
 type WriterFactory struct{}
 
 func NewWriterFactory() *WriterFactory { return &WriterFactory{} }
+
+// ValidateArtifactFile restricts native capture artifacts to regular local
+// files. Terminal devices, pipes and network destinations belong to --output.
+func ValidateArtifactFile(address string) error {
+	if address == "" {
+		return fmt.Errorf("native capture output requires an explicit file path")
+	}
+	if address == "stdout" || address == "stderr" || address == "-" {
+		return fmt.Errorf("native capture artifact cannot use a terminal destination")
+	}
+	parsed, err := parseSinkAddress(address)
+	if err != nil {
+		return err
+	}
+	if parsed.kind != "file" {
+		return fmt.Errorf("native capture artifact %q must be a local file", address)
+	}
+	info, err := os.Stat(parsed.name)
+	if err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("inspect native capture artifact: %w", err)
+	}
+	if err == nil && !info.Mode().IsRegular() {
+		return fmt.Errorf("native capture artifact %q must be a regular file", address)
+	}
+	if err == nil {
+		for _, terminal := range []*os.File{os.Stdout, os.Stderr} {
+			if terminalInfo, statErr := terminal.Stat(); statErr == nil && os.SameFile(info, terminalInfo) {
+				return fmt.Errorf("native capture artifact cannot share stdout or stderr")
+			}
+		}
+	}
+	return nil
+}
+
+// ValidateCaptureArtifacts keeps native keylog/pcapng files separate from the
+// process-wide display endpoints. Text capture may request either artifact;
+// native modes require their corresponding file explicitly.
+func ValidateCaptureArtifacts(mode, keylogFile, pcapFile string) error {
+	for _, artifact := range []struct{ flag, address string }{
+		{"--keylogfile", keylogFile}, {"--pcapfile", pcapFile},
+	} {
+		if artifact.address != "" {
+			if err := ValidateArtifactFile(artifact.address); err != nil {
+				return fmt.Errorf("%s: %w", artifact.flag, err)
+			}
+		}
+	}
+	switch mode {
+	case "key", "keylog":
+		if keylogFile == "" {
+			return fmt.Errorf("keylog mode requires --keylogfile")
+		}
+	case "pcap", "pcapng":
+		if pcapFile == "" {
+			return fmt.Errorf("pcapng mode requires --pcapfile")
+		}
+	}
+	return nil
+}
 
 // byteSinkPolicy contains transport construction details that vary by semantic
 // channel. Public callers still choose between operational and event sinks;
@@ -128,7 +190,7 @@ func (f *WriterFactory) CreateEventSink(options EventSinkOptions) (ByteSink, err
 	}
 
 	fileConfig := FileWriterConfig{
-		Truncate: options.Format == EventFormatKeylog || options.Format == EventFormatPcapng,
+		Truncate: !options.Append && (options.Format == EventFormatKeylog || options.Format == EventFormatPcapng),
 	}
 	if options.Format == EventFormatPcapng {
 		fileConfig.BufferSize = 64 * 1024
@@ -156,6 +218,31 @@ func (f *WriterFactory) CreateOperationalSink(address string, rotateConfig *Rota
 	fileConfig := FileWriterConfig{Truncate: true}
 	applyRotateConfig(&fileConfig, rotateConfig)
 	return f.createByteSink(address, byteSinkPolicy{fileConfig: fileConfig})
+}
+
+// CreateJSONSink opens a typed-record destination. Files append with sensitive
+// permissions; remote connection establishment has one bounded deadline.
+func (f *WriterFactory) CreateJSONSink(address string) (ByteSink, error) {
+	parsed, err := parseSinkAddress(address)
+	if err != nil {
+		return nil, err
+	}
+	if parsed.kind == "file" {
+		if err := ValidateArtifactFile(address); err != nil {
+			return nil, err
+		}
+		return NewFileWriter(FileWriterConfig{Path: parsed.name, Permissions: 0600})
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	switch parsed.kind {
+	case "tcp":
+		return newTCPWriterWithContext(ctx, parsed.name, 4096)
+	case "ws", "wss":
+		return newWebSocketWriterWithContext(ctx, address)
+	default:
+		return nil, fmt.Errorf("JSON output requires a file or remote destination")
+	}
 }
 
 func (f *WriterFactory) createByteSink(address string, policy byteSinkPolicy) (ByteSink, error) {
@@ -221,10 +308,9 @@ func parseSinkAddress(address string) (sinkAddress, error) {
 		if parsed.Host != "" && parsed.Host != "localhost" {
 			return sinkAddress{}, fmt.Errorf("file URI host must be empty or localhost")
 		}
-		path, err := url.PathUnescape(parsed.Path)
-		if err != nil {
-			return sinkAddress{}, fmt.Errorf("invalid file URI path: %w", err)
-		}
+		// url.Parse already unescapes Path. Decoding again changes literal
+		// percent-encoded filenames and disagrees with artifact alias checks.
+		path := parsed.Path
 		if path == "" {
 			return sinkAddress{}, fmt.Errorf("file URI path cannot be empty")
 		}

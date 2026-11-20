@@ -136,9 +136,9 @@ assert_output_isolation() {
     local event_output="$2"
     local captured_token="$3"
     assert_file_contains "$operational_log" "Probe initialized" \
-        "BaseProbe initialization in --logaddr" || return 1
+        "BaseProbe initialization in operational log projection" || return 1
     assert_file_contains "$operational_log" "Probe closed" \
-        "BaseProbe shutdown in --logaddr" || return 1
+        "BaseProbe shutdown in operational log projection" || return 1
     assert_file_not_contains "$operational_log" "$captured_token" \
         "captured payload in operational log" || return 1
     assert_file_not_contains "$event_output" "Probe initialized" \

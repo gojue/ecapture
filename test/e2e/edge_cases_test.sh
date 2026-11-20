@@ -4,9 +4,9 @@
 set -euo pipefail
 
 E2E_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=test/e2e/linux/common_config_test.sh
-source "$E2E_SCRIPT_DIR/linux/common_config_test.sh"
-trap 'status=$?; common_config_cleanup "$status"; exit $?' EXIT
+# shellcheck source=test/e2e/linux/common.sh
+source "$E2E_SCRIPT_DIR/linux/common.sh"
+trap linux_suite_cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
@@ -26,19 +26,20 @@ expect_rejected() {
 
 case_shutdown() {
     local signal="$1"
-    prepare_common_case "signal-${signal,,}" || return 1
+    local capture_log="$WORK_DIR/signal-${signal,,}.log"
     # This case generates no packets. Use hook for signal-only checks because
     # pcapng sessions require a nonempty capture for successful close.
-    start_common_capture tls tls --libssl "$OPENSSL_LIB" -m text --text-source hook || return 1
-    stop_common_capture "$signal" || return 1
-    assert_no_capture_errors "$CAPTURE_LOG" || return 1
-    assert_no_capture_errors "$OPERATIONAL_LOG" || return 1
-    assert_file_contains "$OPERATIONAL_LOG" "Probe closed" "SIG$signal probe cleanup" || return 1
-    assert_file_contains "$OPERATIONAL_LOG" "bye bye" "SIG$signal CLI shutdown"
+    start_capture "$capture_log" tls --libssl "$OPENSSL_LIB" -m text --text-source hook --output stdout || return 1
+    stop_capture "$signal" || return 1
+    assert_no_capture_errors "$capture_log" || return 1
+    assert_file_contains "$capture_log" "Probe closed" "SIG$signal probe cleanup" || return 1
+    assert_file_contains "$capture_log" "bye bye" "SIG$signal CLI shutdown"
 }
 
 main() {
-    setup_common_config_suite || return 1
+    check_linux_environment || return 1
+    umask 077
+    create_work_dir cli || return 1
     require_command cc || return 1
     require_command ldd || return 1
     local client="$WORK_DIR/openssl_client"
@@ -57,13 +58,13 @@ main() {
     run_case "cli/negative-pid" expect_rejected negative-pid 'invalid argument' \
         tls --libssl "$OPENSSL_LIB" --pid=-1
     run_case "cli/missing-interface" expect_rejected missing-interface "network interface 'ecap-no-iface' not found" \
-        tls --libssl "$OPENSSL_LIB" -m pcapng --ifname ecap-no-iface --eventaddr "$WORK_DIR/no-iface.pcapng"
-    run_case "cli/empty-pcapng-destination" expect_rejected empty-pcapng 'pcapng output requires an explicit destination' \
+        tls --libssl "$OPENSSL_LIB" -m pcapng --ifname ecap-no-iface --pcapfile "$WORK_DIR/no-iface.pcapng"
+    run_case "cli/empty-pcapng-destination" expect_rejected empty-pcapng 'pcapng mode requires --pcapfile' \
         tls --libssl "$OPENSSL_LIB" -m pcapng --ifname lo --pcapfile= --keylogfile=
-    run_case "cli/unwritable-event-file" expect_rejected unwritable-file 'failed to open file' \
-        tls --libssl "$OPENSSL_LIB" --text-source hook --eventaddr "/proc/ecapture-e2e-$BASHPID"
+    run_case "cli/unwritable-output-file" expect_rejected unwritable-file 'failed to open file' \
+        tls --libssl "$OPENSSL_LIB" --text-source hook --output "/proc/ecapture-e2e-$BASHPID"
     run_case "cli/invalid-pcap-filter" expect_rejected invalid-filter 'failed to inject pcap filter' \
-        tls --libssl "$OPENSSL_LIB" -m pcapng --ifname lo --eventaddr "$WORK_DIR/invalid-filter.pcapng" \
+        tls --libssl "$OPENSSL_LIB" -m pcapng --ifname lo --pcapfile "$WORK_DIR/invalid-filter.pcapng" \
         'this is not a valid capture filter!!!'
     run_case "runtime/sigint" case_shutdown INT
     run_case "runtime/sigterm" case_shutdown TERM

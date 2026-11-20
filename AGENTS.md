@@ -135,10 +135,21 @@ package ownership.
 - Module-private records such as OpenSSL connection metadata are consumed
   before output dispatch; they enrich captured output events instead of
   becoming standalone text or typed events.
-- `--logaddr` is operational logging only. For TLS, GoTLS, and GnuTLS,
-  `--eventaddr` is the primary captured-event destination for text (hook or
-  pcapng source), keylog, and pcapng. eCaptureQ is an additive typed publisher,
-  not a ByteSink.
+- `--output` is a repeatable array of process-lifetime destinations, defaulting
+  to `stdout`. Terminals label every line as log/event; files and outgoing TCP
+  use Protobuf v2 JSON Lines. `--stream-listen ws://host:port/path` serves binary
+  v2 subscriptions requiring the `ecapture.v2` subprotocol. `--config-listen`
+  independently enables HTTP configuration updates. There are no old CLI aliases.
+- Core text events carry the SDK's formatted decoded output. Native `keylog`
+  and `pcapng` require explicit local `--keylogfile`/`--pcapfile`; output files
+  receive only runtime logs in these modes. Network records carry encoded
+  NSS/pcapng bytes. Late pcapng subscribers receive an independent section with
+  headers and future packets/secrets, without historical replay.
+- Runtime outputs are borrowed and reattached on reload. Each generation ends
+  its network connections; raw local artifacts append new sections on reload
+  or rollback. First startup truncates native artifacts. Output files must not
+  alias native artifacts. HTTP reload rejects removed output/rotation fields
+  and process-lifetime destination settings.
 - Linux production tags are `linux,netgo,ebpfassets,dynamic`; Android uses
   `ecap_android,netgo,ebpfassets,dynamic`. Preserve CO-RE and non-CO-RE paths.
 - Never hand-edit or commit generated `bytecode/*.o`, `bytecode/*.d`,
@@ -226,10 +237,8 @@ verification matrix live in `docs/agent/build-test.md`.
 - Shared serializable probe fields are applied through
   `internal/config.CommonConfig` for every Cobra command and HTTP config
   factory. Keep process-lifetime output dependencies out of that copy path.
-- HTTP reload distinguishes omitted captured-event destination/rotation fields
-  from explicit empty/zero values. Omitted fields inherit from the active
-  generation, while runtime logger and typed eCaptureQ dependencies are
-  reattached separately.
+- HTTP reload retains the running probe type, validates a candidate before
+  switching, and acknowledges success only after the new generation starts.
 - Probe registration currently discards duplicate-registration errors.
 - Every probe uses the shared bytecode selector. `--btf=0` resolves kernel BTF
   once per process, while explicit modes fail when the linked asset set cannot

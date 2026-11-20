@@ -519,3 +519,38 @@ func TestSessionStopsOnFirstFailure(t *testing.T) {
 		})
 	}
 }
+
+func TestSubscriptionQueueLimitIncludesEncoderBatch(t *testing.T) {
+	var output bytes.Buffer
+	writer, err := pcapgo.NewNgWriter(&output, layers.LinkTypeEthernet)
+	if err != nil {
+		t.Fatal(err)
+	}
+	session := &Session{encoder: writer, sink: writers.NewIOWriterAdapter(&output, "memory"), queueReady: make(chan struct{}, 1), maxBufferedBytes: 384}
+	packet := make([]byte, 64)
+	for range 2 {
+		if err := session.WritePacket(packet, time.Unix(100, 0)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := session.WritePacket(packet, time.Unix(100, 0)); !errors.Is(err, ErrQueueFull) {
+		t.Fatalf("unbounded pending queue: %v", err)
+	}
+	session.tcPackets, _ = session.takePendingData()
+	if err := session.WriteKeyLog([]byte("secret\n")); !errors.Is(err, ErrQueueFull) {
+		t.Fatalf("encoder batch lost its reservation: %v", err)
+	}
+	if _, err := session.savePcapng(); err != nil {
+		t.Fatal(err)
+	}
+	session.tcPackets = nil
+	if err := session.WriteKeyLog([]byte("secret\n")); err != nil {
+		t.Fatal(err)
+	}
+	if err := session.flushQueuedKeylogs(); err != nil {
+		t.Fatal(err)
+	}
+	if session.bufferedBytes != 0 {
+		t.Fatalf("reservation retained after encoding: %d", session.bufferedBytes)
+	}
+}

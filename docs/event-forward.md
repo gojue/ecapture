@@ -11,4 +11,8 @@
 
 当前仓库的接入契约见[事件转发 API](event-forward-api-zh_Hans.md)和
 [Protobuf 协议](../protobuf/PROTOCOLS-zh_Hans.md)。
-`--eventaddr` 原始字节流与 `--ecaptureq` 类型化 Protobuf 消息是不同接口，集成时需匹配。
+`--output tcp://HOST:PORT` 主动发送 Protobuf v2 JSON Lines；
+`--stream-listen ws://HOST:PORT/PATH` 监听二进制 Protobuf v2 订阅，客户端必须协商
+`ecapture.v2`。接收端需按 `log_type` 区分运行日志和事件，再按事件格式处理
+TEXT、KEYLOG 或 PCAPNG。旧参数和 v1 协议没有兼容层；GUI 或插件需完成对应适配，
+不能仅替换连接地址。
