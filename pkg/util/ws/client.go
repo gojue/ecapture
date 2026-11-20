@@ -15,6 +15,7 @@
 package ws
 
 import (
+	"context"
 	"time"
 
 	"golang.org/x/net/websocket"
@@ -40,13 +41,21 @@ func (w *Client) Write(p []byte) (n int, err error) {
 }
 
 func (w *Client) Dial(url, protocol, origin string) error {
-	var err error
-	w.conn, err = websocket.Dial(url, protocol, origin)
+	return w.DialContext(context.Background(), url, protocol, origin)
+}
+
+// DialContext applies one context to connection establishment, TLS, and the
+// WebSocket upgrade. Once established, the connection outlives this context.
+func (w *Client) DialContext(ctx context.Context, url, protocol, origin string) error {
+	config, err := websocket.NewConfig(url, origin)
 	if err != nil {
 		return err
 	}
-	return nil
-
+	if protocol != "" {
+		config.Protocol = []string{protocol}
+	}
+	w.conn, err = config.DialContext(ctx)
+	return err
 }
 
 // Close 关闭 WebSocket 连接

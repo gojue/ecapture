@@ -1,5 +1,11 @@
 # eCapture Protobuf Debugger
 
+调试器使用 `ecapture.v2` WebSocket 子协议并校验 v2 `LogEntry`。
+采集器通过 `--stream-listen` 开启订阅，旧 `--ecaptureq` 参数不再支持。
+TEXT 事件显示元数据和正文；KEYLOG 与 PCAPNG 事件仅显示字节数摘要，其内容是
+原生输出流片段，不能当作单个文本包。保存原生文件请使用
+[接收端示例](../../examples/ecaptureq_client/README.md)。编译和执行需要 Linux。
+
 eCapture WebSocket 消息的可视化调试工具，支持解析 Event、Heartbeat 和 Log 类型的 Protobuf 消息。
 
 ## 编译

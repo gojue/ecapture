@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net/netip"
-	"strconv"
 	"strings"
 
 	"golang.org/x/sys/unix"
@@ -13,8 +12,6 @@ import (
 	"github.com/gojue/ecapture/v2/internal/errors"
 
 	"github.com/gojue/ecapture/v2/internal/domain"
-
-	pb "github.com/gojue/ecapture/v2/protobuf/gen/v1"
 )
 
 type connDataEvent struct {
@@ -156,40 +153,6 @@ func (ce *ConnDataEvent) GetUUID() string {
 
 	// TODO: 新版 UUID 逻辑待启用。新格式增加了 socket 前缀，用于标识与套接字的绑定。
 	// return fmt.Sprintf("%s:%d_%d_%s_%d", SocketLifecycleUUIDPrefix, ce.Pid, ce.Tid, commStr(ce.Comm[:]), ce.Fd)
-}
-
-func (ce *ConnDataEvent) ToProtobufEvent() *pb.Event {
-	event := &pb.Event{
-		Timestamp: int64(ce.TimestampNs),
-		Uuid:      ce.GetUUID(),
-		Pid:       int64(ce.Pid),
-		Pname:     commStr(ce.Comm[:]),
-		Type:      0,
-		Length:    uint32(len(ce.Tuple)),
-		Payload:   []byte(ce.Tuple),
-	}
-
-	// Parse tuple for IP addresses and ports
-	ips := strings.Split(ce.Tuple, "-")
-	if len(ips) == 2 {
-		srcParts := strings.Split(ips[0], ":")
-		destParts := strings.Split(ips[1], ":")
-
-		if len(srcParts) == 2 && len(destParts) == 2 {
-			event.SrcIp = srcParts[0]
-			event.DstIp = destParts[0]
-
-			if srcPort, err := strconv.ParseUint(srcParts[1], 10, 32); err == nil {
-				event.SrcPort = uint32(srcPort)
-			}
-
-			if dstPort, err := strconv.ParseUint(destParts[1], 10, 32); err == nil {
-				event.DstPort = uint32(dstPort)
-			}
-		}
-	}
-
-	return event
 }
 
 func (ce *ConnDataEvent) Payload() []byte {

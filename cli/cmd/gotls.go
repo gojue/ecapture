@@ -32,14 +32,14 @@ var gotlsCmd = &cobra.Command{
 	Aliases: []string{"tlsgo"},
 	Short:   "Capturing plaintext communication from Golang programs encrypted with TLS/HTTPS.",
 	Long: `Utilize eBPF uprobe/TC to capture both process event and network data, with added support for pcap-NG format.
-ecapture gotls
-ecapture gotls --elfpath=/home/cfc4n/go_https_client --text-source hook --hex --pid=3423
-ecapture gotls -m keylog -k /tmp/ecap_gotls_key.log --elfpath=/home/cfc4n/go_https_client -l save.log --pid=3423
-ecapture gotls -m pcap --pcapfile=save_android.pcapng -i wlan0 --elfpath=/home/cfc4n/go_https_client tcp port 443
+ecapture gotls --elfpath=/path/to/go/binary -m text --text-source pcapng
+ecapture gotls --elfpath=/path/to/go/binary -m text --text-source pcapng --output stdout --output capture.jsonl --pid=3423
+ecapture gotls --elfpath=/path/to/go/binary -m keylog --keylogfile save.keys --output runtime.jsonl --pid=3423
+ecapture gotls --elfpath=/path/to/go/binary -m pcapng --pcapfile save.pcapng -i eth0 tcp port 443
 `,
 	Example: `  # userland perf reorder (flag name uses hyphens, not underscores)
-  ecapture gotls --elfpath=/path/to/go/binary --btf=1 --debug --perf-reorder -m text
-  ecapture gotls -e /path/to/go/binary --perf-reorder --perf-reorder-lag-ms=20 -m text`,
+  ecapture gotls --elfpath=/path/to/go/binary --btf=1 --debug --perf-reorder -m text --text-source pcapng
+  ecapture gotls -e /path/to/go/binary --perf-reorder --perf-reorder-lag-ms=20 -m text --text-source pcapng`,
 	RunE: goTLSCommandFunc,
 }
 
@@ -47,11 +47,11 @@ func init() {
 	gotlsCmd.PersistentFlags().StringVarP(&gotlsConfig.ElfPath, "elfpath", "e", "", "ELF path to binary built with Go toolchain.")
 	gotlsCmd.PersistentFlags().BoolVar(&globalConf.PerfReorder, "perf-reorder", false, "enable userland reorder of per-CPU perf events by bpf ktime before dispatch (see also: tls, mysqld, postgres)")
 	gotlsCmd.PersistentFlags().UintVar(&globalConf.PerfReorderLagMs, "perf-reorder-lag-ms", 10, "reorder batching window in milliseconds (only with --perf-reorder; default 10)")
-	gotlsCmd.PersistentFlags().StringVarP(&gotlsConfig.PcapFile, "pcapfile", "w", "ecapture_gotls.pcapng", "write the  raw packets to file as pcapng format.")
+	gotlsCmd.PersistentFlags().StringVarP(&gotlsConfig.PcapFile, "pcapfile", "w", "", "local pcapng file; required in pcapng mode, optional with text-source pcapng")
 	gotlsCmd.PersistentFlags().StringVarP(&gotlsConfig.CaptureMode, "model", "m", "text", "capture mode: text, pcap/pcapng, key/keylog")
 	gotlsCmd.PersistentFlags().StringVar(&gotlsConfig.TextSource, "text-source", handlers.TextSourcePcapng, "text capture source: pcapng (live TLS decryption) or hook")
 	bindDecryptFlags(gotlsCmd, &gotlsConfig.DecryptConfig)
-	gotlsCmd.PersistentFlags().StringVarP(&gotlsConfig.KeylogFile, "keylogfile", "k", "ecapture_gotls_key.log", "The file stores SSL/TLS keys, and eCapture captures these keys during encrypted traffic communication and saves them to the file.")
+	gotlsCmd.PersistentFlags().StringVarP(&gotlsConfig.KeylogFile, "keylogfile", "k", "", "local NSS keylog file; required in keylog mode, optional with text-source pcapng")
 	gotlsCmd.PersistentFlags().StringVarP(&gotlsConfig.Ifname, "ifname", "i", "", "capture interface; automatically selected from default routes, then traffic counters, when omitted")
 	gotlsCmd.PersistentFlags().StringVar(&globalConf.CGroupPath, "cgroup_path", "", "cgroup v2 path for container/process filtering. Empty disables cgroup filtering.")
 	rootCmd.AddCommand(gotlsCmd)

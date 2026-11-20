@@ -37,6 +37,8 @@ import (
 	"github.com/gojue/ecapture/v2/internal/output/writers"
 )
 
+var ErrQueueFull = stderrors.New("pcapng subscription queue is full")
+
 type TcPacket struct {
 	ci            gopacket.CaptureInfo
 	data          []byte
@@ -63,13 +65,15 @@ type Session struct {
 	// flushing the previous batch to disk. Keep a short critical section in the
 	// perf-reader path and wake the run loop through a coalescing notification
 	// instead of using a bounded packet channel.
-	queueMu        sync.Mutex
-	pendingPackets []*TcPacket
-	pendingKeylogs [][]byte
-	queueReady     chan struct{}
-	keylogFlush    chan chan error
-	streamFlush    chan chan error
-	stopped        bool
+	queueMu          sync.Mutex
+	pendingPackets   []*TcPacket
+	pendingKeylogs   [][]byte
+	maxBufferedBytes int
+	bufferedBytes    int
+	queueReady       chan struct{}
+	keylogFlush      chan chan error
+	streamFlush      chan chan error
+	stopped          bool
 
 	serveDone   chan struct{}
 	packetCount int
@@ -83,16 +87,26 @@ type Session struct {
 
 // NewSession creates a stateful pcapng encoding session over sink.
 func NewSession(sink writers.ByteSink, snaplen uint32, ifName, filter string, logger *lger.Logger) (*Session, error) {
-	return newSession(sink, snaplen, ifName, filter, logger, pcapFlushInterval, dsbGracePeriod)
+	return newSession(sink, snaplen, ifName, filter, logger, pcapFlushInterval, dsbGracePeriod, 0)
 }
 
 // NewLowLatencySession emits packet batches without a fixed DSB grace period.
 // Consumers must handle DSBs that arrive after the encrypted packets.
 func NewLowLatencySession(sink writers.ByteSink, snaplen uint32, ifName, filter string, logger *lger.Logger) (*Session, error) {
-	return newSession(sink, snaplen, ifName, filter, logger, 50*time.Millisecond, 0)
+	return newSession(sink, snaplen, ifName, filter, logger, 50*time.Millisecond, 0, 0)
 }
 
-func newSession(sink writers.ByteSink, snaplen uint32, ifName, filter string, logger *lger.Logger, flushInterval, gracePeriod time.Duration) (*Session, error) {
+// NewSubscriptionSession bounds memory retained by an individual network
+// subscriber, including packets already moved from the queue to an encoder
+// batch. Local capture sessions retain their existing lossless queue behavior.
+func NewSubscriptionSession(sink writers.ByteSink, snaplen uint32, ifName, filter string, logger *lger.Logger, maxBytes int) (*Session, error) {
+	if maxBytes <= 0 {
+		return nil, fmt.Errorf("subscription queue limit must be positive")
+	}
+	return newSession(sink, snaplen, ifName, filter, logger, 50*time.Millisecond, 0, maxBytes)
+}
+
+func newSession(sink writers.ByteSink, snaplen uint32, ifName, filter string, logger *lger.Logger, flushInterval, gracePeriod time.Duration, maxBytes int) (*Session, error) {
 	if sink == nil {
 		return nil, fmt.Errorf("pcapng sink cannot be nil")
 	}
@@ -177,6 +191,7 @@ func newSession(sink writers.ByteSink, snaplen uint32, ifName, filter string, lo
 		isClosed:    false,
 		logger:      logger,
 	}
+	pw.maxBufferedBytes = maxBytes
 	go pw.serve(flushInterval, gracePeriod)
 	return pw, nil
 }
@@ -235,6 +250,10 @@ func (pw *Session) queuePacket(data []byte, timestamp time.Time, args []byte, tr
 		pw.queueMu.Unlock()
 		return errors.New(errors.ErrCodeEventDispatch, "pcapng session is closed")
 	}
+	if !pw.reserveBufferedLocked(len(data) + len(args) + 128) {
+		pw.queueMu.Unlock()
+		return ErrQueueFull
+	}
 	pw.pendingPackets = append(pw.pendingPackets, &TcPacket{ci: captureInfo, data: append([]byte(nil), data...), args: append([]byte(nil), args...), argsTruncated: truncated})
 	pw.queueMu.Unlock()
 
@@ -244,6 +263,28 @@ func (pw *Session) queuePacket(data []byte, timestamp time.Time, args []byte, tr
 	default:
 	}
 	return nil
+}
+
+// queueMu must be held. Charge per-record overhead so zero-length records are
+// bounded as well as payload bytes. The reservation survives queue transfers.
+func (pw *Session) reserveBufferedLocked(size int) bool {
+	if pw.maxBufferedBytes == 0 {
+		return true
+	}
+	if size > pw.maxBufferedBytes-pw.bufferedBytes {
+		return false
+	}
+	pw.bufferedBytes += size
+	return true
+}
+
+func (pw *Session) releaseBuffered(size int) {
+	if pw.maxBufferedBytes == 0 {
+		return
+	}
+	pw.queueMu.Lock()
+	pw.bufferedBytes -= size
+	pw.queueMu.Unlock()
 }
 
 func (pw *Session) takePendingData() ([]*TcPacket, [][]byte) {
@@ -274,6 +315,7 @@ func (pw *Session) writeQueuedKeylogs(keylogs [][]byte) error {
 		if err := pw.encoder.WriteDecryptionSecretsBlock(pcapgo.DSB_SECRETS_TYPE_TLS, keylogLine); err != nil {
 			return err
 		}
+		pw.releaseBuffered(len(keylogLine) + 32)
 	}
 	return pw.flushStream()
 }
@@ -423,6 +465,7 @@ func (pw *Session) savePcapng() (i int, err error) {
 	})
 	for _, packet := range pw.tcPackets {
 		err = pw.writePacket(packet)
+		pw.releaseBuffered(len(packet.data) + len(packet.args) + 128)
 		i++
 		if err != nil {
 			return
@@ -483,16 +526,17 @@ func (pw *Session) WriteKeyLog(keylogLine []byte) error {
 	if err := pw.currentServeError(); err != nil {
 		return errors.Wrap(errors.ErrCodeEventDispatch, "pcapng stream failed", err)
 	}
-	// Make a copy to avoid the caller modifying the data after sending
-	data := make([]byte, len(keylogLine))
-	copy(data, keylogLine)
-
 	pw.queueMu.Lock()
 	if pw.stopped {
 		pw.queueMu.Unlock()
 		return errors.New(errors.ErrCodeEventDispatch, "pcapng session is closed")
 	}
-	pw.pendingKeylogs = append(pw.pendingKeylogs, data)
+	if !pw.reserveBufferedLocked(len(keylogLine) + 32) {
+		pw.queueMu.Unlock()
+		return ErrQueueFull
+	}
+	// Copy only after reserving bounded queue capacity.
+	pw.pendingKeylogs = append(pw.pendingKeylogs, append([]byte(nil), keylogLine...))
 	pw.queueMu.Unlock()
 
 	select {
@@ -621,6 +665,7 @@ func (pw *Session) recordServeError(err error) {
 	pw.stopped = true
 	pw.pendingPackets = nil
 	pw.pendingKeylogs = nil
+	pw.bufferedBytes = 0
 	pw.queueMu.Unlock()
 	pw.tcPackets = nil
 }

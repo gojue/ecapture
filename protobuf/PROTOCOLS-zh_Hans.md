@@ -1,92 +1,119 @@
-# eCaptureQ 传输协议
+# eCapture Protobuf v2 与 JSON Lines
 
 [English](PROTOCOLS.md) · [代码生成](README-zh_Hans.md)
 
-协议以 [proto/v1/ecaptureq.proto](proto/v1/ecaptureq.proto) 为准，包名为 `event`。
-Go 导入路径为 `pb "github.com/gojue/ecapture/v2/protobuf/gen/v1"`。
-此协议用于 `--ecaptureq`，不用于 `--eventaddr` 原始字节流。
+权威 schema 为 [proto/v2/ecaptureq.proto](proto/v2/ecaptureq.proto)，namespace 是
+`ecapture.v2`。Go 导入 `pb "github.com/gojue/ecapture/v2/protobuf/gen/v2"`。
+运行时仅输出 v2；这是不兼容的 wire format 变更，接收端须同时升级消息解码、事件分流和
+原生文件处理。不能使用 v1 生成代码解码 v2。
 
-## 消息边界与枚举
+## 传输和消息边界
 
-每条二进制 WebSocket 消息是一个编码后的 `LogEntry`。
-根据 `log_type` 分发，并检查对应的 `oneof payload` 成员：
+- `--stream-listen ws://HOST:PORT/PATH` 监听客户端连接，握手必须携带并协商
+  `Sec-WebSocket-Protocol: ecapture.v2`。每个二进制 WebSocket 消息恰好包含一个 `LogEntry`。
+  非浏览器客户端也须提供有效 `Origin` 请求头，接收端示例已设置。
+- `--output tcp://HOST:PORT` 主动连接接收端，每行是一个 ProtoJSON `LogEntry`。
+  TCP read 不等于消息边界，接收端须缓冲到换行符。
+- `--output FILE`、`--output file:///PATH` 使用相同的 JSON Lines 编码。
+  text 模式包含运行日志和事件；keylog/pcapng 模式仅写运行日志，原生文件分别通过
+  `--keylogfile`/`--pcapfile` 指定。
+- `--output stdout`、`stderr` 输出带 `log_type`、`module` 字段的可读终端文本，
+  不是 JSON 或原生文件字节。
 
-| `LogType` | 值 | payload 字段（编号） | 含义 |
+ProtoJSON 使用 schema 的 snake_case 字段名和枚举名称。bytes 字段为 base64，
+64 位整数为 JSON 字符串；应使用 Protobuf JSON 解码器，bytes 只解码一次，并保留整数精度。
+默认值字段可以省略。终端前缀不属于任何原生文件格式。
+
+## LogEntry 与校验
+
+| 字段 | 编号 | 含义 |
+| --- | --- | --- |
+| `log_type` | 1 | `HEARTBEAT=0`、`PROCESS_LOG=1`、`EVENT=2`，名称前缀为 `LOG_TYPE_` |
+| `event_payload` | 2 | `oneof payload` 中的事件 |
+| `heartbeat_payload` | 3 | `oneof payload` 中的心跳 |
+| `run_log` | 4 | `oneof payload` 中的运行日志字符串 |
+| `module` | 5 | `tls`、`gotls`、`gnutls` 等规范模块名；未知时为空 |
+
+按 `log_type` 分流，并检查匹配的 oneof 成员。缺少消息体、枚举与 oneof 不匹配、未知格式
+均应拒绝，不能通过 payload 猜测。module 为开放名称，遇到新名称时应保留。
+Go [校验辅助包](v2/validate.go) 提供一致的校验规则。运行日志和心跳不得混入原生文件。
+
+`Heartbeat` 包含 Unix 秒 `timestamp=1`、`count=2` 和 `message=3`。
+连接后立即发送，随后每 15 秒一次；count 从每条连接的零开始，不代表事件数。
+新连接最多收到最近 128 条运行日志。捕获事件、数据包和密钥不缓存重放。
+队列有界，慢客户端可能被断开；协议没有持久确认、历史游标或断点续传。
+
+## Event 内容
+
+`Event.capture_format=1` 必须与一个且仅一个 content 成员一致：
+
+| CaptureFormat | 值 | oneof 成员 | 内容 |
 | --- | --- | --- | --- |
-| `LOG_TYPE_HEARTBEAT` | 0 | `heartbeat_payload`（3） | 连接健康信息 |
-| `LOG_TYPE_PROCESS_LOG` | 1 | `run_log`（4） | 运行日志字符串 |
-| `LOG_TYPE_EVENT` | 2 | `event_payload`（2） | 捕获事件 |
+| `CAPTURE_FORMAT_UNSPECIFIED` | 0 | 无 | 发布事件禁止使用 |
+| `CAPTURE_FORMAT_TEXT` | 1 | `text=2` | 文本载荷及捕获元数据 |
+| `CAPTURE_FORMAT_KEYLOG` | 2 | `keylog=3` | `KeylogEvent.data=1`：NSS Key Log 原生字节 |
+| `CAPTURE_FORMAT_PCAPNG` | 3 | `pcapng=4` | `PcapngEvent.data=1`：pcapng 原生字节流 |
 
-`LogEntry.log_type` 的字段编号是 1，各 payload 成员互斥。
-不要把未来新增的未知枚举值直接当作捕获事件处理。
+`--model text --text-source pcapng` 的解密结果仍是 TEXT。
+KEYLOG 来自完成密钥派生、NSS 编码和去重后的输出，不是打印摘要。
+PCAPNG 是编码器输出，包括 Section Header、Interface Description、Enhanced Packet、
+Decryption Secrets Blocks 及包注释，不是裸包 payload。
 
-| 枚举 | 取值 |
-| --- | --- |
-| `CaptureFormat` | `UNSPECIFIED=0`、`TEXT=1`、`KEYLOG=2`、`PCAPNG=3`，完整名称前缀为 `CAPTURE_FORMAT_` |
-| `Sensitivity` | `NORMAL=0`、`SENSITIVE=1`，完整名称前缀为 `SENSITIVITY_` |
+同一连接和格式的 `data` 按到达顺序直接拼接。单条消息可能切开 keylog 行或 pcapng block；
+不得插入长度、文本标签、JSON 或 Protobuf 外壳，也不要再次 base64 编码。
+原生事件不伪造 TextEvent 的进程/网络元数据；pcapng 的可用包元数据应从 block 注释解析。
+原生数据和 TEXT 的 argv/payload 都可能包含敏感信息。
 
-## Event
+## TextEvent
 
-| 编号 | 字段 | Protobuf 类型 | 当前发布端语义 |
+| 编号 | 字段 | 类型 | 语义 |
 | --- | --- | --- | --- |
-| 1 | `timestamp` | `int64` | Unix 秒 |
-| 2 | `uuid` | `string` | 模块提供的关联标识，不保证每条消息全局唯一 |
-| 3 | `src_ip` | `string` | 可用的源 IP |
-| 4 | `src_port` | `uint32` | 可用的源端口 |
-| 5 | `dst_ip` | `string` | 可用的目标 IP |
-| 6 | `dst_port` | `uint32` | 可用的目标端口 |
-| 7 | `pid` | `int64` | 可用的进程 ID |
-| 8 | `pname` | `string` | 可用的进程名 |
-| 9 | `type` | `uint32` | 下述内部领域事件类别 |
-| 10 | `length` | `uint32` | 本条 `payload` 的字节数 |
-| 11 | `payload` | `bytes` | 捕获内容，具体表示取决于事件格式 |
-| 12 | `capture_format` | `CaptureFormat` | 文本、密钥或数据包表示 |
-| 13 | `sensitivity` | `Sensitivity` | keylog、数据包、重组 HTTP 等敏感内容的分类 |
-| 14 | `direction` | `string` | 生产者提供的方向；hook 事件使用 `read`/`write`，可能为空 |
-| 15 | `original_length` | `uint32` | 可用时为原始负载/数据包长度，否则退回 payload 长度 |
-| 16 | `stream_id` | `string` | 可选的生产者流标识 |
-| 17 | `sequence` | `uint64` | 生产者局部顺序，不是全局或持久化序号 |
-| 18 | `process_args` | `bytes` | 采集时的 NUL 分隔 argv，最多 256 字节；空值表示未提供 |
-| 19 | `process_args_truncated` | `bool` | 参数达到采集上限而截断，末尾可能是不完整参数 |
-| 20 | `tls` | `map<string, string>` | 可选的非密钥 TLS 握手信息；缺失值表示未知 |
+| 1 | `timestamp` | int64 | Unix 秒 |
+| 2 | `uuid` | string | 生产者关联标识，不保证单条消息全局唯一 |
+| 3–6 | `src_ip`、`src_port`、`dst_ip`、`dst_port` | string/uint32 | 可用的网络四元组 |
+| 7–8 | `pid`、`pname` | int64/string | 可用的内核进程身份 |
+| 9 | `type` | uint32 | 领域分类：0 Output、1 ModuleData、2 Processor |
+| 10 | `length` | uint32 | `payload` 的实际字节数 |
+| 11 | `payload` | bytes | 捕获文本或解码表示，可为二进制或空 |
+| 12 | reserved | — | 旧 capture-format 位置，禁止复用 |
+| 13 | `sensitivity` | enum | `SENSITIVITY_NORMAL=0`、`SENSITIVITY_SENSITIVE=1` |
+| 14 | `direction` | string | 生产者已知的方向 |
+| 15 | `original_length` | uint32 | 文本格式化前的原始捕获/SDK 字节长度，或回退为 payload 长度 |
+| 16 | `stream_id` | string | 可选流标识 |
+| 17 | `sequence` | uint64 | 生产者局部序号，不是全局顺序 |
+| 18 | `process_args` | bytes | 捕获时以 NUL 分隔的 argv 快照，最多 256 字节 |
+| 19 | `process_args_truncated` | bool | 快照触及上限，可能截在参数中间 |
+| 20 | `tls` | map<string,string> | 可选、不含密钥的握手观测 |
 
-`type` 当前对应 `internal/domain.EventType`：`0=Output`、`1=ModuleData`、
-`2=Processor`，**不是** HTTP/1、HTTP/2 请求/响应枚举。
-模块私有记录可能在发布前已被消费，因此枚举中存在某个值不代表客户端一定能收到它。
+不要丢弃 payload 为空的元数据事件。转发时应保留全部元数据、原始 bytes，尤其是方向、
+原始长度、流 ID、序号、敏感性、argv 和 TLS。type 不是 HTTP 请求/响应枚举。
+空值/零值表示未知；UUID 可能重复，重载后序号可能重置。SDK 重建 HTTP 使用 TEXT + SENSITIVE。
+文本前缀或 hex 展示会使 `length` 大于 `original_length`，后者不是格式化 payload 的上限。
+仅要求 `length == len(payload)`，不要为匹配展示结果而覆盖原始捕获长度。
 
-元数据是否可用取决于探针和模式，客户端须接受零值和空值。
-探针重载后 sequence 可能重新开始，不能只凭 UUID 假定消息唯一。
+argv 可以不是 UTF-8，也可能被进程改写，不能保证等于原始 exec 命令。
+完整快照以 NUL 结束；被截断的快照为 256 字节。argv 不得进入运行日志。
 
-hook 文本事件的 payload 可以是捕获字节，也可以是模块的文本表示。
-keylog 事件携带密钥材料。pcapng 格式事件携带数据包负载，不是完整 pcapng 块或文件；
-仅用于 DSB 的密钥事件不会作为数据包行发送。
-pcapng 文本源重组出的 HTTP 消息使用 `TEXT` + `SENSITIVE`。
-详见[输出行为](../docs/event-forward-api-zh_Hans.md)。
+TLS map 包括 `version`、`cipher_suite`、`cipher_suite_id`、`server_name`、`offered_alpn`、
+`alpn`、`key_exchange_group`、`signature_algorithm`、`ja3`、`ja3_raw`、`ja4`、
+`client_hello`（`initial_wire` / `initial_outer`）。未知字段省略；客户端指纹来自首个线上
+ClientHello，协商结果来自服务端握手观测，不包含 TLS 密钥，也不承诺证书校验成功。
 
-字段 12–20 是既有 v1 消息的扩展；旧 Protobuf 客户端会忽略未知字段。
-接收旧发布端数据时，应接受这些字段的零值/默认值。
-`is_binary`、`payload_utf8` 等 UI 派生字段不属于协议。
+## 会话、重载及文件完整性
 
-## 心跳与交付行为
+一条连接对应一个 capture generation。重载先排空旧代，再关闭其 TCP/WS 连接；
+重新连接进入新的会话。每条连接使用独立原生文件，禁止把重连数据追加到旧文件。
 
-`Heartbeat` 包含 `int64 timestamp=1`（Unix 秒）、`int64 count=2`、
-`string message=3`。当前服务器在连接后立即发送心跳，此后每 15 秒发送。
-`count` 在每个连接中从零开始，是心跳计数，不是已交付事件数。
+pcapng 晚连接客户端获得独立编码器，从新的 Section/Interface Header 开始，仅包含未来的
+包和密钥。历史握手包和密钥不重放，因此原有 TLS 连接可能无法解密；不能宣称该片段等同于
+从进程启动时记录的完整本地文件。
 
-新客户端最多收到最近 128 条 `PROCESS_LOG`，随后接收实时日志；
-捕获 `EVENT` 不保留历史回放。心跳可能与历史日志交错发送。
-队列有容量限制，可能报告背压并断开慢客户端；不提供持久化交付或断点续传协议。
+正常 WS generation 先刷新编码器、排空队列再发送 Close 1000；异常发送 1011 或断开。
+接收端先写 `.partial`，只有确认 Close 1000，并完成本地 flush/close/格式校验后才能转为正式文件。
+EOF、超时、接收端被杀、非法消息或 Close 1006 都不代表完成。TCP 没有应用层完成标记，
+即使 EOF 恰好落在 block 边界也不证明成功；没有可信的外部成功信号时仍应保留 `.partial`。
+格式完整不等于没有丢包或 TLS 一定可解密。
 
-完整接收/解码实现见 [Go 客户端示例](../examples/ecaptureq_client/README.md)。
-按 `log_type` 和匹配的 payload 处理，不要将所有消息直接解码为 `Event`。
-
-进程参数属于敏感采集数据，不得写入运行日志。完整快照以 NUL 结尾，截断快照为
-256 字节。接收端应保留原始字节和截断标记，不能假设 argv 为 UTF-8，也不能保证
-它仍是最初 exec 的命令（进程可能改写 argv）。参数不参与连接标识或请求响应关联。
-
-`tls`（字段 20）是可选的 `map<string,string>` 握手快照，包含 `version`、
-`cipher_suite`、`cipher_suite_id`、`server_name`、`offered_alpn`、`alpn`、
-`key_exchange_group`、`signature_algorithm`、`ja3`、`ja3_raw`、`ja4`、
-`client_hello`（`initial_wire` / `initial_outer`）。未知字段省略。
-指纹取首次线上 ClientHello，协商结果来自实际服务端握手，不从 HTTP 推断。
-旧采集器省略该字段，旧客户端可忽略它；不携带密钥、ClientRandom，也不表示证书验证成功。
+[Go 接收端示例](../examples/ecaptureq_client/README.md) 展示了 v2 校验、保留元数据的 TEXT
+展示及原生文件保存。另见[输出行为](../docs/event-forward-api-zh_Hans.md)和
+[HTTP 重载](../docs/remote-config-update-api-zh_Hans.md)。

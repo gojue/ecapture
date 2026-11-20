@@ -4,7 +4,7 @@ go 1.26.0
 
 require (
 	github.com/gojue/ecapture/v2 v2.5.2
-	golang.org/x/net v0.61.0
+	github.com/gorilla/websocket v1.5.3
 	google.golang.org/protobuf v1.36.12
 )
 

@@ -88,28 +88,22 @@ func TestEveryHTTPConfigFactoryAppliesCommonConfig(t *testing.T) {
 		"byte_code_file_mode":1,
 		"per_cpu_map_size":65536,
 		"truncate_size":303,
-		"event_collector_addr":"/tmp/http-events.log",
-		"event_rotate_size_mb":4,
-		"event_rotate_seconds":5,
 		"cgroup_path":"/sys/fs/cgroup/http",
 		"perf_reorder":true,
 		"perf_reorder_lag_ms":6
 	}`
 	want := config.CommonConfig{
-		Pid:                101,
-		Uid:                202,
-		Debug:              true,
-		Hex:                true,
-		BTFMode:            2,
-		ByteCodeFileMode:   1,
-		PerCpuMapSize:      65536,
-		TruncateSize:       303,
-		EventCollectorAddr: "/tmp/http-events.log",
-		EventRotateSizeMB:  4,
-		EventRotateSeconds: 5,
-		CGroupPath:         "/sys/fs/cgroup/http",
-		PerfReorder:        true,
-		PerfReorderLagMs:   6,
+		Pid:              101,
+		Uid:              202,
+		Debug:            true,
+		Hex:              true,
+		BTFMode:          2,
+		ByteCodeFileMode: 1,
+		PerCpuMapSize:    65536,
+		TruncateSize:     303,
+		CGroupPath:       "/sys/fs/cgroup/http",
+		PerfReorder:      true,
+		PerfReorderLagMs: 6,
 	}
 	tests := []struct {
 		name    string
@@ -137,9 +131,7 @@ func TestEveryHTTPConfigFactoryAppliesCommonConfig(t *testing.T) {
 			if got != want {
 				t.Fatalf("common config = %#v, want %#v", got, want)
 			}
-			if update.CommonPatch.EventCollectorAddr == nil ||
-				update.CommonPatch.EventRotateSizeMB == nil ||
-				update.CommonPatch.PerfReorder == nil {
+			if update.CommonPatch.PerfReorder == nil {
 				t.Fatal("factory discarded common field-presence metadata")
 			}
 		})
@@ -311,5 +303,20 @@ func TestHTTPResponseWaitsForRuntimeDecision(t *testing.T) {
 				t.Fatalf("HTTP status = %d, want %d; body=%s", recorder.Code, test.wantStatus, recorder.Body.String())
 			}
 		})
+	}
+}
+
+func TestCoreHTTPRejectsRemovedAndProcessLifetimeOutputs(t *testing.T) {
+	for _, factory := range []httpConfigFactory{createOpensslConfig, createGotlsConfig, createGnutlsConfig} {
+		for _, key := range []string{"eventaddr", "logaddr", "logger_addr", "event_collector_addr", "event_rotate_size_mb", "event_rotate_seconds", "ecaptureq", "listen", "output", "outputs", "config_listen", "stream_listen"} {
+			for _, value := range []string{`null`, `""`, `0`} {
+				if _, err := factory(factoryRequest(`{"` + key + `":` + value + `}`)); err == nil {
+					t.Errorf("accepted process-lifetime or removed field %s=%s", key, value)
+				}
+			}
+		}
+		if _, err := factory(factoryRequest(`null`)); err == nil {
+			t.Error("accepted null configuration")
+		}
 	}
 }

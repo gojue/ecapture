@@ -15,7 +15,7 @@ entry points:
   tshark using its embedded DSB. They also check current HTTP event timestamps.
   OpenSSL also checks the sensitive reconstructed event on eCaptureQ. All three
   modules' live HTTP cases omit `--text-source` to verify the default `pcapng`
-  source. GnuTLS also omits `--eventaddr` to verify default stdout. Hook-specific
+  source. GnuTLS also verifies labeled stdout with a simultaneous JSON file destination. Hook-specific
   Linux and Android cases explicitly select `--text-source hook`. The CLI edge
   signal-only cases also retain hook capture: they generate no packets, while
   a pcapng session correctly rejects an empty capture when closing.
@@ -26,17 +26,20 @@ entry points:
   They also reset each completed DTLS connection with `SSL_clear()`, retaining
   its session while clearing client random. Subsequent hooks must not emit
   an uninitialized secret event; decoder errors remain fatal.
-- Every Linux TLS module exercises text, keylog, and pcapng over stdout, file,
-  local TCP, and binary WebSocket ByteSinks. Each representation is also
-  observed by a strict typed eCaptureQ receiver.
-- Every Linux TLS text suite performs same-probe HTTP reloads that inherit the
-  original destination, switch to an explicit new destination only after
-  success, and reject an invalid destination while the active output continues.
+- Every Linux TLS module exercises repeatable `--output` destinations: labeled
+  stdout, JSON Lines files and outgoing TCP. `--stream-listen` accepts WebSocket
+  subscribers using the required `ecapture.v2` subprotocol and binary Protobuf v2.
+  Local native artifacts use `--keylogfile` / `--pcapfile`; file outputs in native
+  modes must contain operational logs only.
+- Every Linux TLS text suite performs same-probe HTTP reloads through
+  `--config-listen`. Process output destinations remain fixed across reloads;
+  removed destination/rotation fields, including explicit empty/zero values,
+  are rejected while the active capture continues.
 - The GoTLS pcapng text source additionally verifies that an HTTP body split
   across multiple TCP segments (PSH packets) is reconstructed completely and
   in order for both HTTP/1.1 and HTTP/2 keep-alive connections.
 - GoTLS also tests server-first binary TLS 1.3 with `--text-raw` over file,
-  stdout, TCP, WebSocket and eCaptureQ. ByteSinks are checked for exact bytes,
+  stdout, TCP and Protobuf v2 WebSocket subscriptions. Decoded records are checked for exact bytes,
   per-direction offsets, live delivery and input-end markers; eCaptureQ checks
   the sensitive event and its metadata. Default message mode must report an
   unsupported protocol without emitting a false HTTP message.
@@ -71,9 +74,9 @@ entry points:
   DoQ/DATAGRAM peers use eight-byte client CIDs, verified on the wire.
   v1.4.0 still misroutes some zero-client-CID loopback captures with
   `ambiguous_connection_id`; this baseline does not establish zero-CID support.
-- A separate strict common-config suite verifies file `--eventaddr` and
-  operational-log isolation for Bash, Zsh, and the MySQL probe using local
-  deterministic fixtures.
+- The separate non-core common-config suite for Bash, Zsh, MySQL and its
+  PostgreSQL entry point still uses removed output flags. It has not been
+  migrated to the v2 output contract and is not a passing gate for this change.
 
 The tests require root and a real Linux/Android kernel with eBPF support. Building or running them on macOS is unsupported.
 Linux and Android host-side pcapng validation requires Wireshark's `tshark`
@@ -92,12 +95,17 @@ both CI workflows configure it before installing `tshark`.
 
 The maintained Linux destination matrix is complete for every TLS module:
 
-| Representation | stdout | file | TCP | binary WebSocket | eCaptureQ receiver |
-| --- | --- | --- | --- | --- | --- |
-| operational log | lifecycle records and event isolation | lifecycle records and event isolation | reconstructed lifecycle stream | reconstructed lifecycle stream | non-empty `PROCESS_LOG` |
-| text | plaintext and log isolation | plaintext and log isolation | reconstructed plaintext stream | reconstructed plaintext stream | `PROCESS_LOG` plus normal `EVENT` |
-| keylog | valid NSS secrets and decryption | valid NSS secrets and decryption | valid NSS secrets and decryption | valid NSS secrets and decryption | `PROCESS_LOG` plus sensitive keylog `EVENT` |
-| pcapng | valid blocks, DSB, and decryption | valid blocks, DSB, and decryption | valid reconstructed artifact | valid reconstructed artifact | `PROCESS_LOG` plus sensitive packet `EVENT` |
+| Representation | stdout / stderr | file | outgoing TCP | WebSocket subscription |
+| --- | --- | --- | --- | --- |
+| operational log | every line labeled `log_type=log` | JSON `PROCESS_LOG` | JSON `PROCESS_LOG` | Protobuf v2 `PROCESS_LOG` |
+| text | labeled plaintext | JSON `EVENT` with TEXT payload | same JSON schema | typed TEXT with metadata |
+| keylog | labeled NSS text plus explicit artifact | output is logs only; `--keylogfile` holds NSS | KEYLOG bytes reconstruct NSS | independent received NSS artifact |
+| pcapng | labeled byte-count summaries plus explicit artifact | output is logs only; `--pcapfile` holds pcapng | PCAPNG bytes reconstruct native file | per-client headers, packets and TLS DSB |
+
+The harness retains the original JSON Lines and validates every record before
+extracting event/log projections for content assertions. Terminal projections
+strip the checked per-line discriminator. Native file output validation rejects
+any EVENT record; it cannot silently pass by ignoring captured data.
 
 All TLS traffic goes to a short-lived local server. Linux uses loopback directly. Android reaches the same host-side server through `adb reverse`, so the TLS suite does not depend on public DNS, public CAs, or a third-party response body.
 
@@ -110,17 +118,16 @@ The pcapng check parses the block structure instead of accepting any non-empty f
 
 Logs also fail on fatal errors, event-decode/preprocess/dispatch errors, lost perf samples, and eBPF load/attach/start errors. The OpenSSL text case checks both capture and operational logs. A probe merely staying alive is not considered a pass.
 
-The output cases additionally exercise `--logaddr` over stdout, file, TCP, and
-binary WebSocket. They require CLI and BaseProbe lifecycle records, prohibit
-the deterministic plaintext and TLS secret labels there, and prohibit
-lifecycle text in raw event artifacts. Network receivers compare the actual
-byte stream. Pcapng network/stdout artifacts pass the same block and DSB
-decryption checks as files. The strict eCaptureQ receiver requires both a
-non-empty `PROCESS_LOG` and a correctly classified `EVENT`, including format,
-sensitivity, timestamp, sequence, payload length, and original length;
-connectivity alone cannot pass. The OpenSSL text/pcapng case also requires
-the expected request PID and its deterministic argument token to survive the
-Decryptor and eCaptureQ pipeline; the token must not appear in operational logs.
+The output cases require CLI and BaseProbe lifecycle records and captured events
+in one typed stream. Their decoded log projection must not contain deterministic
+plaintext or TLS secrets; the event projection must not contain lifecycle logs.
+Network receivers wait for readiness before traffic, drain on capture shutdown,
+and validate native NSS or complete pcapng blocks with DSB. Native subscriptions
+are also independently decrypted with tshark. Text records retain sensitivity,
+timestamp, sequence, payload-length, process and connection checks. Connectivity
+alone cannot pass. The OpenSSL text/pcapng case also requires the expected
+request PID and its deterministic argument token to survive the Decryptor and
+Protobuf v2 pipeline; the token must not appear in operational logs.
 The request launcher records its kernel TGID before `exec`, using a temporary
 raw syscall tracepoint restricted to a random thread name. This keeps the PID
 comparison exact inside containers whose local PID differs from the captured
@@ -214,10 +221,12 @@ select the separate non-TLS advanced cases.
 
 ### Non-TLS and CLI checks
 
-Run the common-config suite separately. Bash/Zsh cases require the selected
-shell and `script` for an interactive terminal; MySQL requires a C++ compiler.
-All cases verify captured tokens, file `--eventaddr`, operational-log
-isolation, and successful probe shutdown:
+The non-core common-config suite and PostgreSQL entry point still use the
+removed `--eventaddr` / `--logaddr` output interface. They are retained for a
+separate migration and are not current v2 validation commands or claimed
+passing coverage. Their entry points and prerequisites are listed below for
+that follow-up work. Bash/Zsh cases require the selected shell and `script`
+for an interactive terminal; MySQL requires a C++ compiler:
 
 ```bash
 sudo env PATH="$PATH" bash test/e2e/linux/common_config_test.sh
@@ -258,8 +267,9 @@ TCP hosts, connection strings, and multiple hosts are rejected.
 
 `sudo make e2e-edge-cases` verifies prompt rejection of invalid CLI inputs and
 clean SIGINT/SIGTERM shutdown. It requires the OpenSSL development libraries
-and a C compiler. These separate suites share the common-config lifecycle
-helpers and the same Linux/root platform boundary.
+and a C compiler. The core CLI edge suite uses `linux/common.sh` directly
+and does not depend on the unmigrated non-core common-config helpers. All
+suites retain the same Linux/root platform boundary.
 
 ## Android
 

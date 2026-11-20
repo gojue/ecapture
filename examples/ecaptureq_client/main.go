@@ -15,249 +15,334 @@
 package main
 
 import (
-	"encoding/base64"
+	"bufio"
+	"context"
+	"encoding/binary"
+	"encoding/hex"
+	"errors"
 	"flag"
 	"fmt"
-	"log"
+	"io"
+	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
+	"unicode/utf8"
 
-	"golang.org/x/net/websocket"
+	pb "github.com/gojue/ecapture/v2/protobuf/gen/v2"
+	protocol "github.com/gojue/ecapture/v2/protobuf/v2"
+	"github.com/gorilla/websocket"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
-
-	pb "github.com/gojue/ecapture/v2/protobuf/gen/v1"
 )
 
-const (
-	// printableThreshold is the minimum ratio of displayable characters
-	// required to consider data as printable text
-	printableThreshold = 0.9
-)
+const maxMessageBytes = 16 << 20
 
-var (
-	serverURL = flag.String("server", "ws://127.0.0.1:28257/", "WebSocket server URL")
-	verbose   = flag.Bool("verbose", false, "Enable verbose logging")
-)
+type options struct {
+	server     string
+	verbose    bool
+	keylogFile string
+	pcapFile   string
+}
 
 func main() {
+	var opts options
+	flag.StringVar(&opts.server, "server", "ws://127.0.0.1:28257/", "Protobuf v2 subscription URL")
+	flag.BoolVar(&opts.verbose, "verbose", false, "show heartbeat records")
+	flag.StringVar(&opts.keylogFile, "keylogfile", "", "save KEYLOG events to this new file")
+	flag.StringVar(&opts.pcapFile, "pcapfile", "", "save PCAPNG events to this new file")
 	flag.Parse()
-
-	log.Printf("Connecting to eCapture WebSocket server at %s", *serverURL)
-
-	// Connect to WebSocket server
-	ws, err := websocket.Dial(*serverURL, "", "http://localhost/")
-	if err != nil {
-		log.Fatalf("Failed to connect to WebSocket server: %v", err)
-		return
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	if err := runClient(ctx, opts, os.Stdout); err != nil {
+		fmt.Fprintln(os.Stderr, "receiver:", err)
+		os.Exit(1)
 	}
-	defer ws.Close()
-
-	log.Println("Connected successfully!")
-
-	// Setup signal handling for graceful shutdown
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-
-	// Channel to signal goroutine to stop
-	done := make(chan struct{})
-
-	// Start receiving messages in a goroutine
-	go func() {
-		defer close(done)
-		receiveMessages(ws)
-	}()
-
-	// Wait for interrupt signal
-	<-sigChan
-	log.Println("\nShutting down...")
 }
 
-func receiveMessages(ws *websocket.Conn) {
-	for {
-		var msgData []byte
-		err := websocket.Message.Receive(ws, &msgData)
-		if err != nil {
-			log.Printf("Connection closed: %v", err)
-			return
+func runClient(ctx context.Context, opts options, output io.Writer) error {
+	dialer := websocket.Dialer{Subprotocols: []string{protocol.Subprotocol}, HandshakeTimeout: 5 * time.Second}
+	// The subscription service requires an Origin on non-browser clients too.
+	headers := http.Header{"Origin": []string{"http://localhost/"}}
+	conn, response, err := dialer.DialContext(ctx, opts.server, headers)
+	if err != nil {
+		if response != nil {
+			_ = response.Body.Close()
 		}
+		return fmt.Errorf("connect: %w", err)
+	}
+	defer conn.Close()
+	if conn.Subprotocol() != protocol.Subprotocol {
+		return fmt.Errorf("server did not negotiate %s", protocol.Subprotocol)
+	}
+	conn.SetReadLimit(maxMessageBytes)
+	stop := context.AfterFunc(ctx, func() { _ = conn.Close() })
+	defer stop()
+	receiver := &messageReceiver{output: output, verbose: opts.verbose, keylog: artifactFile{path: opts.keylogFile}, pcapng: artifactFile{path: opts.pcapFile}}
+	complete, receiveErr := receiveMessages(conn, receiver)
+	if err := ctx.Err(); err != nil {
+		complete = false
+		receiveErr = err
+	}
+	return errors.Join(receiveErr, receiver.close(complete))
+}
 
-		// Decode protobuf message
-		var logEntry pb.LogEntry
-		err = proto.Unmarshal(msgData, &logEntry)
+func receiveMessages(conn *websocket.Conn, receiver *messageReceiver) (bool, error) {
+	for {
+		messageType, data, err := conn.ReadMessage()
 		if err != nil {
-			log.Printf("Failed to unmarshal protobuf message: %v", err)
+			if websocket.IsCloseError(err, websocket.CloseNormalClosure) {
+				return true, nil
+			}
+			return false, fmt.Errorf("subscription ended without a normal close; native output remains .partial: %w", err)
+		}
+		if messageType != websocket.BinaryMessage {
+			return false, fmt.Errorf("expected a binary Protobuf message")
+		}
+		var entry pb.LogEntry
+		if err := proto.Unmarshal(data, &entry); err != nil {
+			return false, fmt.Errorf("decode v2 record: %w", err)
+		}
+		if err := receiver.handle(&entry); err != nil {
+			return false, err
+		}
+	}
+}
+
+type messageReceiver struct {
+	output  io.Writer
+	verbose bool
+	format  pb.CaptureFormat
+	keylog  artifactFile
+	pcapng  artifactFile
+}
+
+func (r *messageReceiver) handle(entry *pb.LogEntry) error {
+	if err := protocol.ValidateLogEntry(entry); err != nil {
+		return fmt.Errorf("invalid v2 record: %w", err)
+	}
+	switch entry.LogType {
+	case pb.LogType_LOG_TYPE_PROCESS_LOG:
+		return writeLines(r.output, fmt.Sprintf("[log_type=log module=%q] ", entry.Module), entry.GetRunLog())
+	case pb.LogType_LOG_TYPE_HEARTBEAT:
+		if r.verbose {
+			_, err := fmt.Fprintf(r.output, "[log_type=heartbeat module=%q] count=%d\n", entry.Module, entry.GetHeartbeatPayload().Count)
+			return err
+		}
+	case pb.LogType_LOG_TYPE_EVENT:
+		event := entry.GetEventPayload()
+		if r.format != pb.CaptureFormat_CAPTURE_FORMAT_UNSPECIFIED && r.format != event.CaptureFormat {
+			return fmt.Errorf("capture format changed within one subscription; start a new connection and file")
+		}
+		r.format = event.CaptureFormat
+		switch event.CaptureFormat {
+		case pb.CaptureFormat_CAPTURE_FORMAT_TEXT:
+			return r.displayText(entry.Module, event.GetText())
+		case pb.CaptureFormat_CAPTURE_FORMAT_KEYLOG:
+			return r.keylog.write(event.GetKeylog().Data, "--keylogfile")
+		case pb.CaptureFormat_CAPTURE_FORMAT_PCAPNG:
+			return r.pcapng.write(event.GetPcapng().Data, "--pcapfile")
+		}
+	}
+	return nil
+}
+
+func (r *messageReceiver) displayText(module string, event *pb.TextEvent) error {
+	// Retain every metadata field, including raw argv and TLS observations.
+	metadata := proto.Clone(event).(*pb.TextEvent)
+	metadata.Payload = nil
+	encoded, err := (protojson.MarshalOptions{UseProtoNames: true}).Marshal(metadata)
+	if err != nil {
+		return err
+	}
+	prefix := fmt.Sprintf("[log_type=event module=%q capture_format=text] ", module)
+	if _, err := fmt.Fprintf(r.output, "%s%s\n", prefix, encoded); err != nil {
+		return err
+	}
+	if len(event.Payload) == 0 {
+		return nil
+	}
+	if utf8.Valid(event.Payload) {
+		return writeLines(r.output, prefix, string(event.Payload))
+	}
+	return writeLines(r.output, prefix, hex.Dump(event.Payload))
+}
+
+func writeLines(output io.Writer, prefix, value string) error {
+	var safe strings.Builder
+	for _, char := range value {
+		if char < ' ' && char != '\n' && char != '\t' || char == 0x7f {
+			fmt.Fprintf(&safe, "\\x%02x", char)
+		} else {
+			safe.WriteRune(char)
+		}
+	}
+	value = safe.String()
+	for _, line := range strings.Split(strings.TrimSuffix(value, "\n"), "\n") {
+		if _, err := fmt.Fprintf(output, "%s%s\n", prefix, line); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *messageReceiver) close(complete bool) error {
+	return errors.Join(r.keylog.close(complete, validateKeylog), r.pcapng.close(complete, validatePcapng))
+}
+
+type artifactFile struct {
+	path string
+	file *os.File
+}
+
+func (a *artifactFile) write(data []byte, flagName string) error {
+	if a.path == "" {
+		return fmt.Errorf("received native capture data; select %s", flagName)
+	}
+	if a.file == nil {
+		if _, err := os.Lstat(a.path); err == nil {
+			return fmt.Errorf("refusing to replace existing artifact %q", a.path)
+		} else if !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+		file, err := os.OpenFile(a.path+".partial", os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+		if err != nil {
+			return fmt.Errorf("create partial artifact: %w", err)
+		}
+		a.file = file
+	}
+	n, err := a.file.Write(data)
+	if err == nil && n != len(data) {
+		err = io.ErrShortWrite
+	}
+	return err
+}
+
+func (a *artifactFile) close(complete bool, validate func(io.Reader) error) error {
+	if a.file == nil {
+		return nil
+	}
+	err := errors.Join(a.file.Sync(), a.file.Close())
+	a.file = nil
+	if err != nil || !complete {
+		return err
+	}
+	partial := a.path + ".partial"
+	file, err := os.Open(partial)
+	if err != nil {
+		return err
+	}
+	err = errors.Join(validate(file), file.Close())
+	if err != nil {
+		return fmt.Errorf("native output remains %s: %w", partial, err)
+	}
+	// Link refuses an existing final name; rename could overwrite it.
+	if err := os.Link(partial, a.path); err != nil {
+		return fmt.Errorf("publish artifact without overwriting: %w", err)
+	}
+	return os.Remove(partial)
+}
+
+func validateKeylog(input io.Reader) error {
+	scanner := bufio.NewScanner(input)
+	scanner.Split(func(data []byte, atEOF bool) (int, []byte, error) {
+		if atEOF && len(data) != 0 && data[len(data)-1] != '\n' {
+			return 0, nil, fmt.Errorf("unterminated NSS keylog record")
+		}
+		return bufio.ScanLines(data, atEOF)
+	})
+	count := 0
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
-
-		// Handle different message types
-		handleLogEntry(&logEntry)
-	}
-}
-
-func handleLogEntry(logEntry *pb.LogEntry) {
-	switch logEntry.LogType {
-	case pb.LogType_LOG_TYPE_HEARTBEAT:
-		handleHeartbeat(logEntry)
-	case pb.LogType_LOG_TYPE_PROCESS_LOG:
-		handleProcessLog(logEntry)
-	case pb.LogType_LOG_TYPE_EVENT:
-		handleEvent(logEntry)
-	default:
-		log.Printf("Unknown log type: %v", logEntry.LogType)
-	}
-}
-
-func handleHeartbeat(logEntry *pb.LogEntry) {
-	hb := logEntry.GetHeartbeatPayload()
-	if hb == nil {
-		log.Println("Received heartbeat with nil payload")
-		return
-	}
-
-	if *verbose {
-		log.Printf("[HEARTBEAT] Count: %d, Time: %s, Message: %s",
-			hb.Count,
-			time.Unix(hb.Timestamp, 0).Format(time.RFC3339),
-			hb.Message)
-	}
-}
-
-func handleProcessLog(logEntry *pb.LogEntry) {
-	logMsg := logEntry.GetRunLog()
-	fmt.Print(logMsg)
-}
-
-func handleEvent(logEntry *pb.LogEntry) {
-	event := logEntry.GetEventPayload()
-	if event == nil {
-		log.Println("Received event with nil payload")
-		return
-	}
-
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Printf("🔍 Captured Event\n")
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-
-	if event.Timestamp > 0 {
-		fmt.Printf("📅 Timestamp:    %s\n", time.Unix(event.Timestamp, 0).Format(time.RFC3339))
-	}
-	if event.Uuid != "" {
-		fmt.Printf("🆔 UUID:         %s\n", event.Uuid)
-	}
-	if event.Pid > 0 {
-		fmt.Printf("🔢 PID:          %d\n", event.Pid)
-	}
-	if event.Pname != "" {
-		fmt.Printf("📝 Process:      %s\n", event.Pname)
-	}
-	if event.SrcIp != "" && event.SrcPort > 0 {
-		fmt.Printf("🔗 Source:       %s:%d\n", event.SrcIp, event.SrcPort)
-	}
-	if event.DstIp != "" && event.DstPort > 0 {
-		fmt.Printf("🎯 Destination:  %s:%d\n", event.DstIp, event.DstPort)
-	}
-	if event.Type > 0 {
-		fmt.Printf("📊 Type:         %d\n", event.Type)
-	}
-	fmt.Printf("🧩 Format:       %s\n", event.CaptureFormat.String())
-	fmt.Printf("🔐 Sensitivity:  %s\n", event.Sensitivity.String())
-	if event.Direction != "" {
-		fmt.Printf("↔️ Direction:    %s\n", event.Direction)
-	}
-	if event.StreamId != "" {
-		fmt.Printf("🆔 Stream:       %s (sequence %d)\n", event.StreamId, event.Sequence)
-	}
-	if event.Length > 0 {
-		fmt.Printf("📏 Length:       %d bytes\n", event.Length)
-	}
-	if event.OriginalLength > event.Length {
-		fmt.Printf("📏 Original:     %d bytes\n", event.OriginalLength)
-	}
-
-	// Display payload
-	if len(event.Payload) > 0 {
-		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-		fmt.Println("📦 Payload:")
-		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-
-		// Try to display as text first
-		if isPrintable(event.Payload) {
-			fmt.Println(string(event.Payload))
-		} else {
-			// Display as hex dump
-			fmt.Println("Hex dump:")
-			printHexDump(event.Payload)
+		fields := strings.Fields(line)
+		if len(fields) != 3 {
+			return fmt.Errorf("invalid NSS keylog record")
 		}
-
-		// Also provide base64 encoding
-		fmt.Println("\nBase64 encoded:")
-		encoded := base64.StdEncoding.EncodeToString(event.Payload)
-		// Print in chunks of 80 characters
-		for i := 0; i < len(encoded); i += 80 {
-			end := i + 80
-			if end > len(encoded) {
-				end = len(encoded)
-			}
-			fmt.Println(encoded[i:end])
+		random, randomErr := hex.DecodeString(fields[1])
+		secret, secretErr := hex.DecodeString(fields[2])
+		if randomErr != nil || secretErr != nil || len(random) != 32 || len(secret) == 0 {
+			return fmt.Errorf("invalid NSS keylog fields")
 		}
+		count++
 	}
-
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Println()
+	if err := scanner.Err(); err != nil {
+		return err
+	}
+	if count == 0 {
+		return fmt.Errorf("no keylog records received")
+	}
+	return nil
 }
 
-// isPrintable checks if the byte slice contains mostly displayable characters
-// including printable ASCII and common whitespace characters
-func isPrintable(data []byte) bool {
-	if len(data) == 0 {
-		return false
-	}
-
-	printableCount := 0
-	for _, b := range data {
-		if (b >= 32 && b <= 126) || b == '\n' || b == '\r' || b == '\t' {
-			printableCount++
+// validatePcapng checks complete block framing and packet presence, not TLS
+// decryption or whether the capture was lossless.
+func validatePcapng(input io.Reader) error {
+	var order binary.ByteOrder
+	var header [12]byte
+	packets := 0
+	for {
+		_, err := io.ReadFull(input, header[:])
+		if errors.Is(err, io.EOF) {
+			break
 		}
-	}
-
-	// Consider it printable if more than the threshold of characters are displayable
-	return float64(printableCount)/float64(len(data)) > printableThreshold
-}
-
-// printHexDump prints data in hex dump format
-func printHexDump(data []byte) {
-	const bytesPerLine = 16
-
-	for i := 0; i < len(data); i += bytesPerLine {
-		// Print offset
-		fmt.Printf("%08x  ", i)
-
-		// Print hex values
-		for j := 0; j < bytesPerLine; j++ {
-			if i+j < len(data) {
-				fmt.Printf("%02x ", data[i+j])
-			} else {
-				fmt.Print("   ")
-			}
-
-			// Add extra space in the middle
-			if j == 7 {
-				fmt.Print(" ")
+		if err != nil {
+			return fmt.Errorf("truncated pcapng block: %w", err)
+		}
+		section := header[0] == 0x0a && header[1] == 0x0d && header[2] == 0x0d && header[3] == 0x0a
+		if section {
+			switch binary.BigEndian.Uint32(header[8:]) {
+			case 0x1a2b3c4d:
+				order = binary.BigEndian
+			case 0x4d3c2b1a:
+				order = binary.LittleEndian
+			default:
+				return fmt.Errorf("invalid pcapng byte order")
 			}
 		}
-
-		// Print ASCII representation
-		fmt.Print(" |")
-		for j := 0; j < bytesPerLine && i+j < len(data); j++ {
-			b := data[i+j]
-			if b >= 32 && b <= 126 {
-				fmt.Printf("%c", b)
-			} else {
-				fmt.Print(".")
-			}
+		if order == nil {
+			return fmt.Errorf("pcapng does not start with a section header")
 		}
-		fmt.Println("|")
+		length := order.Uint32(header[4:8])
+		blockType := order.Uint32(header[:4])
+		minimum := uint32(12)
+		switch blockType {
+		case 0x0a0d0d0a:
+			minimum = 28
+		case 1:
+			minimum = 20
+		case 6:
+			minimum = 32
+		}
+		if length < minimum || length%4 != 0 || length > maxMessageBytes {
+			return fmt.Errorf("invalid pcapng block length %d", length)
+		}
+		if length == 12 {
+			if order.Uint32(header[8:]) != length {
+				return fmt.Errorf("pcapng block length trailer mismatch")
+			}
+			continue
+		}
+		if _, err := io.CopyN(io.Discard, input, int64(length)-16); err != nil {
+			return fmt.Errorf("truncated pcapng block body: %w", err)
+		}
+		var trailer [4]byte
+		if _, err := io.ReadFull(input, trailer[:]); err != nil {
+			return err
+		}
+		if order.Uint32(trailer[:]) != length {
+			return fmt.Errorf("pcapng block length trailer mismatch")
+		}
+		if blockType == 3 || blockType == 6 {
+			packets++
+		}
 	}
+	if packets == 0 {
+		return fmt.Errorf("no pcapng packet blocks received")
+	}
+	return nil
 }

@@ -103,7 +103,7 @@ func TestProbe_PcapngTextDefaultStdout(t *testing.T) {
 	}
 
 	cfg.CaptureMode = handlers.ModePcapng
-	if err := probe.setupManagerPcapNG(); err == nil || !strings.Contains(err.Error(), "requires an event destination") {
+	if err := probe.setupManagerPcapNG(); err == nil || !strings.Contains(err.Error(), "requires --pcapfile") {
 		t.Fatalf("pcapng output must still require a destination: %v", err)
 	}
 }

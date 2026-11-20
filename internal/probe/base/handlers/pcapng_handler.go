@@ -16,6 +16,7 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	stderrors "errors"
 	"math"
 	"sync"
@@ -107,6 +108,7 @@ type PcapngHandler struct {
 	closeErr        error
 	clockOffsetNs   int64
 	clockSampledAt  time.Time
+	observers       []domain.PcapngObserver
 }
 
 func (h *PcapngHandler) Writer() writers.OutputWriter {
@@ -126,8 +128,8 @@ func isPacketEvent(event domain.Event) bool {
 }
 
 // NewPcapngHandler creates a new PcapngHandler with the provided byte sink.
-func NewPcapngHandler(sink writers.ByteSink, ifName, filter string, lger *logger.Logger) (*PcapngHandler, error) {
-	return newPcapngHandler(sink, ifName, filter, lger, false)
+func NewPcapngHandler(sink writers.ByteSink, ifName, filter string, lger *logger.Logger, observers ...domain.PcapngObserver) (*PcapngHandler, error) {
+	return newPcapngHandler(sink, ifName, filter, lger, false, observers...)
 }
 
 // NewLowLatencyPcapngHandler is used when an SDK consumer can recover from
@@ -136,7 +138,7 @@ func NewLowLatencyPcapngHandler(sink writers.ByteSink, ifName, filter string, lg
 	return newPcapngHandler(sink, ifName, filter, lger, true)
 }
 
-func newPcapngHandler(sink writers.ByteSink, ifName, filter string, lger *logger.Logger, lowLatency bool) (*PcapngHandler, error) {
+func newPcapngHandler(sink writers.ByteSink, ifName, filter string, lger *logger.Logger, lowLatency bool, observers ...domain.PcapngObserver) (*PcapngHandler, error) {
 	if sink == nil {
 		return nil, errors.New(errors.ErrCodeResourceAllocation, "pcapng sink cannot be nil")
 	}
@@ -156,6 +158,7 @@ func newPcapngHandler(sink writers.ByteSink, ifName, filter string, lger *logger
 		session:         session,
 		masterKeyBuffer: bytes.NewBuffer(nil),
 		logger:          lger,
+		observers:       append([]domain.PcapngObserver(nil), observers...),
 	}, nil
 }
 
@@ -199,12 +202,23 @@ func (h *PcapngHandler) Handle(event domain.Event) error {
 	timestamp := time.Unix(0, int64(packetNs)+h.clockOffsetNs)
 
 	// Write packet to pcapng file
-	err := h.session.WritePacketWithProcess(packetData, timestamp, pktEvent.GetPid(), pktEvent.GetComm(), pktEvent.GetProcessEndpoint(), pktEvent.GetProcessArgs(), pktEvent.GetProcessArgsTruncated())
-	if err != nil {
-		return errors.Wrap(errors.ErrCodeEventDispatch, "failed to write packet to pcapng", err)
+	var failures []error
+	if err := h.session.WritePacketWithProcess(packetData, timestamp, pktEvent.GetPid(), pktEvent.GetComm(), pktEvent.GetProcessEndpoint(), pktEvent.GetProcessArgs(), pktEvent.GetProcessArgsTruncated()); err != nil {
+		failures = append(failures, errors.Wrap(errors.ErrCodeEventDispatch, "failed to write packet to pcapng", err))
 	}
-
-	return nil
+	packet := domain.CapturedPacket{
+		Data: packetData, Timestamp: timestamp, PID: pktEvent.GetPid(), ProcessName: pktEvent.GetComm(),
+		ProcessEndpoint: pktEvent.GetProcessEndpoint(), ProcessArgs: pktEvent.GetProcessArgs(),
+		ProcessArgsTruncated: pktEvent.GetProcessArgsTruncated(),
+	}
+	for _, observer := range h.observers {
+		// Observers consume borrowed packet bytes synchronously and copy any
+		// data they queue, just as Session.WritePacketWithProcess does.
+		if err := observer.PublishPacket(context.Background(), packet); err != nil {
+			failures = append(failures, errors.Wrap(errors.ErrCodeEventDispatch, "failed to publish pcapng packet", err))
+		}
+	}
+	return stderrors.Join(failures...)
 }
 
 // Close closes the handler and releases resources.

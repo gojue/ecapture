@@ -1,82 +1,89 @@
-# 事件转发 API
+# 输出与订阅 API
 
 [English](event-forward-api.md)
 
-按接收端需要的数据选择输出。`--ecaptureq` 和 `--listen` 默认关闭；下文地址是示例，不是默认监听地址。
+TLS（OpenSSL/BoringSSL）、GoTLS、GnuTLS 共用三个启动入口：
 
-| 参数 | 数据内容 | 连接方向 |
+| 参数 | 用途 | 默认值 |
 | --- | --- | --- |
-| `--logaddr` | eCapture 运行日志，stderr 仍保留输出 | eCapture 写文件/stdout，或连接 TCP/WebSocket 接收端 |
-| `--eventaddr` | 所选表示格式的捕获事件字节流 | eCapture 写文件/stdout，或连接 TCP/WebSocket 接收端 |
-| `--ecaptureq` | Protobuf `LogEntry`：运行日志、事件、心跳 | eCapture 监听，客户端连接 |
+| 可重复的 `--output` | 向指定目的端写入运行日志和捕获事件 | `stdout` |
+| `--stream-listen ws://HOST:PORT/PATH` | 监听客户端拉取 Protobuf v2 记录 | 关闭 |
+| `--config-listen HOST:PORT` | 监听 HTTP 配置更新 | 关闭 |
 
-三者可以同时输出。启用 eCaptureQ 不会替代 `--eventaddr`。
-捕获明文、TLS 密钥和数据包属于事件输出；`--logaddr` 与 eCaptureQ 的 `PROCESS_LOG` 只承载运行日志。
+显式 `--output` 替换默认 stdout；重复传参组成数组，不按逗号拆分。
+`--listen`、`--eventaddr`、`--logaddr`、`-l`、`--ecaptureq` 和旧事件轮转参数直接删除，
+没有别名或兼容层。`console`、主动连接的 WS/WSS、`listen+ws://` 都不是受支持的 output 值。
+升级时须同时更新启动脚本与接收端解码。
 
-## 原始事件输出
+## 目的端与模式
 
-对于 `tls`、`gotls`、`gnutls`，捕获模式决定表示格式，`--eventaddr` 决定目的地：
+| 目的端 | 连接方向 | text | keylog / pcapng |
+| --- | --- | --- | --- |
+| `stdout` / `stderr` | 写终端 | 可读运行日志及文本事件 | 可读运行日志及原生事件表示 |
+| 本地路径 / `file:///PATH` | 写本地文件 | JSON Lines：`PROCESS_LOG` 与 `EVENT` | JSON Lines：仅 `PROCESS_LOG` |
+| `tcp://HOST:PORT` | 主动连接接收端 | JSON Lines：运行日志与 TEXT 事件 | JSON Lines：运行日志与 KEYLOG/PCAPNG 原生事件 |
+| `--stream-listen ws://…` | 客户端连接 eCapture | Protobuf v2 二进制记录 | 含 KEYLOG/PCAPNG 原生字节的 Protobuf v2 |
 
-| 模式 | 字节内容 | 默认值与兼容参数 |
-| --- | --- | --- |
-| `text --text-source=hook` | hook 事件文本 | 目的地为空时输出到 stdout |
-| `text --text-source=pcapng` | 重组后的 HTTP/1.1 或 HTTP/2 消息 | 默认明文 stdout；可另存 `--pcapfile`、`--keylogfile` |
-| `keylog` | NSS Key Log 文本行 | 归一化后必须有目的地；`--keylogfile` 是原有的主文件参数 |
-| `pcap` / `pcapng` | 含 TLS Decryption Secrets Block 的 pcapng 数据包流 | 归一化后必须有目的地；`--pcapfile` 是原有的主文件参数 |
+每行终端文本包含 `log_type=log` 或 `log_type=event`、`module`；事件行另含
+`capture_format`。pcapng 在终端表示为编码字节数摘要。JSON 和 Protobuf 共用 LogEntry，
+以 `log_type` 区分日志/事件，再用 `event_payload.capture_format` 判断事件内容。
+JSON 文件不等于 pcapng；原生文件必须单独指定。
 
-当前 CLI 为旧文件参数提供的默认文件名仍兼容。显式设置 `--eventaddr` 和对应的主文件参数会报错。
-pcapng 模式中的 `--keylogfile` 则表示可选的额外密钥文件。
-pcapng 文本源在内部使用数据包及 TLS 密钥重组 HTTP；暂不支持 HTTP/3 文本重组。
+| 捕获模式（`--model`、`-m`） | 原生文件要求 |
+| --- | --- |
+| `text --text-source pcapng` | `--pcapfile`、`--keylogfile` 可选；事件仍是 SDK 解码后的 TEXT |
+| `keylog` | 必须显式指定 `--keylogfile PATH`，输出 NSS Key Log |
+| `pcapng` | 必须显式指定 `--pcapfile PATH`，包含 TLS DSB；`--keylogfile` 可选 |
 
-目的地支持 `stdout`、普通路径、`file://` 路径、`tcp://host:port`、
-`ws://host:port/path` 和 `wss://host:port/path`。TCP 是有序字节流。
-WebSocket 使用二进制消息，接收端按到达顺序拼接 payload 得到完整字节流，不能按 Protobuf 解码。
-连接失败后流结束，不会在一个捕获文件中途自动重连。
-
-轮转仅适用于文件型 text/keylog 输出，不适用于网络输出或 pcapng。
-运行日志默认使用 stderr，因而 pcapng 的 stdout 只包含二进制数据；
-显式组合 `--logaddr stdout` 与 pcapng `--eventaddr stdout` 会被拒绝。
-
-在支持的 Linux/Android 主机上，以探针所需权限运行：
+不再自动创建默认原生文件名。原生文件参数只能是本地文件，不能与 JSON output 使用同一文件，
+也不接受 stdout、stderr、网络 URL。未指定网卡时自动选择，可通过 `-i` 覆盖；GoTLS 还需
+`--elfpath` 指定目标程序。
 
 ```bash
-# 事件与运行日志分别存放。
-sudo ./bin/ecapture tls --eventaddr=/tmp/events.txt --logaddr=/tmp/ecapture.log
+# 终端与日志/事件合并 JSON 文件。
+sudo ./bin/ecapture tls --model text --text-source pcapng \
+  --output stdout --output /tmp/records.jsonl
 
-# 原始 TCP 接收端须已启动。
-sudo ./bin/ecapture tls -m keylog --eventaddr=tcp://127.0.0.1:9000
+# JSON TCP 接收端应提前监听。
+sudo ./bin/ecapture gotls --model text --text-source pcapng \
+  --elfpath /path/to/go-client --output tcp://127.0.0.1:9000
 
-# stdout 写出含密钥的二进制 pcapng。
-sudo ./bin/ecapture tls -m pcapng -i eth0 --eventaddr=stdout > /tmp/capture.pcapng
+# 抓包文件与运行日志 JSON 文件相互独立。
+sudo ./bin/ecapture tls --model pcapng -i eth0 --pcapfile /tmp/capture.pcapng \
+  --output /tmp/runtime.jsonl --stream-listen ws://127.0.0.1:28257/
+
+sudo ./bin/ecapture gnutls --model keylog --keylogfile /tmp/gnutls.keys \
+  --output stderr --output tcp://127.0.0.1:9000
 ```
 
-请按目标调整库/可执行文件路径、网卡与捕获过滤条件。keylog 和 pcapng 属于敏感产物。
+按目标 Linux/Android 主机选择库/程序路径、过滤条件和探针权限。
+内置监听器提供 WS，不提供 TLS 或应用层认证，示例绑定 loopback；URL path 就是订阅路径。
 
-## eCaptureQ 类型化事件
+## v2 接收处理
 
-```bash
-# 同时输出文件和类型化 WebSocket 消息。
-sudo ./bin/ecapture tls --eventaddr=/tmp/events.txt \
-  --ecaptureq=ws://127.0.0.1:28257/
-```
+WebSocket 必须协商 `ecapture.v2`，每个二进制消息解码一个 LogEntry；JSON 接收端按完整换行
+分割记录。参见[协议参考](../protobuf/PROTOCOLS-zh_Hans.md)和
+[Go 示例](../examples/ecaptureq_client/README.md)。不支持 v1 负载。
 
-内置监听器接受 `ws://`；原始输出支持 `wss://` 不代表该服务器提供 TLS。
-尾部 `/` 是常用写法，CLI 解析器不强制要求。可以绑定 `0.0.0.0`，客户端应连接可访问的主机地址。
-内置接口没有应用层认证，应据此选择监听范围。
+PROCESS_LOG 进入运行日志，HEARTBEAT 用于连接健康检查，EVENT 按匹配的格式/oneof 处理。
+TEXT 保留全部元数据；KEYLOG 的 `keylog.data` 和 PCAPNG 的 `pcapng.data` 在 ProtoJSON
+解码后按顺序直接追加到原生文件。bytes 仅在 JSON 中使用 base64；消息可能切开原生行/block。
+pcapng 包含真实编码器的头、包与密钥块，不是打印摘要的集合。
 
-每条二进制 WebSocket 消息包含一个 Protobuf `LogEntry`，按 `log_type` 和对应 payload 分发：
+监听器保留最近最多 128 条运行日志，不保存事件历史。pcapng 晚连接从独立 session 的头部开始，
+只获取未来包和密钥；不重放历史握手/密钥，已有 TLS 连接可能无法解密。
+有界队列会断开慢客户端；没有持久交付或断点续传。
 
-- `HEARTBEAT`：每个连接的健康消息，连接后立即发送，随后每 15 秒发送。
-- `PROCESS_LOG`：eCapture 生命周期与运行日志。新客户端最多收到最近 128 条运行日志，随后接收实时日志。
-- `EVENT`：捕获数据，携带格式、敏感性以及可用的进程/网络信息。只发送实时事件，不回放历史事件。
+## generation 和完成判定
 
-pcapng 格式的类型化事件描述单个数据包，不是 pcapng 文件片段；仅携带密钥的 DSB 记录不会变成数据包行。
-pcapng 文本源重组出的 HTTP 事件使用 text 格式并标为敏感。
-队列容量有限，慢客户端可能断开，发布端可能收到背压错误；该接口不提供持久化消息队列语义。
+输出目的端属于进程级启动配置，HTTP 不允许修改。成功重载会结束旧 capture generation，
+刷新编码器并排空连接后再开始新代。TCP 主动输出会关闭并重新连接原地址，WS 客户端自行重连。
+即使模式未变，每条连接也应使用独立原生文件。
 
-字段语义参见[协议参考](../protobuf/PROTOCOLS-zh_Hans.md)，构建、接收、解码和手工检查参见
-[Go 客户端示例](../examples/ecaptureq_client/README.md)。其他语言可从
-[ecaptureq.proto](../protobuf/proto/v1/ecaptureq.proto) 生成类型，逐条读取并解码二进制 WebSocket 消息。
+WS 只有成功排空后的 Close 1000 才代表传输正常结束；1011、直接 EOF、超时和接收端中断都应
+保留 `.partial`。示例还会 flush/close 并校验文件结构后再转为正式文件。
+TCP EOF 没有成功状态，没有可信外部完成信号时必须保留 `.partial`。
+结构完整或正常 close 均不证明没有丢包或 TLS 一定可解密。
 
-另见[社区集成](event-forward.md)、[HTTP 配置更新](remote-config-update-api-zh_Hans.md)和
-[输出架构](agent/output-pipeline.md)。
+另见 [HTTP 配置更新](remote-config-update-api-zh_Hans.md)、
+[社区集成](event-forward.md)及[输出架构](agent/output-pipeline.md)。

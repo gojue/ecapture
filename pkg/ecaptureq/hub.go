@@ -22,161 +22,140 @@ import (
 	"sync/atomic"
 )
 
-var ErrBackpressure = errors.New("ecaptureq backpressure")
+var ErrBackpressure = errors.New("stream subscription backpressure")
 
-type publishRequest struct {
-	message    []byte
-	processLog bool
-	result     chan error
-}
-
-type registerRequest struct {
-	client *Client
-	result chan error
-}
-
-// Hub serializes publish, history, and client registration so a new client gets
-// a stable bounded history followed by live messages without a handoff race.
+// Hub serializes registration, history and complete-message delivery. Queues
+// are bounded; only this owner closes a client's send channel.
 type Hub struct {
-	ctx        context.Context
-	broadcast  chan publishRequest
-	register   chan registerRequest
-	unregister chan *Client
-	clients    map[*Client]struct{}
-	history    [][]byte
-	done       chan struct{}
-	closeOnce  sync.Once
-	dropped    atomic.Uint64
+	ctx     context.Context
+	mu      sync.Mutex
+	clients map[*Client]struct{}
+	history [][]byte
+	closed  bool
+	done    chan struct{}
+	dropped atomic.Uint64
 }
 
 func newHub(ctx context.Context) *Hub {
-	h := &Hub{
-		ctx:        ctx,
-		broadcast:  make(chan publishRequest, 256),
-		register:   make(chan registerRequest, 32),
-		unregister: make(chan *Client, 32),
-		clients:    make(map[*Client]struct{}),
-		history:    make([][]byte, 0, LogBuffLen),
-		done:       make(chan struct{}),
-	}
-	go h.run()
+	h := &Hub{ctx: ctx, clients: make(map[*Client]struct{}), history: make([][]byte, 0, LogBuffLen), done: make(chan struct{})}
+	go func() {
+		<-ctx.Done()
+		h.mu.Lock()
+		h.closed = true
+		for client := range h.clients {
+			delete(h.clients, client)
+			close(client.send)
+		}
+		h.mu.Unlock()
+		close(h.done)
+	}()
 	return h
 }
 
-func (h *Hub) run() {
-	defer close(h.done)
-	for {
-		select {
-		case <-h.ctx.Done():
-			for client := range h.clients {
-				delete(h.clients, client)
-				close(client.send)
-			}
-			return
-		case request := <-h.register:
-			var err error
-			for _, message := range h.history {
-				select {
-				case request.client.send <- append([]byte(nil), message...):
-				default:
-					err = fmt.Errorf("%w: startup history exceeds client queue", ErrBackpressure)
-					h.dropped.Add(1)
-				}
-				if err != nil {
-					break
-				}
-			}
-			if err == nil {
-				h.clients[request.client] = struct{}{}
-			}
-			request.result <- err
-		case client := <-h.unregister:
-			if _, ok := h.clients[client]; ok {
-				delete(h.clients, client)
-				close(client.send)
-			}
-		case request := <-h.broadcast:
-			if request.processLog {
-				h.appendHistory(request.message)
-			}
-			var deliveryErr error
-			for client := range h.clients {
-				select {
-				case client.send <- append([]byte(nil), request.message...):
-				default:
-					delete(h.clients, client)
-					close(client.send)
-					h.dropped.Add(1)
-					deliveryErr = fmt.Errorf("%w: client queue full", ErrBackpressure)
-				}
-			}
-			request.result <- deliveryErr
+func (h *Hub) publish(ctx context.Context, message []byte, processLog bool) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.closed || h.ctx.Err() != nil {
+		return context.Canceled
+	}
+	if processLog {
+		copyMessage := append([]byte(nil), message...)
+		if len(h.history) < LogBuffLen {
+			h.history = append(h.history, copyMessage)
+		} else {
+			copy(h.history, h.history[1:])
+			h.history[len(h.history)-1] = copyMessage
 		}
 	}
+	var deliveryErr error
+	for client := range h.clients {
+		if err := h.deliver(client, message); err != nil {
+			deliveryErr = err
+		}
+	}
+	return deliveryErr
 }
 
-func (h *Hub) appendHistory(message []byte) {
-	copyMessage := append([]byte(nil), message...)
-	if len(h.history) < LogBuffLen {
-		h.history = append(h.history, copyMessage)
-		return
-	}
-	copy(h.history, h.history[1:])
-	h.history[len(h.history)-1] = copyMessage
-}
-
-func (h *Hub) publish(ctx context.Context, message []byte, processLog bool) error {
-	request := publishRequest{
-		message:    append([]byte(nil), message...),
-		processLog: processLog,
-		result:     make(chan error, 1),
-	}
-	select {
-	case h.broadcast <- request:
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-h.ctx.Done():
-		return context.Canceled
-	default:
-		h.dropped.Add(1)
-		return fmt.Errorf("%w: publisher queue full", ErrBackpressure)
-	}
-	select {
-	case err := <-request.result:
+// target is used by a subscriber's own pcapng encoder. Other subscribers must
+// never receive its headers or packet stream.
+func (h *Hub) target(ctx context.Context, client *Client, message []byte) error {
+	if err := ctx.Err(); err != nil {
 		return err
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-h.ctx.Done():
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.closed || h.ctx.Err() != nil {
 		return context.Canceled
+	}
+	if _, ok := h.clients[client]; !ok {
+		return errClosedSubscriber
+	}
+	return h.deliver(client, message)
+}
+
+var errClosedSubscriber = errors.New("stream subscriber is closed")
+
+func (h *Hub) deliver(client *Client, message []byte) error {
+	select {
+	case client.send <- append([]byte(nil), message...):
+		return nil
+	default:
+		delete(h.clients, client)
+		close(client.send)
+		h.dropped.Add(1)
+		return fmt.Errorf("%w: client queue full", ErrBackpressure)
 	}
 }
 
 func (h *Hub) registerClient(ctx context.Context, client *Client) error {
-	request := registerRequest{client: client, result: make(chan error, 1)}
-	select {
-	case h.register <- request:
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-h.ctx.Done():
-		return context.Canceled
-	}
-	select {
-	case err := <-request.result:
+	if err := ctx.Err(); err != nil {
 		return err
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-h.ctx.Done():
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.closed || h.ctx.Err() != nil {
 		return context.Canceled
 	}
+	if len(h.clients) >= maxClients {
+		return fmt.Errorf("%w: subscriber limit reached", ErrBackpressure)
+	}
+	if len(h.history) > cap(client.send) {
+		h.dropped.Add(1)
+		return fmt.Errorf("%w: startup history exceeds client queue", ErrBackpressure)
+	}
+	for _, message := range h.history {
+		client.send <- append([]byte(nil), message...)
+	}
+	h.clients[client] = struct{}{}
+	return nil
 }
 
 func (h *Hub) unregisterClient(client *Client) {
-	select {
-	case h.unregister <- client:
-	case <-h.ctx.Done():
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if _, ok := h.clients[client]; ok {
+		delete(h.clients, client)
+		close(client.send)
 	}
 }
 
-func (h *Hub) wait() { <-h.done }
+// drainClients detaches a generation after every encoder has flushed. Writer
+// pumps consume the remaining queue before sending a normal close frame.
+func (h *Hub) drainClients() []*Client {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	clients := make([]*Client, 0, len(h.clients))
+	for client := range h.clients {
+		delete(h.clients, client)
+		client.graceful.Store(!client.failed.Load())
+		close(client.send)
+		clients = append(clients, client)
+	}
+	return clients
+}
 
+func (h *Hub) wait()                { <-h.done }
 func (h *Hub) droppedCount() uint64 { return h.dropped.Load() }

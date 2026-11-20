@@ -73,7 +73,7 @@ func TestEveryCobraCommandAppliesCommonConfig(t *testing.T) {
 			PerfReorderLagMs:   6,
 		},
 		PerCpuMapPages: 7,
-		LoggerAddr:     "/tmp/cli-operational.log",
+		Outputs:        []string{"stdout", "/tmp/cli-records.jsonl"},
 	}
 
 	var capturedType factory.ProbeType
@@ -181,8 +181,8 @@ func TestEveryCobraCommandAppliesCommonConfig(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if baseConfig.LoggerAddr != globalConf.LoggerAddr {
-				t.Fatalf("logger validation context = %q, want %q", baseConfig.LoggerAddr, globalConf.LoggerAddr)
+			if baseConfig.RuntimeOutput != nil {
+				t.Fatal("process-lifetime output dependencies leaked into common config copying")
 			}
 		})
 	}
@@ -218,12 +218,9 @@ func TestEveryTextProbeRejectsUnsupportedEventDestination(t *testing.T) {
 	}
 }
 
-func TestPrepareReloadConfigInheritsOutputAndReattachesRuntime(t *testing.T) {
+func TestPrepareReloadConfigReattachesProcessLifetimeOutputs(t *testing.T) {
 	current := &commonTextConfig{BaseConfig: config.NewBaseConfig()}
-	current.EventCollectorAddr = "/tmp/current-events.log"
-	current.EventRotateSizeMB = 8
-	current.EventRotateSeconds = 9
-	current.LoggerAddr = "/tmp/current-operational.log"
+	current.Pid = 7
 
 	candidate := &commonTextConfig{BaseConfig: config.NewBaseConfig()}
 	patch, err := config.DecodeCommonConfigPatch([]byte(`{"pid":42}`))
@@ -233,8 +230,12 @@ func TestPrepareReloadConfigInheritsOutputAndReattachesRuntime(t *testing.T) {
 	if err = patch.Apply(candidate); err != nil {
 		t.Fatal(err)
 	}
-	candidate.LoggerAddr = "/tmp/request-must-not-replace-operational.log"
-	runtimeOutputs := &outputpipeline.RuntimeDependencies{}
+	recorder := &typedOutputRecorder{}
+	runtimeOutputs := &outputpipeline.RuntimeDependencies{
+		EventSinks:          []domain.CapturedEventSink{recorder},
+		SuppressDefaultText: true,
+		Module:              "tls",
+	}
 	update := &confighttp.ConfigUpdate{Config: candidate, CommonPatch: patch}
 
 	for i := 0; i < 2; i++ {
@@ -242,40 +243,53 @@ func TestPrepareReloadConfigInheritsOutputAndReattachesRuntime(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if candidate.EventCollectorAddr != current.EventCollectorAddr ||
-		candidate.EventRotateSizeMB != current.EventRotateSizeMB ||
-		candidate.EventRotateSeconds != current.EventRotateSeconds {
-		t.Fatalf("candidate output was not inherited: %#v", candidate.BaseConfig)
-	}
-	if candidate.LoggerAddr != current.LoggerAddr {
-		t.Fatalf("candidate logger context = %q, want %q", candidate.LoggerAddr, current.LoggerAddr)
+	if current.Pid != 7 || candidate.Pid != 42 {
+		t.Fatal("reload mutated active config or lost the requested update")
 	}
 	if candidate.RuntimeOutput == nil || candidate.RuntimeOutput == runtimeOutputs {
 		t.Fatal("runtime output dependencies were not reattached as a clone")
 	}
+	if !candidate.RuntimeOutput.SuppressDefaultText || candidate.RuntimeOutput.Module != "tls" || candidate.RuntimeOutput.EventSinks[0] != recorder {
+		t.Fatal("reload lost process-lifetime routing")
+	}
+	candidate.RuntimeOutput.EventSinks[0] = nil
+	if runtimeOutputs.EventSinks[0] != recorder {
+		t.Fatal("reload dependency slices alias the active process routing")
+	}
 }
 
-func TestPrepareReloadConfigRejectsInvalidDestinationWithoutMutatingCurrent(t *testing.T) {
-	current := &commonTextConfig{BaseConfig: config.NewBaseConfig()}
-	current.EventCollectorAddr = "/tmp/still-active.log"
-	candidate := &commonTextConfig{BaseConfig: config.NewBaseConfig()}
-	patch, err := config.DecodeCommonConfigPatch([]byte(`{
-		"event_collector_addr":"udp://127.0.0.1:9",
-		"event_rotate_size_mb":0,
-		"event_rotate_seconds":0
-	}`))
-	if err != nil {
-		t.Fatal(err)
+func TestPrepareReloadConfigRejectsRemovedOutputFields(t *testing.T) {
+	for _, payload := range []string{
+		`{"event_collector_addr":""}`, `{"event_rotate_size_mb":0}`, `{"event_rotate_seconds":0}`,
+	} {
+		t.Run(payload, func(t *testing.T) {
+			current := &commonTextConfig{BaseConfig: config.NewBaseConfig()}
+			current.Pid = 17
+			candidate := &commonTextConfig{BaseConfig: config.NewBaseConfig()}
+			patch, err := config.DecodeCommonConfigPatch([]byte(payload))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err = patch.Apply(candidate); err != nil {
+				t.Fatal(err)
+			}
+			update := &confighttp.ConfigUpdate{Config: candidate, CommonPatch: patch}
+			if err = prepareReloadConfig(current, update, &outputpipeline.RuntimeDependencies{}); err == nil {
+				t.Fatal("removed output field was accepted, including an explicit empty/zero value")
+			}
+			if current.Pid != 17 || candidate.RuntimeOutput != nil {
+				t.Fatal("rejected update changed active configuration or output dependencies")
+			}
+		})
 	}
-	if err = patch.Apply(candidate); err != nil {
-		t.Fatal(err)
-	}
-	update := &confighttp.ConfigUpdate{Config: candidate, CommonPatch: patch}
-	if err = prepareReloadConfig(current, update, &outputpipeline.RuntimeDependencies{}); err == nil {
-		t.Fatal("invalid destination was accepted")
-	}
-	if current.EventCollectorAddr != "/tmp/still-active.log" {
-		t.Fatalf("active config mutated after rejected update: %q", current.EventCollectorAddr)
+}
+
+func TestPrepareReloadConfigRejectsDifferentProbeType(t *testing.T) {
+	current := opensslProbe.NewConfig()
+	candidate := gotlsProbe.NewConfig()
+	update := &confighttp.ConfigUpdate{Config: candidate}
+	if err := prepareReloadConfig(current, update, &outputpipeline.RuntimeDependencies{}); err == nil {
+		t.Fatal("reload accepted another probe type")
 	}
 }
 
@@ -319,18 +333,18 @@ func TestTLSModuleTextSourceFlags(t *testing.T) {
 				{name: "default text", mode: "text", wantSource: "pcapng"},
 				{name: "empty mode", wantSource: "pcapng"},
 				{name: "explicit empty source", mode: "text", args: []string{"--text-source="}, wantSource: "pcapng"},
-				{name: "explicit hook", mode: "text", args: []string{"--text-source=hook"}, wantSource: "hook", wantKeylog: "default.keys", wantPcap: "default.pcapng"},
+				{name: "explicit hook", mode: "text", args: []string{"--text-source=hook"}, wantSource: "hook"},
 				{name: "optional artifacts", mode: "text", args: []string{"--keylogfile=capture.keys", "--pcapfile=capture.pcapng"}, wantSource: "pcapng", wantKeylog: "capture.keys", wantPcap: "capture.pcapng"},
-				{name: "keylog", mode: "keylog", wantSource: "hook", wantKeylog: "default.keys", wantPcap: "default.pcapng"},
-				{name: "pcapng", mode: "pcapng", wantSource: "hook", wantKeylog: "default.keys", wantPcap: "default.pcapng"},
+				{name: "keylog", mode: "keylog", args: []string{"--keylogfile=capture.keys"}, wantSource: "hook", wantKeylog: "capture.keys"},
+				{name: "pcapng", mode: "pcapng", args: []string{"--pcapfile=capture.pcapng"}, wantSource: "hook", wantPcap: "capture.pcapng"},
 				{name: "reject explicit nontext source", mode: "keylog", args: []string{"--text-source=pcapng"}, wantErr: true},
 			} {
 				t.Run(test.name, func(t *testing.T) {
 					source, keylog, pcap, run := module.setup(test.mode)
 					command := &cobra.Command{Use: module.name}
 					command.Flags().StringVar(source, "text-source", defaultSource, "")
-					command.Flags().StringVar(keylog, "keylogfile", "default.keys", "")
-					command.Flags().StringVar(pcap, "pcapfile", "default.pcapng", "")
+					command.Flags().StringVar(keylog, "keylogfile", "", "")
+					command.Flags().StringVar(pcap, "pcapfile", "", "")
 					if err := command.ParseFlags(test.args); err != nil {
 						t.Fatal(err)
 					}

@@ -26,7 +26,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/gojue/ecapture_decryptor/types"
 
@@ -38,6 +40,7 @@ import (
 	"github.com/gojue/ecapture/v2/internal/output/writers"
 	"github.com/gojue/ecapture/v2/internal/probe/base"
 	"github.com/gojue/ecapture/v2/internal/probe/base/handlers"
+	pb "github.com/gojue/ecapture/v2/protobuf/gen/v2"
 )
 
 func TestDecryptFlagsReachSDKOptions(t *testing.T) {
@@ -109,21 +112,28 @@ func (r *typedOutputRecorder) PublishEvent(_ context.Context, event domain.Captu
 func (r *typedOutputRecorder) Name() string { return "typed-recorder" }
 func (r *typedOutputRecorder) Close() error { return nil }
 
-func TestOperationalAndCapturedOutputsAreIsolated(t *testing.T) {
-	directory := t.TempDir()
-	logPath := filepath.Join(directory, "runtime.log")
-	eventPath := filepath.Join(directory, "events.log")
+func TestCombinedOutputPreservesLogAndEventClassification(t *testing.T) {
+	outputPath := filepath.Join(t.TempDir(), "records.jsonl")
+	endpoints, err := parseOutputEndpoints([]string{outputPath})
+	if err != nil {
+		t.Fatal(err)
+	}
+	outputs, err := newOutputSet(endpoints, "tls")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = outputs.Close() })
 	recorder := &typedOutputRecorder{}
-	operational, err := newOperationalOutputs(logPath, false, recorder)
+	operational, err := newOperationalOutputs(false, outputs, recorder)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	cfg := config.NewBaseConfig()
-	cfg.SetEventCollectorAddr(eventPath)
 	deps := &outputpipeline.RuntimeDependencies{
-		OperationalLogger: operational.logger,
-		EventSinks:        []domain.CapturedEventSink{recorder},
+		OperationalLogger:   operational.logger,
+		EventSinks:          []domain.CapturedEventSink{outputs, recorder},
+		SuppressDefaultText: true,
 	}
 	if err = attachRuntimeOutputs(cfg, deps); err != nil {
 		t.Fatal(err)
@@ -148,26 +158,42 @@ func TestOperationalAndCapturedOutputsAreIsolated(t *testing.T) {
 	if err = operational.Close(); err != nil {
 		t.Fatal(err)
 	}
-
-	logData, err := os.ReadFile(logPath)
+	if err = outputs.Close(); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(outputPath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	eventData, err := os.ReadFile(eventPath)
-	if err != nil {
-		t.Fatal(err)
+	var fileEvents int
+	var fileInitialized, fileClosed bool
+	for _, line := range bytes.Split(bytes.TrimSpace(data), []byte{'\n'}) {
+		entry := &pb.LogEntry{}
+		if err := protojson.Unmarshal(line, entry); err != nil {
+			t.Fatalf("invalid JSON Lines record: %v", err)
+		}
+		if entry.Module != "tls" {
+			t.Fatalf("record module = %q", entry.Module)
+		}
+		switch entry.LogType {
+		case pb.LogType_LOG_TYPE_PROCESS_LOG:
+			message := []byte(entry.GetRunLog())
+			if bytes.Contains(message, []byte(captured)) {
+				t.Fatal("captured bytes mislabeled PROCESS_LOG")
+			}
+			fileInitialized = fileInitialized || bytes.Contains(message, []byte("Probe initialized"))
+			fileClosed = fileClosed || bytes.Contains(message, []byte("Probe closed"))
+		case pb.LogType_LOG_TYPE_EVENT:
+			fileEvents++
+			if string(entry.GetEventPayload().GetText().GetPayload()) != captured {
+				t.Fatal("EVENT did not retain the captured text")
+			}
+		default:
+			t.Fatalf("unexpected record kind %v", entry.LogType)
+		}
 	}
-	if bytes.Contains(logData, []byte(captured)) {
-		t.Fatal("captured payload leaked into --logaddr output")
-	}
-	if !bytes.Contains(logData, []byte("Probe initialized")) || !bytes.Contains(logData, []byte("Probe closed")) {
-		t.Fatalf("operational output lacks BaseProbe lifecycle: %s", logData)
-	}
-	if !bytes.Contains(eventData, []byte(captured)) {
-		t.Fatalf("captured event output = %q", eventData)
-	}
-	if bytes.Contains(eventData, []byte("Probe initialized")) {
-		t.Fatal("operational lifecycle leaked into event output")
+	if fileEvents != 1 || !fileInitialized || !fileClosed {
+		t.Fatalf("combined file lost records: events=%d initialized=%v closed=%v", fileEvents, fileInitialized, fileClosed)
 	}
 
 	recorder.mu.Lock()
@@ -188,35 +214,33 @@ func TestOperationalAndCapturedOutputsAreIsolated(t *testing.T) {
 	}
 }
 
-func TestNormalizeTLSOutputFlagsConflicts(t *testing.T) {
+func TestNormalizeTLSOutputFlagsPreservesNativeDestinations(t *testing.T) {
 	tests := []struct {
-		name        string
-		mode        string
-		legacyFlag  string
-		legacyValue string
-		wantErr     bool
+		name  string
+		mode  string
+		flag  string
+		value string
 	}{
-		{name: "keylog conflict", mode: "keylog", legacyFlag: "keylogfile", legacyValue: "a.keys", wantErr: true},
-		{name: "pcap conflict", mode: "pcapng", legacyFlag: "pcapfile", legacyValue: "a.pcapng", wantErr: true},
-		{name: "pcap optional keylog allowed", mode: "pcapng", legacyFlag: "keylogfile", legacyValue: "a.keys"},
+		{name: "keylog file", mode: "keylog", flag: "keylogfile", value: "a.keys"},
+		{name: "pcap file", mode: "pcapng", flag: "pcapfile", value: "a.pcapng"},
+		{name: "pcap optional keylog", mode: "pcapng", flag: "keylogfile", value: "a.keys"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			command := &cobra.Command{Use: "test"}
-			var eventAddress, keylogFile, pcapFile string
-			command.Flags().StringVar(&eventAddress, "eventaddr", "", "")
-			command.Flags().StringVar(&keylogFile, "keylogfile", "default.keys", "")
-			command.Flags().StringVar(&pcapFile, "pcapfile", "default.pcapng", "")
-			if err := command.Flags().Set("eventaddr", "tcp://127.0.0.1:9000"); err != nil {
-				t.Fatal(err)
-			}
-			if err := command.Flags().Set(test.legacyFlag, test.legacyValue); err != nil {
+			var keylogFile, pcapFile string
+			command.Flags().StringVar(&keylogFile, "keylogfile", "", "")
+			command.Flags().StringVar(&pcapFile, "pcapfile", "", "")
+			if err := command.Flags().Set(test.flag, test.value); err != nil {
 				t.Fatal(err)
 			}
 			source := handlers.TextSourceHook
 			err := normalizeTLSOutputFlags(command, test.mode, &source, &keylogFile, &pcapFile)
-			if (err != nil) != test.wantErr {
-				t.Fatalf("normalizeTLSOutputFlags() error = %v, wantErr %v", err, test.wantErr)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if test.flag == "keylogfile" && keylogFile != test.value || test.flag == "pcapfile" && pcapFile != test.value {
+				t.Fatal("normalizing source changed an explicit native file")
 			}
 		})
 	}
@@ -225,10 +249,9 @@ func TestNormalizeTLSOutputFlagsConflicts(t *testing.T) {
 func TestNormalizeTLSPcapngTextOutputFlags(t *testing.T) {
 	for _, savePcap := range []bool{false, true} {
 		command := &cobra.Command{Use: "test"}
-		var eventAddress, keylogFile, pcapFile string
-		command.Flags().StringVar(&eventAddress, "eventaddr", "", "")
-		command.Flags().StringVar(&keylogFile, "keylogfile", "default.keys", "")
-		command.Flags().StringVar(&pcapFile, "pcapfile", "default.pcapng", "")
+		var keylogFile, pcapFile string
+		command.Flags().StringVar(&keylogFile, "keylogfile", "", "")
+		command.Flags().StringVar(&pcapFile, "pcapfile", "", "")
 		if savePcap {
 			if err := command.Flags().Set("pcapfile", "capture.pcapng"); err != nil {
 				t.Fatal(err)
@@ -273,7 +296,8 @@ func (p *failedPipelineProbe) Start(ctx context.Context) error {
 		return err
 	}
 	d := recordingDispatcher{EventDispatcher: p.Dispatcher(), sink: &p.sink}
-	if err := decrypt.Register(p.Context(), p.Fail, d, "lo", "", p.Logger(), p.Config().GetEventCollectorAddr(), "", nil, nil, types.DecryptOptions{}); err != nil {
+	deps := p.Config().(*config.BaseConfig).RuntimeOutput
+	if err := decrypt.Register(p.Context(), p.Fail, d, "lo", "", p.Logger(), "", "", nil, deps.EventSinks, true, types.DecryptOptions{}); err != nil {
 		return err
 	}
 	reader, writer := io.Pipe()
@@ -291,9 +315,8 @@ func TestPipelineFailureCLIExit(t *testing.T) {
 		}); err != nil {
 			t.Fatal(err)
 		}
-		globalConf = CLIConfig{LoggerAddr: os.Getenv("ECAPTURE_TEST_LOG")}
+		globalConf = CLIConfig{Outputs: []string{os.Getenv("ECAPTURE_TEST_LOG")}}
 		cfg := config.NewBaseConfig()
-		cfg.SetEventCollectorAddr(os.Getenv("ECAPTURE_TEST_OUTPUT"))
 		rootCmd.PersistentPreRunE = nil
 		rootCmd.AddCommand(&cobra.Command{Use: "pipeline-exit-test", RunE: func(*cobra.Command, []string) error { return runProbe(probeType, cfg) }})
 		rootCmd.SetArgs([]string{"pipeline-exit-test"})
@@ -304,7 +327,7 @@ func TestPipelineFailureCLIExit(t *testing.T) {
 	defer cancel()
 	logPath := filepath.Join(t.TempDir(), "runtime.log")
 	cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestPipelineFailureCLIExit$")
-	cmd.Env = append(os.Environ(), "ECAPTURE_PIPELINE_EXIT_TEST=1", "ECAPTURE_TEST_LOG="+logPath, "ECAPTURE_TEST_OUTPUT="+filepath.Join(t.TempDir(), "plain"))
+	cmd.Env = append(os.Environ(), "ECAPTURE_PIPELINE_EXIT_TEST=1", "ECAPTURE_TEST_LOG="+logPath)
 	out, err := cmd.CombinedOutput()
 	var exit *exec.ExitError
 	if !errors.As(err, &exit) || exit.ExitCode() != 1 || ctx.Err() != nil {
@@ -317,7 +340,53 @@ func TestPipelineFailureCLIExit(t *testing.T) {
 	if bytes.Count(logs, []byte("Capture stopped after output pipeline failure")) != 1 || bytes.Contains(logs, []byte("Failed to dispatch")) || !bytes.Contains(logs, []byte("Probe closed")) {
 		t.Fatalf("unexpected lifecycle logs: %s", logs)
 	}
-	if bytes.Count(out, []byte("capture pipeline terminated")) != 1 {
-		t.Fatalf("terminal error repeated on console: %s", out)
+	if bytes.Count(logs, []byte("capture pipeline terminated")) != 1 {
+		t.Fatalf("terminal cause must be reported once to the selected output: %s", logs)
+	}
+	if len(out) != 0 {
+		t.Fatalf("file-only output unexpectedly wrote to the terminal: %s", out)
+	}
+}
+
+type failedInitializationProbe struct {
+	*base.BaseProbe
+	ctx               context.Context
+	path              string
+	file              *os.File
+	initErr, closeErr error
+}
+
+func (p *failedInitializationProbe) Initialize(ctx context.Context, _ domain.Configuration) error {
+	p.ctx = ctx
+	var err error
+	p.file, err = os.Create(p.path)
+	if err != nil {
+		return err
+	}
+	return p.initErr
+}
+func (p *failedInitializationProbe) Close() error {
+	return errors.Join(p.file.Close(), p.closeErr)
+}
+
+func TestFailedInitializationCancelsAndReleasesPartialResources(t *testing.T) {
+	probe := &failedInitializationProbe{
+		BaseProbe: base.NewBaseProbe("failed-init"), path: filepath.Join(t.TempDir(), "partial-artifact"),
+		initErr: errors.New("probe initialization failed after resource allocation"), closeErr: errors.New("cleanup error"),
+	}
+	probeType := factory.ProbeType("failed-init-" + probe.path)
+	if err := factory.RegisterProbe(probeType, func() (domain.Probe, error) { return probe, nil }); err != nil {
+		t.Fatal(err)
+	}
+	logger := zerolog.New(io.Discard)
+	generation, err := startProbeGeneration(context.Background(), probeType, config.NewBaseConfig(), &outputpipeline.RuntimeDependencies{}, &logger, false)
+	if generation != nil || !errors.Is(err, probe.initErr) || !errors.Is(err, probe.closeErr) {
+		t.Fatalf("initialization/cleanup result = %v", err)
+	}
+	if !errors.Is(probe.ctx.Err(), context.Canceled) {
+		t.Fatal("failed generation context remained active")
+	}
+	if _, err := probe.file.Write([]byte("must be closed")); !errors.Is(err, os.ErrClosed) {
+		t.Fatalf("partially initialized artifact was not closed: %v", err)
 	}
 }

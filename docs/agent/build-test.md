@@ -320,11 +320,12 @@ Targeted test example:
 go test ./internal/probe/openssl
 ```
 
-For decryption termination changes, the focused gate is:
+For output routing, v2 protocol, and decryption termination changes, the focused gate is:
 
 ```sh
 go test -race ./internal/output/decrypt ./internal/output/pcapng \
-  ./internal/output/writers ./internal/events ./internal/probe/base/... ./cli/cmd
+  ./internal/output/writers ./internal/output ./protobuf/v2 ./pkg/ecaptureq \
+  ./internal/events ./internal/probe/base/... ./cli/cmd ./cli/http
 ```
 
 `TestSinkBackgroundTermination` injects streaming task outcomes; it is not a
@@ -360,7 +361,16 @@ CI flow. `make test-race` builds libpcap and supplies its own CGO flags, but it
 does not generate a
 missing architecture-specific `assets/ebpf_probe_<target>_<goarch>_bindata.go`.
 Default-tag race tests do not replace
-production-tag validation.
+production-tag validation. With a deliberate `make core` build, use the same
+CGO environment and match the linked asset mode when testing:
+
+```sh
+go test -race -tags=ebpfassets,dynamic \
+  -ldflags='-X github.com/gojue/ecapture/v2/internal/config.ByteCodeFiles=core' ./...
+```
+
+The default test value is `all`; using it with core-only assets correctly fails
+the embedded-asset contract tests. Do not remove those assertions.
 
 Unit tests do not prove that a probe can load, attach, or capture on a real
 kernel. Use strict E2E for runtime behavior.
@@ -412,11 +422,15 @@ aliases for `e2e-linux`; typed eCaptureQ assertions run inside the TLS suites.
 `make e2e-advanced` runs the same module/mode selection with `E2E_STRESS=1`,
 adding the OpenSSL pcapng burst regression. The default matrix is
 `tls gotls gnutls` in text, keylog, and pcapng modes. Each module's text matrix
-also verifies same-probe HTTP reload output inheritance, explicit destination
-replacement, and rejection without losing the active output.
+also verifies same-probe HTTP reload output inheritance and rejection of
+removed fields or process-lifetime destination changes without losing the
+active output.
 
-Public text event destinations for Bash, Zsh, and MySQL have a separate strict
-suite. Select modules with `E2E_NON_TLS_MODULES` (default `bash zsh mysqld`).
+The separate non-core Bash, Zsh and MySQL common-config suite still uses
+removed output flags. It and the PostgreSQL entry point need a separate v2
+migration and are not current passing gates. The following commands describe
+those retained entry points for follow-up work. Select modules with
+`E2E_NON_TLS_MODULES` (default `bash zsh mysqld`).
 Shell cases require the selected shell and `script`; MySQL requires a C++
 compiler and captures deterministic local `dispatch_command` inputs without
 executing them against a database:
@@ -437,8 +451,8 @@ Unix-socket connection (`PGHOST` unset or one absolute socket directory).
 It issues only read-only SELECTs, discovers the actual session backend PID,
 and checks captured SQL and output isolation. It does not provision a server
 or modify database state. `make e2e-edge-cases` checks invalid-input rejection
-and graceful SIGINT/SIGTERM shutdown. Both reuse the common-config lifecycle
-helpers. See [non-TLS prerequisites and options](../../test/e2e/README.md#non-tls-and-cli-checks).
+and graceful SIGINT/SIGTERM shutdown through the core `linux/common.sh`
+helpers, independently of the unmigrated non-core suite. See [non-TLS prerequisites and options](../../test/e2e/README.md#non-tls-and-cli-checks).
 
 GnuTLS is a strict gating suite alongside OpenSSL and GoTLS. Its versioned
 master-secret offsets mean that a passing build against one distribution does
@@ -520,8 +534,13 @@ sudo make benchmark-tls
 
 The end-to-end harness defaults to the short-connection 96 KiB upload workload
 from issue #990 and writes private raw artifacts below `/tmp/ecapture-benchmark`.
-It measures unique request/response marker loss separately from perf lost-sample
-logs. See `docs/performance-benchmarks.md` for tunables and result semantics.
+Text mode explicitly captures loopback packets and TLS secrets with
+`--model text --text-source pcapng --ifname lo`, then routes the SDK output to
+v2 JSON Lines. It validates records and extracts TEXT payloads before measuring
+unique request/response marker loss separately from perf lost-sample logs.
+Keylog mode validates the native `--keylogfile` and requires JSON output to
+contain runtime logs only. See [performance benchmarks](../performance-benchmarks.md)
+for tunables and result semantics.
 
 ## Minimum verification by change
 

@@ -7,10 +7,10 @@
       "content": "Create exactly the six top-level sections in pages, with no extra top-level section. The first four sections contain 21 user-facing pages; the last two contain 9 developer-facing pages. Aim for about 70% of total explanatory content for users and 30% for developers, not just the page-count ratio. User pages explain selection, prerequisites, runnable workflows, expected output, interpretation, and troubleshooting. Developer pages explain architecture, event ABI, lifecycle, output routing, builds, tests, and extension. Keep NSS/NSPR, Bash, Zsh, MySQL/MariaDB, and PostgreSQL only in the single Other Modules page under Advanced Usage. Give no non-core probe its own page or chapter elsewhere."
     },
     {
-      "content": "The core of this wiki is tls (OpenSSL/BoringSSL), gotls, and gnutls. Spend most user-facing space on using these three commands and choosing among text, keylog, and pcapng. Each core module and each mode needs verified commands, required target or interface setup, expected artifact, a way to confirm success, and relevant limitations. Explain that text shows captured plaintext events, keylog provides TLS secrets for a separate packet capture, and pcapng contains packet blocks plus an embedded TLS Decryption Secrets Block. Do not imply keylog alone contains packets or pcapng is only a keylog file."
+      "content": "The core of this wiki is tls (OpenSSL/BoringSSL), gotls, and gnutls. Spend most user-facing space on using these three commands and choosing among text, keylog, and pcapng. Each core module and each mode needs verified commands, required target or interface setup, expected artifact, a way to confirm success, and relevant limitations. Core text examples use --model text --text-source pcapng and the SDK's decoded output; function-hook text is an explicit legacy-source option. Explain that keylog provides TLS secrets for a separate packet capture, and pcapng contains packet blocks plus embedded TLS Decryption Secrets Blocks. Do not imply keylog alone contains packets or pcapng is only a keylog file."
     },
     {
-      "content": "Verify facts against current source code, README, docs/agent/architecture.md, and docs/agent/output-pipeline.md. For tls, gotls, and gnutls, -m selects text, keylog, or pcap/pcapng representation; --eventaddr selects the primary captured-event destination; --logaddr carries operational logs only. Explain the legacy --keylogfile and --pcapfile aliases and mode-specific destination and rotation rules accurately. Do not invent commands, supported versions, or performance numbers. Do not put source-file links or code citations in summaries or user-facing explanatory text. Mermaid labels must describe concepts, not file paths or Markdown links."
+      "content": "Verify facts against current source code, README, docs/agent/architecture.md, and docs/agent/output-pipeline.md. For tls, gotls, and gnutls, --model/-m selects text, keylog, or pcapng. --output is a repeatable array, defaulting to stdout; explicit destinations replace the default. stdout/stderr label each physical line as log/event; local files and outgoing TCP use Protobuf v2 JSON Lines. Text outputs contain logs and decoded TEXT events. Native keylog/pcapng modes require explicit local --keylogfile/--pcapfile artifacts; output files contain runtime logs only, while network events carry encoded NSS/pcapng bytes. --stream-listen ws://HOST:PORT/PATH serves binary Protobuf v2 subscriptions requiring ecapture.v2; --config-listen independently enables HTTP updates. Removed output/listener/rotation options have no compatibility aliases. Output destinations cannot be changed through HTTP reload. Do not invent commands, supported versions, or performance numbers. Do not put source-file links or code citations in summaries or user-facing explanatory text. Mermaid labels must describe concepts, not file paths or Markdown links."
     }
   ],
   "pages": [
@@ -36,17 +36,17 @@
     },
     {
       "title": "First OpenSSL and BoringSSL Capture",
-      "purpose": "Give a verified end-to-end tls text-mode command, traffic generator, expected event, and links to keylog and pcapng workflows.",
+      "purpose": "Give a verified end-to-end tls text-mode command, traffic generator, expected event, and links to keylog and pcapng workflows. Use --model text --text-source pcapng and verify the SDK-decoded output.",
       "parent": "Getting Started"
     },
     {
       "title": "First GoTLS Capture",
-      "purpose": "Give a verified end-to-end gotls text-mode command with target Go binary and required flags, expected event, and links to keylog and pcapng workflows.",
+      "purpose": "Give a verified end-to-end gotls text-mode command with target Go binary and required flags, expected event, and links to keylog and pcapng workflows. Use --model text --text-source pcapng and verify the SDK-decoded output.",
       "parent": "Getting Started"
     },
     {
       "title": "First GnuTLS Capture",
-      "purpose": "Give a verified end-to-end gnutls text-mode command with suitable target and version checks, expected event, and links to keylog and pcapng workflows.",
+      "purpose": "Give a verified end-to-end gnutls text-mode command with suitable target and version checks, expected event, and links to keylog and pcapng workflows. Use --model text --text-source pcapng and verify the SDK-decoded output.",
       "parent": "Getting Started"
     },
     {
@@ -91,22 +91,22 @@
     },
     {
       "title": "Text Mode",
-      "purpose": "Give verified text-mode commands for tls, gotls, and gnutls; explain event stdout by default, optional --eventaddr, expected plaintext events, and a simple verification flow.",
+      "purpose": "Give verified --model text --text-source pcapng commands for tls, gotls, and gnutls. Explain the SDK-decoded events, labelled logs/events on default stdout, repeated --output destinations, JSON Lines files/TCP, optional native artifacts, and verification of reconstructed plaintext.",
       "parent": "Capture Modes"
     },
     {
       "title": "Keylog Mode",
-      "purpose": "Give verified keylog-mode commands for tls, gotls, and gnutls; explain NSS Key Log lines, destination rules, --keylogfile compatibility, independent packet capture for Wireshark, and sensitive-file handling.",
+      "purpose": "Give verified keylog-mode commands for tls, gotls, and gnutls with required local --keylogfile. Explain NSS Key Log lines, independent packet capture for Wireshark, sensitive-file handling, runtime-log-only output files, labelled terminal NSS events, and encoded KEYLOG bytes on network destinations.",
       "parent": "Capture Modes"
     },
     {
       "title": "pcapng Mode",
-      "purpose": "Give verified -m pcap or -m pcapng commands for tls, gotls, and gnutls; explain interface selection, destination rules, --pcapfile compatibility, packet blocks with a TLS Decryption Secrets Block, and Wireshark inspection.",
+      "purpose": "Give verified --model pcapng commands for tls, gotls, and gnutls with required local --pcapfile. Explain automatic or explicit interface selection, packet blocks and embedded TLS Decryption Secrets Blocks, independent decryption checks, runtime-log-only output files, terminal byte-count summaries, and encoded PCAPNG network events.",
       "parent": "Capture Modes"
     },
     {
-      "title": "Event Destinations and Rotation",
-      "purpose": "Explain --eventaddr for captured events from all three TLS modules, stdout/file/TCP/WebSocket sinks, mode-specific destination and rotation limits, legacy output aliases, and separation from --logaddr.",
+      "title": "Output Destinations and Subscriptions",
+      "purpose": "Explain repeatable --output stdout/stderr, local file/file://, and outgoing tcp:// destinations for all three TLS modules, plus the separate --stream-listen subscription service. Give the text/keylog/pcapng destination matrix, terminal log/event labels, JSON Lines and binary Protobuf v2 encoding, required ecapture.v2 negotiation, native artifact isolation, and removal of old flags and rotation options without aliases. Outgoing WebSocket is not an output destination.",
       "parent": "Capture Modes"
     },
     {
@@ -131,7 +131,7 @@
     },
     {
       "title": "Integration and Deployment",
-      "purpose": "Concise production guidance for core TLS capture: event forwarding with --eventaddr, additive eCaptureQ, HTTP dynamic configuration, sensitive artifacts, and performance evaluation. Verify endpoint names.",
+      "purpose": "Explain core TLS integration through outgoing TCP JSON Lines and --stream-listen Protobuf v2 subscriptions, with receiver dispatch for PROCESS_LOG, HEARTBEAT, and TEXT/KEYLOG/PCAPNG EVENT records. Cover client migration to v2, --config-listen HTTP updates, fixed process-lifetime outputs, per-generation connection completion, partial native artifacts, late subscribers without historical replay, sensitive artifacts, and performance evaluation.",
       "parent": "Advanced Usage"
     },
     {
@@ -166,7 +166,7 @@
     },
     {
       "title": "Event and Output Pipeline",
-      "purpose": "Trace core TLS events through decoding, dispatch, text/keylog/pcapng handlers, ByteSink destinations, embedded pcapng secrets, and additive eCaptureQ publication.",
+      "purpose": "Trace core TLS records through decoding and dispatch, pcapng encoding and SDK text reconstruction, native local artifacts, and shared typed terminal/JSON/Protobuf v2 publishers. Explain log/event classification before encoding, format-specific routing, stream subscribers, borrowed process-lifetime destinations, shutdown and reload ownership, and independent pcapng sections for late clients.",
       "parent": "Architecture and Probe Development"
     },
     {

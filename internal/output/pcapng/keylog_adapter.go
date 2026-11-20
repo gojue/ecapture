@@ -14,11 +14,18 @@
 
 package pcapng
 
-import "bytes"
+import (
+	"bytes"
+	"context"
+	"errors"
+
+	"github.com/gojue/ecapture/v2/internal/domain"
+)
 
 // KeylogAdapter lets a keylog handler add TLS secrets to a borrowed Session.
 type KeylogAdapter struct {
-	session *Session
+	session   *Session
+	observers []domain.PcapngObserver
 }
 
 func (w *KeylogAdapter) Name() string {
@@ -33,8 +40,8 @@ func (w *KeylogAdapter) Flush() error {
 // PcapngHandler is the sole close owner.
 func (w *KeylogAdapter) Close() error { return nil }
 
-func NewKeylogAdapter(session *Session) *KeylogAdapter {
-	return &KeylogAdapter{session: session}
+func NewKeylogAdapter(session *Session, observers ...domain.PcapngObserver) *KeylogAdapter {
+	return &KeylogAdapter{session: session, observers: append([]domain.PcapngObserver(nil), observers...)}
 }
 
 func (w *KeylogAdapter) Write(p []byte) (n int, err error) {
@@ -43,5 +50,14 @@ func (w *KeylogAdapter) Write(p []byte) (n int, err error) {
 	data := make([]byte, len(record)+1)
 	copy(data, record)
 	data[len(record)] = '\n'
-	return len(p), w.session.WriteKeyLog(data)
+	var failures []error
+	if err := w.session.WriteKeyLog(data); err != nil {
+		failures = append(failures, err)
+	}
+	for _, observer := range w.observers {
+		if err := observer.PublishKeylog(context.Background(), data); err != nil {
+			failures = append(failures, err)
+		}
+	}
+	return len(p), errors.Join(failures...)
 }

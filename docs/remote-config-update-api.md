@@ -2,141 +2,108 @@
 
 [中文](remote-config-update-api-zh_Hans.md)
 
-The API restarts the running probe with a new configuration. Enable it
-explicitly when starting eCapture; `--listen` is empty/disabled by default:
+Enable the configuration service explicitly with `--config-listen`; it is
+disabled by default. It restarts the running probe with a validated replacement
+configuration. The listener is separate from Protobuf `--stream-listen` and has
+no built-in TLS or application authentication; this example binds loopback.
 
 ```bash
-sudo ./bin/ecapture tls --listen=127.0.0.1:28256 \
-  --eventaddr=/tmp/events.txt
+sudo ./bin/ecapture tls --model text --text-source pcapng \
+  --config-listen 127.0.0.1:28256 --output stdout --output /tmp/records.jsonl
 ```
 
-Requests are `POST` with `Content-Type: application/json`. The built-in HTTP
-server has no application authentication or TLS; the example binds loopback.
-It is independent of the `--ecaptureq` event listener.
+Use `POST` with `Content-Type: application/json`. `--listen` and the old output
+CLI flags are removed; there is no compatibility alias.
 
-## Scope and endpoints
+## Core module endpoints
 
-Send updates for the **same probe type** that was selected at process startup.
-For example, a process started with `tls` accepts TLS configuration through
-`/tls`, `/openssl`, or `/boringssl`. The runtime retains the original factory
-probe type; this is not a cross-probe hot-swap API. A wrong-probe request is
-not a supported way to switch modules and may fail during reinitialization.
+Send updates for the probe selected at process startup. The factory probe type
+is retained; the API cannot switch between TLS, GoTLS and GnuTLS.
 
-| POST path | Configuration type | Linux | Android build |
-| --- | --- | --- | --- |
-| `/tls`, `/openssl`, `/boringssl` | OpenSSL/BoringSSL | Yes | Yes |
-| `/gotls` | GoTLS | Yes | Yes |
-| `/bash` | Bash | Yes | Yes |
-| `/gnutls` | GnuTLS | Yes | Unsupported |
-| `/nss`, `/nspr` | NSPR/NSS | Yes | Unsupported |
-| `/mysqld` | MySQL | Yes | Unsupported |
-| `/postgres`, `/postgress` | PostgreSQL | Yes | Unsupported |
-
-Both platforms register these routes. Unsupported Android configuration
-factories return HTTP 400 with `code: 4`; their routes are not absent.
-There is currently no `/zsh` route. `/postgress` remains a compatibility alias.
-Platform availability does not remove each probe's binary/library requirements.
-
-## Configuration replacement and inheritance
-
-The server decodes into a **fresh module configuration**, then validates and
-applies it. This is not a general JSON patch over the running configuration.
-Only these three fields inherit from the active generation when omitted:
-
-| JSON field | Meaning | Explicit value |
+| POST path | Configuration | Availability |
 | --- | --- | --- |
-| `event_collector_addr` | Primary captured-event destination | `""` explicitly clears it before mode-specific normalization |
-| `event_rotate_size_mb` | File rotation size | `0` disables this rotation threshold |
-| `event_rotate_seconds` | File rotation interval | `0` disables this rotation threshold |
+| `/tls`, `/openssl`, `/boringssl` | OpenSSL/BoringSSL | Linux and Android |
+| `/gotls` | GoTLS | Linux and Android |
+| `/gnutls` | GnuTLS | Linux; Android factory returns HTTP 400 |
 
-Other omitted common and module-specific fields use constructor defaults or
-zero values, not the active values. Resend the library/ELF path, mode, filters,
-and other settings you need to retain. CLI flags and JSON field names differ.
-Unknown JSON fields are generally ignored by the current decoder, so a typo
-can silently leave a default in effect.
+## Replacement and output lifetime
 
-An empty event destination becomes stdout in text mode; keylog/pcapng still
-require a destination after normalization, possibly supplied by their legacy
-file field. Rotation is only valid for file-backed text/keylog output. When
-changing a rotating file destination to a network sink, explicitly set both
-rotation fields to zero to avoid inheriting invalid settings.
+The server decodes a **fresh module configuration**, validates it, then applies
+it. This is not a general JSON patch. Omitted common/module fields take factory
+defaults or zero values. Resend library/ELF paths, mode, filters and options you
+need to retain. In core text mode, an omitted/empty `text_source` becomes
+`pcapng`; an omitted `ifname` triggers automatic interface selection.
 
-Operational logging and typed eCaptureQ publication are process-lifetime
-dependencies and are reattached to the new probe. This API does not change
-`--logaddr`, `--ecaptureq`, or the HTTP listening address.
+`--output`, `--stream-listen` and `--config-listen` are process-lifetime startup
+settings. They survive reload through runtime dependencies and cannot be changed
+by HTTP. Requests containing new output-route fields or removed legacy fields
+are rejected, including explicit `null`; they are not ignored or inherited.
+Examples include `output`, `outputs`, `stream_listen`, `config_listen`,
+`eventaddr`, `event_collector_addr`, `logaddr`, `logger_addr`, `ecaptureq`,
+`listen`, `event_rotate_size_mb` and `event_rotate_seconds`.
+
+Native `pcapfile`/`keylogfile` module settings remain generation configuration.
+A keylog replacement requires an explicit keylog file, and a pcapng replacement
+requires an explicit pcap file. Use a new native filename for a new generation;
+text-mode artifact files are optional. Native destinations must be local files,
+separate from JSON output. Other unknown JSON fields may still be ignored, so
+use documented keys rather than assuming arbitrary field names are validated.
+
+On reload, old-generation TCP/WS output connections drain and close. TCP output
+reconnects to its configured destination; WS clients reconnect themselves.
+Each connection owns a separate native artifact. A late subscription starts
+from fresh pcapng headers and future packets/secrets, without history replay.
+See [output and completion rules](event-forward-api.md).
 
 ## Request fields
 
-Common fields are defined in [BaseConfig](../internal/config/base_config.go)
-and [CommonConfigPatch](../internal/config/common.go):
+Common fields are defined by [BaseConfig](../internal/config/base_config.go)
+and [CommonConfig](../internal/config/common.go):
 
-| JSON field | Type | Notes |
+| JSON field | Type | Meaning |
 | --- | --- | --- |
-| `pid`, `uid` | unsigned integer | Process/user filters; `0` means no such filter |
-| `debug`, `is_hex` | boolean | Probe debug and hex representation settings |
-| `btf_mode` | unsigned integer | `0` auto, `1` CO-RE, `2` non-CO-RE; must be supported by embedded assets |
-| `per_cpu_map_size` | integer | Positive buffer size in **bytes**; CLI `--mapsize` is in pages |
-| `event_collector_addr` | string | stdout, file/path, TCP or WebSocket destination |
-| `event_rotate_size_mb`, `event_rotate_seconds` | unsigned 16-bit integer | File rotation settings |
-| `cgroup_path` | string | cgroup filter where supported by the probe |
-| `perf_reorder`, `perf_reorder_lag_ms` | boolean, unsigned integer | Reordering where supported by the probe/event reader |
+| `pid`, `uid` | unsigned integer | Process/user filters; 0 disables the filter |
+| `debug`, `is_hex` | boolean | Debug and text presentation options |
+| `btf_mode` | unsigned integer | 0 auto, 1 CO-RE, 2 non-CO-RE; must match available assets |
+| `per_cpu_map_size` | integer | Positive buffer bytes; CLI `--mapsize` uses pages |
+| `cgroup_path` | string | cgroup filter where supported |
+| `perf_reorder`, `perf_reorder_lag_ms` | boolean, unsigned integer | Supported reader reorder settings |
 
-`byte_code_file_mode` must match the binary's embedded asset mode; normally
-leave it at the factory default. `truncate_size` is serialized but has no
-current production consumer, so do not rely on it to limit output.
+Leave `byte_code_file_mode` at its factory default unless matching the embedded
+asset mode deliberately. `truncate_size` has no production consumer.
 
-Frequently used module fields:
-
-| Probe | JSON field names | Definition |
+| Module | Fields | Definition |
 | --- | --- | --- |
-| OpenSSL/BoringSSL | `opensslpath`, `capturemode`, `text_source`, `keylogfile`, `pcapfile`, `ifname`, `pcapfilter` | [config.go](../internal/probe/openssl/config.go) |
+| TLS | `opensslpath`, `capturemode`, `text_source`, `keylogfile`, `pcapfile`, `ifname`, `pcapfilter` | [config.go](../internal/probe/openssl/config.go) |
 | GoTLS | `elf_path`, `capture_mode`, `text_source`, `keylog_file`, `pcap_file`, `ifname`, `pcap_filter` | [config.go](../internal/probe/gotls/config.go) |
 | GnuTLS | `gnutlspath`, `capturemode`, `text_source`, `keylogfile`, `pcapfile`, `ifname`, `pcapfilter` | [config.go](../internal/probe/gnutls/config.go) |
-| NSPR/NSS | `nss_path`, `nspr_path` | [config.go](../internal/probe/nspr/config.go) |
-| Bash | `bashpath`, `readline`, `errno` | [config.go](../internal/probe/bash/config.go) |
-| MySQL | `MysqlPath`, `FuncName`, `Offset` | [config.go](../internal/probe/mysql/config.go) |
-| PostgreSQL | `PostgresPath`, `FuncName`, `Offset` | [config.go](../internal/probe/postgres/config.go) |
 
-MySQL/PostgreSQL module fields currently use Go's exported field names because
-they have no explicit JSON tags. TLS modes accept `text`, `keylog`, and
-`pcap`/`pcapng`; `text_source` selects `hook` or `pcapng` in text mode.
-For OpenSSL/BoringSSL, GoTLS, and GnuTLS, omitted or empty `text_source`
-in text mode defaults to `pcapng`;
-omitted or empty `ifname` selects a usable default-route Ethernet interface,
-then falls back to interface traffic counters or an up interface. The startup
-warning names the choice; set `ifname` explicitly to override it. Select `hook`
-for function-hook capture without a capture interface.
-Packet capture and the pcapng text source require an interface. See
-[event output semantics](event-forward-api.md) for mode/destination behavior.
+Capture modes are `text`, `keylog`, and `pcapng` (`key`/`pcap` spellings remain
+mode values). Core integrations use `text_source: "pcapng"`. Interface selection
+prefers a usable default-route Ethernet interface, then counters or an up
+interface; startup logs identify it. Set `ifname` explicitly to override.
+`text_source: "hook"` remains available during plaintext-hook deprecation.
 
 ## Examples
 
-Replace example paths and filters with values valid on the capture host.
-The following updates a running TLS probe and inherits its current event
-address and rotation settings:
+Keep existing output routes while replacing TLS capture options:
 
 ```bash
 curl --fail-with-body -X POST http://127.0.0.1:28256/tls \
   -H 'Content-Type: application/json' \
-  --data '{"opensslpath":"/usr/lib/x86_64-linux-gnu/libssl.so.3","capturemode":"text","text_source":"hook","pid":1234}'
+  --data '{"opensslpath":"/usr/lib/x86_64-linux-gnu/libssl.so.3","capturemode":"text","text_source":"pcapng","ifname":"eth0","pid":1234}'
 ```
 
-To replace its destination with a TCP receiver that is already listening:
-
-```bash
-curl --fail-with-body -X POST http://127.0.0.1:28256/tls \
-  -H 'Content-Type: application/json' \
-  --data '{"opensslpath":"/usr/lib/x86_64-linux-gnu/libssl.so.3","capturemode":"text","pid":1234,"event_collector_addr":"tcp://127.0.0.1:9000","event_rotate_size_mb":0,"event_rotate_seconds":0}'
-```
-
-For a process originally started with `gotls`, use its field names and resend
-the ELF path:
+For a process started with `gotls`, use its field names and resend the ELF path:
 
 ```bash
 curl --fail-with-body -X POST http://127.0.0.1:28256/gotls \
   -H 'Content-Type: application/json' \
-  --data '{"elf_path":"/absolute/path/to/go-app","capture_mode":"text","text_source":"hook","pid":1234}'
+  --data '{"elf_path":"/absolute/path/to/go-app","capture_mode":"pcapng","pcap_file":"/tmp/generation-2.pcapng","ifname":"eth0","pid":1234}'
 ```
+
+Changing output destinations requires restarting the process with new CLI
+arguments. Sending `{"output":["tcp://127.0.0.1:9000"]}` is rejected.
 
 ## Responses and failure behavior
 
@@ -144,25 +111,22 @@ curl --fail-with-body -X POST http://127.0.0.1:28256/gotls \
 {"code":0,"module_type":"openssl","msg":"RespOK","data":null}
 ```
 
-| HTTP status | `code` | Meaning |
+| HTTP status | code | Meaning |
 | --- | --- | --- |
-| 200 | 0 (`RespOK`) | The candidate generation started successfully |
-| 400 | 4 (`RespConfigDecodeFailed`) | Empty/malformed JSON, type mismatch, or unavailable platform factory |
-| 400 | 5 (`RespConfigCheckFailed`) | Runtime validation or generation-switch failure; inspect `msg` |
-| 503 | 6 (`RespSendToChanFailed`) | Update queue cannot accept this request; retry with backoff |
+| 200 | 0 (`RespOK`) | Replacement generation started |
+| 400 | 4 (`RespConfigDecodeFailed`) | Empty/malformed JSON, type mismatch, forbidden route fields, or unavailable factory |
+| 400 | 5 (`RespConfigCheckFailed`) | Validation or generation switch failed; inspect `msg` |
+| 503 | 6 (`RespSendToChanFailed`) | Update queue full; retry with backoff |
 
-Unknown paths and wrong HTTP methods use the HTTP router's 404/405 responses,
-which need not have this JSON body. Unexpected handler failures can return 500.
-`module_type` identifies the decoded config (`openssl`, `gotls`, `gnutls`,
-`nspr`, `bash`, `mysql`, or `postgres`), not a successful cross-probe switch.
+Router 404/405 and unexpected 500 responses may have different bodies.
+`module_type` identifies the decoded configuration, not a cross-module switch.
+Validation failure leaves the active generation running. Once validation passes,
+the old generation stops before the new one starts, so there can be a capture
+gap. A failed new start triggers an attempt to restore the previous configuration;
+rollback/shutdown failure can terminate capture. HTTP 400 alone does not prove
+that the old probe is healthy.
 
-A validation failure leaves the active generation running. Once validation
-passes, the old generation is stopped before the new one starts, so there can
-be a capture gap. If the new start fails, the runtime attempts to restart the
-previous configuration. Rollback or shutdown failures can terminate capture;
-an HTTP 400 is not a guarantee that the old probe is still healthy.
-
-Success is acknowledged after startup, not merely after queueing. A client
-timeout or disconnect does not prove that a queued update was cancelled.
-Keep the intended full configuration and last known-good configuration, inspect
-operational logs on ambiguous results, and avoid rapid concurrent updates.
+Success is acknowledged after startup, not merely queueing. Client timeout or
+disconnect does not prove that a queued update was cancelled. Keep the intended
+configuration and last known-good configuration, inspect operational logs on
+ambiguous results, and avoid concurrent reload requests.

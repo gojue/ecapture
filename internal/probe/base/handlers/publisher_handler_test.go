@@ -68,7 +68,7 @@ func TestPublisherHandlerRoutesTypedFormats(t *testing.T) {
 			format:      domain.CaptureFormatText,
 			event:       &mockTLSDataEvent{pid: 42, comm: "curl", data: []byte("captured-payload"), dataLen: 16, timestamp: 123, isRead: true},
 			sensitivity: domain.SensitivityNormal,
-			payload:     []byte("captured-payload"),
+			payload:     []byte((&mockTLSDataEvent{pid: 42, comm: "curl", data: []byte("captured-payload"), dataLen: 16, timestamp: 123, isRead: true}).String()),
 		},
 		{
 			name:        "keylog",
@@ -154,5 +154,21 @@ func TestPublisherHandlerPreservesWidePID(t *testing.T) {
 	envelope := publisher.last(t)
 	if envelope.PID != event.pid || envelope.ProcessName != "mysqld" {
 		t.Fatalf("process metadata lost: PID=%d name=%q", envelope.PID, envelope.ProcessName)
+	}
+}
+
+func TestTextPublisherUsesFormattedPayloadEvenWhenRawBytesExist(t *testing.T) {
+	event := &mockTLSDataEvent{pid: 42, comm: "curl", data: []byte("payload"), dataLen: 7}
+	publisher := &recordingEventPublisher{}
+	handler, err := NewPublisherHandler(publisher, domain.CaptureFormatText, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := handler.Handle(event); err != nil {
+		t.Fatal(err)
+	}
+	envelope := publisher.last(t)
+	if string(envelope.Payload) != event.StringHex() || envelope.OriginalLength != 7 {
+		t.Fatalf("formatted payload or original byte length lost: %#v", envelope)
 	}
 }

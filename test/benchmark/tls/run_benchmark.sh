@@ -25,6 +25,7 @@ SERVER_PID=""
 WORK_DIR=""
 CLIENT_BINARY=""
 SERVER_BINARY=""
+OUTPUT_DECODER=""
 SERVER_PORT=""
 OPENSSL_LIB=""
 INFRA_FAILURES=0
@@ -56,6 +57,7 @@ stop_capture() {
     if [[ -z "$CAPTURE_PID" ]]; then
         return 0
     fi
+    local status=0 forced=0
     if kill -0 "$CAPTURE_PID" 2>/dev/null; then
         kill -INT "$CAPTURE_PID" 2>/dev/null || true
         local attempt
@@ -65,10 +67,19 @@ stop_capture() {
         done
     fi
     if kill -0 "$CAPTURE_PID" 2>/dev/null; then
+        forced=1
         kill -TERM "$CAPTURE_PID" 2>/dev/null || true
+        sleep 0.5
     fi
-    wait "$CAPTURE_PID" 2>/dev/null || true
+    if kill -0 "$CAPTURE_PID" 2>/dev/null; then
+        kill -KILL "$CAPTURE_PID" 2>/dev/null || true
+    fi
+    wait "$CAPTURE_PID" 2>/dev/null || status=$?
     CAPTURE_PID=""
+    if ((status != 0 || forced != 0)); then
+        log "capture shutdown failed (exit=$status, forced=$forced)"
+        INFRA_FAILURES=$((INFRA_FAILURES + 1))
+    fi
 }
 
 cleanup() {
@@ -123,8 +134,9 @@ check_environment() {
         fail "BENCH_TLS_VERSION must be tls12 or tls13"
     [[ "$BENCH_MODE" == "text" || "$BENCH_MODE" == "keylog" ]] || \
         fail "BENCH_MODE must be text or keylog"
-    [[ "$BENCH_WRITE_BYTES" =~ ^(0|[1-9][0-9]{0,9})$ ]] && \
-        ((BENCH_WRITE_BYTES <= 2147483647)) || fail "BENCH_WRITE_BYTES must be 0 through 2147483647"
+    if [[ ! "$BENCH_WRITE_BYTES" =~ ^(0|[1-9][0-9]{0,9})$ ]] || ((BENCH_WRITE_BYTES > 2147483647)); then
+        fail "BENCH_WRITE_BYTES must be 0 through 2147483647"
+    fi
     [[ "$BENCH_MODE" == "keylog" || "$BENCH_WRITE_BYTES" == "0" ]] || \
         fail "Nonzero BENCH_WRITE_BYTES requires keylog mode; text markers need whole-request writes"
     [[ "$BENCH_FAIL_ON_LOSS" == "0" || "$BENCH_FAIL_ON_LOSS" == "1" ]] || \
@@ -137,10 +149,12 @@ build_fixtures() {
     chmod 700 "$WORK_DIR"
     CLIENT_BINARY="$WORK_DIR/openssl_bench_client"
     SERVER_BINARY="$WORK_DIR/tls_bench_server"
+    OUTPUT_DECODER="$WORK_DIR/output_decoder"
 
     cc -O2 -Wall -Wextra -Werror -o "$CLIENT_BINARY" \
         "$SCRIPT_DIR/fixtures/c/openssl_client.c" -lssl -lcrypto
     go build -o "$SERVER_BINARY" "$SCRIPT_DIR/fixtures/server/main.go"
+    go -C "$ROOT_DIR" build -o "$OUTPUT_DECODER" ./test/e2e/fixtures/ecaptureq_assert
 
     OPENSSL_LIB="$(ldd "$CLIENT_BINARY" | awk '$1 ~ /^libssl[.]so/ {print $3; exit}')"
     [[ -n "$OPENSSL_LIB" && -f "$OPENSSL_LIB" ]] || fail "could not resolve libssl used by benchmark client"
@@ -177,7 +191,7 @@ start_server() {
     SERVER_PID=$!
 
     local attempt address
-    for attempt in $(seq 1 100); do
+    for ((attempt = 0; attempt < 100; attempt++)); do
         if [[ -s "$ready_file" ]]; then
             address="$(tr -d '\r\n' <"$ready_file")"
             SERVER_PORT="${address##*:}"
@@ -205,28 +219,56 @@ start_capture() {
     : >"$capture_log"
     : >"$event_log"
 
+    local -a mode_flags
+    if [[ "$BENCH_MODE" == text ]]; then
+        mode_flags=(--text-source pcapng --ifname lo)
+    else
+        mode_flags=(--keylogfile "$event_log")
+    fi
+
     "$ECAPTURE_BINARY" tls \
         --libssl "$OPENSSL_LIB" \
         --model "$BENCH_MODE" \
         --mapsize "$BENCH_MAP_PAGES" \
-        --eventaddr "$event_log" >"$capture_log" 2>&1 &
+        "${mode_flags[@]}" \
+        --output "$capture_log.jsonl" >"$capture_log" 2>&1 &
     CAPTURE_PID=$!
 
     local attempt
     for attempt in $(seq 1 100); do
         if ! kill -0 "$CAPTURE_PID" 2>/dev/null; then
-            tail -n 100 "$capture_log" >&2 || true
+            tail -n 100 "$capture_log" "$capture_log.jsonl" >&2 || true
             fail "eCapture exited during initialization"
         fi
-        if grep -Fqi 'probe started successfully' "$capture_log"; then
+        if grep -Fqi 'probe started successfully' "$capture_log.jsonl" 2>/dev/null; then
             monitor_capture "$sample_file" &
             MONITOR_PID=$!
             return 0
         fi
         sleep 0.1
     done
-    tail -n 100 "$capture_log" >&2 || true
+    tail -n 100 "$capture_log" "$capture_log.jsonl" >&2 || true
     fail "timed out waiting for eCapture to start"
+}
+
+decode_capture_outputs() {
+    local capture_log="$1" event_log="$2"
+    local -a format_flags
+    if [[ "$BENCH_MODE" == text ]]; then
+        format_flags=(--sensitive=true --extract-events "$event_log")
+    else
+        # Native NSS records are written only to --keylogfile. The JSON file
+        # must contain runtime logs and no captured events in this mode.
+        format_flags=(--logs-only)
+    fi
+    if ! "$OUTPUT_DECODER" --json-input "$capture_log.jsonl" --format "$BENCH_MODE" \
+        --extract-logs "$capture_log.runtime" "${format_flags[@]}" \
+        >"$capture_log.validation" 2>&1; then
+        log "capture output failed Protobuf v2 JSON validation"
+        INFRA_FAILURES=$((INFRA_FAILURES + 1))
+        return 1
+    fi
+    cat "$capture_log.runtime" >>"$capture_log"
 }
 
 wait_for_batch() {
@@ -329,6 +371,7 @@ run_load() {
             INFRA_FAILURES=$((INFRA_FAILURES + 1))
         fi
         stop_capture
+        decode_capture_outputs "$capture_log" "$event_log" || true
     fi
 
     local durations_file="$run_dir/durations-us.txt"

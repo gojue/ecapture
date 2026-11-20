@@ -146,7 +146,7 @@ func (h *PublisherHandler) envelope(event domain.Event, sequence uint64) domain.
 			envelope.Direction = "write"
 		}
 	}
-	if len(envelope.Payload) == 0 {
+	if h.format == domain.CaptureFormatText || len(envelope.Payload) == 0 {
 		if h.useHex && h.format == domain.CaptureFormatText {
 			envelope.Payload = []byte(event.StringHex())
 		} else {

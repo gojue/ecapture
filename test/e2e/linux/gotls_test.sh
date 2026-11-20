@@ -54,25 +54,26 @@ run_go_request() {
 }
 
 case_invalid_output_combinations() {
-    local output="$WORK_DIR/invalid-output.log"
-    if "$ECAPTURE_BINARY" gotls --elfpath "$GO_CLIENT" --model keylog \
-        --eventaddr "$WORK_DIR/a.keys" --keylogfile "$WORK_DIR/b.keys" >"$output" 2>&1; then
-        log_error "conflicting --eventaddr/--keylogfile unexpectedly succeeded"
+    local output="$WORK_DIR/invalid-output.log" old
+    for old in listen eventaddr logaddr ecaptureq eventroratesize eventroratetime; do
+        if "$ECAPTURE_BINARY" gotls --elfpath "$GO_CLIENT" --"$old" invalid >"$output" 2>&1; then
+            log_error "Removed CLI option $old unexpectedly succeeded"
+            return 1
+        fi
+        assert_file_contains "$output" "unknown flag" "removed CLI parameter rejection" || return 1
+    done
+    if "$ECAPTURE_BINARY" gotls --elfpath "$GO_CLIENT" --model text \
+        --output udp://127.0.0.1:9000 >"$output" 2>&1; then
+        log_error "Unsupported output scheme unexpectedly succeeded"
         return 1
     fi
-    assert_file_contains "$output" "cannot both select" "legacy destination conflict" || return 1
-    if "$ECAPTURE_BINARY" gotls --elfpath "$GO_CLIENT" --model text --text-source hook \
-        --eventaddr udp://127.0.0.1:9000 >"$output" 2>&1; then
-        log_error "unsupported event scheme unexpectedly succeeded"
-        return 1
-    fi
-    assert_file_contains "$output" "unsupported sink URI scheme" "unsupported scheme rejection" || return 1
+    assert_file_contains "$output" "unsupported --output" "unsupported scheme rejection" || return 1
     if "$ECAPTURE_BINARY" gotls --elfpath "$GO_CLIENT" --model pcapng --ifname lo \
-        --eventaddr stdout --logaddr stdout --keylogfile= >"$output" 2>&1; then
-        log_error "pcapng and operational stdout collision unexpectedly succeeded"
+        --output "$WORK_DIR/collision.pcapng" --pcapfile "$WORK_DIR/collision.pcapng" >"$output" 2>&1; then
+        log_error "JSON output and native artifact collision unexpectedly succeeded"
         return 1
     fi
-    assert_file_contains "$output" "cannot both use stdout" "stdout collision rejection"
+    assert_file_contains "$output" "different files" "native artifact collision rejection"
 }
 
 case_text() {
@@ -80,7 +81,7 @@ case_text() {
     local operational_log="$WORK_DIR/text.operational.log"
     local event_file="$WORK_DIR/text.events.log"
     start_capture "$capture_log" gotls --elfpath "$GO_CLIENT" --model text --text-source hook \
-        --logaddr "$operational_log" --eventaddr "$event_file" || return 1
+        --output "$operational_log.logs.jsonl" --output "$event_file.events.jsonl" || return 1
     if ! run_go_request tls13 "$WORK_DIR/text.client.log"; then
         stop_capture
         return 1
@@ -102,7 +103,7 @@ case_keylog() {
     local packet_log="$WORK_DIR/gotls.keylog.tshark-capture.log"
     start_packet_capture lo "tcp port $TLS_SERVER_PORT" "$packet_file" "$packet_log" || return 1
     if ! start_capture "$capture_log" gotls --elfpath "$GO_CLIENT" --model keylog \
-        --logaddr "$operational_log" --keylogfile "$keylog_file"; then
+        --output "$operational_log.logs.jsonl" --keylogfile "$keylog_file"; then
         stop_packet_capture
         return 1
     fi
@@ -137,7 +138,7 @@ case_pcapng() {
     local operational_log="$WORK_DIR/pcapng.operational.log"
     local pcap_file="$WORK_DIR/gotls.pcapng"
     start_capture "$capture_log" gotls --elfpath "$GO_CLIENT" --model pcapng \
-        --logaddr "$operational_log" --ifname lo --pcapfile "$pcap_file" \
+        --output "$operational_log.logs.jsonl" --ifname lo --pcapfile "$pcap_file" \
         --keylogfile= "tcp port $TLS_SERVER_PORT" || return 1
     if ! run_go_request tls13 "$WORK_DIR/pcapng.client.log"; then
         stop_capture
@@ -159,7 +160,7 @@ case_text_pcapng() {
     local event_file="$WORK_DIR/decrypt.events.log"
     local pcap_file="$WORK_DIR/decrypt.pcapng"
     start_capture "$capture_log" gotls --elfpath "$GO_CLIENT" --model text \
-        --logaddr "$operational_log" --eventaddr "$event_file" --ifname lo \
+        --output "$operational_log.logs.jsonl" --output "$event_file.events.jsonl" --ifname lo \
         --pcapfile "$pcap_file" "tcp port $TLS_SERVER_PORT" || return 1
     if ! run_go_request tls13 "$WORK_DIR/decrypt.client.log"; then
         stop_capture
@@ -198,7 +199,7 @@ case_text_pcapng_multi_chunk_http1() {
 
     start_http_reassembly_fixture false || return 1
     start_capture "$capture_log" gotls --elfpath "$HTTP_REASSEMBLY_CLIENT" --model text \
-        --text-source pcapng --logaddr "$operational_log" --eventaddr "$event_file" \
+        --text-source pcapng --output "$operational_log.logs.jsonl" --output "$event_file.events.jsonl" \
         --ifname lo --pcapfile "$pcap_file" "tcp port $HTTP_REASSEMBLY_PORT" || {
         stop_http_reassembly_fixture
         return 1
@@ -247,7 +248,7 @@ case_text_pcapng_http2_keepalive() {
 
     start_http_reassembly_fixture true || return 1
     start_capture "$capture_log" gotls --elfpath "$HTTP_REASSEMBLY_CLIENT" --model text \
-        --text-source pcapng --logaddr "$operational_log" --eventaddr "$event_file" \
+        --text-source pcapng --output "$operational_log.logs.jsonl" --output "$event_file.events.jsonl" \
         --ifname lo --pcapfile "$pcap_file" "tcp port $HTTP_REASSEMBLY_PORT" || {
         stop_http_reassembly_fixture
         return 1
@@ -429,7 +430,7 @@ case_text_pcapng_http3() {
         return 1
     fi
     start_capture "$capture_log" gotls --elfpath "$HTTP3_FIXTURE" --model text --text-source pcapng \
-        --logaddr "$operational_log" --eventaddr "$event_file" --ifname lo \
+        --output "$operational_log.logs.jsonl" --output "$event_file.events.jsonl" --ifname lo \
         --pcapfile "$pcap_file" "udp port ${address##*:}" || return 1
     if ! QUIC_GO_DISABLE_GSO=true timeout 45 "$HTTP3_FIXTURE" --mode client --address "$address" \
         --quic-version "$version" --token "$E2E_TOKEN" >"$WORK_DIR/http3-$version.client.log" 2>&1; then
@@ -507,13 +508,14 @@ case_text_pcapng_protocol() (
         return 1
     fi
     start_capture "$capture_log" gotls --elfpath "$HTTP3_FIXTURE" --model text --text-source pcapng \
-        --eventaddr "$event_file" --logaddr "$operational_log" --ifname lo --pcapfile "$pcap_file" \
+        --output "$event_file.events.jsonl" --output "$operational_log.logs.jsonl" --ifname lo --pcapfile "$pcap_file" \
         "${options[@]}" "$transport port ${address##*:}" || return 1
     QUIC_GO_DISABLE_GSO=true timeout 30 "$HTTP3_FIXTURE" --mode client --protocol "$protocol" \
         --address "$address" --token "$E2E_TOKEN" --quic-version "$version" >"${prefix}.client.log" 2>&1 &
     client_pid=$!
     if ((streaming)); then
         for attempt in $(seq 1 60); do
+            refresh_projection "$event_file" >/dev/null 2>&1 || true
             if "$HTTP3_FIXTURE" --mode verify --protocol "$protocol" --events-file "$event_file" \
                 --token "$E2E_TOKEN" --phase live >"${prefix}.verify.log" 2>&1; then
                 verified=1
@@ -537,6 +539,7 @@ case_text_pcapng_protocol() (
     client_pid=""
     verified=0
     for attempt in $(seq 1 60); do
+        refresh_projection "$event_file" >/dev/null 2>&1 || true
         if "$HTTP3_FIXTURE" --mode verify --protocol "$protocol" --events-file "$event_file" \
             --token "$E2E_TOKEN" >"${prefix}.verify.log" 2>&1; then
             verified=1
@@ -574,6 +577,10 @@ case_text_pcapng_protocol() (
 
 assert_tls_raw_events() {
     local file="$1" client_hex="$2" server_hex="$3" require_end="${4:-0}"
+    refresh_projection "$file" >/dev/null 2>&1 || true
+    if [[ -f "$file.console" ]]; then
+        grep '^\[log_type=event ' "$file.console" | sed 's/^\[[^]]*\] //' >"$file" || true
+    fi
     [[ -s "$file" ]] || return 1
     awk -v client="$client_hex" -v server="$server_hex" -v require_end="$require_end" '
         /^\[/ {
@@ -614,7 +621,7 @@ case_text_pcapng_raw() (
     local prefix="$WORK_DIR/raw-${destination}"
     local capture_log="${prefix}.ecapture.log" operational_log="${prefix}.operational.log"
     local event_file="${prefix}.events.log" ready_file="${prefix}.addr"
-    local event_addr="$event_file" address="" attempt live=0
+    local event_addr="$event_file.events.jsonl" event_flag=output address="" attempt live=0
     local client_hex server_hex token_hex receiver_pid="" receiver_status=0 server_pid=""
     local capture_options=()
     trap '
@@ -652,27 +659,31 @@ case_text_pcapng_raw() (
         tcp|ws)
             start_output_receiver "$destination" "$event_file" || return 1
             event_addr="$OUTPUT_RECEIVER_URI"
+            event_flag="$OUTPUT_RECEIVER_FLAG"
             ;;
         ecaptureq)
             local port=$((30000 + RANDOM % 20000))
             local endpoint="ws://127.0.0.1:${port}/"
-            "$WORK_DIR/helpers/ecaptureq_assert" --server "$endpoint" --format text \
+            "$WORK_DIR/helpers/ecaptureq_assert" --server "$endpoint" --ready-file "${prefix}.receiver.ready" --format text \
                 --sensitive --token "$token_hex" >"${prefix}.receiver.log" 2>&1 &
             receiver_pid=$!
-            capture_options+=(--ecaptureq "$endpoint")
+            capture_options+=(--stream-listen "$endpoint")
             ;;
     esac
     if [[ "$destination" != messages ]]; then
         capture_options+=(--text-raw)
     fi
     if [[ "$destination" == stdout ]]; then
-        start_capture_split "$event_file" "$capture_log" gotls --elfpath "$TLS_RAW_CLIENT" \
-            --model text --text-source pcapng --eventaddr stdout --logaddr "$operational_log" \
+        start_capture_split "$event_file.console" "$capture_log" gotls --elfpath "$TLS_RAW_CLIENT" \
+            --model text --text-source pcapng --output stdout --output "$operational_log.logs.jsonl" \
             --ifname lo "${capture_options[@]}" "tcp port ${address##*:}" || return 1
     else
         start_capture "$capture_log" gotls --elfpath "$TLS_RAW_CLIENT" --model text --text-source pcapng \
-            --eventaddr "$event_addr" --logaddr "$operational_log" --ifname lo \
+            --"$event_flag" "$event_addr" --output "$operational_log.logs.jsonl" --ifname lo \
             "${capture_options[@]}" "tcp port ${address##*:}" || return 1
+    fi
+    if [[ -n "$receiver_pid" ]]; then
+        wait_for_receiver_ready "${prefix}.receiver.ready" "$receiver_pid" || return 1
     fi
     if ! timeout 15 "$TLS_RAW_CLIENT" --address "$address" --token "$E2E_TOKEN" >"${prefix}.client.log" 2>&1; then
         stop_capture
@@ -739,7 +750,7 @@ case_text_stream() {
     local event_file="$WORK_DIR/text-${transport}.events.log"
     start_output_receiver "$transport" "$event_file" || return 1
     start_capture "$capture_log" gotls --elfpath "$GO_CLIENT" --model text --text-source hook \
-        --logaddr "$operational_log" --eventaddr "$OUTPUT_RECEIVER_URI" || {
+        --output "$operational_log.logs.jsonl" --"$OUTPUT_RECEIVER_FLAG" "$OUTPUT_RECEIVER_URI" || {
         stop_output_receiver || true
         return 1
     }
@@ -758,11 +769,16 @@ case_text_stream() {
 }
 
 case_text_stdout() {
-    local capture_log="$WORK_DIR/text-stdout.ecapture.log"
-    local operational_log="$WORK_DIR/text-stdout.operational.log"
-    local event_file="$WORK_DIR/text.stdout.events.log"
-    start_capture_split "$event_file" "$capture_log" gotls --elfpath "$GO_CLIENT" \
-        --model text --text-source hook --eventaddr stdout --logaddr "$operational_log" || return 1
+    local destination="${1:-stdout}"
+    local capture_log="$WORK_DIR/text-${destination}.ecapture.log"
+    local operational_log="$WORK_DIR/text-${destination}.operational.log"
+    local event_file="$WORK_DIR/text.${destination}.events.log"
+    local stdout_file="$event_file.console" stderr_file="$capture_log"
+    if [[ "$destination" == stderr ]]; then
+        stdout_file="$capture_log"; stderr_file="$event_file.console"
+    fi
+    start_capture_split "$stdout_file" "$stderr_file" gotls --elfpath "$GO_CLIENT" \
+        --model text --text-source hook --output "$destination" --output "$operational_log.logs.jsonl" || return 1
     if ! run_go_request tls13 "$WORK_DIR/text-stdout.client.log"; then
         stop_capture
         return 1
@@ -776,44 +792,17 @@ case_text_stdout() {
 }
 
 case_operational_stream() {
-    local transport="$1"
-    local capture_log="$WORK_DIR/logaddr-${transport}.ecapture.log"
-    local operational_log="$WORK_DIR/logaddr-${transport}.operational.log"
-    local event_file="$WORK_DIR/logaddr-${transport}.events.log"
-    start_output_receiver "$transport" "$operational_log" || return 1
-    start_capture "$capture_log" gotls --elfpath "$GO_CLIENT" --model text --text-source hook \
-        --logaddr "$OUTPUT_RECEIVER_URI" --eventaddr "$event_file" || {
-        stop_output_receiver || true
-        return 1
-    }
-    if ! run_go_request tls13 "$WORK_DIR/logaddr-${transport}.client.log"; then
-        stop_capture
-        stop_output_receiver || true
-        return 1
-    fi
-    sleep 1
-    stop_capture
-    stop_output_receiver || return 1
-    assert_no_capture_errors "$capture_log" || return 1
-    assert_file_contains "$event_file" "$E2E_TOKEN" "captured text event" || return 1
-    assert_output_isolation "$operational_log" "$event_file" "$E2E_TOKEN"
+    case_text_stream "$1" || return 1
+    assert_file_contains "$WORK_DIR/text-${1}.events.log.runtime.log" "Probe initialized" \
+        "typed operational logs on shared stream"
 }
 
 case_operational_stdout() {
-    local capture_log="$WORK_DIR/logaddr-stdout.ecapture.log"
-    local operational_log="$WORK_DIR/logaddr.stdout.log"
-    local event_file="$WORK_DIR/logaddr-stdout.events.log"
-    start_capture_split "$operational_log" "$capture_log" gotls --elfpath "$GO_CLIENT" \
-        --model text --text-source hook --logaddr stdout --eventaddr "$event_file" || return 1
-    if ! run_go_request tls13 "$WORK_DIR/logaddr-stdout.client.log"; then
-        stop_capture
-        return 1
-    fi
-    sleep 1
-    stop_capture
-    assert_no_capture_errors "$capture_log" || return 1
-    assert_file_contains "$event_file" "$E2E_TOKEN" "captured text event" || return 1
-    assert_output_isolation "$operational_log" "$event_file" "$E2E_TOKEN"
+    case_text_stdout || return 1
+    assert_file_contains "$WORK_DIR/text.stdout.events.log.console" "[log_type=log " \
+        "terminal operational record discriminator" || return 1
+    assert_file_contains "$WORK_DIR/text.stdout.events.log.console" "[log_type=event " \
+        "terminal captured-event discriminator"
 }
 
 case_keylog_stream() {
@@ -823,13 +812,13 @@ case_keylog_stream() {
     local keylog_file="$WORK_DIR/gotls.${transport}.keys.log"
     local packet_file="$WORK_DIR/gotls.${transport}.pcapng"
     local packet_log="$WORK_DIR/gotls.${transport}.tshark-capture.log"
-    start_output_receiver "$transport" "$keylog_file" || return 1
+    start_output_receiver "$transport" "$keylog_file" keylog || return 1
     start_packet_capture lo "tcp port $TLS_SERVER_PORT" "$packet_file" "$packet_log" || {
         stop_output_receiver || true
         return 1
     }
     if ! start_capture "$capture_log" gotls --elfpath "$GO_CLIENT" --model keylog \
-        --logaddr "$operational_log" --eventaddr "$OUTPUT_RECEIVER_URI"; then
+        --output "$operational_log.logs.jsonl" --"$OUTPUT_RECEIVER_FLAG" "$OUTPUT_RECEIVER_URI" --keylogfile "$keylog_file.local"; then
         stop_packet_capture
         stop_output_receiver || true
         return 1
@@ -845,6 +834,13 @@ case_keylog_stream() {
     stop_packet_capture
     stop_output_receiver || return 1
     assert_no_capture_errors "$capture_log" || return 1
+    if [[ "$transport" == tcp ]]; then
+        cmp "$keylog_file.local" "$keylog_file" || {
+            log_error "TCP v2 bytes differ from the local native artifact"
+            return 1
+        }
+    fi
+    assert_keylog "$keylog_file.local" || return 1
     assert_keylog "$keylog_file" || return 1
     assert_file_not_contains "$operational_log" "TRAFFIC_SECRET" "TLS secret in operational log" || return 1
     assert_tls_plaintext_preview "$packet_file" "$keylog_file" "$E2E_TOKEN" \
@@ -858,8 +854,8 @@ case_keylog_stdout() {
     local packet_file="$WORK_DIR/gotls.stdout-keylog.pcapng"
     local packet_log="$WORK_DIR/gotls.stdout-keylog.tshark-capture.log"
     start_packet_capture lo "tcp port $TLS_SERVER_PORT" "$packet_file" "$packet_log" || return 1
-    if ! start_capture_split "$keylog_file" "$capture_log" gotls --elfpath "$GO_CLIENT" \
-        --model keylog --eventaddr stdout --logaddr "$operational_log"; then
+    if ! start_capture_split "$keylog_file.stdout" "$capture_log" gotls --elfpath "$GO_CLIENT" \
+        --model keylog --output stdout --keylogfile "$keylog_file" --output "$operational_log.logs.jsonl"; then
         stop_packet_capture
         return 1
     fi
@@ -871,6 +867,8 @@ case_keylog_stdout() {
     sleep 1
     stop_capture
     stop_packet_capture
+    assert_file_contains "$keylog_file.stdout" "[log_type=log " "terminal runtime discriminator" || return 1
+    assert_file_contains "$keylog_file.stdout" "[log_type=event capture_format=keylog " "terminal event discriminator" || return 1
     assert_no_capture_errors "$capture_log" || return 1
     assert_output_isolation "$operational_log" "$keylog_file" "$E2E_TOKEN" || return 1
     assert_file_not_contains "$operational_log" "TRAFFIC_SECRET" \
@@ -885,9 +883,9 @@ case_pcapng_stream() {
     local capture_log="$WORK_DIR/pcapng-${transport}.ecapture.log"
     local operational_log="$WORK_DIR/pcapng-${transport}.operational.log"
     local pcap_file="$WORK_DIR/gotls.${transport}.pcapng"
-    start_output_receiver "$transport" "$pcap_file" || return 1
+    start_output_receiver "$transport" "$pcap_file" pcapng || return 1
     start_capture "$capture_log" gotls --elfpath "$GO_CLIENT" --model pcapng \
-        --logaddr "$operational_log" --eventaddr "$OUTPUT_RECEIVER_URI" \
+        --output "$operational_log.logs.jsonl" --"$OUTPUT_RECEIVER_FLAG" "$OUTPUT_RECEIVER_URI" --pcapfile "$pcap_file.local" \
         --ifname lo --keylogfile= "tcp port $TLS_SERVER_PORT" || {
         stop_output_receiver || true
         return 1
@@ -901,7 +899,14 @@ case_pcapng_stream() {
     stop_capture
     stop_output_receiver || return 1
     assert_no_capture_errors "$capture_log" || return 1
+    if [[ "$transport" == tcp ]]; then
+        cmp "$pcap_file.local" "$pcap_file" || {
+            log_error "TCP v2 bytes differ from the local native artifact"
+            return 1
+        }
+    fi
     assert_output_isolation "$operational_log" "$pcap_file" "$E2E_TOKEN" || return 1
+    assert_pcapng "$pcap_file.local" || return 1
     assert_pcapng "$pcap_file" || return 1
     assert_pcapng_plaintext_preview "$pcap_file" "$E2E_TOKEN" \
         "linux/gotls/pcapng-${transport}"
@@ -911,8 +916,8 @@ case_pcapng_stdout() {
     local capture_log="$WORK_DIR/pcapng-stdout.ecapture.log"
     local operational_log="$WORK_DIR/pcapng-stdout.operational.log"
     local pcap_file="$WORK_DIR/gotls.stdout.pcapng"
-    start_capture_split "$pcap_file" "$capture_log" gotls --elfpath "$GO_CLIENT" \
-        --model pcapng --eventaddr stdout --logaddr "$operational_log" \
+    start_capture_split "$pcap_file.stdout" "$capture_log" gotls --elfpath "$GO_CLIENT" \
+        --model pcapng --output stdout --pcapfile "$pcap_file" --output "$operational_log.logs.jsonl" \
         --ifname lo --keylogfile= "tcp port $TLS_SERVER_PORT" || return 1
     if ! run_go_request tls13 "$WORK_DIR/pcapng-stdout.client.log"; then
         stop_capture
@@ -920,6 +925,8 @@ case_pcapng_stdout() {
     fi
     sleep 2
     stop_capture
+    assert_file_contains "$pcap_file.stdout" "[log_type=log " "terminal runtime discriminator" || return 1
+    assert_file_contains "$pcap_file.stdout" "[log_type=event capture_format=pcapng " "terminal event discriminator" || return 1
     assert_no_capture_errors "$capture_log" || return 1
     assert_output_isolation "$operational_log" "$pcap_file" "$E2E_TOKEN" || return 1
     assert_pcapng "$pcap_file" || return 1
@@ -933,15 +940,16 @@ case_ecaptureq_text() {
     local client_log="$WORK_DIR/ecaptureq-text.client.log"
     local port=$((30000 + RANDOM % 20000))
     local endpoint="ws://127.0.0.1:${port}/"
-    "$WORK_DIR/helpers/ecaptureq_assert" --server "$endpoint" --format text \
+    "$WORK_DIR/helpers/ecaptureq_assert" --server "$endpoint" --ready-file "$client_log.ready" --format text \
         --token "$E2E_TOKEN" >"$client_log" 2>&1 &
     local client_pid=$!
     start_capture "$capture_log" gotls --elfpath "$GO_CLIENT" --model text --text-source hook \
-        --logaddr "$operational_log" --eventaddr "$event_file" --ecaptureq "$endpoint" || {
+        --output "$operational_log.logs.jsonl" --output "$event_file.events.jsonl" --stream-listen "$endpoint" || {
         kill -TERM "$client_pid" 2>/dev/null || true
         wait "$client_pid" 2>/dev/null || true
         return 1
     }
+    wait_for_receiver_ready "$client_log.ready" "$client_pid" || return 1
     run_go_request tls13 "$WORK_DIR/ecaptureq-text.request.log" || {
         stop_capture
         kill -TERM "$client_pid" 2>/dev/null || true
@@ -971,15 +979,17 @@ case_ecaptureq_keylog() {
     local client_log="$WORK_DIR/ecaptureq-keylog.client.log"
     local port=$((30000 + RANDOM % 20000))
     local endpoint="ws://127.0.0.1:${port}/"
-    "$WORK_DIR/helpers/ecaptureq_assert" --server "$endpoint" --format keylog \
+    "$WORK_DIR/helpers/ecaptureq_assert" --server "$endpoint" --ready-file "$client_log.ready" --format keylog \
+        --capture-file "$keylog_file.stream" --drain \
         >"$client_log" 2>&1 &
     local client_pid=$!
     start_capture "$capture_log" gotls --elfpath "$GO_CLIENT" --model keylog \
-        --logaddr "$operational_log" --eventaddr "$keylog_file" --ecaptureq "$endpoint" || {
+        --output "$operational_log.logs.jsonl" --keylogfile "$keylog_file" --stream-listen "$endpoint" || {
         kill -TERM "$client_pid" 2>/dev/null || true
         wait "$client_pid" 2>/dev/null || true
         return 1
     }
+    wait_for_receiver_ready "$client_log.ready" "$client_pid" || return 1
     if ! run_go_request tls13 "$WORK_DIR/ecaptureq-keylog.request.log"; then
         stop_capture
         kill -TERM "$client_pid" 2>/dev/null || true
@@ -987,8 +997,9 @@ case_ecaptureq_keylog() {
         return 1
     fi
     local client_status=0
-    wait "$client_pid" || client_status=$?
+    sleep 1
     stop_capture
+    wait "$client_pid" || client_status=$?
     if ((client_status != 0)); then
         log_error "Strict eCaptureQ keylog receiver failed"
         cat "$client_log" >&2 || true
@@ -996,8 +1007,9 @@ case_ecaptureq_keylog() {
     fi
     assert_no_capture_errors "$capture_log" || return 1
     assert_file_contains "$client_log" \
-        "PROCESS_LOG=1 EVENT=1 FORMAT=CAPTURE_FORMAT_KEYLOG METADATA=1" \
+        "PROCESS_LOG=1 EVENT=1 FORMAT=CAPTURE_FORMAT_KEYLOG NATIVE=1" \
         "typed eCaptureQ keylog receiver result" || return 1
+    assert_keylog "$keylog_file.stream" || return 1
     assert_keylog "$keylog_file" || return 1
     assert_output_isolation "$operational_log" "$keylog_file" "$E2E_TOKEN" || return 1
     assert_file_not_contains "$operational_log" "TRAFFIC_SECRET" \
@@ -1011,16 +1023,18 @@ case_ecaptureq_pcapng() {
     local client_log="$WORK_DIR/ecaptureq-pcapng.client.log"
     local port=$((30000 + RANDOM % 20000))
     local endpoint="ws://127.0.0.1:${port}/"
-    "$WORK_DIR/helpers/ecaptureq_assert" --server "$endpoint" --format pcapng \
+    "$WORK_DIR/helpers/ecaptureq_assert" --server "$endpoint" --ready-file "$client_log.ready" --format pcapng \
+        --capture-file "$pcap_file.stream" --drain \
         >"$client_log" 2>&1 &
     local client_pid=$!
     start_capture "$capture_log" gotls --elfpath "$GO_CLIENT" --model pcapng \
-        --logaddr "$operational_log" --eventaddr "$pcap_file" --ecaptureq "$endpoint" \
+        --output "$operational_log.logs.jsonl" --pcapfile "$pcap_file" --stream-listen "$endpoint" \
         --ifname lo --keylogfile= "tcp port $TLS_SERVER_PORT" || {
         kill -TERM "$client_pid" 2>/dev/null || true
         wait "$client_pid" 2>/dev/null || true
         return 1
     }
+    wait_for_receiver_ready "$client_log.ready" "$client_pid" || return 1
     if ! run_go_request tls13 "$WORK_DIR/ecaptureq-pcapng.request.log"; then
         stop_capture
         kill -TERM "$client_pid" 2>/dev/null || true
@@ -1028,9 +1042,9 @@ case_ecaptureq_pcapng() {
         return 1
     fi
     local client_status=0
-    wait "$client_pid" || client_status=$?
     sleep 2
     stop_capture
+    wait "$client_pid" || client_status=$?
     if ((client_status != 0)); then
         log_error "Strict eCaptureQ pcapng receiver failed"
         cat "$client_log" >&2 || true
@@ -1038,9 +1052,11 @@ case_ecaptureq_pcapng() {
     fi
     assert_no_capture_errors "$capture_log" || return 1
     assert_file_contains "$client_log" \
-        "PROCESS_LOG=1 EVENT=1 FORMAT=CAPTURE_FORMAT_PCAPNG METADATA=1" \
+        "PROCESS_LOG=1 EVENT=1 FORMAT=CAPTURE_FORMAT_PCAPNG NATIVE=1" \
         "typed eCaptureQ pcapng receiver result" || return 1
     assert_output_isolation "$operational_log" "$pcap_file" "$E2E_TOKEN" || return 1
+    assert_pcapng "$pcap_file.stream" || return 1
+    assert_pcapng_plaintext_preview "$pcap_file.stream" "$E2E_TOKEN" "gotls/stream-pcapng" || return 1
     assert_pcapng "$pcap_file" || return 1
     assert_pcapng_plaintext_preview \
         "$pcap_file" "$E2E_TOKEN" "linux/gotls/ecaptureq-pcapng"
@@ -1050,102 +1066,38 @@ case_text_reload_output() {
     local capture_log="$WORK_DIR/reload.ecapture.log"
     local operational_log="$WORK_DIR/reload.operational.log"
     local original_events="$WORK_DIR/reload-original.events.log"
-    local updated_events="$WORK_DIR/reload-updated.events.log"
     local port=$((30000 + RANDOM % 20000))
     local endpoint="http://127.0.0.1:$port/gotls"
-    local before_token="$E2E_TOKEN"_RELOAD_BEFORE
-    local inherited_token="$E2E_TOKEN"_RELOAD_INHERITED
-    local updated_token="$E2E_TOKEN"_RELOAD_UPDATED
-    local rejected_token="$E2E_TOKEN"_RELOAD_REJECTED
-    local request_body="$WORK_DIR/reload-request.json"
-    local response_body="$WORK_DIR/reload-response.json"
-
+    local request_body="$WORK_DIR/reload-request.json" response_body="$WORK_DIR/reload-response.json"
+    local stage marker legacy
     start_capture "$capture_log" gotls --elfpath "$GO_CLIENT" --model text --text-source hook \
-        --listen "127.0.0.1:$port" \
-        --logaddr "$operational_log" --eventaddr "$original_events" \
-        --eventroratesize 64 --eventroratetime 3600 || return 1
-
-    timeout 15 "$GO_CLIENT" --url "$TLS_SERVER_URL?marker=$before_token" --insecure \
-        --tls-version 1.3 --expect "$E2E_TOKEN" \
-        >"$WORK_DIR/reload-before.client.log" 2>&1 || {
-        stop_capture
-        return 1
-    }
-    sleep 1
-    assert_file_contains "$original_events" "$before_token" \
-        "GoTLS event before reload" || {
-        stop_capture
-        return 1
-    }
-
-    printf '{"elf_path":"%s","capture_mode":"text","text_source":"hook"}\n' "$GO_CLIENT" >"$request_body"
-    post_config_update "$endpoint" "$request_body" "$response_body" 1 || {
-        stop_capture
-        return 1
-    }
-    timeout 15 "$GO_CLIENT" --url "$TLS_SERVER_URL?marker=$inherited_token" --insecure \
-        --tls-version 1.3 --expect "$E2E_TOKEN" \
-        >"$WORK_DIR/reload-inherited.client.log" 2>&1 || {
-        stop_capture
-        return 1
-    }
-    sleep 1
-    assert_file_contains "$original_events" "$inherited_token" \
-        "GoTLS inherited event destination" || {
-        stop_capture
-        return 1
-    }
-
-    printf '{"elf_path":"%s","capture_mode":"text","text_source":"hook","event_collector_addr":"%s"}\n' \
-        "$GO_CLIENT" "$updated_events" >"$request_body"
-    post_config_update "$endpoint" "$request_body" "$response_body" 1 || {
-        stop_capture
-        return 1
-    }
-    timeout 15 "$GO_CLIENT" --url "$TLS_SERVER_URL?marker=$updated_token" --insecure \
-        --tls-version 1.3 --expect "$E2E_TOKEN" \
-        >"$WORK_DIR/reload-updated.client.log" 2>&1 || {
-        stop_capture
-        return 1
-    }
-    sleep 1
-    assert_file_contains "$updated_events" "$updated_token" \
-        "GoTLS explicitly updated event destination" || {
-        stop_capture
-        return 1
-    }
-    assert_file_not_contains "$original_events" "$updated_token" \
-        "GoTLS event written to retired destination" || {
-        stop_capture
-        return 1
-    }
-
-    printf '{"elf_path":"%s","capture_mode":"text","text_source":"hook","event_collector_addr":"udp://127.0.0.1:9"}\n' \
-        "$GO_CLIENT" >"$request_body"
-    post_config_update "$endpoint" "$request_body" "$response_body" 0 || {
-        stop_capture
-        return 1
-    }
-    timeout 15 "$GO_CLIENT" --url "$TLS_SERVER_URL?marker=$rejected_token" --insecure \
-        --tls-version 1.3 --expect "$E2E_TOKEN" \
-        >"$WORK_DIR/reload-rejected.client.log" 2>&1 || {
-        stop_capture
-        return 1
-    }
-    sleep 1
+        --config-listen "127.0.0.1:$port" \
+        --output "$operational_log.logs.jsonl" --output "$original_events.events.jsonl" || return 1
+    for stage in before reloaded rejected; do
+        if [[ "$stage" == reloaded ]]; then
+            printf '{"elf_path":"%s","capture_mode":"text","text_source":"hook"}\n' "$GO_CLIENT" >"$request_body"
+            post_config_update "$endpoint" "$request_body" "$response_body" 1 || return 1
+        elif [[ "$stage" == rejected ]]; then
+            # Explicit empty/zero legacy fields must also be rejected; endpoints
+            # belong to the process and never change during a probe reload.
+            for legacy in '"event_collector_addr":""' '"event_collector_addr":"udp://127.0.0.1:9"' \
+                '"event_rotate_size_mb":0' '"event_rotate_seconds":0' \
+                '"logger_addr":""' '"output":[]' '"stream_listen":""'; do
+                printf '{"elf_path":"%s","capture_mode":"text","text_source":"hook",%s}\n' "$GO_CLIENT" "$legacy" >"$request_body"
+                post_config_update "$endpoint" "$request_body" "$response_body" 0 || return 1
+            done
+        fi
+        marker="${E2E_TOKEN}_RELOAD_${stage}"
+        timeout 15 "$GO_CLIENT" --url "$TLS_SERVER_URL?marker=$marker" --insecure \
+            --tls-version 1.3 --expect "$E2E_TOKEN" \
+            >"$WORK_DIR/reload-${stage}.client.log" 2>&1 || { stop_capture; return 1; }
+        wait_for_file_contains "$original_events" "$marker" "capture with immutable output after $stage" || {
+            stop_capture
+            return 1
+        }
+    done
     stop_capture
-
-    assert_file_contains "$updated_events" "$rejected_token" \
-        "GoTLS output after rejected reload" || return 1
-    assert_file_not_contains "$operational_log" "$before_token" \
-        "GoTLS captured payload in operational log" || return 1
-    assert_file_not_contains "$operational_log" "$inherited_token" \
-        "GoTLS inherited payload in operational log" || return 1
-    assert_file_not_contains "$operational_log" "$updated_token" \
-        "GoTLS updated payload in operational log" || return 1
-    assert_file_not_contains "$operational_log" "$rejected_token" \
-        "GoTLS post-rejection payload in operational log" || return 1
-    assert_output_isolation "$operational_log" "$original_events" "$before_token" || return 1
+    assert_output_isolation "$operational_log" "$original_events" "$E2E_TOKEN" || return 1
     assert_no_capture_errors "$capture_log"
 }
 
@@ -1162,11 +1114,12 @@ main() {
     mode_enabled text && run_case "linux/gotls/text" case_text
     mode_enabled text && run_case "linux/gotls/text-reload-output" case_text_reload_output
     mode_enabled text && run_case "linux/gotls/text-stdout" case_text_stdout
+    mode_enabled text && run_case "linux/gotls/text-stderr" case_text_stdout stderr
     mode_enabled text && run_case "linux/gotls/text-tcp" case_text_stream tcp
     mode_enabled text && run_case "linux/gotls/text-websocket" case_text_stream ws
-    mode_enabled text && run_case "linux/gotls/logaddr-stdout" case_operational_stdout
-    mode_enabled text && run_case "linux/gotls/logaddr-tcp" case_operational_stream tcp
-    mode_enabled text && run_case "linux/gotls/logaddr-websocket" case_operational_stream ws
+    mode_enabled text && run_case "linux/gotls/output-log-stdout" case_operational_stdout
+    mode_enabled text && run_case "linux/gotls/output-log-tcp" case_operational_stream tcp
+    mode_enabled text && run_case "linux/gotls/output-log-websocket" case_operational_stream ws
     mode_enabled text && run_case "linux/gotls/ecaptureq-receiver-text" case_ecaptureq_text
     mode_enabled keylog && run_case "linux/gotls/keylog-tls12-tls13" case_keylog
     mode_enabled keylog && run_case "linux/gotls/keylog-stdout" case_keylog_stdout

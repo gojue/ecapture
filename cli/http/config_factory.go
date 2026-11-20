@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/gojue/ecapture/v2/internal/config"
 	"github.com/gojue/ecapture/v2/internal/domain"
@@ -36,6 +37,23 @@ func decodeConfig(r *http.Request, create func() domain.Configuration) (*ConfigU
 		return nil, fmt.Errorf("request body is empty")
 	}
 	candidate := create()
+	if _, core := candidate.(domain.TextSourceConfiguration); core {
+		var fields map[string]json.RawMessage
+		if err := json.Unmarshal(body, &fields); err != nil {
+			return nil, err
+		}
+		if fields == nil {
+			return nil, fmt.Errorf("configuration must be a JSON object")
+		}
+		for field := range fields {
+			switch strings.ToLower(field) {
+			case "eventaddr", "logaddr", "logger_addr", "event_collector_addr", "event_rotate_size_mb", "event_rotate_seconds", "ecaptureq", "listen":
+				return nil, fmt.Errorf("configuration field %q has been removed; configure outputs at process startup", field)
+			case "output", "outputs", "config_listen", "config-listen", "stream_listen", "stream-listen":
+				return nil, fmt.Errorf("configuration field %q is a process-lifetime setting and cannot be reloaded", field)
+			}
+		}
+	}
 	if err = json.Unmarshal(body, candidate); err != nil {
 		return nil, err
 	}

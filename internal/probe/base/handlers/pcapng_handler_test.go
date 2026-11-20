@@ -16,7 +16,9 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
+	stderrors "errors"
 	"os"
 	"testing"
 	"time"
@@ -26,6 +28,7 @@ import (
 
 	"github.com/gojue/ecapture/v2/internal/domain"
 	"github.com/gojue/ecapture/v2/internal/logger"
+	"github.com/gojue/ecapture/v2/internal/output/pcapng"
 )
 
 // mockPcapngSink wraps bytes.Buffer to implement ByteSink for testing.
@@ -276,3 +279,70 @@ func TestPcapngProcessTrailerFileAndStream(t *testing.T) {
 }
 
 func (m *mockPacketEvent) GetProcessArgsTruncated() bool { return m.truncated }
+
+type recordingPcapngObserver struct {
+	packets []domain.CapturedPacket
+	keylogs [][]byte
+	err     error
+}
+
+func (o *recordingPcapngObserver) PublishPacket(_ context.Context, packet domain.CapturedPacket) error {
+	packet.Data = bytes.Clone(packet.Data)
+	packet.ProcessArgs = bytes.Clone(packet.ProcessArgs)
+	o.packets = append(o.packets, packet)
+	return o.err
+}
+
+func (o *recordingPcapngObserver) PublishKeylog(_ context.Context, data []byte) error {
+	o.keylogs = append(o.keylogs, bytes.Clone(data))
+	return o.err
+}
+
+func TestPcapngObserversReceiveNormalizedInputsDespiteAnotherFailure(t *testing.T) {
+	wantErr := stderrors.New("observer failed")
+	failed, healthy := &recordingPcapngObserver{err: wantErr}, &recordingPcapngObserver{}
+	sink := newMockPcapngSink()
+	handler, err := NewPcapngHandler(sink, "lo", "", newTestLogger(), failed, healthy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var mono unix.Timespec
+	if err := unix.ClockGettime(unix.CLOCK_MONOTONIC, &mono); err != nil {
+		t.Fatal(err)
+	}
+	packet := &mockPacketEvent{
+		timestamp: uint64(mono.Nano()), packetData: make([]byte, 60), packetLen: 60,
+		pid: 1234, comm: "test", endpoint: 1, args: []byte("test\x00"),
+	}
+	if err := handler.Handle(packet); !stderrors.Is(err, wantErr) {
+		t.Fatalf("Handle error = %v", err)
+	}
+	if len(healthy.packets) != 1 || len(failed.packets) != 1 {
+		t.Fatal("observer failure skipped another observer")
+	}
+	got := healthy.packets[0]
+	if time.Since(got.Timestamp).Abs() > time.Second || got.PID != 1234 || got.ProcessEndpoint != 1 || !bytes.Equal(got.ProcessArgs, packet.args) {
+		t.Fatal("observer lost normalized timestamp or process metadata")
+	}
+	packet.packetData[0] = 9
+	if got.Data[0] != 0 {
+		t.Fatal("observer retained producer buffer")
+	}
+	adapter := pcapng.NewKeylogAdapter(handler.Session(), failed, healthy)
+	input := []byte("CLIENT_RANDOM aa bb\r\n")
+	if _, err := adapter.Write(input); !stderrors.Is(err, wantErr) {
+		t.Fatalf("keylog observer error = %v", err)
+	}
+	if len(healthy.keylogs) != 1 || !bytes.Equal(healthy.keylogs[0], []byte("CLIENT_RANDOM aa bb\n")) {
+		t.Fatal("observer lost normalized keylog bytes")
+	}
+	if err := adapter.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := handler.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(sink.Bytes(), healthy.keylogs[0]) {
+		t.Fatal("observer failure skipped the native DSB")
+	}
+}

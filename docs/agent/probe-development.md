@@ -219,13 +219,15 @@ Cobra flag/binding
 Adding a field only to `BaseConfig` is insufficient. Add it to the shared
 `CommonConfig`/HTTP patch application path, then confirm Android/non-Android
 command files and every HTTP factory. Preserve the distinction between
-process-lifetime operational outputs (`--logaddr`, typed eCaptureQ) and
-serialized captured-event settings (`--eventaddr`, rotation).
+process-lifetime destinations (`--output`, `--stream-listen`, `--config-listen`)
+and serialized probe/capture settings. Core HTTP factories reject removed
+output/rotation fields as well as process-lifetime destination changes.
 
-Reload uses a fresh generation context, inherits omitted captured-event output
-fields, and acknowledges HTTP success only after the candidate starts. It
-still retains the original factory probe type; do not describe or test it as
-reliable cross-probe hot swap.
+Reload uses a fresh generation context and acknowledges HTTP success only
+after the candidate starts. It retains the original factory probe type;
+failed candidates restore the previous configuration. Network connections end
+at generation boundaries; native files append new sections during reload or
+rollback, with fresh encoder/deduplication state.
 
 ## Change a capture mode or output
 
@@ -254,9 +256,9 @@ asset variants with ABI changes. File trailer format is in `output-pipeline.md`.
 
 ## Generated protocols and code
 
-- Edit `protobuf/proto/v1/ecaptureq.proto`, regenerate using the documented
+- Edit `protobuf/proto/v2/ecaptureq.proto`, regenerate using the documented
   tool versions in `protobuf/README.md`, and commit matching
-  `protobuf/gen/v1/` output. Never edit generated `*.pb.go` manually.
+  `protobuf/gen/v2/` output. Never edit generated `*.pb.go` manually.
 - Regenerate `cli/http/status_string.go` from `cli/http/resp.go` with the
   documented `go generate`/stringer flow.
 - Real eBPF assets come from `kern/` through the architecture-isolated

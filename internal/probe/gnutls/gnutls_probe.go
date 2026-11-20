@@ -28,6 +28,7 @@ import (
 	"github.com/gojue/ecapture/v2/internal/domain"
 	"github.com/gojue/ecapture/v2/internal/errors"
 	"github.com/gojue/ecapture/v2/internal/factory"
+	outputpipeline "github.com/gojue/ecapture/v2/internal/output"
 	"github.com/gojue/ecapture/v2/internal/output/decrypt"
 	"github.com/gojue/ecapture/v2/internal/output/pcapng"
 	"github.com/gojue/ecapture/v2/internal/output/writers"
@@ -240,7 +241,7 @@ func (p *Probe) setupManagerText() error {
 
 func (p *Probe) setupManagerKeylog() error {
 	if p.config.GetEventCollectorAddr() == "" {
-		return errors.NewConfigurationError("keylog mode requires an event destination", nil)
+		return errors.NewConfigurationError("keylog mode requires --keylogfile", nil)
 	}
 
 	p.bpfManager = p.newMasterSecretManager()
@@ -253,7 +254,7 @@ func (p *Probe) setupManagerPcapNG() error {
 		return errors.NewConfigurationError("ifname is required for pcap mode", nil)
 	}
 	if !handlers.IsPcapngText(p.config.CaptureMode, p.config.TextSource) && p.config.GetEventCollectorAddr() == "" {
-		return errors.NewConfigurationError("pcapng mode requires an event destination", nil)
+		return errors.NewConfigurationError("pcapng mode requires --pcapfile", nil)
 	}
 
 	p.bpfManager = p.newMasterSecretManager()
@@ -280,22 +281,37 @@ func (p *Probe) setupManagerPcapNG() error {
 	}
 	if handlers.IsPcapngText(p.config.CaptureMode, p.config.TextSource) {
 		var eventSinks []domain.CapturedEventSink
+		var suppressDefaultText bool
 		if runtime := p.config.GetRuntimeOutput(); runtime != nil {
 			eventSinks = runtime.EventSinks
+			suppressDefaultText = runtime.SuppressDefaultText
 		}
-		return decrypt.Register(p.Context(), p.Fail, p.Dispatcher(), p.config.Ifname, p.config.PcapFilter, p.Logger(), p.config.GetEventCollectorAddr(), p.config.PcapFile, writers.NewRotateConfig(p.config.GetEventRotation()), eventSinks, p.config.DecryptOptions())
+		return decrypt.Register(p.Context(), p.Fail, p.Dispatcher(), p.config.Ifname, p.config.PcapFilter, p.Logger(), p.config.GetEventCollectorAddr(), p.config.PcapFile, writers.NewRotateConfig(p.config.GetEventRotation()), eventSinks, suppressDefaultText, p.config.DecryptOptions(), p.config.GetRuntimeOutput() != nil && p.config.GetRuntimeOutput().AppendArtifacts)
 	}
 
 	pcapSink, err := writers.NewWriterFactory().CreateEventSink(writers.EventSinkOptions{
 		Address:      p.config.GetEventCollectorAddr(),
 		Format:       writers.EventFormatPcapng,
+		Append:       p.config.GetRuntimeOutput() != nil && p.config.GetRuntimeOutput().AppendArtifacts,
 		RotateConfig: writers.NewRotateConfig(p.config.GetEventRotation()),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create pcapng sink: %w", err)
 	}
+	var eventSinks []domain.CapturedEventSink
+	var observers []domain.PcapngObserver
+	if runtime := p.config.GetRuntimeOutput(); runtime != nil {
+		eventSinks = runtime.EventSinks
+		observers = runtime.PcapngObservers
+	}
+	nativeSink, err := outputpipeline.NewNativeSink(pcapSink, domain.CaptureFormatPcapng, eventSinks, p.Fail)
+	if err != nil {
+		_ = pcapSink.Close()
+		return fmt.Errorf("create native pcapng publisher: %w", err)
+	}
+	pcapSink = nativeSink
 	pcapHandler, err := handlers.NewPcapngHandler(
-		pcapSink, p.config.Ifname, p.config.PcapFilter, p.Logger())
+		pcapSink, p.config.Ifname, p.config.PcapFilter, p.Logger(), observers...)
 	if err != nil {
 		_ = pcapSink.Close()
 		return fmt.Errorf("failed to create pcapng handler: %w", err)
@@ -306,7 +322,7 @@ func (p *Probe) setupManagerPcapNG() error {
 	}
 
 	pcapKeylogHandler := handlers.NewKeylogHandler(
-		pcapng.NewKeylogAdapter(pcapHandler.Session()))
+		pcapng.NewKeylogAdapter(pcapHandler.Session(), observers...))
 	if err := p.Dispatcher().Register(pcapKeylogHandler); err != nil {
 		_ = pcapHandler.Close()
 		return fmt.Errorf("failed to register pcap keylog handler: %w", err)
@@ -335,6 +351,7 @@ func (p *Probe) registerKeylogSink(address string, primary bool) error {
 	options := writers.EventSinkOptions{
 		Address: address,
 		Format:  writers.EventFormatKeylog,
+		Append:  p.config.GetRuntimeOutput() != nil && p.config.GetRuntimeOutput().AppendArtifacts,
 	}
 	if primary {
 		options.RotateConfig = writers.NewRotateConfig(p.config.GetEventRotation())
@@ -344,6 +361,18 @@ func (p *Probe) registerKeylogSink(address string, primary bool) error {
 		return fmt.Errorf("failed to create keylog writer: %w", err)
 	}
 
+	if primary {
+		var eventSinks []domain.CapturedEventSink
+		if runtime := p.config.GetRuntimeOutput(); runtime != nil {
+			eventSinks = runtime.EventSinks
+		}
+		nativeSink, err := outputpipeline.NewNativeSink(fileWriter, domain.CaptureFormatKeylog, eventSinks, p.Fail)
+		if err != nil {
+			_ = fileWriter.Close()
+			return fmt.Errorf("create native keylog publisher: %w", err)
+		}
+		fileWriter = nativeSink
+	}
 	keylogWriter := writers.NewKeylogWriter(fileWriter)
 	keylogHandler := handlers.NewKeylogHandler(keylogWriter)
 	if err := p.Dispatcher().Register(keylogHandler); err != nil {
