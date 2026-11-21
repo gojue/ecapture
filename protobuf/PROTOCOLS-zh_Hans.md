@@ -40,8 +40,17 @@ Go [校验辅助包](v2/validate.go) 提供一致的校验规则。运行日志�
 
 `Heartbeat` 包含 Unix 秒 `timestamp=1`、`count=2` 和 `message=3`。
 连接后立即发送，随后每 15 秒一次；count 从每条连接的零开始，不代表事件数。
-新连接最多收到最近 128 条运行日志。捕获事件、数据包和密钥不缓存重放。
+新连接最多收到最近 128 条运行日志及当前采集器信息。捕获事件、数据包和密钥不缓存重放。
 队列有界，慢客户端可能被断开；协议没有持久确认、历史游标或断点续传。
+
+采集器信息使用 `PROCESS_LOG.run_log` JSON：`event="collector_info"`、
+`schemaVersion=1` 和 `collector` 对象。可选字段为 `host`、`module`、`mode`、
+`textSource`、`argv`、`argvTruncated`、`version`、`buildTime`（RFC3339 UTC）、
+`decryptorVersion`、`commit`、`configListen`、`streamListen`、`outputs`、
+`outputsTruncated`。`argv` 是采集器自身启动参数，不是被采集进程的参数，也不能执行。
+未知构建信息不填充。每代更新独立保留的快照；新订阅在首个心跳后、日志和事件前收到它。
+JSON 上限 256 KiB；argv 最多 256 项/8192 UTF-8 字节，outputs 最多 64 项/8192 字节，
+截断时附带标记。复用现有 v2 消息，不改变 Protobuf schema。
 
 ## Event 内容
 

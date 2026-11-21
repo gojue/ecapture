@@ -214,6 +214,7 @@ GO_VERSION_MIN = $(shell $(CMD_ECHO) $(GO_VERSION) | $(CMD_CUT) -d'.' -f2)
 TAG_COMMIT := $(shell git rev-list --abbrev-commit --tags --max-count=1)
 TAG := $(shell git describe --abbrev=0 --tags ${TAG_COMMIT} 2>/dev/null || true)
 COMMIT := $(shell git rev-parse --short HEAD)
+BUILD_COMMIT := $(shell git rev-parse HEAD)
 DATE := $(shell git log -1 --format=%cd --date=format:"%Y%m%d")
 LAST_GIT_TAG := $(TAG)-$(DATE)-$(COMMIT)
 RPM_RELEASE := $(DATE).$(COMMIT)
@@ -233,6 +234,7 @@ endif
 #
 #SNAPSHOT_VERSION ?= $(shell git rev-parse HEAD)
 BUILD_DATE := $(shell date +%Y-%m-%d)
+BUILD_TIME ?= $(shell date -u $(if $(SOURCE_DATE_EPOCH),--date='@$(SOURCE_DATE_EPOCH)') +%Y-%m-%dT%H:%M:%SZ)
 
 LINUX_SOURCE_FILE := $(shell find /usr/src -maxdepth 1 -name "*linux-source*.tar.bz2")
 LINUX_SOURCE_PATH := $(shell echo $(LINUX_SOURCE_FILE) | $(CMD_SED) 's/\.tar\.bz2//g')

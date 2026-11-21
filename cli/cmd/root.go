@@ -447,6 +447,7 @@ func runProbe(probeType factory.ProbeType, probeConfig domain.Configuration) (ru
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	collector := newCollectorInfo(os.Args)
 
 	// upgrade check
 	go func() {
@@ -479,6 +480,8 @@ func runProbe(probeType factory.ProbeType, probeConfig domain.Configuration) (ru
 		if err := outputs.BeginCapture(); err != nil {
 			return nil, err
 		}
+		logger.Info().Str("event", "collector_info").Int("schemaVersion", 1).
+			Interface("collector", collector.forCapture(cfg, runtimeOutputs.Module)).Msg("Collector runtime information")
 		if eqServer != nil {
 			format := domain.CaptureFormatText
 			if mode, ok := cfg.(domain.CaptureModeConfiguration); ok {

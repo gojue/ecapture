@@ -27,13 +27,14 @@ var ErrBackpressure = errors.New("stream subscription backpressure")
 // Hub serializes registration, history and complete-message delivery. Queues
 // are bounded; only this owner closes a client's send channel.
 type Hub struct {
-	ctx     context.Context
-	mu      sync.Mutex
-	clients map[*Client]struct{}
-	history [][]byte
-	closed  bool
-	done    chan struct{}
-	dropped atomic.Uint64
+	ctx           context.Context
+	mu            sync.Mutex
+	clients       map[*Client]struct{}
+	history       [][]byte
+	collectorInfo []byte
+	closed        bool
+	done          chan struct{}
+	dropped       atomic.Uint64
 }
 
 func newHub(ctx context.Context) *Hub {
@@ -52,7 +53,7 @@ func newHub(ctx context.Context) *Hub {
 	return h
 }
 
-func (h *Hub) publish(ctx context.Context, message []byte, processLog bool) error {
+func (h *Hub) publish(ctx context.Context, message []byte, processLog, collectorInfo bool) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -61,7 +62,9 @@ func (h *Hub) publish(ctx context.Context, message []byte, processLog bool) erro
 	if h.closed || h.ctx.Err() != nil {
 		return context.Canceled
 	}
-	if processLog {
+	if collectorInfo {
+		h.collectorInfo = append([]byte(nil), message...)
+	} else if processLog {
 		copyMessage := append([]byte(nil), message...)
 		if len(h.history) < LogBuffLen {
 			h.history = append(h.history, copyMessage)
@@ -122,9 +125,16 @@ func (h *Hub) registerClient(ctx context.Context, client *Client) error {
 	if len(h.clients) >= maxClients {
 		return fmt.Errorf("%w: subscriber limit reached", ErrBackpressure)
 	}
-	if len(h.history) > cap(client.send) {
+	count := len(h.history)
+	if h.collectorInfo != nil {
+		count++
+	}
+	if count > cap(client.send) {
 		h.dropped.Add(1)
 		return fmt.Errorf("%w: startup history exceeds client queue", ErrBackpressure)
+	}
+	if h.collectorInfo != nil {
+		client.send <- append([]byte(nil), h.collectorInfo...)
 	}
 	for _, message := range h.history {
 		client.send <- append([]byte(nil), message...)

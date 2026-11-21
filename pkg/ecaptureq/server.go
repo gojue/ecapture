@@ -16,6 +16,7 @@ package ecaptureq
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -294,11 +295,34 @@ func (s *Server) handleWebSocket(conn *websocket.Conn) {
 func (s *Server) PublishLog(ctx context.Context, record domain.OperationalLogRecord) error {
 	entry := output.LogEntryForRecord(record)
 	entry.Module = s.module.Load().(string)
+	module, collectorInfo := collectorInfoModule(record.Message)
+	if collectorInfo {
+		entry.Module = module
+	}
 	data, err := proto.Marshal(entry)
 	if err != nil {
 		return fmt.Errorf("marshal process log: %w", err)
 	}
-	return s.hub.publish(ctx, data, true)
+	return s.hub.publish(ctx, data, true, collectorInfo)
+}
+
+// Runtime information is retained independently of the bounded log ring so a
+// late subscriber always receives the current generation's source metadata.
+func collectorInfoModule(message string) (string, bool) {
+	if len(message) > 256<<10 {
+		return "", false
+	}
+	var record struct {
+		Event         string `json:"event"`
+		SchemaVersion int    `json:"schemaVersion"`
+		Collector     *struct {
+			Module string `json:"module"`
+		} `json:"collector"`
+	}
+	if json.Unmarshal([]byte(message), &record) != nil || record.Event != "collector_info" || record.SchemaVersion != 1 || record.Collector == nil {
+		return "", false
+	}
+	return record.Collector.Module, true
 }
 
 func (s *Server) PublishEvent(ctx context.Context, event domain.CapturedEventEnvelope) error {
@@ -316,7 +340,7 @@ func (s *Server) PublishEvent(ctx context.Context, event domain.CapturedEventEnv
 	if err != nil {
 		return fmt.Errorf("marshal captured event: %w", err)
 	}
-	return s.hub.publish(ctx, data, false)
+	return s.hub.publish(ctx, data, false, false)
 }
 
 func (s *Server) PublishPacket(ctx context.Context, packet domain.CapturedPacket) error {

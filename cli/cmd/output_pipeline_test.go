@@ -17,14 +17,18 @@ package cmd
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime/debug"
+	"strings"
 	"sync"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
@@ -40,8 +44,67 @@ import (
 	"github.com/gojue/ecapture/v2/internal/output/writers"
 	"github.com/gojue/ecapture/v2/internal/probe/base"
 	"github.com/gojue/ecapture/v2/internal/probe/base/handlers"
+	"github.com/gojue/ecapture/v2/internal/probe/gotls"
 	pb "github.com/gojue/ecapture/v2/protobuf/gen/v2"
 )
+
+func TestCollectorInfoUsesBuildFactsAndValidatedGeneration(t *testing.T) {
+	oldTime, oldCommit, oldConf := BuildTime, BuildCommit, globalConf
+	t.Cleanup(func() { BuildTime, BuildCommit, globalConf = oldTime, oldCommit, oldConf })
+	BuildTime, BuildCommit = "2026-11-21T08:00:00+08:00", "fixture-commit"
+	globalConf.Outputs = []string{"stdout", "file:///tmp/synthetic.jsonl"}
+	globalConf.StreamListen = "ws://127.0.0.1:28256/"
+	argv := []string{"ecapture", "gotls", "--elfpath", "path with spaces"}
+	info := newCollectorInfo(argv)
+	argv[0], globalConf.Outputs[0] = "mutated", "stderr"
+	if info.Argv[0] != "ecapture" || info.Argv[3] != "path with spaces" || info.Outputs[0] != "stdout" || info.ArgvTruncated {
+		t.Fatalf("launch snapshot changed: %+v", info)
+	}
+	if info.BuildTime != "2026-11-21T00:00:00Z" || info.Commit != "fixture-commit" || info.Version != GitVersion {
+		t.Fatalf("build facts missing: %+v", info)
+	}
+	cfg := gotls.NewConfig()
+	cfg.CaptureMode, cfg.TextSource = "text", "pcapng"
+	text := info.forCapture(cfg, "gotls")
+	cfg.CaptureMode = "keylog"
+	keylog := info.forCapture(cfg, "gotls")
+	if text.Mode != "text" || text.TextSource != "pcapng" || keylog.Mode != "keylog" || keylog.TextSource != "" {
+		t.Fatalf("generation facts stale: %+v / %+v", text, keylog)
+	}
+	BuildTime = ""
+	if got := newCollectorInfo(nil).BuildTime; got != "" {
+		t.Fatalf("unknown build time invented: %q", got)
+	}
+}
+
+func TestCollectorInfoBoundsAndReplacementVersion(t *testing.T) {
+	args, truncated := boundedInfoWords([]string{"ecapture", strings.Repeat("界", 8192), "last"}, 256, 8192)
+	if !truncated || len(args) != 2 || !utf8.ValidString(args[1]) || len(args[0])+len(args[1]) > 8192 {
+		t.Fatal("argv bound or UTF-8 boundary lost")
+	}
+	args, truncated = boundedInfoWords([]string{strings.Repeat("\xff", 8192)}, 256, 8192)
+	encoded, err := json.Marshal(collectorInfo{Argv: args, ArgvTruncated: truncated})
+	if err != nil || !truncated || !utf8.ValidString(args[0]) || len(encoded) > 256<<10 {
+		t.Fatal("invalid argv did not remain bounded UTF-8")
+	}
+	args, truncated = boundedInfoWords([]string{"界", "x"}, 256, 2)
+	if !truncated || len(args) != 1 || args[0] != "" {
+		t.Fatal("argv after a truncated argument was retained")
+	}
+	for _, test := range []struct {
+		replacement *debug.Module
+		want        string
+	}{
+		{nil, "v1.2.3"},
+		{&debug.Module{Path: "example.org/decryptor", Version: "v1.2.4"}, "example.org/decryptor@v1.2.4"},
+		{&debug.Module{Path: "../local"}, "(local replacement)"},
+	} {
+		build := &debug.BuildInfo{Deps: []*debug.Module{{Path: "github.com/gojue/ecapture_decryptor", Version: "v1.2.3", Replace: test.replacement}}}
+		if got := decryptorBuildVersion(build); got != test.want {
+			t.Fatalf("version = %q, want %q", got, test.want)
+		}
+	}
+}
 
 func TestDecryptFlagsReachSDKOptions(t *testing.T) {
 	for _, test := range []struct {

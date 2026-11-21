@@ -47,9 +47,20 @@ logs, heartbeat records and captured data must not be mixed in native files.
 `Heartbeat` contains Unix-seconds `timestamp=1`, `count=2`, and `message=3`.
 The listener sends one immediately and every 15 seconds. Count starts at zero
 per connection and does not count captured events. New clients receive at most
-128 recent operational logs. Captured events, packets and secrets are not
+128 recent operational logs plus the current collector-info record. Captured events, packets and secrets are not
 replayed. Queues are bounded; a slow client can be disconnected. This protocol
 has no durable acknowledgement, history cursor, or resume capability.
+
+Collector information is a structured `PROCESS_LOG.run_log` JSON object with
+`event="collector_info"`, `schemaVersion=1`, and a `collector` object. Optional
+fields are `host`, `module`, `mode`, `textSource`, `argv`, `argvTruncated`,
+`version`, `buildTime` (RFC3339 UTC), `decryptorVersion`, `commit`, `configListen`,
+`streamListen`, `outputs`, and `outputsTruncated`. `argv` records the collector's
+startup arguments, not captured process arguments; never execute it. Missing
+build facts stay absent. The latest generation replaces the retained snapshot,
+which precedes log replay and events after the initial heartbeat. The JSON is
+bounded to 256 KiB; argv has at most 256 entries/8192 UTF-8 bytes, outputs 64/8192,
+with truncation flags. This uses the existing v2 envelope without a schema change.
 
 ## Event content
 

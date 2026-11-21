@@ -252,7 +252,9 @@ Message boundaries need not coincide with pcapng block/packet boundaries.
 Each late pcapng subscriber gets an independent encoder starting with SHB/IDB,
 then future packets and secrets. Historical traffic/secrets are not replayed;
 old TLS sessions may not decrypt, and subscriber files differ from local files.
-A new client gets at most 128 startup operational logs, never historical events.
+A new client gets the current collector-info snapshot and at most 128 recent
+operational logs, never historical events. `collector_info` is a bounded JSON
+`PROCESS_LOG` retained separately from log rotation; see `protobuf/PROTOCOLS.md`.
 
 Normal generation shutdown drains encoders/queues and closes WS with code 1000;
 failed capture uses 1011. TCP EOF does not prove completeness. Receiver examples
