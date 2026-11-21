@@ -28,16 +28,18 @@ var postgresConfig = postgresProbe.NewConfig()
 
 // postgres Cmd represents the postgres command
 var postgresCmd = &cobra.Command{
-	Use:   "postgres",
-	Short: "capture sql queries from postgres 10+.",
-	RunE:  postgresCommandFunc,
+	Use:     "postgres",
+	Short:   "Capture SQL sent through PostgreSQL's simple query protocol",
+	Long:    "Trace exec_simple_query in the server executable on PostgreSQL 10 and later.",
+	Example: "ecapture postgres --postgres /usr/lib/postgresql/15/bin/postgres",
+	RunE:    postgresCommandFunc,
 }
 
 func init() {
-	postgresCmd.PersistentFlags().StringVarP(&postgresConfig.PostgresPath, "postgres", "m", "/usr/bin/postgres", "postgres binary file path, use to hook")
-	postgresCmd.PersistentFlags().StringVarP(&postgresConfig.FuncName, "funcname", "f", "", "function name to hook")
-	postgresCmd.PersistentFlags().BoolVar(&globalConf.PerfReorder, "perf-reorder", false, "enable userland reorder of per-CPU perf events by bpf ktime before dispatch")
-	postgresCmd.PersistentFlags().UintVar(&globalConf.PerfReorderLagMs, "perf-reorder-lag-ms", 10, "reorder batching window in ms (only with --perf-reorder; default 10)")
+	postgresCmd.PersistentFlags().StringVarP(&postgresConfig.PostgresPath, "postgres", "m", "/usr/bin/postgres", "Path to the PostgreSQL server executable.")
+	postgresCmd.PersistentFlags().StringVarP(&postgresConfig.FuncName, "funcname", "f", "", "Server function to trace (default exec_simple_query). Its first argument must be the SQL string.")
+	postgresCmd.PersistentFlags().BoolVar(&globalConf.PerfReorder, "perf-reorder", false, perfReorderHelp)
+	postgresCmd.PersistentFlags().UintVar(&globalConf.PerfReorderLagMs, "perf-reorder-lag-ms", 10, perfReorderLagHelp)
 	rootCmd.AddCommand(postgresCmd)
 }
 

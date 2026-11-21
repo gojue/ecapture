@@ -29,15 +29,14 @@ var zshConfig = zshProbe.NewConfig()
 // zshCmd represents the zsh command
 var zshCmd = &cobra.Command{
 	Use:   "zsh",
-	Short: "capture zsh command",
-	Long: `eCapture capture zsh commands for zsh security audit, 
-Auto find the zsh of the current env as the capture target.`,
-	RunE: zshCommandFunc,
+	Short: "Capture commands entered in interactive Zsh sessions",
+	Long:  "Read command lines from the Zsh line editor before the shell executes them.",
+	RunE:  zshCommandFunc,
 }
 
 func init() {
-	zshCmd.PersistentFlags().StringVar(&zshConfig.Zshpath, "zsh", "", "$SHELL file path, eg: /bin/zsh , will automatically find it from $ENV default.")
-	zshCmd.Flags().IntVarP(&zshConfig.ErrNo, "errnumber", "e", 128, "only show the command which exec reulst equals err number.")
+	zshCmd.PersistentFlags().StringVar(&zshConfig.Zshpath, "zsh", "", "Path to the Zsh executable. Defaults to $SHELL if it points to Zsh, otherwise /bin/zsh.")
+	zshCmd.Flags().IntVarP(&zshConfig.ErrNo, "errnumber", "e", 128, "Unused by the Zsh probe, which captures commands before their exit status is available.")
 	rootCmd.AddCommand(zshCmd)
 }
 

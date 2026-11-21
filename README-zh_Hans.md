@@ -34,7 +34,7 @@
 
 > [!IMPORTANT]
 > Linux 支持 x86_64（内核 4.18+）、aarch64（内核 5.5+）和 LoongArch64 `loong64`（内核 6.6+）。Android 继续支持 x86_64 和 aarch64，且最低内核要求不变。
-> 需要 root 权限或特定的 [Linux capabilities](docs/minimum-privileges.md)。
+> 采集数据需要 root 权限或特定的 [Linux capabilities](docs/minimum-privileges.md)。
 > 不支持 Windows 和 macOS。
 
 ----
@@ -78,7 +78,7 @@ eCapture 使用 eBPF 的 `uprobe` / `Traffic Control` 等技术，在不修改�
 可从 [Release](https://github.com/gojue/ecapture/releases) 页面下载对应的二进制包，解压后直接使用：
 
 ```shell
-sudo ecapture --help
+ecapture --help
 ```
 
 ### Docker 镜像
@@ -100,7 +100,7 @@ docker run --rm --privileged=true --net=host -v ${HOST_PATH}:${CONTAINER_PATH} g
 
 ## 快速体验
 
-运行 `ecapture --help`，查看当前安装版本支持的命令和参数。
+运行 `ecapture --help` 查看命令列表和全局参数。使用 `ecapture tls --help` 或 `ecapture help tls` 查看 TLS 模块的参数和示例。普通用户即可查看帮助。
 
 下面以捕获基于 OpenSSL 动态链接库加密的网络通讯为例：
 
@@ -121,22 +121,22 @@ Host: example.com
 
 ## 模块介绍
 
-eCapture 包含 8 个模块，分别支持对 OpenSSL、GnuTLS、NSS/NSPR、BoringSSL 和 GoTLS 等 TLS/SSL 加密库的明文捕获，同时支持 Bash、MySQL 和 PostgreSQL 的审计与分析。
+Linux 版本包含以下 8 个模块。Android 版本包含 `tls`、`gotls` 和 `bash`。
 
-* bash：捕获 bash 命令行输入与执行内容
-* zsh：捕获 zsh 命令行输入与执行内容
+* bash：捕获在交互式 Bash 会话中输入的命令
+* zsh：捕获在交互式 Zsh 会话中输入的命令
 * gnutls：捕获基于 GnuTLS 加密通信的明文内容
 * gotls：捕获 Go 语言程序中基于内置 TLS/HTTPS 实现的明文通信
 * mysqld：捕获 MySQL 查询语句，支持 MySQL 5.6 / 5.7 / 8.0 及 MariaDB
-* nss：捕获基于 NSS/NSPR 加密通信的明文内容
-* postgres：捕获 PostgreSQL 10+ 的查询语句
-* tls：捕获基于 OpenSSL/BoringSSL 的明文 TLS/SSL 流量，支持 OpenSSL 1.0.x / 1.1.x / 3.x 及更高版本，以及 BoringSSL 的所有发行版本
+* nspr（别名 `nss`）：捕获通过 NSPR 读写的数据
+* postgres：捕获 PostgreSQL 10 及以上版本中通过简单查询协议发送的 SQL
+* tls：捕获使用 OpenSSL 或 BoringSSL 的应用程序的 TLS 明文
 
 你可以通过 `ecapture -h` 查看各个子命令列表。
 
 ### OpenSSL 模块
 
-eCapture 默认会读取 `/etc/ld.so.conf` 中的库加载目录并定位 `openssl` 等动态链接库的位置。你也可以通过 `--libssl` 参数显式指定动态库路径。
+eCapture 默认在标准库路径中查找 `libssl`。可通过 `--libssl` 指定目标库。
 
 如果目标程序使用静态编译方式，则可以直接将 `--libssl` 参数设置为该程序的路径。
 
@@ -222,7 +222,7 @@ pcapng 晚连接从独立片段开始，不回放历史包和密钥。详见 [v2
 
 支持基于 TCP 的 HTTP `1.0/1.1/2.0` 以及基于 UDP 的 HTTP/3 (`QUIC`) 流量抓取。
 
-你可以通过 `-m pcap` 或 `-m pcapng` 参数指定抓包模式，并配合 `--pcapfile` 和 `-i` 参数使用。`--pcapfile` 必须显式指定本地原生文件，不再提供默认文件名。
+使用 `-m pcapng`（别名 `-m pcap`）时，必须通过 `--pcapfile` 指定本地抓包文件。网卡默认自动选择，也可用 `-i` 手动指定。
 
 ```shell
 sudo ecapture tls -m pcap -i eth0 --pcapfile=ecapture.pcapng tcp port 443
@@ -277,7 +277,7 @@ sudo ecapture gotls --elfpath=/path/to/go-client
 #### 更多帮助
 
 ```shell
-sudo ecapture gotls -h
+ecapture gotls -h
 ```
 
 ### 其他模块

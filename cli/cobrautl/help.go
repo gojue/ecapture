@@ -17,16 +17,12 @@
 package cobrautl
 
 import (
-	"bytes"
-	"fmt"
 	"io"
-	"os"
 	"strings"
 	"text/tabwriter"
 	"text/template"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 )
 
 var (
@@ -60,6 +56,11 @@ NAME:
 
 USAGE:
 {{printf "\t%s" .Cmd.UseLine}}
+{{if .Cmd.Aliases}}\
+
+ALIASES:
+{{range .Cmd.Aliases}}{{printf "\t%s\n" .}}{{end}}\
+{{end}}\
 {{ if not .Cmd.HasParent }}\
 
 VERSION:
@@ -81,52 +82,25 @@ DESCRIPTION:
 {{range $line := descToLines .Cmd.Long}}{{printf "\t%s" $line}}
 {{end}}\
 {{end}}\
+{{if .Cmd.HasExample}}\
+
+EXAMPLES:
+{{range $line := descToLines .Cmd.Example}}{{printf "\t%s" $line}}
+{{end}}\
+{{end}}\
 {{if .Cmd.HasLocalFlags}}\
 
 OPTIONS:
-{{.LocalFlags}}\
+{{.Cmd.LocalFlags.FlagUsagesWrapped 100}}\
 {{end}}\
 {{if .Cmd.HasInheritedFlags}}\
 
 GLOBAL OPTIONS:
-{{.GlobalFlags}}\
+{{.Cmd.InheritedFlags.FlagUsagesWrapped 100}}\
 {{end}}
 `[1:]
 
 	commandUsageTemplate = template.Must(template.New("command_usage").Funcs(templFuncs).Parse(strings.ReplaceAll(commandUsage, "\\\n", "")))
-}
-
-func ecaptureFlagUsages(flagSet *pflag.FlagSet) string {
-	x := new(bytes.Buffer)
-
-	flagSet.VisitAll(func(flag *pflag.Flag) {
-		if len(flag.Deprecated) > 0 {
-			return
-		}
-		var format string
-		if len(flag.Shorthand) > 0 {
-			format = "  -%s, --%s"
-		} else {
-			format = "   %s   --%s"
-		}
-		if len(flag.NoOptDefVal) > 0 {
-			format = format + "["
-		}
-		if flag.Value.Type() == "string" {
-			// put quotes on the value
-			format = format + "=%q"
-		} else {
-			format = format + "=%s"
-		}
-		if len(flag.NoOptDefVal) > 0 {
-			format = format + "]"
-		}
-		format = format + "\t%s\n"
-		shorthand := flag.Shorthand
-		fmt.Fprintf(x, format, shorthand, flag.Name, flag.DefValue, flag.Usage)
-	})
-
-	return x.String()
 }
 
 func getSubCommands(cmd *cobra.Command) []*cobra.Command {
@@ -140,17 +114,13 @@ func getSubCommands(cmd *cobra.Command) []*cobra.Command {
 
 func UsageFunc(cmd *cobra.Command, version string) error {
 	subCommands := getSubCommands(cmd)
-	tabOut := getTabOutWithWriter(os.Stdout)
+	tabOut := getTabOutWithWriter(cmd.OutOrStdout())
 	err := commandUsageTemplate.Execute(tabOut, struct {
 		Cmd         *cobra.Command
-		LocalFlags  string
-		GlobalFlags string
 		SubCommands []*cobra.Command
 		Version     string
 	}{
 		cmd,
-		ecaptureFlagUsages(cmd.LocalFlags()),
-		ecaptureFlagUsages(cmd.InheritedFlags()),
 		subCommands,
 		version,
 	})

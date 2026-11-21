@@ -33,7 +33,7 @@
 
 > [!IMPORTANT]
 > Supports Linux on x86_64 (kernel 4.18+), aarch64 (kernel **5.5+**), and LoongArch64 `loong64` (kernel **6.6+**). Android supports x86_64 and aarch64 with the existing kernel minimums.
-> Requires root privileges or specific [Linux capabilities](docs/minimum-privileges.md).
+> Capturing data requires root privileges or specific [Linux capabilities](docs/minimum-privileges.md).
 > Does not support Windows or macOS.
 
 ----
@@ -58,12 +58,12 @@
 
 # Introduction
 
-* Captures plaintext TLS/SSL traffic from OpenSSL, LibreSSL, BoringSSL, GnuTLS, and NSS/NSPR libraries.
+* Captures TLS plaintext from applications using OpenSSL, BoringSSL, or GnuTLS, and data read or written through NSPR.
 * Supports plaintext capture for Go TLS programs, including HTTPS/TLS traffic in Go applications.
-* Audits bash and zsh command history for host security monitoring.
+* Captures commands entered in interactive Bash and Zsh sessions.
 * Audits MySQL queries and supports MySQL 5.6/5.7/8.0 and MariaDB.
 
-Run `ecapture --help` for the commands and flags available in your installed version.
+Run `ecapture --help` to list commands and global options. Use `ecapture tls --help` or `ecapture help tls` for TLS options and examples. You can view help as a regular user.
 
 # Getting started
 
@@ -77,7 +77,7 @@ Run `ecapture --help` for the commands and flags available in your installed ver
 Download the ELF binary package from the [releases page](https://github.com/gojue/ecapture/releases), extract it, and run:
 
 ```shell
-sudo ecapture --help
+ecapture --help
 ```
 
 ### Docker image
@@ -116,22 +116,22 @@ Host: example.com
 
 ## Modules
 
-The eCapture tool includes 8 modules that can capture plaintext data from TLS/SSL libraries such as OpenSSL, GnuTLS, NSS/NSPR, BoringSSL, and GoTLS. It also supports auditing commands and queries from Bash, MySQL, and PostgreSQL applications.
+Linux builds include all eight modules below. Android builds include `tls`, `gotls`, and `bash`.
 
 * bash: captures bash commands
 * zsh: captures zsh commands
 * gnutls: captures plaintext from GnuTLS libraries without needing a CA certificate
 * gotls: captures plaintext communication from Go programs using TLS/HTTPS
 * mysqld: captures SQL queries from MySQL 5.6/5.7/8.0 and MariaDB
-* nss: captures plaintext from NSS/NSPR libraries without needing a CA certificate
-* postgres: captures SQL queries from PostgreSQL 10+
-* tls: captures plaintext TLS/SSL traffic without a CA certificate (supports OpenSSL 1.0.x/1.1.x/3.0.x and newer)
+* nspr (alias `nss`): captures data read and written through NSPR
+* postgres: captures SQL sent through the simple query protocol on PostgreSQL 10 and later
+* tls: captures TLS plaintext from applications using OpenSSL or BoringSSL
 
 You can use `ecapture -h` to view the full list of subcommands.
 
 ### OpenSSL module
 
-eCapture searches the default library paths from `/etc/ld.so.conf` to locate shared libraries and detect the OpenSSL library location. You can also set the library path explicitly with the `--libssl` flag.
+eCapture searches standard library paths for `libssl`. Use `--libssl` to select a specific library.
 
 If the target program is statically linked, you can set the program path directly as the value of the `--libssl` flag.
 
@@ -233,7 +233,7 @@ packets or keys. See the [v2 protocol](protobuf/PROTOCOLS.md) and
 
 Supports TLS-encrypted HTTP `1.0/1.1/2.0` over TCP and HTTP/3 (QUIC) over UDP.
 
-You can specify `-m pcap` or `-m pcapng` together with `--pcapfile` and `-i`. `--pcapfile` must name an explicit local artifact file; there is no default filename.
+Use `-m pcapng` (alias `-m pcap`) with `--pcapfile` to name the required local capture file. Use `-i` to override the automatically selected interface.
 
 ```shell
 sudo ecapture tls -m pcap -i eth0 --pcapfile=ecapture.pcapng tcp port 443
@@ -290,7 +290,7 @@ Step 2:
 #### More help
 
 ```shell
-sudo ecapture gotls -h
+ecapture gotls -h
 ```
 
 ### Other modules

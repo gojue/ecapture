@@ -45,8 +45,8 @@ file contains both `LOG_TYPE_PROCESS_LOG` and `LOG_TYPE_EVENT` records. TEXT
 records store the same formatted decoded output in
 `event_payload.text.payload` (base64 in ProtoJSON), alongside process, network,
 TLS and application-stream metadata when available. Decode the payload once;
-it is not the whole JSON record. `--pcapfile` is optional in text mode and saves
-the same pcapng stream used for decryption.
+it is not the whole JSON record. In text mode with `--text-source pcapng`,
+`--pcapfile` optionally saves the pcapng stream used for decryption.
 
 HTTP/1.1 and HTTP/2 are the default parsers. Explicit raw, application-protocol,
 HTTP-event and UDP options are described in the

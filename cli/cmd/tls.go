@@ -26,39 +26,48 @@ import (
 
 var opensslConfig = opensslProbe.NewConfig()
 
-// opensslCmd represents the openssl command
+// These modes and packet capture options are shared by the three TLS commands.
+const (
+	tlsCaptureHelp = `By default, eCapture decrypts live packets and displays decoded application messages.
+Text decoding options apply only to --model text --text-source pcapng.
+
+Use keylog mode to save TLS secrets in NSS key log format, or pcapng mode to save
+packets and secrets together. An optional pcap filter expression limits the packets
+captured in pcapng mode or with --text-source pcapng.`
+	tlsModeHelp       = "Capture `mode` (text, keylog, or pcapng). The aliases key and pcap select keylog and pcapng."
+	tlsTextSourceHelp = "Text `source` (pcapng decrypts live packets, hook reads plaintext from TLS function calls)"
+	tlsKeylogFileHelp = "Local NSS key log `path` (required in keylog mode, optional in pcapng mode or with --text-source pcapng)"
+	tlsPcapFileHelp   = "Local pcapng `path` (required in pcapng mode, optional with --text-source pcapng)"
+	tlsIfnameHelp     = "Capture packets on this `interface`. Automatic selection prefers an active Ethernet interface on the default route, then uses traffic counters."
+	tlsCgroupHelp     = "Filter processes by cgroup v2 `directory` (requires kernel 5.2 or later)"
+)
+
+// opensslCmd represents the tls command.
 var opensslCmd = &cobra.Command{
-	Use:     "tls",
+	Use:     "tls [flags] [pcap filter expression]",
 	Aliases: []string{"openssl"},
-	Short:   "Used to capture TLS/SSL text content without the need for a CA certificate. (Supports OpenSSL 1.0.x/1.1.x/3.x or newer).",
-	Long: `Uses eBPF uprobe/TC to capture process event data and network data. Also supports the pcap-NG format.
-
-ecapture tls -m [text|keylog|pcapng] [flags] [pcap filter expression]
-ecapture tls -m text --text-source pcapng -i eth0 --output stdout --output save.jsonl --pid=3423
-ecapture tls -m text --text-source pcapng --stream-listen ws://127.0.0.1:28257/events
-ecapture tls -m keylog --keylogfile save.keys --output runtime.jsonl --libssl=/lib/x86_64-linux-gnu/libssl.so.3
-ecapture tls -m pcapng --pcapfile save_android.pcapng -i wlan0 --libssl=/apex/com.android.conscrypt/lib64/libssl.so --ssl_version="boringssl 1.1.1" tcp port 443
-
-Docker usage:
-docker pull gojue/ecapture
-docker run --rm --privileged=true --net=host -v /etc:/etc -v /usr:/usr -v ${PWD}:/output gojue/ecapture tls -m pcapng -i wlp3s0 --pcapfile=/output/ecapture.pcapng tcp port 443
-`,
-	Example: "ecapture tls -m text --text-source pcapng -i eth0 --output stdout --output capture.jsonl tcp port 443",
-	RunE:    openSSLCommandFunc,
+	Short:   "Capture TLS traffic from applications that use OpenSSL or BoringSSL",
+	Long:    tlsCaptureHelp,
+	Example: `ecapture tls --model text --text-source pcapng -i eth0 'tcp port 443'
+ecapture tls --model text --text-source pcapng --output stdout --output capture.jsonl
+ecapture tls --model text --text-source pcapng --stream-listen ws://127.0.0.1:28257/events
+ecapture tls --model keylog --keylogfile capture.keys --libssl /usr/lib/x86_64-linux-gnu/libssl.so.3
+ecapture tls --model pcapng --pcapfile android.pcapng -i wlan0 --libssl /apex/com.android.conscrypt/lib64/libssl.so`,
+	RunE: openSSLCommandFunc,
 }
 
 func init() {
-	opensslCmd.PersistentFlags().StringVar(&opensslConfig.OpensslPath, "libssl", "", "libssl.so file path, will automatically find it from curl default.")
-	opensslCmd.PersistentFlags().StringVar(&globalConf.CGroupPath, "cgroup_path", "", "cgroup v2 path for container/process filtering. Empty disables cgroup filtering.")
-	opensslCmd.PersistentFlags().StringVarP(&opensslConfig.CaptureMode, "model", "m", "text", "capture mode: text, pcap/pcapng, key/keylog")
-	opensslCmd.PersistentFlags().StringVar(&opensslConfig.TextSource, "text-source", handlers.TextSourcePcapng, "text capture source: pcapng (live TLS decryption) or hook")
+	opensslCmd.PersistentFlags().StringVar(&opensslConfig.OpensslPath, "libssl", "", "Path to the OpenSSL or BoringSSL shared library (searches standard library paths if omitted)")
+	opensslCmd.PersistentFlags().StringVar(&globalConf.CGroupPath, "cgroup_path", "", tlsCgroupHelp)
+	opensslCmd.PersistentFlags().StringVarP(&opensslConfig.CaptureMode, "model", "m", "text", tlsModeHelp)
+	opensslCmd.PersistentFlags().StringVar(&opensslConfig.TextSource, "text-source", handlers.TextSourcePcapng, tlsTextSourceHelp)
 	bindDecryptFlags(opensslCmd, &opensslConfig.DecryptConfig)
-	opensslCmd.PersistentFlags().StringVarP(&opensslConfig.KeylogFile, "keylogfile", "k", "", "local NSS keylog file; required in keylog mode, optional with text-source pcapng")
-	opensslCmd.PersistentFlags().StringVarP(&opensslConfig.PcapFile, "pcapfile", "w", "", "local pcapng file; required in pcapng mode, optional with text-source pcapng")
-	opensslCmd.PersistentFlags().StringVarP(&opensslConfig.Ifname, "ifname", "i", "", "capture interface; automatically selected from default routes, then traffic counters, when omitted")
-	opensslCmd.PersistentFlags().StringVar(&opensslConfig.SslVersion, "ssl_version", "", "openssl/boringssl version， e.g: --ssl_version=\"openssl 1.1.1g\" or  --ssl_version=\"boringssl 1.1.1\".")
-	opensslCmd.PersistentFlags().BoolVar(&globalConf.PerfReorder, "perf-reorder", false, "enable userland reorder of per-CPU perf events by bpf ktime before dispatch")
-	opensslCmd.PersistentFlags().UintVar(&globalConf.PerfReorderLagMs, "perf-reorder-lag-ms", 10, "reorder batching window in ms (only with --perf-reorder; default 10)")
+	opensslCmd.PersistentFlags().StringVarP(&opensslConfig.KeylogFile, "keylogfile", "k", "", tlsKeylogFileHelp)
+	opensslCmd.PersistentFlags().StringVarP(&opensslConfig.PcapFile, "pcapfile", "w", "", tlsPcapFileHelp)
+	opensslCmd.PersistentFlags().StringVarP(&opensslConfig.Ifname, "ifname", "i", "", tlsIfnameHelp)
+	opensslCmd.PersistentFlags().StringVar(&opensslConfig.SslVersion, "ssl_version", "", `Override the detected library version (for example, "openssl 3.0.12" or "boringssl_a_14")`)
+	opensslCmd.PersistentFlags().BoolVar(&globalConf.PerfReorder, "perf-reorder", false, perfReorderHelp)
+	opensslCmd.PersistentFlags().UintVar(&globalConf.PerfReorderLagMs, "perf-reorder-lag-ms", 10, perfReorderLagHelp)
 	rootCmd.AddCommand(opensslCmd)
 }
 

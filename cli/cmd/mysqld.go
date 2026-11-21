@@ -29,19 +29,20 @@ var mysqlConfig = mysqlProbe.NewConfig()
 // mysqldCmd represents the mysqld command
 var mysqldCmd = &cobra.Command{
 	Use:   "mysqld",
-	Short: "capture sql queries from mysqld 5.6/5.7/8.0 .",
-	Long: ` only support mysqld 5.6/5.7/8.0 and mariadDB 10.5+.
-
-other version coming soon`,
-	RunE: mysqldCommandFunc,
+	Short: "Capture SQL queries from MySQL or MariaDB",
+	Long: `Capture SQL sent with COM_QUERY on MySQL 5.6, 5.7, and 8.0 or MariaDB 10.5 and later.
+By default, eCapture detects the dispatch_command symbol and its calling convention.
+Setting --funcname or --offset selects the MySQL 5.6/MariaDB calling convention.`,
+	Example: "ecapture mysqld --mysqld /usr/sbin/mysqld",
+	RunE:    mysqldCommandFunc,
 }
 
 func init() {
-	mysqldCmd.PersistentFlags().StringVarP(&mysqlConfig.MysqlPath, "mysqld", "m", "/usr/sbin/mariadbd", "mysqld binary file path, use to hook")
-	mysqldCmd.PersistentFlags().Uint64VarP(&mysqlConfig.Offset, "offset", "", 0, "0x710410")
-	mysqldCmd.PersistentFlags().StringVarP(&mysqlConfig.FuncName, "funcname", "f", "", "function name to hook")
-	mysqldCmd.PersistentFlags().BoolVar(&globalConf.PerfReorder, "perf-reorder", false, "enable userland reorder of per-CPU perf events by bpf ktime before dispatch")
-	mysqldCmd.PersistentFlags().UintVar(&globalConf.PerfReorderLagMs, "perf-reorder-lag-ms", 10, "reorder batching window in ms (only with --perf-reorder; default 10)")
+	mysqldCmd.PersistentFlags().StringVarP(&mysqlConfig.MysqlPath, "mysqld", "m", "/usr/sbin/mariadbd", "Path to the mysqld or mariadbd server executable.")
+	mysqldCmd.PersistentFlags().Uint64VarP(&mysqlConfig.Offset, "offset", "", 0, "File offset of dispatch_command in the server executable, in decimal or hexadecimal (0x...).")
+	mysqldCmd.PersistentFlags().StringVarP(&mysqlConfig.FuncName, "funcname", "f", "", "Exact ELF symbol name for dispatch_command, including any C++ name mangling.")
+	mysqldCmd.PersistentFlags().BoolVar(&globalConf.PerfReorder, "perf-reorder", false, perfReorderHelp)
+	mysqldCmd.PersistentFlags().UintVar(&globalConf.PerfReorderLagMs, "perf-reorder-lag-ms", 10, perfReorderLagHelp)
 	rootCmd.AddCommand(mysqldCmd)
 }
 

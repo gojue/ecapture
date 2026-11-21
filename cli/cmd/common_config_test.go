@@ -48,6 +48,27 @@ func (c *commonTextConfig) Validate() error {
 	return c.BaseConfig.ValidateTextOutput()
 }
 
+func TestHelpDisplaysCommandExamples(t *testing.T) {
+	for _, cmd := range append([]*cobra.Command{rootCmd}, rootCmd.Commands()...) {
+		if !cmd.HasExample() {
+			continue
+		}
+		t.Run(cmd.Name(), func(t *testing.T) {
+			var help strings.Builder
+			cmd.SetOut(&help)
+			defer cmd.SetOut(nil)
+			if err := usageFunc(cmd); err != nil {
+				t.Fatal(err)
+			}
+			for _, line := range strings.Split(cmd.Example, "\n") {
+				if !strings.Contains(help.String(), line) {
+					t.Errorf("help is missing example %q", line)
+				}
+			}
+		})
+	}
+}
+
 func TestEveryCobraCommandAppliesCommonConfig(t *testing.T) {
 	originalGlobal := globalConf
 	originalRunner := runConfiguredProbeFunc
