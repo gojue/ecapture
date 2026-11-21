@@ -399,9 +399,7 @@ Use `ECAPTURE_BINARY` to select a verified artifact; the harness does not
 provision a build environment. All modes, including text, require tshark.
 Keep per-run capture results and source/binary hashes outside Git.
 
-Run `bash test/e2e/linux/capture_lifecycle_test.sh` for the mock-process
-startup/shutdown and diagnostic-isolation regressions; it needs no root or
-eBPF. The capture harness has bounded 30-second startup and 15-second shutdown
+The capture harness has bounded 30-second startup and 15-second shutdown
 waits, with `E2E_CAPTURE_START_TIMEOUT_SECONDS` and
 `E2E_CAPTURE_STOP_TIMEOUT_SECONDS` overrides (integer seconds, 1 through 3600).
 Timeouts, forced termination and nonzero exits remain failures. See the E2E
