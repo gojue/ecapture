@@ -63,7 +63,7 @@ type Configuration interface {
 	// GetEventRotation returns maximum file size in MiB and interval in seconds.
 	GetEventRotation() (maxSizeMB uint16, maxSeconds uint16)
 
-	// GetEventWriter returns the pre-configured byte writer for captured events.
+	// GetEventWriter returns the pre-configured event writer (e.g., for ecaptureQ).
 	// Returns nil if no event writer is configured.
 	GetEventWriter() io.Writer
 

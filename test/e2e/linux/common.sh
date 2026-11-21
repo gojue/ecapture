@@ -36,9 +36,6 @@ CAPTURE_SENSITIVE="true"
 CAPTURE_LOG_FILE=""
 CAPTURE_OUTPUTS=()
 CAPTURE_CONSOLES=()
-CAPTURE_STDIO=()
-CAPTURE_START_TIMEOUT_SECONDS=30
-CAPTURE_STOP_TIMEOUT_SECONDS=15
 
 check_linux_environment() {
     if [[ "$(uname -s)" != "Linux" ]]; then
@@ -56,7 +53,7 @@ check_linux_environment() {
 
     # The text suite also decrypts its pcapng source, so it needs tshark too.
     local tool
-    for tool in go timeout cc curl tshark python3; do
+    for tool in go timeout cc curl tshark; do
         require_command "$tool" || return 1
     done
     [[ -x "$ECAPTURE_BINARY" ]] || {
@@ -322,167 +319,40 @@ stop_http_reassembly_fixture() {
     HTTP_REASSEMBLY_URL=""
 }
 
-validate_capture_timeouts() {
-    local name value
-    CAPTURE_START_TIMEOUT_SECONDS="${E2E_CAPTURE_START_TIMEOUT_SECONDS-30}"
-    CAPTURE_STOP_TIMEOUT_SECONDS="${E2E_CAPTURE_STOP_TIMEOUT_SECONDS-15}"
-    for name in CAPTURE_START_TIMEOUT_SECONDS CAPTURE_STOP_TIMEOUT_SECONDS; do
-        value="${!name}"
-        # Validate before arithmetic: reject expressions, octal spellings and
-        # overflowing values rather than evaluating caller-controlled input.
-        if [[ ! "$value" =~ ^[1-9][0-9]{0,3}$ ]] || ((value > 3600)); then
-            log_error "E2E_$name must be a positive integer from 1 through 3600"
-            return 1
-        fi
-    done
-}
-
-capture_time_ms() {
-    local now="$EPOCHREALTIME"
-    printf '%s\n' "$((10#${now%.*} * 1000 + 10#${now#*.} / 1000))"
-}
-
-# Diagnostics are deliberately separate from assertions. Read bounded snapshots
-# without modifying artifacts, and never print captured records or raw bad lines.
-dump_capture_diagnostics() {
-    local pid state wchan
-    if [[ -n "$CAPTURE_PID" ]]; then
-        if read -r pid state wchan < <(ps -o pid=,stat=,wchan= -p "$CAPTURE_PID" 2>/dev/null); then
-            log_info "Capture process: pid=$pid state=$state wchan=$wchan"
-        else
-            log_info "Capture process: pid=$CAPTURE_PID state=exited wchan=unavailable"
-        fi
-    fi
-    python3 - "${CAPTURE_STDIO[@]}" "${CAPTURE_OUTPUTS[@]}" <<'PY' || true
-import collections
-import json
-import re
-import sys
-
-records = collections.deque(maxlen=20)
-fields = ("time", "level", "message", "error")
-decoder = json.JSONDecoder()
-
-def filtered(value, depth=0):
-    if depth > 3:
-        return None
-    if isinstance(value, dict):
-        result = {}
-        for key in fields:
-            if key in value:
-                selected = filtered(value[key], depth + 1)
-                if selected is not None:
-                    result[key] = selected
-        return result or None
-    if isinstance(value, str):
-        if value.lstrip().startswith(("{", "[")):
-            try:
-                return filtered(json.loads(value), depth + 1)
-            except (ValueError, RecursionError):
-                return None
-        return value[:512]
-    if value is None or isinstance(value, (bool, int, float)):
-        return value
-    return None
-
-for path in dict.fromkeys(sys.argv[1:]):
-    try:
-        with open(path, "rb") as source:
-            size = source.seek(0, 2)
-            offset = max(0, size - (256 << 10))
-            source.seek(offset)
-            data = source.read(256 << 10)
-        lines = data.split(b"\n")
-        if offset:
-            lines = lines[1:]
-        # A partial final record is neither a diagnostic nor proof of failure.
-        for raw in lines[:-1]:
-            if len(raw) > (64 << 10):
-                continue
-            try:
-                line = raw.decode("utf-8")
-                label = re.match(r"^\[log_type=log(?: [^\]\r\n]*)?\] (.*)$", line)
-                if label:
-                    message = label.group(1)
-                    if message.lstrip().startswith("{"):
-                        value, end = decoder.raw_decode(message.lstrip())
-                        value = filtered(value)
-                        if not isinstance(value, dict):
-                            value = {}
-                        suffix = message.lstrip()[end:].strip()
-                        if suffix:
-                            value["message"] = filtered(suffix)
-                    else:
-                        value = {"message": filtered(message)}
-                else:
-                    entry = json.loads(line)
-                    if not isinstance(entry, dict):
-                        continue
-                    kind = entry.get("log_type", entry.get("logType"))
-                    if not (kind == "LOG_TYPE_PROCESS_LOG" or type(kind) is int and kind == 1):
-                        continue
-                    if "event_payload" in entry or "eventPayload" in entry:
-                        continue
-                    message = entry.get("run_log", entry.get("runLog"))
-                    if not isinstance(message, str):
-                        continue
-                    value = filtered(message)
-                    if isinstance(value, str):
-                        value = {"message": value}
-                if value:
-                    records.append(json.dumps(value, ensure_ascii=True)[:2048])
-            except (UnicodeError, ValueError, RecursionError):
-                continue
-    except OSError:
-        continue
-for record in records:
-    print("[capture diagnostic] " + record)
-PY
-}
-
-wait_for_capture_start() {
-    validate_capture_timeouts || return 1
-    local started now deadline status=0
-    started="$(capture_time_ms)"
-    deadline=$((started + CAPTURE_START_TIMEOUT_SECONDS * 1000))
-    while :; do
-        now="$(capture_time_ms)"
-        if ! kill -0 "$CAPTURE_PID" 2>/dev/null; then
-            wait "$CAPTURE_PID" 2>/dev/null || status=$?
-            log_error "eCapture exited during initialization (elapsed=$((now - started))ms, exit=$status)"
-            dump_capture_diagnostics
-            CAPTURE_PID=""
-            return 1
-        fi
-        ((now < deadline)) || break
-        if grep -Eiq 'probe started successfully' "${CAPTURE_STDIO[@]}" "${CAPTURE_OUTPUTS[@]}" 2>/dev/null; then
-            log_info "Capture started (elapsed=$((now - started))ms)"
-            connect_stream_receiver || { dump_capture_diagnostics; return 1; }
-            return 0
-        fi
-        sleep 0.2
-    done
-    log_error "Capture startup marker was not observed (elapsed=$((now - started))ms, timeout=${CAPTURE_START_TIMEOUT_SECONDS}s)"
-    dump_capture_diagnostics
-    return 1
-}
-
 start_capture() {
     local log_file="$1"
     shift
 
-    validate_capture_timeouts || return 1
     prepare_capture_outputs "$@" || return 1
     CAPTURE_LOG_FILE="$log_file"
-    CAPTURE_STDIO=("$log_file")
     : >"$log_file"
     log_info "Starting: $ECAPTURE_BINARY $*"
     "$ECAPTURE_BINARY" "$@" >"$log_file" 2>&1 &
     CAPTURE_PID=$!
-    if ! wait_for_capture_start; then
-        stop_capture || true
-        return 1
-    fi
+
+    local attempt
+    # Allow 30 seconds for probe initialization on slower native runners.
+    for attempt in $(seq 1 150); do
+        if ! kill -0 "$CAPTURE_PID" 2>/dev/null; then
+            wait "$CAPTURE_PID" 2>/dev/null || true
+            log_error "eCapture exited during initialization"
+            tail -n 100 "$log_file" >&2 || true
+            CAPTURE_PID=""
+            return 1
+        fi
+        if grep -Eiq 'probe started successfully' "$log_file" "${CAPTURE_OUTPUTS[@]}" 2>/dev/null; then
+            if connect_stream_receiver; then
+                return 0
+            fi
+            stop_capture || true
+            return 1
+        fi
+        sleep 0.2
+    done
+
+    log_error "Capture startup marker was not observed"
+    stop_capture || true
+    return 1
 }
 
 start_capture_split() {
@@ -490,9 +360,7 @@ start_capture_split() {
     local stderr_file="$2"
     shift 2
 
-    validate_capture_timeouts || return 1
     prepare_capture_outputs "$@" || return 1
-    CAPTURE_STDIO=("$stdout_file" "$stderr_file")
     CAPTURE_LOG_FILE="$stderr_file"
     [[ "$stdout_file" == *.console ]] && CAPTURE_CONSOLES+=("$stdout_file")
     if [[ "$stderr_file" == *.console ]]; then
@@ -505,10 +373,28 @@ start_capture_split() {
     "$ECAPTURE_BINARY" "$@" >"$stdout_file" 2>"$stderr_file" &
     CAPTURE_PID=$!
 
-    if ! wait_for_capture_start; then
-        stop_capture || true
-        return 1
-    fi
+    local attempt
+    # Match the startup budget used by start_capture.
+    for attempt in $(seq 1 150); do
+        if ! kill -0 "$CAPTURE_PID" 2>/dev/null; then
+            wait "$CAPTURE_PID" 2>/dev/null || true
+            log_error "eCapture exited during initialization"
+            tail -n 100 "$stderr_file" >&2 || true
+            CAPTURE_PID=""
+            return 1
+        fi
+        if grep -Eiq 'probe started successfully' "$stderr_file" "$stdout_file" "${CAPTURE_OUTPUTS[@]}" 2>/dev/null; then
+            if connect_stream_receiver; then
+                return 0
+            fi
+            stop_capture || true
+            return 1
+        fi
+        sleep 0.2
+    done
+    log_error "Capture startup marker was not observed"
+    stop_capture || true
+    return 1
 }
 
 stop_capture() {
@@ -516,24 +402,20 @@ stop_capture() {
     if [[ -z "$CAPTURE_PID" ]]; then
         return 0
     fi
-    validate_capture_timeouts || return 1
-    local started now deadline
-    started="$(capture_time_ms)"
-    deadline=$((started + CAPTURE_STOP_TIMEOUT_SECONDS * 1000))
 
     if kill -0 "$CAPTURE_PID" 2>/dev/null; then
         kill "-$signal" "$CAPTURE_PID" 2>/dev/null || true
-        while kill -0 "$CAPTURE_PID" 2>/dev/null; do
-            now="$(capture_time_ms)"
-            ((now < deadline)) || break
+        local attempt
+        # Allow 15 seconds, including the SDK's five-second drain.
+        for attempt in $(seq 1 150); do
+            if ! kill -0 "$CAPTURE_PID" 2>/dev/null; then
+                break
+            fi
             sleep 0.1
         done
     fi
     if kill -0 "$CAPTURE_PID" 2>/dev/null; then
         forced=1
-        now="$(capture_time_ms)"
-        log_error "Capture shutdown timed out (elapsed=$((now - started))ms, timeout=${CAPTURE_STOP_TIMEOUT_SECONDS}s)"
-        dump_capture_diagnostics
         kill -TERM "$CAPTURE_PID" 2>/dev/null || true
         sleep 0.5
     fi
@@ -542,14 +424,11 @@ stop_capture() {
     fi
     local status=0
     wait "$CAPTURE_PID" 2>/dev/null || status=$?
-    now="$(capture_time_ms)"
+    CAPTURE_PID=""
     if ((status != 0 || forced != 0)); then
-        log_error "Capture did not stop cleanly after SIG$signal (elapsed=$((now - started))ms, exit=$status, forced=$forced)"
-        ((forced != 0)) || dump_capture_diagnostics
-        CAPTURE_PID=""
+        log_error "Capture did not stop cleanly after SIG$signal (exit=$status, forced=$forced)"
         return 1
     fi
-    CAPTURE_PID=""
     refresh_capture_outputs || return 1
     if ((${#CAPTURE_OUTPUTS[@]} > 0)); then
         # Explicit output replaces terminal logging. Preserve the untouched stdio
