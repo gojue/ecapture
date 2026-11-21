@@ -1,14 +1,43 @@
-# Unreleased
+# v2.12.0 (2026-11-21)
 
-## Breaking changes
+## Breaking Changes / Migration
 
-* Replace the old output CLI with `--config-listen`, repeatable `--output`, and `--stream-listen`. Remove `--listen`, `--eventaddr`, `--logaddr`/`-l`, `--ecaptureq`, and event rotation flags without aliases. Explicit output destinations replace the default `stdout`; stdout/stderr render labeled text, and local files/TCP use JSON Lines. Startup scripts and receivers must migrate together.
-* Apply the new output contract to core TLS (OpenSSL/BoringSSL), GoTLS and GnuTLS in text, keylog and pcapng modes. Text files contain both operational logs and events; keylog/pcapng output files contain operational logs only. Native modes require explicit `--keylogfile` or `--pcapfile` paths, separate from JSON files. Text-mode native artifacts remain optional.
-* Publish Protobuf v2 only, with canonical module names, typed TEXT/KEYLOG/PCAPNG oneof content and actual encoded native bytes. WebSocket subscriptions require `ecapture.v2`; v1 decoders must upgrade. Preserve TEXT process/argv/network/TLS metadata and concatenate native bytes after decoding the record envelope.
-* Bound network output connections to one capture generation. Reload closes/drains old connections; receivers reconnect into new native files. Late pcapng subscribers receive fresh headers and future packets/secrets only. Interrupted captures stay partial; TCP EOF alone is not a success marker.
-* Reject old routing fields and new process-lifetime output settings in core HTTP reload requests, including explicit null values. Change endpoints by restarting with new CLI arguments.
+**Upgrade capture commands and receivers together.** eCapture now routes runtime logs and captured events through a repeatable `--output` flag. Files and outgoing TCP connections carry Protobuf v2 JSON Lines. WebSocket subscribers receive binary v2 records. The legacy flags below have been removed without aliases. [#1094](https://github.com/gojue/ecapture/pull/1094)
 
-See the [output migration guide](docs/event-forward-api.md), [v2 protocol](protobuf/PROTOCOLS.md), and [receiver example](examples/ecaptureq_client/README.md).
+| v2.11.0 configuration | v2.12.0 migration |
+| --- | --- |
+| `--eventaddr`, `--logaddr` / `-l` | Repeat `--output` once per destination. With no flag, logs and events go to `stdout`. Explicit destinations replace that default. Use `stdout` or `stderr` for labeled text, and a path, `file:///PATH`, or `tcp://HOST:PORT` for JSON Lines. |
+| `--ecaptureq ws://HOST:PORT/PATH` | Use `--stream-listen ws://HOST:PORT/PATH`. Clients connect to eCapture and must negotiate the `ecapture.v2` subprotocol. Existing v1 clients need a v2 decoder. |
+| Outgoing `ws://` or `wss://` event/log destinations | Migrate the receiver to JSON Lines over TCP, or have it subscribe to `--stream-listen`. |
+| `--listen HOST:PORT` | Use `--config-listen HOST:PORT` for HTTP configuration updates. Both the HTTP and WebSocket listeners are disabled by default. |
+| `--eventroratesize`, `--eventroratetime` | Remove these flags from startup scripts. File rotation has no CLI replacement. |
+| `-m keylog` or `-m pcapng` with an implicit filename or redirected stdout | Specify a local `--keylogfile PATH` or `--pcapfile PATH` for the corresponding mode. Keep it separate from any `--output` file. |
+
+For `tls` (OpenSSL/BoringSSL), `gotls`, and `gnutls`, the default `--model text --text-source pcapng` writes decoded messages and runtime logs to the selected outputs. In this mode, `--pcapfile` and `--keylogfile` can optionally save the packets and secrets used for decryption. In keylog and pcapng modes, an `--output` file receives only runtime logs.
+
+```shell
+# Keep decoded text on the terminal and also save structured records.
+sudo ecapture tls --model text --text-source pcapng --output stdout --output capture.jsonl
+
+# Save packets and TLS secrets for Wireshark, with runtime logs in a separate file.
+sudo ecapture tls --model pcapng --pcapfile capture.pcapng --output runtime.jsonl
+```
+
+## Receivers and runtime updates
+
+* V2 `TEXT` events carry formatted output and available process, network, and TLS metadata. To reconstruct a key log or pcapng file over TCP or WebSocket, decode each `EVENT` and append its `keylog.data` or `pcapng.data` bytes in order. The former Go server package `pkg/ecaptureq` moved under `internal/`. Go receivers can use the public `protobuf/gen/v2` message types. [Protocol reference](protobuf/PROTOCOLS.md) · [Receiver example](examples/ecaptureq_client/README.md) · [#1096](https://github.com/gojue/ecapture/pull/1096)
+* Reload appends to the collector's local capture files and ends the current network connections. TCP output reconnects, while WebSocket clients must resubscribe. Use a fresh receiver file for each connection. A late pcapng subscriber receives new section headers and future packets and secrets only. Keep interrupted files partial, since TCP EOF alone cannot confirm completion. [Output migration guide](docs/event-forward-api.md)
+* The core HTTP reload API rejects legacy routing fields and process-lifetime output settings, including explicit `null`. Restart eCapture to change destinations or listener addresses. [HTTP configuration guide](docs/remote-config-update-api.md)
+* A new subscriber receives a `collector_info` snapshot before recent logs and live events. It identifies the collector host, build, active module, capture mode, text source, and configured destinations. [#1095](https://github.com/gojue/ecapture/pull/1095)
+
+## CLI help and fixes
+
+* Command help now shows aliases and examples and explains units, defaults, and mode-specific file requirements. Both `ecapture tls --help` and `ecapture help tls` work as a regular user. [#1097](https://github.com/gojue/ecapture/pull/1097)
+* Fixed a case where a disabled debug diagnostic could suppress the next TLS decryption warning at the default log level. [#1096](https://github.com/gojue/ecapture/pull/1096)
+
+[Changes since v2.11.0](https://github.com/gojue/ecapture/compare/v2.11.0...449ae3c83b49d2d85a4f880fe273f9e50055f963)
+
+<hr>
 
 # v2.11.0 (2026-11-14)
 
