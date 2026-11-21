@@ -193,6 +193,79 @@ func TestOperationalHistoryIsBoundedAndExcludesEvents(t *testing.T) {
 	}
 }
 
+func TestCollectorInfoSurvivesLogRotationAndReplaysCurrentSnapshot(t *testing.T) {
+	server := NewServer("127.0.0.1:0", io.Discard)
+	t.Cleanup(func() { _ = server.Close() })
+	publish := func(message string) {
+		t.Helper()
+		if err := server.PublishLog(context.Background(), domain.OperationalLogRecord{Message: message}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	publish(`{"event":"collector_info","schemaVersion":1,"collector":{"module":"gotls","mode":"text"}}`)
+	for i := 0; i < LogBuffLen+10; i++ {
+		publish(fmt.Sprintf("log-%d", i))
+	}
+	current := `{"event":"collector_info","schemaVersion":1,"collector":{"module":"gotls","mode":"keylog"}}`
+	publish(current)
+	if err := server.PublishEvent(context.Background(), domain.CapturedEventEnvelope{Format: domain.CaptureFormatKeylog, Payload: []byte("secret\n")}); err != nil {
+		t.Fatal(err)
+	}
+	for attempt := 0; attempt < 2; attempt++ {
+		client := newQueueClient(server, LogBuffLen+2)
+		if err := server.hub.registerClient(context.Background(), client); err != nil {
+			t.Fatal(err)
+		}
+		data := <-client.send
+		entry := decodeEntry(t, data)
+		if entry.GetModule() != "gotls" || entry.GetLogType() != pb.LogType_LOG_TYPE_PROCESS_LOG || entry.GetRunLog() != current {
+			t.Fatalf("metadata was not first/current: %v", entry)
+		}
+		// A subscriber must not own the retained backing slice.
+		data[0] ^= 0xff
+		for i := 0; i < LogBuffLen; i++ {
+			if entry := decodeEntry(t, <-client.send); entry.GetRunLog() != fmt.Sprintf("log-%d", i+10) {
+				t.Fatal("unexpected replay", entry)
+			}
+		}
+		if len(client.send) != 0 {
+			t.Fatal("retained history replayed captured data or stale metadata")
+		}
+		server.hub.unregisterClient(client)
+	}
+}
+
+func TestCollectorInfoPrecedesLiveEvents(t *testing.T) {
+	server, addr := startServer(t, domain.CaptureFormatText, "/")
+	metadata := `{"event":"collector_info","schemaVersion":1,"collector":{"module":"tls","version":"test"}}`
+	if err := server.PublishLog(context.Background(), domain.OperationalLogRecord{Message: metadata}); err != nil {
+		t.Fatal(err)
+	}
+	conn := dialSubscriber(t, addr, "/")
+	if err := server.PublishEvent(context.Background(), domain.CapturedEventEnvelope{Format: domain.CaptureFormatText, Payload: []byte("live")}); err != nil {
+		t.Fatal(err)
+	}
+	if got := receiveEntry(t, conn); got.GetRunLog() != metadata {
+		t.Fatalf("metadata missing before live event: %v", got)
+	}
+	if got := receiveEntry(t, conn); string(got.GetEventPayload().GetText().GetPayload()) != "live" {
+		t.Fatal(got)
+	}
+}
+
+func TestCollectorInfoMarkerIsBoundedAndExplicit(t *testing.T) {
+	for _, message := range []string{
+		`{"message":"collector_info","collector":{}}`,
+		`{"event":"collector_info","schemaVersion":2,"collector":{}}`,
+		`{"event":"collector_info","schemaVersion":1,"collector":null}`,
+		`{"event":"collector_info","schemaVersion":1,"collector":{}}` + strings.Repeat(" ", 256<<10),
+	} {
+		if _, ok := collectorInfoModule(message); ok {
+			t.Fatal("invalid metadata retained")
+		}
+	}
+}
+
 func TestBackpressureIsObservable(t *testing.T) {
 	server := NewServer("127.0.0.1:0", io.Discard)
 	t.Cleanup(func() { _ = server.Close() })

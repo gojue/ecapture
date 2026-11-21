@@ -51,7 +51,7 @@ define gobuild
 	CGO_LDFLAGS='-O2 -g -L$(CURDIR)/$(LIBPCAP_BUILD_DIR) -lpcap $(CGO_LINK_FLAGS)' \
 	GOOS=linux GOARCH=$(GOARCH) CC=$(CMD_CC_PREFIX)$(CMD_CC) CXX=$(CMD_CXX) \
 	AR=$(CMD_AR_PREFIX)$(CMD_AR) RANLIB=$(CMD_RANLIB) NM=$(CMD_NM) \
-	$(CMD_GO) build -trimpath -buildmode=pie -mod=readonly -tags '$(TARGET_TAG),netgo,ebpfassets,dynamic' -ldflags "-w -s -X 'github.com/gojue/ecapture/v2/cli/cmd.GitVersion=$(TARGET_TAG)_$(GOARCH):$(VERSION_NUM):$(VERSION_FLAG)' -X 'github.com/gojue/ecapture/v2/internal/config.ByteCodeFiles=$(2)' -linkmode=external -extld=$(CMD_CC_PREFIX)$(CMD_CC) -extldflags '$(GO_EXTLDFLAGS)'" -o $(OUT_BIN) || exit 1
+	$(CMD_GO) build -trimpath -buildmode=pie -mod=readonly -tags '$(TARGET_TAG),netgo,ebpfassets,dynamic' -ldflags "-w -s -X 'github.com/gojue/ecapture/v2/cli/cmd.GitVersion=$(TARGET_TAG)_$(GOARCH):$(VERSION_NUM):$(VERSION_FLAG)' -X 'github.com/gojue/ecapture/v2/cli/cmd.BuildTime=$(BUILD_TIME)' -X 'github.com/gojue/ecapture/v2/cli/cmd.BuildCommit=$(BUILD_COMMIT)' -X 'github.com/gojue/ecapture/v2/internal/config.ByteCodeFiles=$(2)' -linkmode=external -extld=$(CMD_CC_PREFIX)$(CMD_CC) -extldflags '$(GO_EXTLDFLAGS)'" -o $(OUT_BIN) || exit 1
 	# Verify the static PIE contract before copying or packaging any target.
 	elf_header=$$($(CMD_READELF) -h $(OUT_BIN)) || exit 1
 	program_headers=$$($(CMD_READELF) -l $(OUT_BIN)) || exit 1
