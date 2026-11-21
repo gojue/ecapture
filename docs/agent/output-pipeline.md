@@ -11,7 +11,8 @@ OperationalLogRecord -----------------------------+-> output terminals/JSON
                                                   +-> stream PROCESS_LOG
 core text: packets -> pcapng -> SDK -> TextEvent ---+-> output terminals/JSON
                                                   +-> stream TEXT
-native: keylog/pcapng encoder -> native artifact ---+-> output terminal summary
+native: keylog/pcapng encoder ---------------------+-> native artifact
+                                                  +-> terminal NSS lines (keylog mode)
                                                   +-> network native EVENT
 pcapng packets/secrets -> subscriber encoder ------+-> stream PCAPNG
 ```
@@ -87,7 +88,7 @@ mode-dependent default when `text_source` is omitted or empty; keylog/pcapng mod
 | text (hook) | labelled formatted text | logs + TEXT | logs + TEXT |
 | text (pcapng source) | labelled SDK-decoded text | logs + TEXT | logs + TEXT |
 | keylog | logs + labelled NSS records | logs only | logs + encoded NSS bytes |
-| pcapng | logs + encoded-byte summaries | logs only | logs + encoded pcapng bytes |
+| pcapng | logs only | logs only | logs + encoded pcapng bytes |
 
 `-m text --text-source=pcapng` uses the same packet and keylog dispatcher records as pcapng, but
 passes their pcapng encoding through a pipe to `ecapture_decryptor`. The SDK

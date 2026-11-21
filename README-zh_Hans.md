@@ -147,7 +147,8 @@ OpenSSL 模块支持三种输出模式：
 - `text`：默认使用 `pcapng` 数据源，实时解密 pcapng 与 DSB，输出完整 HTTP/1.1 与 HTTP/2 请求和响应，自动选择抓包网卡，也可通过 `-i eth0` 手动指定。手动指定 `--text-source=hook` 可通过函数 hook 抓取明文，无需指定网卡。
 
 对 OpenSSL、GoTLS 和 GnuTLS，重复 `--output` 可配置多个目的端，默认 stdout，显式配置
-会替换默认值。stdout/stderr 输出带 `log_type`、`module` 字段的可读文本；本地文件和
+会替换默认值。stdout/stderr 输出带 `log_type`、`module` 字段的可读文本。
+在 `-m pcapng` 模式下，终端仅显示运行日志。本地文件和
 `tcp://host:port` 输出 Protobuf v2 JSON Lines。text 模式包含运行日志与捕获事件；
 keylog/pcapng 模式的 **output 文件仅包含运行日志**，TCP 仍包含两类记录。
 原生文件通过 `--keylogfile`/`--pcapfile` 指定，相应模式必须显式提供文件名，不再创建默认文件。

@@ -380,7 +380,7 @@ case_pcapng_stdout() {
     assert_no_capture_errors "$capture_log" || return 1
     assert_output_isolation "$operational_log" "$pcap_file" "$E2E_TOKEN" || return 1
     assert_pcapng "$pcap_file" || return 1
-    assert_file_contains "$pcap_file.terminal.console" "[log_type=event capture_format=pcapng module=gnutls]" "terminal pcapng classification" || return 1
+    assert_pcapng_terminal_logs "$pcap_file.terminal.console" gnutls || return 1
     assert_pcapng_plaintext_preview "$pcap_file" "$E2E_TOKEN" "linux/gnutls/pcapng-stdout"
 }
 

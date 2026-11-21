@@ -212,6 +212,7 @@ case_pcapng() {
     stop_android_capture
 
     pull_capture_log "$device_log" "$local_log" || return 1
+    assert_pcapng_terminal_logs "$local_log" tls || return 1
     adb_pull "$device_pcap" "$local_pcap" || return 1
     assert_android_pcapng "$local_pcap" || return 1
     assert_pcapng_plaintext_preview \

@@ -19,13 +19,13 @@ TLS（OpenSSL/BoringSSL）、GoTLS、GnuTLS 共用三个启动入口：
 
 | 目的端 | 连接方向 | text | keylog / pcapng |
 | --- | --- | --- | --- |
-| `stdout` / `stderr` | 写终端 | 可读运行日志及文本事件 | 可读运行日志及原生事件表示 |
+| `stdout` / `stderr` | 写终端 | 可读运行日志及文本事件 | pcapng 模式仅显示运行日志，keylog 模式还显示带标签的 NSS 密钥记录 |
 | 本地路径 / `file:///PATH` | 写本地文件 | JSON Lines：`PROCESS_LOG` 与 `EVENT` | JSON Lines：仅 `PROCESS_LOG` |
 | `tcp://HOST:PORT` | 主动连接接收端 | JSON Lines：运行日志与 TEXT 事件 | JSON Lines：运行日志与 KEYLOG/PCAPNG 原生事件 |
 | `--stream-listen ws://…` | 客户端连接 eCapture | Protobuf v2 二进制记录 | 含 KEYLOG/PCAPNG 原生字节的 Protobuf v2 |
 
 每行终端文本包含 `log_type=log` 或 `log_type=event`、`module`；事件行另含
-`capture_format`。pcapng 在终端表示为编码字节数摘要。JSON 和 Protobuf 共用 LogEntry，
+`capture_format`。JSON 和 Protobuf 共用 LogEntry，
 以 `log_type` 区分日志/事件，再用 `event_payload.capture_format` 判断事件内容。
 JSON 文件不等于 pcapng；原生文件必须单独指定。
 

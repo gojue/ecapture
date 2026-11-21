@@ -62,9 +62,8 @@ sudo ecapture tls --model pcapng -i eth0 --pcapfile capture.pcapng \
 ```
 
 `capture.pcapng` is a binary pcapng file containing captured network packets and
-embedded TLS Decryption Secrets Blocks (DSBs). `runtime.jsonl` contains runtime
-logs only. The terminal shows logs and labelled encoded-byte summaries, not
-raw packet bytes. After generating traffic and stopping eCapture, open the
+embedded TLS Decryption Secrets Blocks (DSBs). The terminal and `runtime.jsonl`
+show only operational logs. After generating traffic and stopping eCapture, open the
 pcapng in Wireshark. For a strict decryption check, follow the
 [embedded-secret verification steps](../README.md#live-decryption-for-text-output)
 in the README; a non-empty file alone does not prove successful capture or

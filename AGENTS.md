@@ -142,8 +142,9 @@ package ownership.
   independently enables HTTP configuration updates. There are no old CLI aliases.
 - Core text events carry the SDK's formatted decoded output. Native `keylog`
   and `pcapng` require explicit local `--keylogfile`/`--pcapfile`; output files
-  receive only runtime logs in these modes. Network records carry encoded
-  NSS/pcapng bytes. Late pcapng subscribers receive an independent section with
+  receive only runtime logs in these modes. Terminals show only runtime logs in
+  native pcapng mode. Network records carry encoded NSS/pcapng bytes.
+  Late pcapng subscribers receive an independent section with
   headers and future packets/secrets, without historical replay.
 - Runtime outputs are borrowed and reattached on reload. Each generation ends
   its network connections; raw local artifacts append new sections on reload

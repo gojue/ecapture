@@ -20,15 +20,14 @@ without aliases. `console`, outgoing WS/WSS and `listen+ws://` are not supported
 
 | Destination | Connection direction | text | keylog / pcapng |
 | --- | --- | --- | --- |
-| `stdout` / `stderr` | Terminal | Readable operational logs and text events | Readable operational logs and native event representation |
+| `stdout` / `stderr` | Terminal | Readable operational logs and text events | Pcapng shows only operational logs. Keylog also shows labelled NSS records. |
 | Local path / `file:///PATH` | Write local file | JSON Lines: `PROCESS_LOG` and `EVENT` | JSON Lines: `PROCESS_LOG` only |
 | `tcp://HOST:PORT` | Actively connect to receiver | JSON Lines: `PROCESS_LOG` and TEXT `EVENT` | JSON Lines: `PROCESS_LOG` and native KEYLOG/PCAPNG `EVENT` |
 | `--stream-listen ws://…` | Clients connect to eCapture | Binary Protobuf v2 records | Binary Protobuf v2 with native KEYLOG/PCAPNG bytes |
 
 Each terminal line has `log_type=log` or `log_type=event`, plus `module`; event
-lines also have `capture_format`. Pcapng is represented as a byte-count summary
-on terminals. JSON uses the same `LogEntry` schema as Protobuf, with `log_type`
-separating records and `event_payload.capture_format` selecting event content.
+lines also have `capture_format`. JSON uses the same `LogEntry` schema as Protobuf,
+with `log_type` separating records and `event_payload.capture_format` selecting event content.
 There is no raw JSON-file-to-pcapng redirection: save native files explicitly.
 
 | Capture mode (`--model`, `-m`) | Native file requirement |
