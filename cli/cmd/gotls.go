@@ -26,34 +26,30 @@ import (
 
 var gotlsConfig = gotlsProbe.NewConfig()
 
-// gotlsCmd represents the gotls command
+// gotlsCmd represents the gotls command.
 var gotlsCmd = &cobra.Command{
-	Use:     "gotls",
+	Use:     "gotls --elfpath <executable> [flags] [pcap filter expression]",
 	Aliases: []string{"tlsgo"},
-	Short:   "Capturing plaintext communication from Golang programs encrypted with TLS/HTTPS.",
-	Long: `Utilize eBPF uprobe/TC to capture both process event and network data, with added support for pcap-NG format.
-ecapture gotls --elfpath=/path/to/go/binary -m text --text-source pcapng
-ecapture gotls --elfpath=/path/to/go/binary -m text --text-source pcapng --output stdout --output capture.jsonl --pid=3423
-ecapture gotls --elfpath=/path/to/go/binary -m keylog --keylogfile save.keys --output runtime.jsonl --pid=3423
-ecapture gotls --elfpath=/path/to/go/binary -m pcapng --pcapfile save.pcapng -i eth0 tcp port 443
-`,
-	Example: `  # userland perf reorder (flag name uses hyphens, not underscores)
-  ecapture gotls --elfpath=/path/to/go/binary --btf=1 --debug --perf-reorder -m text --text-source pcapng
-  ecapture gotls -e /path/to/go/binary --perf-reorder --perf-reorder-lag-ms=20 -m text --text-source pcapng`,
+	Short:   "Capture TLS traffic from Go programs that use crypto/tls",
+	Long:    tlsCaptureHelp,
+	Example: `ecapture gotls --elfpath ./server --model text --text-source pcapng
+ecapture gotls --elfpath ./server --model text --text-source pcapng -i lo 'tcp port 8443'
+ecapture gotls --elfpath ./server --model keylog --keylogfile capture.keys
+ecapture gotls --elfpath ./server --model pcapng --pcapfile capture.pcapng -i eth0`,
 	RunE: goTLSCommandFunc,
 }
 
 func init() {
-	gotlsCmd.PersistentFlags().StringVarP(&gotlsConfig.ElfPath, "elfpath", "e", "", "ELF path to binary built with Go toolchain.")
-	gotlsCmd.PersistentFlags().BoolVar(&globalConf.PerfReorder, "perf-reorder", false, "enable userland reorder of per-CPU perf events by bpf ktime before dispatch (see also: tls, mysqld, postgres)")
-	gotlsCmd.PersistentFlags().UintVar(&globalConf.PerfReorderLagMs, "perf-reorder-lag-ms", 10, "reorder batching window in milliseconds (only with --perf-reorder; default 10)")
-	gotlsCmd.PersistentFlags().StringVarP(&gotlsConfig.PcapFile, "pcapfile", "w", "", "local pcapng file; required in pcapng mode, optional with text-source pcapng")
-	gotlsCmd.PersistentFlags().StringVarP(&gotlsConfig.CaptureMode, "model", "m", "text", "capture mode: text, pcap/pcapng, key/keylog")
-	gotlsCmd.PersistentFlags().StringVar(&gotlsConfig.TextSource, "text-source", handlers.TextSourcePcapng, "text capture source: pcapng (live TLS decryption) or hook")
+	gotlsCmd.PersistentFlags().StringVarP(&gotlsConfig.ElfPath, "elfpath", "e", "", "Path to the Go ELF executable to trace (required)")
+	gotlsCmd.PersistentFlags().BoolVar(&globalConf.PerfReorder, "perf-reorder", false, perfReorderHelp)
+	gotlsCmd.PersistentFlags().UintVar(&globalConf.PerfReorderLagMs, "perf-reorder-lag-ms", 10, perfReorderLagHelp)
+	gotlsCmd.PersistentFlags().StringVarP(&gotlsConfig.PcapFile, "pcapfile", "w", "", tlsPcapFileHelp)
+	gotlsCmd.PersistentFlags().StringVarP(&gotlsConfig.CaptureMode, "model", "m", "text", tlsModeHelp)
+	gotlsCmd.PersistentFlags().StringVar(&gotlsConfig.TextSource, "text-source", handlers.TextSourcePcapng, tlsTextSourceHelp)
 	bindDecryptFlags(gotlsCmd, &gotlsConfig.DecryptConfig)
-	gotlsCmd.PersistentFlags().StringVarP(&gotlsConfig.KeylogFile, "keylogfile", "k", "", "local NSS keylog file; required in keylog mode, optional with text-source pcapng")
-	gotlsCmd.PersistentFlags().StringVarP(&gotlsConfig.Ifname, "ifname", "i", "", "capture interface; automatically selected from default routes, then traffic counters, when omitted")
-	gotlsCmd.PersistentFlags().StringVar(&globalConf.CGroupPath, "cgroup_path", "", "cgroup v2 path for container/process filtering. Empty disables cgroup filtering.")
+	gotlsCmd.PersistentFlags().StringVarP(&gotlsConfig.KeylogFile, "keylogfile", "k", "", tlsKeylogFileHelp)
+	gotlsCmd.PersistentFlags().StringVarP(&gotlsConfig.Ifname, "ifname", "i", "", tlsIfnameHelp)
+	gotlsCmd.PersistentFlags().StringVar(&globalConf.CGroupPath, "cgroup_path", "", tlsCgroupHelp)
 	rootCmd.AddCommand(gotlsCmd)
 }
 

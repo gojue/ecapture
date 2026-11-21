@@ -29,35 +29,29 @@ import (
 
 var gnutlsConfig = gnutlsProbe.NewConfig()
 
-// gnutlsCmd represents the gnutls command
-// Now available on both Linux and Android (via Termux: pkg install gnutls)
+// gnutlsCmd represents the gnutls command.
 var gnutlsCmd = &cobra.Command{
-	Use:     "gnutls",
+	Use:     "gnutls [flags] [pcap filter expression]",
 	Aliases: []string{"gnu"},
-	Short:   "capture gnutls text content without CA cert for gnutls libraries.",
-	Long: `use eBPF uprobe/TC to capture process event data.
-ecapture gnutls -m text --text-source pcapng
-ecapture gnutls -m text --text-source pcapng --output stdout --output capture.jsonl --pid=3423
-ecapture gnutls -m text --text-source pcapng --gnutls=/lib/x86_64-linux-gnu/libgnutls.so
-ecapture gnutls -m keylog -k ecapture_gnutls_key.log --ssl_version=3.7.9
-ecapture gnutls -m pcapng --pcapfile save.pcapng -i eth0 --gnutls=/lib/x86_64-linux-gnu/libgnutls.so tcp port 443
-
-Android (Termux):
-ecapture gnutls --gnutls=/data/data/com.termux/files/usr/lib/libgnutls.so
-`,
+	Short:   "Capture TLS traffic from applications that use GnuTLS",
+	Long:    tlsCaptureHelp,
+	Example: `ecapture gnutls --model text --text-source pcapng
+ecapture gnutls --model text --text-source pcapng --gnutls /usr/lib/x86_64-linux-gnu/libgnutls.so.30
+ecapture gnutls --model keylog --keylogfile capture.keys
+ecapture gnutls --model pcapng --pcapfile capture.pcapng -i eth0 'tcp port 443'`,
 	RunE: gnuTlsCommandFunc,
 }
 
 func init() {
-	gnutlsCmd.PersistentFlags().StringVar(&gnutlsConfig.GnutlsPath, "gnutls", "", "libgnutls.so file path, will automatically find it from curl default.")
-	gnutlsCmd.PersistentFlags().StringVarP(&gnutlsConfig.CaptureMode, "model", "m", "text", "capture mode: text, pcap/pcapng, key/keylog")
-	gnutlsCmd.PersistentFlags().StringVar(&gnutlsConfig.TextSource, "text-source", handlers.TextSourcePcapng, "text capture source: pcapng (live TLS decryption) or hook")
+	gnutlsCmd.PersistentFlags().StringVar(&gnutlsConfig.GnutlsPath, "gnutls", "", "Path to the GnuTLS shared library (searches standard library paths if omitted)")
+	gnutlsCmd.PersistentFlags().StringVarP(&gnutlsConfig.CaptureMode, "model", "m", "text", tlsModeHelp)
+	gnutlsCmd.PersistentFlags().StringVar(&gnutlsConfig.TextSource, "text-source", handlers.TextSourcePcapng, tlsTextSourceHelp)
 	bindDecryptFlags(gnutlsCmd, &gnutlsConfig.DecryptConfig)
-	gnutlsCmd.PersistentFlags().StringVarP(&gnutlsConfig.KeylogFile, "keylogfile", "k", "", "local NSS keylog file; required in keylog mode, optional with text-source pcapng")
-	gnutlsCmd.PersistentFlags().StringVarP(&gnutlsConfig.PcapFile, "pcapfile", "w", "", "local pcapng file; required in pcapng mode, optional with text-source pcapng")
-	gnutlsCmd.PersistentFlags().StringVarP(&gnutlsConfig.Ifname, "ifname", "i", "", "capture interface; automatically selected from default routes, then traffic counters, when omitted")
-	gnutlsCmd.PersistentFlags().StringVar(&gnutlsConfig.GnuVersion, "ssl_version", "", "GnuTLS version, e.g: --ssl_version=\"3.7.9\"")
-	gnutlsCmd.PersistentFlags().StringVar(&globalConf.CGroupPath, "cgroup_path", "", "cgroup v2 path for container/process filtering. Empty disables cgroup filtering.")
+	gnutlsCmd.PersistentFlags().StringVarP(&gnutlsConfig.KeylogFile, "keylogfile", "k", "", tlsKeylogFileHelp)
+	gnutlsCmd.PersistentFlags().StringVarP(&gnutlsConfig.PcapFile, "pcapfile", "w", "", tlsPcapFileHelp)
+	gnutlsCmd.PersistentFlags().StringVarP(&gnutlsConfig.Ifname, "ifname", "i", "", tlsIfnameHelp)
+	gnutlsCmd.PersistentFlags().StringVar(&gnutlsConfig.GnuVersion, "ssl_version", "", "Override the detected GnuTLS patch version (for example, 3.7.9)")
+	gnutlsCmd.PersistentFlags().StringVar(&globalConf.CGroupPath, "cgroup_path", "", tlsCgroupHelp)
 	rootCmd.AddCommand(gnutlsCmd)
 }
 

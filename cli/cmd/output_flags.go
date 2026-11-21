@@ -23,14 +23,19 @@ import (
 	"github.com/gojue/ecapture/v2/internal/probe/base/handlers"
 )
 
+const (
+	perfReorderHelp    = "Order timestamped events across CPUs by kernel time, separately for each perf map"
+	perfReorderLagHelp = "Reordering window in `milliseconds` for --perf-reorder. Zero uses the default."
+)
+
 func bindDecryptFlags(command *cobra.Command, cfg *config.DecryptConfig) {
 	flags := command.PersistentFlags()
-	flags.BoolVar(&cfg.TextRaw, "text-raw", false, "emit authenticated TLS/QUIC bytes and datagrams instead of parsed messages (pcapng text source)")
-	flags.StringVar(&cfg.TextProtocol, "text-protocol", "", "application parser: dot, doh, doq, mqtt or redis; empty detects HTTP/WebSocket (pcapng text source)")
-	flags.BoolVar(&cfg.TextHTTPEvents, "text-http-events", false, "emit incremental HTTP, SSE and HTTP/2 gRPC events (pcapng text source)")
-	flags.Int64Var(&cfg.TextMaxDecodedBody, "text-max-decoded-body", 0, "maximum decoded gzip bytes per HTTP message; requires text-http-events, zero keeps encoded bytes")
-	flags.StringVar(&cfg.TextTLSUpgrade, "text-tls-upgrade", "", "TLS negotiation: smtp, imap, pop3, ldap, postgres, mysql, connect or https-connect (pcapng text source)")
-	flags.StringVar(&cfg.TextUDPProtocol, "text-udp-protocol", "", "UDP decryptor: quic (default) or dtls (pcapng text source)")
+	flags.BoolVar(&cfg.TextRaw, "text-raw", false, "Emit decrypted TLS bytes, QUIC stream chunks, and QUIC datagrams without application parsing")
+	flags.StringVar(&cfg.TextProtocol, "text-protocol", "", "Parse the specified application `protocol` (dot, doh, doq, mqtt, or redis). By default, detect HTTP and WebSocket traffic.")
+	flags.BoolVar(&cfg.TextHTTPEvents, "text-http-events", false, "Emit HTTP headers and body chunks as they arrive, including server-sent events and HTTP/2 gRPC messages")
+	flags.Int64Var(&cfg.TextMaxDecodedBody, "text-max-decoded-body", 0, "With --text-http-events, limit gzip expansion to this many `bytes` per HTTP message. Use 0 to keep bodies compressed.")
+	flags.StringVar(&cfg.TextTLSUpgrade, "text-tls-upgrade", "", "Follow a TLS upgrade or proxy `protocol` (smtp, imap, pop3, ldap, postgres, mysql, connect, or https-connect). By default, expect TLS from the start.")
+	flags.StringVar(&cfg.TextUDPProtocol, "text-udp-protocol", "", "Select the UDP `protocol` (quic by default, or dtls for DTLS 1.2)")
 }
 
 func normalizeTLSOutputFlags(command *cobra.Command, mode string, textSource, keylogFile, pcapFile *string) error {

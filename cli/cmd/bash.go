@@ -26,16 +26,15 @@ var bashConfig = bashProbe.NewConfig()
 // bashCmd represents the bash command
 var bashCmd = &cobra.Command{
 	Use:   "bash",
-	Short: "capture bash command",
-	Long: `eCapture capture bash commands for bash security audit, 
-Auto find the bash of the current env as the capture target.`,
-	RunE: bashCommandFunc,
+	Short: "Capture commands entered in interactive Bash sessions",
+	Long:  "Read command lines through Readline and collect their exit statuses from Bash.",
+	RunE:  bashCommandFunc,
 }
 
 func init() {
-	bashCmd.PersistentFlags().StringVar(&bashConfig.Bashpath, "bash", "", "$SHELL file path, eg: /bin/bash , will automatically find it from $ENV default.")
-	bashCmd.PersistentFlags().StringVar(&bashConfig.Readline, "readlineso", "", "readline.so file path, will automatically find it from $BASH_PATH default.")
-	bashCmd.Flags().IntVarP(&bashConfig.ErrNo, "errnumber", "e", 128, "only show the command which exec reulst equals err number.")
+	bashCmd.PersistentFlags().StringVar(&bashConfig.Bashpath, "bash", "", "Path to the Bash executable. Defaults to $SHELL if it points to Bash, otherwise /bin/bash.")
+	bashCmd.PersistentFlags().StringVar(&bashConfig.Readline, "readlineso", "", "Path to the Readline shared library used by Bash. Supply --bash with this option.")
+	bashCmd.Flags().IntVarP(&bashConfig.ErrNo, "errnumber", "e", 128, "Omit command completions with this exit status. Changing this value can cause other statuses to appear as 128.")
 	rootCmd.AddCommand(bashCmd)
 }
 

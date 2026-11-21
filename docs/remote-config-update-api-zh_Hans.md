@@ -28,7 +28,7 @@ sudo ./bin/ecapture tls --model text --text-source pcapng \
 
 服务先构造全新的模块配置并解码、校验，再应用；不是对现有配置做通用 JSON patch。
 省略的普通字段使用 factory 默认值或零值，应重新提供需保留的库/ELF 路径、模式、过滤条件和选项。
-核心 text 模式省略或清空 `text_source` 时为 `pcapng`；省略 `ifname` 时自动选择网卡。
+核心模块在 text 模式下省略或清空 `text_source` 时默认使用 `pcapng`。抓包时省略 `ifname` 会自动选择网卡。
 
 `--output`、`--stream-listen`、`--config-listen` 是进程级启动设置，通过运行时依赖跨重载保留，
 HTTP 不允许修改。请求包含新输出路由字段或旧字段时会被拒绝，包括显式 `null`，
@@ -37,7 +37,8 @@ HTTP 不允许修改。请求包含新输出路由字段或旧字段时会被拒
 `event_rotate_size_mb`、`event_rotate_seconds` 等。
 
 原生 `pcapfile`/`keylogfile` 仍属于各代模块配置。切到 keylog 必须显式提供 keylog 文件，
-切到 pcapng 必须显式提供 pcap 文件；每代使用新的原生文件名，text 模式原生文件可选。
+切到 pcapng 必须显式提供 pcap 文件。要单独保存新一代的采集结果，可使用新文件名。
+text 模式使用 `pcapng` 数据源时，两种文件均可选。
 原生目的端只能是本地文件，且与 JSON output 不同。其他未知 JSON 字段仍可能被忽略，
 不要假设任意拼写都会被校验。
 

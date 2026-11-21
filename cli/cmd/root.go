@@ -45,7 +45,7 @@ import (
 const (
 	CliName        = "eCapture"
 	CliNameZh      = "旁观者"
-	CliDescription = "Capturing SSL/TLS plaintext without a CA certificate using eBPF. Supports Linux amd64/arm64/loong64 and Android amd64/arm64."
+	CliDescription = "Capture TLS plaintext with eBPF on Linux and Android"
 	CliHomepage    = "https://ecapture.cc"
 	CliAuthor      = "CFC4N <cfc4ncs@gmail.com>"
 	CliGithubRepo  = "https://github.com/gojue/ecapture"
@@ -74,31 +74,31 @@ type CLIConfig struct {
 
 var globalConf = CLIConfig{}
 var rootCmd = &cobra.Command{
-	Use:        CliName,
+	Use:        "ecapture [command]",
 	Short:      CliDescription,
 	SuggestFor: []string{"ecapture"},
 
-	Long: `eCapture(旁观者) is a tool that can capture plaintext packets
-such as HTTPS and TLS without installing a CA certificate.
-It can also capture bash commands, which is suitable for
-security auditing scenarios, such as database auditing of mysqld, etc (disabled on Android).
-Support Linux x86_64 4.18+/aarch64 5.5+/LoongArch64 6.6+ and Android x86_64 4.18+/aarch64 5.5+.
-Repository: https://github.com/gojue/ecapture
-HomePage: https://ecapture.cc
+	Long: `eCapture (旁观者) decrypts captured TLS traffic without installing a CA certificate.
+Choose tls for OpenSSL or BoringSSL, gotls for Go's crypto/tls, or gnutls for GnuTLS on Linux.
+These commands display decoded application messages by default. They can also save TLS
+session secrets or write a pcapng file for Wireshark.
 
-Usage:
-  ecapture tls -h
-  ecapture bash -h
+Linux builds also capture NSPR data, shell commands, and SQL queries. Android builds
+include the tls, gotls, and bash commands.
 
-Docker usage:
-docker pull gojue/ecapture:latest
-docker run --rm --privileged=true --net=host -v ${HOST_PATH}:${CONTAINER_PATH} gojue/ecapture -h
-`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	// Run: func(cmd *cobra.Command, args []string) { },
+Minimum kernel versions are 4.18 on x86_64, 5.5 on aarch64, and 6.6 on loongarch64 (Linux only).
+
+Project website: ` + CliHomepage + `
+Source code: ` + CliGithubRepo,
+	Example: `ecapture tls --model text --text-source pcapng
+ecapture gotls --help
+docker run --rm gojue/ecapture:latest tls --help`,
 
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		// Cobra runs this hook for "help <command>" but skips it for --help.
+		if cmd.Name() == "help" {
+			return nil
+		}
 		if _, err := parseOutputEndpoints(globalConf.Outputs); err != nil {
 			return err
 		}
@@ -131,7 +131,7 @@ func Execute() {
 	rootCmd.SetHelpTemplate(`{{.UsageString}}`)
 	rootCmd.CompletionOptions.DisableDefaultCmd = true
 	rootCmd.Version = GitVersion
-	rootCmd.SetVersionTemplate(`{{with .Name}}{{printf "%s " .}}{{end}}{{printf "version:\t%s" .Version}}
+	rootCmd.SetVersionTemplate(CliName + ` {{printf "version:\t%s" .Version}}
 `)
 	rootCmd.SilenceErrors = true
 	err := rootCmd.Execute()
@@ -148,18 +148,16 @@ func init() {
 	if embeddedMode, err := config.EmbeddedByteCodeFileMode(); err == nil {
 		globalConf.ByteCodeFileMode = embeddedMode
 	}
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	rootCmd.PersistentFlags().BoolVarP(&globalConf.Debug, "debug", "d", false, "enable debug logging")
-	rootCmd.PersistentFlags().Uint8VarP(&globalConf.BTFMode, "btf", "b", 0, "enable BTF mode.(0:auto; 1:core; 2:non-core)")
-	rootCmd.PersistentFlags().BoolVar(&globalConf.Hex, "hex", false, "print byte strings as hex encoded strings")
-	rootCmd.PersistentFlags().IntVar(&globalConf.PerCpuMapPages, "mapsize", 1024, "eBPF map size per CPU,for events buffer. default:1024 * PAGESIZE. (KB)")
-	rootCmd.PersistentFlags().Uint64VarP(&globalConf.Pid, "pid", "p", defaultPid, "if pid is 0 then we target all pids")
-	rootCmd.PersistentFlags().Uint64VarP(&globalConf.Uid, "uid", "u", defaultUid, "if uid is 0 then we target all users")
-	rootCmd.PersistentFlags().StringArrayVar(&globalConf.Outputs, "output", nil, "output destination (repeatable): stdout/stderr=text; path/file:// or tcp://=JSON Lines; default: stdout")
-	rootCmd.PersistentFlags().StringVar(&globalConf.ConfigListen, "config-listen", "", "HTTP runtime configuration update listener (host:port); disabled by default")
-	rootCmd.PersistentFlags().StringVar(&globalConf.StreamListen, "stream-listen", "", "Protobuf v2 WebSocket subscription listener (ws://host:port/path); disabled by default; capture does not wait for clients")
-	rootCmd.PersistentFlags().Uint64VarP(&globalConf.TruncateSize, "tsize", "t", defaultTruncateSize, "the truncate size in text mode, default: 0 (B), no truncate")
+	rootCmd.PersistentFlags().BoolVarP(&globalConf.Debug, "debug", "d", false, "Enable debug logging")
+	rootCmd.PersistentFlags().Uint8VarP(&globalConf.BTFMode, "btf", "b", 0, "Select the eBPF bytecode `mode` (0 = automatic, 1 = require CO-RE, 2 = require non-CO-RE)")
+	rootCmd.PersistentFlags().BoolVar(&globalConf.Hex, "hex", false, "Use hexadecimal formatting for hook-based text events that support it")
+	rootCmd.PersistentFlags().IntVar(&globalConf.PerCpuMapPages, "mapsize", 1024, "Size of each CPU's perf event buffer in system `pages`")
+	rootCmd.PersistentFlags().Uint64VarP(&globalConf.Pid, "pid", "p", defaultPid, "Filter probe events by `PID` on kernel 5.2 or later (0 matches all processes)")
+	rootCmd.PersistentFlags().Uint64VarP(&globalConf.Uid, "uid", "u", defaultUid, "Filter probe events by `UID` on kernel 5.2 or later (0 matches all users)")
+	rootCmd.PersistentFlags().StringArrayVar(&globalConf.Outputs, "output", nil, "Repeat for each `destination`. Use stdout (default) or stderr for text, or a file path, file:///path, or tcp://host:port for JSON Lines. In keylog and pcapng modes, output files receive only runtime logs.")
+	rootCmd.PersistentFlags().StringVar(&globalConf.ConfigListen, "config-listen", "", "Listen on `host:port` for HTTP configuration updates (disabled by default)")
+	rootCmd.PersistentFlags().StringVar(&globalConf.StreamListen, "stream-listen", "", "Serve Protobuf v2 subscriptions at `ws://host:port/path` using the ecapture.v2 WebSocket subprotocol (disabled by default)")
+	rootCmd.PersistentFlags().Uint64VarP(&globalConf.TruncateSize, "tsize", "t", defaultTruncateSize, "Text truncation limit in `bytes` (currently unused)")
 	rootCmd.SilenceUsage = true
 }
 

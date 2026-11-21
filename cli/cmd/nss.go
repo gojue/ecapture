@@ -30,19 +30,16 @@ var nsprConfig = nsprProbe.NewConfig()
 var nssCmd = &cobra.Command{
 	Use:     "nspr",
 	Aliases: []string{"nss"},
-	Short:   "capture nss/nspr encrypted text content without CA cert for nss/nspr libraries.",
-	Long: `use eBPF uprobe/TC to capture process event data.
-ecapture nspr
-ecapture nspr --hex --pid=3423
-ecapture nspr -l save.log --pid=3423
-ecapture nspr --nspr=/lib/x86_64-linux-gnu/libnspr44.so
-`,
+	Short:   "Capture data read and written through NSPR",
+	Long:    "Trace PR_Read and PR_Write in the NSPR library to capture application data. This probe requires NSS 3.x.",
+	Example: `ecapture nspr --pid 3423 --output capture.jsonl
+ecapture nspr --nspr /usr/lib/x86_64-linux-gnu/libnspr4.so`,
 	RunE: nssCommandFunc,
 }
 
 func init() {
-	nssCmd.PersistentFlags().StringVar(&nsprConfig.NSPRPath, "nspr", "", "libnspr44.so file path, will automatically find it from curl default.")
-	nssCmd.PersistentFlags().StringVar(&globalConf.CGroupPath, "cgroup_path", "", "cgroup v2 path for container/process filtering. Empty disables cgroup filtering.")
+	nssCmd.PersistentFlags().StringVar(&nsprConfig.NSPRPath, "nspr", "", "Path to the library that exports PR_Read and PR_Write. By default, search standard library directories for libnspr4.so.")
+	nssCmd.PersistentFlags().StringVar(&globalConf.CGroupPath, "cgroup_path", "", "Unused by the NSPR probe. Use --pid or --uid to filter by process or user.")
 	rootCmd.AddCommand(nssCmd)
 }
 

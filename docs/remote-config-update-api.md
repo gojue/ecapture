@@ -32,7 +32,7 @@ The server decodes a **fresh module configuration**, validates it, then applies
 it. This is not a general JSON patch. Omitted common/module fields take factory
 defaults or zero values. Resend library/ELF paths, mode, filters and options you
 need to retain. In core text mode, an omitted/empty `text_source` becomes
-`pcapng`; an omitted `ifname` triggers automatic interface selection.
+`pcapng`. When capturing packets, omit `ifname` to select the interface automatically.
 
 `--output`, `--stream-listen` and `--config-listen` are process-lifetime startup
 settings. They survive reload through runtime dependencies and cannot be changed
@@ -44,8 +44,8 @@ Examples include `output`, `outputs`, `stream_listen`, `config_listen`,
 
 Native `pcapfile`/`keylogfile` module settings remain generation configuration.
 A keylog replacement requires an explicit keylog file, and a pcapng replacement
-requires an explicit pcap file. Use a new native filename for a new generation;
-text-mode artifact files are optional. Native destinations must be local files,
+requires an explicit pcap file. Use a new filename to save a generation separately.
+In text mode with the `pcapng` source, both files are optional. Native destinations must be local files,
 separate from JSON output. Other unknown JSON fields may still be ignored, so
 use documented keys rather than assuming arbitrary field names are validated.
 
