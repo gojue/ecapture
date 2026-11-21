@@ -203,6 +203,20 @@ is not a capture pass. All existing plaintext, keylog, pcapng, reload, and
 output assertions remain mandatory. The text suite also needs tshark because
 it validates the pcapng text source.
 
+`bash test/e2e/linux/capture_lifecycle_test.sh` checks the Linux harness with
+mock capture processes, without root or eBPF. It covers delayed readiness,
+graceful shutdown, early exits, forced termination, and failure diagnostics.
+The harness allows up to 30 seconds for startup and 15 seconds for shutdown;
+`E2E_CAPTURE_START_TIMEOUT_SECONDS` and `E2E_CAPTURE_STOP_TIMEOUT_SECONDS`
+override these limits with integer seconds from 1 through 3600. Shutdown
+includes time for the SDK's five-second drain. Missing readiness, forced
+termination and nonzero exits still fail the case. A failed startup reaps its
+capture process before returning, so the next case cannot lose track of it.
+Startup duration is recorded; failures
+print bounded runtime-log diagnostics from JSON/terminal outputs, excluding
+captured events and unclassified output. Raw artifacts retain the full data
+under the existing retention policy.
+
 Run one module or one mode:
 
 ```bash
