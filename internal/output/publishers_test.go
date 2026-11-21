@@ -30,11 +30,15 @@ func TestConsoleLabelsEveryLineWithoutTerminalControls(t *testing.T) {
 	if err := p.PublishEvent(ctx, domain.CapturedEventEnvelope{Module: "tls", Format: domain.CaptureFormatText, Payload: []byte("HTTP/1.1\n\x1b[2Jbody\n")}); err != nil {
 		t.Fatal(err)
 	}
+	beforePcapng := buf.Len()
 	if err := p.PublishEvent(ctx, domain.CapturedEventEnvelope{Module: "tls", Format: domain.CaptureFormatPcapng, Payload: []byte{0, 1, 2}}); err != nil {
 		t.Fatal(err)
 	}
+	if buf.Len() != beforePcapng {
+		t.Fatalf("pcapng event wrote %d bytes to the console", buf.Len()-beforePcapng)
+	}
 	lines := strings.Split(strings.TrimSuffix(buf.String(), "\n"), "\n")
-	if len(lines) != 5 {
+	if len(lines) != 4 {
 		t.Fatalf("physical lines = %d", len(lines))
 	}
 	for i, line := range lines {
@@ -46,7 +50,7 @@ func TestConsoleLabelsEveryLineWithoutTerminalControls(t *testing.T) {
 			t.Fatalf("unclassified line: %q", line)
 		}
 	}
-	if strings.ContainsRune(buf.String(), '\x1b') || !strings.Contains(buf.String(), `\x1b[2Jbody`) || !strings.Contains(lines[4], "encoded_bytes=3") {
+	if strings.ContainsRune(buf.String(), '\x1b') || !strings.Contains(buf.String(), `\x1b[2Jbody`) {
 		t.Fatalf("unsafe or binary console output: %q", buf.String())
 	}
 }

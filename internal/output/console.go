@@ -45,14 +45,14 @@ func (p *ConsolePublisher) PublishLog(ctx context.Context, r domain.OperationalL
 	return p.write(ctx, fmt.Sprintf("[log_type=log module=%s] ", r.Module), []byte(message))
 }
 func (p *ConsolePublisher) PublishEvent(ctx context.Context, e domain.CapturedEventEnvelope) error {
-	payload := e.Payload
-	if e.Format == domain.CaptureFormatPcapng {
-		payload = []byte(fmt.Sprintf("encoded_bytes=%d", len(e.Payload)))
-	}
-	if e.Format != domain.CaptureFormatText && e.Format != domain.CaptureFormatKeylog && e.Format != domain.CaptureFormatPcapng {
+	switch e.Format {
+	case domain.CaptureFormatPcapng:
+		return ctx.Err()
+	case domain.CaptureFormatText, domain.CaptureFormatKeylog:
+		return p.write(ctx, fmt.Sprintf("[log_type=event capture_format=%s module=%s] ", e.Format, e.Module), e.Payload)
+	default:
 		return fmt.Errorf("unsupported console format %q", e.Format)
 	}
-	return p.write(ctx, fmt.Sprintf("[log_type=event capture_format=%s module=%s] ", e.Format, e.Module), payload)
 }
 func (p *ConsolePublisher) write(ctx context.Context, prefix string, data []byte) error {
 	if err := ctx.Err(); err != nil {

@@ -925,8 +925,7 @@ case_pcapng_stdout() {
     fi
     sleep 2
     stop_capture
-    assert_file_contains "$pcap_file.stdout" "[log_type=log " "terminal runtime discriminator" || return 1
-    assert_file_contains "$pcap_file.stdout" "[log_type=event capture_format=pcapng " "terminal event discriminator" || return 1
+    assert_pcapng_terminal_logs "$pcap_file.stdout" gotls || return 1
     assert_no_capture_errors "$capture_log" || return 1
     assert_output_isolation "$operational_log" "$pcap_file" "$E2E_TOKEN" || return 1
     assert_pcapng "$pcap_file" || return 1

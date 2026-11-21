@@ -131,6 +131,18 @@ assert_file_not_contains() {
     fi
 }
 
+assert_pcapng_terminal_logs() {
+    local file="$1" module="$2"
+    if ! grep -Eq "^\[log_type=log module=$module\] .*Probe initialized" "$file"; then
+        log_error "Missing labeled $module initialization log in $file"
+        return 1
+    fi
+    if grep -Eq '^\[log_type=event |encoded_bytes=' "$file"; then
+        log_error "Found capture event output in the pcapng terminal log $file"
+        return 1
+    fi
+}
+
 assert_output_isolation() {
     local operational_log="$1"
     local event_output="$2"

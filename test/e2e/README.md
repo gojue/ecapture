@@ -100,7 +100,7 @@ The maintained Linux destination matrix is complete for every TLS module:
 | operational log | every line labeled `log_type=log` | JSON `PROCESS_LOG` | JSON `PROCESS_LOG` | Protobuf v2 `PROCESS_LOG` |
 | text | labeled plaintext | JSON `EVENT` with TEXT payload | same JSON schema | typed TEXT with metadata |
 | keylog | labeled NSS text plus explicit artifact | output is logs only; `--keylogfile` holds NSS | KEYLOG bytes reconstruct NSS | independent received NSS artifact |
-| pcapng | labeled byte-count summaries plus explicit artifact | output is logs only; `--pcapfile` holds pcapng | PCAPNG bytes reconstruct native file | per-client headers, packets and TLS DSB |
+| pcapng | operational logs only | output is logs only; `--pcapfile` holds pcapng | PCAPNG bytes reconstruct native file | per-client headers, packets and TLS DSB |
 
 The harness retains the original JSON Lines and validates every record before
 extracting event/log projections for content assertions. Terminal projections

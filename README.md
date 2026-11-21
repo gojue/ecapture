@@ -143,7 +143,8 @@ The OpenSSL module supports three output modes:
 
 For OpenSSL, GoTLS, and GnuTLS, repeat `--output` to choose multiple destinations.
 The default is `stdout`; explicit destinations replace that default. `stdout`
-and `stderr` render readable records with `log_type`/`module` labels. Files and
+and `stderr` render readable records with `log_type`/`module` labels. In
+`-m pcapng` mode, the terminal shows only operational logs. Files and
 `tcp://host:port` use Protobuf v2 JSON Lines. In text mode they carry both
 operational logs and captured events; in keylog/pcapng mode an output **file
 contains only operational logs**, while TCP carries both record types.
