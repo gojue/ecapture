@@ -716,6 +716,16 @@ func TestDiagnosticLogBoundedAndPrivate(t *testing.T) {
 	}
 }
 
+func TestDiagnosticDisabledDebugDoesNotSuppressWarning(t *testing.T) {
+	var logs bytes.Buffer
+	observer := diagnosticLogger(logger.New(&logs, false))
+	observer(types.Diagnostic{Code: "waiting_secret"})
+	observer(types.Diagnostic{Code: "unsupported_protocol"})
+	if !strings.Contains(logs.String(), "unsupported_protocol") {
+		t.Fatal("disabled debug diagnostic suppressed the protocol warning")
+	}
+}
+
 // recordingTLSConn records real crypto/tls ciphertext, not decrypted fixtures.
 type recordingTLSConn struct {
 	net.Conn

@@ -1,16 +1,18 @@
 # Protobuf v2 订阅监听服务
 
-本包为核心 TLS、GoTLS、GnuTLS 发布运行日志、捕获事件和心跳。
+`internal/output/stream`（Go 包名 `stream`）是 eCapture 内部的订阅监听服务，
+为核心 TLS、GoTLS、GnuTLS 发布运行日志、捕获事件和心跳。
+它与独立的 eCaptureQ 客户端产品是不同组件。
 CLI 使用 `--stream-listen ws://127.0.0.1:28257/` 启用监听，默认关闭；
 客户端必须协商 `ecapture.v2`。旧 `--ecaptureq` 参数直接删除，没有别名或 v1 fallback。
-包目录名称保留为内部代码组织，不是 CLI 服务名称。
+本次包路径调整不改变 CLI 参数、Protobuf schema 或 WebSocket 子协议。
 
 ## 接入
 
-- [输出 API](../../docs/event-forward-api-zh_Hans.md)：重复 `--output`、输出矩阵和连接方向。
-- [协议参考](../../protobuf/PROTOCOLS-zh_Hans.md)：v2 oneof、原生字节和会话完整性。
-- [Go 接收端](../../examples/ecaptureq_client/README.md)：正常关闭识别及 `.partial` 原生文件保存。
-- [Schema](../../protobuf/proto/v2/ecaptureq.proto) 和[代码生成](../../protobuf/README-zh_Hans.md)。
+- [输出 API](../../../docs/event-forward-api-zh_Hans.md)：重复 `--output`、输出矩阵和连接方向。
+- [协议参考](../../../protobuf/PROTOCOLS-zh_Hans.md)：v2 oneof、原生字节和会话完整性。
+- [Go 接收端](../../../examples/ecaptureq_client/README.md)：正常关闭识别及 `.partial` 原生文件保存。
+- [Schema](../../../protobuf/proto/v2/ecaptureq.proto) 和[代码生成](../../../protobuf/README-zh_Hans.md)。
 
 Go 消费端导入 `pb "github.com/gojue/ecapture/v2/protobuf/gen/v2"`。
 每个 WS binary message 是一个 LogEntry，先校验 log_type 和 oneof，再按 capture_format 分流。
@@ -46,4 +48,4 @@ sudo ./bin/ecapture tls --model text --text-source pcapng \
 WS 接收端也必须确认 Close 1000，并完成本地文件检查后再移除 `.partial` 后缀。
 
 本包实现 `internal/domain` 的发布接口，不是通用 ByteSink。外部模块应依赖公开协议类型，
-不能导入本仓库 internal 包。维护时核对[输出架构](../../docs/agent/output-pipeline.md)和本目录测试。
+不能导入本仓库 internal 包。维护时核对[输出架构](../../../docs/agent/output-pipeline.md)和本目录测试。

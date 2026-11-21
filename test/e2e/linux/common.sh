@@ -331,7 +331,8 @@ start_capture() {
     CAPTURE_PID=$!
 
     local attempt
-    for attempt in $(seq 1 30); do
+    # Allow 30 seconds for probe initialization on slower native runners.
+    for attempt in $(seq 1 150); do
         if ! kill -0 "$CAPTURE_PID" 2>/dev/null; then
             wait "$CAPTURE_PID" 2>/dev/null || true
             log_error "eCapture exited during initialization"
@@ -340,13 +341,17 @@ start_capture() {
             return 1
         fi
         if grep -Eiq 'probe started successfully' "$log_file" "${CAPTURE_OUTPUTS[@]}" 2>/dev/null; then
-            connect_stream_receiver
-            return $?
+            if connect_stream_receiver; then
+                return 0
+            fi
+            stop_capture || true
+            return 1
         fi
         sleep 0.2
     done
 
     log_error "Capture startup marker was not observed"
+    stop_capture || true
     return 1
 }
 
@@ -369,7 +374,8 @@ start_capture_split() {
     CAPTURE_PID=$!
 
     local attempt
-    for attempt in $(seq 1 30); do
+    # Match the startup budget used by start_capture.
+    for attempt in $(seq 1 150); do
         if ! kill -0 "$CAPTURE_PID" 2>/dev/null; then
             wait "$CAPTURE_PID" 2>/dev/null || true
             log_error "eCapture exited during initialization"
@@ -378,12 +384,16 @@ start_capture_split() {
             return 1
         fi
         if grep -Eiq 'probe started successfully' "$stderr_file" "$stdout_file" "${CAPTURE_OUTPUTS[@]}" 2>/dev/null; then
-            connect_stream_receiver
-            return $?
+            if connect_stream_receiver; then
+                return 0
+            fi
+            stop_capture || true
+            return 1
         fi
         sleep 0.2
     done
     log_error "Capture startup marker was not observed"
+    stop_capture || true
     return 1
 }
 
@@ -396,7 +406,8 @@ stop_capture() {
     if kill -0 "$CAPTURE_PID" 2>/dev/null; then
         kill "-$signal" "$CAPTURE_PID" 2>/dev/null || true
         local attempt
-        for attempt in $(seq 1 30); do
+        # Allow 15 seconds, including the SDK's five-second drain.
+        for attempt in $(seq 1 150); do
             if ! kill -0 "$CAPTURE_PID" 2>/dev/null; then
                 break
             fi

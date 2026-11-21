@@ -16,7 +16,7 @@ Go 生成代码为 [gen/v2/ecaptureq.pb.go](gen/v2/ecaptureq.pb.go)。修改 sch
 protoc --proto_path=protobuf/proto \
   --go_out=protobuf/gen --go_opt=paths=source_relative \
   protobuf/proto/v2/ecaptureq.proto
-go test -race ./protobuf/v2 ./pkg/ecaptureq
+go test -race ./protobuf/v2 ./internal/output/stream
 ```
 
 schema 与生成结果须一起审阅和提交。v2 内保留字段编号，删除字段应声明 reserved。

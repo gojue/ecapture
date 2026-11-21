@@ -37,7 +37,7 @@ Start with the project [README](../README.md) or
   [中文](remote-config-update-api-zh_Hans.md)
 - [Protobuf protocols](../protobuf/PROTOCOLS.md) and
   [code generation](../protobuf/README.md)
-- [eCaptureQ package](../pkg/ecaptureq/README.md) and
+- [Internal stream subscription service](../internal/output/stream/README.md) and
   [Go client example](../examples/ecaptureq_client/README.md)
 - [Community integrations](event-forward.md)
 - [Output examples](example-outputs.md)

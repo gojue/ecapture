@@ -13,8 +13,8 @@ entry points:
 - The Linux `decrypt` cases assert plaintext arrives before probe shutdown,
   verify TLS 1.2 and 1.3, and independently decrypt the optional pcapng with
   tshark using its embedded DSB. They also check current HTTP event timestamps.
-  OpenSSL also checks the sensitive reconstructed event on eCaptureQ. All three
-  modules' live HTTP cases omit `--text-source` to verify the default `pcapng`
+  OpenSSL also checks the sensitive reconstructed event through the v2
+  subscription service. All three modules' live HTTP cases omit `--text-source` to verify the default `pcapng`
   source. GnuTLS also verifies labeled stdout with a simultaneous JSON file destination. Hook-specific
   Linux and Android cases explicitly select `--text-source hook`. The CLI edge
   signal-only cases also retain hook capture: they generate no packets, while
@@ -40,8 +40,8 @@ entry points:
   in order for both HTTP/1.1 and HTTP/2 keep-alive connections.
 - GoTLS also tests server-first binary TLS 1.3 with `--text-raw` over file,
   stdout, TCP and Protobuf v2 WebSocket subscriptions. Decoded records are checked for exact bytes,
-  per-direction offsets, live delivery and input-end markers; eCaptureQ checks
-  the sensitive event and its metadata. Default message mode must report an
+  per-direction offsets, live delivery and input-end markers; the v2
+  subscription receiver checks the sensitive event and its metadata. Default message mode must report an
   unsupported protocol without emitting a false HTTP message.
 - The GoTLS HTTP/3 baseline tests QUIC v1 and v2 separately on loopback with
   `QUIC_GO_DISABLE_GSO=true`, two concurrent connections and two request
@@ -152,7 +152,7 @@ test/e2e/
 ```
 
 Bash, Zsh, and MySQL checks share `linux/common_config_test.sh`. Typed
-eCaptureQ assertions live in each maintained TLS module suite;
+Protobuf v2 subscription assertions live in each maintained TLS module suite;
 `make e2e-ecaptureq` is an alias for that Linux matrix.
 
 ## Extending the suite
