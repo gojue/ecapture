@@ -37,9 +37,9 @@ import (
 	"github.com/gojue/ecapture/v2/internal/factory"
 	internalLogger "github.com/gojue/ecapture/v2/internal/logger"
 	outputpipeline "github.com/gojue/ecapture/v2/internal/output"
+	"github.com/gojue/ecapture/v2/internal/output/stream"
 	"github.com/gojue/ecapture/v2/internal/output/writers"
 	"github.com/gojue/ecapture/v2/internal/probe/base/handlers"
-	"github.com/gojue/ecapture/v2/pkg/ecaptureq"
 )
 
 const (
@@ -372,7 +372,7 @@ func runProbe(probeType factory.ProbeType, probeConfig domain.Configuration) (ru
 		return err
 	}
 	defer func() { runErr = errors.Join(runErr, outputs.Close()) }()
-	var eqServer *ecaptureq.Server
+	var streamServer *stream.Server
 	publishers := []domain.OperationalLogSink{outputs}
 	runtimeOutputs.EventSinks = []domain.CapturedEventSink{outputs}
 	if globalConf.StreamListen != "" {
@@ -380,15 +380,15 @@ func runProbe(probeType factory.ProbeType, probeConfig domain.Configuration) (ru
 		if parseErr != nil {
 			return parseErr
 		}
-		eqServer = ecaptureq.NewServerWithPath(address.Host, address.Path, os.Stderr)
-		publishers = append(publishers, eqServer)
-		runtimeOutputs.EventSinks = append(runtimeOutputs.EventSinks, eqServer)
-		runtimeOutputs.PcapngObservers = append(runtimeOutputs.PcapngObservers, eqServer)
+		streamServer = stream.NewServerWithPath(address.Host, address.Path, os.Stderr)
+		publishers = append(publishers, streamServer)
+		runtimeOutputs.EventSinks = append(runtimeOutputs.EventSinks, streamServer)
+		runtimeOutputs.PcapngObservers = append(runtimeOutputs.PcapngObservers, streamServer)
 	}
 	operational, err := newOperationalOutputs(probeConfig.GetDebug(), publishers...)
 	if err != nil {
-		if eqServer != nil {
-			_ = eqServer.Close()
+		if streamServer != nil {
+			_ = streamServer.Close()
 		}
 		return err
 	}
@@ -403,15 +403,15 @@ func runProbe(probeType factory.ProbeType, probeConfig domain.Configuration) (ru
 	defer func() {
 		logFailure(runErr)
 		runErr = errors.Join(runErr, operational.Close())
-		if eqServer != nil {
-			runErr = errors.Join(runErr, eqServer.Close())
+		if streamServer != nil {
+			runErr = errors.Join(runErr, streamServer.Close())
 		}
 	}()
 	logger := operational.logger.Logger
 
-	var eqErrors <-chan error
-	if eqServer != nil {
-		eqErrors, err = eqServer.StartAsync()
+	var streamErrors <-chan error
+	if streamServer != nil {
+		streamErrors, err = streamServer.StartAsync()
 		if err != nil {
 			return err
 		}
@@ -482,7 +482,7 @@ func runProbe(probeType factory.ProbeType, probeConfig domain.Configuration) (ru
 		}
 		logger.Info().Str("event", "collector_info").Int("schemaVersion", 1).
 			Interface("collector", collector.forCapture(cfg, runtimeOutputs.Module)).Msg("Collector runtime information")
-		if eqServer != nil {
+		if streamServer != nil {
 			format := domain.CaptureFormatText
 			if mode, ok := cfg.(domain.CaptureModeConfiguration); ok {
 				if handlers.IsModeKeylog(mode.GetCaptureMode()) {
@@ -500,17 +500,17 @@ func runProbe(probeType factory.ProbeType, probeConfig domain.Configuration) (ru
 			if filter == "" {
 				filter, _ = fields["pcap_filter"].(string)
 			}
-			if err := eqServer.BeginCapture(format, runtimeOutputs.Module, ifName, filter, operational.logger); err != nil {
+			if err := streamServer.BeginCapture(format, runtimeOutputs.Module, ifName, filter, operational.logger); err != nil {
 				return nil, errors.Join(err, outputs.EndCapture())
 			}
 		}
 		finish := func(success bool) error {
 			var streamErr error
-			if eqServer != nil {
+			if streamServer != nil {
 				if success {
-					streamErr = eqServer.EndCapture()
+					streamErr = streamServer.EndCapture()
 				} else {
-					streamErr = eqServer.AbortCapture()
+					streamErr = streamServer.AbortCapture()
 				}
 			}
 			return errors.Join(streamErr, outputs.EndCapture())
@@ -579,11 +579,11 @@ func runProbe(probeType factory.ProbeType, probeConfig domain.Configuration) (ru
 			probeConfig = update.Config
 			update.Complete(nil)
 			logger.Info().RawJSON("config", probeConfig.Bytes()).Msg("probe reload completed.")
-		case serverErr, ok := <-eqErrors:
+		case serverErr, ok := <-streamErrors:
 			if !ok || serverErr == nil {
-				err = fmt.Errorf("ecaptureq server stopped unexpectedly")
+				err = fmt.Errorf("stream server stopped unexpectedly")
 			} else {
-				err = fmt.Errorf("ecaptureq server failed: %w", serverErr)
+				err = fmt.Errorf("stream server failed: %w", serverErr)
 			}
 			active.failed = true
 			return errors.Join(err, active.close())

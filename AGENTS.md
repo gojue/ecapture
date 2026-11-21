@@ -92,7 +92,7 @@ main.go -> cli.Start() -> Cobra RunE -> runProbe()
   -> optional module-private EventPreprocessor
   -> events.Dispatcher -> text/keylog/pcapng handler -> ByteSink
                        -> low-latency pcapng -> decrypt SDK -> text ByteSink
-                       -> typed eCaptureQ EVENT publisher
+                       -> typed Protobuf v2 stream EVENT publisher
 ```
 
 `runProbe` owns signal handling and runtime reload orchestration. A concrete
@@ -296,6 +296,6 @@ verification matrix live in `docs/agent/build-test.md`.
 - Build sources: `Makefile`, `variables.mk`, `functions.mk`, `builder/init_env.sh`
 - E2E: `test/e2e/README.md`, `test/e2e/QUICK_REFERENCE.md`
 - Privileges/security: `docs/minimum-privileges.md`, `SECURITY.md`
-- Event forwarding: `docs/event-forward-api.md`, `pkg/ecaptureq/README.md`
+- Event forwarding: `docs/event-forward-api.md`, `internal/output/stream/README.md`
 - Generated/config docs: `protobuf/README.md`, `protobuf/PROTOCOLS.md`, `docs/remote-config-update-api.md`
 - GitHub Copilot PR agent: `.github/agents/pr-agent.agent.md`

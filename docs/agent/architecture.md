@@ -88,7 +88,8 @@ targets and excludes zsh, GnuTLS, NSPR, MySQL, and PostgreSQL.
 - `assets/ebpf_probe_<target>_<goarch>_bindata.go`: ignored, architecture-tagged
   go-bindata output.
   `assets/ebpf_probe_stub.go` only supports builds without real assets.
-- `pkg/ecaptureq/`: WebSocket/Protobuf event streaming.
+- `internal/output/stream/`: internal Protobuf v2 WebSocket subscription
+  service (`package stream`), separate from the eCaptureQ client product.
 - `pkg/event_processor/`: standalone HTTP/1.x and HTTP/2 reconstruction with
   its own event contracts; not imported by the production CLI path.
 - `protobuf/proto/`, `protobuf/gen/`: protocol sources and generated Go.
@@ -194,7 +195,7 @@ process-lifetime dependencies.
 A valid pcapng result contains packet blocks and an embedded TLS Decryption
 Secrets Block, not merely a non-empty file. CLI and BaseProbe lifecycle records
 use the same operational logger graph. See `output-pipeline.md` for contracts,
-ownership, the destination matrix, and eCaptureQ semantics.
+ownership, the destination matrix, and subscription service semantics.
 
 ## Asset and platform model
 

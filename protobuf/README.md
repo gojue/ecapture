@@ -18,7 +18,7 @@ From the repository root on Linux:
 protoc --proto_path=protobuf/proto \
   --go_out=protobuf/gen --go_opt=paths=source_relative \
   protobuf/proto/v2/ecaptureq.proto
-go test -race ./protobuf/v2 ./pkg/ecaptureq
+go test -race ./protobuf/v2 ./internal/output/stream
 ```
 
 Review and commit schema and generated changes together. Preserve field numbers

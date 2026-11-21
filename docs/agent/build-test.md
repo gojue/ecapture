@@ -324,8 +324,8 @@ For output routing, v2 protocol, and decryption termination changes, the focused
 
 ```sh
 go test -race ./internal/output/decrypt ./internal/output/pcapng \
-  ./internal/output/writers ./internal/output ./protobuf/v2 ./pkg/ecaptureq \
-  ./internal/events ./internal/probe/base/... ./cli/cmd ./cli/http
+  ./internal/output/writers ./internal/output ./internal/output/stream \
+  ./protobuf/v2 ./internal/events ./internal/probe/base/... ./cli/cmd ./cli/http
 ```
 
 `TestSinkBackgroundTermination` injects streaming task outcomes; it is not a
@@ -418,7 +418,8 @@ sudo env PATH="$PATH" make e2e-gnutls
 ```
 
 `make e2e`, `make e2e-basic`, and `make e2e-ecaptureq` are compatibility
-aliases for `e2e-linux`; typed eCaptureQ assertions run inside the TLS suites.
+aliases for `e2e-linux`; typed stream subscription assertions run inside the
+TLS suites.
 `make e2e-advanced` runs the same module/mode selection with `E2E_STRESS=1`,
 adding the OpenSSL pcapng burst regression. The default matrix is
 `tls gotls gnutls` in text, keylog, and pcapng modes. Each module's text matrix
@@ -470,7 +471,7 @@ its assertions.
 - Output-pipeline changes must also run the maintained operational-log and
   text/keylog/pcapng cases over file, TCP, binary WebSocket, and stdout. They
   verify operational/event isolation, final flush, valid network pcapng
-  reconstruction, and strict typed eCaptureQ `PROCESS_LOG` plus correctly
+  reconstruction, and strict typed Protobuf v2 `PROCESS_LOG` plus correctly
   classified text/keylog/pcapng `EVENT` delivery with required metadata.
 - New multi-connection tests must verify each stream independently. Android
   currently verifies its TLS 1.2 and TLS 1.3 streams separately; do not claim

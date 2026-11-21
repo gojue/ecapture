@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ecaptureq
+// Package stream serves Protobuf v2 subscriptions for runtime logs and captured events.
+package stream
 
 import (
 	"context"

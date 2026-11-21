@@ -336,7 +336,7 @@ func (c *BaseConfig) SetAddrType(t uint8) {
 	c.AddrType = t
 }
 
-// GetEventWriter returns the pre-configured event writer (e.g., for ecaptureQ).
+// GetEventWriter returns the pre-configured byte writer for captured events.
 func (c *BaseConfig) GetEventWriter() io.Writer {
 	return c.EventWriter
 }

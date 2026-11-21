@@ -57,8 +57,9 @@ encoder and sink, then closes the sink. Close is
 idempotent and failures from every layer are joined and returned.
 
 Typed destinations implement `OperationalLogSink` or `CapturedEventSink`.
-eCaptureQ implements both contracts and is deliberately not an `io.Writer` or
-ByteSink. The zerolog adapter exists only at the operational-logger edge.
+The internal `stream.Server` implements both contracts and is deliberately
+not an `io.Writer` or ByteSink. The zerolog adapter exists only at the
+operational-logger edge.
 Injected runtime dependencies are borrowed, excluded from configuration JSON,
 and reattached after reload. Destinations cannot be changed through HTTP, and
 core factories reject old destination/rotation fields, including null/zero.
@@ -94,8 +95,9 @@ reads DSB blocks incrementally, waits for late secrets, reassembles TCP and
 HTTP, then emits complete messages or the explicitly selected events. The pcapng session flushes
 at a short interval without a fixed DSB grace period. The plaintext sink is
 the primary destination; a pcapng copy and standalone keylog are optional.
-The SDK callback publishes the reconstructed message to eCaptureQ directly;
-the raw packet publisher is not registered for this text source.
+The SDK callback publishes reconstructed TEXT through the configured typed
+publishers, including the subscription service when enabled; the raw packet
+publisher is not registered for this text source.
 
 ### Decryption termination and diagnostics
 
@@ -271,7 +273,7 @@ Changes must preserve content and failure behavior, not merely create output:
 - Runtime dependencies stay out of configuration JSON and remain borrowed
   across reload; repeated validation and removed-flag rejection are tested.
 - Strict core TLS E2E checks all supported destinations, independent keylog/DSB
-  decryption, operational/event isolation, typed eCaptureQ classification
+  decryption, operational/event isolation, typed Protobuf v2 classification
   alongside JSON/terminal output, and final delivery during graceful shutdown.
 
 Use [build and verification](build-test.md) for commands and platform gates,
