@@ -389,6 +389,9 @@ func diagnosticLogger(log *logger.Logger) func(types.Diagnostic) {
 		case "waiting_secret", "key_update", "key_update_requested", "hello_retry_request", "early_data_accepted", "early_data_rejected":
 			entry = log.Debug()
 		}
+		if !entry.Enabled() {
+			return
+		}
 		// Codes come from the SDK, but cap and whitelist characters at this boundary.
 		code := d.Code
 		if len(code) > 64 {
