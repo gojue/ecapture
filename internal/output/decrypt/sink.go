@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -416,6 +417,19 @@ func structuredMessage(packet *types.DecryptedPacket) bool {
 }
 
 func formatMessage(packet *types.DecryptedPacket) ([]byte, error) {
+	connection := packet.ConnectionID()
+	// Drop the SDK's legacy PID-FD-name prefix only for display. Keep its
+	// original endpoints and generation, including on responses and QUIC streams.
+	// Work from the right because a process name may itself contain a slash.
+	if transport := strings.LastIndexByte(connection, '/'); transport >= 0 {
+		if prefix := strings.LastIndexByte(connection[:transport], '/'); prefix >= 0 {
+			connection = connection[prefix+1:]
+		}
+	}
+	pid := packet.PID
+	if pid < 0 {
+		pid = 0
+	}
 	var out bytes.Buffer
 	if structuredMessage(packet) {
 		metadata, err := json.Marshal(packet.Metadata)
@@ -430,10 +444,10 @@ func formatMessage(packet *types.DecryptedPacket) ([]byte, error) {
 		if packet.Direction == "response" {
 			direction = "server_to_client"
 		}
-		fmt.Fprintf(&out, "[%s] %s %s %s:%d -> %s:%d connection=%q kind=%v",
+		fmt.Fprintf(&out, "[%s] %s %s %s:%d -> %s:%d pid=%d pname=%q connection=%q kind=%v",
 			packet.Timestamp.Format("2006-01-02T15:04:05.000000000Z07:00"), packet.Protocol,
 			direction, packet.SrcIP, packet.SrcPort, packet.DstIP, packet.DstPort,
-			packet.ConnectionID(), kind)
+			pid, packet.PName, connection, kind)
 		if offset, ok := packet.Metadata["offset"]; ok {
 			fmt.Fprintf(&out, " offset=%v", offset)
 		}
@@ -460,10 +474,10 @@ func formatMessage(packet *types.DecryptedPacket) ([]byte, error) {
 		}
 		source = "server_ip"
 	}
-	fmt.Fprintf(&out, "[%s] %s %s %s:%d -> %s:%d host=%q domain_source=%q connection=%q",
+	fmt.Fprintf(&out, "[%s] %s %s %s:%d -> %s:%d host=%q domain_source=%q pid=%d pname=%q connection=%q",
 		packet.Timestamp.Format("2006-01-02T15:04:05.000000000Z07:00"), packet.Protocol,
 		packet.Direction, packet.SrcIP, packet.SrcPort, packet.DstIP, packet.DstPort,
-		host, source, packet.ConnectionID())
+		host, source, pid, packet.PName, connection)
 	if streamID, ok := packet.Metadata["stream_id"]; ok {
 		fmt.Fprintf(&out, " stream=%v", streamID)
 	}

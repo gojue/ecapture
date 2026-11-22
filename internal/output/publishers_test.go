@@ -20,14 +20,14 @@ import (
 	protocol "github.com/gojue/ecapture/v2/protobuf/v2"
 )
 
-func TestConsoleLabelsEveryLineWithoutTerminalControls(t *testing.T) {
+func TestConsoleLabelsLogAndKeylogLinesWithoutTerminalControls(t *testing.T) {
 	var buf bytes.Buffer
 	p := NewConsolePublisher("stdout", &buf)
 	ctx := context.Background()
 	if err := p.PublishLog(ctx, domain.OperationalLogRecord{Module: "tls", Message: `{"level":"info","message":"started\nready"}`}); err != nil {
 		t.Fatal(err)
 	}
-	if err := p.PublishEvent(ctx, domain.CapturedEventEnvelope{Module: "tls", Format: domain.CaptureFormatText, Payload: []byte("HTTP/1.1\n\x1b[2Jbody\n")}); err != nil {
+	if err := p.PublishEvent(ctx, domain.CapturedEventEnvelope{Module: "tls", Format: domain.CaptureFormatKeylog, Payload: []byte("keylog\n\x1b[2Jbody\n")}); err != nil {
 		t.Fatal(err)
 	}
 	beforePcapng := buf.Len()
@@ -55,6 +55,31 @@ func TestConsoleLabelsEveryLineWithoutTerminalControls(t *testing.T) {
 	}
 }
 
+func TestConsoleTextPreservesPayload(t *testing.T) {
+	for _, payload := range []string{
+		"[timestamp] http/1.1 request\nGET / HTTP/1.1\r\nHost: example.com\r\n\r\n\n",
+		"[timestamp] http/1.1 response\nHTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<html>\r\n\t正文\r\n</html>\n\n",
+		"body without a trailing newline",
+		"\x00\xff\x1b[2J\r\n",
+		"",
+	} {
+		var buf bytes.Buffer
+		p := NewConsolePublisher("stdout", &buf)
+		if err := p.PublishEvent(context.Background(), domain.CapturedEventEnvelope{
+			Module: "tls", Format: domain.CaptureFormatText, Payload: []byte(payload),
+		}); err != nil {
+			t.Fatal(err)
+		}
+		want := "[log_type=event capture_format=text module=tls] " + payload
+		if !strings.HasSuffix(payload, "\n") {
+			want += "\n"
+		}
+		if buf.String() != want {
+			t.Fatalf("terminal changed text payload: got %q, want %q", buf.String(), want)
+		}
+	}
+}
+
 func TestConsoleSerializesConcurrentRecords(t *testing.T) {
 	var buf bytes.Buffer
 	p := NewConsolePublisher("stderr", &buf)
@@ -63,14 +88,37 @@ func TestConsoleSerializesConcurrentRecords(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if err := p.PublishEvent(context.Background(), domain.CapturedEventEnvelope{Format: domain.CaptureFormatKeylog, Payload: []byte("first\nsecond\n")}); err != nil {
+			if err := p.PublishEvent(context.Background(), domain.CapturedEventEnvelope{Format: domain.CaptureFormatText, Payload: []byte("first\r\nsecond\r\n\n")}); err != nil {
+				t.Error(err)
+			}
+			if err := p.PublishLog(context.Background(), domain.OperationalLogRecord{Message: "ready"}); err != nil {
 				t.Error(err)
 			}
 		}()
 	}
 	wg.Wait()
-	if strings.Count(buf.String(), "[log_type=event capture_format=keylog ") != 100 {
-		t.Fatal("concurrent records interleaved or lost")
+	textRecord := "[log_type=event capture_format=text module=] first\r\nsecond\r\n\n"
+	logRecord := "[log_type=log module=] ready\n"
+	if strings.Count(buf.String(), textRecord) != 50 || strings.Count(buf.String(), logRecord) != 50 {
+		t.Fatal("concurrent text and log records interleaved or lost")
+	}
+	if rest := strings.ReplaceAll(strings.ReplaceAll(buf.String(), textRecord, ""), logRecord, ""); rest != "" {
+		t.Fatalf("unexpected terminal bytes: %q", rest)
+	}
+}
+
+func TestConsoleTextWriteErrors(t *testing.T) {
+	event := domain.CapturedEventEnvelope{Format: domain.CaptureFormatText, Payload: []byte("body\r\n")}
+	sink := &recordSink{short: true}
+	p := NewConsolePublisher("stdout", sink)
+	if err := p.PublishEvent(context.Background(), event); !errors.Is(err, io.ErrShortWrite) {
+		t.Fatalf("short write: %v", err)
+	}
+	size := sink.Len()
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := p.PublishEvent(ctx, event); !errors.Is(err, context.Canceled) || sink.Len() != size {
+		t.Fatalf("canceled write: %v, bytes before=%d after=%d", err, size, sink.Len())
 	}
 }
 

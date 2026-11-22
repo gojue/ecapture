@@ -7,7 +7,8 @@ captured traffic or evidence of a successful run. For setup, see the
 
 Repeat `--output` to send runtime logs and captured events to multiple
 destinations. Without an explicit value, it defaults to `stdout`. Terminal
-outputs label every physical line as a log or event. Files and outgoing TCP
+outputs prefix each text event once, preserving its content and line endings;
+operational logs and keylogs label every line. Files and outgoing TCP
 use Protobuf v2 JSON Lines, with `log_type` distinguishing the two record kinds.
 Native keylog and pcapng artifacts use separate file parameters; `--output`
 files receive only runtime logs in those two modes. See the
@@ -21,17 +22,24 @@ sudo ecapture tls --model text --text-source pcapng --output stdout
 
 Generate a request using an OpenSSL-linked application. The SDK reconstructs
 messages from captured packets and TLS secrets. A synthetic excerpt of a
-terminal event is shown below; preceding metadata identifies its timestamp,
-protocol, direction, network endpoints, host and connection:
+terminal event is shown below; its first line identifies its timestamp,
+protocol, direction, network endpoints, host, process and connection:
 
 ```text
-[log_type=event capture_format=text module=tls] GET / HTTP/1.1\x0d
-[log_type=event capture_format=text module=tls] Host: example.com\x0d
-[log_type=event capture_format=text module=tls] \x0d
+[log_type=event capture_format=text module=tls] [2026-11-22T12:00:00.000000000Z] http/1.1 request 192.0.2.1:50000 -> 192.0.2.2:443 host="example.com" domain_source="Host" pid=12345 pname="curl" connection="192.0.2.1:50000--192.0.2.2:443/tcp#1"
+GET / HTTP/1.1
+Host: example.com
+
 ```
 
-The terminal escapes control characters such as carriage returns. Operational
-lines instead start with `[log_type=log module=tls]`. To retain a machine-readable
+`pid` and `pname` identify the observed local process; unavailable process
+metadata is shown as `pid=0 pname=""`. `connection` identifies the original
+connection endpoints, transport and generation, without PID, FD or process name.
+
+Text payload bytes are preserved, including HTTP CRLF line endings and blank
+lines; carriage returns are no longer displayed as `\x0d`. Operational log
+lines start with `[log_type=log module=tls]` and still escape control characters.
+To retain a machine-readable
 record alongside the terminal and optionally save the packets used for
 reconstruction:
 

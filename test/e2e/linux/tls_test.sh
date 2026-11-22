@@ -359,7 +359,8 @@ case_text_stdout() {
         stdout_file="$capture_log"; stderr_file="$event_file.console"
     fi
     start_capture_split "$stdout_file" "$stderr_file" tls --libssl "$OPENSSL_LIB" \
-        --model text --text-source hook --output "$destination" --output "$operational_log.logs.jsonl" || return 1
+        --model text --text-source pcapng --ifname lo \
+        --output "$destination" --output "$operational_log.logs.jsonl" || return 1
     if ! run_openssl_request tls13 "$WORK_DIR/text-stdout.client.log"; then
         stop_capture
         return 1
@@ -369,6 +370,17 @@ case_text_stdout() {
     assert_no_capture_errors "$capture_log" || return 1
     assert_file_contains "$event_file" "$E2E_TOKEN" "stdout text output" || return 1
     assert_output_isolation "$operational_log" "$event_file" "$E2E_TOKEN" || return 1
+    "$WORK_DIR/helpers/ecaptureq_assert" --json-input "$operational_log.logs.jsonl" \
+        --format text --sensitive=true --extract-events "$event_file.expected" \
+        >"$event_file.validation.log" 2>&1 || return 1
+    cmp -s "$event_file" "$event_file.expected" || {
+        log_error "Terminal HTTP payload differs from the decoded TEXT event"
+        return 1
+    }
+    if [[ "$(grep -c '^\[log_type=event capture_format=text module=tls\] ' "$event_file.console")" != 2 ]]; then
+        log_error "Expected one terminal prefix per HTTP request and response"
+        return 1
+    fi
     print_plaintext_preview "$event_file" "$E2E_TOKEN" "linux/tls/text-stdout"
 }
 

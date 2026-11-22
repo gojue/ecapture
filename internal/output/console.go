@@ -15,7 +15,8 @@ import (
 	"github.com/gojue/ecapture/v2/internal/domain"
 )
 
-// ConsolePublisher serializes complete records and labels every physical line.
+// ConsolePublisher serializes complete records. Text events have one prefix and
+// retain their payload bytes; operational logs and keylogs label every line.
 // It borrows stdout/stderr and never closes either process descriptor.
 type ConsolePublisher struct {
 	writer io.Writer
@@ -42,24 +43,26 @@ func (p *ConsolePublisher) PublishLog(ctx context.Context, r domain.OperationalL
 			message = string(fields) + " " + message
 		}
 	}
-	return p.write(ctx, fmt.Sprintf("[log_type=log module=%s] ", r.Module), []byte(message))
+	return p.writeLines(ctx, fmt.Sprintf("[log_type=log module=%s] ", r.Module), []byte(message))
 }
 func (p *ConsolePublisher) PublishEvent(ctx context.Context, e domain.CapturedEventEnvelope) error {
 	switch e.Format {
 	case domain.CaptureFormatPcapng:
 		return ctx.Err()
-	case domain.CaptureFormatText, domain.CaptureFormatKeylog:
-		return p.write(ctx, fmt.Sprintf("[log_type=event capture_format=%s module=%s] ", e.Format, e.Module), e.Payload)
+	case domain.CaptureFormatText:
+		record := append([]byte(fmt.Sprintf("[log_type=event capture_format=%s module=%s] ", e.Format, e.Module)), e.Payload...)
+		// Keep the next record on its own line without altering the payload.
+		if len(e.Payload) == 0 || e.Payload[len(e.Payload)-1] != '\n' {
+			record = append(record, '\n')
+		}
+		return p.write(ctx, record)
+	case domain.CaptureFormatKeylog:
+		return p.writeLines(ctx, fmt.Sprintf("[log_type=event capture_format=%s module=%s] ", e.Format, e.Module), e.Payload)
 	default:
 		return fmt.Errorf("unsupported console format %q", e.Format)
 	}
 }
-func (p *ConsolePublisher) write(ctx context.Context, prefix string, data []byte) error {
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-	p.mu.Lock()
-	defer p.mu.Unlock()
+func (p *ConsolePublisher) writeLines(ctx context.Context, prefix string, data []byte) error {
 	// Escape terminal control characters other than line/tab separators.
 	var safe strings.Builder
 	for _, r := range string(bytes.TrimSuffix(data, []byte("\n"))) {
@@ -75,8 +78,17 @@ func (p *ConsolePublisher) write(ctx context.Context, prefix string, data []byte
 		record.WriteString(line)
 		record.WriteByte('\n')
 	}
-	n, err := io.WriteString(p.writer, record.String())
-	if err == nil && n != record.Len() {
+	return p.write(ctx, []byte(record.String()))
+}
+
+func (p *ConsolePublisher) write(ctx context.Context, record []byte) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	n, err := p.writer.Write(record)
+	if err == nil && n != len(record) {
 		err = io.ErrShortWrite
 	}
 	return err

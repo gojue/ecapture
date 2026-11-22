@@ -143,8 +143,8 @@ func TestFormatMessageRaw(t *testing.T) {
 				t.Fatalf("raw output framing = %q", lines)
 			}
 			if !strings.HasPrefix(lines[0], "[2026-11-04T12:00:00.123456789Z] ") ||
-				!strings.Contains(lines[0], "connection=\""+packet.ConnectionID()+"\"") {
-				t.Fatalf("missing timestamp or connection: %s", lines[0])
+				!strings.Contains(lines[0], "pid=17 pname=\"client\" connection=\"192.0.2.1:43210--192.0.2.2:443/"+packet.Transport+"#2\"") {
+				t.Fatalf("missing timestamp, process or connection: %s", lines[0])
 			}
 			for _, field := range test.wantFields {
 				if !strings.Contains(lines[0], field) {
@@ -187,7 +187,7 @@ func TestFormatMessageHTTP(t *testing.T) {
 			packet := formatTestPacket("http/1.1", test.direction, []byte(test.data))
 			packet.Metadata = test.metadata
 			want := "[2026-11-04T12:00:00.123456789Z] http/1.1 " + test.want +
-				" connection=\"17-4-client/192.0.2.1:43210--192.0.2.2:443/tcp#2\""
+				" pid=17 pname=\"client\" connection=\"192.0.2.1:43210--192.0.2.2:443/tcp#2\""
 			if test.name == "authority" {
 				want += " stream=3"
 			}
