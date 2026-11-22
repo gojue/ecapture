@@ -31,6 +31,9 @@ entry points:
   subscribers using the required `ecapture.v2` subprotocol and binary Protobuf v2.
   Local native artifacts use `--keylogfile` / `--pcapfile`; file outputs in native
   modes must contain operational logs only.
+  OpenSSL stdout/stderr cases use text/pcapng, require exactly one event prefix
+  per HTTP request/response, and compare the full terminal payload with decoded
+  JSON TEXT bytes, including CRLF and blank lines.
 - Every Linux TLS text suite performs same-probe HTTP reloads through
   `--config-listen`. Process output destinations remain fixed across reloads;
   removed destination/rotation fields, including explicit empty/zero values,

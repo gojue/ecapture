@@ -579,7 +579,7 @@ assert_tls_raw_events() {
     local file="$1" client_hex="$2" server_hex="$3" require_end="${4:-0}"
     refresh_projection "$file" >/dev/null 2>&1 || true
     if [[ -f "$file.console" ]]; then
-        grep '^\[log_type=event ' "$file.console" | sed 's/^\[[^]]*\] //' >"$file" || true
+        extract_console_events "$file.console" "$file" || return 1
     fi
     [[ -s "$file" ]] || return 1
     awk -v client="$client_hex" -v server="$server_hex" -v require_end="$require_end" '

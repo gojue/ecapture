@@ -20,8 +20,9 @@ file handling together; do not decode v2 with v1 generated types.
   In `text` mode they contain operational logs and events. In `keylog`/`pcapng`
   mode these files contain operational logs only; native files are selected
   separately with `--keylogfile`/`--pcapfile`.
-- `--output stdout` or `stderr` renders readable lines labeled with `log_type`
-  and `module`. It is a terminal representation, not JSON or native file bytes.
+- `--output stdout` or `stderr` prefixes each text event once with `log_type`
+  and `module`, preserving its payload bytes. Operational logs and keylogs label
+  every line. This terminal representation is not JSON or a native artifact.
 
 ProtoJSON uses the schema's snake_case field names and enum names. Byte fields
 are base64; 64-bit integers are JSON strings. Decode bytes exactly once with a

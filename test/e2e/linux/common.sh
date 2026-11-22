@@ -214,6 +214,22 @@ refresh_projection() {
     fi
 }
 
+# Only for deterministic fixture payloads: terminal text is not a framed wire
+# format. Text events carry a prefix once; log and keylog lines remain labeled.
+extract_console_events() {
+    awk '
+        /^\[log_type=log / { text = 0; next }
+        /^\[log_type=event / {
+            text = /^\[log_type=event capture_format=text /
+            sub(/^\[[^]]*\] /, "")
+            print
+            next
+        }
+        text { print; next }
+        { exit 1 }
+    ' "$1" >"$2"
+}
+
 refresh_capture_outputs() {
     local path
     for path in "${CAPTURE_OUTPUTS[@]}"; do
@@ -222,12 +238,10 @@ refresh_capture_outputs() {
     done
     for path in "${CAPTURE_CONSOLES[@]}"; do
         assert_file_nonempty "$path" "labeled terminal output" || return 1
-        if grep -Eqv '^\[log_type=(log|event) ' "$path"; then
-            log_error "Terminal output contains an unlabeled physical line"
+        if ! extract_console_events "$path" "${path%.console}"; then
+            log_error "Terminal output contains an unlabeled line outside a text event"
             return 1
         fi
-        # Each physical line is labeled, including multiline payloads.
-        grep '^\[log_type=event ' "$path" | sed 's/^\[[^]]*\] //' >"${path%.console}" || true
     done
 }
 

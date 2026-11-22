@@ -136,7 +136,8 @@ package ownership.
   before output dispatch; they enrich captured output events instead of
   becoming standalone text or typed events.
 - `--output` is a repeatable array of process-lifetime destinations, defaulting
-  to `stdout`. Terminals label every line as log/event; files and outgoing TCP
+  to `stdout`. Terminals prefix each text event once and preserve its payload;
+  operational logs and keylogs label every line. Files and outgoing TCP
   use Protobuf v2 JSON Lines. `--stream-listen ws://host:port/path` serves binary
   v2 subscriptions requiring the `ecapture.v2` subprotocol. `--config-listen`
   independently enables HTTP configuration updates. There are no old CLI aliases.

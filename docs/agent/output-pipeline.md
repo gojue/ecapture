@@ -40,11 +40,20 @@ type ByteSink interface {
 owns terminal/JSON publishers and the stream server. Handlers borrow them.
 `JSONPublisher` writes and flushes one v2 `LogEntry` per line, with ordered,
 bounded network I/O and latched errors; it never reconnects within a generation.
-`ConsolePublisher` serializes whole records and labels every physical line.
+`ConsolePublisher` serializes whole records. It prefixes each TEXT event once
+and preserves the payload bytes, including CRLF, blank lines and control bytes.
+It adds a final newline only when needed to separate the next record.
+Operational logs and keylogs still label every physical line and escape control
+characters other than newline/tab. Terminal text is a readable representation,
+not a framed transport; machine consumers should use JSON or Protobuf.
 
 `WriterFactory` constructs local native files and JSON destinations. Hook
 text retains `String()`/`StringHex()` output; SDK text retains formatted decoded
-content plus structured metadata. `KeylogWriter` normalizes each NSS record to
+content plus structured metadata. Decoded text headers display `pid` and `pname`
+separately; `connection` contains the SDK's original endpoint tuple, transport
+and generation, without its legacy PID-FD-name prefix. Unknown process metadata
+is shown as `pid=0 pname=""`. The SDK connection ID and typed event UUID remain
+unchanged. `KeylogWriter` normalizes each NSS record to
 one trailing newline; `KeylogHandler` deduplicates it. `NativeSink` publishes
 encoded NSS/pcapng bytes after the encoder, never raw packet rows or summaries.
 
