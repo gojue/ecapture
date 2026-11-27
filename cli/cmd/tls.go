@@ -36,8 +36,8 @@ packets and secrets together. An optional pcap filter expression limits the pack
 captured in pcapng mode or with --text-source pcapng.`
 	tlsModeHelp       = "Capture `mode` (text, keylog, or pcapng). The aliases key and pcap select keylog and pcapng."
 	tlsTextSourceHelp = "Text `source` (pcapng decrypts live packets, hook reads plaintext from TLS function calls)"
-	tlsKeylogFileHelp = "Local NSS key log `path` (required in keylog mode, optional in pcapng mode or with --text-source pcapng)"
-	tlsPcapFileHelp   = "Local pcapng `path` (required in pcapng mode, optional with --text-source pcapng)"
+	tlsKeylogFileHelp = "Local NSS key log file or FIFO `path` (required in keylog mode, optional in pcapng mode or with --text-source pcapng)"
+	tlsPcapFileHelp   = "Local pcapng file or FIFO `path` (required in pcapng mode, optional with --text-source pcapng)"
 	tlsIfnameHelp     = "Capture packets on this `interface`. Automatic selection prefers an active Ethernet interface on the default route, then uses traffic counters."
 	tlsCgroupHelp     = "Filter processes by cgroup v2 `directory` (requires kernel 5.2 or later)"
 )

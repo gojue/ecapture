@@ -693,6 +693,87 @@ case_text_reload_output() {
     assert_no_capture_errors "$capture_log"
 }
 
+# Exercise the shared FIFO sink through the real SDK, NSS encoder and pcapng encoder.
+case_fifo() {
+    local mode="$1" prefix="$WORK_DIR/fifo-$1"
+    local fifo="$prefix.pipe" received="$prefix.received" ready="$prefix.ready"
+    local capture_log="$prefix.ecapture.log" packet_file="$prefix.pcapng"
+    local status=0 version
+    local -a options=(--model "$mode" --output stdout)
+    [[ "$mode" == text ]] && received="$prefix.received.events.jsonl"
+    mkfifo -m 600 "$fifo" || return 1
+    # Open the read end before starting eCapture. Poll avoids treating the
+    # initial no-writer state as EOF; after data arrives, EOF must drain cleanly.
+    python3 - "$fifo" "$received" "$ready" <<'PYFIFO' &
+import os, select, sys
+fd = os.open(sys.argv[1], os.O_RDONLY | os.O_NONBLOCK)
+poller = select.poll()
+poller.register(fd, select.POLLIN | select.POLLHUP)
+with open(sys.argv[2], "wb", buffering=0) as output:
+    with open(sys.argv[3], "w") as ready:
+        ready.write("ready\n")
+    while True:
+        if not poller.poll(30000):
+            raise SystemExit("FIFO reader timed out")
+        data = os.read(fd, 65536)
+        if not data:
+            break
+        output.write(data)
+os.close(fd)
+PYFIFO
+    OUTPUT_RECEIVER_PID=$!
+    OUTPUT_RECEIVER_MODE=""
+    wait_for_receiver_ready "$ready" "$OUTPUT_RECEIVER_PID" || {
+        stop_output_receiver || true; return 1;
+    }
+    case "$mode" in
+        text) options+=(--text-source pcapng --ifname lo --output "$fifo") ;;
+        keylog)
+            options+=(--keylogfile "$fifo")
+            start_packet_capture lo "tcp port $TLS_SERVER_PORT" "$packet_file" "$prefix.packet.log" || {
+                stop_output_receiver || true; return 1;
+            }
+            ;;
+        pcapng) options+=(--ifname lo --pcapfile "$fifo") ;;
+    esac
+    if start_capture "$capture_log" tls --libssl "$OPENSSL_LIB" "${options[@]}"; then
+        for version in tls12 tls13; do
+            run_openssl_request "$version" "$prefix.$version.client.log" || status=1
+        done
+        if [[ "$mode" == text ]]; then
+            wait_for_file_contains "$prefix.received" "$E2E_TOKEN" "live SDK text through FIFO" || status=1
+        fi
+        sleep 1
+        stop_capture || status=1
+    else
+        status=1
+    fi
+    stop_packet_capture || status=1
+    stop_output_receiver || status=1
+    ((status == 0)) || return 1
+    [[ -p "$fifo" ]] || { log_error "FIFO was replaced"; return 1; }
+    assert_no_capture_errors "$capture_log" || return 1
+    case "$mode" in
+        text)
+            "$WORK_DIR/helpers/ecaptureq_assert" --json-input "$received" --format text --sensitive=true \
+                --extract-events "$prefix.events" >"$prefix.validation.log" 2>&1 || return 1
+            assert_file_contains "$prefix.events" "$E2E_TOKEN" "SDK text through FIFO"
+            ;;
+        keylog)
+            assert_keylog "$received" || return 1
+            assert_file_contains "$received" CLIENT_RANDOM "TLS 1.2 FIFO keylog" || return 1
+            assert_file_contains "$received" CLIENT_TRAFFIC_SECRET_0 "TLS 1.3 FIFO keylog" || return 1
+            assert_tls_plaintext_preview "$packet_file" "$received" "$E2E_TOKEN" "linux/tls/keylog-fifo" 0 || return 1
+            assert_tls_plaintext_preview "$packet_file" "$received" "$E2E_TOKEN" "linux/tls/keylog-fifo" 1
+            ;;
+        pcapng)
+            assert_pcapng "$received" || return 1
+            assert_pcapng_plaintext_preview "$received" "$E2E_TOKEN" "linux/tls/pcapng-fifo" 0 || return 1
+            assert_pcapng_plaintext_preview "$received" "$E2E_TOKEN" "linux/tls/pcapng-fifo" 1
+            ;;
+    esac
+}
+
 case_pcapng_burst() {
     local capture_log="$WORK_DIR/pcapng-burst.ecapture.log"
     local client_log="$WORK_DIR/pcapng-burst.client.log"
@@ -720,6 +801,10 @@ main() {
     setup_linux_suite tls
     build_openssl_client
 
+    local fifo_mode
+    for fifo_mode in text keylog pcapng; do
+        mode_enabled "$fifo_mode" && run_case "linux/tls/$fifo_mode-fifo" case_fifo "$fifo_mode"
+    done
     run_case "linux/tls/invalid-output-combinations" case_invalid_output_combinations
     mode_enabled text && run_case "linux/tls/text" case_text
     mode_enabled text && run_case "linux/tls/text-reload-output" case_text_reload_output

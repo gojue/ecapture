@@ -30,6 +30,7 @@ import (
 	"time"
 
 	"golang.org/x/net/websocket"
+	"golang.org/x/sys/unix"
 )
 
 type recordingSink struct {
@@ -78,7 +79,7 @@ func (s *recordingSink) Bytes() []byte {
 	return append([]byte(nil), s.data.Bytes()...)
 }
 
-func TestCaptureArtifactsRequireRegularFiles(t *testing.T) {
+func TestCaptureArtifactsRequireFilesOrFIFOs(t *testing.T) {
 	for _, address := range []string{"", "stdout", "stderr", "-", "tcp://127.0.0.1:9000", "ws://127.0.0.1:9000/", "/dev/null", t.TempDir()} {
 		if err := ValidateArtifactFile(address); err == nil {
 			t.Errorf("accepted invalid native destination %q", address)
@@ -599,6 +600,132 @@ func TestTCPAbortUnblocksWriteAndFlush(t *testing.T) {
 				wg.Go(func() { _ = sink.Close() })
 			}
 			wg.Wait()
+		})
+	}
+}
+
+// Keep the reader nonblocking so fixture setup cannot hang before a writer opens.
+func openTestFIFO(t *testing.T) (string, *os.File) {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "capture.fifo")
+	if err := unix.Mkfifo(path, 0600); err != nil {
+		t.Fatal(err)
+	}
+	reader, err := os.OpenFile(path, os.O_RDONLY|unix.O_NONBLOCK, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = reader.Close() })
+	return path, reader
+}
+
+func TestFIFOSinksPreserveBytesAndClose(t *testing.T) {
+	for _, format := range []string{"text", "keylog", "pcapng", "json"} {
+		t.Run(format, func(t *testing.T) {
+			path, reader := openTestFIFO(t)
+			if err := ValidateArtifactFile(path); err != nil {
+				t.Fatal(err)
+			}
+			factory := NewWriterFactory()
+			var sink ByteSink
+			var err error
+			if format == "json" {
+				sink, err = factory.CreateJSONSink("file://" + path)
+			} else {
+				sink, err = factory.CreateEventSink(EventSinkOptions{Address: path, Format: EventFormat(format)})
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { _ = sink.Close() })
+			if err := reader.SetReadDeadline(time.Now().Add(3 * time.Second)); err != nil {
+				t.Fatal(err)
+			}
+			type result struct {
+				data []byte
+				err  error
+			}
+			received := make(chan result, 1)
+			go func() { data, err := io.ReadAll(reader); received <- result{data, err} }()
+			payload := bytes.Repeat([]byte("FIFO payload\n"), 10000)
+			if n, err := sink.Write(payload); err != nil || n != len(payload) {
+				t.Fatalf("write = %d, %v", n, err)
+			}
+			if err := sink.Flush(); err != nil {
+				t.Fatal(err)
+			}
+			for range 2 {
+				if err := sink.Close(); err != nil {
+					t.Fatal(err)
+				}
+			}
+			got := <-received
+			if got.err != nil || !bytes.Equal(got.data, payload) {
+				t.Fatalf("FIFO bytes differ: received %d bytes, %v", len(got.data), got.err)
+			}
+			info, err := os.Stat(path)
+			if err != nil || info.Mode()&os.ModeNamedPipe == 0 || info.Mode().Perm() != 0600 {
+				t.Fatalf("FIFO type or permissions changed: %v", err)
+			}
+		})
+	}
+}
+
+func TestFIFORequiresReaderAndRejectsRotation(t *testing.T) {
+	path, reader := openTestFIFO(t)
+	if err := reader.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := NewFileWriter(FileWriterConfig{Path: path}); !errors.Is(err, unix.ENXIO) {
+		t.Fatalf("missing reader = %v, want ENXIO", err)
+	}
+	if _, err := NewFileWriter(FileWriterConfig{Path: path, EnableRotate: true, MaxSizeMB: 1}); err == nil {
+		t.Fatal("FIFO rotation accepted")
+	}
+}
+
+func TestFIFOWriteFailureIsBoundedAndSticky(t *testing.T) {
+	for _, failure := range []string{"disconnect", "write-timeout", "flush-timeout"} {
+		t.Run(failure, func(t *testing.T) {
+			path, reader := openTestFIFO(t)
+			config := FileWriterConfig{Path: path}
+			if failure == "flush-timeout" {
+				config.BufferSize = 1 << 20
+			}
+			writer, err := NewFileWriter(config)
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { _ = writer.Close() })
+			writer.writeTimeout = 50 * time.Millisecond
+			want := os.ErrDeadlineExceeded
+			if failure == "disconnect" {
+				if err := reader.Close(); err != nil {
+					t.Fatal(err)
+				}
+				want = unix.EPIPE
+			}
+			_, err = writer.Write(make([]byte, 1<<20))
+			if failure == "flush-timeout" {
+				if err != nil {
+					t.Fatal(err)
+				}
+				err = writer.Flush()
+			}
+			if !errors.Is(err, want) {
+				t.Fatalf("write/flush = %v, want %v", err, want)
+			}
+			if n, err := writer.Write([]byte("later")); n != 0 || !errors.Is(err, want) {
+				t.Fatalf("failed stream resumed: %d, %v", n, err)
+			}
+			if err := writer.Flush(); !errors.Is(err, want) {
+				t.Fatalf("flush lost error: %v", err)
+			}
+			for range 2 {
+				if err := writer.Close(); !errors.Is(err, want) {
+					t.Fatalf("close lost error: %v", err)
+				}
+			}
 		})
 	}
 }

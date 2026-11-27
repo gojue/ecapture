@@ -34,6 +34,9 @@ entry points:
   OpenSSL stdout/stderr cases use text/pcapng, require exactly one event prefix
   per HTTP request/response, and compare the full terminal payload with decoded
   JSON TEXT bytes, including CRLF and blank lines.
+- OpenSSL additionally checks pre-created FIFO destinations for SDK-decoded text
+  (v2 JSON Lines), raw keylog and raw pcapng, using TLS 1.2 and 1.3. Native
+  streams must independently decrypt the deterministic workload after draining.
 - Every Linux TLS text suite performs same-probe HTTP reloads through
   `--config-listen`. Process output destinations remain fixed across reloads;
   removed destination/rotation fields, including explicit empty/zero values,

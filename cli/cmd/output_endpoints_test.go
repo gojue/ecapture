@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"golang.org/x/sys/unix"
 	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/gojue/ecapture/v2/internal/domain"
@@ -292,5 +293,32 @@ func TestOutputClosePreservesFinalLogFailureAfterNotification(t *testing.T) {
 	}
 	if failed.closes != 1 || healthy.closes != 1 {
 		t.Fatal("output ownership did not close every endpoint exactly once")
+	}
+}
+
+func TestOutputFIFOValidationAndAliases(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "events.fifo")
+	if err := unix.Mkfifo(path, 0600); err != nil {
+		t.Fatal(err)
+	}
+	alias := path + ".alias"
+	if err := os.Link(path, alias); err != nil {
+		t.Fatal(err)
+	}
+	endpoints, err := parseOutputEndpoints([]string{"file://" + path})
+	if err != nil || len(endpoints) != 1 || endpoints[0].kind != "file" {
+		t.Fatalf("FIFO endpoint = %v, %v", endpoints, err)
+	}
+	if _, err := parseOutputEndpoints([]string{path, alias}); err == nil {
+		t.Fatal("duplicate FIFO accepted")
+	}
+	cfg := openssl.NewConfig()
+	cfg.KeylogFile = alias
+	if err := validateOutputArtifacts(cfg, endpoints); err == nil {
+		t.Fatal("JSON/native FIFO alias accepted")
+	}
+	cfg.PcapFile = path
+	if err := validateOutputArtifacts(cfg, nil); err == nil {
+		t.Fatal("keylog/pcapng FIFO alias accepted")
 	}
 }
