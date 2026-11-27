@@ -113,6 +113,13 @@ extracting event/log projections for content assertions. Terminal projections
 strip the checked per-line discriminator. Native file output validation rejects
 any EVENT record; it cannot silently pass by ignoring captured data.
 
+The OpenSSL fixtures load a private copy of the host's libssl, with the same
+version and bytes but a separate inode. Probes attach only to that copy so
+unrelated services on shared runners do not enter hook or secret capture.
+The hook test also sends a request through the system library and requires it
+to be absent from captured output. TCP packet captures filter on the fixture's
+port, including stdout and FIFO cases.
+
 All TLS traffic goes to a short-lived local server. Linux uses loopback directly. Android reaches the same host-side server through `adb reverse`, so the TLS suite does not depend on public DNS, public CAs, or a third-party response body.
 
 The pcapng check parses the block structure instead of accepting any non-empty file. It requires:

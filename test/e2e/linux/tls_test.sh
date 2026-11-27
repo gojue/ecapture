@@ -8,19 +8,40 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
 OPENSSL_CLIENT=""
+SYSTEM_OPENSSL_CLIENT=""
 OPENSSL_LIB=""
 DTLS_PEERS=""
 
 build_openssl_client() {
     OPENSSL_CLIENT="$WORK_DIR/helpers/openssl_client"
+    SYSTEM_OPENSSL_CLIENT="$WORK_DIR/helpers/openssl_system_client"
     cc -O2 -Wall -Wextra -Werror \
+        -o "$SYSTEM_OPENSSL_CLIENT" "$E2E_DIR/fixtures/c/openssl_client.c" -lssl -lcrypto
+    local system_lib system_crypto fixture_lib_dir="$WORK_DIR/helpers/openssl-lib"
+    system_lib="$(resolve_linked_library "$SYSTEM_OPENSSL_CLIENT" 'libssl[.]so')"
+    # Uprobes follow the library inode, even across network namespaces. Keep the
+    # same library version while excluding unrelated services on shared runners.
+    mkdir -p "$fixture_lib_dir"
+    OPENSSL_LIB="$fixture_lib_dir/$(basename "$system_lib")"
+    cp -L -- "$system_lib" "$OPENSSL_LIB"
+    # Version detection reads the matching libcrypto beside libssl.
+    system_crypto="$(resolve_linked_library "$SYSTEM_OPENSSL_CLIENT" 'libcrypto[.]so')"
+    cp -L -- "$system_crypto" "$fixture_lib_dir/$(basename "$system_crypto")"
+    cc -O2 -Wall -Wextra -Werror -Wl,-rpath,"$fixture_lib_dir" \
         -o "$OPENSSL_CLIENT" "$E2E_DIR/fixtures/c/openssl_client.c" -lssl -lcrypto
-    OPENSSL_LIB="$(resolve_linked_library "$OPENSSL_CLIENT" 'libssl[.]so')"
+    [[ "$(resolve_linked_library "$OPENSSL_CLIENT" 'libssl[.]so')" == "$OPENSSL_LIB" ]] || {
+        log_error "OpenSSL fixture did not load its private library"
+        return 1
+    }
     if mode_enabled text; then
         require_command python3 || return 1
         DTLS_PEERS="$WORK_DIR/helpers/dtls_peers"
-        cc -O2 -Wall -Wextra -Werror -pthread \
+        cc -O2 -Wall -Wextra -Werror -pthread -Wl,-rpath,"$fixture_lib_dir" \
             -o "$DTLS_PEERS" "$E2E_DIR/fixtures/c/dtls_peers.c" -lssl -lcrypto
+        [[ "$(resolve_linked_library "$DTLS_PEERS" 'libssl[.]so')" == "$OPENSSL_LIB" ]] || {
+            log_error "DTLS fixture did not load its private library"
+            return 1
+        }
     fi
     log_info "OpenSSL fixture library: $OPENSSL_LIB"
 }
@@ -97,6 +118,13 @@ case_text() {
     local client_log="$WORK_DIR/text.client.log"
     start_capture "$capture_log" tls --libssl "$OPENSSL_LIB" --model text --text-source hook \
         --output "$operational_log.logs.jsonl" --output "$event_file.events.jsonl" || return 1
+    # A successful request through the system library must not enter this probe.
+    local unrelated="UNRELATED_${E2E_TOKEN}"
+    if ! timeout 15 "$SYSTEM_OPENSSL_CLIENT" 127.0.0.1 "$TLS_SERVER_PORT" \
+        "/e2e?source=$unrelated" "$E2E_TOKEN" tls13 >"$WORK_DIR/system-client.log" 2>&1; then
+        stop_capture
+        return 1
+    fi
     if ! run_openssl_request tls13 "$client_log"; then
         stop_capture
         return 1
@@ -107,6 +135,7 @@ case_text() {
     assert_no_capture_errors "$capture_log" || return 1
     assert_no_capture_errors "$operational_log" || return 1
     assert_file_contains "$event_file" "$E2E_TOKEN" "captured OpenSSL plaintext" || return 1
+    assert_file_not_contains "$event_file" "$unrelated" "unrelated system-library capture" || return 1
     if ! grep -Eq '^\[[^]]+\] PID:[0-9]+.* FD:[0-9]+ Tuple:' "$event_file"; then
         log_error "OpenSSL plaintext was not enriched with connection metadata"
         return 1
@@ -360,7 +389,7 @@ case_text_stdout() {
     fi
     start_capture_split "$stdout_file" "$stderr_file" tls --libssl "$OPENSSL_LIB" \
         --model text --text-source pcapng --ifname lo \
-        --output "$destination" --output "$operational_log.logs.jsonl" || return 1
+        --output "$destination" --output "$operational_log.logs.jsonl" "tcp port $TLS_SERVER_PORT" || return 1
     if ! run_openssl_request tls13 "$WORK_DIR/text-stdout.client.log"; then
         stop_capture
         return 1
@@ -727,14 +756,14 @@ PYFIFO
         stop_output_receiver || true; return 1;
     }
     case "$mode" in
-        text) options+=(--text-source pcapng --ifname lo --output "$fifo") ;;
+        text) options+=(--text-source pcapng --ifname lo --output "$fifo" "tcp port $TLS_SERVER_PORT") ;;
         keylog)
             options+=(--keylogfile "$fifo")
             start_packet_capture lo "tcp port $TLS_SERVER_PORT" "$packet_file" "$prefix.packet.log" || {
                 stop_output_receiver || true; return 1;
             }
             ;;
-        pcapng) options+=(--ifname lo --pcapfile "$fifo") ;;
+        pcapng) options+=(--ifname lo --pcapfile "$fifo" "tcp port $TLS_SERVER_PORT") ;;
     esac
     if start_capture "$capture_log" tls --libssl "$OPENSSL_LIB" "${options[@]}"; then
         for version in tls12 tls13; do
