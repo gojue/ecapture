@@ -230,6 +230,12 @@ a late pcapng connection starts an independent fragment without historical
 packets or keys. See the [v2 protocol](protobuf/PROTOCOLS.md) and
 [receiver example](examples/ecaptureq_client/README.md).
 
+`--output`, `--keylogfile` and `--pcapfile` also accept FIFOs created with
+`mkfifo -m 600 PATH`. Open the reader before starting eCapture. Output remains
+v2 JSON Lines, raw NSS keylog, or raw pcapng respectively. A missing reader
+fails immediately; a broken pipe or a write taking over five seconds fails
+without reconnecting. Native FIFO consumers must handle EOF and keep a reader open across reload.
+
 #### Pcap mode
 
 Supports TLS-encrypted HTTP `1.0/1.1/2.0` over TCP and HTTP/3 (QUIC) over UDP.

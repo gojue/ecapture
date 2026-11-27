@@ -137,7 +137,7 @@ package ownership.
   becoming standalone text or typed events.
 - `--output` is a repeatable array of process-lifetime destinations, defaulting
   to `stdout`. Terminals prefix each text event once and preserve its payload;
-  operational logs and keylogs label every line. Files and outgoing TCP
+  operational logs and keylogs label every line. Files, FIFOs and outgoing TCP
   use Protobuf v2 JSON Lines. `--stream-listen ws://host:port/path` serves binary
   v2 subscriptions requiring the `ecapture.v2` subprotocol. `--config-listen`
   independently enables HTTP configuration updates. There are no old CLI aliases.
@@ -147,6 +147,12 @@ package ownership.
   native pcapng mode. Network records carry encoded NSS/pcapng bytes.
   Late pcapng subscribers receive an independent section with
   headers and future packets/secrets, without historical replay.
+- Pre-created FIFOs are supported by `--output`, `--keylogfile` and
+  `--pcapfile`, preserving JSON Lines, NSS and pcapng respectively. Start a
+  reader first; missing readers fail promptly. FIFO writes/flushes have a
+  five-second deadline, retain the first failure and never call fsync. There
+  is no automatic reconnection; native FIFO readers must handle EOF and keep
+  a read end open across reload.
 - Runtime outputs are borrowed and reattached on reload. Each generation ends
   its network connections; raw local artifacts append new sections on reload
   or rollback. First startup truncates native artifacts. Output files must not

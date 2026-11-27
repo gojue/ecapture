@@ -83,8 +83,8 @@ type WriterFactory struct{}
 
 func NewWriterFactory() *WriterFactory { return &WriterFactory{} }
 
-// ValidateArtifactFile restricts native capture artifacts to regular local
-// files. Terminal devices, pipes and network destinations belong to --output.
+// ValidateArtifactFile accepts regular local files and pre-created FIFOs.
+// Terminal devices and network destinations are not native artifact paths.
 func ValidateArtifactFile(address string) error {
 	if address == "" {
 		return fmt.Errorf("native capture output requires an explicit file path")
@@ -103,8 +103,8 @@ func ValidateArtifactFile(address string) error {
 	if err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("inspect native capture artifact: %w", err)
 	}
-	if err == nil && !info.Mode().IsRegular() {
-		return fmt.Errorf("native capture artifact %q must be a regular file", address)
+	if err == nil && !info.Mode().IsRegular() && info.Mode()&os.ModeNamedPipe == 0 {
+		return fmt.Errorf("native capture artifact %q must be a regular file or FIFO", address)
 	}
 	if err == nil {
 		for _, terminal := range []*os.File{os.Stdout, os.Stderr} {

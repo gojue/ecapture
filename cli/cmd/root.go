@@ -154,7 +154,7 @@ func init() {
 	rootCmd.PersistentFlags().IntVar(&globalConf.PerCpuMapPages, "mapsize", 1024, "Size of each CPU's perf event buffer in system `pages`")
 	rootCmd.PersistentFlags().Uint64VarP(&globalConf.Pid, "pid", "p", defaultPid, "Filter probe events by `PID` on kernel 5.2 or later (0 matches all processes)")
 	rootCmd.PersistentFlags().Uint64VarP(&globalConf.Uid, "uid", "u", defaultUid, "Filter probe events by `UID` on kernel 5.2 or later (0 matches all users)")
-	rootCmd.PersistentFlags().StringArrayVar(&globalConf.Outputs, "output", nil, "Repeat for each `destination`. Use stdout (default) or stderr for text, or a file path, file:///path, or tcp://host:port for JSON Lines. In keylog and pcapng modes, output files receive only runtime logs.")
+	rootCmd.PersistentFlags().StringArrayVar(&globalConf.Outputs, "output", nil, "Repeat for each `destination`. Use stdout (default) or stderr for text, or a file/FIFO path, file:///path, or tcp://host:port for JSON Lines. In keylog and pcapng modes, output files receive only runtime logs.")
 	rootCmd.PersistentFlags().StringVar(&globalConf.ConfigListen, "config-listen", "", "Listen on `host:port` for HTTP configuration updates (disabled by default)")
 	rootCmd.PersistentFlags().StringVar(&globalConf.StreamListen, "stream-listen", "", "Serve Protobuf v2 subscriptions at `ws://host:port/path` using the ecapture.v2 WebSocket subprotocol (disabled by default)")
 	rootCmd.PersistentFlags().Uint64VarP(&globalConf.TruncateSize, "tsize", "t", defaultTruncateSize, "Text truncation limit in `bytes` (currently unused)")

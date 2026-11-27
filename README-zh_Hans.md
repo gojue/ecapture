@@ -219,6 +219,11 @@ rm -f -- "$keys"
 pcapng 晚连接从独立片段开始，不回放历史包和密钥。详见 [v2 协议](protobuf/PROTOCOLS-zh_Hans.md)
 及[接收端示例](examples/ecaptureq_client/README.md)。
 
+`--output`、`--keylogfile` 和 `--pcapfile` 也支持通过 `mkfifo -m 600 PATH`
+预先创建的 FIFO。请先打开读端，再启动 eCapture；三者分别保持 v2 JSON Lines、
+原始 NSS keylog 和原始 pcapng 格式。没有读端时立即失败；断管或单次写入超过
+五秒时返回错误，不自动重连。原生 FIFO 消费者需处理重载时的 EOF，并保持读端打开。
+
 #### Pcap 模式
 
 支持基于 TCP 的 HTTP `1.0/1.1/2.0` 以及基于 UDP 的 HTTP/3 (`QUIC`) 流量抓取。

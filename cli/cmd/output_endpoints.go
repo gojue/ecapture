@@ -63,8 +63,8 @@ func parseOutputEndpoints(values []string) ([]outputEndpoint, error) {
 					return nil, err
 				}
 				endpoint.kind = "file"
-				if info, err := os.Stat(endpoint.address); err == nil && !info.Mode().IsRegular() {
-					return nil, fmt.Errorf("output file must be a regular file: %s", path)
+				if info, err := os.Stat(endpoint.address); err == nil && !info.Mode().IsRegular() && info.Mode()&os.ModeNamedPipe == 0 {
+					return nil, fmt.Errorf("output file must be a regular file or FIFO: %s", path)
 				} else if err != nil && !os.IsNotExist(err) {
 					return nil, err
 				}

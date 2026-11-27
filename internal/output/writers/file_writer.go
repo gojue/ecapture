@@ -23,19 +23,24 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/sys/unix"
+
 	"github.com/gojue/ecapture/v2/pkg/util/roratelog"
 )
 
-// FileWriter writes output to a local file with optional rotation support.
+// FileWriter writes to a local file or FIFO; rotation is regular-file only.
 type FileWriter struct {
-	file      *os.File
-	rotateLog *roratelog.Logger
-	buffered  *bufio.Writer
-	path      string
-	useRotate bool
-	mu        sync.Mutex
-	closed    bool
-	closeErr  error
+	file         *os.File
+	rotateLog    *roratelog.Logger
+	buffered     *bufio.Writer
+	path         string
+	useRotate    bool
+	mu           sync.Mutex
+	closed       bool
+	closeErr     error
+	fifo         bool
+	writeErr     error
+	writeTimeout time.Duration
 }
 
 // FileWriterConfig configures file writer options.
@@ -61,6 +66,9 @@ func NewFileWriter(config FileWriterConfig) (*FileWriter, error) {
 	}
 
 	if config.EnableRotate && (config.MaxSizeMB > 0 || config.MaxInterval > 0) {
+		if info, err := os.Stat(config.Path); err == nil && info.Mode()&os.ModeNamedPipe != 0 {
+			return nil, fmt.Errorf("FIFO output does not support rotation: %s", config.Path)
+		}
 		// Use rotating file logger
 		fw.rotateLog = &roratelog.Logger{
 			Filename:    config.Path,
@@ -71,8 +79,9 @@ func NewFileWriter(config FileWriterConfig) (*FileWriter, error) {
 		return fw, nil
 	}
 
-	// Use regular file
-	flags := os.O_CREATE | os.O_WRONLY
+	// Nonblocking open fails promptly when a FIFO has no reader and lets Go's
+	// poller enforce write deadlines. It does not change regular-file I/O.
+	flags := os.O_CREATE | os.O_WRONLY | unix.O_NONBLOCK
 	if config.Truncate {
 		flags |= os.O_TRUNC
 	} else {
@@ -84,10 +93,20 @@ func NewFileWriter(config FileWriterConfig) (*FileWriter, error) {
 	}
 	file, err := os.OpenFile(config.Path, flags, permissions)
 	if err != nil {
+		if stderrors.Is(err, unix.ENXIO) {
+			return nil, fmt.Errorf("open FIFO %s: start a reader before capture: %w", config.Path, err)
+		}
 		return nil, fmt.Errorf("failed to open file %s: %w", config.Path, err)
+	}
+	info, err := file.Stat()
+	if err != nil {
+		_ = file.Close()
+		return nil, err
 	}
 
 	fw.file = file
+	fw.fifo = info.Mode()&os.ModeNamedPipe != 0
+	fw.writeTimeout = 5 * time.Second
 
 	// Setup buffering if requested
 	if config.BufferSize > 0 {
@@ -108,6 +127,14 @@ func (w *FileWriter) Write(p []byte) (n int, err error) {
 }
 
 func (w *FileWriter) writeLocked(p []byte) (n int, err error) {
+	if err := w.prepareWriteLocked(); err != nil {
+		return 0, err
+	}
+	defer func() {
+		if w.fifo && err != nil {
+			w.writeErr = err
+		}
+	}()
 	if w.rotateLog != nil {
 		n, err = w.rotateLog.Write(p)
 	} else if w.buffered != nil {
@@ -146,7 +173,7 @@ func (w *FileWriter) Name() string {
 	return fmt.Sprintf("file:%s", w.path)
 }
 
-// Flush flushes any buffered data to disk.
+// Flush drains buffered data and syncs regular files. FIFOs cannot be synced.
 func (w *FileWriter) Flush() error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -157,15 +184,33 @@ func (w *FileWriter) Flush() error {
 }
 
 func (w *FileWriter) flushLocked() error {
+	if err := w.prepareWriteLocked(); err != nil {
+		return err
+	}
 	if w.buffered != nil {
 		if err := w.buffered.Flush(); err != nil {
+			if w.fifo {
+				w.writeErr = err
+			}
 			return err
 		}
 	}
 
-	if w.file != nil {
+	if w.file != nil && !w.fifo {
 		return w.file.Sync()
 	}
 
 	return nil
+}
+
+// A failed FIFO stream cannot be resumed safely (a pcapng block or JSON line
+// may already be partial). Preserve the first error through flush and close.
+func (w *FileWriter) prepareWriteLocked() error {
+	if !w.fifo {
+		return nil
+	}
+	if w.writeErr == nil {
+		w.writeErr = w.file.SetWriteDeadline(time.Now().Add(w.writeTimeout))
+	}
+	return w.writeErr
 }

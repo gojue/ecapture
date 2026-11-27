@@ -251,6 +251,23 @@ on reload/rollback. JSON files append with 0600 permissions. Existing file
 permissions are retained. Rotation CLI flags and old output/listener names
 are removed, with no compatibility routing.
 
+### FIFO destinations
+
+Pre-create a FIFO with `mkfifo -m 600 PATH` and open its reader before starting
+capture. `--output PATH` retains v2 JSON Lines (including operational logs);
+`--keylogfile PATH` and `--pcapfile PATH` retain raw NSS and pcapng bytes. A FIFO
+cannot alias another destination. Other special files remain unsupported.
+
+The shared file writer opens nonblocking, fails immediately without a reader,
+and bounds each FIFO write/flush to five seconds. FIFO flush drains user-space
+buffers without fsync; regular-file durability is unchanged. The first FIFO
+write failure is retained through close, with no reconnect or partial retry.
+Native artifact handles close on reload; keep a read end open across the EOF
+boundary so the next generation can open its writer and emit a fresh pcapng
+section. JSON FIFO handles, like JSON
+files, remain open across reload. FIFO does not change pcapng batching or the
+DSB grace period and does not provide historical replay.
+
 ## Streaming protocol
 
 `--stream-listen ws://host:port/path` exposes only the selected WebSocket path.
