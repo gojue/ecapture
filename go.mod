@@ -4,7 +4,7 @@ go 1.26.0
 
 require (
 	github.com/cilium/ebpf v0.22.0
-	github.com/gojue/ebpfmanager v0.6.0
+	github.com/gojue/ebpfmanager v0.7.0
 	github.com/gojue/ecapture_decryptor v1.4.4
 	github.com/google/gopacket v1.1.19
 	github.com/gorilla/websocket v1.5.3
